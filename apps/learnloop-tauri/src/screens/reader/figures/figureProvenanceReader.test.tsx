@@ -8,6 +8,7 @@ import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderV
 import { readerIntentContractFixture as intent } from "../../../fixtures/readerIntentContract";
 import type { FigureViewDto, SourceLibraryCard } from "../../../api/dto";
 import { resetReaderActivityForTests } from "../activity";
+import { scrollIntoViewWithin } from "../../../components/scrollWithin";
 import policy from "../../../render/readerBlockPolicy.json";
 import { youtubeVideoId } from "../../../components/sourceTail";
 
@@ -28,6 +29,9 @@ const { api, pane, plan, state } = vi.hoisted(() => ({
 }));
 vi.mock("../../../api/client", () => ({ api }));
 vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (path: string) => path }));
+// The Reader scrolls through `scrollIntoViewWithin` (its own panes only); this
+// file reads which element it brought into view, and how.
+vi.mock("../../../components/scrollWithin", () => ({ scrollIntoViewWithin: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => vi.fn(), destroy: vi.fn() }) }));
 vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
 vi.mock("../../../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? CONTRACT : { sources: state.sources }, error: null }) }));
@@ -195,8 +199,8 @@ it("on the original, a passage with no box and no page goes to the extracted tex
   api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure(view.extractionId, cited)] });
   const { onError } = await pressOpenThePage();
   await screen.findByText("original pdf →");
-  await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
-  const target = vi.mocked(Element.prototype.scrollIntoView).mock.contexts.slice(-1)[0] as HTMLElement;
+  await waitFor(() => expect(scrollIntoViewWithin).toHaveBeenCalled());
+  const target = vi.mocked(scrollIntoViewWithin).mock.calls.slice(-1)[0][0] as HTMLElement;
   expect(target.getAttribute("data-span-id")).toBe(cited);
   expect(pane.scrollToPage).not.toHaveBeenCalled();
   expect(onError).not.toHaveBeenCalled();

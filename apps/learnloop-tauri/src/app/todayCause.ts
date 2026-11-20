@@ -145,11 +145,23 @@ export function goalCauseSentence(cause: TodayCause): string {
   return `${GOAL_NOTHING_LEAD} ${joined}`;
 }
 
-/** The finished plan's line: nothing else is asked of the learner today. */
+/** The finished plan's line: nothing else is asked of the learner today. Said only when nothing is left: no block
+ *  of the plan undone and nothing on today's list. */
 export const PLAN_FINISHED = "Nothing else is needed today.";
+
+/** A closed plan with work left (the plan stopped, or the learner did, while questions remain for today). */
+export const PLAN_STOPPED_WITH_MORE = "The plan stopped here, but there's more for today if you'd like it.";
 
 /** Said in place when Keep going comes back with nothing added (UX-4). */
 export const KEEP_GOING_NOTHING_LEAD = "Nothing more to plan today.";
+
+/** A lesson left open (closed with Close, or left for another screen): its line on Today, with Continue beside it. */
+export function continueLessonLine(title: string): string {
+  return `Continue your lesson on ${title}`;
+}
+
+/** Said when Close leaves a lesson open: where it went. */
+export const LESSON_KEPT = "Your lesson is kept. It's on Today when you want it.";
 
 /** The one action beside a cause: its label, or null where there is none. */
 export function causeActionLabel(cause: TodayCause): string | null {

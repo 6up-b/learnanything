@@ -190,3 +190,24 @@ it("sits in the offer page's slot, uses the offer_page surface and leaves the pa
   // the Start button is untouched: nothing started by itself
   expect(api.lessonSuggestionRespond).not.toHaveBeenCalled();
 });
+
+// Waiting you can see (docs/reviews/ux-waiting.md): the plan's other options being read say so through the
+// shared waiting line, after its delay, and the line is gone when they are there.
+it("waiting you can see: 'Looking at what the plan could do…' after the delay, gone when the options are there", async () => {
+  vi.useFakeTimers();
+  try {
+    let land!: (value: SomethingElseOptionsDto) => void;
+    api.planSomethingElseOptions.mockReturnValue(new Promise((done) => { land = done; }));
+    mount({ enabled: true });
+    fireEvent.click(screen.getByTestId("something-else-link"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(screen.queryByText("Looking at what the plan could do…")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByTestId("options-wait").textContent).toBe("◐ Looking at what the plan could do…");
+    await act(async () => { land(OPTIONS); await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("Another question", { exact: false })).toBeTruthy();
+    expect(screen.queryByTestId("options-wait")).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});

@@ -54,7 +54,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from learnloop import confidence_events
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
+from learnloop.content.sources.exam_material import held_out_among, held_out_refusal, surface_material
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
     READER_LEARNER_STATE_SUFFIX,
@@ -895,7 +895,7 @@ def ask_question(
         # whoever selects it. A question about it is refused before anything
         # is written or sent; a held-out neighbour of the passage is left out
         # of the manifest (``_reader_source_spans``).
-        reader_held_out = held_out_material(vault, repository)
+        reader_held_out = surface_material(vault, repository, "reader_ask")
         if reader_withheld is not None:
             # K6-4: the destination's own predicate (the phone's exam material) withholds
             # from every passage this context assembles -- neighbours, the blocks they cite,

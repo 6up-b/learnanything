@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx) |
-| Source lines | 281 |
+| Source lines | 290 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -56,38 +56,40 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface ReaderExchange` — interface, line 21
 - `export interface AskAbout extends SourceIdentity` — interface, line 51
-- `export const aboutLine = (about: AskAbout): string` — const, line 63
-- `export type InquiryCommitment = "test_me_later" | "help_me_remember"` — type, line 65
-- `export function ReaderAskBranches(` — function, line 90
+- `export const aboutLine = (about: AskAbout): string` — const, line 72
+- `export type InquiryCommitment = "test_me_later" | "help_me_remember"` — type, line 74
+- `export function ReaderAskBranches(` — function, line 99
 
 ## Internal implementation anchors
 
-- `interface Props` — interface, line 67
-- `const STATUS_WORDS: Record<InquiryResolution, string> =` — const, line 88
-- `const byId = new Map(exchanges.map((exchange)` — const, line 105
-- `const children = new Map<string | null, ReaderExchange[]>()` — const, line 106
-- `const parents = new Map<string, string | null>()` — const, line 107
-- `let parent = exchange.parentExchangeId` — let, line 111
-- `const seen = new Set([exchange.id])` — const, line 112
-- `let cursor = parent` — let, line 113
-- `const ancestor = byId.get(cursor)` — const, line 115
-- `const search = query.trim().toLowerCase()` — const, line 126
-- `const visible = new Set<string>()` — const, line 127
-- `let id: string | null = exchange.id` — let, line 130
-- `const buttonStyle =` — const, line 137
-- `const onHeaderKey = (event: KeyboardEvent<HTMLButtonElement>, exchange: ReaderExchange, isRoot: boolean)` — const, line 139
-- `const resolution = exchange.resolution ?? "open"` — const, line 141
-- `const scope = event.currentTarget.closest("[data-ask-threads]") ?? document` — const, line 143
-- `const headers = Array.from(scope.querySelectorAll<HTMLButtonElement>("[data-exchange-header]"))` — const, line 144
-- `const next = headers[headers.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)]` — const, line 145
-- `function statusChips(root: ReaderExchange)` — function, line 167
-- `const resolution = root.resolution ?? "open"` — const, line 169
-- `const done = committed?.(root) ?? new Set<InquiryCommitment>()` — const, line 170
-- `function branch(exchange: ReaderExchange, depth: number)` — function, line 196
-- `const expanded = Boolean(search) || !collapsedIds.has(exchange.id)` — const, line 198
-- `const replies = children.get(exchange.id) ?? []` — const, line 199
-- `const isRoot = depth === 0` — const, line 200
-- `const resolution = exchange.resolution ?? "open"` — const, line 201
+- `function BookQuote(` — function, line 65
+- `const style =` — const, line 66
+- `interface Props` — interface, line 76
+- `const STATUS_WORDS: Record<InquiryResolution, string> =` — const, line 97
+- `const byId = new Map(exchanges.map((exchange)` — const, line 114
+- `const children = new Map<string | null, ReaderExchange[]>()` — const, line 115
+- `const parents = new Map<string, string | null>()` — const, line 116
+- `let parent = exchange.parentExchangeId` — let, line 120
+- `const seen = new Set([exchange.id])` — const, line 121
+- `let cursor = parent` — let, line 122
+- `const ancestor = byId.get(cursor)` — const, line 124
+- `const search = query.trim().toLowerCase()` — const, line 135
+- `const visible = new Set<string>()` — const, line 136
+- `let id: string | null = exchange.id` — let, line 139
+- `const buttonStyle =` — const, line 146
+- `const onHeaderKey = (event: KeyboardEvent<HTMLButtonElement>, exchange: ReaderExchange, isRoot: boolean)` — const, line 148
+- `const resolution = exchange.resolution ?? "open"` — const, line 150
+- `const scope = event.currentTarget.closest("[data-ask-threads]") ?? document` — const, line 152
+- `const headers = Array.from(scope.querySelectorAll<HTMLButtonElement>("[data-exchange-header]"))` — const, line 153
+- `const next = headers[headers.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)]` — const, line 154
+- `function statusChips(root: ReaderExchange)` — function, line 176
+- `const resolution = root.resolution ?? "open"` — const, line 178
+- `const done = committed?.(root) ?? new Set<InquiryCommitment>()` — const, line 179
+- `function branch(exchange: ReaderExchange, depth: number)` — function, line 205
+- `const expanded = Boolean(search) || !collapsedIds.has(exchange.id)` — const, line 207
+- `const replies = children.get(exchange.id) ?? []` — const, line 208
+- `const isRoot = depth === 0` — const, line 209
+- `const resolution = exchange.resolution ?? "open"` — const, line 210
 
 ## Who imports or calls it
 

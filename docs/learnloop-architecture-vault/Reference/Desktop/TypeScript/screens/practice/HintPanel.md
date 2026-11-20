@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/practice/HintPanel.tsx](../../../../../../../apps/learnloop-tauri/src/screens/practice/HintPanel.tsx) |
-| Source lines | 349 |
+| Source lines | 351 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] |
 | Refactor status | `ACTIVE` |
@@ -54,28 +54,28 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function hintLabelLine(entry: HintEntry): string` — function, line 33
-- `export function HintPanel(` — function, line 256
+- `export function hintLabelLine(entry: HintEntry): string` — function, line 35
+- `export function HintPanel(` — function, line 258
 
 ## Internal implementation anchors
 
-- `const chip = (on: boolean)` — const, line 21
-- `const labels = entry.result.labels ??` — const, line 34
-- `const parts: string[] = []` — const, line 35
-- `function draftLines(answer: string): string[]` — function, line 44
-- `function FeedbackBox(` — function, line 48
-- `const lines = draftLines(answer)` — const, line 60
-- `const send = ()` — const, line 61
-- `const selection = shortcut === "not_where_stuck" ? picked.sort((a, b)` — const, line 62
-- `const onKey = (event: KeyboardEvent<HTMLInputElement>)` — const, line 66
-- `function DiscriminatingBox(` — function, line 122
-- `function ExploreFigure(` — function, line 165
-- `const figures = usePanelFigures(target,` — const, line 168
-- `const offer = entry.result.figure` — const, line 169
-- `const opened = figures.lines.find((line)` — const, line 171
-- `function HintCard(` — function, line 187
-- `const replies = entry.result.replies ?? []` — const, line 192
-- `const asking = entry.result.kind === "discriminating" && Boolean(entry.result.discriminating?.answerBox)` — const, line 193
+- `const chip = (on: boolean)` — const, line 23
+- `const labels = entry.result.labels ??` — const, line 36
+- `const parts: string[] = []` — const, line 37
+- `function draftLines(answer: string): string[]` — function, line 46
+- `function FeedbackBox(` — function, line 50
+- `const lines = draftLines(answer)` — const, line 62
+- `const send = ()` — const, line 63
+- `const selection = shortcut === "not_where_stuck" ? picked.sort((a, b)` — const, line 64
+- `const onKey = (event: KeyboardEvent<HTMLInputElement>)` — const, line 68
+- `function DiscriminatingBox(` — function, line 124
+- `function ExploreFigure(` — function, line 167
+- `const figures = usePanelFigures(target,` — const, line 170
+- `const offer = entry.result.figure` — const, line 171
+- `const opened = figures.lines.find((line)` — const, line 173
+- `function HintCard(` — function, line 189
+- `const replies = entry.result.replies ?? []` — const, line 194
+- `const asking = entry.result.kind === "discriminating" && Boolean(entry.result.discriminating?.answerBox)` — const, line 195
 
 ## Who imports or calls it
 
@@ -92,8 +92,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export; imports `AskTarget`
 - [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `quietLine`, `quietLink`
+- [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `Waiting`
 - [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export; imports `PANEL_FIGURE_COPY`, `PanelFigureEvent`, `PanelFigureThreadLine`, `usePanelFigures`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/copy/waiting|src/copy/waiting.ts]] — import-or-re-export; imports `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 - [[Reference/Desktop/TypeScript/screens/practice/hintCopy|src/screens/practice/hintCopy.ts]] — import-or-re-export; imports `HELP_STYLE_COPY`, `HINT_COPY`, `SHORTCUT_COPY`
 - [[Reference/Desktop/TypeScript/screens/practice/useAdaptiveHints|src/screens/practice/useAdaptiveHints.ts]] — import-or-re-export; imports `AdaptiveHints`, `HintEntry`
@@ -112,6 +114,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/practice/HintPanel.waiting.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/practice/HintPanel.waiting.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_large_practice_flow.py](../../../../../../../tests/test_large_practice_flow.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_practice_information.py](../../../../../../../tests/test_practice_information.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

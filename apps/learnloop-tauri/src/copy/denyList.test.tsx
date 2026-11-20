@@ -10,6 +10,7 @@ import { BookShelf } from "../components/BookShelf";
 import { ConnectAISheet } from "../components/ConnectAI";
 import { PreparingView } from "../screens/reader/PreparingView";
 import { DENY_TERMS, findJargon } from "./denyList";
+import { WAITING_COPY } from "./waiting";
 import {
   CONSENT_ACTION,
   GOAL_NOT_UP_TODAY,
@@ -20,7 +21,13 @@ import {
   goalCauseSentence,
   type TodayCause
 } from "../app/todayCause";
-import { NOTE_NO_SUBJECT, NO_ASK_NOT_YET, NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK, NO_HINTS_ON_YOUR_OWN, NO_HINTS_SHORT_CHECK } from "./refusals";
+import { NOTE_NO_SUBJECT, NO_ASK_NOT_YET, NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK, NO_HINTS_ON_YOUR_OWN, NO_HINTS_SHORT_CHECK, quickCheckNothingToAsk } from "./refusals";
+import { LESSON_KEPT, PLAN_STOPPED_WITH_MORE, continueLessonLine } from "../app/todayCause";
+import { emptyGoalSentence } from "../components/GoalBanner";
+import { HELP_COPY } from "../screens/workbench/helpModel";
+import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
+import { sectionWords } from "../screens/reader/readerShared";
+import type { CalibrationSessionProgressDto, GoalDto, QuickCheckResultDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
   api: {
@@ -155,6 +162,40 @@ const STAGE3_SENTENCES = [
   NOTE_NO_SUBJECT
 ].filter(Boolean);
 
+// Broken controls, second round (docs/reviews/ux-fix-round-2a.md): every sentence this round adds.
+function emptyGoal(concepts: string[], total: number, practicable: number | null): GoalDto {
+  return {
+    dueAt: "2026-12-09T18:00:00Z", facetScope: { concepts, facets: [] }, practicableItemCount: practicable,
+    report: { onTrackCount: 0, total, onTrackFraction: null, atRiskCount: 0, horizon: "", dueAt: null, certifiedCount: 0, examinedCount: 0,
+              pace: { attemptsPerDay: 0, attemptsLast14d: 0, daysLeft: null, attemptsRemaining: 0, neededPerDay: null, onPace: null, attemptsLogged: 0, paceKind: "activity" } }
+  } as unknown as GoalDto;
+}
+function nothingAsked(verdicts: QuickCheckResultDto["verdict"][]): string {
+  const results = verdicts.map((verdict, index) => ({ learningObjectId: `lo_${index}`, learningObjectTitle: `Topic ${index}`, verdict, assumptionId: null, answers: [] }));
+  return quickCheckNothingToAsk({ status: "completed", quickCheck: { learningObjectIds: [], k: 4, answered: 0, remaining: 4, finished: true, results } } as unknown as CalibrationSessionProgressDto) ?? "";
+}
+const ROUND_2A_SENTENCES = [
+  continueLessonLine("Dot product"),
+  LESSON_KEPT,
+  PLAN_STOPPED_WITH_MORE,
+  emptyGoalSentence(emptyGoal(["a", "b", "c"], 0, 0)) ?? "",
+  emptyGoalSentence(emptyGoal(["a"], 0, 0)) ?? "",
+  emptyGoalSentence(emptyGoal([], 4, 0)) ?? "",
+  nothingAsked(["undecided"]),
+  nothingAsked(["undecided", "learning"]),
+  nothingAsked(["already_assumed"]),
+  nothingAsked(["already_assumed", "already_assumed"]),
+  HELP_COPY.noFittingHint,
+  "sent"
+];
+
+// Group B of the same round: every review reason's words a feedback can show, and a web page's
+// section names as the Reader now says them.
+const ROUND_2B_SENTENCES = [
+  ...REVIEW_REASON_CODES.flatMap((code) => reviewReasonLine(code) ?? []),
+  ...["(intro)", "modeling-the-elevator-problem", "external-links", "the-real-world-case"].map(sectionWords)
+];
+
 // The Decider's sentence (Tier 1): the sheet names what its small judgments
 // send to Perplexity, as Settings does, in the sheet's plain words.
 const DECIDER_NOTE =
@@ -216,6 +257,21 @@ describe("Phase 1 learner surfaces use plain words", () => {
 
   // UX fix stage 3: Today's causes, the goal's, the clocks' and the refusals' fixed words.
   it.each(STAGE3_SENTENCES)("the stage 3 sentence: %s", (sentence) => {
+    expectPlain(sentence);
+  });
+
+  it.each(ROUND_2A_SENTENCES)("the broken controls 2 sentence: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(ROUND_2B_SENTENCES)("the broken controls 2b sentence: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  // Waiting you can see (docs/reviews/ux-waiting.md): every line the shared waiting indicator says.
+  it.each(Object.values(WAITING_COPY))("the waiting line: %s", (sentence) => {
     expectPlain(sentence);
   });
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py) |
-| Source lines | 1521 |
+| Source lines | 1519 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,13 +71,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_decide_with_lesson(self, record: Any, current: Any, item: Any, state: PlanState, candidates: list[BlockCandidate], lesson: BlockCandidate, *, wait_feasible: bool) -> RestraintOutcome` (line 1097; internal) — The need path's arms with the offer among them: a probability per option, the follow-up valued as its item says (a probe's bundle, or a repair), the offer's "Not now" leading to the follow-up, which stays available.
   - `_no_room(self, state: PlanState, candidates: list[BlockCandidate]) -> RestraintOutcome` (line 1133; internal) — ``wait_feasible = False``: waiting would drop the follow-up from today's plan, so it joins now, deterministically, and no model is asked (Codex review F8's rule, kept by §8.3).
   - `_mixed(self, state: PlanState, candidates: list[BlockCandidate], *, key: str, seed: str, readiness: Mapping[str, Any], ready: tuple[str, ...], topic: str, options: Sequence[Any], extra: Sequence[str], valued: Mapping[str, BlockCandidate] | None=None, support: Sequence[str]=(INSERT_NOW, CONTINUE_CURRENT), sequences: Mapping[str, Sequence[BlockCandidate]] | None=None, start: Any=None, llm_schema: str=rq.LLM_POLICY_RESTRAINT_SCHEMA) -> RestraintOutcome` (line 1142; internal) — The two-policy mix over ``support`` (§8.3; by default ``{insert_now, continue_current}``), drawn and traced.
-  - `_numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str, seed: str) -> NumericPolicy` (line 1259; internal) — π_Q on the two orders, each an ordered sequence of the two blocks (the follow-up, then the remaining questions; or the reverse), every step valued with its own kind, duration, observation and effect on one clock; one cutoff, the same draws, each step its own noise in either orde…
-  - `_policy_state(self, card: Any, options: Sequence[Any], extra: Sequence[str], state_text: str, candidates: Sequence[Any]=()) -> str` (line 1272; internal) — The LLM policy's state on a mid-block decision: the shared state, plus (IH4, §7 item 6) the learner's own statements and (slip or gap SG1, §3 item 3) the last miss's cause on the follow-up's and any offer's topic (``candidates``), for the LLM alone: the Decider's request keeps `…
-  - `_start_policy(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...], offers: Sequence[BlockCandidate]=()) -> Prefetch` (line 1302; internal) — The two models' prefetch: the Decider's R2c restraint request (advice) and the LLM policy's v3 one.
-  - `_start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...], offers: Sequence[BlockCandidate]=()) -> Prefetch` (line 1346; internal) — The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current block's rest, the continuation ``π_Q``'s tail assumes).
-- `class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1407) — §8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable (``mix.recompute``).
-  - `decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool, facts: Sequence[str]=(), offer: Any=None) -> RestraintOutcome` (line 1422; public) — ``offer`` (IH2, spec_instruct_handoff_v1 §5 item 3): the lesson offer this decision may hold; with one, the support gains it, and no room to wait no longer makes the decision deterministic: ``{insert_now, lesson}``, a real draw, before anything is generated.
-  - `_followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float` (line 1493; internal) — The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on its LO, after it), else the mean of the LO's items', else the current block's mean question.
+  - `_numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str, seed: str) -> NumericPolicy` (line 1257; internal) — π_Q on the two orders, each an ordered sequence of the two blocks (the follow-up, then the remaining questions; or the reverse), every step valued with its own kind, duration, observation and effect on one clock; one cutoff, the same draws, each step its own noise in either orde…
+  - `_policy_state(self, card: Any, options: Sequence[Any], extra: Sequence[str], state_text: str, candidates: Sequence[Any]=()) -> str` (line 1270; internal) — The LLM policy's state on a mid-block decision: the shared state, plus (IH4, §7 item 6) the learner's own statements and (slip or gap SG1, §3 item 3) the last miss's cause on the follow-up's and any offer's topic (``candidates``), for the LLM alone: the Decider's request keeps `…
+  - `_start_policy(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...], offers: Sequence[BlockCandidate]=()) -> Prefetch` (line 1300; internal) — The two models' prefetch: the Decider's R2c restraint request (advice) and the LLM policy's v3 one.
+  - `_start_choice(self, key: str, state: PlanState, candidates: list[BlockCandidate], topic: str, options: Sequence[Any], extra: Sequence[str], ready: tuple[str, ...], offers: Sequence[BlockCandidate]=()) -> Prefetch` (line 1344; internal) — The two models' prefetch for the three arms: the Decider's R2c restraint request (advice, ``P(yes)``) and the LLM policy's ``router_llm_choice_v3`` (a probability per option; the reference row is the current block's rest, the continuation ``π_Q``'s tail assumes).
+- `class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1405) — §8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable (``mix.recompute``).
+  - `decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool, facts: Sequence[str]=(), offer: Any=None) -> RestraintOutcome` (line 1420; public) — ``offer`` (IH2, spec_instruct_handoff_v1 §5 item 3): the lesson offer this decision may hold; with one, the support gains it, and no room to wait no longer makes the decision deterministic: ``{insert_now, lesson}``, a real draw, before anything is generated.
+  - `_followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float` (line 1491; internal) — The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on its LO, after it), else the mean of the LO's items', else the current block's mean question.
 
 ### Module constants
 
@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `KEY_VERSION` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 109)
 - `WHY_VERSION` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 110)
 - `_FAILURES` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 112)
-- `FOLLOWUP_PLACEHOLDER_PREFIX` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1403)
+- `FOLLOWUP_PLACEHOLDER_PREFIX` ([src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1401)
 
 ### Explicit exports
 
@@ -125,7 +125,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_is_contest(candidate: BlockCandidate) -> bool` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 721)
 - `_option_facts(candidate: BlockCandidate) -> C.OptionFacts` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 725) — What the choice's rule sentence reads of a candidate (``router_chooser._rule_sentence``'s annotations).
 - `_contest_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 733) — IH2 (spec_instruct_handoff_v1 §5 item 2): the boundary's follow-ups, as the LLM policy reads them beside the offer.
-- `_with_offer_record(outcome: RestraintOutcome, offer: Any) -> RestraintOutcome` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1391) — IH2: the boundary's offer on the decision's record: its sensors, or why there was none (a ceiling bind logged).
+- `_with_offer_record(outcome: RestraintOutcome, offer: Any) -> RestraintOutcome` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1389) — IH2: the boundary's offer on the decision's record: its sensors, or why there was none (a ceiling bind logged).
 
 ## Who imports or calls it
 
@@ -156,9 +156,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `current_trace`
 - [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] — imports `module`; calls `BlockOption`, `PolicyRequest`, `RestraintRequest`, `evidence_from_card`, `lesson_offer_description`, `parse_decider_restraint`, `parse_llm_policy`, `parse_llm_policy_restraint`, `state_text`
 - [[Reference/Modules/learnloop/router/why|learnloop.router.why]] — imports `module`; calls `objective_why`, `rationale_guard`
-- [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `module`; calls `ChoiceInputs`, `OptionFacts`, `choose`, `coin_applies`, `coin_reads_minutes`, `decision_record`
+- [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `module`; calls `ChoiceInputs`, `OptionFacts`, `PostMissInputs`, `choose`, `coin_applies`, `coin_reads_minutes`, `decision_record`, `post_miss_choice`
 - [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `module`; calls `ledger_mark`, `mark`, `sensor`
-- [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] — imports `module`; calls `components`, `draw`, `effective_weights`, `fallback_label`
+- [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] — imports `module`; calls `fallback_label`
 - [[Reference/Modules/learnloop/router_objective/objective|learnloop.router_objective.objective]] — imports `module`; calls `numeric_choice`
 - [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `mark`, `module`, `moves_the_value`; calls `kind_of`, `mark`, `moves_the_value`, `record`, `shifted`
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`; calls `Seeded`, `seed_from_gain`, `session_active_minutes`
@@ -224,6 +224,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refinement_stops_at_the_deadline_with_the_llm_still_out`
 - [tests/test_pinned_draws.py](../../../../../../tests/test_pinned_draws.py) — direct import
   - `test_the_numeric_policy_runs_one_batch`
+- [tests/test_post_miss_choice.py](../../../../../../tests/test_post_miss_choice.py) — direct import
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_f_the_mid_block_restraint_forces_now_with_no_room_and_draws_two_arms_otherwise`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f1_the_numeric_answer_is_published_before_any_wait_on_the_llm`
   - `test_f5_mid_block_alternatives_are_ordered_sequences_of_their_own_blocks`

@@ -838,6 +838,10 @@ class NativeIngestConfig(BaseModel):
     fallback_when_unavailable: bool = False
 
 
+#: ``[ingest.budgets] inventory_output_ceiling_tokens``'s default (see the field).
+INVENTORY_OUTPUT_CEILING_TOKENS = 6000
+
+
 class IngestBudgetsConfig(BaseModel):
     """Per-stage token budgets for ingestion v2."""
 
@@ -846,12 +850,34 @@ class IngestBudgetsConfig(BaseModel):
     inventory_input_tokens: int = 20000
     # One inventory window's output budget, not a unit's (UX-1): a unit split
     # into windows by inventory_input_tokens is allowed this amount for each.
-    # Every window's request is sent under it, and a window whose reply (as the
-    # model wrote it, before the service's ids) is over it fails its unit.
+    # It is the size each window's request asks the model to aim for (the plan
+    # route states it in the prompt); inventory_output_ceiling_tokens decides
+    # what is kept.
     inventory_output_tokens: int = 3000
+    # The most one window's complete answer may be, never below the working
+    # size above: an answer up to it is kept (charged what the model wrote,
+    # before the service's ids), one over it is a runaway, refused and not
+    # kept, and a route with a hard output cap is sent it as that cap. Rule:
+    # twice the working size, the room the AI output policy already gives any
+    # call that runs past its budget (one retry at double it); the live
+    # model's largest window in the walks was 3,169 against 3,000.
+    # Left out of a dump at its default: whole-config hashes compared later
+    # (identity_dump, a decision state's or a report's config hash) keep the
+    # bytes they had before the field existed; a vault that sets another
+    # value is dumped with it, so those hashes then name the setting.
+    inventory_output_ceiling_tokens: int = Field(
+        default=INVENTORY_OUTPUT_CEILING_TOKENS,
+        exclude_if=lambda value: value == INVENTORY_OUTPUT_CEILING_TOKENS,
+    )
     synthesis_shard_input_tokens: int = 40000
+    # The size a synthesis pass is asked to aim for (stated to the plan route).
     synthesis_shard_output_tokens: int = 10000
     synthesis_total_input_ceiling: int = 48000
+    # One synthesis run's total output, every pass and the structuring call
+    # together. Rule: a pass's complete answer is kept up to what this total
+    # still leaves (a route with a hard output cap is sent that as the cap),
+    # so a pass a little over its shard size is kept and the run never writes
+    # more than this; an answer over it is refused and not kept.
     synthesis_output_tokens: int = 16000
     append_neighborhood_input_tokens: int = 24000
     # Also the append call's request-level generation limit, as each bootstrap
@@ -2727,16 +2753,14 @@ class FiguresConfig(BaseModel):
     what best explains the idea, with ``why_this_tier``, and an optional fast
     spec or sketch shown at once), and a second route ``figure_rich_author``
     writes the program in a durable job; the fuller version arrives under the
-    quick one with one quiet line. Only the ``manim`` tier is built: a
+    quick one with one quiet line. The one rich tier is ``manim``: a
     narrated video rendered by the concept animation pipeline (its validator,
     pacing lint, renderer and store, called as a library) under bubblewrap
     with the hardened profile and a memory- and CPU-capped scope, Linux with
     ``bwrap`` and Manim installed only, and only after the standing opt-in
     ``manim_opt_in = "standing"`` (asked once, inline, on a press; "not now"
-    writes ``"declined"``; ``manim_opt_in_at`` records the date). The
-    ``js_animation`` tier stays absent from every menu behind its build flag
-    until its IPC probe passes in the real webview. Off: the author's contract is
-    V2's (or V1's) byte for byte, no rich menu entry, and stored rich figures
+    writes ``"declined"``; ``manim_opt_in_at`` records the date). Off: the
+    author's contract is V2's (or V1's) byte for byte, no rich menu entry, and stored rich figures
     list as "can't show this kind here". Nothing in scoring, scheduling,
     projection or serving reads these keys.
 

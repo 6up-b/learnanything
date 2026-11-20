@@ -216,6 +216,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_verification_unavailable_falls_back_byte_identically`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
   - `test_remediation_cold_pick_rejects_remint_as_same_surface_as_probe_group`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_c_a_manual_teach_me_now_starts_the_repair_without_the_probe`
+  - `test_c_a_repair_request_is_held_by_the_gates_verdict_and_the_hold_is_a_result`
 - [tests/test_reader_ca2_one_ask.py](../../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_an_assisted_attempt_is_recognised`
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import

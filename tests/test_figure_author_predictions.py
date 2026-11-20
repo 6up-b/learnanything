@@ -10,6 +10,8 @@ import json
 
 import pytest
 
+from learnloop.figures import author_answer as AA
+from learnloop.figures import records as FR
 from learnloop.figures import routes as R
 from learnloop.figures import sketch as K
 from learnloop.figures import spec as S
@@ -118,13 +120,14 @@ def test_a_dropped_prediction_shows_the_figure_and_is_on_its_report(tmp_path):
     assert note.startswith("the bad one: prediction 1:") and "nothing_called_this" in note
 
 
-def test_a_real_problem_still_gets_the_second_attempt_without_the_predictions_noise(tmp_path):
+def test_a_real_problem_still_gets_the_second_attempt_without_the_predictions_noise():
     broken = _spec(_prediction({"nothing_called_this": 1}))
     broken["parameters"][0]["min"] = 99
-    repository, ctx, author = _setup(tmp_path, [broken, _spec(_prediction({"lam": 2}))])
-    figure = build(ctx)["figure"]
-    assert author.calls == 2 and figure["verification"] == "illustrative"
-    told = author.contexts[1]["problems_with_the_last_attempt"]
+    answer = R.FigureAuthorOutputV1(status="spec", spec_json=json.dumps(broken), unsupported_kind="",
+                                    unsupported_reason="")
+    reading = AA.read_answer(answer, last=False, tiers=None, sketch=False, grounded=True, advanced=True)
+    assert isinstance(reading.then, AA.Retry) and reading.then.rule == FR.SPEC_INVALID
+    told = reading.then.problems
     assert told and not any("prediction" in problem for problem in told)
 
 

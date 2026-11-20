@@ -156,6 +156,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sequential_selection_conditions_on_observed_posterior`
 - [tests/test_probe_predictive_eig.py](../../../../../../tests/test_probe_predictive_eig.py) — direct import
   - `test_predictive_objective_is_default_and_persisted`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_i_the_serving_door_refuses_a_new_presentation_by_value_and_records_why`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_no_probe_is_committed_for_an_item_submit_would_prime`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import

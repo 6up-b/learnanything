@@ -2,7 +2,8 @@ import { listen } from "@tauri-apps/api/event";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
-import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK } from "../copy/refusals";
+import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK, quickCheckNothingToAsk } from "../copy/refusals";
+import { LESSON_KEPT } from "./todayCause";
 import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { setNextReaderVisitInitiator } from "../screens/reader/activity";
@@ -835,6 +836,10 @@ export function App() {
     }
     // Daily-loop DL1: Begin starts today's plan at its first step (§6.7).
     if (firstStep && !pendingRedo && !pendingPrimedItemId) {
+      if (firstStep.kind === "lesson_offer") {
+        openPlanOffer(firstStep);
+        return;
+      }
       const action = planStepAction(firstStep, { viaBlockLine: false });
       if (action.type === "practice") {
         setPracticeOffer({
@@ -1266,6 +1271,14 @@ export function App() {
     setTodayStage("queue");
   }
 
+  // Begin whose first step is a lesson offer: the offer's page, as feedback's Next opens it. Begin is pressed on
+  // Today's place, which may be the Start tab, so the tab moves too.
+  function openPlanOffer(step: PlanLessonOfferStepDto) {
+    setPlanOffer(step);
+    setTab("today");
+    setTodayStage("offer");
+  }
+
   // IH1: the offer page was answered. Start (or an alternative) has opened its lesson (the plan goes on at its next block when the
   // lesson closes, so Today is where the learner lands); any other answer goes straight on to the step the plan
   // would have served.
@@ -1377,7 +1390,7 @@ export function App() {
   }
 
   // Learner field F2: "Check what I already know" from the LO inspector.
-  async function startQuickCheck(learningObjectIds: string[]) {
+  async function startQuickCheck(learningObjectIds: string[], beforeOpen?: () => void) {
     // F1: after an implicit start, the vault this check was asked on; the
     // start and the check both stop if another vault opened meanwhile.
     const generation = vaultGenRef.current;
@@ -1395,6 +1408,14 @@ export function App() {
       const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
       const progress = await api.startQuickCheck({ sessionId: current.sessionId, learningObjectIds, requestId });
       if (!stillOpen()) return;
+      // A check that could ask nothing ended as it started: said where it was asked, with the screen it was asked
+      // from left as it was, rather than an empty check that reads as if the learner had been asked.
+      const nothing = quickCheckNothingToAsk(progress);
+      if (nothing) {
+        notify(nothing);
+        return;
+      }
+      beforeOpen?.();
       setInspectorId(null);
       openCalibration(progress.calibrationSessionId, { quickCheck: true });
     } catch (error) {
@@ -1546,12 +1567,21 @@ export function App() {
     }
     setSettingsOpen(false);
     setReviewOpen(false);
+    // A check screen ("Check what I already know", a calibration) covers every place's body, so a tab moved only its
+    // highlight. Leaving by a tab is leaving as esc does: the check stays where it was, and starting it again finds it.
+    if (calibrationSessionId) {
+      setCalibrationSessionId(null);
+      setQuickCheckActive(false);
+    }
     setTab(next);
     if (next !== "today") setTodayStage("queue");
   }
 
   // UX Phase 2 (§5.1): a place is a view over the tabs.
   function gotoPlace(place: Place) {
+    // Today's place while a question (a short check among them) or its feedback is open on Today: its tab is
+    // already Today's, so moving to it changed nothing. It goes back to the plan, as esc does.
+    if (place === "today" && placeOfTab(tab) === "today" && todayStage !== "queue") setTodayStage("queue");
     gotoTab(tabForPlace(place, Boolean(session)));
   }
 
@@ -2047,6 +2077,8 @@ export function App() {
         subjects={subjectOptions}
         wrapUp={wrapUpLine("today")}
         {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
+        onLessonOffer={openPlanOffer}
+        lessonOpen={lessonEntry !== null}
         aiConnection={aiConnection}
         onConnectAi={() => setConnectOpen(true)}
         onOpenBook={openBook}
@@ -2478,8 +2510,11 @@ export function App() {
         <Suspense fallback={<div role="status">Loading…</div>}>
           <LessonScreen
             entry={lessonEntry}
-            onClose={() => setLessonEntry(null)}
-            onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
+            onClose={(kept) => {
+              setLessonEntry(null);
+              if (kept) notify(LESSON_KEPT);
+            }}
+            onQuickCheck={(ids) => void startQuickCheck(ids, () => setLessonEntry(null))}
             onLookInLibrary={lookInLibrary}
             {...(lessonFromCheckFailed ? { onOpenFailed: lessonFromCheckFailed } : {})}
             onError={onError}

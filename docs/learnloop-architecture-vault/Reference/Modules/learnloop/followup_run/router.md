@@ -202,6 +202,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
 - [tests/test_probe_episode_conflict_one_check.py](../../../../../../tests/test_probe_episode_conflict_one_check.py) — direct import
   - `test_the_follow_up_router_asks_the_same_check`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_d_a_not_now_while_the_question_is_written_refuses_after_authoring`
+  - `test_d_a_pending_machine_check_refuses_before_the_router`
+  - `test_d_a_retry_keeps_the_first_draw_and_asks_only_the_hard_refusals_again`
+  - `test_d_not_now_refuses_before_the_router_and_no_question_is_written`
+  - `test_d_the_refusals_ask_preference_then_machine_checks_then_the_shared_episode_check`
+  - `test_e_the_class_verdict_is_logged_where_the_classes_settle_it_and_absent_otherwise`
+  - `test_f_a_retry_on_a_plan_reuses_the_logged_draw`
+  - `test_f_with_no_plan_the_probe_is_asked_now_with_no_draw_and_no_router_row`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_hard_refusal_and_no_plan_each_leave_the_gates_record`
   - `test_the_follow_up_gates_decision_names_its_rule_arms_and_components`

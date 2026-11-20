@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_facts.py](../../../../../../src/learnloop/diagnosis/probe_facts.py) |
-| Source lines | 186 |
+| Source lines | 260 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,11 +57,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class ProbeFacts` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 27) — The facts about one possible probe, and the hard stops that hold.
   - `hard_stops(self) -> tuple[str, ...]` (line 65; public) — The names of the hard stops that hold, in the order the rule checks them.
 - `probe_facts(*, repair_class_ids: Sequence[str | None], common_repair_covers: bool, expected_information_gain: float, probability_information_changes_repair: float, probe_burden_minutes: float, avoided_overteaching_minutes: float, pending_machine_checks: Sequence[str]=(), session_budget_minutes: float | None=None, learner_preference: str='allow', recent_diagnostic_burden: int=0) -> ProbeFacts` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 76) — The facts and hard stops for one possible probe, from values the caller gathered (units on :class:`ProbeFacts`; ``avoided_overteaching_minutes`` and ``session_budget_minutes`` are minutes).
-- `class Thresholds(Protocol)` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 120) — The rule's thresholds, read only when the rule reaches them (``CausalProbeParameters`` is one).
-  - `recent_diagnostic_limit(self) -> int` (line 124; public)
-  - `__getitem__(self, key: str) -> float` (line 126; internal)
-- `settled_by_repair_classes(*, common_repair_covers: bool, different_repairs: bool) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 129) — The rule's first two arms, ``(verb, reason)``, or None when the repair classes leave the question open.
-- `probe_verdict(facts: ProbeFacts, thresholds: Thresholds) -> tuple[str, str]` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 141) — The repair lane's verdict on the facts, ``(verb, reason)``.
+- `channel_status(*, instrument: bool, separability_computed: bool) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 128) — Which of the three states the chosen instrument's channel is in (the ``CHANNEL_*`` names).
+- `class ProbeProposalReads` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 137) — What the repair lane reads about one factor's possible probe before anyone judges it, as plain values.
+  - `facts(self, *, session_budget_minutes: float | None=None) -> ProbeFacts` (line 172; public) — The facts these reads give, as the repair lane's verdict computes them.
+- `class Thresholds(Protocol)` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 189) — The rule's thresholds, read only when the rule reaches them (``CausalProbeParameters`` is one).
+  - `recent_diagnostic_limit(self) -> int` (line 193; public)
+  - `__getitem__(self, key: str) -> float` (line 195; internal)
+- `settled_by_repair_classes(*, common_repair_covers: bool, different_repairs: bool) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 198) — The rule's first two arms, ``(verb, reason)``, or None when the repair classes leave the question open.
+- `probe_verdict(facts: ProbeFacts, thresholds: Thresholds) -> tuple[str, str]` ([source](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 210) — The repair lane's verdict on the facts, ``(verb, reason)``.
 
 ### Module constants
 
@@ -69,17 +72,25 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `HARD_STOP_MACHINE_CHECKS` ([src/learnloop/diagnosis/probe_facts.py](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 21)
 - `HARD_STOP_LEARNER_PREFERENCE` ([src/learnloop/diagnosis/probe_facts.py](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 22)
 - `HARD_STOP_SESSION_BUDGET` ([src/learnloop/diagnosis/probe_facts.py](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 23)
+- `CHANNEL_NO_INSTRUMENT` ([src/learnloop/diagnosis/probe_facts.py](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 123)
+- `CHANNEL_NO_SEPARABILITY_RECORD` ([src/learnloop/diagnosis/probe_facts.py](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 124)
+- `CHANNEL_SEPARABILITY_COMPUTED` ([src/learnloop/diagnosis/probe_facts.py](../../../../../../src/learnloop/diagnosis/probe_facts.py), line 125)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `CHANNEL_NO_INSTRUMENT`
+- `CHANNEL_NO_SEPARABILITY_RECORD`
+- `CHANNEL_SEPARABILITY_COMPUTED`
 - `HARD_STOP_LEARNER_PREFERENCE`
 - `HARD_STOP_MACHINE_CHECKS`
 - `HARD_STOP_SESSION_BUDGET`
 - `REFUSING_PREFERENCES`
 - `ProbeFacts`
+- `ProbeProposalReads`
 - `Thresholds`
+- `channel_status`
 - `probe_facts`
 - `probe_verdict`
 - `settled_by_repair_classes`
@@ -93,6 +104,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `ProbeProposalReads`, `channel_status`; statically calls `ProbeProposalReads`, `channel_status`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `probe_facts`, `probe_verdict`; statically calls `probe_facts`, `probe_verdict`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `settled_by_repair_classes`; statically calls `settled_by_repair_classes`
 
@@ -114,7 +126,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -128,6 +140,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pending_machine_checks_are_a_hard_stop`
   - `test_the_repair_classes_alone_settle_two_cases`
   - `test_the_verdict_reads_the_facts_in_the_ladders_order`
+- [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — direct import
+  - `test_a_missing_channel_is_a_status_and_not_the_zero_it_is_priced_at`
+  - `test_gathering_writes_nothing_and_the_verdict_on_its_facts_is_the_statuss`
+  - `test_the_reads_give_the_facts_the_verdict_computes_from_the_same_values`
 
 ## Modification guidance
 

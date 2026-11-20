@@ -30,11 +30,15 @@ import { ItemPresentation } from "../../components/ItemPresentation";
 import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../../components/PlainParts";
 import { useAnswerExposure, type ExposureStatus } from "./answerExposure";
 import { COLOR } from "../../components/term";
+import { Waiting } from "../../components/Waiting";
+import { WAITING_COPY } from "../../copy/waiting";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import {
   expectedAnswerText,
   type FeedbackOrigin,
+  HELD_GRADE_LINE,
   ORIGIN_LABEL,
+  PROVISIONAL_GRADE_LINE,
   unestablishedRepairCopy,
   VERDICT_TEXT,
   type Verdict
@@ -297,13 +301,13 @@ export function FeedbackSurface({
       </div>
       {held ? (
         <div style={{ ...quietLine, marginTop: 6 }}>
-          The grader couldn't check the way you answered, so this answer doesn't count either way until it's reviewed.
+          {HELD_GRADE_LINE}
         </div>
       ) : null}
       {provisional ? (
         <div style={{ marginTop: 6 }}>
           <button type="button" style={quietLink} onClick={onShowProvisional}>
-            This grade may change after one question ▸
+            {`${PROVISIONAL_GRADE_LINE} ▸`}
           </button>
         </div>
       ) : null}
@@ -407,6 +411,12 @@ export function FeedbackSurface({
         </div>
       ) : null}
 
+      {/* The look into a miss is still running: the sentence below changes when it lands, and nothing said so
+          (the phone says it in these words). No time is claimed: the walks timed it at 1 to 10 s, too few to say. */}
+      {diagnosis.status === "pending" ? (
+        <Waiting testId="diagnosis-wait" line={WAITING_COPY.lookingIntoAnswer} style={{ marginTop: 14 }} />
+      ) : null}
+
       {/* One sentence on what went wrong; it updates in place when the
           diagnosis lands. */}
       {sentence || prerequisite || (whyHasContent && verdict !== "right") ? (
@@ -476,6 +486,9 @@ export function FeedbackSurface({
         <span style={{ flex: 1 }} />
         <DetailsToggle open={detailsOpen} onToggle={onToggleDetails} />
       </div>
+      {/* Next until the next step opens (the plan's choice can take seconds): "Opening…" on the button alone
+          was the only sign. */}
+      {advancing ? <Waiting testId="next-wait" line={WAITING_COPY.choosingNext} style={{ marginTop: 8 }} /> : null}
     </div>
   );
 }

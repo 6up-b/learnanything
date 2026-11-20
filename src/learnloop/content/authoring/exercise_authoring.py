@@ -60,7 +60,7 @@ from learnloop.substrate.activity_patterns import (
     validate_task_features,
 )
 from learnloop.reader.annotations import translate_selection
-from learnloop.content.sources.exam_material import Material, held_out_material
+from learnloop.content.sources.exam_material import Material, surface_material
 from learnloop.curriculum.depth_rungs import TASK_FEATURE_SCHEMA_SLUG
 from learnloop.content.sources.math_text import contains_unicode_math, unicode_math_to_latex
 from learnloop.vault.loader import load_vault
@@ -533,7 +533,7 @@ def author_exercises(
     ``context_withheld`` is the caller's protected material: the Reader's import names the held-out
     partition, the canonical import all exam material. A selected block it covers refuses the whole request,
     and a neighboring block it covers is left out of the author's context, before any model call; None reads
-    the Reader's set (``held_out_material``).
+    the Reader's import's row of ``exam_material.SURFACE_SETS``.
     """
 
     translation, segments = _anchored_segments(repository, extraction_id=extraction_id, raw_selection=raw_selection,
@@ -608,7 +608,8 @@ def author_exercises(
             span_ids.append(span_id)
 
     vault = load_vault(root)
-    withheld = context_withheld if context_withheld is not None else held_out_material(vault, repository)
+    withheld = (context_withheld if context_withheld is not None
+                else surface_material(vault, repository, "reader_import"))
     if any(withheld.covers(extraction_id, span_id) for span_id in span_ids):
         raise ExerciseAuthoringError("this exercise is exam or held-out material now, so it never becomes practice")
     judge = method_judge if method_judge is not None else _configured_method_judge(vault)

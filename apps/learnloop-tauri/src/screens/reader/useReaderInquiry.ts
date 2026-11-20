@@ -46,11 +46,12 @@ import { checkOffer } from "./checkOffer";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { type AskAbout, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { cachedSourceRead } from "./readerCache";
-import { clip, passageKeys, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
+import { clip, passageKeys, sectionWords, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
 import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import type { ReaderVisit } from "./useReaderVisit";
 import type { PaneTarget } from "./sideBySide";
 import { screenLeavesKey } from "../../app/keymap";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 import {
   back as stackBack,
   dropCurrent,
@@ -455,7 +456,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
 
   const passageLabel = useCallback((spanId: string | null): string => {
     const section = spanId ? guideSectionBySpan.get(spanId) : undefined;
-    if (section && spanId) return `${section.label} ¶${section.spanIds.indexOf(spanId) + 1}`;
+    if (section && spanId) return `${sectionWords(section.label)} ¶${section.spanIds.indexOf(spanId) + 1}`;
     return sourceTitle ?? "where I was";
   }, [guideSectionBySpan, sourceTitle]);
 
@@ -835,7 +836,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
           const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find(
             (element) => element.dataset.askId === exchange.id,
           );
-          card?.scrollIntoView?.({ block: "start" });
+          scrollIntoViewWithin(card, { block: "start" });
         });
       }
     } catch (error) {
@@ -1077,7 +1078,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find(
         (element) => element.dataset.askId === root.id,
       );
-      card?.scrollIntoView?.({ block: "start" });
+      scrollIntoViewWithin(card, { block: "start" });
     });
   }, [history, render, peekPassage, pushDetours, sourceTitle, jumpToSpan, setRailTab]);
 

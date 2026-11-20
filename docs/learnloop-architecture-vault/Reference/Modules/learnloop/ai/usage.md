@@ -142,6 +142,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_usage_readers_leave_the_open_receipt_alone`
 - [tests/test_chatgpt_plan_cli.py](../../../../../../tests/test_chatgpt_plan_cli.py) — direct import
   - `test_latency_stops_a_later_metered_provider_once_the_shared_cap_is_spent`
+- [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
   - `test_tokens_metric_reports_the_ratio_over_metered_episodes`
 - [tests/test_synthesis_tail_golden.py](../../../../../../tests/test_synthesis_tail_golden.py) — direct import

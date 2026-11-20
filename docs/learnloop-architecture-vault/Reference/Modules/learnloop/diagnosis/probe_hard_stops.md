@@ -122,6 +122,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unknown_learning_object_asks_nothing`
   - `test_the_factors_own_episode_is_no_conflict`
   - `test_the_follow_up_router_asks_the_same_check`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_d_the_refusals_ask_preference_then_machine_checks_then_the_shared_episode_check`
 
 ## Modification guidance
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ModelActionState.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ModelActionState.tsx) |
-| Source lines | 117 |
+| Source lines | 119 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,18 +54,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type ModelActionPhase = "idle" | "pending" | "landed" | "failed" | "unreachable" | "offline" | "capped" | "off"` — type, line 18
-- `export interface ModelActionStateProps` — interface, line 20
-- `export function phaseForError(error: unknown): ModelActionPhase` — function, line 54
-- `export function ModelActionState(` — function, line 63
+- `export type ModelActionPhase = "idle" | "pending" | "landed" | "failed" | "unreachable" | "offline" | "capped" | "off"` — type, line 19
+- `export interface ModelActionStateProps` — interface, line 21
+- `export function phaseForError(error: unknown): ModelActionPhase` — function, line 55
+- `export function ModelActionState(` — function, line 64
 
 ## Internal implementation anchors
 
-- `const linkStyle =` — const, line 40
-- `const command = getCommandError(error)` — const, line 55
-- `const code = command?.code ?? ""` — const, line 56
-- `const retry = onRetry ? ( <>` — const, line 78
-- `let body: ReactNode` — let, line 84
+- `const linkStyle =` — const, line 41
+- `const command = getCommandError(error)` — const, line 56
+- `const code = command?.code ?? ""` — const, line 57
+- `const retry = onRetry ? ( <>` — const, line 79
+- `let body: ReactNode` — let, line 85
 
 ## Who imports or calls it
 
@@ -92,6 +92,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `WaitMark`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `getCommandError`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`

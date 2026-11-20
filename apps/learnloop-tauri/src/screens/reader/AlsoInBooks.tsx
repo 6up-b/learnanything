@@ -44,7 +44,7 @@ import { errorMessage } from "../../errors";
 import { logCorrespondentAct } from "./correspondenceEvents";
 import { quietCorrespondents } from "./correspondentsRead";
 import { FIND_COPY, bookShort, hitKey, newOperationId, peekCrumb, sectionShort, type FindSectionOrigin, type PeekCrumb } from "./FindSection";
-import { clip } from "./readerShared";
+import { clip, sectionWords } from "./readerShared";
 import { MeaningLabel, SourceVoice, SpokenOnly } from "./voices";
 
 export const ALSO_COPY = {
@@ -554,7 +554,7 @@ export function AlsoInBooks({
     const { hit } = entry.line;
     return (
       <div key={key} role="listitem" data-also-gone={key} style={{ paddingLeft: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "baseline" }}>
-        <MeaningLabel>{bookShort(hit.sourceTitle)} § {clip(hit.title, 40)} · {ALSO_COPY.notAbout}</MeaningLabel>
+        <MeaningLabel>{bookShort(hit.sourceTitle)} § {clip(sectionWords(hit.title), 40)} · {ALSO_COPY.notAbout}</MeaningLabel>
         <button type="button" onClick={() => void undo(key)} disabled={busyKey === key} style={LINK}>{ALSO_COPY.undo}</button>
         <button type="button" onClick={() => setWhy((open) => (open === key ? null : key))} aria-expanded={why === key} style={LINK}>{ALSO_COPY.whereThisGoes}</button>
         {why === key ? <MeaningLabel style={{ flexBasis: "100%" }}>{ALSO_COPY.whereThisGoesText}</MeaningLabel> : null}
@@ -631,7 +631,7 @@ export function AlsoInBooks({
                       title={`${hit.sourceTitle} · ${hit.title}`}
                       style={{ border: 0, background: "transparent", padding: 0, textAlign: "left", cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}
                     >
-                      {bookShort(hit.sourceTitle)}  § {hit.title}
+                      {bookShort(hit.sourceTitle)}  § {sectionWords(hit.title)}
                     </button>
                     <button
                       type="button"
@@ -731,7 +731,7 @@ export function AlsoInBooks({
         <div data-also-peek={peek.key} style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={HEAD}>{ALSO_COPY.peekHead}</span>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>§ {peek.hit.sourceTitle} · {clip(peek.hit.title, 50)}</span>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>§ {peek.hit.sourceTitle} · {clip(sectionWords(peek.hit.title), 50)}</span>
             {peekRoles ? (
               // The roles the section plays (§12.3): the coverage judge's and RW4e's proposals, the model's reading.
               <span data-also-peek-roles="" data-voice="model" style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.purpleText }}>
@@ -752,7 +752,7 @@ export function AlsoInBooks({
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" onClick={() => goThere(peek.hit)} style={LINK}>{ALSO_COPY.goThere} ↵</button>
             {onSideBySide ? <button type="button" onClick={() => sideBySide(peek.hit)} style={LINK}>{ALSO_COPY.sideBySide} (s)</button> : null}
-            {onCompare ? <button type="button" onClick={() => onCompare(peek.hit)} style={LINK}>{ALSO_COPY.compare} with {clip(section.label, 30)} (c)</button> : null}
+            {onCompare ? <button type="button" onClick={() => onCompare(peek.hit)} style={LINK}>{ALSO_COPY.compare} with {clip(sectionWords(section.label), 30)} (c)</button> : null}
             <button type="button" onClick={closePeek} style={LINK}>{ALSO_COPY.closePeek}</button>
           </div>
         </div>

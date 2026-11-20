@@ -331,7 +331,7 @@ def library(runtime: Any, *, query: str | None = None, limit: int = 30) -> dict[
     """Sources and their state (titles searchable). Read-only."""
 
     from learnloop.content.pipeline.add_source import learner_title, source_kind_noun, source_status_line
-    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.content.sources.exam_material import surface_exam_material
     from learnloop.learner_context import protection_issues
 
     vault = runtime.vault()
@@ -341,7 +341,7 @@ def library(runtime: Any, *, query: str | None = None, limit: int = 30) -> dict[
     # Fail closed: with the source sets unreadable (or the snapshot unsettled)
     # every source reads as possibly exam material.
     try:
-        exam = None if protection_issues(vault) else exam_material(vault, repository)
+        exam = None if protection_issues(vault) else surface_exam_material(vault, repository, "mcp_library")
     except Exception:  # noqa: BLE001 - fail closed, as above
         exam = None
     words = [word for word in (query or "").lower().split() if word]

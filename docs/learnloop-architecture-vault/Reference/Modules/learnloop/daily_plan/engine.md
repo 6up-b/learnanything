@@ -929,6 +929,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
   - `test_the_plan_follows_a_path_only_with_the_guide_and_the_plan_on`
   - `test_the_reading_block_opens_the_next_core_or_prerequisite_section_and_the_receipt_has_the_old_one`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_f_the_mid_block_restraint_forces_now_with_no_room_and_draws_two_arms_otherwise`
+  - `test_f_with_no_room_to_wait_the_probe_is_forced_unless_a_lesson_contests_it`
 - [tests/test_reader_rw4b_admission_idempotency.py](../../../../../../tests/test_reader_rw4b_admission_idempotency.py) — direct import
   - `test_a_pick_made_under_a_key_is_made_once`
 - [tests/test_reader_rw4b_fix6.py](../../../../../../tests/test_reader_rw4b_fix6.py) — direct import

@@ -38,6 +38,7 @@ import { blockAt, rangeRects, SelectionModel, type Box, type GlyphItem, type Gly
 import { PdfSelectionLayer } from "./pdfSelection/PdfSelectionLayer";
 import { usePdfSelection, type HeldSelection, type PagePoint } from "./pdfSelection/usePdfSelection";
 import { screenLeavesKey } from "../app/keymap";
+import { scrollIntoViewWithin } from "./scrollWithin";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -89,7 +90,7 @@ const PASSAGE_TOP_MARGIN_PX = 56;
 
 function alignPassage(box: HTMLElement, align: PassageAlign, smooth: boolean) {
   if (align === "start") box.style.scrollMarginTop = `${PASSAGE_TOP_MARGIN_PX}px`;
-  box.scrollIntoView({ ...(smooth ? { behavior: "smooth" as const } : {}), block: align });
+  scrollIntoViewWithin(box, { ...(smooth ? { behavior: "smooth" as const } : {}), block: align });
 }
 
 interface PdfReaderPaneProps {
@@ -335,7 +336,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     // Prefer the nth marked text-layer hit when the page has rendered.
     const hits = pageEl.querySelectorAll(".ll-find-hit");
     const target = hits[Math.min(match.ordinal, Math.max(0, hits.length - 1))];
-    (target instanceof HTMLElement ? target : pageEl).scrollIntoView({ behavior: "smooth", block: "center" });
+    scrollIntoViewWithin(target instanceof HTMLElement ? target : pageEl, { behavior: "smooth", block: "center" });
   }, []);
 
   useEffect(() => {
@@ -429,7 +430,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
       scroller = scroller.parentElement;
     }
     if (!scroller) {
-      pageEl.scrollIntoView({ block: "start" });
+      scrollIntoViewWithin(pageEl, { block: "start" });
       return true;
     }
     scroller.scrollTop += pageRect.top - scroller.getBoundingClientRect().top + offset * pageRect.height;
@@ -637,7 +638,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
       const block = model.blocks[index];
       if (!block) return;
       const box = passageBox(block.page, block.spanId);
-      if (box) box.scrollIntoView?.({ block: "nearest" });
+      if (box) scrollIntoViewWithin(box, { block: "nearest" });
       else keepTarget(block.page, 0, block.spanId, "center");
     },
     [model, passageBox, keepTarget],

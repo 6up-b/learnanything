@@ -105,7 +105,8 @@ member with no marks or signals, which the Reader's Ask does not), and the
 facet-meaning chokepoint resolves a citation of exam material to the role
 ``exam`` (assessment alignment only) while an explanatory citation beside it
 may still support a facet's meaning (support, not leakage:
-``role_authority.support_verdict``).
+``role_authority.support_verdict``). Which set each protection surface reads
+is one table, :data:`SURFACE_SETS`.
 """
 from __future__ import annotations
 
@@ -113,6 +114,7 @@ import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES, is_scope_only_role
@@ -1254,6 +1256,96 @@ def held_out_among(material: Material, extraction_id: str | None, span_ids: Iter
     return [span for span in wanted if material.covers(extraction, span)]
 
 
+# --- which set each protection surface reads ---------------------------------------------
+
+#: All exam material (rules 1-4, the held-out partition included): :func:`exam_material`.
+ALL_EXAM = "all_exam"
+#: The held-out partition only (rules 3-4 and the signals): :func:`held_out_material`.
+HELD_OUT = "held_out"
+#: No exam set: the surface answers another question (a device, a workflow, what the learner was
+#: shown, the learner's own raw reading).
+NO_EXAM_SET = "no_exam_set"
+
+#: The exam set each protection surface reads, in one place. An exam member with no marks is all exam
+#: material and not held out, so this table is where the surfaces deliberately part: the Reader's model
+#: contexts and its import read the held-out partition (the owner's defaults: ``docs/reviews/exam-protection.md``),
+#: teaching, figures, imports of canonical exercises, the library's kept results and the phone read all exam
+#: material, adaptive difficulty and serving read the held-out partition. A surface that reads a set
+#: reads it with :func:`surface_material` or :func:`surface_exam_material`, so changing a row here
+#: changes that surface; one that asks a named reader instead (``spans_withheld``, ``exam_withheld``,
+#: ``held_out_items``, ``held_out_spans``, ``exposed_items``) has that reader in its comment. What a
+#: surface adds to its set stays with its owner: teaching its roles and exercise links
+#: (``corpus.teaching_exclusions``), the item union its reservations, cold checks and probes
+#: (``learner_protection.withheld_items``), adaptive difficulty the exam reservations, serving its kill
+#: switch (``goals.held_out_selection``) and reservations. ``tests/test_protection_surface_sets.py``
+#: holds each row to the protection matrix's answers.
+SURFACE_SETS: Mapping[str, str] = MappingProxyType({
+    # May a span ground a model's teaching, explanation or authoring, or become practice?
+    "teaching": ALL_EXAM,                # corpus.teaching_exclusions (and model_reader_withheld on it)
+    "reader_ask": HELD_OUT,              # reader_dialogue.ask, tutor_qa.ask_question, reader_tutor's second guard
+    "reader_presets": HELD_OUT,          # reader_requests.model_synthesis
+    "reader_checks": HELD_OUT,           # jobs: the Reader's section, inquiry and selection checks
+    "reader_guidance": HELD_OUT,         # reader_guidance.held_out_sections, reading_protection
+    "reader_import": HELD_OUT,           # jobs.handle_reader_exercise_import and its author's context
+    "canonical_import": ALL_EXAM,        # source_exercise_import.import_source_exercise and its author's context
+    "book_solution": ALL_EXAM,           # source_exercise_import.find_book_solution
+    "figures": ALL_EXAM,                 # figures.protection.withheld_message (spans_withheld)
+    "section_coverage": ALL_EXAM,        # section_coverage.read_protection: coverage, deliverables, the Teacher
+    "quote": ALL_EXAM,                   # source_ref_protected, given learner_protection's exam material
+    "mcp_passages": ALL_EXAM,            # remote.sources.find_passages
+    "book_guide": ALL_EXAM,              # reading_paths.path_inputs
+    "leakage_floor": HELD_OUT,           # practice_leakage.build_held_out_inventory (held_out_spans: the text)
+    "reserved_questions": ALL_EXAM,      # practice_leakage.reserved_questions: stems of items made from exam material
+    "library_ask_anchor": HELD_OUT,      # library_ask.ask_library, open_comparison: the passage an ask is anchored on
+    "library_ask": ALL_EXAM,             # library_ask.ask_library: the passages it finds (find_sources: exam_withheld)
+    "library_result": ALL_EXAM,          # library_ask.withheld_now: kept asks, notes jobs, the organizer, tutor jobs
+    "library_tutor_refusal": HELD_OUT,   # library_ask.ask_tutor: a held-out pin refuses the request
+    "library_tutor_pins": ALL_EXAM,      # source_retrieval.tutor: an exam pin is dropped (exam_withheld)
+    "compare": ALL_EXAM,                 # compare.compare_sources (exam_withheld), library_ask.open_comparison's anchor
+    # May an item be served, picked or measured now?
+    "routine_serving": HELD_OUT,         # serving_exclusions: routine and out-of-timing (held_out_items)
+    "practice_pick": HELD_OUT,           # instructional.practice.refuse_protected_pick
+    "session_serve": HELD_OUT,           # learnloop_sidecar.serving.refuse_held_out_item
+    "exposure_with_held_out": HELD_OUT,  # exposed_items(..., with_held_out=True)
+    "exposure": NO_EXAM_SET,             # exposed_items: what the learner was shown
+    "cold_administration": NO_EXAM_SET,  # instructional.policy.cold_administration_open
+    "serve_eligibility": NO_EXAM_SET,    # serve_eligibility.decide
+    "device_eligibility": NO_EXAM_SET,   # device_eligibility: ineligibility_reason, PlanStepFilter
+    "followup_door": NO_EXAM_SET,        # followup_serve.identity.door_refusal
+    "followup_feedback": NO_EXAM_SET,    # followup_run.serving.held_bundle
+    "item_detail": NO_EXAM_SET,          # serializers.practice_item_detail: the known key-payload exception
+    # May a model see an item's question and answers?
+    "learner_protection": ALL_EXAM,      # learner_protection.withheld_items, attempt_protection, learning_context
+    "figure_prebuild_items": NO_EXAM_SET,  # figures.protection.item_passages: reservations; figures reads the spans
+    "ad_forecast": HELD_OUT,             # adaptive_difficulty.protection.protection
+    # What may leave the desktop?
+    "phone": ALL_EXAM,                   # phone_media.phone_withheld, phone_reader.destination_material
+    "phone_dose_offer": HELD_OUT,        # the phone's dose offer: adaptive difficulty's view
+    "mcp_library": ALL_EXAM,             # remote.views.library: titles stay; the set only labels each card
+    # The learner's own reading: no model, nothing leaves the desktop.
+    "library_search": NO_EXAM_SET,       # library.search_library
+    "reader_history": NO_EXAM_SET,       # the desktop Reader's history
+    "reader_render": NO_EXAM_SET,        # the desktop render view (its actions are reader_guidance's)
+})
+
+
+def surface_material(vault_or_sets: Any, repository: Any, surface: str) -> Material:
+    """The material ``surface`` withholds: its row of :data:`SURFACE_SETS`, read by that set's one reader."""
+
+    if SURFACE_SETS[surface] == HELD_OUT:
+        return held_out_material(vault_or_sets, repository)
+    return surface_exam_material(vault_or_sets, repository, surface).material
+
+
+def surface_exam_material(vault_or_sets: Any, repository: Any, surface: str) -> ExamMaterial:
+    """All exam material with its verdicts and held-out part, for a surface whose row reads all exam
+    material; any other row raises, so a surface's call and its row cannot disagree."""
+
+    if SURFACE_SETS[surface] != ALL_EXAM:
+        raise ValueError(f"the {surface!r} surface reads {SURFACE_SETS[surface]}, not all exam material")
+    return exam_material(vault_or_sets, repository)
+
+
 # --- the held-out partition --------------------------------------------------------------
 
 
@@ -1608,6 +1700,7 @@ def exam_reserved(repository: Any, item_id: str | None) -> bool:
 
 
 __all__ = [
+    "ALL_EXAM",
     "AMBIGUOUS_MARK",
     "AMBIGUOUS_SCOPE",
     "AMBIGUOUS_SELECTION",
@@ -1621,6 +1714,7 @@ __all__ = [
     "ExamVerdict",
     "HELD_OUT_EVALUATION",
     "HELD_BACK_REFUSAL",
+    "HELD_OUT",
     "HELD_OUT_ITEM_REFUSAL",
     "HELD_OUT_MATERIAL",
     "HELD_OUT_REFUSAL",
@@ -1630,9 +1724,11 @@ __all__ = [
     "ItemExamStatus",
     "MARKS_MADE_ON_KEY",
     "Material",
+    "NO_EXAM_SET",
     "PROTECTION_MARK_KEY",
     "REVIEWED_UNPLACED",
     "SCOPE_ONLY_REFUSAL",
+    "SURFACE_SETS",
     "SourceMarks",
     "UNMARKED_READING",
     "UNRESOLVED_UNIT",
@@ -1666,4 +1762,6 @@ __all__ = [
     "reference_keys",
     "source_ref_keys",
     "source_ref_protected",
+    "surface_exam_material",
+    "surface_material",
 ]

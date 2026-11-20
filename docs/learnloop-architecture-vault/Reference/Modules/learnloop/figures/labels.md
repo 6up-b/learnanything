@@ -146,7 +146,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `json_fields`, `label_like`, `label_problems`, `strip_json`
+- [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]] — imports `module`; statically calls `json_fields`, `label_like`, `label_problems`, `strip_json`
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `module`; statically calls `label_problems`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`
 - [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; statically calls `label_like`, `strip_json`, `strip_lines`
@@ -169,12 +169,15 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_figure_author_answer.py](../../../../../../tests/test_figure_author_answer.py) — direct import
+  - `test_a_label_like_tier_reason_is_retried_then_kept_out_of_the_verdict`
+  - `test_a_rich_answer_still_label_like_on_the_last_attempt_keeps_its_brief_without_that_text`
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_f1_a_source_verification_claim_is_matched_without_a_check_word_or_glyph`
   - `test_f1_remainder_a_source_claim_inside_markdown_formatting_is_matched`

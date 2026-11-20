@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReadingProgress.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReadingProgress.ts) |
-| Source lines | 1132 |
+| Source lines | 1133 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,19 +54,19 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SEEN_SETTLE_MS = 1500` — const, line 49
-- `export const SEEN_REPORT_MS = 1500` — const, line 50
-- `export const READING_MARKER = 0.7` — const, line 56
-- `export function readingPositionKey(sourceId: string): string` — function, line 119
-- `export interface SavedReadingPlace` — interface, line 125
-- `export function encodeReadingPlace(extractionId: string, spanId: string): string` — function, line 133
-- `export function decodeReadingPlace(value: string | null): SavedReadingPlace | null` — function, line 137
-- `export interface OpenedReading` — interface, line 152
-- `export function placeIsOnReading(saved: SavedReadingPlace, reading: OpenedReading | undefined): boolean` — function, line 166
-- `export interface WatchSeekHandle` — interface, line 173
-- `export interface ReadingProgressInput` — interface, line 177
-- `export interface ReadingProgress` — interface, line 208
-- `export function useReadingProgress(input: ReadingProgressInput): ReadingProgress` — function, line 296
+- `export const SEEN_SETTLE_MS = 1500` — const, line 50
+- `export const SEEN_REPORT_MS = 1500` — const, line 51
+- `export const READING_MARKER = 0.7` — const, line 57
+- `export function readingPositionKey(sourceId: string): string` — function, line 120
+- `export interface SavedReadingPlace` — interface, line 126
+- `export function encodeReadingPlace(extractionId: string, spanId: string): string` — function, line 134
+- `export function decodeReadingPlace(value: string | null): SavedReadingPlace | null` — function, line 138
+- `export interface OpenedReading` — interface, line 153
+- `export function placeIsOnReading(saved: SavedReadingPlace, reading: OpenedReading | undefined): boolean` — function, line 167
+- `export interface WatchSeekHandle` — interface, line 174
+- `export interface ReadingProgressInput` — interface, line 178
+- `export interface ReadingProgress` — interface, line 209
+- `export function useReadingProgress(input: ReadingProgressInput): ReadingProgress` — function, line 297
 
 ## Internal implementation anchors
 
@@ -74,157 +74,157 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `type MutableRefObject, type RefObject, type SetStateAction, } from "react"` — type, line 19
 - `type RefObject, type SetStateAction, } from "react"` — type, line 20
 - `type SetStateAction, } from "react"` — type, line 21
-- `type ReadingPosition, type SectionHistory, } from "./readingPosition"` — type, line 42
-- `type SectionHistory, } from "./readingPosition"` — type, line 43
-- `const SEEN_RETRY_LIMIT = 3` — const, line 52
-- `const PAGE_READ_THROUGH = 0.85` — const, line 57
-- `const USER_SCROLL_MS = 1200` — const, line 61
-- `const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"])` — const, line 62
-- `interface SeenSave` — interface, line 68
-- `function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSave` — function, line 76
-- `let save = saves.get(extractionId)` — let, line 77
-- `function sendSeenCounts( saves: Map<string, SeenSave>, extractionId: string, onSaved?: (extractionId: string)` — function, line 91
-- `const save = saves.get(extractionId)` — const, line 94
-- `const parsed = JSON.parse(value) as` — const, line 141
-- `const userScrollAtRef = useRef(0)` — const, line 321
-- `const movedPendingRef = useRef(false)` — const, line 324
-- `const historyResumeRef = useRef(false)` — const, line 328
-- `const placeRequestRef = useRef(0)` — const, line 337
-- `const authorRequestedRef = useRef<Set<string>>(new Set())` — const, line 358
-- `const authoringRef = useRef<string[]>([])` — const, line 362
-- `const handoffRef = useRef<ReadingPosition | null>(null)` — const, line 366
-- `const jumpGuardRef = useRef(0)` — const, line 369
-- `const readingRafRef = useRef<number | null>(null)` — const, line 370
-- `const settleUntilRef = useRef(0)` — const, line 375
-- `const seenSavesRef = useRef(new Map<string, SeenSave>())` — const, line 382
-- `const activeSeenRef = useRef<string | null>(null)` — const, line 384
-- `const noteProgressSaved = useCallback((extractionId: string)` — const, line 389
-- `const lastReadRef = useRef<` — const, line 392
-- `const pageModeRef = useRef(false)` — const, line 393
-- `const pageSpansRef = useRef<Array<` — const, line 394
-- `const lastPlaybackSpanRef = useRef<string | null>(null)` — const, line 396
-- `const resetProgress = useCallback(()` — const, line 406
-- `const settleOpening = useCallback(()` — const, line 438
-- `const placeAtOpen = useCallback(( sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading, jumpReading?: string | null, )` — const, line 442
-- `let placed = Boolean(handoff)` — let, line 446
-- `let translating = false` — let, line 447
-- `const translate = (place: SavedReadingPlace, kind: "saved" | "found")` — const, line 455
-- `const request = ++placeRequestRef.current` — const, line 457
-- `const openReading = reading?.extractionId ?? null` — const, line 458
-- `const here = !openReading || landed.extractionId === openReading` — const, line 465
-- `const jump: SavedReadingPlace | null = jumpSpan ?` — const, line 481
-- `const jumpHere = jump !== null && (!jump.extractionId || placeIsOnReading(jump, reading))` — const, line 482
-- `const saved = decodeReadingPlace(window.localStorage.getItem(readingPositionKey(sourceId)))` — const, line 484
-- `const hydrateProgress = useCallback((extractionId: string, progress: ReaderProgressListDto)` — const, line 510
-- `const seen: Record<string, number> =` — const, line 512
-- `const acknowledged = seenSaveFor(seenSavesRef.current, extractionId).acknowledged` — const, line 514
-- `const next =` — const, line 517
-- `const pageSpans = useMemo( ()` — const, line 533
-- `const pageMode = Boolean(pdfView && surface === "pdf" && !offline && pageSpans.length > 0)` — const, line 537
-- `const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled` — const, line 541
-- `const guideSectionBySpan = useMemo(()` — const, line 543
-- `const map = new Map<string, ReaderGuideSectionDto>()` — const, line 544
-- `const guideSectionByEnd = useMemo( ()` — const, line 550
-- `const currentGuideSection = useMemo(()` — const, line 554
-- `const positioned = guideSectionBySpan.get(readingSpan ?? activeSpan ?? "")` — const, line 555
-- `const currentSectionProgress = useMemo(()` — const, line 558
-- `const at = currentGuideSection.spanIds.indexOf(readingSpan ?? activeSpan ?? "")` — const, line 560
-- `const withinPassage = pageMode && readingOffset !== null ? readingOffset : 1` — const, line 562
-- `const currentSectionRead = useMemo(()` — const, line 568
-- `const count = Math.max(1, currentGuideSection.spanIds.length)` — const, line 571
-- `const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline)` — const, line 578
-- `const pdfSurfaceLoading = Boolean(!pdfView && pdfViewPending && surface === "pdf" && !offline)` — const, line 583
-- `const pageBySpan = useMemo(()` — const, line 584
-- `const pages = new Map<string, number>()` — const, line 585
-- `const atLastPage = useMemo(()` — const, line 592
-- `const here = pageBySpan.get(readingSpan ?? activeSpan ?? "")` — const, line 594
-- `const last = pageBySpan.get(currentGuideSection.endSpanId)` — const, line 595
-- `const checkSurface: CheckSurface = watch || watchLoading ? "watch" : pdfSurfaceActive ? "pdf" : pdfSurfaceLoading ? "loading" : "text"` — const, line 602
-- `const offeredCheckSections = useMemo(()` — const, line 615
-- `const sections = guidePlan?.sections ?? []` — const, line 616
-- `const currentIndex = sections.findIndex((section)` — const, line 617
-- `const offered = new Set<string>()` — const, line 618
-- `const decision = checkOffer(` — const, line 620
-- `const unpinned = [...offeredCheckSections].filter((id)` — const, line 642
-- `const openQuestionSections = useMemo( ()` — const, line 649
-- `const pendingQuickCheckCount = boundaryChecksAvailable ? openQuestionSections.filter((section)` — const, line 655
-- `const section = currentGuideSection` — const, line 670
-- `const offered = (offeredCheckSections.has(section.id) && section.question?.readingPhase === "after_section") || section.suggestedPassages.length > 0` — const, line 672
-- `const currentQuestionOpen = useMemo( ()` — const, line 677
-- `const pdfOfferSection = useMemo(()` — const, line 683
-- `const sections = guidePlan?.sections ?? []` — const, line 685
-- `const currentIndex = sections.findIndex((section)` — const, line 686
-- `const offered = openQuestionSections.filter((section)` — const, line 687
-- `const index = sections.findIndex((entry)` — const, line 688
-- `const readingProgress = useMemo(()` — const, line 693
-- `const at = blocks.findIndex((block)` — const, line 694
-- `const sections = guidePlan?.sections ?? []` — const, line 704
-- `const index = sections.findIndex((section)` — const, line 705
-- `const at = currentGuideSection.spanIds.indexOf(readingSpan ?? "")` — const, line 706
-- `const last = lastReadRef.current` — const, line 707
-- `const count = currentGuideSection.spanIds.length` — const, line 710
-- `const seenHere = pageMode ? at + ((readingOffset ?? 0) >= PAGE_READ_THROUGH ? 1 : 0) : at + 1` — const, line 711
-- `const next =` — const, line 713
-- `let changed = false` — let, line 714
-- `const raise = (id: string, value: number)` — const, line 715
-- `const extractionId = render.extractionId` — const, line 737
-- `const saves = seenSavesRef.current` — const, line 738
-- `const save = seenSaveFor(saves, extractionId)` — const, line 739
-- `const counts = new Map((guidePlan?.sections ?? []).map((section)` — const, line 740
-- `const spanCount = counts.get(sectionId)` — const, line 742
-- `const timer = window.setTimeout(()` — const, line 747
-- `const saves = seenSavesRef.current` — const, line 751
-- `const section = currentGuideSection` — const, line 765
-- `const extractionId = render.extractionId` — const, line 772
-- `const result = await api.readerAuthorSectionQuestion(` — const, line 775
-- `const retryQuickCheck = useCallback( (sectionId: string)` — const, line 786
-- `const extractionId = render.extractionId` — const, line 791
-- `const openQuickCheck = useCallback((sectionId: string)` — const, line 804
-- `const frame = window.requestAnimationFrame(()` — const, line 813
-- `const card = railRef.current?.querySelector(`[data-quick-check="$` — const, line 814
-- `const extractionId = render.extractionId` — const, line 824
-- `let attempts = 0` — let, line 825
-- `const timer = window.setInterval(()` — const, line 826
-- `const stalled = authoringRef.current` — const, line 829
-- `const refreshGuidePlan = useCallback((plan: ReaderGuidePlanDto)` — const, line 860
-- `const updateReadingPosition = useCallback(()` — const, line 865
-- `const container = bodyRef.current` — const, line 866
-- `const position = pagePositionAt(container, READING_MARKER)` — const, line 870
-- `const spanId = position ? spanOnPage(pageSpansRef.current, position) : null` — const, line 871
-- `const containerRect = container.getBoundingClientRect()` — const, line 878
-- `const markerY = containerRect.top + containerRect.height * READING_MARKER` — const, line 879
-- `const nodes = Array.from(container.querySelectorAll<HTMLElement>("[data-span-id]"))` — const, line 880
-- `let best: HTMLElement | null = null` — let, line 881
-- `let bestDistance = Number.POSITIVE_INFINITY` — let, line 882
-- `const rect = node.getBoundingClientRect()` — const, line 884
-- `const distance = Math.abs(Math.min(Math.max(markerY, rect.top), rect.bottom) - markerY)` — const, line 886
-- `const onReadingScroll = useCallback(()` — const, line 895
-- `const now = Date.now()` — const, line 896
-- `const frame = window.requestAnimationFrame(updateReadingPosition)` — const, line 914
-- `const revealSection = useCallback( (sectionId: string)` — const, line 922
-- `const completeSection = useCallback( (sectionId: string)` — const, line 936
-- `const revealSegment = useCallback((page: number, spanId: string, align: PassageAlign = "center")` — const, line 955
-- `const jumpToSpan = useCallback( (spanId: string, align: PassageAlign = "center")` — const, line 959
-- `const geometry = pdfView.blocks.find((block)` — const, line 974
-- `const page = pageBySpan.get(spanId)` — const, line 981
-- `const el = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 988
-- `const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches` — const, line 992
-- `const noteFoundApproximate = useCallback((approximate: boolean)` — const, line 998
-- `const notePlacement = useCallback(()` — const, line 1000
-- `const spanId = resumeSpanFromHistory(guidePlan.sections, readingHistory)` — const, line 1015
-- `const noteUserScroll = useCallback(()` — const, line 1033
-- `const onPlaybackSpan = useCallback((spanId: string | null, advancing: boolean)` — const, line 1041
-- `const last = lastPlaybackSpanRef.current` — const, line 1042
-- `const onPlaybackSeek = useCallback((spanId: string | null)` — const, line 1053
-- `const onKey = (event: KeyboardEvent)` — const, line 1062
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 1064
-- `const frame = window.requestAnimationFrame(()` — const, line 1080
-- `const geometry = pdfView.blocks.find((block)` — const, line 1082
-- `const page = (pdfView.pageSpans ?? []).find((entry)` — const, line 1088
-- `const element = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 1092
-- `const position = handoffRef.current` — const, line 1105
-- `const spanId = spanAtPosition(pdfView.blocks, position) ?? spanOnPage(pdfView.pageSpans ?? [], position)` — const, line 1108
-- `const noteRestored = useCallback((spanId: string | null)` — const, line 1117
+- `type ReadingPosition, type SectionHistory, } from "./readingPosition"` — type, line 43
+- `type SectionHistory, } from "./readingPosition"` — type, line 44
+- `const SEEN_RETRY_LIMIT = 3` — const, line 53
+- `const PAGE_READ_THROUGH = 0.85` — const, line 58
+- `const USER_SCROLL_MS = 1200` — const, line 62
+- `const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"])` — const, line 63
+- `interface SeenSave` — interface, line 69
+- `function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSave` — function, line 77
+- `let save = saves.get(extractionId)` — let, line 78
+- `function sendSeenCounts( saves: Map<string, SeenSave>, extractionId: string, onSaved?: (extractionId: string)` — function, line 92
+- `const save = saves.get(extractionId)` — const, line 95
+- `const parsed = JSON.parse(value) as` — const, line 142
+- `const userScrollAtRef = useRef(0)` — const, line 322
+- `const movedPendingRef = useRef(false)` — const, line 325
+- `const historyResumeRef = useRef(false)` — const, line 329
+- `const placeRequestRef = useRef(0)` — const, line 338
+- `const authorRequestedRef = useRef<Set<string>>(new Set())` — const, line 359
+- `const authoringRef = useRef<string[]>([])` — const, line 363
+- `const handoffRef = useRef<ReadingPosition | null>(null)` — const, line 367
+- `const jumpGuardRef = useRef(0)` — const, line 370
+- `const readingRafRef = useRef<number | null>(null)` — const, line 371
+- `const settleUntilRef = useRef(0)` — const, line 376
+- `const seenSavesRef = useRef(new Map<string, SeenSave>())` — const, line 383
+- `const activeSeenRef = useRef<string | null>(null)` — const, line 385
+- `const noteProgressSaved = useCallback((extractionId: string)` — const, line 390
+- `const lastReadRef = useRef<` — const, line 393
+- `const pageModeRef = useRef(false)` — const, line 394
+- `const pageSpansRef = useRef<Array<` — const, line 395
+- `const lastPlaybackSpanRef = useRef<string | null>(null)` — const, line 397
+- `const resetProgress = useCallback(()` — const, line 407
+- `const settleOpening = useCallback(()` — const, line 439
+- `const placeAtOpen = useCallback(( sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading, jumpReading?: string | null, )` — const, line 443
+- `let placed = Boolean(handoff)` — let, line 447
+- `let translating = false` — let, line 448
+- `const translate = (place: SavedReadingPlace, kind: "saved" | "found")` — const, line 456
+- `const request = ++placeRequestRef.current` — const, line 458
+- `const openReading = reading?.extractionId ?? null` — const, line 459
+- `const here = !openReading || landed.extractionId === openReading` — const, line 466
+- `const jump: SavedReadingPlace | null = jumpSpan ?` — const, line 482
+- `const jumpHere = jump !== null && (!jump.extractionId || placeIsOnReading(jump, reading))` — const, line 483
+- `const saved = decodeReadingPlace(window.localStorage.getItem(readingPositionKey(sourceId)))` — const, line 485
+- `const hydrateProgress = useCallback((extractionId: string, progress: ReaderProgressListDto)` — const, line 511
+- `const seen: Record<string, number> =` — const, line 513
+- `const acknowledged = seenSaveFor(seenSavesRef.current, extractionId).acknowledged` — const, line 515
+- `const next =` — const, line 518
+- `const pageSpans = useMemo( ()` — const, line 534
+- `const pageMode = Boolean(pdfView && surface === "pdf" && !offline && pageSpans.length > 0)` — const, line 538
+- `const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled` — const, line 542
+- `const guideSectionBySpan = useMemo(()` — const, line 544
+- `const map = new Map<string, ReaderGuideSectionDto>()` — const, line 545
+- `const guideSectionByEnd = useMemo( ()` — const, line 551
+- `const currentGuideSection = useMemo(()` — const, line 555
+- `const positioned = guideSectionBySpan.get(readingSpan ?? activeSpan ?? "")` — const, line 556
+- `const currentSectionProgress = useMemo(()` — const, line 559
+- `const at = currentGuideSection.spanIds.indexOf(readingSpan ?? activeSpan ?? "")` — const, line 561
+- `const withinPassage = pageMode && readingOffset !== null ? readingOffset : 1` — const, line 563
+- `const currentSectionRead = useMemo(()` — const, line 569
+- `const count = Math.max(1, currentGuideSection.spanIds.length)` — const, line 572
+- `const pdfSurfaceActive = Boolean(pdfView && surface === "pdf" && !offline)` — const, line 579
+- `const pdfSurfaceLoading = Boolean(!pdfView && pdfViewPending && surface === "pdf" && !offline)` — const, line 584
+- `const pageBySpan = useMemo(()` — const, line 585
+- `const pages = new Map<string, number>()` — const, line 586
+- `const atLastPage = useMemo(()` — const, line 593
+- `const here = pageBySpan.get(readingSpan ?? activeSpan ?? "")` — const, line 595
+- `const last = pageBySpan.get(currentGuideSection.endSpanId)` — const, line 596
+- `const checkSurface: CheckSurface = watch || watchLoading ? "watch" : pdfSurfaceActive ? "pdf" : pdfSurfaceLoading ? "loading" : "text"` — const, line 603
+- `const offeredCheckSections = useMemo(()` — const, line 616
+- `const sections = guidePlan?.sections ?? []` — const, line 617
+- `const currentIndex = sections.findIndex((section)` — const, line 618
+- `const offered = new Set<string>()` — const, line 619
+- `const decision = checkOffer(` — const, line 621
+- `const unpinned = [...offeredCheckSections].filter((id)` — const, line 643
+- `const openQuestionSections = useMemo( ()` — const, line 650
+- `const pendingQuickCheckCount = boundaryChecksAvailable ? openQuestionSections.filter((section)` — const, line 656
+- `const section = currentGuideSection` — const, line 671
+- `const offered = (offeredCheckSections.has(section.id) && section.question?.readingPhase === "after_section") || section.suggestedPassages.length > 0` — const, line 673
+- `const currentQuestionOpen = useMemo( ()` — const, line 678
+- `const pdfOfferSection = useMemo(()` — const, line 684
+- `const sections = guidePlan?.sections ?? []` — const, line 686
+- `const currentIndex = sections.findIndex((section)` — const, line 687
+- `const offered = openQuestionSections.filter((section)` — const, line 688
+- `const index = sections.findIndex((entry)` — const, line 689
+- `const readingProgress = useMemo(()` — const, line 694
+- `const at = blocks.findIndex((block)` — const, line 695
+- `const sections = guidePlan?.sections ?? []` — const, line 705
+- `const index = sections.findIndex((section)` — const, line 706
+- `const at = currentGuideSection.spanIds.indexOf(readingSpan ?? "")` — const, line 707
+- `const last = lastReadRef.current` — const, line 708
+- `const count = currentGuideSection.spanIds.length` — const, line 711
+- `const seenHere = pageMode ? at + ((readingOffset ?? 0) >= PAGE_READ_THROUGH ? 1 : 0) : at + 1` — const, line 712
+- `const next =` — const, line 714
+- `let changed = false` — let, line 715
+- `const raise = (id: string, value: number)` — const, line 716
+- `const extractionId = render.extractionId` — const, line 738
+- `const saves = seenSavesRef.current` — const, line 739
+- `const save = seenSaveFor(saves, extractionId)` — const, line 740
+- `const counts = new Map((guidePlan?.sections ?? []).map((section)` — const, line 741
+- `const spanCount = counts.get(sectionId)` — const, line 743
+- `const timer = window.setTimeout(()` — const, line 748
+- `const saves = seenSavesRef.current` — const, line 752
+- `const section = currentGuideSection` — const, line 766
+- `const extractionId = render.extractionId` — const, line 773
+- `const result = await api.readerAuthorSectionQuestion(` — const, line 776
+- `const retryQuickCheck = useCallback( (sectionId: string)` — const, line 787
+- `const extractionId = render.extractionId` — const, line 792
+- `const openQuickCheck = useCallback((sectionId: string)` — const, line 805
+- `const frame = window.requestAnimationFrame(()` — const, line 814
+- `const card = railRef.current?.querySelector(`[data-quick-check="$` — const, line 815
+- `const extractionId = render.extractionId` — const, line 825
+- `let attempts = 0` — let, line 826
+- `const timer = window.setInterval(()` — const, line 827
+- `const stalled = authoringRef.current` — const, line 830
+- `const refreshGuidePlan = useCallback((plan: ReaderGuidePlanDto)` — const, line 861
+- `const updateReadingPosition = useCallback(()` — const, line 866
+- `const container = bodyRef.current` — const, line 867
+- `const position = pagePositionAt(container, READING_MARKER)` — const, line 871
+- `const spanId = position ? spanOnPage(pageSpansRef.current, position) : null` — const, line 872
+- `const containerRect = container.getBoundingClientRect()` — const, line 879
+- `const markerY = containerRect.top + containerRect.height * READING_MARKER` — const, line 880
+- `const nodes = Array.from(container.querySelectorAll<HTMLElement>("[data-span-id]"))` — const, line 881
+- `let best: HTMLElement | null = null` — let, line 882
+- `let bestDistance = Number.POSITIVE_INFINITY` — let, line 883
+- `const rect = node.getBoundingClientRect()` — const, line 885
+- `const distance = Math.abs(Math.min(Math.max(markerY, rect.top), rect.bottom) - markerY)` — const, line 887
+- `const onReadingScroll = useCallback(()` — const, line 896
+- `const now = Date.now()` — const, line 897
+- `const frame = window.requestAnimationFrame(updateReadingPosition)` — const, line 915
+- `const revealSection = useCallback( (sectionId: string)` — const, line 923
+- `const completeSection = useCallback( (sectionId: string)` — const, line 937
+- `const revealSegment = useCallback((page: number, spanId: string, align: PassageAlign = "center")` — const, line 956
+- `const jumpToSpan = useCallback( (spanId: string, align: PassageAlign = "center")` — const, line 960
+- `const geometry = pdfView.blocks.find((block)` — const, line 975
+- `const page = pageBySpan.get(spanId)` — const, line 982
+- `const el = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 989
+- `const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches` — const, line 993
+- `const noteFoundApproximate = useCallback((approximate: boolean)` — const, line 999
+- `const notePlacement = useCallback(()` — const, line 1001
+- `const spanId = resumeSpanFromHistory(guidePlan.sections, readingHistory)` — const, line 1016
+- `const noteUserScroll = useCallback(()` — const, line 1034
+- `const onPlaybackSpan = useCallback((spanId: string | null, advancing: boolean)` — const, line 1042
+- `const last = lastPlaybackSpanRef.current` — const, line 1043
+- `const onPlaybackSeek = useCallback((spanId: string | null)` — const, line 1054
+- `const onKey = (event: KeyboardEvent)` — const, line 1063
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 1065
+- `const frame = window.requestAnimationFrame(()` — const, line 1081
+- `const geometry = pdfView.blocks.find((block)` — const, line 1083
+- `const page = (pdfView.pageSpans ?? []).find((entry)` — const, line 1089
+- `const element = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 1093
+- `const position = handoffRef.current` — const, line 1106
+- `const spanId = spanAtPosition(pdfView.blocks, position) ?? spanOnPage(pdfView.pageSpans ?? [], position)` — const, line 1109
+- `const noteRestored = useCallback((spanId: string | null)` — const, line 1118
 
 ## Who imports or calls it
 
@@ -243,6 +243,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderGuidePlanDto`, `ReaderGuideSectionDto`, `ReaderPdfViewDto`, `ReaderProgressListDto`, `ReaderRenderBlockDto`, `ReaderRenderViewDto`, `ReaderWatchPlanDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export; imports `PassageAlign`, `PdfReaderPaneHandle`
+- [[Reference/Desktop/TypeScript/components/scrollWithin|src/components/scrollWithin.ts]] — import-or-re-export; imports `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/screens/reader/checkOffer|src/screens/reader/checkOffer.ts]] — import-or-re-export; imports `CheckSurface`, `checkOffer`
 - [[Reference/Desktop/TypeScript/screens/reader/guidePlan|src/screens/reader/guidePlan.ts]] — import-or-re-export; imports `useGuideDiagnosisRefresh`
 - [[Reference/Desktop/TypeScript/screens/reader/readingPosition|src/screens/reader/readingPosition.ts]] — import-or-re-export; imports `ReadingPosition`, `SectionHistory`, `pagePositionAt`, `resumeSpanFromHistory`, `spanAtPosition`, `spanOnPage`

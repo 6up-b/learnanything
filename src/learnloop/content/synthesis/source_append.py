@@ -132,6 +132,11 @@ class _AppendBudget:
     def pass_output_limit(self) -> int | None:
         return None if self.unlimited else self.budgets.append_output_tokens
 
+    def pass_output_ceiling(self) -> int | None:
+        """An append's answer is held to its working size: :meth:`check_shard_output`."""
+
+        return self.pass_output_limit()
+
     def charge_pass(self, *, estimated_input: int, reported_input: int, output: int) -> None:
         self.calls += 1
         self.input_tokens_estimate += max(estimated_input, reported_input)

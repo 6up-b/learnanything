@@ -11,8 +11,9 @@ Retry reused it and failed at the same point.
 
 The rule now: the configured amount is one window's. Each window's request is
 held to it and a window is charged for what the model wrote; a unit is allowed
-that amount per window; a reused window is not charged again. Every model call
-here is a house fake.
+that amount per window; a reused window is not charged again. Since UX-13 a
+window is kept up to its ceiling (``inventory_output_ceiling_tokens``) and one
+over it is refused and not kept. Every model call here is a house fake.
 """
 
 from __future__ import annotations
@@ -131,26 +132,45 @@ def test_a_unit_long_enough_for_several_windows_is_allowed_one_windows_amount_fo
 
 
 @pytest.mark.parametrize("windows", [1, 3])
-def test_after_a_window_writes_past_its_limit_retry_goes_on_from_where_it_stopped(tmp_path, windows):
-    # A window that writes past its limit still fails its unit: the cap on a
-    # runaway reply stays. It was paid for and is saved, so Retry reuses it
-    # without charging it again, asks only for the windows not yet answered,
-    # and finishes, instead of failing at the same point every time.
+def test_after_a_window_writes_past_its_ceiling_retry_goes_on_from_where_it_stopped(tmp_path, windows):
+    # A window that writes past its ceiling (here the budget itself: no
+    # separate ceiling is given) still fails its unit: the cap on a runaway
+    # reply stays. Refused, it is not kept, so Retry asks for it again; every
+    # window answered before it is reused without being charged again, so
+    # Retry finishes instead of failing at the same point every time.
     blocks = [_block(f"s{i}", ("word " * 600).strip(), section=(f"section {i}",)) for i in range(1, windows + 1)]
     repo, _ir_unused = _one_unit(tmp_path, blocks)
-    replies = iter([1300] + [600] * (windows - 1) + [600] * windows)
+    replies = iter([600] * (windows - 1) + [1300] + [600])
     client = SizedInventoryClient(lambda limit: next(replies))
 
     with pytest.raises(InventoryValidationError, match="configured token budget"):
         _run(repo, client, input_budget_tokens=1000)
-    assert len(client.limits) == 1
+    assert len(client.limits) == windows
 
     result = _run(repo, client, input_budget_tokens=1000)
 
     assert result.cache_hit is False
-    assert result.usage["reused_windows"] == 1
-    assert len(client.limits) == windows  # the first window was not asked again
+    assert result.usage["reused_windows"] == windows - 1
+    assert len(client.limits) == windows + 1  # only the refused window was asked again
+    assert client.windows[-1] == windows - 1
     assert len(result.inventory.claims) == ITEMS * windows
+
+
+def test_a_window_a_little_over_its_budget_is_kept_under_a_ceiling_above_it(tmp_path):
+    # The walks' case on the live route: told 1000 here, the model wrote a
+    # little more. Under a ceiling above the budget the answer is kept as it
+    # came, and the request still asks for the budget.
+    repo, _ir_unused = _one_unit(tmp_path, [_block("s1", "A symmetric matrix is orthogonally diagonalizable.")])
+    client = SizedInventoryClient(lambda limit: limit + 60)
+
+    result = run_unit_inventory(
+        repo, "ext1", "u1", role="reference", client=client, clock=_CLOCK,
+        output_budget_tokens=BUDGET, output_ceiling_tokens=2 * BUDGET,
+    )
+
+    assert client.limits == [BUDGET]
+    assert result.usage["calls"] == 1
+    assert len(result.inventory.claims) == ITEMS
 
 
 def test_a_build_that_stopped_does_not_show_the_internal_reason_on_the_library_card(tmp_path):

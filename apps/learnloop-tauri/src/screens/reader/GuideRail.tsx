@@ -14,7 +14,7 @@ import { DispositionPicker, PrimaryButton, SecondaryButton } from "../../compone
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage } from "../../errors";
 import type { PassageAlign } from "../../components/PdfReaderPane";
-import { clip } from "./readerShared";
+import { clip, sectionWords } from "./readerShared";
 import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
 export const QUESTION_CONTROLS: Array<{ value: string; label: string }> = [
@@ -163,7 +163,7 @@ export function GuideRail({
         <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Pill color="slate">section</Pill>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{currentGuideSection.label}</span>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{sectionWords(currentGuideSection.label)}</span>
           </div>
           <div
             role="progressbar"
@@ -263,7 +263,7 @@ export function GuideRail({
                   key={section.id}
                   type="button"
                   onClick={() => jumpToSpan(section.startSpanId, "start")}
-                  title={section.question ? `${section.label} · quick check available` : section.label}
+                  title={section.question ? `${sectionWords(section.label)} · quick check available` : sectionWords(section.label)}
                   style={{
                     display: "flex", alignItems: "baseline", gap: 8, textAlign: "left",
                     border: 0, borderLeft: `3px solid ${state === "current" ? COLOR.amber : "transparent"}`,
@@ -275,7 +275,7 @@ export function GuideRail({
                     {glyph}
                   </span>
                   <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: state === "current" ? COLOR.text : COLOR.textDim }}>
-                    {section.label}
+                    {sectionWords(section.label)}
                   </span>
                   {/* Said in words, and only while the check is still to do
                       (usability round 2: an unexplained "?" sat after ✓). */}
@@ -310,7 +310,7 @@ export function GuideRail({
                       <Faint style={{ fontSize: 10, color: COLOR.amber }}>reworded since you read it</Faint>
                     ) : null}
                   </div>
-                  <SourceVoice locator={currentGuideSection.label}>“{clip(passage.quote, 150)}”</SourceVoice>
+                  <SourceVoice locator={sectionWords(currentGuideSection.label)}>“{clip(passage.quote, 150)}”</SourceVoice>
                   <MeaningLabel style={{ lineHeight: 1.45 }}>{passage.reason}</MeaningLabel>
                 </Card>
               ))}
@@ -405,8 +405,8 @@ export function SectionBoundaryOffer({
       </div>
       <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
         {allowQuestion && section.question
-          ? `Before moving on, would you like to check what landed from “${section.label}”?`
-          : `A few passages from “${section.label}” may be worth another look.`}
+          ? `Before moving on, would you like to check what landed from “${sectionWords(section.label)}”?`
+          : `A few passages from “${sectionWords(section.label)}” may be worth another look.`}
       </span>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {allowQuestion && section.question ? <PrimaryButton onClick={onOpen}>quick check →</PrimaryButton> : null}

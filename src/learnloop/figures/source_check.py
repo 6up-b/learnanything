@@ -838,8 +838,8 @@ def stored_problems(found: Mapping[str, Any]) -> list[str]:
 
 
 def grammar_row(row: Mapping[str, Any]) -> bool:
-    """Only grammar-tier figures are checked (§11.1, N-a): sketch, ``js_animation``
-    and ``manim`` keep *not checked against the book*."""
+    """Only grammar-tier figures are checked (§11.1, N-a): sketch and ``manim``
+    keep *not checked against the book*."""
 
     return (row.get("tier") or "grammar") == "grammar" and row.get("spec_version") == S.SPEC_VERSION
 

@@ -209,6 +209,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_reword_paths.py](../../../../../../../tests/test_facet_reword_paths.py) — direct import
   - `test_the_append_schema_lets_a_facet_reword_cite_its_spans`
   - `test_the_append_schema_lets_a_provider_reword_a_facet`
+- [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
 - [tests/test_graph_nomination_ingest.py](../../../../../../../tests/test_graph_nomination_ingest.py) — direct import
   - `test_backfill_after_apply_reuses_the_vectors_paid_at_ingest`
   - `test_guarded_registry_merge_is_ledgered_but_not_applied`

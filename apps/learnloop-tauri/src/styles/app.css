@@ -96,7 +96,11 @@
 .modal-underlay-obscured *::-webkit-scrollbar {
   display: none !important;
 }
-html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--shell-bg); }
+/* `clip`, not only `hidden`: a box with hidden overflow is still scrolled by
+   a child's scrollIntoView or focus(), which carried the top bar and the place
+   tabs out of the window with no way back. A clipped box cannot scroll at all.
+   (`hidden` first: a browser without `clip` keeps it.) */
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; overflow: clip; background: var(--shell-bg); }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 
@@ -110,8 +114,13 @@ button { color: inherit; }
 .terminal-frame {
   width: 100%;
   height: 100%;
+  /* A clipped flex item keeps its content's minimum size; the frame must
+     still fit the window whatever it holds. */
+  min-width: 0;
+  min-height: 0;
   background: var(--bg);
   overflow: hidden;
+  overflow: clip;
   display: flex;
   flex-direction: column;
 }
@@ -1529,3 +1538,14 @@ button { color: inherit; }
 .keys-help-table td:first-child { white-space: nowrap; width: 1%; }
 .keys-help kbd { border: 1px solid var(--border-strong); border-radius: 3px; padding: 0 5px; font: inherit; font-size: 11px; color: var(--text); background: var(--input); }
 .keys-help-was { color: var(--faint); font-size: 11px; }
+
+/* ── the shared waiting mark (components/Waiting.tsx) ──
+   A quarter turn at a time, the ◐ ◓ ◑ ◒ the ingest card already steps through.
+   Still under reduced motion: the component also marks it still from
+   matchMedia, and this rule covers a preference changed while it shows. */
+.ll-wait-mark { display: inline-block; }
+.ll-wait-mark[data-motion="moving"] { animation: ll-wait-turn 1.6s steps(4, end) infinite; }
+@keyframes ll-wait-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ll-wait-mark[data-motion="moving"] { animation: none; }
+}

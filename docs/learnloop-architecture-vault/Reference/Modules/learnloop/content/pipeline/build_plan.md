@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/build_plan.py](../../../../../../../src/learnloop/content/pipeline/build_plan.py) |
-| Source lines | 375 |
+| Source lines | 380 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -76,11 +76,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_selected_units(units: list[OutlineUnit], requested: list[str]) -> list[OutlineUnit]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 242)
 - `_source_warnings(outline, units: list[OutlineUnit]) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 249)
 - `_stage_estimates(*, unit_tokens: list[int], cached_token_pool: int, budgets, routing: str, provider_context: int | None) -> list[StageEstimate]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 259)
-- `_shard(unit_tokens: list[int], ceiling: int) -> list[list[int]]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 318)
-- `_exceeds(unit_tokens: list[int], ceiling: int, provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 334)
-- `_over_context(inputs: list[int], provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 343)
-- `_provider_warnings(stages: list[StageEstimate], provider: str, provider_context: int | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 349)
-- `_dedupe(values: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 368)
+- `_shard(unit_tokens: list[int], ceiling: int) -> list[list[int]]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 323)
+- `_exceeds(unit_tokens: list[int], ceiling: int, provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 339)
+- `_over_context(inputs: list[int], provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 348)
+- `_provider_warnings(stages: list[StageEstimate], provider: str, provider_context: int | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 354)
+- `_dedupe(values: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 373)
 
 ## Who imports or calls it
 
@@ -118,6 +118,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
+  - `test_the_build_estimate_charts_what_a_build_may_now_write`
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_build_plan_charts_per_run_budget_overrides`
   - `test_build_plan_routes_create_vs_update`

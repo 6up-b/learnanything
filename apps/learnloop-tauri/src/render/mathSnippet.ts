@@ -100,3 +100,57 @@ export function plainMathLine(markdown: string): string {
   out += opener >= 0 ? plainMarkdown(rest.slice(0, opener)) + plainTex(rest.slice(opener).replace(/^(\\\(|\\\[|\$\$?)/, "")) : plainMarkdown(rest);
   return out.replace(/\s+/g, " ").trim();
 }
+
+// A rendered formula is several copies of itself in the page: KaTeX's MathML (with the TeX it was drawn from in an
+// <annotation encoding="application/x-tex">) beside its HTML. A selection's text holds every copy, so a quote taken
+// from it reads each formula two or three times ("matrix QQQ").
+const FORMULA = ".katex, .katex-error";
+const TEX_SOURCE = 'annotation[encoding="application/x-tex"]';
+const BLOCK = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, pre, td, th, tr";
+
+function formulaTex(formula: Element): string {
+  if (formula.matches(".katex-error")) return (formula.textContent ?? "").trim();
+  // Without its annotation, the drawn copy is the one left to read.
+  const source = formula.querySelector(TEX_SOURCE) ?? formula.querySelector(".katex-html") ?? formula;
+  return (source.textContent ?? "").trim();
+}
+
+/**
+ * The quote a selection inside rendered text makes: the text as selected, and each formula it touches once, as `$…$`
+ * (`$$…$$` when displayed), from the formula's own TeX source. A formula the selection starts or ends inside is taken
+ * whole. With no formula in it, `asSelected` (the selection's own text, its whitespace as the page gives it) is
+ * returned unchanged; with one, the result's whitespace is squeezed to single spaces.
+ */
+export function selectionQuote(range: Range, asSelected: string): string {
+  const common = range.commonAncestorContainer;
+  const root = common.nodeType === Node.TEXT_NODE ? common.parentNode : common;
+  if (!root) return asSelected;
+  const formulaOf = (node: Node) => node.parentElement?.closest(FORMULA) ?? null;
+  const walker = (root.ownerDocument ?? document).createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (range.intersectsNode(node)) texts.push(node as Text);
+  }
+  if (common.nodeType === Node.TEXT_NODE && texts.length === 0) texts.push(common as Text);
+  if (!texts.some((node) => formulaOf(node))) return asSelected;
+  let out = "";
+  let block: Element | null = null;
+  const taken = new Set<Element>();
+  for (const node of texts) {
+    const here = node.parentElement?.closest(BLOCK) ?? null;
+    if (block && here !== block) out += "\n";
+    block = here;
+    const formula = formulaOf(node);
+    if (formula) {
+      if (taken.has(formula)) continue;
+      taken.add(formula);
+      const tex = formulaTex(formula);
+      out += formula.closest(".katex-display") ? ` $$${tex}$$ ` : `$${tex}$`;
+      continue;
+    }
+    const start = node === range.startContainer ? range.startOffset : 0;
+    const end = node === range.endContainer ? range.endOffset : node.data.length;
+    out += node.data.slice(start, end);
+  }
+  return out.replace(/\s+/g, " ").trim();
+}

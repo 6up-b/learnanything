@@ -39,7 +39,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
 import { logCorrespondentAct } from "./correspondenceEvents";
 import { quietCorrespondents } from "./correspondentsRead";
-import { clip } from "./readerShared";
+import { clip, sectionWords } from "./readerShared";
 import { MeaningLabel, SourceVoice } from "./voices";
 
 export const FIND_COPY = {
@@ -106,7 +106,7 @@ interface Peek {
 
 /** The section's own number ("5.A", "5.1"), else its title clipped (the book's words). */
 export function sectionShort(title: string): string {
-  const trimmed = title.trim().replace(/^(section|chapter|§)\s*/i, "");
+  const trimmed = sectionWords(title).trim().replace(/^(section|chapter|§)\s*/i, "");
   const match = /^([0-9]+(?:[.\-–][0-9A-Za-z]+)*|[A-Z](?:\.[0-9]+)+)(?=[\s.:)]|$)/.exec(trimmed);
   return match ? match[1] : clip(trimmed, 22);
 }
@@ -402,7 +402,7 @@ export function FindSection({
                 if (gone) {
                   return (
                     <div key={key} role="listitem" data-find-gone={key} style={{ paddingLeft: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "baseline" }}>
-                      <MeaningLabel>{clip(hit.title, 60)} · {FIND_COPY.notAboutDone}</MeaningLabel>
+                      <MeaningLabel>{clip(sectionWords(hit.title), 60)} · {FIND_COPY.notAboutDone}</MeaningLabel>
                       <button type="button" onClick={() => void undo(key)} disabled={busyKey === key} style={LINK}>{FIND_COPY.undo}</button>
                       <button type="button" onClick={() => setWhy((open) => !open)} aria-expanded={why} style={LINK}>{FIND_COPY.whereThisGoes}</button>
                       {why ? <MeaningLabel style={{ flexBasis: "100%" }}>{FIND_COPY.whereThisGoesText}</MeaningLabel> : null}
@@ -423,7 +423,7 @@ export function FindSection({
                       title={`${source.sourceTitle} · ${hit.title}`}
                       style={{ border: 0, background: "transparent", padding: 0, textAlign: "left", cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                     >
-                      § {hit.title}
+                      § {sectionWords(hit.title)}
                     </button>
                     <MeaningLabel>
                       {hit.label ?? FIND_COPY.unchecked}{hit.read ? ` · ${FIND_COPY.read}` : ""}
@@ -451,7 +451,7 @@ export function FindSection({
         <div data-find-peek={peek.key} style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={HEAD}>{FIND_COPY.peekHead}</span>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>§ {peek.hit.sourceTitle} · {clip(peek.hit.title, 50)}</span>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>§ {peek.hit.sourceTitle} · {clip(sectionWords(peek.hit.title), 50)}</span>
             {onSideBySide ? (
               <button type="button" onClick={() => sideBySide(peek.hit)} style={{ ...LINK, marginLeft: "auto" }}>{FIND_COPY.readSideBySide}</button>
             ) : null}
@@ -468,7 +468,7 @@ export function FindSection({
           )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" onClick={() => goThere(peek.hit)} style={LINK}>{FIND_COPY.goThere} ↵</button>
-            {onCompare ? <button type="button" onClick={() => onCompare(peek.hit)} style={LINK}>{FIND_COPY.compare} with {clip(section.label, 30)} (c)</button> : null}
+            {onCompare ? <button type="button" onClick={() => onCompare(peek.hit)} style={LINK}>{FIND_COPY.compare} with {clip(sectionWords(section.label), 30)} (c)</button> : null}
             <button type="button" onClick={closePeek} style={LINK}>{FIND_COPY.closePeek}</button>
           </div>
         </div>

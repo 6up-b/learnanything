@@ -293,7 +293,7 @@ def read_protection(vault: Any, repository: Repository, *,
         raise CoverageError("withheld", "LearnLoop couldn't check this library's exam material: "
                                         + "; ".join(problems) + ". Fix the file (learnloop doctor) and try again.")
     try:
-        material = EM.exam_material(vault, repository)
+        material = EM.surface_exam_material(vault, repository, "section_coverage")
         exclusions = teaching_exclusions(vault, repository, readable_roles=readable_roles)
         held_back = {extraction_id for marks in EM.source_marks(vault, repository).values()
                      for extraction_id in marks.unmarked}

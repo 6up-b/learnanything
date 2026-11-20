@@ -17,6 +17,7 @@ export const HELP_COPY = {
   why: "why?",
   chooseTake: "↑↓ / 1–5 choose · ↵ take · esc close",
   writing: "writing a hint for your work…",
+  noFittingHint: "Couldn't write a hint at this level that fits your work. Your steps are saved: press help to try again, or choose another level.",
   bridging: "finding the matching step in the book…",
   smallerStep: "a smaller step toward this goal ▸",
   smallerStepKey: "ctrl+shift+h",

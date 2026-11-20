@@ -44,6 +44,8 @@ import type {
 } from "../api/dto";
 import { getCommandError } from "../errors";
 import { COLOR, FONT_MONO, Faint } from "../components/term";
+import { Waiting } from "../components/Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { DIAGNOSIS_POLL_MS } from "../components/DiagnosisCard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { FigureInline } from "./reader/figures/FigureInline";
@@ -91,7 +93,8 @@ export function LessonScreen({
   onError,
 }: {
   entry: LessonEntry;
-  onClose: () => void;
+  /** `kept`: the lesson is still open (Close never stops one), so the host can say where it is now. */
+  onClose: (kept: boolean) => void;
   /** "Check what I already know first" over the lesson's topics (the existing quick check). */
   onQuickCheck?: (learningObjectIds: string[]) => void;
   /** TE2 landing ruling R2 (spec_teacher_v1 rev 5 §11.5): a typed goal's leftover offers "Look in my library"
@@ -104,8 +107,16 @@ export function LessonScreen({
 }) {
   const [view, setView] = useState<LessonViewDto | null>(null);
   const [busy, setBusy] = useState(false);
+  // Which wait `busy` is, so the waiting line says the true one (the goal lookup is not the teacher writing).
+  const [busyFor, setBusyFor] = useState<"turn" | "goal">("turn");
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [reply, setReply] = useState("");
+  // What the learner just sent (a reply, a prediction), shown in the thread until the lesson shows it: the box is
+  // cleared at Send and a turn takes up to a minute or more, and without this the words vanished meanwhile.
+  const [sent, setSent] = useState<string | null>(null);
+  // How the last step ended when it returned nothing: "error" lost the step (its words go back in the box),
+  // "unavailable" kept it for Try again.
+  const lastFailure = useRef<"error" | "unavailable" | null>(null);
   const [answer, setAnswer] = useState("");
   const [thinking, setThinking] = useState("");
   const [tap, setTap] = useState<number | null>(null);
@@ -125,8 +136,10 @@ export function LessonScreen({
 
   const run = useCallback(async (input: LessonTurnInput) => {
     setBusy(true);
+    setBusyFor("turn");
     setUnavailable(null);
     setRetry(null);
+    lastFailure.current = null;
     // TE2-log: the intervals so far reach the sidecar before the step (a close's receipt counts them).
     activity.current?.flush();
     try {
@@ -148,6 +161,7 @@ export function LessonScreen({
         return null;
       }
       if (code === "plan_unavailable" || code === "teacher_unavailable" || code === "provider_unavailable") {
+        lastFailure.current = "unavailable";
         setUnavailable(message);
         const details = (err?.details ?? {}) as Record<string, unknown>;
         const saved = details.lesson_id ?? details.lessonId;
@@ -164,6 +178,7 @@ export function LessonScreen({
           setRetry(input);
         }
       } else {
+        lastFailure.current = "error";
         onError(message);
       }
       return null;
@@ -171,6 +186,15 @@ export function LessonScreen({
       setBusy(false);
     }
   }, [onError, onOpenFailed]);
+
+  /** Send what the learner wrote, keeping it on screen while the teacher writes. A step that failed outright puts it
+   *  back in its box (unless something new was typed there); one kept for Try again stays shown. */
+  const sendShown = useCallback(async (input: LessonTurnInput, text: string, restore: (text: string) => void) => {
+    setSent(text);
+    const next = await run(input);
+    if (next || lastFailure.current === "error") setSent(null);
+    if (!next && lastFailure.current === "error") restore(text);
+  }, [run]);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,6 +268,7 @@ export function LessonScreen({
     const text = goalText.trim();
     if (!text) return;
     setBusy(true);
+    setBusyFor("goal");
     try {
       const found = await api.lessonGoal({ text });
       setGoal(found);
@@ -279,8 +304,8 @@ export function LessonScreen({
     if (!lessonId || !reply.trim()) return;
     const text = reply.trim();
     setReply("");
-    await run({ action: "reply", lessonId, text });
-  }, [lessonId, reply, run]);
+    await sendShown({ action: "reply", lessonId, text }, text, (lost) => setReply((box) => (box.trim() ? box : lost)));
+  }, [lessonId, reply, sendShown]);
 
   const submitCheck = useCallback(async () => {
     if (!lessonId || !openCheck || !answer.trim()) return;
@@ -292,8 +317,9 @@ export function LessonScreen({
     if (!lessonId || !predictionAnswer.trim()) return;
     const value = predictionAnswer.trim();
     setPredictionAnswer("");
-    await run({ action: "answer_prediction", lessonId, answer: value });
-  }, [lessonId, predictionAnswer, run]);
+    await sendShown({ action: "answer_prediction", lessonId, answer: value }, value,
+                    (lost) => setPredictionAnswer((box) => (box.trim() ? box : lost)));
+  }, [lessonId, predictionAnswer, sendShown]);
 
   const stop = useCallback(async () => {
     if (!lessonId) return;
@@ -308,6 +334,10 @@ export function LessonScreen({
   }, [view, run]);
 
   const feed = useMemo(() => view?.feed ?? [], [view]);
+  // The lesson (a turn's reply, or the saved lesson read after an outage) shows the sent words itself now.
+  useEffect(() => {
+    if (sent !== null && feed.some((item) => item.kind === "learner" && item.text === sent)) setSent(null);
+  }, [feed, sent]);
   const title = entry.kind === "open" ? entry.title : undefined;
 
   return (
@@ -327,7 +357,7 @@ export function LessonScreen({
         {view && !view.closed ? (
           <button type="button" onClick={() => void stop()} disabled={busy}>Stop the lesson</button>
         ) : null}
-        <button type="button" onClick={onClose}>Close</button>
+        <button type="button" onClick={() => onClose(Boolean(view && !view.closed))}>Close</button>
       </div>
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <article style={{ flex: 1, overflowY: "auto", padding: "18px 32px", maxWidth: 820, lineHeight: 1.6 }}>
@@ -397,6 +427,13 @@ export function LessonScreen({
             <FeedEntry key={index} item={item} openCheckRef={openCheck?.checkRef ?? null} checkOpen={checkOpen}
                        onOpenCheck={() => setCheckOpen(true)} />
           ))}
+          {sent !== null ? (
+            <div data-testid="lesson-learner-sent" style={{ margin: "10px 0 10px 40px", padding: "8px 12px", border: `1px solid ${COLOR.border}`,
+                                                       fontFamily: FONT_MONO, fontSize: 12 }}>
+              {sent}
+              <Faint style={{ display: "block", marginTop: 2 }}>sent</Faint>
+            </div>
+          ) : null}
           {view && view.closed && view.closeReason === "protection_changed" && view.learningObjectIds?.length ? (
             <div style={{ marginTop: 10 }}>
               <button type="button" data-testid="lesson-start-fresh" disabled={busy} onClick={() => void startFresh()}>
@@ -438,7 +475,12 @@ export function LessonScreen({
               </button>
             </section>
           ) : null}
-          {busy ? <Faint>The teacher is writing…</Faint> : null}
+          {busy ? (
+            // A lesson turn took 11 to 83 s in the walks; finding a typed goal in the books is a lookup, not the teacher.
+            busyFor === "goal"
+              ? <Waiting testId="lesson-wait" line={WAITING_COPY.lookingInBooks} />
+              : <Waiting testId="lesson-wait" line={WAITING_COPY.teacherWriting} later={WAITING_COPY.teacherWritingLater} />
+          ) : null}
           {unavailable ? (
             <div role="status" data-testid="lesson-unavailable" style={{ color: COLOR.textDim }}>
               {unavailable}

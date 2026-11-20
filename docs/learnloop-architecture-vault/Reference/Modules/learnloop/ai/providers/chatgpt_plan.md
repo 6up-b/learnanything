@@ -171,6 +171,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode`
   - `test_rejected_workspace_tools_name_the_inline_setting`
+- [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
+  - `test_the_plan_route_request_is_byte_identical_under_a_ceiling`
 - [tests/test_lo_general.py](../../../../../../../tests/test_lo_general.py) — direct import
   - `test_rebuild_deterministic_and_no_external_io`
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import

@@ -86,13 +86,13 @@ class Protection:
 def protection(vault: Any, repository: Any) -> Protection:
     """The held-out predicate for one pass (fails closed)."""
 
-    from learnloop.content.sources.exam_material import held_out_item_ids, held_out_material
+    from learnloop.content.sources.exam_material import held_out_item_ids, surface_material
 
     from learnloop.adaptive_difficulty.operation import Scope, scoped
 
     try:
         # The predicate's own inputs (the AD guard's PREDICATE tables), through the scope's codec.
-        material = scoped(Scope.PREDICATE, lambda: held_out_material(vault, repository))
+        material = scoped(Scope.PREDICATE, lambda: surface_material(vault, repository, "ad_forecast"))
         items = list(getattr(vault, "practice_items", {}).values())
         held = set(held_out_item_ids(items, material)) if items else set()
         reserved = scoped(Scope.PREDICATE, lambda: frozenset(

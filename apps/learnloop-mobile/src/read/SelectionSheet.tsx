@@ -7,12 +7,17 @@ import { useRef, useState } from "react";
 import type { CommandError, ReaderAnswerDto } from "@desktop/api/dto";
 import { phone, type PhoneSectionDto } from "../api/phone";
 import { Sheet } from "../shell/Sheet";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { newUlid } from "../util/ulid";
 import { PhoneMarkdown } from "./PageImage";
 
 export interface PhoneSelection {
   readonly spanIds: string[];
+  /** What the sheet shows and Ask sends: each formula once, as its TeX. */
   readonly quote: string;
+  /** The words as selected, which Save's anchor is found by (absent: the quote). */
+  readonly anchorQuote?: string;
 }
 
 type Intent = "explain" | "alternative" | "remediate";
@@ -65,6 +70,7 @@ export function SelectionSheet({
   const [saved, setSaved] = useState(false);
   const closed = useRef(false);
   const quote = selection.quote.slice(0, QUOTE_LIMIT);
+  const anchorQuote = (selection.anchorQuote ?? selection.quote).slice(0, QUOTE_LIMIT);
 
   async function ask(intent: Intent, text: string) {
     const asked = text.trim() || (intent === "alternative" ? "Explain it another way." : intent === "remediate" ? "That didn't help." : "");
@@ -92,7 +98,7 @@ export function SelectionSheet({
       await phone.save({
         sourceId: section.sourceId, revisionId: section.revisionId, extractionId: section.extractionId,
         clientIdempotencyKey: newUlid(), renderViewId: section.renderViewId,
-        rawSelection: { nodes: selection.spanIds.map((spanId, index) => ({ spanId, quote: index === 0 ? quote : "" })) }
+        rawSelection: { nodes: selection.spanIds.map((spanId, index) => ({ spanId, quote: index === 0 ? anchorQuote : "" })) }
       });
       setSaved(true);
     } catch (error) {
@@ -122,7 +128,8 @@ export function SelectionSheet({
           ) : null}
         </div>
       ))}
-      {thinking ? <p className="dim" role="status">Thinking…</p> : null}
+      {/* The owner's case 3: the reply arrives whole, so the line stays until it lands. */}
+      {thinking ? <Waiting testId="ask-writing" line={WAITING_COPY.writingReply} later={WAITING_COPY.writingReplyLater} /> : null}
       {line ? <p className="dim" role="status">{line}</p> : null}
       {askOff ? (
         <p className="dim">{protectionMessage ?? "This passage is held out of LearnLoop's models."}</p>

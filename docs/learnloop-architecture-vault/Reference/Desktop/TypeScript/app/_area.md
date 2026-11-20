@@ -34,7 +34,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 78 | 1 |
+| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 79 | 1 |
 | [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|ScreenErrorBoundary.tsx]] | `ACTIVE` | Provides `ScreenErrorBoundary` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/ShellChromeRoot|ShellChromeRoot.tsx]] | `ACTIVE` | Provides `SHELL_CHROME_ATTRIBUTE`, `inShellChrome`, `ShellChromeRoot` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 28 |
@@ -56,7 +56,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/app/sessionHandoff|sessionHandoff.ts]] | `ACTIVE` | Provides `ElsewhereChoice`, `ElsewhereQuestion`, `useElsewhereQuestion`, `adoptMovedSession` and related exports within the desktop's TypeScript/app ownership area. | 4 | 4 |
 | [[Reference/Desktop/TypeScript/app/sessionMoved|sessionMoved.ts]] | `ACTIVE` | Provides `SessionMoved`, `sessionMovedFrom`, `setSessionMoved`, `useSessionMoved` and related exports within the desktop's TypeScript/app ownership area. | 1 | 5 |
 | [[Reference/Desktop/TypeScript/app/shell|shell.ts]] | `ACTIVE` | Provides `ShellMode`, `shellMode`, `simpleShell`, `Place` and related exports within the desktop's TypeScript/app ownership area. | 2 | 11 |
-| [[Reference/Desktop/TypeScript/app/todayCause|todayCause.ts]] | `ACTIVE` | Provides `TodayCause`, `todayCause`, `causeSentence`, `GOAL_NOTHING_LEAD` and related exports within the desktop's TypeScript/app ownership area. | 2 | 1 |
+| [[Reference/Desktop/TypeScript/app/todayCause|todayCause.ts]] | `ACTIVE` | Provides `TodayCause`, `todayCause`, `causeSentence`, `GOAL_NOTHING_LEAD` and related exports within the desktop's TypeScript/app ownership area. | 2 | 2 |
 | [[Reference/Desktop/TypeScript/app/todayPlan|todayPlan.ts]] | `ACTIVE` | Provides `dayPhrase`, `TodayRow`, `onYourOwnItem`, `todayRows` and related exports within the desktop's TypeScript/app ownership area. | 4 | 2 |
 | [[Reference/Desktop/TypeScript/app/useCloseWithFlush|useCloseWithFlush.ts]] | `ACTIVE` | Provides `CLOSE_HELD_NOTE`, `useCloseWithFlush` within the desktop's TypeScript/app ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/app/useGlobalAdd|useGlobalAdd.ts]] | `ACTIVE` | Provides `looksLikeSource`, `useGlobalAdd` within the desktop's TypeScript/app ownership area. | 2 | 1 |

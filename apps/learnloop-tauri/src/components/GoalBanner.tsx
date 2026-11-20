@@ -12,6 +12,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { ClaimCandidateDto, ExamStatusSnapshot, GoalAtRiskFacetDto, GoalDto, GoalPaceDto, GoalReportSummaryDto, GoalSeriesPointDto } from "../api/dto";
 import { GoalTrajectoryChart } from "./GoalTrajectoryChart";
+import { Waiting } from "./Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { mintVisitId } from "./ClaimSurface";
 import { TrackRecordView } from "./TrackRecordView";
 import { BlockBar, COLOR, Faint, FONT_MONO, measurementStateLabel, Pill } from "./term";
@@ -125,13 +127,26 @@ export function emptyGoalSentence(goal: GoalDto): string | null {
     answered > 0
       ? `You have answered ${answered} ${answered === 1 ? "question" : "questions"}, but none has checked this goal's topics yet.`
       : "Nothing has been checked for this goal yet.";
-  const next =
-    report.total <= 0
-      ? "None of the topics in your books is part of it so far: add or read a book that covers it, and its questions will count here."
+  const named = goal.facetScope?.concepts?.length ?? 0;
+  const hasTopics = named > 0 || (goal.facetScope?.facets?.length ?? 0) > 0 || report.total > 0;
+  // Topics in the goal (added from the goal box, or matched in a book) with nothing to answer on them yet: the
+  // report's total counts none of them, so "no topics in your books" would deny the topics the goal box just counted.
+  const noQuestions = report.total <= 0 || goal.practicableItemCount === 0;
+  const next = !hasTopics
+    ? "None of the topics in your books is part of it so far: add or read a book that covers it, and its questions will count here."
+    : noQuestions
+      ? `${topicsWithoutQuestions(named)} Once there are some, the ones you answer on your own count here.`
       : answered > 0
         ? "This goal's questions, answered on your own, are what count here."
         : "Answer its questions on your own and this report will start to fill in.";
   return [head, next, dueSentence(goal.dueAt)].filter(Boolean).join(" ");
+}
+
+/** A goal's topics with no questions on them yet, counted when the goal names them. */
+function topicsWithoutQuestions(named: number): string {
+  if (named === 1) return "This goal has 1 topic, but no questions on it yet.";
+  if (named > 1) return `This goal has ${named} topics, but no questions on them yet.`;
+  return "This goal's topics have no questions yet.";
 }
 
 /** Whether an empty goal has anything to practise: topics in it, and questions unless the count is unknown. */
@@ -864,7 +879,8 @@ export function GoalBanner({
           {seriesError ? (
             <Faint style={{ color: COLOR.red, fontSize: 11 }}>{seriesError}</Faint>
           ) : seriesLoading || series == null ? (
-            <div style={{ fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO, padding: "8px 0" }}>loading trajectory…</div>
+            // Goal details' longest wait (10 to 14 s uncached in the walks, exam-1 #3, seasoned-2 #14).
+            <Waiting testId="trajectory-wait" line={WAITING_COPY.workingOutGoal} style={{ padding: "8px 0" }} />
           ) : (
             <GoalTrajectoryChart series={series} dueAt={goal.dueAt} targetRecall={goal.targetRecall} />
           )}

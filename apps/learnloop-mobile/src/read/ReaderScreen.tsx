@@ -7,8 +7,12 @@
 // and a selection on it offers no Ask, by the desktop's own rule.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommandError, ReaderDoseOfferDto, ReaderGuidePlanDto, ReaderProgressListDto } from "@desktop/api/dto";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { MathMacrosProvider } from "@desktop/render/mathMacros";
 import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
+import { sectionWords } from "@desktop/screens/reader/readerShared";
+import { selectionQuote } from "@desktop/render/mathSnippet";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
 import { addReaderIntent, flushOutbox } from "../store/outbox";
 import { newUlid } from "../util/ulid";
@@ -309,7 +313,7 @@ export function ReaderScreen({
     <div className="screen reader">
       {target.plan ? (
         <div className="banner" role="status">
-          <div>Reading for today's plan · {target.plan.sectionTitle ?? current?.label ?? "this section"}</div>
+          <div>Reading for today's plan · {sectionWords(target.plan.sectionTitle ?? current?.label ?? "this section")}</div>
           <div className="row">
             <button className="plain" type="button" disabled={leaving} onClick={() => void backToPlan()}>Back to today's plan</button>
             <button className="plain" type="button" disabled={leaving} onClick={() => void backToPlan("skipped")}>Skip this reading</button>
@@ -318,12 +322,12 @@ export function ReaderScreen({
       ) : null}
       <div className="reader-head">
         <button className="link" type="button" onClick={() => setListOpen(true)} aria-label="Sections">
-          {current?.label ?? target.title}
+          {current ? sectionWords(current.label) : target.title}
         </button>
         {stale ? <span className="dim">· the copy on this phone</span> : null}
       </div>
       {problem ? <p className="dim" role="status">{problem}</p> : null}
-      {!section && !problem ? <p className="dim" role="status">Opening the section…</p> : null}
+      {!section && !problem ? <Waiting testId="section-wait" line={WAITING_COPY.openingSection} /> : null}
       {section ? (
         <div className="book" ref={body} onMouseUp={onSelectEnd} onTouchEnd={onSelectEnd} onScroll={touch}>
           {section.blocks.map((block) => (
@@ -475,12 +479,14 @@ function Block({ block, extractionId, pageOpen, onPage }: {
 function readSelection(root: HTMLElement | null): PhoneSelection | null {
   if (!root || typeof window.getSelection !== "function") return null;
   const picked = window.getSelection();
-  const quote = picked?.toString().trim() ?? "";
-  if (!picked || !quote || picked.rangeCount === 0) return null;
+  const asSelected = picked?.toString().trim() ?? "";
+  if (!picked || !asSelected || picked.rangeCount === 0) return null;
   const range = picked.getRangeAt(0);
+  // A formula in the passage is drawn several times over (KaTeX's layers): the quote takes it once, as its TeX.
+  const quote = selectionQuote(range, asSelected).trim();
   const spans: string[] = [];
   for (const node of root.querySelectorAll<HTMLElement>("[data-span]")) {
     if (range.intersectsNode(node) && node.dataset.span) spans.push(node.dataset.span);
   }
-  return spans.length ? { spanIds: spans, quote } : null;
+  return spans.length ? { spanIds: spans, quote, ...(quote !== asSelected ? { anchorQuote: asSelected } : {}) } : null;
 }

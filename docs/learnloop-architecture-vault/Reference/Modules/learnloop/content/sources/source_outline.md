@@ -153,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_book_picked_as_an_exam_in_its_outline_builds_nothing`
   - `test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source_set`
 - [tests/test_facet_authority_review.py](../../../../../../../tests/test_facet_authority_review.py) — direct import
+- [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
+  - `test_the_build_estimate_charts_what_a_build_may_now_write`
 - [tests/test_followups_batch7_note_titles.py](../../../../../../../tests/test_followups_batch7_note_titles.py) — direct import
   - `test_a_local_uri_reads_as_its_file_name_in_words`
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import

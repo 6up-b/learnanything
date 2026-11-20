@@ -601,7 +601,7 @@ def ask_library(
     # query rewrite, embedding or row, so its words (Ctrl+Shift+F prefills the
     # selection) never reach a model (Codex review F1).
     if extraction_id:
-        material = EM.held_out_material(vault, repository)
+        material = EM.surface_material(vault, repository, "library_ask_anchor")
         if material.covers(str(extraction_id)) or EM.held_out_among(material, extraction_id, anchor_spans):
             raise LibraryAskError("exam_material", EM.held_out_refusal(material, extraction_id))
     anchor_los = anchor_learning_objects(vault, repository, extraction_id=extraction_id, span_ids=anchor_spans,
@@ -827,7 +827,7 @@ def withheld_now(vault: LoadedVault, repository: Repository, keys: Sequence[str]
     parsed = {key: tuple(key.split(":", 1)) for key in keys}
     pairs = sorted(pair for pair in parsed.values() if len(pair) == 2)
     try:
-        held = set(EM.exam_material(vault, repository).withheld(pairs))
+        held = set(EM.surface_exam_material(vault, repository, "library_result").withheld(pairs))
         # Exam membership says nothing of existence: a well-formed key naming no passage is no
         # exam material, yet nothing vouches for what a result says it read there.
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -1126,12 +1126,12 @@ def open_comparison(
     if anchor and not extraction_id:
         raise LibraryAskError("validation_error", "An anchor names its source.")
     if extraction_id:
-        material = EM.held_out_material(vault, repository)
+        material = EM.surface_material(vault, repository, "library_ask_anchor")
         if material.covers(str(extraction_id)) or EM.held_out_among(material, extraction_id, anchor):
             raise LibraryAskError("exam_material", EM.held_out_refusal(material, extraction_id))
         # Exam material is assessment-only: an anchor on it is never compared
         # (the service would drop it; refusing first opens no row for it).
-        exam = EM.exam_material(vault, repository)
+        exam = EM.surface_exam_material(vault, repository, "compare")
         if any(exam.covers(str(extraction_id), span) for span in anchor) or (not anchor and exam.covers(str(extraction_id))):
             raise LibraryAskError("exam_material", "This passage is exam material, so it isn't compared.")
     words = words[:QUESTION_CHARS]
@@ -1468,7 +1468,7 @@ def ask_tutor(
     pins = _keys(pinned_keys)
     if not pins:
         raise LibraryAskError("validation_error", "Pin the passages the tutor should answer from.")
-    material = EM.held_out_material(vault, repository)
+    material = EM.surface_material(vault, repository, "library_tutor_refusal")
     held = [key for key in pins if material.covers(*key.split(":", 1))]
     if held:
         raise LibraryAskError("exam_material", EM.held_out_refusal(material, held[0].split(":", 1)[0]))

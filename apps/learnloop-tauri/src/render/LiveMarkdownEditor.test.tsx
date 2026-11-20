@@ -3,7 +3,7 @@
 // end of the step? empty?) and a compact layout. Without them it renders as it
 // did. The editor binds no chord of its own, so the workbench's Ctrl+K,
 // Ctrl+Shift+B, Ctrl+D and Ctrl+Enter never clash with it (UX §3.5).
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { LiveMarkdownEditor } from "./LiveMarkdownEditor";
@@ -69,4 +69,43 @@ it("a read-only editor still opens its text but accepts no change", async () => 
   expect(area.readOnly).toBe(true);
   fireEvent.change(area, { target: { value: "one more" } });
   expect(onChange).not.toHaveBeenCalled();
+});
+
+// UX-19 (UX journey audit part 2, workbench-1 #8, #13, #28): the first click on "check my work", "help" or "+ a step"
+// right after typing in a step did nothing; the key did. The press takes the focus at mousedown, and the step's text
+// box then gave way to its rendered paragraph, which is taller, so everything under the step moved down before the
+// release and the release missed the control (its click never fired). The box now stays until the press is released.
+// jsdom has no layout: these tests check that nothing is swapped while the press is down, not the pointer's miss.
+it("UX-19: a press elsewhere that takes the focus leaves the text box in place until it is released, then the click lands", async () => {
+  const onClick = vi.fn();
+  render(
+    <>
+      <Controlled initial="An eigenvector v satisfies Av = lambda v." ariaLabel="Step 1" focusable compact focusSignal={1} />
+      <button type="button" onClick={onClick}>check my work</button>
+    </>
+  );
+  await waitFor(() => expect(document.activeElement?.tagName).toBe("TEXTAREA"));
+  const button = screen.getByRole("button", { name: "check my work" });
+  fireEvent.mouseDown(button);
+  act(() => button.focus());
+  // Still the text box while the press is down: nothing under the step has moved.
+  expect(screen.getByRole("textbox", { name: "Step 1" }).tagName).toBe("TEXTAREA");
+  fireEvent.mouseUp(button);
+  fireEvent.click(button);
+  expect(onClick).toHaveBeenCalledTimes(1);
+  // After the release, the step shows its rendered text, as before.
+  await waitFor(() => expect(document.querySelector("textarea")).toBeNull());
+  expect(screen.getByText("An eigenvector v satisfies Av = lambda v.")).toBeTruthy();
+});
+
+it("UX-19: leaving the box with no press down (Tab, a key) renders it at once, as before", async () => {
+  render(
+    <>
+      <Controlled initial="one" ariaLabel="Step 1" focusable compact focusSignal={1} />
+      <button type="button">next</button>
+    </>
+  );
+  await waitFor(() => expect(document.activeElement?.tagName).toBe("TEXTAREA"));
+  act(() => screen.getByRole("button", { name: "next" }).focus());
+  expect(document.querySelector("textarea")).toBeNull();
 });

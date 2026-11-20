@@ -115,6 +115,19 @@ it("lint: no Reader component animates or transitions", () => {
   expect(offenders).toEqual([]);
 });
 
+// Waiting you can see (docs/reviews/ux-waiting.md): the app's shared waiting mark turns, except here. Every
+// use of it in a Reader or workbench component passes `still`.
+it("lint: the shared waiting mark is still in every Reader component", () => {
+  const offenders: string[] = [];
+  for (const [file, source] of Object.entries(READER_COMPONENTS)) {
+    for (const use of source.match(/<(Waiting|WaitMark)\b[^>]*>/g) ?? []) {
+      if (!/\bstill\b/.test(use)) offenders.push(`${file}: ${use}`);
+    }
+  }
+  expect(offenders).toEqual([]);
+  expect(READER_COMPONENTS["./reader/ModelActionState.tsx"]).toMatch(/<WaitMark still \/>/);
+});
+
 it("lint: the Reader's CSS has no keyframes, animations or transitions", () => {
   // vitest turns CSS imports into empty modules, so read the file itself.
   const css = readFileSync(join(__dirname, "..", "styles", "app.css"), "utf8");

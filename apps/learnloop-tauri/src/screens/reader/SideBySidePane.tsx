@@ -28,7 +28,8 @@ import { errorMessage } from "../../errors";
 import { newActivityId } from "./activity";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { MathMacrosProvider } from "../../render/mathMacros";
-import { clip } from "./readerShared";
+import { clip, sectionWords } from "./readerShared";
+import { selectionQuote } from "../../render/mathSnippet";
 import { MeaningLabel } from "./voices";
 import { IntentBox } from "./IntentBox";
 import type { IntentBoxController } from "./useIntentBox";
@@ -118,7 +119,9 @@ function selectionIn(root: HTMLElement | null): PaneSelection | null {
   if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
   if (!root.contains(range.commonAncestorContainer)) return null;
-  const quote = sel.toString().replace(/\s+/g, " ").trim();
+  // The question's quote takes each formula once, as its TeX; the nodes (the anchor) keep the words as selected.
+  const asSelected = sel.toString();
+  const quote = selectionQuote(range, asSelected).replace(/\s+/g, " ").trim();
   if (!quote) return null;
   const spans: string[] = [];
   const nodes: PaneSelection["nodes"] = [];
@@ -132,7 +135,9 @@ function selectionIn(root: HTMLElement | null): PaneSelection | null {
     const words = part.toString().replace(/\s+/g, " ").trim();
     if (words) nodes.push({ spanId: node.dataset.sbsSpan, quote: words });
   });
-  return spans.length ? { spanIds: spans, quote, nodes: nodes.length ? nodes : [{ spanId: spans[0], quote }] } : null;
+  return spans.length
+    ? { spanIds: spans, quote, nodes: nodes.length ? nodes : [{ spanId: spans[0], quote: asSelected.replace(/\s+/g, " ").trim() }] }
+    : null;
 }
 
 export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(
@@ -220,8 +225,8 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
 
   const header: ReactNode = (
     <div data-sbs-header="" style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "6px 14px", borderBottom: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, flexShrink: 0 }}>
-      <span style={{ color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} title={`${target.sourceTitle} · ${target.title}`}>
-        § {target.sourceTitle} · {clip(target.title, 60)}
+      <span style={{ color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} title={`${target.sourceTitle} · ${sectionWords(target.title)}`}>
+        § {target.sourceTitle} · {clip(sectionWords(target.title), 60)}
       </span>
       {leads ? <span data-sbs-lead="" style={{ color: COLOR.amber }}>{SIDE_BY_SIDE_COPY.lead}</span> : null}
       <span style={{ marginLeft: "auto", display: "inline-flex", gap: 10, alignItems: "baseline", flexShrink: 0 }}>
@@ -241,7 +246,7 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
     <div
       data-side-by-side-pane={sheet ? "sheet" : "pane"}
       role="region"
-      aria-label={`${target.sourceTitle}, ${target.title}`}
+      aria-label={`${target.sourceTitle}, ${sectionWords(target.title)}`}
       onKeyDown={onKeyDown}
       style={sheet ? {
         position: "absolute", left: 0, right: 0, bottom: 0, height: "50%", zIndex: 30, background: COLOR.bg,
@@ -318,12 +323,12 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
           <div style={{ display: "flex", gap: 8, paddingTop: 8, borderTop: `1px solid ${COLOR.border}` }}>
             {section.previous ? (
               <button type="button" onClick={() => ctl.goSide(section.previous!.sectionId)} style={LINK} aria-label={`previous section: ${section.previous.title}`}>
-                {SIDE_BY_SIDE_COPY.previous} {clip(section.previous.title, 40)}
+                {SIDE_BY_SIDE_COPY.previous} {clip(sectionWords(section.previous.title), 40)}
               </button>
             ) : null}
             {section.next ? (
               <button type="button" onClick={() => ctl.goSide(section.next!.sectionId)} style={{ ...LINK, marginLeft: "auto" }} aria-label={`next section: ${section.next.title}`}>
-                {clip(section.next.title, 40)} {SIDE_BY_SIDE_COPY.next}
+                {clip(sectionWords(section.next.title), 40)} {SIDE_BY_SIDE_COPY.next}
               </button>
             ) : null}
           </div>

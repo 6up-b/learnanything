@@ -1261,8 +1261,10 @@ describe("UX fix stage 3, P1: an empty or finished Today names its cause and car
 
   it("a finished plan: nothing else is needed", async () => {
     const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    // UX-16: "nothing else is needed" is said only when nothing is left, so today's list is empty here.
     apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 6 } }), {
-      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] }))
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([]))
     });
     show(causeProps({ session: SESSION }));
     const line = await screen.findByTestId("today-finished");
@@ -1402,5 +1404,282 @@ describe("UX fix stage 3 (item 3, F9): one clock on Today", () => {
     show({ session: SESSION });
     expect((await screen.findByTestId("today-sentence")).textContent).toBe("Done for today · 2 minutes spent answering.");
     expect(screen.queryByRole("radiogroup", { name: "minutes today" })).toBeNull();
+  });
+});
+
+// "Waiting you can see" (docs/reviews/ux-waiting.md, the owner's case 1): from
+// the press until the question is on screen, Today says what is happening, but
+// only once the wait outlasts the indicator's delay, and the line is gone when
+// the step opens.
+describe("waiting you can see: Today to the question", () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((done) => { resolve = done; });
+    return { promise, resolve };
+  }
+  // The screen is read with the harness's real timers; the press and the wait run on fake ones.
+  // (A second useFakeTimers is a no-op while the harness fakes Date: real timers first.)
+  function freezeTimers() {
+    const now = Date.now();
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"], now });
+  }
+  async function advance(ms: number) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+  }
+  const STEP = { step: { kind: "item", planId: "plan_1", blockId: "blk_2", practiceItemId: "pi_a", learningObjectId: "lo_e", origin: "chooser", schedulerCandidateId: "cand_a", presentationId: "pres_a", boundary: false } };
+
+  it("Begin: nothing before the delay, then 'Choosing what's next…', gone when the question opens", async () => {
+    const served = deferred<unknown>();
+    apis(dto(body()), { nextPlanItem: vi.fn(() => served.promise) });
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    freezeTimers();
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await advance(300);
+    expect(screen.queryByText(/Choosing what's next…/)).toBeNull();
+    await advance(100);
+    const line = screen.getByTestId("waiting");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(line.textContent).toBe("◐ Choosing what's next…");
+    served.resolve(STEP);
+    await advance(0);
+    expect(props.onOpenPractice).toHaveBeenCalledWith("pi_a", "cand_a", null, "pres_a");
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("Begin with no session: the line covers starting the session and serving its first step", async () => {
+    const served = deferred<unknown>();
+    apis(dto(body()), { nextPlanItem: vi.fn(() => served.promise) });
+    const props = show();
+    await screen.findByTestId("today-sentence");
+    freezeTimers();
+    await press({ key: "Enter" });
+    await advance(400);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Choosing what's next…");
+    served.resolve(STEP);
+    await advance(0);
+    expect(props.onBeginSession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("a row of the full list: 'Opening the question…' until the pick is served", async () => {
+    const picked = deferred<unknown>();
+    apis(dto(body()), { planLearnerPick: vi.fn(() => picked.promise) });
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    const row = (await screen.findAllByTestId("today-list-row"))[0];
+    freezeTimers();
+    fireEvent.click(within(row).getAllByRole("button")[0]);
+    await advance(300);
+    expect(screen.queryByText(/Opening the question…/)).toBeNull();
+    await advance(100);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Opening the question…");
+    picked.resolve({ step: { kind: "item", planId: "plan_1", blockId: "blk_pick", practiceItemId: "pi_1", learningObjectId: "lo_1", origin: "learner_pick", schedulerCandidateId: "cand_pick", presentationId: "pres_pick", boundary: false } });
+    await advance(0);
+    expect(props.onOpenPractice).toHaveBeenCalled();
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("Practise for this goal: 'Finding a question for this goal…' through the list read and the pick", async () => {
+    const picked = deferred<unknown>();
+    apis(dto(body()), {
+      goalsList: vi.fn(async () => ({ version: 1, goals: [goal()] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2, { components: { goalFrontier: 0.4 } as ScheduledItemDto["components"] })])),
+      planLearnerPick: vi.fn(() => picked.promise)
+    });
+    const props = show({ session: SESSION });
+    const card = await screen.findByTestId("goal-card");
+    const practise = await within(card).findByRole("button", { name: "Practise for this goal" });
+    freezeTimers();
+    fireEvent.click(practise);
+    await advance(300);
+    expect(screen.queryByTestId("waiting")?.textContent ?? "").toBe("");
+    await advance(100);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Finding a question for this goal…");
+    picked.resolve({ step: null });
+    await advance(0);
+    expect(props.onOpenPractice).toHaveBeenCalled();
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("Keep going on a finished day: 'Adding more to today…' until the plan is back", async () => {
+    const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    const more = body({ id: "plan_kg", kind: "keep_going", blocks: [block({ id: "blk_kg" })], currentBlockId: "blk_kg", projected: [] });
+    const extended = deferred<unknown>();
+    apis(dto(done), { planKeepGoing: vi.fn(() => extended.promise) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-done");
+    freezeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await advance(300);
+    expect(screen.queryByText(/Adding more to today…/)).toBeNull();
+    await advance(100);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Adding more to today…");
+    extended.resolve(dto(more));
+    await advance(0);
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("app start and every return to Today: 'Reading today's plan…' after the delay, gone when the plan is there", async () => {
+    const read = deferred<DailyPlanDto>();
+    apis(() => read.promise);
+    freezeTimers();
+    show({ session: SESSION });
+    await advance(300);
+    expect(screen.getByTestId("today-loading").textContent).toBe("");
+    await advance(100);
+    expect(screen.getByTestId("plan-wait").textContent).toBe("◐ Reading today's plan…");
+    read.resolve(dto(body()));
+    await advance(0);
+    expect(screen.getByTestId("today-sentence")).toBeTruthy();
+    expect(screen.queryByTestId("plan-wait")).toBeNull();
+  });
+
+  it("a fast step never shows the line", async () => {
+    apis(dto(body()));
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    freezeTimers();
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await advance(50);
+    expect(props.onOpenPractice).toHaveBeenCalled();
+    await advance(1000);
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+});
+
+// ── Broken controls, second round (UX journey audit part 2) ────────────────
+
+describe("UX-14: a lesson left open waits on Today with its one action", () => {
+  const OPEN = { lessonId: "les_dot", title: "Dot product", goal: null, openedAt: "2026-10-27T18:00:00Z", learningObjectIds: ["lo_dot"] };
+
+  it("an open lesson shows as 'Continue your lesson on …', and Continue resumes that lesson", async () => {
+    const f = apis(dto(body()), { lessonOpenLessons: vi.fn(async () => ({ lessons: [OPEN] })) });
+    const onStartLesson = vi.fn();
+    show({ session: SESSION, onStartLesson });
+    const line = await screen.findByTestId("today-open-lesson");
+    expect(line.textContent).toContain("Continue your lesson on Dot product");
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+    fireEvent.click(within(line).getByRole("button", { name: "Continue" }));
+    expect(onStartLesson).toHaveBeenCalledWith({ kind: "resume", lessonId: "les_dot" });
+    expect(f.lessonOpenLessons).toHaveBeenCalledTimes(1);
+  });
+
+  it("read again when a lesson on top of Today closes, so a lesson closed with Close shows at once", async () => {
+    const lessonOpenLessons = vi.fn(async () => ({ lessons: [] as typeof OPEN[] }));
+    apis(dto(body()), { lessonOpenLessons });
+    const props = { session: SESSION, onStartLesson: vi.fn(), lessonOpen: true };
+    const { rerender } = render(<TodayPlace {...defaultProps()} {...props} />);
+    await screen.findByTestId("today-sentence");
+    expect(lessonOpenLessons).not.toHaveBeenCalled();
+    lessonOpenLessons.mockResolvedValueOnce({ lessons: [OPEN] });
+    rerender(<TodayPlace {...defaultProps()} {...props} lessonOpen={false} />);
+    expect((await screen.findByTestId("today-open-lesson")).textContent).toContain("Dot product");
+  });
+
+  it("without lessons (no onStartLesson) nothing is asked", async () => {
+    const f = apis(dto(body()), { lessonOpenLessons: vi.fn(async () => ({ lessons: [OPEN] })) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await flush();
+    expect(f.lessonOpenLessons).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("today-open-lesson")).toBeNull();
+  });
+});
+
+function defaultProps(): TodayPlaceProps {
+  return {
+    session: null,
+    streak: { current: 4, activeToday: false, longest: 9 },
+    onBeginSession: vi.fn(),
+    onStartSession: vi.fn(async (minutes: number) => (await fns.startSession({ availableMinutes: minutes })) as SessionSnapshot),
+    onOpenPractice: vi.fn(),
+    onOpenPlanReading: vi.fn(),
+    onEndSession: vi.fn(),
+    onAdd: vi.fn(),
+    onOpenPassage: vi.fn(),
+    onResumeProblem: vi.fn(),
+    onAsk: vi.fn(),
+    onTakeExam: vi.fn(),
+    onError: vi.fn()
+  };
+}
+
+describe("UX-16: a plan that stopped with work left never says nothing else is needed", () => {
+  const finished = (overrides: Partial<DailyPlanBodyDto> = {}) =>
+    body({ status: "complete", stopReason: "A good place to stop for today.", blocks: [block({ status: "done" })], currentBlockId: null, projected: [], ...overrides });
+
+  it("stopped with questions still on today's list: says there is more, and offers the list (seasoned-2 #59)", async () => {
+    const done = finished();
+    apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 0.6 } }), {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2), scheduled(3)]))
+    });
+    show({ session: SESSION });
+    const line = await screen.findByTestId("today-stopped-more");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(line.textContent).toContain("The plan stopped here, but there's more for today if you'd like it.");
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+    expect(surface()).not.toContain("Nothing else is needed today.");
+    expect(screen.getByRole("button", { name: /Keep going/ })).toBeTruthy();
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+    fireEvent.click(within(line).getByRole("button", { name: "Open today's list" }));
+    expect(await screen.findByTestId("today-list")).toBeTruthy();
+  });
+
+  it("a catch-up done beside a list still holding questions says the same (returner-1 #49-51)", async () => {
+    const done = finished({ kind: "reentry", reentry: { gapDays: 22, solidCount: 4, slippedCount: 9, slippedNames: [], namedBy: "priority", target: 0.8, planMinutes: 2, planItems: 2 } });
+    apis(dto(done), { getTodayQueue: vi.fn(async () => queue(Array.from({ length: 9 }, (_, index) => scheduled(index + 1)))) });
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Catch-up done.");
+    expect((await screen.findByTestId("today-stopped-more")).textContent).toContain("there's more for today");
+    expect(surface()).not.toContain("Nothing else is needed today.");
+  });
+
+  it("a block of the closed plan not done yet is work left too, whatever the list says", async () => {
+    const done = finished({ blocks: [block({ status: "done" }), block({ id: "blk_2", ordinal: 2, status: "upcoming" })] });
+    apis(dto(done), { getTodayQueue: vi.fn(async () => queue([])) });
+    show({ session: SESSION });
+    const line = await screen.findByTestId("today-stopped-more");
+    expect(within(line).queryByRole("button", { name: "Open today's list" })).toBeNull();
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+  });
+
+  it("nothing is claimed before the list is read", async () => {
+    const done = finished();
+    apis(dto(done), { getTodayQueue: vi.fn(() => new Promise<QueueSnapshot>(() => undefined)) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-done");
+    await flush();
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+    expect(screen.queryByTestId("today-stopped-more")).toBeNull();
+  });
+});
+
+describe("UX-21: Begin whose first step is a lesson offer leads to the offer", () => {
+  const OFFER_STEP = {
+    kind: "lesson_offer" as const, planId: "plan_1", blockId: "blk_offer", blockOrdinal: 1, estMinutes: 15, boundary: true,
+    offer: { decisionId: "dec1", blockId: "blk_offer", minutes: 15, whyLabel: "Suggested by LearnLoop's planner", answered: null,
+             suggestion: { ref: "lesson:lo_e", title: "Eigenvalues", learningObjectIds: ["lo_e"], reason: "cold_failing", why: "Two misses." },
+             alternatives: [] }
+  };
+
+  it("with a session: the served offer goes to the shell, which opens its page (returner-1 #21-23)", async () => {
+    apis(dto(body()), { nextPlanItem: vi.fn(async () => ({ ...dto(body()), step: OFFER_STEP })) });
+    const onLessonOffer = vi.fn();
+    const props = show({ session: SESSION, onLessonOffer });
+    await screen.findByTestId("today-sentence");
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await waitFor(() => expect(onLessonOffer).toHaveBeenCalledWith(OFFER_STEP));
+    expect(props.onOpenPractice).not.toHaveBeenCalled();
+  });
+
+  it("without a session: the started session and the offer go to the shell together", async () => {
+    apis(dto(body()), { nextPlanItem: vi.fn(async () => ({ ...dto(body()), step: OFFER_STEP })) });
+    const props = show({ onLessonOffer: vi.fn() });
+    await screen.findByTestId("today-sentence");
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await waitFor(() => expect(props.onBeginSession).toHaveBeenCalledWith(STARTED, OFFER_STEP));
   });
 });

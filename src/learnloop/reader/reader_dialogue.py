@@ -42,7 +42,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
+from learnloop.content.sources.exam_material import held_out_among, held_out_refusal, surface_material
 from learnloop.db.repositories import Repository
 from learnloop.substrate import administration_adapters
 from learnloop.curriculum import commitments
@@ -702,7 +702,7 @@ def ask(
         )
     thread: list[dict[str, Any]] | None = None
     ancestors: list[dict[str, Any]] = []
-    held_out = held_out_material(vault, repository)
+    held_out = surface_material(vault, repository, "reader_ask")
     if context_withheld is not None:
         held_out = held_out.union(context_withheld)
     if branches:

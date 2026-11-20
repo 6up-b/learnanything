@@ -191,7 +191,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `SNAPSHOT_UNSETTLED`, `module`, `protection_issues`, `source_ref_protected`; calls `exam_material`, `held_out_items`, `item_exam_status`, `protection_issues`, `source_ref_protected`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `SNAPSHOT_UNSETTLED`, `module`, `protection_issues`, `source_ref_protected`; calls `held_out_items`, `item_exam_status`, `protection_issues`, `source_ref_protected`, `surface_exam_material`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `pinned_contract_ids`; calls `pinned_contract_ids`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] — imports `READING_SOURCE_KINDS`, `reading_sources`; calls `reading_sources`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `module`; calls `held_for_review_attempts`

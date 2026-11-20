@@ -21,6 +21,8 @@ import type {
 } from "../api/dto";
 import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui";
 import { CardControls } from "../components/CardControls";
+import { Waiting } from "../components/Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { ItemPresentation } from "../components/ItemPresentation";
 import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
 import { algoConfig, masteryTone, setAdaptiveHelpStyle, STUCK_PROMPT_TEXT } from "../app/algoConfig";
@@ -1606,7 +1608,12 @@ export function PracticeScreen({
   if (!practiceReady || !item) {
     return (
       <div className="screen-scroll">
-        <Card>{simple ? "Loading the question…" : item ? "Verifying diagnostic safeguards..." : "Loading practice item..."}</Card>
+        {simple ? (
+          // From Today's press until the question is on screen (owner case 1): the question's own read.
+          <Waiting testId="question-wait" line={WAITING_COPY.openingQuestion} style={{ padding: "18px 0" }} />
+        ) : (
+          <Card>{item ? "Verifying diagnostic safeguards..." : "Loading practice item..."}</Card>
+        )}
       </div>
     );
   }
@@ -2251,7 +2258,16 @@ export function PracticeScreen({
                 <button type="button" style={quietLink} onClick={refreshWbItemSessions}>check again</button>
               </div>
             ) : null}
-            {submitting ? <div className="grading-panel">{simple ? "Reading your answer…" : "grading attempt..."}</div> : null}
+            {submitting && simple ? (
+              // The owner case 2 wait (submit to feedback): the shared line, after its delay, so a self-grade
+              // that saves at once flashes nothing. With no AI grading the answer is saved, not checked.
+              <Waiting
+                testId="grading-wait"
+                line={fallbackRequired ? WAITING_COPY.savingAnswer : WAITING_COPY.checkingAnswer}
+                later={fallbackRequired ? null : WAITING_COPY.checkingAnswerLater}
+                style={{ marginTop: 14 }}
+              />
+            ) : submitting ? <div className="grading-panel">grading attempt...</div> : null}
             {fallbackRequired && selfGradeVisible && simple ? (
               <PlainSelfGrade
                 item={item}

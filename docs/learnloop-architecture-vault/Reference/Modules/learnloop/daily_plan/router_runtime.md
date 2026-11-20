@@ -234,6 +234,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_objective_stop.py](../../../../../../tests/test_mobile_v2_objective_stop.py) — direct import
 - [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
+- [tests/test_post_miss_choice.py](../../../../../../tests/test_post_miss_choice.py) — direct import
+  - `test_a_yes_no_answer_is_two_arms_and_keeps_its_words_whatever_it_answered`
+  - `test_an_answer_the_mix_cannot_use_fails_its_policy_and_moves_its_share`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_guard_record_that_cannot_be_built_still_refuses`
   - `test_a_refused_router_request_leaves_a_record_though_no_call_row_exists`

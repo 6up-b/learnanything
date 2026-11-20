@@ -144,6 +144,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_repair_declared_by_criterion_maps_to_a_facet_targeted_cause`
   - `test_self_graded_attempt_records_no_repair_authored_not_a_silent_null`
   - `test_two_repairs_on_one_target_are_ambiguous_rather_than_a_guess`
+- [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../../tests/test_probe_targeting.py) — direct import
   - `test_cause_set_diagnostic_selects_discriminating_instrument`
   - `test_cause_set_state_vocabulary_matches_the_coherence_gate`

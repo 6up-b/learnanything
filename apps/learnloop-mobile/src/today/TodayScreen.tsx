@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import type { QueueSnapshot, ScheduledItemDto, SessionEndSummary, SessionSnapshot } from "@desktop/api/dto";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { useCachedQuery } from "@desktop/api/useCachedQuery";
 import { TAG } from "@desktop/api/queryTags";
 import { phone } from "../api/phone";
@@ -90,7 +92,7 @@ export function TodayScreen({
   return (
     <div className="screen">
       <h1>Today</h1>
-      {query.loading ? <p className="dim">Reading today's list…</p> : null}
+      {query.loading ? <Waiting testId="list-wait" line={WAITING_COPY.readingList} /> : null}
       {head && rest.length ? (
         <ul className="list" aria-label="Today's items">
           {rest.map((row) => (

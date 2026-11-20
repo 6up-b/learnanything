@@ -963,6 +963,11 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     tokens = int(planned_tokens if planned_tokens is not None else auto.get("job_tokens") or 0)
     spent_build = build_spend_usd(repo, config, batch_id)
     authorized = auto.get("authorized_usd")
+    if authorized is None and getattr(ctx, "retrying_on_its_own", False) and auto.get("estimate_usd") is not None:
+        # Nobody asked for this try: it spends only what the estimate the
+        # build was planned under still leaves, so the build never costs more
+        # than the learner was shown (or than ran without asking).
+        authorized = auto.get("estimate_usd")
     limit = max(float(authorized) - spent_build, 0.0) if authorized is not None else None
     reason = "authorization"
     cap = config.ingest.cost_pause.daily_cap_usd
@@ -997,12 +1002,13 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
 
 def _request_output_ceiling(config, job_type: str) -> int:
     """The output a request is reserved for when it names no ceiling of its
-    own (epigraphs; append reconciliation names its own since K3.4): the
-    configured per-operation output budget the pipeline holds its results to."""
+    own (epigraphs; append reconciliation names its own since K3.4): the most
+    the pipeline keeps from one operation (an inventory window's ceiling; a
+    synthesis run's total)."""
 
     budgets = config.ingest.budgets
     if job_type == "inventory":
-        return int(budgets.inventory_output_tokens)
+        return max(int(budgets.inventory_output_tokens), int(budgets.inventory_output_ceiling_tokens))
     return max(int(budgets.synthesis_output_tokens), int(budgets.synthesis_shard_output_tokens),
                int(budgets.append_output_tokens))
 

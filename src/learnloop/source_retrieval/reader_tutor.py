@@ -43,7 +43,7 @@ from contextlib import closing
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.content.sources.exam_material import held_out_material
+from learnloop.content.sources.exam_material import surface_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ingest.block_roles import lead_role
@@ -247,7 +247,7 @@ class ReaderLookup:
         never an exercise or solution lead nor a passage reproducing the item's answer
         (``find_sources`` already applied the policy's scope; this is the second guard)."""
 
-        held = held_out_material(self.vault, self.repository)
+        held = surface_material(self.vault, self.repository, "reader_ask")
         item = self.item if self.policy == "assisted_practice" else None
         counts = {"held_out": 0}
         unheld: list[dict[str, Any]] = []

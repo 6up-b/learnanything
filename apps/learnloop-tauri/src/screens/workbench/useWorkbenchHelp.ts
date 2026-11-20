@@ -34,7 +34,7 @@ import type {
   WorkbenchStepLabelsDto,
 } from "../../api/dto";
 import { errorMessage } from "../../errors";
-import { DEFAULT_RUNGS } from "./helpModel";
+import { DEFAULT_RUNGS, HELP_COPY } from "./helpModel";
 
 const FIRST_POLL_MS = 350;
 export const UNSAVED_HELP = "Your latest steps aren't saved yet, so help can't read them. They're safe in this window.";
@@ -233,6 +233,8 @@ export function useWorkbenchHelp(options: {
   const runCheck = useCallback(async () => {
     if (!enabled || checkPending || options.readOnly) return;
     setCheckNotice(null);
+    // The last hint's failed line is about an earlier request: the learner has asked for help again.
+    setNotice(null);
     if (!(await beforeRef.current())) {
       setCheckNotice("Your latest steps aren't saved yet, so they can't be checked. They're safe in this window.");
       return;
@@ -261,6 +263,7 @@ export function useWorkbenchHelp(options: {
 
   const openHelp = useCallback((focusedStepId: string | null) => {
     if (!enabled || !hintsEnabled || options.readOnly) return;
+    setNotice(null);
     const mine = ++generation.current;
     setLadder({ ...closedLadder, open: true, focusedStepId, pending: true });
     void (async () => {
@@ -345,7 +348,11 @@ export function useWorkbenchHelp(options: {
         }
         if (result.exampleJobId) exampleJobRef.current?.(result.assistId, result.exampleJobId);
       } else {
-        setNotice({ stepId: result.steps?.aboutStepId ?? stepId, message: result.message ?? "Couldn't write a hint. Your steps are saved — try again ↵" });
+        // The sidecar words a level no hint could be written for as the practice screen's ("press Hint again or use
+        // the item's hint"): the workbench has neither, so it names what it has.
+        const noFit = result.reason === "contract_failed" || result.reason === "no_option";
+        setNotice({ stepId: result.steps?.aboutStepId ?? stepId,
+          message: noFit ? HELP_COPY.noFittingHint : result.message ?? "Couldn't write a hint. Your steps are saved — try again ↵" });
       }
     } catch (error) {
       hintJob.current = null;

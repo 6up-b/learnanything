@@ -219,11 +219,11 @@ def _classifier(vault: Any, repository: Any, withheld: Any) -> Callable[[Sequenc
     (``exam_material``, ``solutions`` or ``held_for_a_check``), the rows it keeps absent. One rule for the
     search's pool (before its verification model reads a passage) and for the final response."""
 
-    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.content.sources.exam_material import surface_exam_material
     from learnloop.source_retrieval.corpus import MODEL_WITHHELD_ROLES, model_reader_withheld
 
     protected_spans, protected_whole = _protected_spans(vault, repository, withheld)
-    exam = exam_material(vault, repository)
+    exam = surface_exam_material(vault, repository, "mcp_passages")
 
     def classify(rows: Sequence[tuple[str, str, str, str]]) -> dict[tuple[str, str], str]:
         # A model's view of a passage: the library scope drops no assessment-lane material (problem sets,

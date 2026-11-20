@@ -60,6 +60,15 @@ export interface AskAbout extends SourceIdentity {
 }
 
 /** Reader CA6b: the rail's line for an Ask about the book beside. */
+/** "§ from the book": the selection's quote. One that holds a formula (as `$…$`, once, from its TeX) is drawn with
+ *  it; one with none, which every quote saved before formulas were taken that way is, is the stored text as it was. */
+function BookQuote({ quote }: { quote: string }) {
+  const style = { margin: 0, fontSize: 11, color: COLOR.textDim };
+  return quote.includes("$")
+    ? <blockquote className="md-tight" style={style}><MarkdownMath value={quote} /></blockquote>
+    : <blockquote style={style}>{quote}</blockquote>;
+}
+
 export const aboutLine = (about: AskAbout): string => `about ${about.label}`;
 
 export type InquiryCommitment = "test_me_later" | "help_me_remember";
@@ -225,7 +234,7 @@ export function ReaderAskBranches({
             {exchange.selectionSourceQuoteMd ? (
               <>
                 <SourceVoice>
-                  <blockquote style={{ margin: 0, fontSize: 11, color: COLOR.textDim }}>{exchange.selectionSourceQuoteMd}</blockquote>
+                  <BookQuote quote={exchange.selectionSourceQuoteMd} />
                 </SourceVoice>
                 {exchange.selectionQuoteMd ? (
                   <LearnerVoice label="your edited capture">
@@ -235,7 +244,7 @@ export function ReaderAskBranches({
               </>
             ) : exchange.selectionQuoteMd ? (
               <SourceVoice>
-                <blockquote style={{ margin: 0, fontSize: 11, color: COLOR.textDim }}>{exchange.selectionQuoteMd}</blockquote>
+                <BookQuote quote={exchange.selectionQuoteMd} />
               </SourceVoice>
             ) : null}
             <TutorAnswer exchange={exchange} tutor={tutor} />

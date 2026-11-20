@@ -18,7 +18,7 @@ import re
 from collections import defaultdict
 from typing import Any, Iterable, Mapping
 
-from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
+from learnloop.content.sources.exam_material import held_out_among, held_out_refusal, surface_material
 from learnloop.content.sources.span_aliases import SpanTranslator
 from learnloop.db.repositories import Repository
 from learnloop.section_map import (  # the Reader's mapping, moved below every package that reads it
@@ -506,7 +506,7 @@ def held_out_sections(
     (reading-hardening landing).
     """
 
-    material = held_out_material(vault_or_sets, repository)
+    material = surface_material(vault_or_sets, repository, "reader_guidance")
     return {str(row["id"]) for row in section_rows
             if held_out_among(material, extraction_id, row.get("span_ids") or [])}
 
@@ -521,7 +521,7 @@ def reading_protection(
     partition the Reader's Ask, requests and checks refuse, so an action the
     sidecar would refuse is never offered; nothing else decides it."""
 
-    material = held_out_material(vault_or_sets, repository)
+    material = surface_material(vault_or_sets, repository, "reader_guidance")
     whole = material.covers(str(extraction_id))
     held = [] if whole else held_out_among(material, extraction_id, span_ids)
     return {

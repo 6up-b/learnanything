@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 220
 first_level_packages = 46
 first_level_root_modules = 36
 first_level_root_modules_not_upgrade = 36
-functions_over_200_lines = 71
-comment_lines_naming_a_stage_artifact = 2353
+functions_over_200_lines = 70
+comment_lines_naming_a_stage_artifact = 2351
 test_files_named_for_a_stage = 184
 "src/learnloop/daily_plan/engine.py" = 6777
 "src/learnloop/attempts/attempts.py" = 5820
@@ -190,7 +190,6 @@ functions_over_200_lines = [
     "src/learnloop/field/outcomes.py _load",
     "src/learnloop/field/probability_prep.py prepare_judge",
     "src/learnloop/field/signals.py derive_interaction_signals",
-    "src/learnloop/figures/build.py _author_attempts_and_store",
     "src/learnloop/goals/certification_cold_probe.py schedule_certification_cold_probes",
     "src/learnloop/hints/report.py build_hints_report",
     "src/learnloop/ops/contamination/report.py contamination_report",
@@ -637,7 +636,7 @@ stage_test_files = [
 "src/learnloop/field/success_head_analysis.py" = 1
 "src/learnloop/field/workbench_signals.py" = 2
 "src/learnloop/figure_admission.py" = 2
-"src/learnloop/figures/build.py" = 28
+"src/learnloop/figures/build.py" = 26
 "src/learnloop/figures/grammar.py" = 3
 "src/learnloop/figures/help.py" = 2
 "src/learnloop/figures/labels.py" = 6

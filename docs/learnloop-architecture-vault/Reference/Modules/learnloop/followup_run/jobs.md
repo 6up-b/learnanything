@@ -185,6 +185,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f20_an_exit_that_spends_nothing_still_takes_its_own_way_out`
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
   - `test_r10_the_retry_is_the_workflows_one_so_no_third_call`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
 
 ## Modification guidance
 

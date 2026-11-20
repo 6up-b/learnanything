@@ -18,6 +18,8 @@ import {
   shouldPoll,
 } from "./readingPath";
 import { MeaningLabel } from "./voices";
+import { sectionWords } from "./readerShared";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 
 const LINK = {
   background: "none", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer",
@@ -77,7 +79,7 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
   }, [path, read]);
 
   useEffect(() => {
-    if (focusToken > 0) cardRef.current?.scrollIntoView?.({ block: "nearest" });
+    if (focusToken > 0) scrollIntoViewWithin(cardRef.current, { block: "nearest" });
   }, [focusToken]);
 
   // The learner read on, answered or came back to the Guide while the card
@@ -168,7 +170,7 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
             {path.goalLine ? <Faint style={{ fontSize: 10 }}>{path.goalLine}</Faint> : null}
             {path.next ? (
               <span data-reading-path-next="" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>
-                {path.next.text}
+                {nextLine(path.next.text, path.sections.find((section) => section.sectionId === path.next?.sectionId)?.title)}
               </span>
             ) : null}
             {path.status === "judging" || path.status === "pending" ? (
@@ -217,6 +219,13 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
   );
 }
 
+/** The sidecar's "Next: read …" line, with the section it names said in words (the line quotes the stored label). */
+function nextLine(text: string, title: string | undefined): string {
+  if (!title) return text;
+  const words = sectionWords(title);
+  return words === title ? text : text.replace(title, words);
+}
+
 function SectionRow({
   section, open, busy, onToggle, onJump, onChoose,
 }: {
@@ -239,7 +248,7 @@ function SectionRow({
           onClick={onJump}
           style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: COLOR.text, fontFamily: FONT_MONO, fontSize: 11, textAlign: "left", textDecoration: section.effectiveLabel === "skipped" ? "line-through" : "none" }}
         >
-          {section.title}
+          {sectionWords(section.title)}
         </button>
         <button type="button" style={LINK} aria-expanded={open} onClick={onToggle}>{COPY.why} {open ? "▾" : "▸"}</button>
       </div>

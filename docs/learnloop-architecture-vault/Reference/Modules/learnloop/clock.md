@@ -1554,6 +1554,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_post_attempt_worker.py](../../../../../tests/test_post_attempt_worker.py) — direct import
   - `test_an_older_job_queued_during_a_live_lease_is_never_leased_concurrently`
   - `test_lease_expiry_reclaims_and_fences_the_stale_worker`
+- [tests/test_post_miss_choice.py](../../../../../tests/test_post_miss_choice.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
 - [tests/test_practice_index_admission.py](../../../../../tests/test_practice_index_admission.py) — direct import
   - `test_admission_never_writes`

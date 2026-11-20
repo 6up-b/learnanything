@@ -34,6 +34,64 @@ export const VERDICT_TEXT: Record<Verdict, string> = {
   held: "Held for review"
 };
 
+/** A grade held for review, in the feedback's words (the grade counts for nothing until then). */
+export const HELD_GRADE_LINE =
+  "The grader couldn't check the way you answered, so this answer doesn't count either way until it's reviewed.";
+/** A grade waiting on the learner's answer to one clarifying question. */
+export const PROVISIONAL_GRADE_LINE = "This grade may change after one question";
+/** A valid answer by another route: the criteria that route never used are out of the grade. */
+export const UNASSESSED_ROUTE_LINE =
+  "your answer checks out by a different route · criteria that route did not exercise are not assessed (no credit, no lost points)";
+
+/**
+ * Every review reason the sidecar writes on an attempt (`manual_review_reason`), by its code. The last
+ * five arrive with the ids they concern after a colon (`unknown_target_criterion:c1,c2`).
+ */
+export const REVIEW_REASON_CODES = [
+  "valid_alternative_unverified",
+  "provisional_pending_clarification",
+  "grade_held_for_review",
+  "grade_contract_unrecorded",
+  "codex_manual_review",
+  "low_grader_confidence",
+  "low_self_confidence",
+  "blank_answer",
+  "unknown_target_evidence_family",
+  "unknown_target_criterion",
+  "unanchored_diagnosis_facet",
+  "attribution_scope",
+  "unknown_error_type"
+] as const;
+export type ReviewReasonCode = (typeof REVIEW_REASON_CODES)[number];
+
+// What a feedback says for each: the desktop feedback's own sentence, or nothing where it says
+// nothing. A request for a person to look at the grade is not the learner's to act on.
+const REVIEW_REASON_LINES: Record<ReviewReasonCode, string | null> = {
+  valid_alternative_unverified: UNASSESSED_ROUTE_LINE,
+  provisional_pending_clarification: `${PROVISIONAL_GRADE_LINE}.`,
+  grade_held_for_review: HELD_GRADE_LINE,
+  grade_contract_unrecorded: HELD_GRADE_LINE,
+  codex_manual_review: null,
+  low_grader_confidence: null,
+  low_self_confidence: null,
+  blank_answer: null,
+  unknown_target_evidence_family: null,
+  unknown_target_criterion: null,
+  unanchored_diagnosis_facet: null,
+  attribution_scope: null,
+  unknown_error_type: null
+};
+
+/** The words a feedback shows for a grade's review reason, or null. Never the code: a reason this
+ *  list does not know (a newer sidecar's) shows nothing. */
+export function reviewReasonLine(reason: string | null | undefined): string | null {
+  if (!reason) return null;
+  const head = reason.split(":", 1)[0];
+  return Object.prototype.hasOwnProperty.call(REVIEW_REASON_LINES, head)
+    ? REVIEW_REASON_LINES[head as ReviewReasonCode]
+    : null;
+}
+
 /**
  * The verdict for one grade. A grade held for review is the grader's own
  * provisional score and counts for nothing (THE held predicate,

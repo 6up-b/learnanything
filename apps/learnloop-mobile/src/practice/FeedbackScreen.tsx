@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommandError, DiagnosisCardDto, ElicitingResponseResultDto, FeedbackBundle, GradingClarificationDto } from "@desktop/api/dto";
+import { NOT_ASSESSED_LABEL, criterionAssessed } from "@desktop/api/dto";
+import { reviewReasonLine } from "@desktop/app/practiceFeedback";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { staleRefusal } from "../api/http";
 import { phone, type PhoneSomethingElseDto } from "../api/phone";
 import { SomethingElse } from "./SomethingElse";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
@@ -215,14 +219,17 @@ export function FeedbackScreen({
       </div>
     );
   }
-  if (!feedback) return <div className="screen"><p className="dim">Reading your feedback…</p></div>;
+  // The end of the owner's case 2, in the desktop's words: the graded answer's feedback being read.
+  if (!feedback) return <div className="screen"><Waiting testId="feedback-wait" line={WAITING_COPY.openingFeedback} /></div>;
   // FG1 §3 step 8: this answered a generated probe, so what the earlier miss held appears there now.
   const heldFrom = feedback.heldFeedbackAttemptId ?? null;
+  const reviewLine = reviewReasonLine(feedback.manualReviewReason);
   return (
     <div className="screen">
       <h1>{feedback.learningObjectTitle}</h1>
       <p className="score">{feedback.rubricScore} / {feedback.maxPoints}</p>
-      {feedback.manualReviewReason ? <p className="dim">{feedback.manualReviewReason}</p> : null}
+      {/* The reason is a code: only its words, as the desktop says them, or nothing. */}
+      {reviewLine ? <p className="dim" data-testid="review-reason">{reviewLine}</p> : null}
       {/* Mobile v2 V4 (CA7): the problem as printed, as the desktop's Feedback shows it. */}
       <PrintedAfterFeedback practiceItemId={feedback.practiceItemId} />
       {feedback.feedbackMd ? (
@@ -230,7 +237,12 @@ export function FeedbackScreen({
       ) : null}
       {feedback.criterionEvidence.map((row) => (
         <div className="criterion" key={row.criterionId}>
-          <div>{row.criterionDescription} <span className="dim">({row.pointsAwarded}/{row.pointsPossible})</span></div>
+          <div>
+            {row.criterionDescription}{" "}
+            <span className="dim">
+              {criterionAssessed(row) ? `(${row.pointsAwarded}/${row.pointsPossible})` : `(${row.notAssessedLabel ?? NOT_ASSESSED_LABEL})`}
+            </span>
+          </div>
           {row.notes ? <div className="dim markdown"><MarkdownMath value={row.notes} components={RemoteImageAsLink} /></div> : null}
         </div>
       ))}
@@ -244,7 +256,7 @@ export function FeedbackScreen({
       ) : null}
       <FullAnswer feedback={feedback} held={followupHeld} />
       {feedback.gradingSource !== "self" ? <Contest attemptId={attemptId} onBundle={setFeedback} /> : null}
-      {pending ? <p className="dim" role="status">Looking into what happened here…</p> : null}
+      {pending ? <Waiting testId="diagnosis-wait" line={WAITING_COPY.lookingIntoAnswer} /> : null}
       {feedback.diagnosisStatus === "failed" ? (
         <p className="dim" role="status">{DIAGNOSIS_FAILED_LINE}</p>
       ) : null}
@@ -273,7 +285,7 @@ export function FeedbackScreen({
         </div>
       ) : null}
       {waitLine && !choosing ? <p className="dim" role="status" data-testid="followup-wait">{waitLine}</p> : null}
-      {choosing ? <p className="dim" role="status">Choosing what's next…</p> : null}
+      {choosing ? <Waiting testId="choosing-wait" line={WAITING_COPY.choosingNext} /> : null}
       <div className="actions">
         <button className="primary block" type="button" disabled={choosing} onClick={onNext}>Next</button>
         {somethingElse ? (

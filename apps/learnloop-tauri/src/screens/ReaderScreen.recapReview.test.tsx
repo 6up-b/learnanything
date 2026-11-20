@@ -29,6 +29,10 @@ vi.mock("./reader/useReaderRequests", () => ({
   parseRequestError: () => null, parseRequestResult: () => ({}),
 }));
 vi.mock("../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
+// The Reader scrolls through `scrollIntoViewWithin` (its own panes only); this
+// file reads which element it brought into view, and how.
+vi.mock("../components/scrollWithin", () => ({ scrollIntoViewWithin: vi.fn() }));
+import { scrollIntoViewWithin } from "../components/scrollWithin";
 
 const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard, spanId: "span_spectral_worked" };
 
@@ -62,7 +66,7 @@ beforeEach(() => {
   resetReaderActivityForTests();
   setAlgoConfig({ recap: { enabled: true, wrapUpEnabled: true } });
   scrolled = [];
-  Element.prototype.scrollIntoView = vi.fn(function (this: Element) { scrolled.push(this); });
+  vi.mocked(scrollIntoViewWithin).mockImplementation((element) => { if (element) scrolled.push(element); });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   api.readerRenderView.mockResolvedValue(view);
   api.readerGetProgress.mockResolvedValue({ sections: [] });

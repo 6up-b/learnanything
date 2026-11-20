@@ -124,6 +124,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_block_end_repair_consultation_is_idempotent`
   - `test_end_diagnostic_block_noop_on_terminal_episode`
   - `test_open_set_trigger_fires_at_threshold_with_dedup`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
 
 ## Modification guidance
 

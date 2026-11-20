@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/LiveMarkdownEditor.tsx](../../../../../../apps/learnloop-tauri/src/render/LiveMarkdownEditor.tsx) |
-| Source lines | 294 |
+| Source lines | 358 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
@@ -54,8 +54,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface LiveMarkdownKeyInfo` — interface, line 81
-- `export function LiveMarkdownEditor(` — function, line 88
+- `export interface LiveMarkdownKeyInfo` — interface, line 133
+- `export function LiveMarkdownEditor(` — function, line 140
 
 ## Internal implementation anchors
 
@@ -77,31 +77,41 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const trimmed = line.trim()` — const, line 55
 - `const isFence = trimmed.startsWith("```") || trimmed.startsWith("~~~")` — const, line 56
 - `const isMath = trimmed === "$$"` — const, line 57
-- `const SCROLL_STYLE =` — const, line 76
-- `const COMPACT_STYLE =` — const, line 78
-- `const taRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 120
-- `const blocks = useMemo(()` — const, line 122
-- `const aStart = editing ? editing.before.length : -1` — const, line 125
-- `const aEnd = editing ? value.length - editing.after.length : -1` — const, line 126
-- `const draft = editing ? value.slice(aStart, aEnd) : ""` — const, line 127
-- `function startEdit(block: Block)` — function, line 129
-- `function startEditEmpty()` — function, line 133
-- `function onDraftChange(next: string)` — function, line 137
-- `function startEditAtEnd()` — function, line 143
-- `const last = blocks[blocks.length - 1]` — const, line 144
-- `const node = taRef.current` — const, line 158
-- `const end = node.value.length` — const, line 160
-- `const node = taRef.current` — const, line 167
-- `function renderBlock(block: Block)` — function, line 174
-- `const keyProps = onKeyDown ?` — const, line 195
-- `const node = event.currentTarget` — const, line 198
-- `const caretAtDraftEnd = node.selectionStart === node.value.length && node.selectionEnd === node.value.length` — const, line 199
-- `const textarea = ( <textarea ref=` — const, line 207
-- `let body` — let, line 241
-- `const beforeBlocks = blocks.filter((block)` — const, line 252
-- `const afterBlocks = blocks.filter((block)` — const, line 253
-- `const restProps = focusable && !editing ?` — const, line 265
-- `const frontmatterStyle =` — const, line 283
+- `let pointerTracked = false` — let, line 81
+- `let pointerDown = false` — let, line 82
+- `function trackPointer(): void` — function, line 84
+- `const down = ()` — const, line 87
+- `const up = ()` — const, line 90
+- `function afterPress(run: ()` — function, line 102
+- `let timer: number | null = null` — let, line 107
+- `const release = ()` — const, line 108
+- `const stop = ()` — const, line 112
+- `const SCROLL_STYLE =` — const, line 128
+- `const COMPACT_STYLE =` — const, line 130
+- `const taRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 172
+- `const pendingLeave = useRef<(()` — const, line 174
+- `const blocks = useMemo(()` — const, line 180
+- `const aStart = editing ? editing.before.length : -1` — const, line 183
+- `const aEnd = editing ? value.length - editing.after.length : -1` — const, line 184
+- `const draft = editing ? value.slice(aStart, aEnd) : ""` — const, line 185
+- `function startEdit(block: Block)` — function, line 187
+- `function startEditEmpty()` — function, line 191
+- `function onDraftChange(next: string)` — function, line 195
+- `function startEditAtEnd()` — function, line 201
+- `const last = blocks[blocks.length - 1]` — const, line 202
+- `const node = taRef.current` — const, line 216
+- `const end = node.value.length` — const, line 218
+- `const node = taRef.current` — const, line 225
+- `function renderBlock(block: Block)` — function, line 232
+- `const keyProps = onKeyDown ?` — const, line 253
+- `const node = event.currentTarget` — const, line 256
+- `const caretAtDraftEnd = node.selectionStart === node.value.length && node.selectionEnd === node.value.length` — const, line 257
+- `const textarea = ( <textarea ref=` — const, line 265
+- `let body` — let, line 305
+- `const beforeBlocks = blocks.filter((block)` — const, line 316
+- `const afterBlocks = blocks.filter((block)` — const, line 317
+- `const restProps = focusable && !editing ?` — const, line 329
+- `const frontmatterStyle =` — const, line 347
 
 ## Who imports or calls it
 

@@ -30,6 +30,8 @@ import { NOT_ASSESSED_LABEL, UNVERIFIED_ROUTE_REVIEW_REASON, criterionAssessed }
 import { EntityLink, KeyBar, Pill } from "../components/ui";
 import { CardControls, ProbeRemintAction } from "../components/CardControls";
 import { modePillColor } from "../components/term";
+import { Waiting } from "../components/Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { AttemptTraceView, UnresolvedCauseCard } from "../components/KnowledgeModel";
 import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import { RepairTraceBlocks } from "../components/RepairTrace";
@@ -56,6 +58,7 @@ import {
   FIX_MIX_UP_LABEL,
   type FeedbackOrigin,
   simplePracticeFeedback,
+  UNASSESSED_ROUTE_LINE,
   unestablishedRepairCopy,
   VERDICT_TEXT,
   verdictOf
@@ -2794,6 +2797,8 @@ export function FeedbackScreen({
           ) : (
             <div style={{ color: C.textDim }} aria-busy="true">
               <div style={{ height: 30, width: 160, border: `1px dashed ${C.border}` }} />
+              {/* The rest of the owner's case 2: the graded answer's feedback is read (up to 11 s in the walks). */}
+              <Waiting testId="feedback-wait" line={WAITING_COPY.openingFeedback} style={{ marginTop: 10 }} />
             </div>
           )}
         </div>
@@ -3065,8 +3070,7 @@ export function FeedbackScreen({
             data-testid="unassessed-route-note"
             style={{ marginBottom: 14, fontSize: 12, color: C.textDim, fontFamily: MONO }}
           >
-            your answer checks out by a different route · criteria that route did not
-            exercise are not assessed (no credit, no lost points)
+            {UNASSESSED_ROUTE_LINE}
           </div>
         ) : f.manualReviewReason ? (
           <div className="toast" style={{ marginBottom: 14 }}>

@@ -121,6 +121,7 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/probe_router_authority_helpers.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_shadow_selection.py`

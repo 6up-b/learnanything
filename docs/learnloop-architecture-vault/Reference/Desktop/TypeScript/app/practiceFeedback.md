@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/practiceFeedback.ts](../../../../../../apps/learnloop-tauri/src/app/practiceFeedback.ts) |
-| Source lines | 107 |
+| Source lines | 165 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -58,19 +58,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function unestablishedRepairCopy(check: ColdCheckResultDto): string` — function, line 17
 - `export type Verdict = "right" | "partly" | "not_yet" | "held"` — type, line 27
 - `export const VERDICT_TEXT: Record<Verdict, string> =` — const, line 30
-- `export function verdictOf(` — function, line 44
-- `export const REPAIR_STEP_MINUTES = 4` — const, line 74
-- `export const FIX_MIX_UP_LABEL = `Fix this mix-up · about $` — const, line 75
-- `export type FeedbackOrigin = "plan" | "today" | "reader"` — type, line 78
-- `export function feedbackOrigin(` — function, line 80
-- `export const ORIGIN_LABEL: Record<FeedbackOrigin, string> =` — const, line 85
-- `export function plainSlug(slug: string | null | undefined): string` — function, line 92
-- `export function expectedAnswerText(value: unknown): string` — function, line 97
+- `export const HELD_GRADE_LINE = "The grader couldn't check the way you answered, so this answer doesn't count either way until it's reviewed."` — const, line 38
+- `export const PROVISIONAL_GRADE_LINE = "This grade may change after one question"` — const, line 41
+- `export const UNASSESSED_ROUTE_LINE = "your answer checks out by a different route · criteria that route did not exercise are not assessed (no credit, no lost points)"` — const, line 43
+- `export const REVIEW_REASON_CODES = [ "valid_alternative_unverified", "provisional_pending_clarification", "grade_held_for_review", "grade_contract_unrecorded", "codex_manual_review", "low_grader_confidence", "low_self_confidence", "blank_answer", "unknown_tar…` — const, line 50
+- `export type ReviewReasonCode = (typeof REVIEW_REASON_CODES)[number]` — type, line 65
+- `export function reviewReasonLine(reason: string | null | undefined): string | null` — function, line 87
+- `export function verdictOf(` — function, line 102
+- `export const REPAIR_STEP_MINUTES = 4` — const, line 132
+- `export const FIX_MIX_UP_LABEL = `Fix this mix-up · about $` — const, line 133
+- `export type FeedbackOrigin = "plan" | "today" | "reader"` — type, line 136
+- `export function feedbackOrigin(` — function, line 138
+- `export const ORIGIN_LABEL: Record<FeedbackOrigin, string> =` — const, line 143
+- `export function plainSlug(slug: string | null | undefined): string` — function, line 150
+- `export function expectedAnswerText(value: unknown): string` — function, line 155
 
 ## Internal implementation anchors
 
 - `const result = check.passed ? "You passed this check." : "You didn't pass this check."` — const, line 18
-- `const ratio = typeof correctness === "number" && Number.isFinite(correctness) ? correctness : typeof score === "number" && max > 0 ? score / max : 0` — const, line 56
+- `const REVIEW_REASON_LINES: Record<ReviewReasonCode, string | null> =` — const, line 69
+- `const head = reason.split(":", 1)[0]` — const, line 89
+- `const ratio = typeof correctness === "number" && Number.isFinite(correctness) ? correctness : typeof score === "number" && max > 0 ? score / max : 0` — const, line 114
 
 ## Who imports or calls it
 
@@ -81,10 +89,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `simplePracticeFeedback`; references `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/components/SessionFinishHud|src/components/SessionFinishHud.tsx]] — import-or-re-export: `simplePracticeFeedback`; references `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/screens/DiagnosticReviewScreen|src/screens/DiagnosticReviewScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`; references `FIX_MIX_UP_LABEL`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`
-- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `VERDICT_TEXT`, `simplePracticeFeedback`, `unestablishedRepairCopy`, `verdictOf`; references `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `VERDICT_TEXT`, `simplePracticeFeedback`, `unestablishedRepairCopy`, `verdictOf`
+- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `UNASSESSED_ROUTE_LINE`, `VERDICT_TEXT`, `simplePracticeFeedback`, `unestablishedRepairCopy`, `verdictOf`; references `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `UNASSESSED_ROUTE_LINE`, `VERDICT_TEXT`, `simplePracticeFeedback`, `unestablishedRepairCopy`, `verdictOf`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `expectedAnswerText`, `simplePracticeFeedback`; references `expectedAnswerText`, `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/screens/RepairScreen|src/screens/RepairScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `simplePracticeFeedback`; references `FIX_MIX_UP_LABEL`, `simplePracticeFeedback`
-- [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `FeedbackOrigin`, `ORIGIN_LABEL`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`, `unestablishedRepairCopy`; references `FeedbackOrigin`, `ORIGIN_LABEL`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`, `unestablishedRepairCopy`
+- [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `FeedbackOrigin`, `HELD_GRADE_LINE`, `ORIGIN_LABEL`, `PROVISIONAL_GRADE_LINE`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`, `unestablishedRepairCopy`; references `FeedbackOrigin`, `HELD_GRADE_LINE`, `ORIGIN_LABEL`, `PROVISIONAL_GRADE_LINE`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`, `unestablishedRepairCopy`
 
 ## Dependencies
 
@@ -107,6 +115,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/copy/denyList.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/practiceFeedback.test.ts](../../../../../../apps/learnloop-tauri/src/app/practiceFeedback.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

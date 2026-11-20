@@ -34,6 +34,7 @@ import type { PassageAlign, PdfReaderPaneHandle } from "../../components/PdfRead
 import { checkOffer, type CheckSurface } from "./checkOffer";
 import { useGuideDiagnosisRefresh } from "./guidePlan";
 import { screenLeavesKey } from "../../app/keymap";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 import {
   pagePositionAt,
   resumeSpanFromHistory,
@@ -812,7 +813,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     if (!focusQuickCheck) return;
     const frame = window.requestAnimationFrame(() => {
       const card = railRef.current?.querySelector(`[data-quick-check="${focusQuickCheck}"]`);
-      if (card instanceof HTMLElement) card.scrollIntoView({ block: "nearest" });
+      if (card instanceof HTMLElement) scrollIntoViewWithin(card, { block: "nearest" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [focusQuickCheck, railRef]);
@@ -990,7 +991,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       // call: a jump made before layout, as the reading-history resume can be,
       // must not throw where scrolling is unavailable.)
       const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      if (el instanceof HTMLElement) scrollIntoViewWithin(el, { behavior: reduced ? "auto" : "smooth", block: "center" });
     },
     [pdfView, surface, offline, pageBySpan, revealSegment, setActiveSpan, watchRef, paneRef, bodyRef],
   );
@@ -1090,7 +1091,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
         return;
       }
       const element = bodyRef.current?.querySelector(`[data-span-id="${readingSpan}"]`);
-      if (element instanceof HTMLElement) element.scrollIntoView({ block: "center" });
+      if (element instanceof HTMLElement) scrollIntoViewWithin(element, { block: "center" });
     });
     return () => window.cancelAnimationFrame(frame);
     // This is a mount/resurface effect. Normal scrolling must not repeatedly

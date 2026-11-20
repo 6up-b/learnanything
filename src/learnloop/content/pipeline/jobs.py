@@ -1490,6 +1490,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         if unlimited_token_budget
         else _optional_int(payload.get("output_budget_tokens")) or budgets.inventory_output_tokens
     )
+    output_ceiling = None if unlimited_token_budget else budgets.inventory_output_ceiling_tokens
 
     specs: list[dict[str, Any]] = []
     for spec in units:
@@ -1534,6 +1535,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             model=provider_identity[1],
             input_budget_tokens=budget,
             output_budget_tokens=output_budget,
+            output_ceiling_tokens=output_ceiling,
             clock=ctx.clock,
         )
         if isinstance(resolved, InventoryResult):
@@ -2977,9 +2979,9 @@ def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_i
     before any model call, and before a check authored before the mark is
     handed back (code ``exam_material``)."""
 
-    from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
+    from learnloop.content.sources.exam_material import held_out_among, held_out_refusal, surface_material
 
-    material = held_out_material(_reader_source_sets(ctx.vault_root), ctx.repo)
+    material = surface_material(_reader_source_sets(ctx.vault_root), ctx.repo, "reader_checks")
     held = held_out_among(material, extraction_id, span_ids)
     if held:
         raise IngestRunnerError(held_out_refusal(material, extraction_id), code="exam_material",
@@ -3235,18 +3237,18 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
     # Exam protection (2026-10-13): held-out material (the one exam predicate's
     # held-out partition) never becomes practice, whoever selects it. Checked
     # before any model call.
-    from learnloop.content.sources.exam_material import exam_material, scope_only_among
+    from learnloop.content.sources.exam_material import scope_only_among, surface_material
     from learnloop.vault.loader import load_vault
 
     vault = load_vault(ctx.vault_root)
-    exam = exam_material(vault, ctx.repo)
+    held_out = surface_material(vault, ctx.repo, "reader_import")
     render_view_id = str(payload.get("render_view_id") or "") or None
     # The blocks the author will read, translated as the author translates them (either key spelling, a
     # render view's display node, a quote re-anchored): a check of the raw nodes' keys misses a selection
     # spelled ``spanId`` or named by its display node. Scope and provenance read the same blocks.
     selected = EX.selected_span_ids(ctx.repo, extraction_id=extraction_id, raw_selection=raw_selection,
                                     render_view_id=render_view_id)
-    held = [span for span in selected if exam.is_held_out(extraction_id, span)]
+    held = [span for span in selected if held_out.covers(str(extraction_id), str(span))]
     if held:
         raise IngestRunnerError(
             "This passage is held out for evaluation (an exam you'll sit later), so it can't become practice.",
@@ -3274,7 +3276,7 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
             learning_object_hint=str(payload.get("learning_object_hint") or "") or None,
             clock=ctx.clock,
             # The Reader's set: a held-out neighbor of the selection never reaches the author.
-            context_withheld=exam.held_out,
+            context_withheld=held_out,
         )
     except EX.ExerciseAuthoringError as exc:
         raise IngestRunnerError(str(exc)) from exc

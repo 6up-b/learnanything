@@ -347,6 +347,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evaluate_completion_abstains_on_planted_indistinguishable_case`
   - `test_robust_selection_abstains_on_indistinguishable_candidates`
   - `test_selection_and_update_share_the_pinned_channel_hash`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`
