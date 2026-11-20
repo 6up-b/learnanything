@@ -103,7 +103,13 @@ Separate, filed as **UX-32**: the press writes no question to practise in any ca
 
 ## What I ran
 
-RUNS_PLACEHOLDER
+Every Python run went through the scratch wrapper (`env -i`, empty `HOME`/`CODEX_HOME`/config dir) as `uv run --no-sync pytest -q -n 1 -p no:cacheprovider` from a script file that refuses an empty target list, in a 3G scope, one at a time. Every npm/npx run went through the same wrapper with `npm_config_cache=/home/saturn/.npm`, in a 5G scope. The final runs below are on the branch's source tip (`b34df54077`).
+
+- New and edited backend files with the nearest (`test_section_done_before_build`, `test_first_questions_today`, `test_mobile_v4_reader`) and the pins and ratchets: 391 passed.
+- `scripts/affected_tests.py --files` (the nine changed source files) listed 1,328 files. I ran the 58 whose names contain section, reader_progression, reader_quick_check, reader_requests, reader_guidance, first_questions, ux_phase1, add_source, auto_build, reread, keep_ahead, reading_request, practice_expansion, source_library, source_action, mobile_v4_reader, mobile_v4_plan, mobile_v2_plan, mobile_allowlist, mobile_phone_contract, mobile_(handoff|jobs|two_process|host_coexistence|rpc), secondary_attach, sidecar_contract, desktop_rpc, ingest_runner, apply_recovery, host_queue, daily_plan_reading, figures_prefetch, plan_first_transport_offer_grants, followups_batch6_verify_fixes, curriculum_c1_fix_round2/3, progressive, reader_first, items_off, quick_add, study_map, build_plan, inventory_output, first_run, seeding or startup, in two chunks of 29 with `-m "not arc_close"`: 815 passed; 508 passed, 5 skipped. (Run before and again after the last source commit, which moved the stamps and the hook: the same results.)
+- Gates: the two backend test files with `test_identity_pins`, `test_structure_ratchets`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_kill_switches`, `test_sqlite_file_copies`: 409 passed (no pin, golden or ratchet moved). `test_test_layout` alone: 3 passed. `test_architecture` alone: 18 passed (after the last source commit; before it, its frozen-edge inventory refused two new `add_source → learnloop.reader` function-local edges, which that commit removed). `ruff check`: all checks passed. `lint-imports --no-cache`: 43 kept, 0 broken. `scripts/check_gate_partition.py`: 31,850 collected, landing 31,785 + arc_close 65.
+- Desktop: `npm run typecheck` exit 0; `npx vitest run --maxWorkers=4` 314 files, 3,202 tests passed; `npm run frontend:build` exit 0.
+- Phone: `npm run typecheck` exit 0; `npx vitest run --maxWorkers=4` 41 files, 416 tests passed; `npm run build` exit 0.
 
 ## What a walk must check
 
