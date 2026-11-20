@@ -436,3 +436,23 @@ def test_the_plan_route_request_is_byte_identical_under_a_ceiling(tmp_path, monk
     assert bodies[0] == bodies[1]
     assert bodies[0]["input"][0]["content"].endswith("Keep the complete JSON response within 3000 output tokens.")
     assert "max_output_tokens" not in bodies[0]
+
+
+def test_the_ceiling_at_its_default_leaves_every_whole_config_hash_as_it_was():
+    """Whole-config dumps are hashed into identities compared later (``identity_dump``; a decision state's and a
+    report's config hash): at its default the new field is not in them, so those hashes keep their recorded bytes
+    (``tests/test_retired_config_identities.py``, the diagnosis journey golden). A vault that sets another ceiling
+    is dumped with it, and the hashes name that setting."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.config.retired import identity_dump
+    from learnloop.config.schema import LearnLoopConfig
+
+    default = LearnLoopConfig()
+    assert default.ingest.budgets.inventory_output_ceiling_tokens == 6000
+    assert "inventory_output_ceiling_tokens" not in identity_dump(default)["ingest"]["budgets"]
+    assert "inventory_output_ceiling_tokens" not in default.model_dump_json()
+
+    raised = LearnLoopConfig.model_validate({"ingest": {"budgets": {"inventory_output_ceiling_tokens": 8000}}})
+    assert identity_dump(raised)["ingest"]["budgets"]["inventory_output_ceiling_tokens"] == 8000
+    assert content_key(identity_dump(raised)) != content_key(identity_dump(default))

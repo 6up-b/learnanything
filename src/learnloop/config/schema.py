@@ -838,6 +838,10 @@ class NativeIngestConfig(BaseModel):
     fallback_when_unavailable: bool = False
 
 
+#: ``[ingest.budgets] inventory_output_ceiling_tokens``'s default (see the field).
+INVENTORY_OUTPUT_CEILING_TOKENS = 6000
+
+
 class IngestBudgetsConfig(BaseModel):
     """Per-stage token budgets for ingestion v2."""
 
@@ -857,7 +861,14 @@ class IngestBudgetsConfig(BaseModel):
     # twice the working size, the room the AI output policy already gives any
     # call that runs past its budget (one retry at double it); the live
     # model's largest window in the walks was 3,169 against 3,000.
-    inventory_output_ceiling_tokens: int = 6000
+    # Left out of a dump at its default: whole-config hashes compared later
+    # (identity_dump, a decision state's or a report's config hash) keep the
+    # bytes they had before the field existed; a vault that sets another
+    # value is dumped with it, so those hashes then name the setting.
+    inventory_output_ceiling_tokens: int = Field(
+        default=INVENTORY_OUTPUT_CEILING_TOKENS,
+        exclude_if=lambda value: value == INVENTORY_OUTPUT_CEILING_TOKENS,
+    )
     synthesis_shard_input_tokens: int = 40000
     # The size a synthesis pass is asked to aim for (stated to the plan route).
     synthesis_shard_output_tokens: int = 10000

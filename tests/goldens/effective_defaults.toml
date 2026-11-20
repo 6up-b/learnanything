@@ -584,7 +584,6 @@ ingest.budgets.append_input_ceiling = 84000
 ingest.budgets.append_neighborhood_input_tokens = 24000
 ingest.budgets.append_output_tokens = 10000
 ingest.budgets.inventory_input_tokens = 20000
-ingest.budgets.inventory_output_ceiling_tokens = 6000
 ingest.budgets.inventory_output_tokens = 3000
 ingest.budgets.quick_add_scope_input_tokens = 40000
 ingest.budgets.synthesis_output_tokens = 16000

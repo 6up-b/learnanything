@@ -116,7 +116,15 @@ The rule changes on purpose: an answer over its ceiling is no longer saved, and 
 ## Pins and goldens
 
 - `tests/test_identity_pins.py`: no pin moved (run after each source commit). Nothing sent to a model changes for a build that fits the working sizes; no reuse key includes a budget; the manifest's recorded budgets are the same fields with the same defaults (the new inventory field is not recorded there, being an inventory setting).
-- `tests/goldens/effective_defaults.toml`: one line added, `ingest.budgets.inventory_output_ceiling_tokens = 6000` (`--write`). The config reference is regenerated at landing.
+- `tests/goldens/effective_defaults.toml`: the line `ingest.budgets.inventory_output_ceiling_tokens = 6000` was added by the first commit and taken out again by the landing fix below (`--write`). The config reference is regenerated at landing.
+
+### Landing fix: the new field moved whole-config hashes
+
+The landing gate failed seven tests this step had not run: six in `tests/test_retired_config_identities.py` (a digest of `identity_dump(config)` and of the plain dump, recorded at arc C's base and at the kill switches' base, e.g. `beffb8c8…109f7` became `16d6822d…5625c`) and `tests/test_diagnosis_journey_golden.py::test_diagnosis_journey[fg1_wait]`, whose only changed leaf was a decision-state receipt's `versions.config` (`router_objective/decision_state.py` `_config_hash`, a hash of `config.model_dump(mode="json")`). A new field of `IngestBudgetsConfig` is in every whole-config dump, so every hash of one moved at a fixed input. `test_identity_pins.py` covers the sections and types it registers, not these whole-config hashes.
+
+Fix (`config/schema.py`, `IngestBudgetsConfig.inventory_output_ceiling_tokens`): `Field(default=6000, exclude_if=<equals 6000>)`, the vault-model pattern for a field added under recorded identities. At its default the field is in no dump, so a vault that does not set it hashes exactly as before: the recorded digests and the journey golden were not regenerated and pass. A vault that sets another value is dumped with it, and those hashes move, deliberately: the ceiling changes what a build keeps and pays for, so a record of the config in force (a decision state's or a report's config hash) should name it. Nothing that serves, schedules or reuses paid work compares these whole-config hashes (the synthesis manifest names its budgets one by one and not this field; no window, pass or row key includes a budget). The cost: `learnloop config effective` and the effective-defaults golden no longer show the field at its default. Test: `test_the_ceiling_at_its_default_leaves_every_whole_config_hash_as_it_was` (fails on the branch before the fix: the field is in `identity_dump`).
+
+The step's other new fields reach no compared value: `StructuredRequest.output_ceiling_tokens` is read only by the chat transport (as `max_tokens`) and is not dumped; `JobContext.retrying_on_its_own` and `PreparedInventory.output_ceiling_tokens` are never dumped or keyed. The plan route's prompt states the working size as before. One provenance value does change on the chat route: a physical request's receipt records the `max_tokens` it was sent with, now the ceiling for inventory windows and synthesis passes.
 
 ## What I ran
 
