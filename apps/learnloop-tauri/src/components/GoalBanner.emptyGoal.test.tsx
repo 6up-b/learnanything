@@ -156,7 +156,8 @@ it("UX-8: answers but nothing checked: counts the answers and says which kind co
   expectNoVacuousTruths(text);
   const line = screen.getByTestId("goal-empty-state").textContent ?? "";
   expect(line).toBe(
-    "You have answered 3 questions, but none has checked this goal's topics yet. This goal's questions, answered on your own, are what count here. It is due in 22 days."
+    // UX-17: its topics have no questions (practicableItemCount 0), so the sentence says that, not "this goal's questions".
+    "You have answered 3 questions, but none has checked this goal's topics yet. This goal's topics have no questions yet. Once there are some, the ones you answer on your own count here. It is due in 22 days."
   );
   expect(findJargon(line)).toEqual([]);
   // No question of this goal is ready to practise: no button.
@@ -178,4 +179,43 @@ it("UX-8: everything examined and certified keeps its sentence, its standing and
   expect(screen.getByText("all facets certified — hold the line until the due date.")).toBeTruthy();
   expect(screen.getByTestId("goal-status").textContent).toBe("ON TRACK");
   expect(screen.getByRole("button", { name: "practice at-risk facets ↵" })).toBeTruthy();
+});
+
+// UX-17 (UX journey audit part 2, project-1 #24-27): a goal whose topics exist but have no questions yet said
+// "None of the topics in your books is part of it so far", beside a goal box that counted "3 topics from your books".
+it("UX-17: topics in the goal but no questions on them yet: names the topics and says the questions are what is missing", () => {
+  const text = show(goal(null, report(), {
+    facetScope: { concepts: ["preparing_face_images", "computing_a_pca_basis", "pca_compression_quality"], facets: [] },
+    practicableItemCount: 0
+  }));
+  expectNoVacuousTruths(text);
+  expect(text).not.toContain("None of the topics in your books");
+  const line = screen.getByTestId("goal-empty-state").textContent ?? "";
+  expect(line).toBe(
+    "Nothing has been checked for this goal yet. This goal has 3 topics, but no questions on them yet. Once there are some, the ones you answer on your own count here."
+  );
+  expect(findJargon(line)).toEqual([]);
+  expect(screen.queryByRole("button", { name: /practi[sc]e/i })).toBeNull();
+});
+
+it("UX-17: one topic, and topics counted by the report with no questions, say it in the same words", () => {
+  show(goal(null, report(), { facetScope: { concepts: ["eigen"], facets: [] }, practicableItemCount: 0 }));
+  expect(screen.getByTestId("goal-empty-state").textContent).toBe(
+    "Nothing has been checked for this goal yet. This goal has 1 topic, but no questions on it yet. Once there are some, the ones you answer on your own count here."
+  );
+  cleanup();
+  show(goal(null, report({ total: 4, atRiskCount: 4 }), { practicableItemCount: 0 }));
+  expect(screen.getByTestId("goal-empty-state").textContent).toBe(
+    "Nothing has been checked for this goal yet. This goal's topics have no questions yet. Once there are some, the ones you answer on your own count here."
+  );
+});
+
+it("UX-17: no topics at all keeps the no-topics sentence; questions to answer keep theirs", () => {
+  show(goal(null, report()));
+  expect(screen.getByTestId("goal-empty-state").textContent).toContain("None of the topics in your books is part of it so far");
+  cleanup();
+  show(goal(null, report({ total: 3, atRiskCount: 3 }), { facetScope: { concepts: ["eigen"], facets: [] }, practicableItemCount: 5 }));
+  expect(screen.getByTestId("goal-empty-state").textContent).toBe(
+    "Nothing has been checked for this goal yet. Answer its questions on your own and this report will start to fill in."
+  );
 });
