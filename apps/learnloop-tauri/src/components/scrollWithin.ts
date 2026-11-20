@@ -6,6 +6,9 @@
 // `#root`, `body`. A Reader pane asking for its own passage therefore moved
 // the whole application up, the top bar and the place tabs left the window,
 // and nothing the learner could do (wheel, Escape) scrolled a hidden box back.
+//
+// A scroller's own sticky bars (the Reader rail's tabs) are kept clear: the
+// element lands beside them, never under them.
 
 export type ScrollBlock = "start" | "center" | "end" | "nearest";
 
@@ -27,24 +30,49 @@ function pixels(value: string | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** How far the scroller's own sticky children, once stuck, cover its view
+ *  from the top and from the bottom (the Reader rail's tab bar). A target put
+ *  at the scroller's edge sits under them, and the first click on it lands on
+ *  the bar instead. A sticky child that holds the target covers nothing of it. */
+function stickyCover(container: HTMLElement, target: Element): { top: number; bottom: number } {
+  const view = container.ownerDocument.defaultView;
+  if (!view) return { top: 0, bottom: 0 };
+  const own = view.getComputedStyle(container);
+  let top = 0;
+  let bottom = 0;
+  for (const child of Array.from(container.children)) {
+    if (child.contains(target)) continue;
+    const style = view.getComputedStyle(child);
+    if (style.position !== "sticky") continue;
+    const height = child.getBoundingClientRect().height;
+    // A sticky offset is measured from inside the scroller's padding.
+    if (style.top && style.top !== "auto") top = Math.max(top, pixels(own.paddingTop) + pixels(style.top) + height);
+    else if (style.bottom && style.bottom !== "auto") bottom = Math.max(bottom, pixels(own.paddingBottom) + pixels(style.bottom) + height);
+  }
+  return { top: Math.max(0, top), bottom: Math.max(0, bottom) };
+}
+
 /** Where `scrollTop` should go so the element sits as `block` asks inside
- *  `container`. `top` and `height` are the element's box in the viewport. */
-function targetScrollTop(container: HTMLElement, top: number, height: number, block: ScrollBlock, marginTop: number): number {
+ *  the part of `container` its sticky children leave clear. `top` and
+ *  `height` are the element's box in the viewport. */
+function targetScrollTop(container: HTMLElement, top: number, height: number, block: ScrollBlock, marginTop: number,
+                         cover: { top: number; bottom: number }): number {
   const box = container.getBoundingClientRect();
   const view = container.clientHeight;
+  const clear = Math.max(0, view - cover.top - cover.bottom);
   const offset = container.scrollTop + (top - box.top - container.clientTop);
   switch (block) {
     case "start":
-      return offset - marginTop;
+      return offset - marginTop - cover.top;
     case "end":
-      return offset + height - view;
+      return offset + height - view + cover.bottom;
     case "center":
-      return offset + height / 2 - view / 2;
+      return offset + height / 2 - cover.top - clear / 2;
     case "nearest": {
-      const visibleTop = container.scrollTop;
-      const visibleBottom = visibleTop + view;
-      if (offset - marginTop < visibleTop || height > view) return offset - marginTop;
-      if (offset + height > visibleBottom) return offset + height - view;
+      const visibleTop = container.scrollTop + cover.top;
+      const visibleBottom = container.scrollTop + view - cover.bottom;
+      if (offset - marginTop < visibleTop || height > clear) return offset - marginTop - cover.top;
+      if (offset + height > visibleBottom) return offset + height - view + cover.bottom;
       return container.scrollTop;
     }
   }
@@ -71,7 +99,7 @@ export function scrollIntoViewWithin(target: Element | null | undefined, options
   for (let node = target.parentElement; node && node !== doc.body && node !== doc.documentElement; node = node.parentElement) {
     if (!isUserScrollable(node)) continue;
     const current = node.scrollTop;
-    const next = clampScrollTop(node, targetScrollTop(node, rect.top - shift, rect.height, block, marginTop));
+    const next = clampScrollTop(node, targetScrollTop(node, rect.top - shift, rect.height, block, marginTop, stickyCover(node, target)));
     if (Math.abs(next - current) < 0.5) continue;
     if (typeof node.scrollTo === "function") node.scrollTo({ top: next, behavior });
     else node.scrollTop = next;
