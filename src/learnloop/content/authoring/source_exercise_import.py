@@ -81,12 +81,12 @@ from learnloop.db.stores.judgment_claims import (
     CLAIMED,
     DONE,
     HELD,
+    claim_heartbeat,
     claim_work,
     complete_claim,
     holds_claim,
     live_lease,
     release_claim,
-    renew_claim,
 )
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.source_block_fts import (
@@ -784,47 +784,19 @@ def release_check(repository: Repository, claim: CheckClaim | None) -> None:
         pass
 
 
-@contextmanager
-def _heartbeat(repository: Repository, claim: CheckClaim | None) -> Iterator[None]:
-    """Renew the claim's lease while the ladder runs (stops when it is lost)."""
-
-    if claim is None:
-        yield
-        return
-    stop = threading.Event()
-
-    def beat() -> None:
-        while not stop.wait(CHECK_HEARTBEAT_SECONDS):
-            try:
-                with repository.atomic():
-                    held = renew_claim(repository.connection(), claim_key=claim.key, owner=claim.owner,
-                                       epoch=claim.epoch, now=_lease_now(), lease_seconds=CHECK_LEASE_SECONDS)
-            except Exception:  # noqa: BLE001 - the next beat retries; the lease may lapse
-                continue
-            if not held:
-                return
-
-    thread = threading.Thread(target=beat, name="source-key-check-lease", daemon=True)
-    thread.start()
-    try:
-        yield
-    finally:
-        stop.set()
-
-
 def _fenced_complete(repository: Repository, claim: CheckClaim | None, *, import_id: str | None, item_id: str,
                      content_hash: str, result: LadderResult, trigger: str, started_at: str,
                      clock: Clock | None, edited: bool = False) -> str | None:
     """The check row and the import's completion, only while the claim holds.
 
-    A worker whose lease was taken over (it hung past its lease and recovery
-    re-claimed the check) records nothing: the new holder's check counts, so
-    completion order never decides the effective status (re-review F9)."""
+    A lapsed or replaced lease writes no check row. Paid answers remain in
+    their checkpoints and ledger; recovery can finish without paying again,
+    and completion order never decides the effective status."""
 
     with repository.atomic():
         connection = repository.connection()
         if claim is not None and not holds_claim(connection, claim_key=claim.key, owner=claim.owner,
-                                                 epoch=claim.epoch):
+                                                 epoch=claim.epoch, now=_lease_now()):
             return None
         check_id = _complete_check(connection, import_id=import_id, item_id=item_id, content_hash=content_hash,
                                    result=result, trigger=trigger, started_at=started_at, clock=clock,
@@ -842,7 +814,7 @@ def _clear_pending(repository: Repository, import_id: str, claim: CheckClaim | N
     with repository.atomic():
         connection = repository.connection()
         if claim is not None and not holds_claim(connection, claim_key=claim.key, owner=claim.owner,
-                                                 epoch=claim.epoch):
+                                                 epoch=claim.epoch, now=_lease_now()):
             return False
         current = import_row(connection, import_id)
         if current is None:
@@ -1331,7 +1303,7 @@ def _import_source_exercise(
         claim = pending.claim
 
         def check() -> LadderResult:
-            with _heartbeat(repository, claim):
+            with claim_heartbeat(repository, claim, lease_seconds=CHECK_LEASE_SECONDS, interval=CHECK_HEARTBEAT_SECONDS):
                 return run_key_ladder(vault, repository, subject_id=import_id, stem=draft.statement,
                                       reference=str(draft.payload["expected_answer"]), solution=solution,
                                       cited_quote=draft.cited_quote, clients=clients, run_id=import_id)
@@ -1503,8 +1475,11 @@ def _resume_pending(root: Path, repository: Repository, vault: LoadedVault, row:
         _clear_pending(repository, str(row["id"]), claim, clock=clock, key_status="model_answer",
                        reason="superseded_by_edit", verification_extra={"interrupted_check": dict(pending)})
         return "superseded_by_edit"
-    with service_spend(vault, repository, max_usd=vault.config.source_service.import_max_cost_usd,
-                       name="source_service.import_max_cost_usd", clock=clock), _heartbeat(repository, claim):
+    with (
+        service_spend(vault, repository, max_usd=vault.config.source_service.import_max_cost_usd,
+                      name="source_service.import_max_cost_usd", clock=clock),
+        claim_heartbeat(repository, claim, lease_seconds=CHECK_LEASE_SECONDS, interval=CHECK_HEARTBEAT_SECONDS),
+    ):
         result, started_at = _ladder_for_item(vault, repository, item, clients=clients, clock=clock)
     if result.rung == "skipped":
         _clear_pending(repository, str(row["id"]), claim, clock=clock, key_status="model_answer",
@@ -1635,7 +1610,7 @@ def _verify_item_key(root: Path, repository: Repository, vault: LoadedVault, ite
             reason = "claimed_elsewhere" if status == HELD else "already_checked"
             return {"practice_item_id": item_id, "key_status": None, "rung": "skipped", "check_id": None,
                     "skip_reason": reason, "content_hash": content_hash}
-    with _heartbeat(repository, claim):
+    with claim_heartbeat(repository, claim, lease_seconds=CHECK_LEASE_SECONDS, interval=CHECK_HEARTBEAT_SECONDS):
         result, started_at = _ladder_for_item(vault, repository, item, clients=clients, clock=clock)
     check_id = None
     if result.rung != "skipped":

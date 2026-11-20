@@ -1005,6 +1005,37 @@ def test_f6_a_failed_judgment_gives_its_claim_back(path_vault):
     assert _rows(repository, "SELECT state FROM judgment_work_claims WHERE task = ?", (RP.CLAIM_TASK,)) == [("done",)]
 
 
+def test_a_lapsed_unclaimed_path_keeps_the_paid_answer_for_retry(path_vault, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    from learnloop.clock import FrozenClock, utc_now_iso
+
+    paths, repository, _spans, _clock = path_vault
+    clock = FrozenClock(datetime(2001, 1, 1, tzinfo=UTC))
+    lease_clock = clock
+    monkeypatch.setattr(RP, "_lease_now", lambda: utc_now_iso(lease_clock))
+
+    class Lapses(PathJudgeFake):
+        def complete(self, request):
+            nonlocal lease_clock
+            answer = super().complete(request)
+            lease_clock = FrozenClock(lease_clock.now() + timedelta(seconds=RP.CLAIM_LEASE_SECONDS))
+            return answer
+
+    fake = Lapses()
+    vault = load_vault(paths.root)
+    result = RP.judge(vault, repository, EXT, "learn_to_use_it", client=fake, clock=clock)
+    assert result.status == "held"
+    assert _rows(repository, "SELECT COUNT(*) FROM reader_path_sections") == [(0,)]
+    assert _rows(repository, "SELECT COUNT(*) FROM judgment_ledger WHERE task = ?", (RP.LEDGER_TASK,)) == [(0,)]
+    assert _rows(repository, "SELECT state, lease_epoch FROM judgment_work_claims WHERE task = ?",
+                 (RP.CLAIM_TASK,)) == [("released", 1)]
+    assert RP.judge(vault, repository, EXT, "learn_to_use_it", client=fake, clock=clock).status == "ready"
+    assert fake.calls == 1
+    assert _rows(repository, "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND parent_call_id IS NULL",
+                 (RP.OWNER_KIND,)) == [(1,)]
+
+
 # -- orchestrator fix round (whole-stage verify 20261021-081146-cZ35am) ------------------------------
 
 

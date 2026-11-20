@@ -41,7 +41,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import closing, contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 import sqlite3
@@ -49,7 +49,7 @@ import threading
 from typing import Any
 
 from learnloop.ai.spend import SpendEnvelope, SpendLimitExceeded, spend_envelopes
-from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import (
@@ -89,16 +89,16 @@ class _Leases:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._held: dict[str, tuple[Repository, set[str]]] = {}
+        self._held: dict[str, tuple[Repository, dict[str, Clock | None]]] = {}
         self._thread: threading.Thread | None = None
         # Set when the last lease is dropped: the heartbeat ends then, not a
         # whole beat later (a thread with nothing to renew is not kept).
         self._idle = threading.Event()
 
-    def hold(self, repository: Repository, handle: str) -> None:
+    def hold(self, repository: Repository, handle: str, clock: Clock | None = None) -> None:
         with self._lock:
-            _repository, handles = self._held.setdefault(str(repository.sqlite_path), (repository, set()))
-            handles.add(handle)
+            _repository, handles = self._held.setdefault(str(repository.sqlite_path), (repository, {}))
+            handles[handle] = clock
             self._idle.clear()
             if self._thread is None:
                 self._thread = threading.Thread(target=self._run, name="source-service-spend-leases", daemon=True)
@@ -110,7 +110,7 @@ class _Leases:
             entry = self._held.get(key)
             if entry is None:
                 return
-            entry[1].discard(handle)
+            entry[1].pop(handle, None)
             if not entry[1]:
                 del self._held[key]
             if not self._held:
@@ -120,16 +120,21 @@ class _Leases:
         """Renew every held lease now (the heartbeat's one beat)."""
 
         with self._lock:
-            work = [(repository, sorted(handles)) for repository, handles in self._held.values()]
+            work = [(repository, dict(handles)) for repository, handles in self._held.values()]
         renewed = 0
-        until = datetime.now(timezone.utc) + timedelta(seconds=LEASE_SECONDS)
-        for repository, handles in work:
+        for repository, clocks in work:
             if not Path(repository.sqlite_path).exists():
                 continue
             try:
+                # One database can have reservations in different clock frames.
+                by_expiry: dict[datetime, list[str]] = {}
+                for handle, clock in sorted(clocks.items()):
+                    until = parse_utc(utc_now_iso(clock)) + timedelta(seconds=LEASE_SECONDS)
+                    by_expiry.setdefault(until, []).append(handle)
                 with repository.atomic():
-                    renewed += renew_service_spend_leases(repository.connection(), handles, process=PROCESS,
-                                                          until=until)
+                    for until, handles in by_expiry.items():
+                        renewed += renew_service_spend_leases(repository.connection(), handles, process=PROCESS,
+                                                              until=until)
             except Exception:  # noqa: BLE001 - the next beat retries; a lease outlives several misses
                 continue
         return renewed
@@ -229,7 +234,7 @@ class SharedDailyEnvelope(SpendEnvelope):
                 "(shared by every process using this vault)",
                 rule="envelope_cap", limit=float(self.max_usd), used=float(total), requested=float(usd),
                 scope=self.name)
-        _LEASES.hold(self._repository, handle)
+        _LEASES.hold(self._repository, handle, self._clock)
         return handle
 
     def unreserve(self, handle: object) -> None:

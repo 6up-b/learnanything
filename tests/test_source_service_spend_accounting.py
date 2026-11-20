@@ -327,6 +327,28 @@ def test_a_live_owner_renews_its_lease(tmp_path):
     assert _admits(other, 0.90)
 
 
+def test_spend_renewal_uses_each_reservations_injected_clock(tmp_path):
+    from learnloop.clock import FrozenClock, utc_now_iso
+
+    vault, repository = _database(tmp_path)
+    clocks = [FrozenClock(datetime(2001, 1, day, tzinfo=timezone.utc)) for day in (1, 2)]
+    workers = [SS.SharedDailyEnvelope(vault, repository, day=SS.midnight(clock), cap=1.0, clock=clock)
+               for clock in clocks]
+    handles = []
+    try:
+        for worker in workers:
+            handles.append(worker.reserve(Decimal("0.10")))
+        for handle in handles:
+            _owner_terminal(repository, handle)
+        assert SS._LEASES.renew_now() == 2
+        for handle, clock in zip(handles, clocks, strict=True):
+            assert _row(repository, handle)["lease_expires_at"] == utc_now_iso(
+                FrozenClock(clock.now() + timedelta(seconds=SS.LEASE_SECONDS)))
+    finally:
+        for worker, handle in zip(workers, handles, strict=False):
+            worker.settle(handle, Decimal("0.10"))
+
+
 
 def test_the_heartbeat_keeps_a_live_owners_lease(tmp_path, monkeypatch):
     """The process's heartbeat thread renews the leases it holds, so a live
