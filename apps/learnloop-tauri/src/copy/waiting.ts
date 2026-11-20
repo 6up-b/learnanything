@@ -1,0 +1,34 @@
+// "Waiting you can see" (docs/reviews/ux-waiting.md): every line the shared
+// waiting indicator (components/Waiting.tsx) says, in one place so the
+// deny-list test reads them all. The phone says the same things in the same
+// words (apps/learnloop-mobile/src/components/waitingWords.ts); change both.
+//
+// A second line ("…Later") is said only where the wait is usually long, and
+// only what the walks and the code show: grading took 13 to 33 s in the walks,
+// a tutor reply 5 to 46 s, a lesson turn 11 to 83 s, a hint about 30 s.
+export const WAITING_COPY = {
+  /** Today's Begin, Continue and Next, and Next after feedback: the plan's next step is chosen and served
+   *  (it can be a reading as well as a question, so the line does not say "question"). */
+  choosingNext: "Choosing what's next…",
+  /** A question the learner picked (a row of today's list, Practise for this goal), and a question loading. */
+  openingQuestion: "Opening the question…",
+  /** Practise for this goal: today's list is read for the goal's next question, then it is served. */
+  findingGoalQuestion: "Finding a question for this goal…",
+  /** Submit, until the grade is back. */
+  checkingAnswer: "Checking your answer…",
+  checkingAnswerLater: "This can take a minute.",
+  /** Submit with no AI grading (the learner grades against the full answer): only a save. */
+  savingAnswer: "Saving your answer…",
+  /** The feedback screen reading the graded attempt. */
+  openingFeedback: "Opening your feedback…",
+  /** The tutor (Ask) writing a reply. */
+  writingReply: "Writing a reply…",
+  writingReplyLater: "This can take a minute.",
+  /** A Teacher lesson's turn. */
+  teacherWriting: "The teacher is writing…",
+  teacherWritingLater: "This can take a minute or two.",
+  /** A hint being written for the learner's work. */
+  hintLater: "This can take half a minute.",
+  /** Keep going on a finished day: the plan is extended. */
+  addingMore: "Adding more to today…",
+} as const;

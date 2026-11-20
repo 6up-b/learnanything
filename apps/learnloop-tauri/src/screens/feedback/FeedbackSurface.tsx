@@ -30,6 +30,8 @@ import { ItemPresentation } from "../../components/ItemPresentation";
 import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../../components/PlainParts";
 import { useAnswerExposure, type ExposureStatus } from "./answerExposure";
 import { COLOR } from "../../components/term";
+import { Waiting } from "../../components/Waiting";
+import { WAITING_COPY } from "../../copy/waiting";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import {
   expectedAnswerText,
@@ -476,6 +478,9 @@ export function FeedbackSurface({
         <span style={{ flex: 1 }} />
         <DetailsToggle open={detailsOpen} onToggle={onToggleDetails} />
       </div>
+      {/* Next until the next step opens (the plan's choice can take seconds): "Opening…" on the button alone
+          was the only sign. */}
+      {advancing ? <Waiting testId="next-wait" line={WAITING_COPY.choosingNext} style={{ marginTop: 8 }} /> : null}
     </div>
   );
 }

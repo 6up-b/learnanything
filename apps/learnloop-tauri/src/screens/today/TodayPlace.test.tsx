@@ -1404,3 +1404,131 @@ describe("UX fix stage 3 (item 3, F9): one clock on Today", () => {
     expect(screen.queryByRole("radiogroup", { name: "minutes today" })).toBeNull();
   });
 });
+
+// "Waiting you can see" (docs/reviews/ux-waiting.md, the owner's case 1): from
+// the press until the question is on screen, Today says what is happening, but
+// only once the wait outlasts the indicator's delay, and the line is gone when
+// the step opens.
+describe("waiting you can see: Today to the question", () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((done) => { resolve = done; });
+    return { promise, resolve };
+  }
+  // The screen is read with the harness's real timers; the press and the wait run on fake ones.
+  // (A second useFakeTimers is a no-op while the harness fakes Date: real timers first.)
+  function freezeTimers() {
+    const now = Date.now();
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"], now });
+  }
+  async function advance(ms: number) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+  }
+  const STEP = { step: { kind: "item", planId: "plan_1", blockId: "blk_2", practiceItemId: "pi_a", learningObjectId: "lo_e", origin: "chooser", schedulerCandidateId: "cand_a", presentationId: "pres_a", boundary: false } };
+
+  it("Begin: nothing before the delay, then 'Choosing what's next…', gone when the question opens", async () => {
+    const served = deferred<unknown>();
+    apis(dto(body()), { nextPlanItem: vi.fn(() => served.promise) });
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    freezeTimers();
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await advance(300);
+    expect(screen.queryByText(/Choosing what's next…/)).toBeNull();
+    await advance(100);
+    const line = screen.getByTestId("waiting");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(line.textContent).toBe("◐ Choosing what's next…");
+    served.resolve(STEP);
+    await advance(0);
+    expect(props.onOpenPractice).toHaveBeenCalledWith("pi_a", "cand_a", null, "pres_a");
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("Begin with no session: the line covers starting the session and serving its first step", async () => {
+    const served = deferred<unknown>();
+    apis(dto(body()), { nextPlanItem: vi.fn(() => served.promise) });
+    const props = show();
+    await screen.findByTestId("today-sentence");
+    freezeTimers();
+    await press({ key: "Enter" });
+    await advance(400);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Choosing what's next…");
+    served.resolve(STEP);
+    await advance(0);
+    expect(props.onBeginSession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("a row of the full list: 'Opening the question…' until the pick is served", async () => {
+    const picked = deferred<unknown>();
+    apis(dto(body()), { planLearnerPick: vi.fn(() => picked.promise) });
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    const row = (await screen.findAllByTestId("today-list-row"))[0];
+    freezeTimers();
+    fireEvent.click(within(row).getAllByRole("button")[0]);
+    await advance(300);
+    expect(screen.queryByText(/Opening the question…/)).toBeNull();
+    await advance(100);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Opening the question…");
+    picked.resolve({ step: { kind: "item", planId: "plan_1", blockId: "blk_pick", practiceItemId: "pi_1", learningObjectId: "lo_1", origin: "learner_pick", schedulerCandidateId: "cand_pick", presentationId: "pres_pick", boundary: false } });
+    await advance(0);
+    expect(props.onOpenPractice).toHaveBeenCalled();
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("Practise for this goal: 'Finding a question for this goal…' through the list read and the pick", async () => {
+    const picked = deferred<unknown>();
+    apis(dto(body()), {
+      goalsList: vi.fn(async () => ({ version: 1, goals: [goal()] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2, { components: { goalFrontier: 0.4 } as ScheduledItemDto["components"] })])),
+      planLearnerPick: vi.fn(() => picked.promise)
+    });
+    const props = show({ session: SESSION });
+    const card = await screen.findByTestId("goal-card");
+    const practise = await within(card).findByRole("button", { name: "Practise for this goal" });
+    freezeTimers();
+    fireEvent.click(practise);
+    await advance(300);
+    expect(screen.queryByTestId("waiting")?.textContent ?? "").toBe("");
+    await advance(100);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Finding a question for this goal…");
+    picked.resolve({ step: null });
+    await advance(0);
+    expect(props.onOpenPractice).toHaveBeenCalled();
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("Keep going on a finished day: 'Adding more to today…' until the plan is back", async () => {
+    const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    const more = body({ id: "plan_kg", kind: "keep_going", blocks: [block({ id: "blk_kg" })], currentBlockId: "blk_kg", projected: [] });
+    const extended = deferred<unknown>();
+    apis(dto(done), { planKeepGoing: vi.fn(() => extended.promise) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-done");
+    freezeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await advance(300);
+    expect(screen.queryByText(/Adding more to today…/)).toBeNull();
+    await advance(100);
+    expect(screen.getByTestId("waiting").textContent).toBe("◐ Adding more to today…");
+    extended.resolve(dto(more));
+    await advance(0);
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+
+  it("a fast step never shows the line", async () => {
+    apis(dto(body()));
+    const props = show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    freezeTimers();
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await advance(50);
+    expect(props.onOpenPractice).toHaveBeenCalled();
+    await advance(1000);
+    expect(screen.queryByTestId("waiting")).toBeNull();
+  });
+});
