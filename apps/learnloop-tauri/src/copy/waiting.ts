@@ -50,4 +50,7 @@ export const WAITING_COPY = {
   workingOutGoal: "Working out where this goal is heading…",
   /** Keep going on a finished day: the plan is extended. */
   addingMore: "Adding more to today…",
+  /** Today's line for a book being got ready in a library that has measured no build yet (so no "usually about N
+   *  min"): the walks' first web chapter took about 1 minute for its first step and 3.5 to 7 for its second. */
+  firstBuildLater: "The first time, this can take several minutes.",
 } as const;

@@ -3722,6 +3722,9 @@ export interface ReadingQuestionsDto {
   toLookAt: number;
   /** How many sections the reading has (one: the whole source). */
   sectionCount: number;
+  /** Topics whose questions are applied, of the topics of every finished section with a writing job (all of them added
+   *  up, earlier finished sections included). Absent from an older sidecar, and before any section's writing is queued. */
+  progress?: { done: number; total: number } | null;
 }
 
 /** A link an Add is still fetching: it has no library card yet. */
