@@ -814,7 +814,10 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
         plan = RG.build_guide_plan(vault, repository, extraction_id=resolved)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    plan["check_failed_section_ids"] = _failed_section_checks(repository, resolved, plan["sections"])
+    # Only when there is one: a plan with no failed check keeps its bytes (the stage pins of the plan hold them).
+    failed_checks = _failed_section_checks(repository, resolved, plan["sections"])
+    if failed_checks:
+        plan["check_failed_section_ids"] = failed_checks
     # Reader workbench RW3a: the plan's own misunderstanding passages as margin
     # cues, within the learner's choices. Switched off, the plan is unchanged.
     if RCU.cues_enabled(vault):

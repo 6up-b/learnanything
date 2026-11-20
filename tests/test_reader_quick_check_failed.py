@@ -4,8 +4,9 @@ The Reader polled the guide plan while a section's check was written, and the
 plan carried no failed state: a failed job read as "still writing" until the
 poll gave up minutes later, and after the Reader reopened as nothing at all.
 ``reader.guide_plan`` now names the sections whose newest section-check job
-failed (``checkFailedSectionIds``), so the Reader says so with Try again, at
-the next poll and after reopening. A read of the job queue only.
+failed (``checkFailedSectionIds``, present only when there is one), so the
+Reader says so with Try again, at the next poll and after reopening. A read of
+the job queue only.
 """
 
 from __future__ import annotations
@@ -57,7 +58,7 @@ def test_a_newer_try_for_the_section_replaces_the_failure(tmp_path):
         connection.commit()
     _job(repository, "job_2", {"extraction_id": "ext1", "section_id": section}, "queued")
 
-    assert _plan(tmp_path)["checkFailedSectionIds"] == []
+    assert "checkFailedSectionIds" not in _plan(tmp_path)
 
 
 def test_other_checks_failing_name_no_section(tmp_path):
@@ -69,4 +70,5 @@ def test_other_checks_failing_name_no_section(tmp_path):
     _job(repository, "job_other", {"extraction_id": "ext_other", "section_id": section}, "failed")
     _job(repository, "job_done", {"extraction_id": "ext1", "section_id": "no_such_section"}, "completed")
 
-    assert _plan(tmp_path)["checkFailedSectionIds"] == []
+    # No failed section check: the plan carries no key at all, so its bytes are as before.
+    assert "checkFailedSectionIds" not in _plan(tmp_path)
