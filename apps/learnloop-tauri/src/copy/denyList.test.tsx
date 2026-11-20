@@ -174,7 +174,7 @@ const STAGE3_CAUSES: TodayCause[] = [
   { kind: "section_waiting", title: "Probability", part: "Conditional probability", card: BOOK },
   { kind: "section_waiting", title: "Probability", part: null, card: BOOK },
   // Question writing you can follow (docs/reviews/ux-first-questions-progress.md).
-  { kind: "on_the_way", title: "Probability", card: BOOK, progress: { done: 0, total: 2 }, minutes: null },
+  { kind: "on_the_way", title: "Probability", card: BOOK, progress: { done: 0, total: 2 }, minutes: null, firstBuild: true },
   { kind: "section_writing", title: "Probability", part: "Conditional probability", card: BOOK, progress: { done: 2, total: 8 } },
   { kind: "section_writing", title: "Probability", part: null, card: BOOK, progress: { done: 0, total: 1 } },
   { kind: "questions_ready_with_section_work", title: "Probability", part: "Conditional probability", count: 3, itemId: "pi_1", card: BOOK,

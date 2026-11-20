@@ -95,7 +95,7 @@ export type TodayCause =
   | { kind: "needs_look"; title: string }
   /** A book is being got ready for questions; `progress` and `minutes` where the build says them. `waiting`: a section
    *  the learner finished waits for it (`part`: that section, or null for what they read of the book). */
-  | { kind: "on_the_way"; title: string; card: SourceLibraryCard | null; progress: { done: number; total: number } | null; minutes: number | null; waiting?: { part: string | null } | null }
+  | { kind: "on_the_way"; title: string; card: SourceLibraryCard | null; progress: { done: number; total: number } | null; minutes: number | null; waiting?: { part: string | null } | null; firstBuild?: boolean }
   /** The questions of a section the learner finished are being written; `progress`: how many of its topics are done,
    *  where the fact says it for that section. */
   | { kind: "section_writing"; title: string; part: string | null; card: SourceLibraryCard; progress?: Progress | null }
@@ -260,7 +260,13 @@ export function todayCause(input: {
       case "on_the_way": {
         // The book being got ready is where a finished section's questions come from: say that, not the rule.
         const waiting = questions?.waiting?.length ? { part: partName(questions.waiting, questions.sectionCount) } : null;
-        return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting };
+        // Only a build's own line says its steps and, where the library measured a build, its minutes: a build line with
+        // no minutes is the library's first. The sidecar copies the sections' `questions.progress` onto a line with none of
+        // its own ("Chapters found"), which says nothing about the library's builds.
+        const copied = questions?.progress && line?.progress
+          && questions.progress.done === line.progress.done && questions.progress.total === line.progress.total;
+        const firstBuild = Boolean(line?.progress) && !copied && (line?.minutes ?? null) === null;
+        return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting, firstBuild };
       }
       case "section_writing": {
         // Where the list is not read (the phone), questions already written are said with the writing.
@@ -328,9 +334,7 @@ export function causeWait(cause: TodayCause): { line: string; after: string; lat
         after: cause.waiting
           ? `${waitingWords(cause.title, cause.waiting.part)} Keep reading meanwhile.`
           : "Questions come as you finish sections. Keep reading meanwhile.",
-        // A build's own line (it says its steps) carries no time only where the library has measured no build yet:
-        // its first. The lines before it (the book read in, chapters chosen) carry neither, in any library.
-        later: cause.progress && cause.minutes === null ? WAITING_COPY.firstBuildLater : null
+        later: cause.firstBuild ? WAITING_COPY.firstBuildLater : null
       };
     }
     case "section_writing": {

@@ -2104,6 +2104,17 @@ describe("Question writing you can follow: how far it is, the questions already 
       await advance(6000);
       expect(screen.queryByTestId("today-cause-wait-later")).toBeNull();
     });
+
+    it("chapters being chosen for a book with finished sections: the line's amount is its sections' topics, not a build's, so no first time either", async () => {
+      // The sidecar copies `questions.progress` onto a line with no build progress of its own (add_source.py
+      // `source_status_line`): on "Chapters found" it is the sections' topics, and says nothing about the library's builds.
+      await buildArrives({
+        text: "Chapters found", tone: "working", action: null, details: null, progress: { done: 8, total: 8 },
+        questions: facts({ count: 6, itemIds: ["pi_x"], sections: ["Conditional probability"], progress: { done: 8, total: 8 } })
+      });
+      await advance(6000);
+      expect(screen.queryByTestId("today-cause-wait-later")).toBeNull();
+    });
   });
 
   it("every new line is in plain words", async () => {
