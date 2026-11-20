@@ -133,7 +133,8 @@ scored 0.007 and asked nothing; `unresolved_cause_factors` stayed empty.
 6. **Promotion discipline is real:** one well-explained answer can justify a local
    hypothesis, a targeted repair, a candidate, a high-priority follow-up — not a
    durable learner-wide belief.
-7. **Minimal repair = least-backtracking feasible intervention**, in two spaces:
+7. **Minimal repair = least-backtracking feasible intervention** (the stand-in; the target, by the owner's
+   decision of 2026-11-20, is the least help that yields a corrected attempt: §9), in two spaces:
    minimal change to the learner's displayed reasoning AND minimal change to the
    hypothesized learner state, plus instructional burden. Keep three distinct
    anchors: first observable divergence, earliest supported faulty commitment,
@@ -1139,6 +1140,15 @@ Rollout:
    response only after overlap/randomization and cold outcomes.
 
 ## 9. P4 — learned repair policy (deferred until cold outcomes exist)
+
+**Owner decision, 2026-11-20: what "minimal" is for.** The target of repair selection is **the least help that
+yields a corrected attempt**: among safe repairs, the one that asks the least of the learner and gives the least
+away while still leading to a corrected attempt that holds on the later cold check. The lexicographic order of
+§6.4 (least backtracking, fewest checkpoints changed, smallest edit, then the model's own counts) is the
+stand-in until outcomes can be read: it measures how little of the learner's work a repair changes, not whether
+the repair works. This phase replaces the keys below the three safety rejections with an estimate of that
+target learned from guided redos and their cold retries; the safety rejections stay rules. Queued by the owner
+on the same day; selection does not change until this phase lands under its own algorithm tag.
 
 Estimate repair effectiveness from receipts + cold verification; fit burden
 trade-offs; bounded randomization among safe near-equivalent repairs — which is
