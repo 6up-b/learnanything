@@ -19,7 +19,7 @@ from learnloop.db.stores.learner_model import (
 from learnloop.learner.mastery import (
     covering_learner_claim,
     initial_mastery_state_for_learning_object,
-    item_irt_params,
+    resolve_item_irt_params,
     sigmoid,
 )
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
@@ -296,14 +296,14 @@ def enter_probe(
 
 
 def resolve_item_irt(vault: LoadedVault, item: PracticeItem) -> tuple[float, float, ProbeIRTConfig]:
-    """``(a, b, ProbeIRTConfig)`` for an item — the same ``(a, b)`` Channel 1 uses.
+    """``(a, b, ProbeIRTConfig)`` for an item — Channel 1's authored scalar fallback.
 
-    ``(a, b)`` is derived from the static authored/LLM difficulty (spec §4.3) so the
-    probe and mastery channels share a consistent difficulty treatment (§5.1).
+    Without an item-parameter posterior, the seam uses the static authored/LLM
+    scalar (spec §4.3), never FSRS D.
     """
 
     learning_object = vault.learning_object_for_item(item)
-    item_a, item_b = item_irt_params(item, learning_object, vault.config.mastery)
+    item_a, item_b = resolve_item_irt_params(item, learning_object, vault.config.mastery)
     return item_a, item_b, vault.config.probe.irt
 
 
@@ -483,9 +483,9 @@ def conditional_distribution(
     discrimination: dict[str, ItemMisconceptionDiscrimination] | None = None,
     discriminated_ids: set[str] | None = None,
 ) -> dict[Outcome, float]:
-    """``P(score_bucket, error_type | h, item)`` under the difficulty-aware model.
+    """``P(score_bucket, error_type | h, item)`` under the scalar/IRT-aware model.
 
-    The no-error score-bucket marginals are difficulty-aware via the graded mapping
+    The no-error score-bucket marginals use scalar/IRT b via the graded mapping
     of §5.2; the error-type overlay of §5.3 attaches the error channel.
 
     The ability anchor depends on whether the item *probes* the hypothesis's error

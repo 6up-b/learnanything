@@ -6,9 +6,9 @@ KM3 demotion (knowledge-model §9.2): under mvp-0.7 the LO EKF is a
 backbone of a component's predicted recall) but carries **no certification
 credit** — certification is derived independently from the immutable observation
 ledger into ``facet_capability_evidence`` (see ``goal_certification``), never
-from this filter. It also cannot absorb claims, item difficulty, familiarity, or
+from this filter. It also cannot absorb claims, scalar item difficulty, familiarity, or
 unidentified integration as interchangeable evidence: claims seed only the prior
-(``initial_mastery_state_for_learning_object``), difficulty enters as the IRT
+(``initial_mastery_state_for_learning_object``), scalar difficulty enters as the IRT
 ``b`` (an observation modifier, not a latent-skill term), and assistance enters
 as the observation reliability weight. Legacy (mvp-0.6) behavior is unchanged.
 """
@@ -739,7 +739,7 @@ def item_irt_params(
     learning_object: "LearningObject | None",
     config: MasteryConfig,
 ) -> tuple[float, float]:
-    """Resolve ``(a, b)`` for an item from **static** authored/LLM fields (spec §4.3).
+    """Resolve ``(a, b)`` from the **static** authored/LLM scalar (spec §4.3).
 
     ``b`` falls back ``PracticeItem.difficulty`` -> ``LearningObject.difficulty_prior``
     -> ``difficulty_default``. The FSRS ``practice_item_state.difficulty`` is never
@@ -750,12 +750,12 @@ def item_irt_params(
     a = irt.discrimination_default
     if not irt.difficulty_from_prior:
         return a, irt.difficulty_default
-    difficulty = getattr(item, "difficulty", None) if item is not None else None
-    if difficulty is None and learning_object is not None:
-        difficulty = getattr(learning_object, "difficulty_prior", None)
-    if difficulty is None:
+    scalar_difficulty = getattr(item, "difficulty", None) if item is not None else None
+    if scalar_difficulty is None and learning_object is not None:
+        scalar_difficulty = getattr(learning_object, "difficulty_prior", None)
+    if scalar_difficulty is None:
         return a, irt.difficulty_default
-    b = irt.difficulty_prior_scale * (float(difficulty) - 0.5) * 2.0
+    b = irt.difficulty_prior_scale * (float(scalar_difficulty) - 0.5) * 2.0
     return a, clamp(b, -irt.b_abs_max, irt.b_abs_max)
 
 
@@ -765,10 +765,11 @@ def resolve_item_irt_params(
     config: MasteryConfig,
     item_state: "ItemParameterState | None" = None,
 ) -> tuple[float, float]:
-    """(a, b) with the empirical-Bayes posterior b when enabled, else authored.
+    """``(a, b)`` with the EB scalar/IRT posterior b when enabled, else authored.
 
-    The single seam through which the mastery EKF, surprise, and prediction all
-    read item parameters — so a fitted b moves all three consistently.
+    ``item_state`` is an ItemParameterState (b_mean), never FSRS memory state
+    (difficulty). Without that posterior, the authored scalar fallback applies
+    even when EB is enabled; replay must not substitute today's posterior.
     """
 
     a, authored_b = item_irt_params(item, learning_object, config)
@@ -790,13 +791,13 @@ def update_item_difficulty(
     algorithm_version: str,
     updated_at: str,
 ) -> "ItemParameterState":
-    """Alternating conditional EKF step on item difficulty b.
+    """Alternating conditional EKF step on scalar/IRT item difficulty b.
 
     Symmetric to the mu update but holding the learner's posterior mean fixed:
     dp/db = -a*p(1-p), same reliability-gated measurement noise. Identifiability
     at N=1 is handled by a strong prior (b_prior_variance), a slowed gain
     (b_learning_rate_scale) and a per-attempt step clamp — b must drift only
-    when the evidence persistently contradicts the authored difficulty.
+    when the evidence persistently contradicts the authored scalar difficulty.
     """
 
     irt = config.irt

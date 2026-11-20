@@ -398,3 +398,9 @@ Found by `tests/test_probe_router_authority.py`, which pins today's behaviour at
 |---|---|---|---|---|---|
 | G2-1 | G2 step 1 (medium) | Accepting a probe offer asks nothing: `accept_probe_offer` reads neither the receipt it is handed nor the learner's preference, so a stale "quick check" request made after "Not now" still pins the probe. | `tests/test_probe_router_authority.py` pins today's answer; new at the tag: after "Not now" a stale request pins nothing | "Not now" is a hard stop the diagnostic layer asserts before the router sees a candidate (G2 design, section 2a); acceptance re-reads it | open; with G2's behaviour step |
 | G2-2 | G2 step 1 (low) | The automatic lane and the causal gate disagree on one shape: when both causes need the same repair, FG1 logs `skip_action_equivalent` while the causal gate decides `skip_common_repair` (the gate treats a cause set that is not probe-worthy as covered; FG1's check does not). FG1's verdict is logged only. | pinned as today's answers in the same file | One decision and one record of it: the router's (G2's behaviour step removes both verdicts) | open; with G2's behaviour step |
+
+## Due at arc H's close
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| H1-1 | H1 reader inventory | `tui/screens/practice.py::PracticeScreen._difficulty` falls back from the absent 0–1 item scalar to FSRS D (1–10), ahead of the LO's 0–1 prior. With item scalar absent, LO prior 0.2 and FSRS D 9, the scalar bar displays 9. | `test_difficulty_kinds_apart::test_scalar_display_uses_lo_prior_when_item_scalar_is_absent` (strict xfail; wanted 0.2, actual 9.0) | H5's display/filter audit: keep FSRS D out of the scalar display fallback; due at arc H close. No fix in H1. | queued |

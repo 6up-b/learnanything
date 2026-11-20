@@ -116,7 +116,7 @@ def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, less
     excluding the lesson's own and shown items and their lineage), its IRT parameters (the LO's when no
     item fits), and the horizon the check would be dated at (``delayed.due_days``)."""
 
-    from learnloop.learner.mastery import item_irt_params
+    from learnloop.learner.mastery import resolve_item_irt_params
     from learnloop.learner_protection import withheld_items
     from learnloop.teacher import delayed as D
 
@@ -126,7 +126,7 @@ def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, less
         vault, repository, learning_object_id, exclude=exclude, withheld=withheld_items(vault, repository),
         attempted=D._attempted(repository), revealed=D._revealed(repository, lesson_id), excluded_lineage=lineage),
         seed_key=D.retention_seed_key(lesson_id, learning_object_id))
-    a, b = item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery)
+    a, b = resolve_item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery)
     days, basis = D.due_days(vault, repository, purpose="retention", lesson_item_ids=list(lesson_item_ids))
     return {"item_id": found.id if found is not None else None, "a": float(a), "b": float(b),
             "days": float(days), "dated_by": basis}
@@ -140,7 +140,7 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
     pool's ``p_A`` and its inversion are both computed for it, never for the check's own item."""
 
     from learnloop.attempts.evidence import attempt_evidence_mass
-    from learnloop.learner.mastery import item_irt_params
+    from learnloop.learner.mastery import resolve_item_irt_params
 
     fixed = float(attempt_evidence_mass(CHECK_ATTEMPT_TYPE, vault.config.evidence))
     state = LW.replay_state(vault, repository, as_of=as_of)
@@ -150,7 +150,7 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
     z_p = LW.prediction_term(prediction.get("p"), band)
     learned = state.learned_mass(learning_object_id, z_c, z_p)
     learning_object = vault.learning_objects.get(learning_object_id)
-    a, b = item_irt_params(item, learning_object, vault.config.mastery)
+    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery)
     state_row = repository.mastery_state(learning_object_id)
     if state_row is not None:
         mu, var, last = float(state_row.logit_mean), float(state_row.logit_variance), state_row.last_evidence_at
