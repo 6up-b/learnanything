@@ -190,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_runtime_validation_and_strict_schema_agree_on_what_is_admissible`
   - `test_undeclared_wire_field_is_rejected_by_name`
+- [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
+  - `test_the_plan_route_request_is_byte_identical_under_a_ceiling`
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`

@@ -1660,8 +1660,12 @@ class _SynthesisBudget:
     Input is a preflight estimate of every full request (instructions, schema
     and context), topped up by provider-reported input when that is larger.
     Output is charged per pass as the larger of the result-size estimate and
-    the provider's report. With ``unlimited`` set, spend is still counted for
-    the usage record but no limit is enforced.
+    the provider's report. A pass is asked to aim for its shard size (what the
+    run's total still leaves, when that is less) and its complete answer is
+    kept up to what the total still leaves: the total is what the run may
+    write, so a pass a little over its shard size is not thrown away after it
+    was paid for. With ``unlimited`` set, spend is still counted for the usage
+    record but no limit is enforced.
     """
 
     budgets: Any
@@ -1705,19 +1709,27 @@ class _SynthesisBudget:
             raise StudyMapError("budget_exceeded", "The synthesis output budget is exhausted; completed passes are saved.")
         return limit
 
+    def pass_output_ceiling(self) -> int | None:
+        """The most the next pass's complete answer may be: what the run's total output budget still leaves."""
+
+        return None if self.unlimited else max(0, self.budgets.synthesis_output_tokens - self.output_tokens_spent)
+
     def charge_pass(self, *, estimated_input: int, reported_input: int, output: int) -> None:
         self.calls += 1
         self.input_tokens_estimate += max(estimated_input, reported_input)
         self.output_tokens_spent += output
 
-    def check_pass_output(self, charge: int, limit: int | None) -> None:
-        """A fresh pass's output, charged the larger of its size and the provider's report, against its limit."""
+    def check_pass_output(self, charge: int, ceiling: int | None) -> None:
+        """A fresh pass's output, charged the larger of its size and the provider's report, against its ceiling;
+        checked before the pass is saved, so a runaway is never kept to answer a retry."""
 
-        if limit is not None and charge > limit:
+        if ceiling is not None and charge > ceiling:
             raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
 
     def check_shard_output(self, result: Any) -> None:
-        if not self.unlimited and _result_tokens(result) > self.budgets.synthesis_shard_output_tokens:
+        """A shard's answer, fresh or reused, by its own size: no pass may be larger than the run's whole total."""
+
+        if not self.unlimited and _result_tokens(result) > self.budgets.synthesis_output_tokens:
             raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
 
     def check_merged_output(self, merged: Any, message: str) -> None:
@@ -1732,7 +1744,8 @@ class _SavedAnswers:
 
     Dropped when the gates reject the candidate: kept, they replay it into the
     same rejection at zero cost on every fresh retry, while the card offers
-    Retry. A budget failure keeps them (a raised budget reuses what was paid).
+    Retry. A budget failure keeps the answers kept before it (a retry reuses
+    what was paid); the answer that failed was never saved.
     A shard reused from its row made one request, so its base pass is all it
     stands for; a shard with a span round runs both passes and both join."""
 
@@ -1764,8 +1777,9 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
     or the learner reject the candidate.
 
     The budget rule is the mode's (``call.spend``): an input preflight over every base pass still to pay before
-    anything is sent, then each pass checked before it is sent, run under its output limit, saved before its output
-    is checked (a paid answer is kept for a retry under a larger budget), and checked again after."""
+    anything is sent, then each pass checked before it is sent, asked to aim for its output limit, its answer checked
+    against its ceiling before it is saved (an answer over it is refused and not kept) and checked again after by its
+    own size."""
 
     call, repository, budgets, client, progress = mode.call, run.repository, run.budgets, run.client, run.progress
     shards = call.shards(run)
@@ -1814,16 +1828,18 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
             return fetched[0]
         spend.check_next_pass_input(tokens, reserve=future_input_reserve)
         output_limit = spend.pass_output_limit()
+        output_ceiling = spend.pass_output_ceiling()
         meter = UsageMeter(client)
-        with generation_limit(output_limit):
+        with generation_limit(output_limit, ceiling=output_ceiling):
             result = call.request(client, context)
         output_charge = meter.output_charge(_result_tokens(result))
         spend.charge_pass(estimated_input=tokens, reported_input=meter.reported().input_tokens, output=output_charge)
-        # Save before the budget check: the key has no budget in it, so a
-        # retry under a larger one reuses this paid answer.
+        # Checked before it is saved: kept, an answer over the ceiling would
+        # answer every retry into the same refusal. The key has no budget in
+        # it, so an answer kept once is reused under any budget.
+        spend.check_pass_output(output_charge, output_ceiling)
         stored = checkpoint.save(result, {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
         answers.passes.append((checkpoint.key, stored))
-        spend.check_pass_output(output_charge, output_limit)
         return result
 
     for ordinal, shard, shard_key, cached in shard_states:

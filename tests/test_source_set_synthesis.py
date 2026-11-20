@@ -410,7 +410,7 @@ def test_non_ascii_output_is_charged_by_characters_not_escapes(tmp_path):
     assert result.proposal_id is not None
 
 
-def test_over_budget_pass_is_checkpointed_and_reused_under_a_larger_budget(tmp_path):
+def test_a_pass_over_what_the_run_total_leaves_is_refused_and_not_kept(tmp_path):
     root, repo = _setup(tmp_path, with_exam=False)
 
     def builder(context, _n):
@@ -419,10 +419,28 @@ def test_over_budget_pass_is_checkpointed_and_reused_under_a_larger_budget(tmp_p
     client = FakeSynthesisClient(builder=builder)
     with pytest.raises(StudyMapError, match="exceeded its output budget"):
         create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK,
-                         budget_overrides={"synthesis_shard_output_tokens": 100})
+                         budget_overrides={"synthesis_shard_output_tokens": 100, "synthesis_output_tokens": 100})
     assert len(client.calls) == 1
+    # Kept, it would answer a retry under the same budget into the same refusal.
+    with repo.connection() as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM model_work_checkpoints WHERE purpose = 'synthesis_pass'").fetchone()[0] == 0
 
     result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK)
+
+    assert result.proposal_id is not None
+    assert len(client.calls) == 2
+
+
+def test_a_pass_over_its_shard_size_is_kept_within_the_run_total(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+
+    def builder(context, _n):
+        return _default_payload(context).model_copy(update={"summary": "long summary " * 400})
+
+    client = FakeSynthesisClient(builder=builder)
+    result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK,
+                              budget_overrides={"synthesis_shard_output_tokens": 100})
 
     assert result.proposal_id is not None
     assert len(client.calls) == 1

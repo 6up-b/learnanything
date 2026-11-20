@@ -624,6 +624,9 @@ class PreparedInventory:
     schema_version: int
     window_keys: tuple[str, ...] = ()
     cached_windows: tuple[SourceUnitInventory | None, ...] = ()
+    #: The most one window's complete answer may be (None: the working size
+    #: above is its own ceiling); see :func:`execute_prepared_inventory`.
+    output_ceiling_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -647,6 +650,7 @@ def prepare_unit_inventory(
     model: str | None = None,
     input_budget_tokens: int = 20000,
     output_budget_tokens: int | None = 3000,
+    output_ceiling_tokens: int | None = None,
     clock: Clock | None = None,
     prompt_version: str = SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     schema_version: int = INVENTORY_SCHEMA_VERSION,
@@ -807,6 +811,7 @@ def prepare_unit_inventory(
         cached_windows=tuple(
             window_checkpoint(repo, key, valid_span_ids).load() for key in keys
         ),
+        output_ceiling_tokens=output_ceiling_tokens,
     )
 
 
@@ -881,10 +886,15 @@ def execute_prepared_inventory(
     is known before the first call: a long unit split into windows is never
     held to one window's amount. A window is charged for what the model wrote:
     the usage its provider reports, else the estimate of its reply before the
-    service writes its own ids into it. A fresh window over its limit still
-    fails the unit, after it is saved; a saved window is reused without being
-    charged again (it was judged and paid when it was made), so a retry asks
-    only for the windows not yet answered instead of failing where it stopped.
+    service writes its own ids into it. The budget is what the model is asked
+    to aim for; a complete answer is kept up to the window's ceiling
+    (``output_ceiling_tokens``, never below the budget), which a route with a
+    hard output cap is sent as that cap. A fresh window over its ceiling is a
+    runaway: it fails the unit and is not saved, like an answer that fails
+    validation, so a retry asks for it again. A saved window is reused without
+    being charged again (it was judged and paid when it was made), so a retry
+    asks only for the windows not yet answered instead of failing where it
+    stopped.
     """
 
     per_window: list[SourceUnitInventory] = []
@@ -894,6 +904,9 @@ def execute_prepared_inventory(
     }
     total_windows = len(prepared.windows)
     window_limit = prepared.output_budget_tokens
+    window_ceiling = (
+        None if window_limit is None else max(window_limit, prepared.output_ceiling_tokens or window_limit)
+    )
     usage["reused_windows"] = 0
     for ordinal, window in enumerate(prepared.windows, start=1):
         context = SourceUnitInventoryContext(
@@ -911,7 +924,7 @@ def execute_prepared_inventory(
             assigned = cached
         else:
             meter = UsageMeter(client)
-            with generation_limit(window_limit):
+            with generation_limit(window_limit, ceiling=window_ceiling):
                 raw = request_source_unit_inventory(client, context)
             usage["input_tokens_estimate"] += max(1, len(source_unit_inventory_prompt(context)) // _CHARS_PER_TOKEN, meter.reported().input_tokens)
             # What the model wrote, measured before the service's ids replace
@@ -921,13 +934,14 @@ def execute_prepared_inventory(
             assigned.semantic_hash = prepared.semantic_hash
             usage["calls"] += 1
             validate_inventory(assigned, set(prepared.valid_span_ids))
-            # Save before the budget check. The key does not include the
-            # budget: a window that validated is reusable whatever budget the
-            # retry runs under, and it has already been paid for.
+            # Checked before it is saved: kept, a runaway would answer every
+            # retry. The key does not include the budget: a window kept once is
+            # reusable whatever budget the retry runs under, and it has already
+            # been paid for.
+            if window_ceiling is not None and window_tokens > window_ceiling:
+                raise InventoryValidationError("inventory output exceeded its configured token budget")
             if checkpoint is not None and prepared.window_keys:
                 checkpoint(prepared.window_keys[ordinal - 1], assigned, {"output_tokens_estimate": window_tokens})
-            if window_limit is not None and window_tokens > window_limit:
-                raise InventoryValidationError("inventory output exceeded its configured token budget")
         per_window.append(assigned)
         if progress is not None:
             progress(ordinal, total_windows)
@@ -995,6 +1009,7 @@ def run_unit_inventory(
     model: str | None = None,
     input_budget_tokens: int = 20000,
     output_budget_tokens: int | None = 3000,
+    output_ceiling_tokens: int | None = None,
     clock: Clock | None = None,
     prompt_version: str = SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     schema_version: int = INVENTORY_SCHEMA_VERSION,
@@ -1020,6 +1035,7 @@ def run_unit_inventory(
         model=model,
         input_budget_tokens=input_budget_tokens,
         output_budget_tokens=output_budget_tokens,
+        output_ceiling_tokens=output_ceiling_tokens,
         clock=clock,
         prompt_version=prompt_version,
         schema_version=schema_version,

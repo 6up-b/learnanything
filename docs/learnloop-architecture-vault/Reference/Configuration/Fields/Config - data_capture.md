@@ -49,7 +49,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `data_capture.receipts` | `true` | boolean | modeled default or validator seed | Turns receipts behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version (the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3 serve with no switch). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3973`; `src/learnloop/ai/plan_fallback.py:138` |
+| `data_capture.receipts` | `true` | boolean | modeled default or validator seed | Turns receipts behavior on or off within data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version (the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3 serve with no switch). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3999`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.

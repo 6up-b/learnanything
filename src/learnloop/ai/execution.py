@@ -27,6 +27,7 @@ T = TypeVar("T")
 _observer: ContextVar[Callable[[str, dict[str, Any]], Any] | None] = ContextVar("model_observer", default=None)
 _parent: ContextVar[str | None] = ContextVar("model_call_parent", default=None)
 _output_limit: ContextVar[int | None] = ContextVar("model_output_limit", default=None)
+_output_ceiling: ContextVar[int | None] = ContextVar("model_output_ceiling", default=None)
 _metadata: ContextVar[dict[str, Any] | None] = ContextVar("model_call_metadata", default=None)
 _budgets: ContextVar[dict[str, Any] | None] = ContextVar("model_call_budgets", default=None)
 _single_request: ContextVar[bool] = ContextVar("model_single_request", default=False)
@@ -430,20 +431,44 @@ def declared_budgets(budgets: dict[str, Any]):
 
 
 @contextmanager
-def generation_limit(output_tokens: int | None):
+def generation_limit(output_tokens: int | None, *, ceiling: int | None = None):
+    """Hold the calls in this context to ``output_tokens``, the size an answer
+    is asked to aim for (a route that takes no output cap states it in the
+    prompt).
+
+    ``ceiling``, when above it, is the most a complete answer may be: a
+    transport with a hard output cap sends the ceiling as that cap, so an
+    answer a little over the working size arrives whole instead of cut off.
+    Without one the working size is its own ceiling. An inner context never
+    loosens an outer one."""
+
     if output_tokens is not None and output_tokens <= 0:
         raise ValueError("No output token budget remains")
     existing = _output_limit.get()
     limit = min(existing, output_tokens) if existing is not None and output_tokens is not None else (existing if output_tokens is None else output_tokens)
+    own = ceiling if ceiling is not None and (output_tokens is None or ceiling > output_tokens) else output_tokens
+    bounds = [bound for bound in (_output_ceiling.get(), own) if bound is not None]
+    held = min(bounds) if bounds else None
+    if held is not None and limit is not None:
+        held = max(held, limit)
     token = _output_limit.set(limit)
+    ceiling_token = _output_ceiling.set(held)
     try:
         yield
     finally:
+        _output_ceiling.reset(ceiling_token)
         _output_limit.reset(token)
 
 
 def output_limit() -> int | None:
     return _output_limit.get()
+
+
+def generation_ceiling() -> int | None:
+    """The most a complete answer in this context may be (at least
+    :func:`output_limit`), or None when nothing holds it."""
+
+    return _output_ceiling.get()
 
 
 def observed_sdk_turn(function):

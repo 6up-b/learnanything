@@ -276,7 +276,10 @@ def _stage_estimates(
             calls=len(active_units),
             input_tokens=inventory_input,
             cached_tokens=cached_token_pool,
-            max_output_tokens=len(active_units) * budgets.inventory_output_tokens,
+            # The most a window may write is its ceiling, not the size it is
+            # asked for: an answer up to the ceiling is kept and paid.
+            max_output_tokens=len(active_units) * max(budgets.inventory_output_tokens,
+                                                      budgets.inventory_output_ceiling_tokens),
             ceiling=inventory_ceiling,
             exceeds_ceiling=_exceeds(active_units, inventory_ceiling, provider_context),
         )
@@ -292,7 +295,9 @@ def _stage_estimates(
             calls=len(shards),
             input_tokens=total_input,
             cached_tokens=0,
-            max_output_tokens=len(shards) * budgets.synthesis_shard_output_tokens,
+            # Every call of a synthesis run (its passes, a span round, the
+            # structuring call) is held to what the run's total leaves.
+            max_output_tokens=budgets.synthesis_output_tokens if shards else 0,
             ceiling=budgets.synthesis_shard_input_tokens,
             exceeds_ceiling=any(value > budgets.synthesis_shard_input_tokens for value in shard_inputs)
             or _over_context(shard_inputs, provider_context),
