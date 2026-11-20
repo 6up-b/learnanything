@@ -26,7 +26,7 @@ from typing import Any
 from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.sources.exam_material import (
-    HELD_OUT_ITEM_REFUSAL, exam_reserved, held_out_item_ids, held_out_material, held_out_selection_active,
+    HELD_OUT_ITEM_REFUSAL, exam_reserved, held_out_item_ids, held_out_selection_active, surface_material,
 )
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -237,7 +237,7 @@ def refuse_protected_pick(repository: Repository, practice_item_id: str, *,
     if vault is None or not held_out_selection_active(vault):
         return
     item = vault.practice_items.get(practice_item_id)
-    if item is not None and held_out_item_ids([item], held_out_material(vault, repository)):
+    if item is not None and held_out_item_ids([item], surface_material(vault, repository, "practice_pick")):
         raise ValueError(HELD_OUT_ITEM_REFUSAL)
 
 

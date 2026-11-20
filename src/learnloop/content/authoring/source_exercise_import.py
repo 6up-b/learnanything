@@ -70,9 +70,9 @@ from learnloop.content.authoring.practice_leakage import build_held_out_inventor
 from learnloop.content.sources.exam_material import (
     SCOPE_ONLY_REFUSAL,
     SourceSetsUnreadable,
-    exam_material,
     reference_keys,
     scope_only_among,
+    surface_exam_material,
 )
 from learnloop.content.sources.exercise_statements import read_exercise_statement, selection_nodes
 from learnloop.db.connection import connect
@@ -263,7 +263,7 @@ def find_book_solution(vault: LoadedVault, repository: Repository, *, extraction
     region_of = {(extraction_id, span): region for region in regions for span in region[0]}
     # A solution that is exam or held-out material (the one predicate) never
     # reaches the match model, nor the authoring model as the book's solution.
-    exam = exam_material(vault, repository)
+    exam = surface_exam_material(vault, repository, "book_solution")
     ordered: list[tuple[tuple[str, ...], str, int | None]] = []
     withheld = 0
     for key in search.fused_keys:
@@ -1206,7 +1206,7 @@ def _import_source_exercise(
     # A proposal (or a harvest's or a need's search) may predate the owner's
     # mark: a stale proposal is never trusted.
     try:
-        exam = exam_material(vault, repository)
+        exam = surface_exam_material(vault, repository, "canonical_import")
     except SourceSetsUnreadable:
         return fail("rejected", "exam_material: the vault's source sets could not be read, so nothing is made "
                     "practice until they are fixed (learnloop doctor)")

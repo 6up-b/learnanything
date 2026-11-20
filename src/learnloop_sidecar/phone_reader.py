@@ -117,10 +117,10 @@ def destination_material(ctx: Any, vault: Any, repository: Any) -> Any:
 
     if not is_phone(ctx):
         return None
-    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, exam_material
+    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, surface_material
 
     try:
-        return exam_material(vault, repository).material
+        return surface_material(vault, repository, "phone")
     except Exception:  # noqa: BLE001 - fail closed: an unreadable predicate sends nothing
         import logging
 
