@@ -2229,7 +2229,7 @@ def _practice_expansion_instructions(
         "Create only practice_item proposal items; do not create new Learning Objects, concepts, or concept edges.",
         "Each new Practice Item must attach to one of the target learning_object_id values below.",
         "Prefer constructed_response items with attempt_types_allowed ['open_text'] unless the Learning Object clearly calls for another existing supported attempt type.",
-        "Use review_route='review_required' unless a direct note or canonical source reference in the supplied context supports auto_apply.",
+        "Set review_route='auto_apply' on an item when every one of its source_ref_ids is a note or canonical_source reference supplied in context.source_refs and its audit is passed (or not_applicable_with_trace with a trace); use review_route='review_required' only for an item you could not fully check against the passages it cites, or that relies on something outside them, and say in its rationale what is unchecked.",
         "Avoid duplicating existing prompts in context; vary prompt surface and expected answer shape.",
         "Facet vocabulary: each target lists existing_evidence_facets, the facet ids already established for that Learning Object. When an item probes knowledge one of those facets names, reuse that exact facet id in evidence_facets/evidence_weights/criterion_facet_weights. Mint a new facet id only when the item probes knowledge no existing facet covers; never restate an existing facet under a new name.",
         *_difficulty_lines(plan),

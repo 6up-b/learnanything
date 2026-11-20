@@ -135,7 +135,7 @@ def test_one_topic_request_bytes_and_checkpoint_reuse(tmp_path):
     writer = Writer()
     jobs = jobs_for(paths, repo, writer)
     enqueue(jobs, 1)
-    assert request_digest(writer.requests[0]) == "37a5f8e07262bc797fe344c59601ad0387b65a895e24cb10e92678d4a0208c4b"
+    assert request_digest(writer.requests[0]) == "3ee763d8f71b89d1638787d9d5fa1328cfcd14aff21ba29f8b20c752fed72897"
     enqueue(jobs, 1)
     assert len(writer.requests) == 1
 
@@ -223,6 +223,23 @@ def test_topic_order_follows_first_cited_span(tmp_path):
                                                locator=f"span:ext1/{span}", source_id="src1", extraction_id="ext1")]
         vault.learning_objects[lo] = topic
     assert section_generation_candidates(vault, repo, extraction_id="ext1", section_id="u1") == ["lo_z", "lo_m", "lo_a"]
+
+
+def test_the_request_states_when_a_grounded_question_applies_without_review(tmp_path):
+    paths, repo = section(tmp_path, 1)
+    writer = Writer()
+    enqueue(jobs_for(paths, repo, writer), 1)
+    lines = writer.contexts[0].instructions.splitlines()
+    (rule,) = [line for line in lines if "review_route=" in line]
+    # The policy the review route applies: grounded in the supplied passages and audited means
+    # auto_apply; review_required is the exception, and says why.
+    assert "review_route='auto_apply' on an item when every one of its source_ref_ids" in rule
+    assert "note or canonical_source reference supplied in context.source_refs" in rule
+    assert "audit is passed (or not_applicable_with_trace with a trace)" in rule
+    assert "review_required' only for an item you could not fully check against the passages it cites" in rule
+    assert "relies on something outside them" in rule
+    assert "say in its rationale what is unchecked" in rule
+    assert "review_required' unless" not in rule
 
 
 def _rows(repo, job):
