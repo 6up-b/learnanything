@@ -1,7 +1,7 @@
 // UX-11 on the phone: a web page read now keeps its display equations and its exercises' matrices (the sample
 // chapter's 34 displays, where its reading kept 3). The phone Reader draws them with the desktop's renderer and
 // the page's own macros: a display of matrices, the exercise's matrices as list items, and a display in the middle
-// of a list item's sentence. The blocks are as the extraction stores them for
+// of a list item's sentence. The blocks are taken, shortened, from what the extraction stores for
 // samples/understanding-linear-algebra-symmetric-matrices-and-variance.html (extractor html, version 3).
 import { App, answers, describe, expect, fireEvent, installFakeHost, it, render, screen } from "../test/fakeHost";
 

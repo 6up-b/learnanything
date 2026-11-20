@@ -34,7 +34,8 @@ const EXERCISE =
   "- \\(\\begin{bmatrix} 1 \\amp 1 \\\\ -1 \\amp 3 \\end{bmatrix} \\text{.}\\)\n" +
   "- \\(\\begin{bmatrix} 1 \\amp 0\\\\ -1 \\amp 2 \\end{bmatrix} \\text{.}\\)\n" +
   "- \\(\\begin{bmatrix} 9 \\amp 2 \\\\ 2 \\amp 6 \\end{bmatrix} \\text{.}\\)";
-// Activity 7.1.4's tasks: two displays (16 and 17 of 34) in the middle of list items' sentences.
+// Activity 7.1.4's tasks (four of its eight list items): two displays (16 and 17 of 34) in the middle of list
+// items' sentences.
 const ACTIVITY =
   "- Find the centroid, or mean, \\(\\overline{\\dvec} = \\frac1N\\sum_j \\dvec_j\\text{.}\\) Then plot the data points and their centroid in Figure 7.1.12.\n" +
   "- Notice that the centroid lies in the center of the data so the spread of the data will be measured by how far away the points are from the centroid. To simplify our calculations, find the demeaned data points\\begin{equation*} \\dtil_j = \\dvec_j - \\overline{\\dvec} \\end{equation*}and plot them in Figure 7.1.13.\n" +
