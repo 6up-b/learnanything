@@ -6,16 +6,16 @@ version: "2.0.0"
 generated: true
 generators:
   module_generate.py:
-    source_commit: "e4667aec1b8bcf8927ccfe112ce470632fcaddf0"
-    source_commit_timestamp: "2026-11-20T11:42:51-05:00"
+    source_commit: "c9e123623e16337e15383e7c2fa43a2d12b53ebe"
+    source_commit_timestamp: "2026-11-20T12:18:18-05:00"
     uncommitted_inputs: []
   desktop_generate.py:
-    source_commit: "e4667aec1b8bcf8927ccfe112ce470632fcaddf0"
-    source_commit_timestamp: "2026-11-20T11:42:51-05:00"
+    source_commit: "c9e123623e16337e15383e7c2fa43a2d12b53ebe"
+    source_commit_timestamp: "2026-11-20T12:18:18-05:00"
     uncommitted_inputs: []
   db_generate_reference.py:
-    source_commit: "e4667aec1b8bcf8927ccfe112ce470632fcaddf0"
-    source_commit_timestamp: "2026-11-20T11:42:51-05:00"
+    source_commit: "c9e123623e16337e15383e7c2fa43a2d12b53ebe"
+    source_commit_timestamp: "2026-11-20T12:18:18-05:00"
     uncommitted_inputs: []
 source_paths:
   - "src"
@@ -36,9 +36,9 @@ Each generator records here the commit its notes were generated from, instead of
 
 | Generator | Writes | Source commit | Commit timestamp | Inputs since that commit |
 |---|---|---|---|---|
-| `_scripts/module_generate.py` | Reference/Modules/ (module notes, package maps, Module Catalog) | `e4667aec1b8bcf8927ccfe112ce470632fcaddf0` | `2026-11-20T11:42:51-05:00` | none |
-| `_scripts/desktop_generate.py` | Reference/Desktop/ (TypeScript and Rust notes, area maps, Desktop Module Catalog) | `e4667aec1b8bcf8927ccfe112ce470632fcaddf0` | `2026-11-20T11:42:51-05:00` | none |
-| `_scripts/db_generate_reference.py` | Reference/Database/Tables/, Reference/Configuration/Fields/, Database Catalog, Configuration Field Catalog | `e4667aec1b8bcf8927ccfe112ce470632fcaddf0` | `2026-11-20T11:42:51-05:00` | none |
+| `_scripts/module_generate.py` | Reference/Modules/ (module notes, package maps, Module Catalog) | `c9e123623e16337e15383e7c2fa43a2d12b53ebe` | `2026-11-20T12:18:18-05:00` | none |
+| `_scripts/desktop_generate.py` | Reference/Desktop/ (TypeScript and Rust notes, area maps, Desktop Module Catalog) | `c9e123623e16337e15383e7c2fa43a2d12b53ebe` | `2026-11-20T12:18:18-05:00` | none |
+| `_scripts/db_generate_reference.py` | Reference/Database/Tables/, Reference/Configuration/Fields/, Database Catalog, Configuration Field Catalog | `c9e123623e16337e15383e7c2fa43a2d12b53ebe` | `2026-11-20T12:18:18-05:00` | none |
 
 `_scripts/generate_all.py` runs all three. A regeneration on a clean tree changes nothing; one after a source change touches only the notes whose facts changed, plus a generator's row here when its recorded commit moves.
 
