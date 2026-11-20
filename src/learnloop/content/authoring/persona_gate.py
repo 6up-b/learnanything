@@ -92,6 +92,8 @@ together, giving both members the same verdict.
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import logging
 import sqlite3
 from dataclasses import dataclass, replace
@@ -1073,7 +1075,10 @@ class PersonaGate:
         }
 
     # -- the row_transform ----------------------------------------------
-    def __call__(self, rows: list[dict[str, Any]]) -> None:
+    def __call__(self, rows: list[dict[str, Any]], *, applied_rows: Sequence[dict[str, Any]] = ()) -> None:
+        # Applied rows supply joint evidence; verdicts may only change new rows.
+        new_rows = {id(row) for row in rows}
+        rows = [*deepcopy(applied_rows), *rows]
         # Contrast pairs (A4) are a JOINT property of two rows — "the
         # misconception-holder must fail exactly one member" cannot be decided one
         # row at a time — so they are grouped first and judged together. A pair key
@@ -1095,16 +1100,21 @@ class PersonaGate:
             else:
                 pairs.setdefault(key, []).append(row)
         for row in singles:
+            if id(row) not in new_rows:
+                continue
             self._apply(row, self.judge(row["payload"], client_item_id=_ref(row)))
         for key in sorted(pairs):
             members = pairs[key]
+            if not any(id(row) in new_rows for row in members):
+                continue
             if len(members) < 2:
                 self._apply(
                     members[0], self.judge(members[0]["payload"], client_item_id=_ref(members[0]))
                 )
                 continue
             for row, outcome in zip(members, self._judge_contrast_pair(key, members), strict=True):
-                self._apply(row, outcome)
+                if id(row) in new_rows:
+                    self._apply(row, outcome)
 
     @staticmethod
     def _is_authored_item(row: Mapping[str, Any]) -> bool:

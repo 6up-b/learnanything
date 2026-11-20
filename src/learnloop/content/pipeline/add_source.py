@@ -2560,15 +2560,20 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
             progress = fact.setdefault("progress", {"done": 0, "total": 0})
             progress["total"] += total
             progress["done"] += min(total, max(0, job.get("current_window") or 0))
+        parts = (job.get("payload") or {}).get("question_parts") or []
         if _active(job):
             fact["writing"].append(label)
-            continue
-        if effective_ingest_job_status(job) in {"failed", "blocked", "cancelled"}:
+        failed_topics = [str(part["topic_id"]) for part in parts if part.get("error")]
+        if failed_topics:
+            names = [getattr(vault.learning_objects.get(topic), "title", topic) for topic in failed_topics]
+            fact["failed"].append({"label": f"{label}: {', '.join(names)}", "resume_id": str(stamp)})
+        elif effective_ingest_job_status(job) in {"failed", "blocked", "cancelled"}:
             fact["failed"].append({"label": label, "resume_id": str(stamp)})
-            continue
-        patch_id = (job.get("result") or {}).get("patch_id")
+        result = job.get("result") or {}
+        patches = list(dict.fromkeys([part["patch_id"] for part in parts if part.get("patch_id")]
+                                    + result.get("patch_ids", []) + ([result["patch_id"]] if result.get("patch_id") else [])))
         written = 0
-        for item in repo.proposal_items(str(patch_id)) if patch_id else []:
+        for item in (item for patch_id in patches for item in repo.proposal_items(patch_id)):
             if item.get("item_type") != "practice_item":
                 continue
             if item.get("decision") == "pending":

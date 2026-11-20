@@ -13,7 +13,7 @@ from learnloop.attempt_types import unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.execution import ModelCheckpoint, checkpointed, model_settings
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.ai.errors import CodexInterrupted, CodexTurnTimeout, CodexUnavailable
+from learnloop.ai.errors import AIInvalidOutput, CodexInterrupted, CodexTurnTimeout, CodexUnavailable
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.content.proposals.ai_contracts import (
     AUTHORING_PROMPT_VERSION,
@@ -528,6 +528,7 @@ def generate_authoring_proposal(
     part_requests: list[dict[str, Any]] | None = None,
     checkpoint_scope: str | None = None,
     progress: Callable[[int, int], None] | None = None,
+    part_status: Callable[[list[dict[str, Any]]], None] | None = None,
 ) -> str:
     """Run authoring generation through a AIProviderClient and persist the result.
 
@@ -546,8 +547,9 @@ def generate_authoring_proposal(
 
     ``part_requests`` overrides subjects/instructions per authoring call. A
     ``checkpoint_scope`` keeps their original contexts across retries and saves
-    each answer, including repair, before use. Validation, repair, gates and
-    apply still see one proposal. ``progress`` counts saved authoring answers.
+    each answer, including repair, before use. Each part is validated, judged
+    against applied rows, and applied before the next call. ``progress`` counts
+    finished parts; ``part_status`` exposes their proposals and failures.
     """
 
     vault = load_vault(root)
@@ -564,7 +566,8 @@ def generate_authoring_proposal(
     )
     contexts = [build_authoring_context(
         context_vault, note_ids=note_ids, source_refs=source_refs,
-        focus_concepts=focus_concepts, focus_facets=focus_facets, **part,
+        focus_concepts=focus_concepts, focus_facets=focus_facets,
+        **{key: value for key, value in part.items() if key != "topic_id"},
     ) for part in part_requests] if part_requests is not None else [context]
     checkpoints = repository if checkpoint_scope is not None else None
     if checkpoint_scope is not None:
@@ -595,37 +598,39 @@ def generate_authoring_proposal(
         }
     )
     try:
-        answers = []
-        kept = [checkpoints is not None and _authoring_checkpoint(checkpoints, codex_client, part).load() is not None
-                for part in contexts]
-        done = sum(kept)
-        if progress is not None:
-            progress(done, len(contexts))
-        for index, part in enumerate(contexts):
-            answers.append(dispatch_authoring_request(
-                codex_client, part, request_guard=request_guard,
-                commissioned=request_guard is not None, checkpoints=checkpoints,
-            ))
-            done += not kept[index]
-            if progress is not None:
-                progress(done, len(contexts))
-        proposal = answers[0]
-        if len(answers) > 1:
-            proposal = AuthoringProposal(
-                summary="\n".join(dict.fromkeys(answer.summary for answer in answers)),
-                source_refs=list({ref.ref_id: ref for answer in answers for ref in answer.source_refs}.values()),
-                items=[item for answer in answers for item in answer.items],
+        if part_requests is not None and checkpoint_scope is not None:
+            return _apply_authoring_parts(
+                root, codex_client, repository, contexts, part_requests, checkpoint_scope,
+                agent_run_id, provider_fields["provider"] or "codex", now,
+                merge_context_source_refs, row_transform, progress, part_status, clock, request_guard,
             )
-    except (CodexUnavailable, TimeoutError, ValueError) as exc:
+        proposal = dispatch_authoring_request(
+            codex_client, context, request_guard=request_guard,
+            commissioned=request_guard is not None, checkpoints=checkpoints,
+        )
+    except Exception as exc:
         finish_agent_run(
             repository, agent_run_id, codex_client,
             status="failed", error_message=str(exc), clock=clock,
         )
         raise
+    finish_agent_run(repository, agent_run_id, codex_client, clock=clock)
+    prepared = _prepare_authoring_part(
+        root, codex_client, repository, context, proposal, agent_run_id,
+        provider_fields["provider"] or "codex", now, merge_context_source_refs,
+        row_transform, request_guard=request_guard, checkpoints=checkpoints,
+    )
+    patch_id = repository.persist_proposal_batch(prepared["batch"], prepared["rows"])
+    auto_apply_rows(root, patch_id, prepared["rows"])
+    return patch_id
+
+
+def _prepare_authoring_part(root, codex_client, repository, context, proposal, agent_run_id,
+                            provider, now, merge_context_source_refs, row_transform, *,
+                            request_guard=None, checkpoints=None, applied_rows=None):
+    vault = load_vault(root)
     if merge_context_source_refs:
         proposal = _proposal_with_context_source_refs(proposal, context.source_refs)
-    finish_agent_run(repository, agent_run_id, codex_client, clock=clock)
-    provider = provider_fields["provider"] or "codex"
     rows = [
         proposal_item_row(item, now, vault=vault, proposal=proposal, provider=provider)
         for item in proposal.items
@@ -641,15 +646,18 @@ def generate_authoring_proposal(
         request_guard=request_guard,
         checkpoints=checkpoints,
     )
-    # A7: the repair pass is a second billed call against an already-completed
-    # run (closing it earlier is deliberate — see `_repair_invalid_proposal_items`
-    # on interrupt handling), so its tokens are added rather than written.
-    repository.add_agent_run_usage(agent_run_id, consume_client_usage(codex_client))
+    # Whole-call authoring already closed its run before repair, so add those
+    # tokens. Streaming closes once at the end; draining here would erase its
+    # accumulated usage when that close consumes the client's accumulator.
+    if applied_rows is None:
+        repository.add_agent_run_usage(agent_run_id, consume_client_usage(codex_client))
     if row_transform is not None:
-        row_transform(rows)
+        if applied_rows is None:
+            row_transform(rows)
+        else:
+            row_transform(rows, applied_rows=applied_rows)
     proposal_payload = proposal.model_dump(mode="json", exclude_none=False)
-    patch_id = repository.persist_proposal_batch(
-        {
+    return {"batch": {
             "id": new_ulid(),
             "agent_run_id": agent_run_id,
             "purpose": "authoring",
@@ -657,11 +665,91 @@ def generate_authoring_proposal(
             "summary": proposal.summary,
             "created_at": now,
             "updated_at": now,
-        },
-        rows,
-    )
-    auto_apply_rows(root, patch_id, rows)
-    return patch_id
+        }, "rows": rows}
+
+
+def _apply_authoring_parts(root, client, repository, contexts, parts, scope, agent_run_id,
+                           provider, now, merge_refs, judge, progress, part_status, clock, request_guard):
+    receipts = [ModelCheckpoint(repository, f"{scope}:part:{index}", "authoring_part", dict)
+                for index in range(len(contexts))]
+    prepared = [receipt.load() for receipt in receipts]
+    states = [{"topic_id": part["topic_id"], **({"patch_id": saved["batch"]["id"]} if saved else {})}
+              for part, saved in zip(parts, prepared, strict=True)]
+    completed = set()
+
+    def describe(index):
+        rows = repository.proposal_items(states[index]["patch_id"])
+        pending = [row for row in rows if not row.get("applied_change_batch_id")]
+        if pending or not rows:
+            reasons = [error for row in pending for error in row.get("validation_errors", [])]
+            states[index]["error"] = "; ".join(reasons) or "Questions need review before applying"
+        else:
+            states[index].pop("error", None)
+
+    for index, saved in enumerate(prepared):
+        if saved and repository.proposal_batch(saved["batch"]["id"]):
+            pending = {row["id"] for row in repository.pending_proposal_items(saved["batch"]["id"])}
+            if not any(row.get("_auto_apply") and row["id"] in pending for row in saved["rows"]):
+                completed.add(index)
+                describe(index)
+
+    def report():
+        if part_status is not None:
+            part_status(states)
+        if progress is not None:
+            progress(sum(not states[index].get("error") for index in completed), len(contexts))
+
+    report()
+    failures = []
+    for index, context in enumerate(contexts):
+        if index in completed:
+            continue
+        saved = prepared[index]
+        if saved is None:
+            try:
+                proposal = dispatch_authoring_request(
+                    client, context, checkpoints=repository, request_guard=request_guard,
+                    commissioned=request_guard is not None,
+                )
+                applied = [{**row, "payload": row.get("edited_payload") or row["payload"]}
+                           for state in states if state.get("patch_id")
+                           for row in repository.proposal_items(state["patch_id"])
+                           if row.get("decision") == "accepted" and row.get("applied_change_batch_id")]
+                saved = _prepare_authoring_part(
+                    root, client, repository, context, proposal, agent_run_id, provider, now,
+                    merge_refs, judge, checkpoints=repository, applied_rows=applied, request_guard=request_guard,
+                )
+            except CodexInterrupted:
+                raise
+            except (CodexUnavailable, TimeoutError) as exc:
+                states[index]["error"] = str(exc)
+                failures.append(exc)
+                report()
+                continue
+            # Save the proposal AND its apply selection before either can have
+            # effects. A crash after apply must resume these same row ids.
+            receipts[index].save(saved)
+        patch_id = saved["batch"]["id"]
+        states[index] = {"topic_id": parts[index]["topic_id"], "patch_id": patch_id}
+        if repository.proposal_batch(patch_id) is None:
+            repository.persist_proposal_batch(saved["batch"], saved["rows"])
+        report()
+        pending = {row["id"] for row in repository.pending_proposal_items(patch_id)}
+        auto_apply_rows(root, patch_id, [row for row in saved["rows"] if row["id"] in pending])
+        repository.bump_queue_revision(clock=clock)
+        completed.add(index)
+        describe(index)
+        report()
+    if failures:
+        # The runner gives this collection one automatic retry, with successful
+        # parts skipped. No per-topic retry here multiplies that allowance.
+        missing = ", ".join(state["topic_id"] for state in states if state.get("error"))
+        raise AIInvalidOutput(f"Questions still needed for {missing}: {failures[-1]}") from failures[-1]
+    refused = [state["topic_id"] for state in states if state.get("error")]
+    if refused:
+        raise ValueError("Questions need review for " + ", ".join(refused))
+    finish_agent_run(repository, agent_run_id, client, clock=clock)
+    return states[-1]["patch_id"]
 
 
 def build_diagnostic_authoring_context(

@@ -1860,8 +1860,6 @@ PROVENANCE_ONLY: dict[str, str] = {
         "reaches it through the dumped dict the quote is read from",
     "src/learnloop/content/authoring/ai_contracts.py::concept_animation_prompt": PROMPT_REASON,
     "src/learnloop/content/authoring/ai_contracts.py::video_storyboard_prompt": PROMPT_REASON,
-    "src/learnloop/content/proposals/proposals.py::generate_authoring_proposal":
-        "the inline hash records agent-run provenance; request replay uses the separately pinned authoring checkpoint",
     "src/learnloop/content/proposals/method_phrasing.py::judge_prompt": PROMPT_REASON,
     "src/learnloop/content/proposals/proposals.py::persist_authoring_proposal":
         "agent_runs.input_context_hash of purpose 'authoring', which nothing looks up (only canonical ingest, "

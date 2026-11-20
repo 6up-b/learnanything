@@ -304,9 +304,12 @@ class InstrumentGateChain:
     rung_gate: Any | None = None
     gates: tuple[RowGate, ...] = field(default_factory=tuple)
 
-    def __call__(self, rows: list[dict[str, Any]]) -> None:
+    def __call__(self, rows: list[dict[str, Any]], *, applied_rows: Sequence[dict[str, Any]] = ()) -> None:
         for gate in self.gates:
-            gate(rows)
+            if gate is self.persona_gate or gate is self.pair_gate:
+                gate(rows, applied_rows=applied_rows)
+            else:
+                gate(rows)
         # After the verdicts: mechanically repair the two remediable failure
         # classes and re-judge. Runs inside the chain so every lane that
         # consumes the composition gets remediation without caller changes;

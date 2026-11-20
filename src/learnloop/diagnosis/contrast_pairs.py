@@ -71,6 +71,8 @@ lives in :func:`plan_contrast_pair_serving` with the randomization.
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import hashlib
 from dataclasses import dataclass
 from enum import StrEnum
@@ -536,7 +538,10 @@ class ContrastPairGate:
         self.verdicts: dict[str, PairVerdict] = {}
         self.violations: list[str] = []
 
-    def __call__(self, rows: list[dict[str, Any]]) -> None:
+    def __call__(self, rows: list[dict[str, Any]], *, applied_rows: Sequence[dict[str, Any]] = ()) -> None:
+        # Applied rows supply joint evidence; verdicts may only change new rows.
+        new_rows = {id(row) for row in rows}
+        rows = [*deepcopy(applied_rows), *rows]
         pairs: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
             if row.get("item_type") != "practice_item" or row.get("operation") != "create":
@@ -552,6 +557,9 @@ class ContrastPairGate:
             pairs.setdefault(key, []).append(row)
         for key in sorted(pairs):
             members = pairs[key]
+            additions = [row for row in members if id(row) in new_rows]
+            if not additions:
+                continue
             if len(members) == 1:
                 self._resolve_single(key, members[0])
                 continue
@@ -568,7 +576,7 @@ class ContrastPairGate:
                     detail={"pair_key": key, "member_count": len(members)},
                 )
                 self.verdicts[key] = verdict
-                for row in members:
+                for row in additions:
                     self._record(row, key, verdict)
                 continue
             verdict = judge_pair(
@@ -577,7 +585,7 @@ class ContrastPairGate:
                 difficulty_band=self._band_for(members[0]["payload"]),
             )
             self.verdicts[key] = verdict
-            for row in members:
+            for row in additions:
                 self._record(row, key, verdict)
 
     def _band_for(self, payload: Mapping[str, Any]) -> tuple[float, float] | None:

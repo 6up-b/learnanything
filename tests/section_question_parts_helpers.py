@@ -19,10 +19,10 @@ from tests.helpers import NOW, create_basic_vault
 from tests.proposal_persistence_helpers import _generated_practice_proposal_payload
 from tests.structured_ai import StructuredClientFake, _request_context
 
-TOPICS = ["lo_topic_f", "lo_topic_b", "lo_topic_e", "lo_topic_a", "lo_topic_d", "lo_topic_c"]
+TOPICS = ["lo_topic_f", "lo_topic_b", "lo_topic_e", "lo_topic_a", "lo_topic_d", "lo_topic_c", "lo_topic_h", "lo_topic_g"]
 
 
-def section(tmp_path, count=6):
+def section(tmp_path, count=8):
     paths = create_basic_vault(tmp_path / "vault")
     add_note(paths.root, "linear-algebra", "section", "Section", "The topic definitions.", clock=FrozenClock(NOW))
     template = read_yaml(paths.learning_object_path("linear-algebra", "lo_svd_definition"))
@@ -54,11 +54,12 @@ def answer(topics, *, duplicate=False, invalid=False):
 
 
 class Writer(StructuredClientFake):
-    def __init__(self, *, fail=(), duplicate=False, invalid=False):
+    def __init__(self, *, fail=(), duplicate=False, invalid=False, bad_topics=()):
         self.calls = []
         self.requests = []
         self.contexts = []
         self.fail = set(fail)
+        self.bad_topics = set(bad_topics)
         self.duplicate = duplicate
         self.invalid = invalid
         self.before = lambda: None
@@ -78,6 +79,9 @@ class Writer(StructuredClientFake):
                               "workspace": request.workspace, "isolated": request.isolated,
                               "reasoning_effort": request.reasoning_effort, "images": request.images})
         self.before()
+        if topics and topics[0] in self.bad_topics:
+            from learnloop.ai.errors import AIInvalidOutput
+            raise AIInvalidOutput("invalid JSON after one wire repair")
         if len(self.calls) in self.fail:
             raise AITurnTimeout("third topic timed out")
         if repair:
@@ -97,7 +101,7 @@ def jobs_for(paths, repo, writer):
     return jobs
 
 
-def enqueue(jobs, count=6):
+def enqueue(jobs, count=8):
     return jobs.enqueue_practice_expansion(learning_object_ids=TOPICS[:count],
                                          reason="reader_section_completed:section_one", source_refs=[])
 

@@ -3563,8 +3563,14 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
             ctx.report("generation", current_window=len(lo_ids), total_windows=len(lo_ids))
             return completed
 
+    parts = []
+
+    def part_status(states: list[dict[str, Any]]) -> None:
+        parts[:] = states
+        ctx.repo.update_ingest_job_payload(ctx.job_id, {**payload, "question_parts": states})
+
     def progress(done: int, total: int) -> None:
-        ctx.report("generation", message=f"Writing questions: {done} of {total} topics saved",
+        ctx.report("generation", message=f"Writing questions: {done} of {total} topics finished",
                    current_window=done, total_windows=total)
 
     try:
@@ -3576,7 +3582,7 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
             target_items_per_lo=3,
             max_new_per_lo=3,
             source_refs=source_refs,
-            **({"checkpoint_scope": saved.key, "progress": progress} if saved is not None else {}),
+            **({"checkpoint_scope": saved.key, "progress": progress, "part_status": part_status} if saved is not None else {}),
             extra_instructions=(
                 "These items seed practice for material the learner just finished reading "
                 f"({payload.get('reason') or 'reader_section_completed'}). Ground every item in the "
@@ -3594,6 +3600,7 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
         "rung_violations": result.rung_violations,
     }
     if saved is not None:
+        outcome["patch_ids"] = [part["patch_id"] for part in parts if part.get("patch_id")]
         saved.save(outcome)
     return outcome
 
@@ -4071,6 +4078,7 @@ class DurableIngestJobs:
         self._runner: IngestRunner | None = None
         self._lock = threading.RLock()
         self._reloaded: set[str] = set()
+        self._reload_observed: dict[str, set[str]] = {}
         self._background = True
         self._poll_interval = 1.0
         self._worker_thread: threading.Thread | None = None
@@ -4722,37 +4730,34 @@ class DurableIngestJobs:
             job = runner.repo.get_ingest_job(job_id)
         return _compat(job) if job is not None else None
 
+    def _needs_content_reload(self, job: dict[str, Any]) -> bool:
+        keys = {job["id"]} if effective_ingest_job_status(job) == "completed" else set()
+        for part in (job.get("payload") or {}).get("question_parts", []):
+            patch = part.get("patch_id")
+            if patch:
+                keys.update(f"{job['id']}:{row['id']}" for row in self._require_runner().repo.proposal_items(patch)
+                            if row.get("decision") == "accepted" and row.get("applied_change_batch_id"))
+        unseen = keys - self._reloaded
+        if unseen:
+            # Capture before reload: another part landing while the vault loads
+            # must still request a subsequent reload, not be marked seen here.
+            self._reload_observed[job["id"]] = keys
+        return bool(unseen)
+
     def needs_reload(self, job_id: str) -> bool:
-        runner = self._require_runner()
-        job = runner.repo.get_ingest_job(job_id)
-        return bool(
-            job
-            and effective_ingest_job_status(job) == "completed"
-            and job_id not in self._reloaded
-        )
+        job = self._require_runner().repo.get_ingest_job(job_id)
+        return bool(job and self._needs_content_reload(job))
 
     def mark_reloaded(self, job_id: str) -> None:
-        self._reloaded.add(job_id)
+        self._reloaded.update(self._reload_observed.pop(job_id, {job_id}))
 
     def completed_jobs_awaiting_reload(self, job_types: frozenset[str], *, limit: int) -> list[str]:
-        """Recent completed jobs of ``job_types`` this process has not reloaded for.
-
-        The queue-revision poll's question (mobile PR-7): it runs every few
-        seconds on every screen, so it reads the jobs of the recent batches and
-        nothing else, never the views ``list_batches`` builds for the batch screens.
-        """
-
+        """Jobs with new content, including parts of a still-running section."""
         repository = self._require_runner().repo
         batches = repository.list_ingest_batches(limit=limit)
         jobs_by_batch = repository.ingest_jobs_for_batches(batch["id"] for batch in batches)
-        return [
-            job["id"]
-            for jobs in jobs_by_batch.values()
-            for job in jobs
-            if job.get("job_type") in job_types
-            and job["id"] not in self._reloaded
-            and effective_ingest_job_status(job) == "completed"
-        ]
+        return [job["id"] for jobs in jobs_by_batch.values() for job in jobs
+                if job.get("job_type") in job_types and self._needs_content_reload(job)]
 
     def halt(self) -> None:
         """The host stopped serving the bound vault (``SidecarContext``'s refusal): let go of its runner and stop

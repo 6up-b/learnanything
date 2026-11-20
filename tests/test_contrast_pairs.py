@@ -848,3 +848,100 @@ def test_a_later_topic_can_revoke_an_earlier_parts_pair_gate_verdict(tmp_path):
     assert {row["audit"]["contrast_pair_gate"]["reason"] for row in combined} == {
         str(PairGateReason.PAIR_OVERSUBSCRIBED)
     }
+
+
+@pytest.mark.parametrize("gate_name,reason", [
+    ("pair_gate", "pair_oversubscribed"),
+    ("persona_gate", "contrast_pair_fails_both"),
+])
+def test_incremental_pair_judgment_keeps_applied_members_and_refuses_the_later_row(tmp_path, gate_name, reason):
+    from copy import deepcopy
+    from learnloop.content.authoring.authoring_gates import build_instrument_gates
+    from tests.structured_ai import StructuredClientFake
+
+    vault = load_vault(create_basic_vault(tmp_path / "vault").root)
+    applied = _pair_rows()
+    applied[0]["payload"]["discrimination_profiles"] = [{
+        "id": "dp_ignores_symmetry", "hypothesis": "ignores symmetry",
+        "observable_signature": applied[0]["payload"]["expected_answer"], "facet_id": FACET,
+    }]
+    later = deepcopy(applied[1])
+    later["client_item_id"] = "later"
+    before = deepcopy(applied)
+    chain = build_instrument_gates(vault, grading_client=StructuredClientFake(),
+                                   difficulty_band_by_lo={"lo_svd_definition": BAND})
+    # Both originals pass their joint tests. A third claiming the same pair
+    # adds a second firing persona trial as well as oversubscribing membership.
+    gate = getattr(chain, gate_name)
+    initial = deepcopy(applied)
+    gate(initial)
+    assert all(row["_auto_apply"] for row in initial)
+    gate([later], applied_rows=applied)
+    assert applied == before
+    assert not later["_auto_apply"]
+    assert any(reason in error for error in later["validation_errors"])
+    assert all(message.startswith("later:") for message in gate.violations)
+
+
+def test_incremental_duplicate_judgment_preserves_the_earlier_row():
+    from copy import deepcopy
+    from learnloop.content.authoring.practice_generation import _reject_duplicate_practice_prompts
+
+    earlier = _pair_rows()[0]
+    later = deepcopy(earlier)
+    later["client_item_id"] = "later"
+    later["payload"]["id"] = "pi_later"
+    later["payload"]["prompt"] = "  " + earlier["payload"]["prompt"] + "  "
+    before = deepcopy(earlier)
+    _reject_duplicate_practice_prompts([later], applied_rows=[earlier])
+    assert earlier == before
+    assert later["validation_errors"] == ["duplicate_prompt"]
+    assert not later["_auto_apply"]
+
+
+def test_refusing_a_member_rechecks_personas_on_the_actual_apply_subset(tmp_path, monkeypatch):
+    from learnloop.content.authoring import practice_generation as generation
+    from tests.structured_ai import StructuredClientFake
+
+    paths = create_basic_vault(tmp_path / "vault")
+    rows = _pair_rows()
+    second = _pair_rows()
+    for row in second:
+        row["client_item_id"] += "_second"
+        row["payload"]["id"] += "_second"
+        row["payload"]["contrast_of"] += "_second"
+        row["payload"]["prompt"] += " Different context."
+    rows += second
+    for row in rows:
+        row["payload"]["difficulty"] = 0.25
+        row["payload"]["tags"] = ["contrast_pair:shared_persona_group"]
+        row["payload"]["discrimination_profiles"] = [{
+            "id": "dp_ignores_symmetry", "hypothesis": "ignores symmetry",
+            "observable_signature": "always diagonalizable", "facet_id": FACET,
+        }]
+    rows[1]["payload"]["prompt"] = "True or false: every square matrix is diagonalizable."
+
+    class Fire(StructuredClientFake):
+        def grade_diagnostic_fire(self, **context):
+            return context["payload"]["id"] == SECOND
+
+    class Rung:
+        # Isolate the joint constraints from this synthetic topic's waypoint.
+        violations = []
+        warnings = []
+
+        def __call__(self, rows):
+            pass
+
+    def generate(*args, **kwargs):
+        kwargs["row_transform"](rows)
+        return "synthetic_patch"
+
+    monkeypatch.setattr(generation, "_RungGate", lambda *args: Rung())
+    monkeypatch.setattr(generation, "generate_authoring_proposal", generate)
+    generation.generate_post_probe_practice_proposal(
+        paths.root, Fire(), learning_object_ids=["lo_svd_definition"], require_completed_probe=False,
+        checkpoint_scope="synthetic_section",
+    )
+    assert all(not row["_auto_apply"] for row in rows)
+    assert all(any("persona_gate:" in error for error in row["validation_errors"]) for row in second)

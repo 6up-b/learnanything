@@ -334,3 +334,26 @@ def test_section_writing_progress_counts_saved_parts(tmp_path, status, done):
     _set(repo, "ingest_jobs", job["id"], status=status, current_window=done,
          total_windows=6, payload_json=json.dumps({"learning_object_ids": [f"lo_{i}" for i in range(6)]}))
     assert _line(root, repo, item)["progress"] == {"done": done, "total": 6}
+
+
+@pytest.mark.parametrize("status,done,failed", [
+    ("running", 1, False), ("running", 4, True), ("failed", 7, True), ("completed", 8, False),
+])
+def test_landed_parts_are_counted_while_writing_or_failed(tmp_path, status, done, failed):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    (section_id, label), *_ = [(unit, label) for unit, label in _section_ids(repo, item) if label]
+    batch = _finish_section(repo, item, section_id)
+    ids = _write_questions(root, repo, batch, applied=done)
+    job = repo.ingest_jobs_for_batch(batch)[0]
+    repo.update_ingest_job_payload(job["id"], {**job["payload"], "question_parts": [
+        {"topic_id": "lo_one", "patch_id": job["result"]["patch_id"]},
+        *([{"topic_id": "lo_five", "error": "invalid JSON"}] if failed else []),
+    ]})
+    _set(repo, "ingest_jobs", job["id"], status=status, current_window=done, total_windows=8)
+    fact = _line(root, repo, item)["questions"]
+    assert fact["item_ids"] == ids
+    assert fact["count"] == done
+    assert fact["progress"] == {"done": done, "total": 8}
+    assert fact["sections"] == [label]
+    assert fact["writing"] == ([label] if status == "running" else [])
+    assert fact["failed"] == ([{"label": f"{label}: lo_five", "resume_id": batch}] if failed else [])

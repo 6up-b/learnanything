@@ -899,9 +899,10 @@ def section_questions_key(client: AIProviderClient, lo_ids: list[str], source_re
                         "reason": reason, "settings": model_settings(client)})
 
 
-def _reject_duplicate_practice_prompts(rows: list[dict[str, Any]]) -> None:
-    # Separate answers cannot see each other's new prompts. Judge the whole
-    # collection: accepting a prefix makes a later duplicate impossible to undo.
+def _reject_duplicate_practice_prompts(rows: list[dict[str, Any]], *,
+                                      applied_rows: Sequence[dict[str, Any]] = ()) -> None:
+    # Applied prompts are reserved: only the new duplicate can be refused.
+    reserved = {str((row.get("payload") or {}).get("prompt") or "").strip() for row in applied_rows}
     groups: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         if row.get("item_type") == "practice_item" and row.get("operation") == "create":
@@ -909,7 +910,7 @@ def _reject_duplicate_practice_prompts(rows: list[dict[str, Any]]) -> None:
             if prompt:
                 groups.setdefault(prompt, []).append(row)
     for group in groups.values():
-        if len(group) > 1:
+        if len(group) > 1 or group[0]["payload"]["prompt"].strip() in reserved:
             for row in group:
                 row["_auto_apply"] = False
                 row["validation_status"] = "invalid"
@@ -935,6 +936,7 @@ def generate_post_probe_practice_proposal(
     ad_commission_id: str | None = None,
     checkpoint_scope: str | None = None,
     progress: Callable[[int, int], None] | None = None,
+    part_status: Callable[[list[dict[str, Any]]], None] | None = None,
 ) -> PracticeExpansionResult:
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
@@ -975,9 +977,25 @@ def generate_post_probe_practice_proposal(
     persona_gate = gates.persona_gate
     pair_gate = gates.pair_gate
 
-    def judge(rows: list[dict[str, Any]]) -> None:
-        gates(rows)
-        _reject_duplicate_practice_prompts(rows)
+    def judge(rows: list[dict[str, Any]], *, applied_rows: Sequence[dict[str, Any]] = ()) -> None:
+        gates(rows, applied_rows=applied_rows)
+        _reject_duplicate_practice_prompts(rows, applied_rows=applied_rows)
+        if checkpoint_scope is not None:
+            # Refusing a member can change another group's persona verdict.
+            # Only remove candidates, until both joint gates admit the apply set.
+            previous = -1
+            while previous != sum(bool(row.get("_auto_apply")) for row in rows):
+                eligible = [row for row in rows if row.get("_auto_apply")]
+                previous = len(eligible)
+                persona_gate(eligible, applied_rows=applied_rows)
+                pair_gate([row for row in eligible if row.get("_auto_apply")], applied_rows=applied_rows)
+
+    patch_ids: list[str] = []
+
+    def report_parts(states: list[dict[str, Any]]) -> None:
+        patch_ids[:] = [state["patch_id"] for state in states if state.get("patch_id")]
+        if part_status is not None:
+            part_status(states)
 
     parts = None
     if checkpoint_scope is not None:
@@ -988,6 +1006,7 @@ def generate_post_probe_practice_proposal(
                 continue
             part = replace(plan, targets=[targets[lo_id]])
             parts.append({
+                "topic_id": lo_id,
                 "subjects": _target_subjects(part, subjects),
                 "instructions": _practice_expansion_instructions(
                     part, extra_instructions=extra_instructions, focus_facets=focus_facets, mode_mix=mode_mix,
@@ -1009,14 +1028,16 @@ def generate_post_probe_practice_proposal(
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
         row_transform=judge,
-        **({"part_requests": parts, "checkpoint_scope": checkpoint_scope, "progress": progress}
+        **({"part_requests": parts, "checkpoint_scope": checkpoint_scope, "progress": progress, "part_status": report_parts}
            if checkpoint_scope is not None else {}),
         **_ad_request_options(plan),
     )
     violations: list[str] = []
     warnings: list[str] = []
     if mode_mix:
-        violations, warnings = _mode_mix_compliance(plan, mode_mix, repository.proposal_items(patch_id))
+        violations, warnings = _mode_mix_compliance(
+            plan, mode_mix, [row for patch in (patch_ids or [patch_id]) for row in repository.proposal_items(patch)],
+        )
     return PracticeExpansionResult(
         patch_id=patch_id,
         plan=plan,

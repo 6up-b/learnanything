@@ -404,7 +404,6 @@ def _reload_applied_batches(ctx: SidecarContext, batches: list[dict[str, Any]]) 
         for batch in batches
         for job in batch.get("jobs") or []
         if job.get("job_type") in APPLYING_JOB_TYPES
-        and job.get("status") == "completed"
         and ctx.ingest_jobs.needs_reload(job["id"])
     ]
     if not pending:
