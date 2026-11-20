@@ -265,6 +265,5 @@ the repair it chose. No regraded self-grade or zero-confidence grade exists in t
 changes, so K5-11 and K5-12 move nothing there today, and no answer is quarantined.
 
 Who decided what: the owner chose the forgetting-clock cases on 2026-11-19 (a variant request is no review; a blank
-submission stays a failed review; the exam cases stay). That an exposed answer updates no belief at all, rather
-than at the contaminated weight, is the orchestrator's recommendation, put to the owner on 2026-11-19; the tag
-lands on the owner's word for it.
+submission stays a failed review; the exam cases stay), and on the same day chose that an exposed probe answer
+updates no belief at all ("no update"), rather than at the contaminated weight.
