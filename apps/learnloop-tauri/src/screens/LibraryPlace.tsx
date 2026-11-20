@@ -99,6 +99,8 @@ export function LibraryPlace({
 }) {
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const [notice, setNotice] = useState<string | null>(null);
+  // What a press that queued nothing says instead (the whole book already built or building): not a failure.
+  const [told, setTold] = useState<string | null>(null);
   const sources = library.data?.sources;
   const pending = library.data?.pending ?? [];
   const refetchRef = useRef(library.refetch);
@@ -140,12 +142,14 @@ export function LibraryPlace({
     confirmedProposalHash?: string | null;
   }) => {
     setNotice(null);
+    setTold(null);
     try {
       const result = await api.sourceAction(input);
       if (result.needsConfirmation && result.confirmation && input.sourceId) {
         setConfirming({ sourceId: input.sourceId, action: input.action, confirmation: result.confirmation });
         return;
       }
+      if (result.notice) setTold(result.notice);
       await refetchRef.current().catch(() => undefined);
     } catch (error) {
       setNotice(plainError(error).line);
@@ -183,6 +187,11 @@ export function LibraryPlace({
           {notice ? (
             <div role="status" style={{ padding: "10px 32px 0", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amber }}>
               {notice}
+            </div>
+          ) : null}
+          {told ? (
+            <div role="status" data-testid="library-told" style={{ padding: "10px 32px 0", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+              {told}
             </div>
           ) : null}
           {confirming ? (

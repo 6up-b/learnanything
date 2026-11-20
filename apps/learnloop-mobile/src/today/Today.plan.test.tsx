@@ -525,3 +525,37 @@ describe("first questions arrive (P11): an empty day says why, in the desktop's 
     expect(findJargon(cause.textContent ?? "")).toEqual([]);
   });
 });
+
+describe("a section finished before its book is ready (UX-31): the phone says the desktop's sentence", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...extra
+  });
+  const book = (statusLine: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1", statusLine }]
+  });
+
+  it("while the book is being got ready: the wait, then the finished section's questions promised for then", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book({ text: "Writing questions for Ch. 1", tone: "working", action: null, details: null,
+      progress: { done: 1, total: 2 }, questions: facts({ waiting: ["Conditional probability"] }) });
+    render(<App />);
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toBe(
+      "Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done. "
+      + "Your questions from “Conditional probability” will be written as soon as “Symmetric Matrices and Variance” is ready. Keep reading meanwhile."
+    );
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("a waiting section on a book whose line says nothing else: the promise, never 'finish a section'", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book({ text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null,
+      questions: facts({ waiting: ["Document"], sectionCount: 1 }) });
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "Your questions from what you read will be written as soon as “Symmetric Matrices and Variance” is ready."
+    );
+  });
+});

@@ -1838,3 +1838,73 @@ describe("First questions arrive (P11, F20): Today offers a book's first questio
     }
   });
 });
+
+describe("A section finished before its book is ready: Today says its questions come once the book is (UX-31)", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const facts = (overrides: Partial<NonNullable<SourceStatusLineDto["questions"]>> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...overrides
+  });
+
+  it("while the book is being got ready: the wait, and the finished section's questions promised for then, not 'finish a section'", async () => {
+    const card = libraryCard({ ...LINE.writing, progress: { done: 1, total: 2 }, questions: facts({ waiting: ["Conditional probability"] }) });
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done")).toBeTruthy();
+    expect(cause.textContent).toContain(
+      "Your questions from “Conditional probability” will be written as soon as “Symmetric Matrices and Variance” is ready. Keep reading meanwhile."
+    );
+    expect(cause.textContent).not.toMatch(/finish a section|Questions come as you finish sections/);
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+  });
+
+  it("a reading that is one section is said as what you read", async () => {
+    emptyToday([libraryCard({ ...LINE.writing, questions: facts({ waiting: ["Document"], sectionCount: 1 }) })]);
+    show(causeProps({ aiConnection: ready() }));
+    expect((await screen.findByTestId("today-cause")).textContent).toContain(
+      "Your questions from what you read will be written as soon as “Symmetric Matrices and Variance” is ready."
+    );
+  });
+
+  it("a waiting section on a book whose card says nothing else: the promise, with Continue reading", async () => {
+    const card = libraryCard({ ...LINE.built, questions: facts({ waiting: ["Conditional probability"] }) });
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain(
+      "Your questions from “Conditional probability” will be written as soon as “Symmetric Matrices and Variance” is ready."
+    );
+    expect(cause.textContent).not.toContain("Your first questions come when you finish a section");
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+  });
+
+  it("when the book is ready the writing shows on the shell's queue-changed signal, with no press", async () => {
+    const lines: SourceStatusLineDto[] = [{ ...LINE.writing, questions: facts({ waiting: ["Conditional probability"] }) }];
+    const f = emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+    show(causeProps({ aiConnection: ready() }));
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("will be written as soon as"));
+    const reads = f.getSourceLibrary.mock.calls.length;
+    // The build applied its topics and started the section's writing; its end bumps the revision the shell reads.
+    lines[0] = { ...LINE.built, questions: facts({ writing: ["Conditional probability"] }) };
+    act(() => notifyQueueChanged());
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("Writing questions from “Conditional probability”, the part you read…"), { timeout: 2000 });
+    expect(f.getSourceLibrary.mock.calls.length).toBeGreaterThan(reads);
+  });
+
+  it("the new lines are in plain words", async () => {
+    for (const line of [
+      { ...LINE.writing, questions: facts({ waiting: ["Conditional probability"] }) },
+      { ...LINE.built, questions: facts({ waiting: ["Document"], sectionCount: 1 }) }
+    ] as SourceStatusLineDto[]) {
+      emptyToday([libraryCard(line)]);
+      show(causeProps({ aiConnection: ready() }));
+      const cause = await screen.findByTestId("today-cause");
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(findJargon(cause.textContent ?? "")).toEqual([]);
+      cleanup();
+      clear();
+    }
+  });
+});

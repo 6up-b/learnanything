@@ -111,3 +111,31 @@ it("offline: no control (nothing could be sent)", () => {
   render(<GuideRail {...props({ offline: true })} />);
   expect(screen.queryByRole("button", { name: SECTION_DONE })).toBeNull();
 });
+
+// A section finished before its book is ready (docs/reviews/ux31-section-done-before-build.md): the completion is
+// kept until the book's topics are in, and its questions are written then, with no press.
+it("a section finished before its book is ready says its questions come once the book is, still and plain", async () => {
+  const completeSection = vi.fn(async () => ({ progress: {}, enqueuedGeneration: false, waitingForBuild: true, batchId: null }));
+  render(<GuideRail {...props({ completeSection, bookTitle: "Symmetric Matrices and Variance" })} />);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: SECTION_DONE }));
+  });
+  const line = await screen.findByTestId("section-done");
+  expect(line.textContent).toContain(
+    "Your questions from this section will be written as soon as “Symmetric Matrices and Variance” is ready. They'll be on Today."
+  );
+  expect(line.textContent).not.toContain("✓ Done with this section.");
+  expect(line.querySelector(".ll-wait-mark")?.getAttribute("data-motion")).toBe("still");
+  expect(findJargon(line.textContent ?? "")).toEqual([]);
+});
+
+it("without the book's title it names the book plainly", async () => {
+  const completeSection = vi.fn(async () => ({ progress: {}, enqueuedGeneration: false, waitingForBuild: true, batchId: null }));
+  render(<GuideRail {...props({ completeSection })} />);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: SECTION_DONE }));
+  });
+  expect((await screen.findByTestId("section-done")).textContent).toContain(
+    "Your questions from this section will be written as soon as the book is ready."
+  );
+});

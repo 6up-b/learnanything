@@ -4224,6 +4224,7 @@ export function ReaderScreen({
             peekPassage={peekPassage}
             revealSection={revealSection}
             completeSection={completeSection}
+            bookTitle={sourceTitle}
             onError={onError}
             boundaryBlock={boundaryBlock}
             boundarySkipped={boundarySkipped}

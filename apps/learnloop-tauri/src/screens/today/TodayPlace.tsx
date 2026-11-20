@@ -897,6 +897,7 @@ export function TodayPlace({
         return onOpenLibrary ?? null;
       case "on_the_way":
       case "section_writing":
+      case "section_waiting":
       case "finish_section":
       case "none_up": {
         const card = shown.card;

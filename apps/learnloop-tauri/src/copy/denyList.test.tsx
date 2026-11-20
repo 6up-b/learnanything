@@ -161,7 +161,12 @@ const STAGE3_CAUSES: TodayCause[] = [
   { kind: "section_failed", title: "Probability", part: null, resumeId: "batch_1" },
   { kind: "finish_section", card: BOOK },
   { kind: "finish_section", card: null },
-  { kind: "none_up", title: "Probability", card: BOOK }
+  { kind: "none_up", title: "Probability", card: BOOK },
+  // A section finished before its book is ready (docs/reviews/ux31-section-done-before-build.md).
+  { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, waiting: { part: "Conditional probability" } },
+  { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, waiting: { part: null } },
+  { kind: "section_waiting", title: "Probability", part: "Conditional probability", card: BOOK },
+  { kind: "section_waiting", title: "Probability", part: null, card: BOOK }
 ];
 const STAGE3_SENTENCES = [
   ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "",

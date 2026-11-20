@@ -17,6 +17,7 @@ import type { PassageAlign } from "../../components/PdfReaderPane";
 import { clip, sectionWords } from "./readerShared";
 import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 import { WaitMark } from "../../components/Waiting";
+import { readableTitle } from "../../app/todayCause";
 
 /** The phone's words for finishing a section (apps/learnloop-mobile/src/read/ReaderScreen.tsx), which the desktop had
  *  no way to say: a section's questions are written when it is finished, and before this only the quick check's
@@ -25,6 +26,12 @@ export const SECTION_DONE = "Done with this section";
 /** Said once the press queued the section's questions: Today offers them when they are written. */
 export const SECTION_DONE_WRITING = "Writing questions from this section. They'll be on Today.";
 export const SECTION_DONE_LINE = "✓ Done with this section.";
+/** Said when the section was finished before the book's topics for it were in: its questions are written once they
+ *  are, with no press (Today then says they are being written). */
+export function sectionDoneWaiting(bookTitle?: string | null): string {
+  const book = bookTitle ? `“${readableTitle(bookTitle)}”` : "the book";
+  return `Your questions from this section will be written as soon as ${book} is ready. They'll be on Today.`;
+}
 
 export const QUESTION_CONTROLS: Array<{ value: string; label: string }> = [
   { value: "too_easy", label: "too easy" },
@@ -75,8 +82,11 @@ export interface GuideRailProps {
    *  passage): a detour with a way back while reader_inquiry is on. */
   peekPassage?: (spanId: string) => void;
   revealSection: (sectionId: string) => void;
-  /** Finishes a section (its questions are then written); answers whether that queued them, where it can tell. */
-  completeSection: (sectionId: string) => void | Promise<{ enqueuedGeneration?: boolean } | null>;
+  /** Finishes a section (its questions are then written); answers whether that queued them, or whether they wait
+   *  for the book to be ready, where it can tell. */
+  completeSection: (sectionId: string) => void | Promise<{ enqueuedGeneration?: boolean; waitingForBuild?: boolean } | null>;
+  /** The book's title, for the line a section finished before the book was ready says. */
+  bookTitle?: string | null;
   onError: (message: string) => void;
   // The offline demo's fixture question (never shown over a real source).
   boundaryBlock: ReaderRenderBlockDto | null;
@@ -133,6 +143,7 @@ export function GuideRail({
   peekPassage,
   revealSection,
   completeSection,
+  bookTitle = null,
   onError,
   boundaryBlock,
   boundarySkipped,
@@ -154,8 +165,9 @@ export function GuideRail({
   alsoInBooks = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
-  // Sections finished here with "Done with this section", and whether that queued their questions.
-  const [finishedHere, setFinishedHere] = useState<Record<string, "writing" | "done">>({});
+  // Sections finished here with "Done with this section", and whether that queued their questions (or they wait for
+  // the book to be ready).
+  const [finishedHere, setFinishedHere] = useState<Record<string, SectionFinish>>({});
   // Without a read count (an older caller) the bar follows the reading marker.
   const sectionRead = currentSectionRead ?? currentSectionProgress;
   return (
@@ -224,13 +236,15 @@ export function GuideRail({
             readThrough={(sectionSeen[currentGuideSection.id] ?? 0) >= currentGuideSection.spanIds.length}
             completed={completedSections.includes(currentGuideSection.id)}
             finishedHere={finishedHere[currentGuideSection.id] ?? null}
+            bookTitle={bookTitle}
             offline={offline}
             onDone={async (sectionId) => {
               // The same completion the quick check's "done for now" sends. An open quick check is left as it is,
               // still answerable (the phone dismisses nothing either); answering it later sends the same once-only
               // completion, so nothing is written twice.
               const result = await completeSection(sectionId);
-              setFinishedHere((done) => ({ ...done, [sectionId]: result && result.enqueuedGeneration ? "writing" : "done" }));
+              const finish: SectionFinish = result && result.enqueuedGeneration ? "writing" : result && result.waitingForBuild ? "waiting" : "done";
+              setFinishedHere((done) => ({ ...done, [sectionId]: finish }));
             }}
           />
         </Card>
@@ -450,26 +464,30 @@ export function SectionBoundaryOffer({
 
 /** "Done with this section" at a section's end, in the section's card where its other actions live; then what it
  *  started, in the Reader's posture (a still mark, never a moving one: G54). */
+type SectionFinish = "writing" | "waiting" | "done";
+
 function SectionDone({
   section,
   readThrough,
   completed,
   finishedHere,
+  bookTitle,
   offline,
   onDone,
 }: {
   section: ReaderGuideSectionDto;
   readThrough: boolean;
   completed: boolean;
-  finishedHere: "writing" | "done" | null;
+  finishedHere: SectionFinish | null;
+  bookTitle: string | null;
   offline: boolean;
   onDone: (sectionId: string) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
-  if (finishedHere === "writing") {
+  if (finishedHere === "writing" || finishedHere === "waiting") {
     return (
       <div data-testid="section-done" role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-        <WaitMark still /> {SECTION_DONE_WRITING}
+        <WaitMark still /> {finishedHere === "writing" ? SECTION_DONE_WRITING : sectionDoneWaiting(bookTitle)}
       </div>
     );
   }

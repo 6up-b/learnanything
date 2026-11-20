@@ -3710,6 +3710,9 @@ export interface ReadingQuestionsDto {
   sections: string[];
   /** Finished sections whose questions are being written. */
   writing: string[];
+  /** Finished sections whose questions are written once the book's build of their chapter is done (they were
+   *  finished before its topics were in). Absent from an older sidecar. */
+  waiting?: string[];
   /** Finished sections whose question writing stopped; `resumeId` is the batch to try again. */
   failed: Array<{ label: string; resumeId: string }>;
   /** Written questions waiting for a look. */
@@ -3797,6 +3800,8 @@ export interface SourceActionResultDto {
   restoredRevisionId?: string | null;
   /** mark_exam_material, confirmed: the reading marked and the units held out on it. */
   marked?: { extractionId: string; heldOutUnitIds: string[]; fromExtractionIds: string[] } | null;
+  /** build_whole_book with every chapter already built or building: nothing was queued; this says so. */
+  notice?: string;
 }
 
 /** What a card's action asks before it runs, in plain words. */
@@ -7321,6 +7326,8 @@ export interface ReaderMarkProgressResultDto {
   version?: number;
   progress: ReaderSectionProgressDto;
   enqueuedGeneration: boolean;
+  /** Finished before the book's topics for it were in: its questions are written once they are. */
+  waitingForBuild?: boolean;
   batchId: string | null;
 }
 

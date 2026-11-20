@@ -14,7 +14,9 @@
 // book added through Add is built with no questions to practise; a section's
 // questions are written when the learner finishes it (on the desktop: its
 // quick check finished, or "Done with this section" at its end), and once
-// written they are on today's list at once.
+// written they are on today's list at once. A section finished before the
+// book's topics for it were in waits for them, and is written once they are
+// (docs/reviews/ux31-section-done-before-build.md).
 //
 // Today's list comes first: when it still has questions, there is something
 // to practise, whatever the books say. The plan alone cannot tell a stop the
@@ -70,10 +72,13 @@ export type TodayCause =
   | { kind: "section_failed"; title: string; part: string | null; resumeId: string }
   /** A book's card asks for something else (a cost, a setting, changes to look at). */
   | { kind: "needs_look"; title: string }
-  /** A book is being got ready for questions; `progress` and `minutes` where the build says them. */
-  | { kind: "on_the_way"; title: string; card: SourceLibraryCard | null; progress: { done: number; total: number } | null; minutes: number | null }
+  /** A book is being got ready for questions; `progress` and `minutes` where the build says them. `waiting`: a section
+   *  the learner finished waits for it (`part`: that section, or null for what they read of the book). */
+  | { kind: "on_the_way"; title: string; card: SourceLibraryCard | null; progress: { done: number; total: number } | null; minutes: number | null; waiting?: { part: string | null } | null }
   /** The questions of a section the learner finished are being written. */
   | { kind: "section_writing"; title: string; part: string | null; card: SourceLibraryCard }
+  /** A section the learner finished waits for its book to be ready: its questions are written then. */
+  | { kind: "section_waiting"; title: string; part: string | null; card: SourceLibraryCard }
   /** Only books kept for practice (past exams): nothing to read. */
   | { kind: "no_reading" }
   /** No section is finished yet: a book's first questions come when one is. */
@@ -91,8 +96,8 @@ function questionsOf(card: SourceLibraryCard): ReadingQuestionsDto | null {
   return card.statusLine?.questions ?? null;
 }
 
-type Rank = "waiting_ok" | "needs_ai" | "failed" | "section_failed" | "needs_look" | "on_the_way" | "section_writing";
-const ORDER: readonly Rank[] = ["waiting_ok", "needs_ai", "failed", "section_failed", "needs_look", "on_the_way", "section_writing"];
+type Rank = "waiting_ok" | "needs_ai" | "failed" | "section_failed" | "needs_look" | "on_the_way" | "section_writing" | "section_waiting";
+const ORDER: readonly Rank[] = ["waiting_ok", "needs_ai", "failed", "section_failed", "needs_look", "on_the_way", "section_writing", "section_waiting"];
 
 function rankOf(line: SourceStatusLineDto | null, ai: AiConnectionDto | null): Rank | null {
   if (!line) return null;
@@ -156,6 +161,7 @@ export function todayCause(input: {
     const questions = questionsOf(card);
     if (questions?.failed.length) found.push({ rank: "section_failed", title: readableTitle(card.title), card, batchId: null });
     if (questions?.writing.length) found.push({ rank: "section_writing", title: readableTitle(card.title), card, batchId: null });
+    if (questions?.waiting?.length) found.push({ rank: "section_waiting", title: readableTitle(card.title), card, batchId: null });
   }
   for (const entry of input.pending ?? []) {
     const rank = rankOf(entry.statusLine, input.ai);
@@ -188,10 +194,15 @@ export function todayCause(input: {
       }
       case "needs_look":
         return { kind: "needs_look", title: first.title };
-      case "on_the_way":
-        return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null };
+      case "on_the_way": {
+        // The book being got ready is where a finished section's questions come from: say that, not the rule.
+        const waiting = questions?.waiting?.length ? { part: partName(questions.waiting, questions.sectionCount) } : null;
+        return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting };
+      }
       case "section_writing":
         return { kind: "section_writing", title: first.title, part: partName(questions?.writing ?? [], questions?.sectionCount ?? 0), card: first.card as SourceLibraryCard };
+      case "section_waiting":
+        return { kind: "section_waiting", title: first.title, part: partName(questions?.waiting ?? [], questions?.sectionCount ?? 0), card: first.card as SourceLibraryCard };
     }
   }
   if (readable.length === 0) return { kind: "no_reading" };
@@ -217,6 +228,13 @@ function questionsWord(count: number): string {
   return count === 1 ? "1 question" : `${count} questions`;
 }
 
+/** A finished section's questions, promised for when its book is ready. */
+function waitingWords(title: string, part: string | null): string {
+  return part
+    ? `Your questions from “${part}” will be written as soon as “${title}” is ready.`
+    : `Your questions from what you read will be written as soon as “${title}” is ready.`;
+}
+
 function minutesWords(minutes: number): string {
   return minutes < 1 ? "usually under a minute" : `usually about ${Math.round(minutes)} min`;
 }
@@ -229,7 +247,9 @@ export function causeWait(cause: TodayCause): { line: string; after: string } | 
       const usually = cause.minutes !== null ? ` · ${minutesWords(cause.minutes)}` : "";
       return {
         line: `Getting “${cause.title}” ready for questions${amount}${usually}`,
-        after: "Questions come as you finish sections. Keep reading meanwhile."
+        after: cause.waiting
+          ? `${waitingWords(cause.title, cause.waiting.part)} Keep reading meanwhile.`
+          : "Questions come as you finish sections. Keep reading meanwhile."
       };
     }
     case "section_writing":
@@ -258,6 +278,8 @@ export function causeSentence(cause: TodayCause): string {
     case "failed":
       if (!cause.build) return `Couldn't get questions ready for “${cause.title}”.`;
       return `Couldn't get “${cause.title}” ready for questions${cause.retried ? ", after trying twice" : ""}. Try again, or keep reading: nothing is lost.`;
+    case "section_waiting":
+      return waitingWords(cause.title, cause.part);
     case "section_failed":
       return cause.part
         ? `Couldn't write the questions from “${cause.part}”. Try again, or keep reading: nothing is lost.`
@@ -329,6 +351,7 @@ export function causeActionLabel(cause: TodayCause): string | null {
       return "Open Library";
     case "on_the_way":
     case "section_writing":
+    case "section_waiting":
     case "finish_section":
     case "none_up":
       return cause.card ? "Continue reading" : null;
