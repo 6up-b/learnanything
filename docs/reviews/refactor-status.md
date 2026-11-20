@@ -147,8 +147,8 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
-| H1 | Distinguish the old scalar from FSRS difficulty | waiting on | — | — | Arc G |
-| H2 | Compare four ways to use difficulty in replay | waiting on | — | — | H1 |
+| H1 | Distinguish the old scalar from FSRS difficulty | landed | this commit | [refactor-h1.md](refactor-h1.md) | Six callers read item parameters through the one seam (`resolve_item_irt_params`); a guard test (`tests/test_difficulty_kinds_apart.py`: 54 modules, 161 sites) fails on a crossing read; 24 caller cases give the same numbers. Left: the lesson weight's reconstruction (ledger L4-2). Found: H1-1 (the terminal app's scalar bar can show FSRS D; with H5) |
+| H2 | Compare four ways to use difficulty in replay | not started | — | — | Owner's decision 11 stands; [refactor-h1.md](refactor-h1.md) lists what the four-way replay needs |
 | H3 | Retire scalar difficulty from mastery and surprise | waiting on | — | — | H2 and owner's call with the [AD memory spec](../specs/spec_ad_memory_v1.md) |
 | H4 | Retire the model-estimated difficulty signal from AD | waiting on | — | — | Owner's call with the AD memory spec |
 | H5 | Update exam strata, retrieval filters and authoring | waiting on | — | — | Owner's call with the AD memory spec |

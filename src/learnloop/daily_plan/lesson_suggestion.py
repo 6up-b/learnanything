@@ -169,12 +169,12 @@ def _predicted(vault: Any, repository: Any, learning_object_id: str, now_iso: st
     """The mastery model's predicted unassisted success on the LO (its own prior while it has no evidence):
     the number the lesson brief shows (``teacher.brief.lo_prediction``; a test pins the two equal)."""
 
-    from learnloop.learner.mastery import initial_mastery_state_for_learning_object, item_irt_params
+    from learnloop.learner.mastery import initial_mastery_state_for_learning_object, resolve_item_irt_params
 
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None:
         return None
-    a, b = item_irt_params(None, learning_object, vault.config.mastery)
+    a, b = resolve_item_irt_params(None, learning_object, vault.config.mastery)
     state = repository.mastery_state(learning_object_id)
     if state is None:
         state = initial_mastery_state_for_learning_object(vault, repository, learning_object_id, now_iso)
