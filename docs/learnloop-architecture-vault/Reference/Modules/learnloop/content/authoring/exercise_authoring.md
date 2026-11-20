@@ -48,50 +48,52 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py) |
-| Source lines | 955 |
+| Source lines | 991 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ExerciseAuthoringError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 106) — Domain error for the reader exercise-import producer.
-- `request_exercise_authoring(client: StructuredTransport, context: ExerciseAuthoringContext, *, admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None=None) -> ExerciseAuthoring` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 110) — Author selected exercises through the shared transport.
-- `class AuthoredDraft` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 439) — One authored exercise, validated and ready to write (nothing written yet).
-- `class AuthoredBatch` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 453) — ``author_exercises``' result: drafts plus today's skipped/warnings report.
-- `author_exercises(root: Path, repository: Repository, client: Any, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None, clock: Clock | None=None, book_solution: Mapping[str, Any] | None=None, admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None=None, method_judge: Any=None, method_judge_owner: tuple[str, str] | None=None) -> AuthoredBatch` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 465) — Author the selected exercise(s) into validated drafts.
-- `write_draft(root: Path, repository: Repository, draft: AuthoredDraft, *, extraction_id: str, clock: Clock | None=None, mechanism: str='reader_exercise_import', extra_payload: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 868) — Write one draft as a vault item and mark it with ``learner_item_authored``.
-- `write_exercises(root: Path, repository: Repository, batch: AuthoredBatch, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 905) — Write every draft of ``batch`` (the Reader import's write step).
-- `import_exercises(root: Path, repository: Repository, client: Any, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None, clock: Clock | None=None, method_judge: Any=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 925) — Author the learner's selected exercise(s) into schedulable PracticeItems.
+- `class ExerciseAuthoringError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 107) — Domain error for the reader exercise-import producer.
+- `request_exercise_authoring(client: StructuredTransport, context: ExerciseAuthoringContext, *, admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None=None) -> ExerciseAuthoring` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 111) — Author selected exercises through the shared transport.
+- `selected_span_ids(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 360) — The blocks :func:`author_exercises` will read for ``raw_selection``, in order, each once: what a caller checks before sending it (a check of the raw nodes' keys would miss ``spanId`` or a display node).
+- `class AuthoredDraft` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 472) — One authored exercise, validated and ready to write (nothing written yet).
+- `class AuthoredBatch` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 486) — ``author_exercises``' result: drafts plus today's skipped/warnings report.
+- `author_exercises(root: Path, repository: Repository, client: Any, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None, clock: Clock | None=None, book_solution: Mapping[str, Any] | None=None, admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None=None, method_judge: Any=None, method_judge_owner: tuple[str, str] | None=None, context_withheld: Material | None=None) -> AuthoredBatch` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 498) — Author the selected exercise(s) into validated drafts.
+- `write_draft(root: Path, repository: Repository, draft: AuthoredDraft, *, extraction_id: str, clock: Clock | None=None, mechanism: str='reader_exercise_import', extra_payload: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 902) — Write one draft as a vault item and mark it with ``learner_item_authored``.
+- `write_exercises(root: Path, repository: Repository, batch: AuthoredBatch, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 939) — Write every draft of ``batch`` (the Reader import's write step).
+- `import_exercises(root: Path, repository: Repository, client: Any, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None, clock: Clock | None=None, method_judge: Any=None, context_withheld: Material | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 959) — Author the learner's selected exercise(s) into schedulable PracticeItems.
 
 ### Module constants
 
-- `MAX_CONTEXT_BLOCKS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 76)
-- `MAX_CONTEXT_CHARS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 77)
-- `MAX_CATALOG_OBJECTS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 78)
-- `MAX_HINTS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 79)
-- `_DEFAULT_RUBRIC` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 81)
-- `READER_IMPORT_OWNER_KIND` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 94)
-- `STIMULUS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 242)
-- `_SOLUTION_FIGURE_ROLES` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 245)
-- `_CLAIM_STRENGTH` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 251)
+- `MAX_CONTEXT_BLOCKS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 77)
+- `MAX_CONTEXT_CHARS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 78)
+- `MAX_CATALOG_OBJECTS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 79)
+- `MAX_HINTS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 80)
+- `_DEFAULT_RUBRIC` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 82)
+- `READER_IMPORT_OWNER_KIND` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 95)
+- `STIMULUS` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 243)
+- `_SOLUTION_FIGURE_ROLES` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 246)
+- `_CLAIM_STRENGTH` ([src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 252)
 
 ## Internal implementation anchors
 
-- `_configured_method_judge(vault: LoadedVault) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 97) — The one-time statement judge from configuration, resolved on first use.
-- `_normalize(text: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 148)
-- `_clamp01(value: Any) -> float | None` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 152)
-- `_anchor_range(selection_text: str, statement: str) -> tuple[int, int] | None` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 158) — Where the model's echoed statement sits in the learner's selection, as a verbatim slice (whitespace-tolerant, same idea as annotation quote relocation); None for a paraphrase.
-- `_owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None, ranges: Sequence[tuple[int, int] | None], index: int, *, span_ids: Sequence[str]=(), text_length: int | None=None) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 173) — Reader CA1 (Codex re-review F9, final verify F9; Astra batch review, owner 2026-10-26): the blocks one item is printed from, when they are its alone.
-- `_item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *, owned: set[str], figures: Mapping[str, tuple[str, str | None]] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 215) — One item's copy of the selection's refs.
-- `_claimed_roles(entry: ExerciseAuthoredItem) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 254) — The author's role per figure span for one item.
-- `_answer_figures(entries: Sequence[ExerciseAuthoredItem]) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 267) — Every figure some claim of some item calls an ``answer`` or ``worked`` (Sol verify 1: read from every claim, never from one resolved role per item), so it is no item's stimulus.
-- `_figure_roles(claimed: Mapping[str, str], figures: Mapping[str, str | None], statement: str, *, claimed_elsewhere: set[str]) -> dict[str, tuple[str, str | None]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 276) — Reader CA1 (the Astra redesign): each selected figure's role for one item, (role, why a stimulus claim was refused).
-- `_context_blocks(ir: Any, span_ids: list[str]) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 308) — The covered blocks plus one neighbor on each side, in document order.
-- `_catalog(vault: LoadedVault, hint: str | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 337) — The bounded LO catalog the model maps into: id, title, summary, and the canonical facet vocabulary each object exposes.
-- `_validated_rubric(payload: Any) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 368) — Admit the model rubric only when the arithmetic holds (points sum to a positive integer, unique non-empty criteria); otherwise the caller falls back to the plain correctness rubric.
-- `_normalized_weights(raw: Mapping[str, float], facets: list[str], canonical: Any) -> dict[str, float]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 400) — Normalize only facet links the author actually asserted.
-- `_uniform_criterion_smear(criterion_weights: Mapping[str, Mapping[str, float]]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 421) — Whether multiple criteria received the same multi-facet distribution.
+- `_configured_method_judge(vault: LoadedVault) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 98) — The one-time statement judge from configuration, resolved on first use.
+- `_normalize(text: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 149)
+- `_clamp01(value: Any) -> float | None` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 153)
+- `_anchor_range(selection_text: str, statement: str) -> tuple[int, int] | None` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 159) — Where the model's echoed statement sits in the learner's selection, as a verbatim slice (whitespace-tolerant, same idea as annotation quote relocation); None for a paraphrase.
+- `_owned_spans(part_ranges: Sequence[tuple[str, int, int]] | None, ranges: Sequence[tuple[int, int] | None], index: int, *, span_ids: Sequence[str]=(), text_length: int | None=None) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 174) — Reader CA1 (Codex re-review F9, final verify F9; Astra batch review, owner 2026-10-26): the blocks one item is printed from, when they are its alone.
+- `_item_refs(source_refs: Sequence[Mapping[str, Any]], span_ids: Sequence[str], *, owned: set[str], figures: Mapping[str, tuple[str, str | None]] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 216) — One item's copy of the selection's refs.
+- `_claimed_roles(entry: ExerciseAuthoredItem) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 255) — The author's role per figure span for one item.
+- `_answer_figures(entries: Sequence[ExerciseAuthoredItem]) -> set[str]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 268) — Every figure some claim of some item calls an ``answer`` or ``worked`` (Sol verify 1: read from every claim, never from one resolved role per item), so it is no item's stimulus.
+- `_figure_roles(claimed: Mapping[str, str], figures: Mapping[str, str | None], statement: str, *, claimed_elsewhere: set[str]) -> dict[str, tuple[str, str | None]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 277) — Reader CA1 (the Astra redesign): each selected figure's role for one item, (role, why a stimulus claim was refused).
+- `_context_blocks(ir: Any, span_ids: list[str], withheld: Callable[[str], bool]) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 309) — The covered blocks plus one neighbor on each side, in document order.
+- `_anchored_segments(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None) -> tuple[dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 342) — The selection as the author reads it: the translation (each node's block, by either key spelling, a render view's display node or a quote re-anchored) and its segments with text.
+- `_catalog(vault: LoadedVault, hint: str | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 370) — The bounded LO catalog the model maps into: id, title, summary, and the canonical facet vocabulary each object exposes.
+- `_validated_rubric(payload: Any) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 401) — Admit the model rubric only when the arithmetic holds (points sum to a positive integer, unique non-empty criteria); otherwise the caller falls back to the plain correctness rubric.
+- `_normalized_weights(raw: Mapping[str, float], facets: list[str], canonical: Any) -> dict[str, float]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 433) — Normalize only facet links the author actually asserted.
+- `_uniform_criterion_smear(criterion_weights: Mapping[str, Mapping[str, float]]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 454) — Whether multiple criteria received the same multi-facet distribution.
 
 ## Who imports or calls it
 
@@ -99,7 +101,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `AuthoredDraft`, `ExerciseAuthoringError`, `author_exercises`, `write_draft`; statically calls `AuthoredDraft`, `ExerciseAuthoringError`, `author_exercises`, `write_draft`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `import_exercises`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `import_exercises`, `selected_span_ids`
 
 ## Dependencies
 
@@ -110,7 +112,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/ai_contracts|learnloop.content.authoring.ai_contracts]] — imports `ExerciseAuthoredItem`, `ExerciseAuthoring`, `ExerciseAuthoringContext`, `FIGURE_ROLE_INSTRUCTIONS`, `exercise_authoring_prompt`; calls `ExerciseAuthoringContext`, `exercise_authoring_prompt`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `LazyStatementJudge`, `resolve_statement_judge`, `source_judge`; calls `LazyStatementJudge`, `resolve_statement_judge`, `source_judge`
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `SCOPE_ONLY_REFUSAL`, `reference_keys`, `scope_only_among`; calls `reference_keys`, `scope_only_among`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `Material`, `SCOPE_ONLY_REFUSAL`, `held_out_material`, `reference_keys`, `scope_only_among`; calls `held_out_material`, `reference_keys`, `scope_only_among`
 - [[Reference/Modules/learnloop/content/sources/math_text|learnloop.content.sources.math_text]] — imports `contains_unicode_math`, `unicode_math_to_latex`; calls `contains_unicode_math`, `unicode_math_to_latex`
 - [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `TASK_FEATURE_SCHEMA_SLUG`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
@@ -155,6 +157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_author_then_write_writes_what_import_exercises_writes`
 - [tests/test_openrouter_client.py](../../../../../../../tests/test_openrouter_client.py) — direct import
   - `test_openrouter_supports_exercise_authoring`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_the_shared_author_refuses_a_protected_selected_segment_before_any_call`
 - [tests/test_reader_ca1_astra_codex_review.py](../../../../../../../tests/test_reader_ca1_astra_codex_review.py) — direct import
 - [tests/test_reader_ca1_astra_fixes.py](../../../../../../../tests/test_reader_ca1_astra_fixes.py) — direct import
   - `test_a_selection_level_edit_of_the_whole_passage_never_crops_the_solution`

@@ -99,7 +99,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] | [[Reference/Modules/learnloop/source_retrieval/find_sources#^module-purpose|purpose]] | `ACTIVE` | 15 | 29 |
 | [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] | [[Reference/Modules/learnloop/source_retrieval/kept_comparisons#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]] | [[Reference/Modules/learnloop/source_retrieval/library#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
-| [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] | [[Reference/Modules/learnloop/source_retrieval/library_ask#^module-purpose|purpose]] | `ACTIVE` | 8 | 13 |
+| [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] | [[Reference/Modules/learnloop/source_retrieval/library_ask#^module-purpose|purpose]] | `ACTIVE` | 8 | 14 |
 | [[Reference/Modules/learnloop/source_retrieval/local_index|learnloop.source_retrieval.local_index]] | [[Reference/Modules/learnloop/source_retrieval/local_index#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] | [[Reference/Modules/learnloop/source_retrieval/note_gaps#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] | [[Reference/Modules/learnloop/source_retrieval/note_links#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |

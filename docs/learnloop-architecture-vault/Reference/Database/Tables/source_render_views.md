@@ -124,6 +124,7 @@ Indexes and uniqueness:
 
 - `tests/test_mobile_v4_reader.py`
 - `tests/test_p3_journeys.py`
+- `tests/test_protection_surface_matrix.py`
 - `tests/test_reader_render_views.py`
 - `tests/test_rw5c_block_policy.py`
 - `tests/reader_source_identity_guard_helpers.py`

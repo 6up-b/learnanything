@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py) |
-| Source lines | 538 |
+| Source lines | 547 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,10 +64,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `figure_withheld(vault: Any, repository: Repository, figure_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/protection.py), line 310) — Whether a stored figure may not go out now (its row is gone, or any span it was built from is held out, or (RW5d) it is a show-me figure while show me is off).
 - `stored_learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 368) — Why a stored rich figure whose author was sent the learner's state may not go out (be delivered, recovered or reused) now, or None: what that state was read from is checked again against the protection as it is now (``learner_state.inputs_withheld``; a missing record fails close…
 - `intent_learner_state_withheld(vault: Any, repository: Repository, payload: Any) -> str | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 382) — Why a saved rich job payload's learner state (a quick figure's durable rich intent) may not go out now, or None when its author was sent no learner state (follow-ups Nov 2: a fuller version stored with no record of its own is read from its quick figure's intent, the job's payloa…
-- `stored_plan_open_items(repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/figures/protection.py), line 414) — The ids of the items today's latest stored plan holds open: planned, and not yet done, skipped or displaced.
-- `item_passages(vault: Any, repository: Repository, *, clock: Clock | None=None) -> tuple[frozenset[tuple[str, str]], frozenset[str]] | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 434) — RW5d P5 (spec §10b.2, G-SM29): the passages no prebuild may send or show now: every passage (``corpus.item_exclusions``: its exercise, solution or worked answer, whatever the relation) of an item under a live administration (:data:`LIVE_ADMINISTRATION_REASONS`) or that the store…
-- `rich_base_keys(base: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/figures/protection.py), line 482) — Every ``(extraction_id, span_id)`` a rich job's saved context names: its passage, the paragraphs around it the author was sent, its region, its retrieved passages and its home (the spans ``rich._withheld`` checks).
-- `rich_base_item_protected(vault: Any, repository: Repository, base: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 501) — :data:`ITEM_PASSAGE_PROTECTED` when a rich job's saved context touches a passage :func:`item_passages` protects now, or the protection can't be read (fail closed); else None.
+- `stored_plan_open_items(repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/figures/protection.py), line 415) — The ids of the items today's latest stored plan holds open: planned, and not yet done, skipped or displaced.
+- `item_passages(vault: Any, repository: Repository, *, clock: Clock | None=None) -> tuple[frozenset[tuple[str, str]], frozenset[str]] | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 435) — RW5d P5 (spec §10b.2, G-SM29): the passages no prebuild may send or show now: every passage (``corpus.item_exclusions``: its exercise, solution or worked answer, whatever the relation) of an item under a live administration (:data:`LIVE_ADMINISTRATION_REASONS`), reserved for a g…
+- `rich_base_keys(base: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/figures/protection.py), line 491) — Every ``(extraction_id, span_id)`` a rich job's saved context names: its passage, the paragraphs around it the author was sent, its region, its retrieved passages and its home (the spans ``rich._withheld`` checks).
+- `rich_base_item_protected(vault: Any, repository: Repository, base: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 510) — :data:`ITEM_PASSAGE_PROTECTED` when a rich job's saved context touches a passage :func:`item_passages` protects now, or the protection can't be read (fail closed); else None.
 
 ### Module constants
 
@@ -78,8 +78,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `INHERITED_LEARNER_INPUTS_KEY` ([src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py), line 100)
 - `LEARNER_STATE_UNRECORDED` ([src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py), line 223)
 - `LEARNER_STATE_PROTECTED` ([src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py), line 343)
-- `LIVE_ADMINISTRATION_REASONS` ([src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py), line 411)
-- `ITEM_PASSAGE_PROTECTED` ([src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py), line 478)
+- `LIVE_ADMINISTRATION_REASONS` ([src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py), line 412)
+- `ITEM_PASSAGE_PROTECTED` ([src/learnloop/figures/protection.py](../../../../../../src/learnloop/figures/protection.py), line 487)
 
 ### Explicit exports
 
@@ -196,6 +196,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reused`
   - `test_a_stored_rich_figure_without_learner_state_is_checked_as_before`
 - [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_figure_prebuilds_are_all_withheld_when_exam_reservations_cannot_be_read`
+  - `test_releasing_an_exam_reservation_admits_its_items_passage_to_figure_prebuilds`
 
 ## Modification guidance
 

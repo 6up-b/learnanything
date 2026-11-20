@@ -369,6 +369,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_m2_a_batch_resumed_after_a_restart_asks_again_as_its_origin`
   - `test_m3_any_response_that_reports_a_batch_shows_its_offer_once`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_the_reader_imports_author_keeps_a_safe_neighbour`
 - [tests/test_query_student.py](../../../../../../../tests/test_query_student.py) — direct import
   - `test_a_due_replay_is_scheduled_for_a_fully_indexed_library`
 - [tests/test_question_promotion_jobs.py](../../../../../../../tests/test_question_promotion_jobs.py) — direct import

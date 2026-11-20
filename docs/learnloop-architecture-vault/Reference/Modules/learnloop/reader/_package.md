@@ -97,7 +97,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/source_identity|learnloop.reader.source_identity]] | [[Reference/Modules/learnloop/reader/source_identity#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/reader/source_macros|learnloop.reader.source_macros]] | [[Reference/Modules/learnloop/reader/source_macros#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] | [[Reference/Modules/learnloop/reader/source_objects#^module-purpose|purpose]] | `ACTIVE` | 6 | 10 |
-| [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] | [[Reference/Modules/learnloop/reader/source_render_views#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] | [[Reference/Modules/learnloop/reader/source_render_views#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/reader/source_review|learnloop.reader.source_review]] | [[Reference/Modules/learnloop/reader/source_review#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] | [[Reference/Modules/learnloop/reader/source_roles#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
 | [[Reference/Modules/learnloop/reader/source_search|learnloop.reader.source_search]] | [[Reference/Modules/learnloop/reader/source_search#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |

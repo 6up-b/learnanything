@@ -240,7 +240,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `reference_keys`; statically calls `reference_keys`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `item_source_keys`; statically calls `item_source_keys`
 - [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]] — imports `held_out_item_ids`, `held_out_material`; statically calls `held_out_item_ids`, `held_out_material`
-- [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `SCOPE_ONLY_REFUSAL`, `reference_keys`, `scope_only_among`; statically calls `reference_keys`, `scope_only_among`
+- [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `Material`, `SCOPE_ONLY_REFUSAL`, `held_out_material`, `reference_keys`, `scope_only_among`; statically calls `held_out_material`, `reference_keys`, `scope_only_among`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `exam_material`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `HeldOutSpan`, `module`; statically calls `exam_material`, `held_out_spans`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `SCOPE_ONLY_REFUSAL`, `SourceSetsUnreadable`, `exam_material`, `reference_keys`, `scope_only_among`; statically calls `exam_material`, `reference_keys`, `scope_only_among`
@@ -455,6 +455,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_exam_reading_plans_nothing_through_its_path`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
   - `test_a_quotes_reference_in_every_form`
+  - `test_the_shared_author_refuses_a_protected_selected_segment_before_any_call`
 - [tests/test_reader_digest_narrative.py](../../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_a_session_on_exam_material_is_never_sent`
 - [tests/test_reader_pdf_selection.py](../../../../../../../tests/test_reader_pdf_selection.py) — direct import
