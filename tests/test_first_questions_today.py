@@ -14,6 +14,8 @@ Every model call is a house fake.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from learnloop.ai.errors import AIInterrupted, AITurnTimeout
@@ -288,8 +290,12 @@ def test_a_line_of_another_state_carries_questions_only_once_there_are_some(tmp_
     (section_id, _label), *_ = [(unit, label) for unit, label in _section_ids(repo, item) if label]
     section_batch = _finish_section(repo, item, section_id)
     _write_questions(root, repo, section_batch, applied=1)
+    _set_section_job(repo, section_batch, status="running", done=2, total=8)
 
-    assert _line(root, repo, item)["questions"]["count"] == 1
+    line = _line(root, repo, item)
+    assert line["questions"]["count"] == 1
+    assert line["questions"]["progress"] == {"done": 2, "total": 8}
+    assert line["progress"] == {"done": 2, "total": 3}
 
 
 # -- A4: a build's end is a revision every screen reads ------------------------------
@@ -329,11 +335,15 @@ def test_section_writing_progress_counts_saved_parts(tmp_path, status, done):
     (section_id, _label), *_ = _section_ids(repo, item)
     batch_id = _finish_section(repo, item, section_id)
     job = repo.ingest_jobs_for_batch(batch_id)[0]
-    import json
-
     _set(repo, "ingest_jobs", job["id"], status=status, current_window=done,
          total_windows=6, payload_json=json.dumps({"learning_object_ids": [f"lo_{i}" for i in range(6)]}))
-    assert _line(root, repo, item)["progress"] == {"done": done, "total": 6}
+    line = _line(root, repo, item)
+    if status in {"queued", "running"}:
+        assert line["questions"]["progress"] == {"done": done, "total": 6}
+        assert line["progress"] == {"done": done, "total": 6}
+    else:
+        assert "progress" not in line["questions"]
+        assert "progress" not in line
 
 
 @pytest.mark.parametrize("status,done,failed", [
@@ -353,7 +363,70 @@ def test_landed_parts_are_counted_while_writing_or_failed(tmp_path, status, done
     fact = _line(root, repo, item)["questions"]
     assert fact["item_ids"] == ids
     assert fact["count"] == done
-    assert fact["progress"] == {"done": done, "total": 8}
+    if status == "running":
+        assert fact["progress"] == {"done": done, "total": 8}
+    else:
+        assert "progress" not in fact
     assert fact["sections"] == [label]
     assert fact["writing"] == ([label] if status == "running" else [])
     assert fact["failed"] == ([{"label": f"{label}: lo_five", "resume_id": batch}] if failed else [])
+
+
+def _set_section_job(repo, batch_id, *, status, done, total):
+    job = repo.ingest_jobs_for_batch(batch_id)[0]
+    _set(repo, "ingest_jobs", job["id"], status=status, current_window=done,
+         total_windows=total, payload_json=json.dumps({"learning_object_ids": [f"lo_{i}" for i in range(total)]}))
+
+
+def test_finished_empty_section_does_not_dilute_the_section_being_written(tmp_path):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    first, second = _section_ids(repo, item)[:2]
+    empty = _finish_section(repo, item, first[0])
+    writing = _finish_section(repo, item, second[0])
+    _set_section_job(repo, empty, status="completed", done=0, total=3)
+    _set_section_job(repo, writing, status="running", done=2, total=8)
+
+    fact = _line(root, repo, item)["questions"]
+    assert fact["writing"] == [second[1]]
+    assert fact["progress"] == {"done": 2, "total": 8}
+
+
+def test_two_sections_being_written_contribute_their_combined_parts(tmp_path):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    first, second, third = _section_ids(repo, item)[:3]
+    one = _finish_section(repo, item, first[0])
+    two = _finish_section(repo, item, second[0])
+    finished = _finish_section(repo, item, third[0])
+    _set_section_job(repo, one, status="running", done=2, total=8)
+    _set_section_job(repo, two, status="queued", done=1, total=3)
+    _set_section_job(repo, finished, status="completed", done=0, total=4)
+
+    fact = _line(root, repo, item)["questions"]
+    assert fact["writing"] == [first[1], second[1]]
+    assert fact["progress"] == {"done": 3, "total": 11}
+
+
+def test_completed_empty_job_leaves_no_unfinished_progress(tmp_path):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    section_id, _label = _section_ids(repo, item)[0]
+    batch = _finish_section(repo, item, section_id)
+    _set_section_job(repo, batch, status="completed", done=0, total=3)
+
+    fact = _line(root, repo, item)["questions"]
+    assert fact["writing"] == []
+    assert "progress" not in fact
+
+
+def test_chapters_found_does_not_borrow_question_progress(tmp_path, monkeypatch):
+    from learnloop.content.pipeline import add_source
+
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    section_id, _label = _section_ids(repo, item)[0]
+    batch = _finish_section(repo, item, section_id)
+    _set_section_job(repo, batch, status="running", done=2, total=8)
+    monkeypatch.setattr(add_source, "latest_planner", lambda _repo, _source_id: ({"status": "running"}, None))
+
+    line = _line(root, repo, item)
+    assert line["text"] == "Chapters found"
+    assert line["questions"]["progress"] == {"done": 2, "total": 8}
+    assert "progress" not in line

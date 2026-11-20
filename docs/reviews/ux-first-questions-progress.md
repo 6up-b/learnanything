@@ -116,8 +116,33 @@ The patient first-day persona (one web chapter, the live route, a fresh library)
 - No app, browser, server or model ran; every state is from vitest on fake RPCs. The facts' values on the live route (that `questions.progress` reads "2 of 8" in step order, that `writing` stays set through the automatic retry) were read from the code, not run.
 - The label rule that tells a failed entry of a section still being written (`"Section"` or `"Section: …"`) relies on the sidecar's label format; a section whose label itself starts with another writing section's label followed by ": " would be taken for that one (its Try again hidden until the writing stops; nothing wrong is said).
 - A book with several finished sections: the amount is hidden where another finished section shows in the fact; one that gave no question and did not stop (its job found nothing to write) does not show and still adds to the sum (UX-38).
+
 - The waiting indicator's turning mark and the polite region's announcement in the real webview (as in `ux-waiting.md`).
 
 ## Found and not fixed here
 
 - **UX-38** (ledger): `questions.progress` adds up every finished section and counts a completed job that reported no topics (one that found nothing to write, or one written before the per-topic parts) as 0 done; the sidecar also copies it onto "Chapters found", where Today says it as "N of M steps done" (unchanged words; this step only keeps the first-build line off it). The screen hides the amount where it can tell; the sidecar fix is owed.
+
+## UX-38: the amount belongs to the section being written
+
+Before: `reading_questions` added the reported or payload topic count from every finished section's practice job, including completed and stopped jobs. A completed job that reported no topics could leave `progress` at 0 of its payload total. `source_status_line` copied that sum onto any line without its own progress; Today could then call the topics on “Chapters found” build steps.
+
+After: only an active section job (queued, running, or waiting for input, including an automatic retry) contributes to `questions.progress`. These are the same job sections put in `questions.writing`; stamped enqueuing or deferred sections still have no reported amount. Completed, failed, cancelled, and nothing-needed sections contribute nothing. With no active job reporting a positive total, the fact has no `progress` key, so a completed job cannot leave an unfinished amount on the fact. Two active sections sum their own done and total. The `{done, total}` shape is unchanged.
+
+`_source_status_line` can return: no line; import preparation or failure; changed-reading, reread, exam, or reading-health lines; an unbuilt book's no-questions or needs-look line; “Chapters found” or a stopped planner; AI/consent or cost waiting; an active, stopped, undone, or needs-look build; and the built “Questions for … come up as you read” line. Previously, all of these kinds copied a present `questions.progress` when their line had no `progress` of its own. An active build with its own progress kept that value. Now only the built “Questions for … come up as you read” line receives the copy. An active build still keeps its own build progress. In particular, “Chapters found” carries `questions.progress` inside `questions` but no outer `progress`.
+
+Readers found by searching `src/` and both apps' `src/`: `reading_questions` makes the nested fact; `source_status_line` copies it; the shared desktop `apps/learnloop-tauri/src/app/todayCause.ts` reads `questions.progress` for section-writing and ready-with-work text, and outer `line.progress` for build-step text and its first-build guard. Desktop Today renders that cause; phone Today uses its sentence through the shared cause. No reader depends on completed section jobs remaining in the sum.
+
+Tests were written against unchanged production first. `t.sh tests/test_first_questions_today.py -q -n 2`: **7 failed, 19 passed**. The failures covered stopped/completed jobs retaining progress, a completed empty job at 0 of 3, a completed empty section diluting 2 of 8 to 2 of 11, and “Chapters found” borrowing 2 of 8. After adding a finished third section to the two-active-sections case, `t.sh tests/test_first_questions_today.py -q -n 2 -k two_sections_being_written`: **1 failed** (3 of 15 instead of 3 of 11). The existing active-build line assertion checks that its own 2 of 3 remains.
+
+Verification after the fix, with the supplied isolated wrappers and at most two pytest workers:
+
+- `t.sh tests/test_first_questions_today.py tests/test_section_question_parts.py -q -n 2`: **38 passed**.
+- `t.sh tests/test_first_questions_arrive.py tests/test_first_questions_today.py tests/test_library_ask.py tests/test_library_ask_expand.py tests/test_library_ask_review.py tests/test_library_asks_migration.py tests/test_library_exercises.py tests/test_plan_first_transport_today_quiet.py tests/test_today_headline.py tests/test_today_surfaces.py tests/test_tui_today.py tests/test_ux_phase1_add_source.py tests/test_ux_phase3_today.py -q -n 2 -m 'not arc_close'`: **159 passed, 3 skipped, 1 failed**. The failure is `test_the_plan_route_request_is_byte_identical_under_a_ceiling`: its fake HTTP server cannot create a socket (`PermissionError: [Errno 1] Operation not permitted`), so it is not counted as verified.
+- `t.sh tests/test_identity_pins.py tests/test_structure_ratchets.py tests/test_mobile_allowlist.py -q -n 2 -m 'not arc_close'`: **680 passed**.
+- `t.sh tests/test_test_layout.py -q -n 1`: **3 passed**.
+- `py.sh ruff check`: **All checks passed!**
+- `py.sh lint-imports --no-cache`: **Contracts: 43 kept, 0 broken.**
+- `git diff --check`: exit 0, no whitespace errors.
+
+The desktop's `writingProgress` guard is now stricter than necessary: it still hides an active section's amount when another section has written questions or stopped, although the sidecar sum already excludes that section. Its copied-count equality check also remains, even though “Chapters found” no longer receives the copy; coincidentally equal build and writing counts could hide a first-build hint. Those are notes for a later frontend step; no frontend file changed here. No live UI, network, model, private vault, or landing gate was run.
