@@ -124,6 +124,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/device_eligibility_helpers.py](../../../../../tests/device_eligibility_helpers.py) — direct import
 - [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
+- [tests/test_certification_serving_reservation.py](../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_the_phone_list_withholds_the_reserved_question`
 - [tests/test_followup_journey.py](../../../../../tests/test_followup_journey.py) — direct import
   - `test_a_reserved_probe_refuses_every_door_until_its_workflow_is_ready`
 - [tests/test_host_queue_revision.py](../../../../../tests/test_host_queue_revision.py) — direct import

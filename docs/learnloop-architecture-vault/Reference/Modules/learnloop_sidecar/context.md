@@ -351,6 +351,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_records_one_recalibration_for_an_unstamped_practised_vault`
 - [tests/test_carried_valuation_lifecycle.py](../../../../../tests/test_carried_valuation_lifecycle.py) — direct import
   - `test_closing_the_sidecar_stops_and_joins_its_vaults_carries`
+- [tests/test_certification_serving_reservation.py](../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_a_full_list_pick_cannot_choose_the_reserved_question_because_it_is_not_listed`
+  - `test_the_phone_list_withholds_the_reserved_question`
 - [tests/test_chatgpt_plan_sidecar.py](../../../../../tests/test_chatgpt_plan_sidecar.py) — direct import
   - `test_cancel_and_failure_are_reported`
   - `test_resume_clears_a_pause`

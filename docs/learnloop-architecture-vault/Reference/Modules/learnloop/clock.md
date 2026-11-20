@@ -805,6 +805,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_selection_never_picks_an_administered_diagnostic_surface`
   - `test_shared_surface_group_makes_the_certificate_unmeasurable`
   - `test_withdrawn_certificate_schedules_nothing_and_cancels_a_queued_probe`
+- [tests/test_certification_serving_reservation.py](../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_no_reservation_keeps_the_existing_certified_vault_queue_byte_identical`
+  - `test_plan_candidates_do_not_include_the_reserved_question`
+  - `test_the_reserved_question_is_administered_by_its_check_on_its_day`
 - [tests/test_characterization_assessment_exam.py](../../../../../tests/test_characterization_assessment_exam.py) — direct import
   - `test_finish_releases_pool_and_reservation_is_blocked_only_by_attempt_history`
   - `test_predictions_are_not_refrozen_on_restart`

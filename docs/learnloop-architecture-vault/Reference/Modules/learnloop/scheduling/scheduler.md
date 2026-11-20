@@ -260,6 +260,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
   - `test_attempt_links_to_scheduler_slate_and_later_retention_label`
+- [tests/test_certification_serving_reservation.py](../../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_an_open_reservation_releases_when_the_task_expires`
+  - `test_no_reservation_keeps_the_existing_certified_vault_queue_byte_identical`
+  - `test_read_queue_withholds_the_reserved_question_and_names_why`
+  - `test_the_reserved_question_is_administered_by_its_check_on_its_day`
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_accepting_diagnostic_proposal_queues_today_followup`
 - [tests/test_cold_start_revision.py](../../../../../../tests/test_cold_start_revision.py) — direct import

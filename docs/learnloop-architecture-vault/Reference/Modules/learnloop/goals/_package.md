@@ -62,7 +62,7 @@ For system intent, use [[Learning System]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/goals/__init__|learnloop.goals]] | [[Reference/Modules/learnloop/goals/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/goals/certification|learnloop.goals.certification]] | [[Reference/Modules/learnloop/goals/certification#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] | [[Reference/Modules/learnloop/goals/certification_cold_probe#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
+| [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] | [[Reference/Modules/learnloop/goals/certification_cold_probe#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
 | [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] | [[Reference/Modules/learnloop/goals/exam_calibration#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] | [[Reference/Modules/learnloop/goals/exam_pool#^module-purpose|purpose]] | `ACTIVE` | 6 | 18 |
 | [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]] | [[Reference/Modules/learnloop/goals/exam_readiness#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
