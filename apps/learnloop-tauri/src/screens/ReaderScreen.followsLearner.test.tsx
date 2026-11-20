@@ -11,12 +11,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReaderGuidePlanDto, ReaderRenderViewDto, ReaderSectionQuestionDto, SourceLibraryCard } from "../api/dto";
 import { clear } from "../api/queryCache";
 import { ReaderScreen } from "./ReaderScreen";
+import { scrollIntoViewWithin } from "../components/scrollWithin";
 
 const { invoke, pane } = vi.hoisted(() => ({
   invoke: vi.fn(),
   pane: { scrollToPage: vi.fn(), scrollToSegment: vi.fn() }
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke, convertFileSrc: (path: string) => path }));
+// The Reader scrolls through `scrollIntoViewWithin` (its own panes only); this
+// file reads which element it brought into view, and how.
+vi.mock("../components/scrollWithin", () => ({ scrollIntoViewWithin: vi.fn() }));
 // The original PDF: five laid-out pages, and the pane's scroll handle.
 vi.mock("../components/PdfReaderPane", () => ({
   PdfReaderPane: forwardRef(function FakePane(_props: unknown, ref) {
@@ -955,7 +959,7 @@ it("#4: a new Ask answer is brought into view, not left below the fold", async (
   await openReader();
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   await settle();
-  const scrolled = vi.mocked(Element.prototype.scrollIntoView);
+  const scrolled = vi.mocked(scrollIntoViewWithin);
   scrolled.mockClear();
 
   const box = screen.getByPlaceholderText("ask about this passage…");
@@ -964,8 +968,8 @@ it("#4: a new Ask answer is brought into view, not left below the fold", async (
   await settle();
 
   expect(screen.getByText("When outcomes are not equally likely.")).toBeTruthy();
-  const brought = scrolled.mock.contexts.map((element) => (element as HTMLElement).dataset?.askId);
+  const brought = scrolled.mock.calls.map(([element]) => (element as HTMLElement | null)?.dataset?.askId);
   expect(brought).toContain("ev_new");
-  const call = scrolled.mock.calls[brought.indexOf("ev_new")][0] as ScrollIntoViewOptions;
+  const call = scrolled.mock.calls[brought.indexOf("ev_new")][1] ?? {};
   expect(call.block).toBe("start");
 });

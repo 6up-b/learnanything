@@ -7,6 +7,7 @@ import { COLOR, Card, Dim, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } f
 import { AffectTap, PrimaryButton, SecondaryButton } from "../../components/goldenpath/shared";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { clipMath } from "../../render/mathSnippet";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 import type { InquiryResolution } from "../../api/dto";
 import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
 import { ReaderAskBranches, aboutLine, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
@@ -398,8 +399,8 @@ export function AskRail({
                   return next;
                 });
                 window.requestAnimationFrame(() => {
-                  askComposerRef.current?.scrollIntoView({ block: "nearest" });
-                  askComposerRef.current?.focus();
+                  scrollIntoViewWithin(askComposerRef.current, { block: "nearest" });
+                  askComposerRef.current?.focus({ preventScroll: true });
                 });
               }}
               onShowPassage={peek}

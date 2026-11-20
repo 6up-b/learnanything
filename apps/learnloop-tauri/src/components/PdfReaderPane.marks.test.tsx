@@ -10,6 +10,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReaderPdfBlockDto } from "../api/dto";
 import type { PdfPageLayout } from "../screens/reader/cues";
 import { PdfReaderPane, type PdfReaderPaneHandle } from "./PdfReaderPane";
+import { scrollIntoViewWithin } from "./scrollWithin";
+// The Reader scrolls through `scrollIntoViewWithin` (its own panes only); this
+// file reads which element it brought into view, and how.
+vi.mock("./scrollWithin", () => ({ scrollIntoViewWithin: vi.fn() }));
 
 const { acquirePdfDocument } = vi.hoisted(() => ({ acquirePdfDocument: vi.fn() }));
 vi.mock("./pdfDocumentCache", () => ({ acquirePdfDocument }));
@@ -76,9 +80,9 @@ beforeEach(() => {
     disconnect() {}
   });
   HTMLCanvasElement.prototype.getContext = vi.fn(() => ({})) as unknown as typeof HTMLCanvasElement.prototype.getContext;
-  Element.prototype.scrollIntoView = vi.fn(function (this: Element, options?: boolean | ScrollIntoViewOptions) {
-    const element = this as HTMLElement;
-    const where = typeof options === "object" ? options.block : "start";
+  vi.mocked(scrollIntoViewWithin).mockImplementation((target, options) => {
+    const element = target as HTMLElement;
+    const where = options?.block ?? "start";
     scrolls.push(element.dataset.spanId ? `${where}:${element.dataset.spanId}` : `${where}:page${element.dataset.pdfPage}`);
   });
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {

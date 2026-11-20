@@ -131,6 +131,7 @@ import type { AskAnchor } from "./reader/useReaderInquiry";
 import { ALSO_COPY, AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
+import { scrollIntoViewWithin } from "../components/scrollWithin";
 import {
   askGroundingSpans,
   clip,
@@ -1491,7 +1492,7 @@ export function ReaderScreen({
       jumpToSpan(spanId, "start");
       if (pdfSurfaceActive) return;
       const node = bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`);
-      if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+      if (node instanceof HTMLElement) scrollIntoViewWithin(node, { behavior: "auto", block: "start" });
     },
     pushCrumb: pushSideBySide,
     replaceCrumb: replaceSideBySide,
@@ -2142,7 +2143,7 @@ export function ReaderScreen({
       const el = bodyRef.current?.querySelector(`[data-span-id="${segment.spanId}"]`);
       // (Optional call: a jump made before layout, as the reading-history resume
       // can be, must not throw where scrolling is unavailable.)
-      if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      if (el instanceof HTMLElement) scrollIntoViewWithin(el, { behavior: "smooth", block: "center" });
     },
     [pdfView, surface, offline],
   );
@@ -3980,7 +3981,7 @@ export function ReaderScreen({
                   {activeReadingOn && (side.active.active || side.active.another) ? (
                     <ActiveReadingCard ctl={side.active} sourceTitle={sbsSection?.sourceTitle ?? null} onShowPassage={(spanId) => {
                       const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="${spanId}"]`);
-                      if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+                      if (node instanceof HTMLElement) scrollIntoViewWithin(node, { behavior: "auto", block: "start" });
                     }} />
                   ) : null}
                   {side.pathShown && sbsSection ? (
@@ -4003,7 +4004,7 @@ export function ReaderScreen({
                             return;
                           }
                           const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="${spanId}"]`);
-                          if (node instanceof HTMLElement) node.scrollIntoView?.({ behavior: "auto", block: "start" });
+                          if (node instanceof HTMLElement) scrollIntoViewWithin(node, { behavior: "auto", block: "start" });
                         }}
                         onTryExercise={wbCtl.enabled ? (exercise) => {
                           const { renderViewId: _view, clientIdempotencyKey: _key, ...importRequest } = exercise.importRequest;

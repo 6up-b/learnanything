@@ -10,6 +10,7 @@ import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
 import type { ReadingPathDto, SourceLibraryCard } from "../../api/dto";
 import { resetReaderActivityForTests } from "./activity";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 
 const { api, plan } = vi.hoisted(() => ({
   api: {
@@ -35,6 +36,9 @@ vi.mock("./useReaderRequests", () => ({
   parseRequestError: () => null, parseRequestResult: () => ({}),
 }));
 vi.mock("../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
+// The Reader scrolls through `scrollIntoViewWithin` (its own panes only); this
+// file reads which element it brought into view, and how.
+vi.mock("../../components/scrollWithin", () => ({ scrollIntoViewWithin: vi.fn() }));
 
 const CONTRACT = {
   readerEnabled: true, inquiryEnabled: true, intent, activeReading: { foldBlocks: 3 },
@@ -94,10 +98,10 @@ it("Orient's what matters here? opens the Guide's path without asking a model", 
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
   const palette = await screen.findByRole("group", { name: "what do you want to do?" });
-  const scrolled = (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.length;
+  const scrolled = vi.mocked(scrollIntoViewWithin).mock.calls.length;
   await act(async () => { fireEvent.click(within(palette).getByRole("button", { name: "what matters here?" })); });
   await waitFor(() => expect(screen.getByText(/Next: read Symmetric/).closest("[style*='display: none']")).toBeNull());
-  expect((Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(scrolled);
+  expect(vi.mocked(scrollIntoViewWithin).mock.calls.length).toBeGreaterThan(scrolled);
   expect(api.readerRouteIntent).not.toHaveBeenCalled();
 });
 

@@ -36,6 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import type { ReaderGuidePlanDto, ReaderIntentContractDto, SideBySideSectionDto } from "../../api/dto";
 import { useFigures, type FiguresContract } from "./figures/useFigures";
 import { readGuidePlan } from "./guidePlan";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 import type { PaneSelection } from "./SideBySidePane";
 import { useActiveReading } from "./useActiveReading";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./useIntentBox";
@@ -298,7 +299,7 @@ function useSidePaneCues({
   const jumpToSpan = useCallback((spanId: string) => {
     const node = Array.from(hostRef.current?.querySelectorAll<HTMLElement>("[data-sbs-span]") ?? [])
       .find((element) => element.dataset.sbsSpan === spanId);
-    node?.scrollIntoView?.({ behavior: "auto", block: "center" });
+    scrollIntoViewWithin(node, { behavior: "auto", block: "center" });
   }, [hostRef]);
   // Alt+↓ / Alt+↑ are this pane's while focus is in it (the main pane's controller leaves them).
   const ownsKey = useCallback((event: KeyboardEvent) => inSidePane(event.target), []);

@@ -18,6 +18,7 @@ import {
   shouldPoll,
 } from "./readingPath";
 import { MeaningLabel } from "./voices";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 
 const LINK = {
   background: "none", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer",
@@ -77,7 +78,7 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
   }, [path, read]);
 
   useEffect(() => {
-    if (focusToken > 0) cardRef.current?.scrollIntoView?.({ block: "nearest" });
+    if (focusToken > 0) scrollIntoViewWithin(cardRef.current, { block: "nearest" });
   }, [focusToken]);
 
   // The learner read on, answered or came back to the Guide while the card
