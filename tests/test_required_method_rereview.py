@@ -76,7 +76,8 @@ def test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer():
         SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION, APPEND_RECONCILIATION_PROMPT_VERSION,
         APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION,
     )
-    assert all(version.endswith("criteria-by-fact-v2") for version in versions), versions
+    # A later suffix may follow the rule's marker (the synthesis prompts carry one).
+    assert all("criteria-by-fact-v2" in version for version in versions), versions
     assert (GENERATOR_PROGRAM_PROMPT, PROPOSER_PROMPT, SINGLE_SHOT_PROMPT, SOURCE_ANCHORED_PROMPT) == (
         "pf-generator-program-v8", "pf-ensemble-propose-v4", "pf-single-shot-v4", "pf-source-anchored-v4")
     assert JUDGE_PROMPT_VERSION == "rubric-phrasing-judge-v2"

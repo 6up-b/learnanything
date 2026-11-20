@@ -411,7 +411,8 @@ def test_authoring_prompts_carry_the_rule_and_moved_their_versions():
         SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION, APPEND_RECONCILIATION_PROMPT_VERSION,
         APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION,
     )
-    assert all(version.endswith("criteria-by-fact-v2") for version in versions), versions
+    # A later suffix may follow the rule's marker (the synthesis prompts carry one).
+    assert all("criteria-by-fact-v2" in version for version in versions), versions
     assert TEACH_BACK_AUTHORING_PROMPT_VERSION.endswith("criteria-by-fact")
     assert (GENERATOR_PROGRAM_PROMPT, PROPOSER_PROMPT, SINGLE_SHOT_PROMPT, SOURCE_ANCHORED_PROMPT) == (
         "pf-generator-program-v8", "pf-ensemble-propose-v4", "pf-single-shot-v4", "pf-source-anchored-v4")
