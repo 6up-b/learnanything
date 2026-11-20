@@ -231,6 +231,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
+- [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_ad1_codex_rereview_fixes.py](../../../../../../tests/test_ad1_codex_rereview_fixes.py) — direct import

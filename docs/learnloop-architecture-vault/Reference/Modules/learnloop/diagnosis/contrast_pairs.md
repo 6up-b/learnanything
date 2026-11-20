@@ -157,6 +157,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/plan_determinism_helpers.py](../../../../../../tests/plan_determinism_helpers.py) — direct import
 - [tests/test_contrast_pairs.py](../../../../../../tests/test_contrast_pairs.py) — direct import
+  - `test_a_later_topic_can_revoke_an_earlier_parts_pair_gate_verdict`
   - `test_a_member_can_pair_with_an_item_already_in_the_vault`
   - `test_a_member_whose_counterpart_does_not_exist_is_refused`
   - `test_a_pair_differing_only_in_its_numbers_is_rejected`

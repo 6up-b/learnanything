@@ -346,6 +346,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro2_history_protection_helpers.py](../../../../../../tests/ro2_history_protection_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../../tests/router_probe_ties_helpers.py) — direct import
 - [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
+- [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/serve_eligibility_helpers.py](../../../../../../tests/serve_eligibility_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../../tests/sim_probe_validation_helpers.py) — direct import
 - [tests/simulation_helpers.py](../../../../../../tests/simulation_helpers.py) — direct import
@@ -919,6 +920,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retired_items_are_not_instruments`
   - `test_unrubricked_items_are_counted_not_silently_dropped`
 - [tests/test_contrast_pairs.py](../../../../../../tests/test_contrast_pairs.py) — direct import
+  - `test_a_later_topic_can_revoke_an_earlier_parts_pair_gate_verdict`
   - `test_a_member_whose_counterpart_does_not_exist_is_refused`
   - `test_a_pair_differing_only_in_its_numbers_is_rejected`
   - `test_a_pair_in_band_with_a_structural_manipulation_passes`
@@ -3009,6 +3011,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_section_coverage_rpcs.py](../../../../../../tests/test_section_coverage_rpcs.py) — direct import
   - `test_cover_source_judges_and_caps_a_metered_run`
   - `test_cover_source_refuses_a_withheld_reading`
+- [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_six_topics_resume_at_the_third_answer_and_match_the_old_proposal`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_candidate_ranking_fuzzy_query_surfaces_match`

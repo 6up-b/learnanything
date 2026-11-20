@@ -64,7 +64,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/authoring/__init__|learnloop.content.authoring]] | [[Reference/Modules/learnloop/content/authoring/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/authoring/ai_contracts|learnloop.content.authoring.ai_contracts]] | [[Reference/Modules/learnloop/content/authoring/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 24 |
 | [[Reference/Modules/learnloop/content/authoring/animation_media|learnloop.content.authoring.animation_media]] | [[Reference/Modules/learnloop/content/authoring/animation_media#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]] | [[Reference/Modules/learnloop/content/authoring/authoring_gates#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
+| [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]] | [[Reference/Modules/learnloop/content/authoring/authoring_gates#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
 | [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] | [[Reference/Modules/learnloop/content/authoring/concept_animation#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
 | [[Reference/Modules/learnloop/content/authoring/conjunctive_items|learnloop.content.authoring.conjunctive_items]] | [[Reference/Modules/learnloop/content/authoring/conjunctive_items#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/content/authoring/contract_commissioning|learnloop.content.authoring.contract_commissioning]] | [[Reference/Modules/learnloop/content/authoring/contract_commissioning#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -76,7 +76,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/authoring/persona_realism|learnloop.content.authoring.persona_realism]] | [[Reference/Modules/learnloop/content/authoring/persona_realism#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]] | [[Reference/Modules/learnloop/content/authoring/pf_contracts#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
 | [[Reference/Modules/learnloop/content/authoring/pf_sandbox|learnloop.content.authoring.pf_sandbox]] | [[Reference/Modules/learnloop/content/authoring/pf_sandbox#^module-purpose|purpose]] | `ACTIVE` | 8 | 41 |
-| [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] | [[Reference/Modules/learnloop/content/authoring/practice_generation#^module-purpose|purpose]] | `ACTIVE` | 8 | 16 |
+| [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] | [[Reference/Modules/learnloop/content/authoring/practice_generation#^module-purpose|purpose]] | `ACTIVE` | 8 | 18 |
 | [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] | [[Reference/Modules/learnloop/content/authoring/practice_leakage#^module-purpose|purpose]] | `ACTIVE` | 16 | 8 |
 | [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] | [[Reference/Modules/learnloop/content/authoring/rung_variants#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 | [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] | [[Reference/Modules/learnloop/content/authoring/source_exercise_import#^module-purpose|purpose]] | `ACTIVE` | 7 | 28 |
@@ -86,7 +86,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 30 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 19 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 20 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 9 static module edges
@@ -151,7 +151,7 @@ flowchart LR
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_content_proposals["learnloop.content.proposals"]
     center -->|30| n_learnloop_vault
-    center -->|19| n_learnloop_ai
+    center -->|20| n_learnloop_ai
     center -->|14| n_learnloop
     n_learnloop_ops -->|10| center
     center -->|3| n_learnloop_ops

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/section_map.py](../../../../../src/learnloop/section_map.py) |
-| Source lines | 381 |
+| Source lines | 386 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,9 +63,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 196) — Resolve one reader span to its containing normalized section (loads the IR; outside AD).
 - `learning_objects_for_span_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 207) — :func:`learning_objects_for_span` over a given IR.
 - `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 224) — Provenance-linked Learning Objects available as promotion targets (loads the IR; outside AD).
-- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 239) — Active Learning Objects whose provenance cites spans inside the section (loads the IR; outside AD).
-- `learning_objects_for_section_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 259) — Active Learning Objects whose provenance cites spans inside the section of ``ir``.
-- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../src/learnloop/section_map.py), line 319) — Every section of an extraction with its provenance-linked Learning Objects.
+- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, reading_order: bool=False) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 239) — Active Learning Objects whose provenance cites spans inside the section (loads the IR; outside AD).
+- `learning_objects_for_section_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, section_id: str, reading_order: bool=False) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 260) — Active Learning Objects whose provenance cites spans inside the section of ``ir``.
+- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../src/learnloop/section_map.py), line 324) — Every section of an extraction with its provenance-linked Learning Objects.
 
 ### Module constants
 

@@ -643,6 +643,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f2_a_criterion_the_grader_declares_unverified_is_unassessed_on_a_divergent_route`
   - `test_fatal_errors_keep_their_mark_downs`
+- [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_topic_order_follows_first_cited_span`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_resolve_self_tag_weight_only_fires_for_in_set_non_fatal_label`
 - [tests/test_self_grade.py](../../../../../../tests/test_self_grade.py) — direct import

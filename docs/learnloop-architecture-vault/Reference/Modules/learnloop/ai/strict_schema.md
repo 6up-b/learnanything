@@ -113,6 +113,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
+- [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
   - `test_r1_the_builders_output_schema_requires_the_structured_fields`
 - [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
