@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from tests.mobile_v2_plan_helpers import DAY, HELD, ITEMS, STAGED_ROUTER, _call, _desktop, _held_prompt, _next, _phone_day
+from tests.mobile_v2_plan_helpers import DAY, HELD, ITEMS, STAGED_ROUTER, _call, _desktop_without_worker, _held_prompt, _next, _phone_day
 from tests.mobile_v2_plan_helpers import plan_world  # noqa: F401 - fixtures, used by parameter name
 
 pytest.importorskip("starlette")
@@ -41,7 +41,7 @@ def test_j1_the_phone_reads_the_shared_plan_with_its_device_line(plan_world):
     assert plan["enabled"] is True and plan["plan"]["blocks"]
     assert plan["device"]["surface"] == "phone_plan"
     # The desktop's plan is the same record, and its reply carries no device line.
-    desktop = _call(_desktop(paths.root), "get_daily_plan", {})
+    desktop = _call(_desktop_without_worker(paths.root), "get_daily_plan", {})
     assert desktop["plan"]["id"] == plan["plan"]["id"]
     assert "device" not in desktop
     assert [block["id"] for block in desktop["plan"]["blocks"]] == [block["id"] for block in plan["plan"]["blocks"]]
@@ -63,7 +63,7 @@ def test_j1_the_phone_never_gets_a_held_item_and_the_desktop_serves_it_next(plan
     held_rows = [item for block in last["plan"]["blocks"] for item in block["items"] if item["practiceItemId"] == HELD]
     assert held_rows and held_rows[0]["state"] == "planned"
     # The desktop takes the session back and its next Next serves exactly the held item.
-    ctx = _desktop(paths.root)
+    ctx = _desktop_without_worker(paths.root)
     owner = repository.fetch_session(session_id)
     _call(ctx, "adopt_session", {"sessionId": session_id, "expectedGeneration": owner.get("owner_generation") or 0})
     desktop_step = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
@@ -121,7 +121,7 @@ def test_j5_the_plan_ends_and_the_phone_stops_or_keeps_going(plan_world):
     phone, _host, repository, paths = plan_world
     session_id = phone.start()["sessionId"]
     _phone_day(phone, session_id)
-    ctx = _desktop(paths.root)
+    ctx = _desktop_without_worker(paths.root)
     owner = repository.fetch_session(session_id)
     _call(ctx, "adopt_session", {"sessionId": session_id, "expectedGeneration": owner.get("owner_generation") or 0})
     # The desktop answers what the phone left, then the phone takes the session back.
@@ -141,12 +141,15 @@ def test_j5_the_plan_ends_and_the_phone_stops_or_keeps_going(plan_world):
     assert going["plan"]["kind"] == "keep_going"
     stopped = phone.rpc("plan_keep_going", {"sessionId": session_id, "stop": True})
     assert stopped["plan"]["status"] == "stopped"
+    # The desktop's post-attempt slots never start (its answers queue no diagnosis): none can outlive the test.
+    assert repository.post_attempt_jobs() == []
+    assert not ctx.post_attempt_worker.running
 
 
 def test_s5_6_plan_writes_refuse_the_device_that_does_not_own_the_session(plan_world):
     phone, _host, _repository, paths = plan_world
     session_id = phone.start()["sessionId"]
-    ctx = _desktop(paths.root)
+    ctx = _desktop_without_worker(paths.root)
     from learnloop_sidecar.errors import SidecarError
 
     for name, params in (
@@ -171,7 +174,7 @@ def test_s5_6_plan_writes_refuse_the_device_that_does_not_own_the_session(plan_w
 def test_s5_6_tutor_and_lesson_writes_bound_to_a_moved_session_are_refused(plan_world):
     phone, _host, _repository, paths = plan_world
     session_id = phone.start()["sessionId"]
-    ctx = _desktop(paths.root)
+    ctx = _desktop_without_worker(paths.root)
     from learnloop_sidecar.errors import SidecarError
 
     with pytest.raises(SidecarError) as asked:
@@ -187,7 +190,7 @@ def test_s5_6_an_ended_or_unknown_session_answers_as_before(plan_world):
     phone, _host, _repository, paths = plan_world
     session_id = phone.start()["sessionId"]
     phone.rpc("end_session", {"sessionId": session_id})
-    ctx = _desktop(paths.root)
+    ctx = _desktop_without_worker(paths.root)
     # No session_moved for an ended session: the plan's own behaviour stands.
     assert _call(ctx, "plan_keep_going", {"sessionId": session_id})["enabled"] is True
     assert _call(ctx, "plan_keep_going", {"sessionId": "no_such_session"})["enabled"] is True
@@ -239,7 +242,7 @@ def test_a_none_origin_never_enters_the_device_branch(tmp_path, monkeypatch):
         return made
 
     monkeypatch.setattr(handler, "_step_filter", no_filter)
-    ctx = _desktop(paths.root)
+    ctx = _desktop_without_worker(paths.root)
     session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     plan = _call(ctx, "get_daily_plan", {"sessionId": session_id})
     assert "device" not in plan
@@ -259,5 +262,8 @@ def test_a_none_origin_never_enters_the_device_branch(tmp_path, monkeypatch):
     surfaces = {row["surface"] for row in rows(Repository(paths.sqlite_path),
                                                 "SELECT surface FROM router_decisions WHERE decision_kind='plan_block'")}
     assert surfaces <= {"daily_plan"}
+    # The desktop's post-attempt slots never start (its answers queue no diagnosis): none can outlive the test.
+    assert Repository(paths.sqlite_path).post_attempt_jobs() == []
+    assert not ctx.post_attempt_worker.running
     assert rows(Repository(paths.sqlite_path),
                 "SELECT id FROM attention_block_events WHERE kind = 'item_device_deferred'") == []
