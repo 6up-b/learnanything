@@ -2,6 +2,7 @@
 // device: the history is the host's), and where the learner is. Words only: reading is never evidence of
 // mastery, so it carries none of the evidence glyphs.
 import type { ReaderGuideSectionDto, ReaderProgressListDto } from "@desktop/api/dto";
+import { sectionWords } from "@desktop/screens/reader/readerShared";
 import { Sheet } from "../shell/Sheet";
 import { sectionState } from "./readerModel";
 
@@ -28,7 +29,7 @@ export function SectionList({
           return (
             <li key={section.id}>
               <button type="button" aria-current={section.id === current ? "true" : undefined} onClick={() => onPick(section.id)}>
-                <span>{section.label}</span>
+                <span>{sectionWords(section.label)}</span>
                 {section.id === current ? <span className="dim"> · you're here</span> : state ? <span className="dim"> · {state}</span> : null}
               </button>
             </li>

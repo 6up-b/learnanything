@@ -46,7 +46,7 @@ import { checkOffer } from "./checkOffer";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { type AskAbout, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { cachedSourceRead } from "./readerCache";
-import { clip, passageKeys, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
+import { clip, passageKeys, sectionWords, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
 import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import type { ReaderVisit } from "./useReaderVisit";
 import type { PaneTarget } from "./sideBySide";
@@ -456,7 +456,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
 
   const passageLabel = useCallback((spanId: string | null): string => {
     const section = spanId ? guideSectionBySpan.get(spanId) : undefined;
-    if (section && spanId) return `${section.label} ¶${section.spanIds.indexOf(spanId) + 1}`;
+    if (section && spanId) return `${sectionWords(section.label)} ¶${section.spanIds.indexOf(spanId) + 1}`;
     return sourceTitle ?? "where I was";
   }, [guideSectionBySpan, sourceTitle]);
 

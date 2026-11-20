@@ -6,6 +6,7 @@
 // (`s` on CA5a's list, or Ctrl+\ when nothing is judged yet), but it never
 // moves a pane on its own.
 import type { CorrespondentSectionDto, CorrespondentsDto } from "../../api/dto";
+import { sectionWords } from "./readerShared";
 
 /** Below this window width side by side isn't offered: `s` and Ctrl+\ peek
  *  instead (§6.4's layout bound, keep: two readable source columns plus the
@@ -68,6 +69,7 @@ export function firstCorrespondent(view: CorrespondentsDto | null): Corresponden
 
 /** A section's short name: its number (`§5.A`) when its title starts with one, else its title. */
 export function sectionShort(title: string): string {
+  title = sectionWords(title);
   const numbered = title.match(/^§?\s*(\d[\dA-Za-z]*(?:\.[\dA-Za-z]+)*)\b/);
   return numbered ? `§${numbered[1]}` : title;
 }

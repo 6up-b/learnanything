@@ -133,6 +133,7 @@ import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
 import { scrollIntoViewWithin } from "../components/scrollWithin";
 import {
+  sectionWords,
   askGroundingSpans,
   clip,
   groundingProtected,
@@ -1136,7 +1137,7 @@ export function ReaderScreen({
       rememberLeftSource({
         id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
         extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
-        label: [sourceTitle, section?.label].filter(Boolean).join(" · ") || "where I was",
+        label: [sourceTitle, section ? sectionWords(section.label) : null].filter(Boolean).join(" · ") || "where I was",
         openedAt: Date.now(),
       });
     }
@@ -3228,7 +3229,7 @@ export function ReaderScreen({
           const anchor: AskAnchor = {
             about: {
               extractionId: sideSection.extractionId, sourceId: sideSection.sourceId, revisionId: sideSection.revisionId ?? null,
-              label: `${sideSection.sourceTitle} · ${clip(sideSection.title, 48)}`,
+              label: `${sideSection.sourceTitle} · ${clip(sectionWords(sideSection.title), 48)}`,
             },
             spanId: pane.spanIds[0] ?? sideSection.jumpSpanId,
             selectionSpanIds: pane.spanIds,
@@ -3594,7 +3595,7 @@ export function ReaderScreen({
         {!offline ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <Faint style={{ fontSize: 11, flexShrink: 0 }}>
-              {currentGuideSection?.label ?? "reading"}
+              {currentGuideSection ? sectionWords(currentGuideSection.label) : "reading"}
             </Faint>
             <div style={{ height: 3, flex: 1, maxWidth: 280, background: COLOR.border, overflow: "hidden" }} aria-label={`${Math.round(readingProgress * 100)}% read`}>
               <div style={{ height: "100%", width: `${Math.max(2, readingProgress * 100)}%`, background: COLOR.amber }} />
@@ -3624,7 +3625,7 @@ export function ReaderScreen({
           // only (never a return-stack entry, so Alt+→ never opens that book).
           peek={peekCrumbShown ? {
             label: peekCrumbShown.label,
-            origin: currentGuideSection?.label ?? sourceTitle ?? "where I was",
+            origin: (currentGuideSection ? sectionWords(currentGuideSection.label) : null) ?? sourceTitle ?? "where I was",
             onClose: () => setAlsoClosePeekToken((token) => token + 1),
           } : null}
         />
@@ -3639,7 +3640,7 @@ export function ReaderScreen({
         <div
           ref={bodyRef}
           role={inquiry ? "main" : undefined}
-          aria-label={inquiry ? [sourceTitle, currentGuideSection?.label].filter(Boolean).join(", ") || "Source" : undefined}
+          aria-label={inquiry ? [sourceTitle, currentGuideSection ? sectionWords(currentGuideSection.label) : null].filter(Boolean).join(", ") || "Source" : undefined}
           {...(working && wbBookHidden ? { "aria-hidden": true } : {})}
           {...(sbsPanes ? { tabIndex: -1, "data-sbs-main": "" } : {})}
           onMouseDown={(event) => {
@@ -3688,7 +3689,7 @@ export function ReaderScreen({
           {sbsPanes ? (
             <div data-sbs-main-header="" style={{ position: "sticky", top: -18, zIndex: 9, margin: "-18px -32px 0", padding: "6px 32px", background: COLOR.bg, borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "baseline", gap: 8, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
               <span style={{ color: COLOR.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                § {sourceTitle ?? "this book"}{currentGuideSection ? ` · ${currentGuideSection.label}` : ""}
+                § {sourceTitle ?? "this book"}{currentGuideSection ? ` · ${sectionWords(currentGuideSection.label)}` : ""}
               </span>
               {sbs.leader === "main" ? <span data-sbs-lead="" style={{ color: COLOR.amber }}>{SIDE_BY_SIDE_COPY.lead}</span> : null}
               {sbs.staysPut === "main" ? <Faint style={{ fontSize: 10 }}>{SIDE_BY_SIDE_COPY.staysPut}</Faint> : null}

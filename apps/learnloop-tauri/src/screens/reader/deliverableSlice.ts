@@ -4,6 +4,7 @@
 // Display only: the server decides every label (code keeps "already shown" honest)
 // and every check; this module only words the choices and decides when to read again.
 import type { DeliverableLineDto, DeliverableSliceDto } from "../../api/dto";
+import { sectionWords } from "./readerShared";
 
 export const DELIVERABLE_COPY = {
   heading: "YOUR PATH",
@@ -72,6 +73,7 @@ export function offeredChoices(line: DeliverableLineDto): Array<"read_anyway" | 
 
 /** A section's marker as the learner reads it: "§6.1 Eigenvectors". */
 export function sectionMarker(title: string): string {
+  title = sectionWords(title);
   return /^\d/.test(title) ? `§${title}` : title;
 }
 

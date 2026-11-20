@@ -17,6 +17,22 @@ export function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * A section's name as the learner reads it. A web page's sections are stored under the slug of their heading
+ * ("modeling-the-elevator-problem": the extraction keeps no heading text), and the part before its first
+ * heading under "(intro)"; both are said in words. A book's own titles ("7.1 Symmetric matrices", "§5.A")
+ * stay as they are. For showing only: what is sent or matched on is the stored label.
+ */
+export function sectionWords(label: string): string {
+  const trimmed = label.trim();
+  if (trimmed === "(intro)") return "Introduction";
+  if (!SLUG.test(trimmed) || /^\d+$/.test(trimmed)) return label;
+  const words = trimmed.replace(/-/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 // The wire nodes for a selection: one per covered block (atomic-unit captures
 // also carry glyph context for backend disambiguation), falling back to the
 // single primary block for selections made outside the DOM capture path.

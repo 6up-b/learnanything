@@ -11,6 +11,7 @@ import { WAITING_COPY } from "@desktop/copy/waiting";
 import { Waiting } from "../components/Waiting";
 import { MathMacrosProvider } from "@desktop/render/mathMacros";
 import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
+import { sectionWords } from "@desktop/screens/reader/readerShared";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
 import { addReaderIntent, flushOutbox } from "../store/outbox";
 import { newUlid } from "../util/ulid";
@@ -311,7 +312,7 @@ export function ReaderScreen({
     <div className="screen reader">
       {target.plan ? (
         <div className="banner" role="status">
-          <div>Reading for today's plan · {target.plan.sectionTitle ?? current?.label ?? "this section"}</div>
+          <div>Reading for today's plan · {sectionWords(target.plan.sectionTitle ?? current?.label ?? "this section")}</div>
           <div className="row">
             <button className="plain" type="button" disabled={leaving} onClick={() => void backToPlan()}>Back to today's plan</button>
             <button className="plain" type="button" disabled={leaving} onClick={() => void backToPlan("skipped")}>Skip this reading</button>
@@ -320,7 +321,7 @@ export function ReaderScreen({
       ) : null}
       <div className="reader-head">
         <button className="link" type="button" onClick={() => setListOpen(true)} aria-label="Sections">
-          {current?.label ?? target.title}
+          {current ? sectionWords(current.label) : target.title}
         </button>
         {stale ? <span className="dim">· the copy on this phone</span> : null}
       </div>
