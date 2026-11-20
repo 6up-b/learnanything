@@ -12,6 +12,7 @@ import { Waiting } from "../components/Waiting";
 import { MathMacrosProvider } from "@desktop/render/mathMacros";
 import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
 import { sectionWords } from "@desktop/screens/reader/readerShared";
+import { selectionQuote } from "@desktop/render/mathSnippet";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
 import { addReaderIntent, flushOutbox } from "../store/outbox";
 import { newUlid } from "../util/ulid";
@@ -478,12 +479,14 @@ function Block({ block, extractionId, pageOpen, onPage }: {
 function readSelection(root: HTMLElement | null): PhoneSelection | null {
   if (!root || typeof window.getSelection !== "function") return null;
   const picked = window.getSelection();
-  const quote = picked?.toString().trim() ?? "";
-  if (!picked || !quote || picked.rangeCount === 0) return null;
+  const asSelected = picked?.toString().trim() ?? "";
+  if (!picked || !asSelected || picked.rangeCount === 0) return null;
   const range = picked.getRangeAt(0);
+  // A formula in the passage is drawn several times over (KaTeX's layers): the quote takes it once, as its TeX.
+  const quote = selectionQuote(range, asSelected).trim();
   const spans: string[] = [];
   for (const node of root.querySelectorAll<HTMLElement>("[data-span]")) {
     if (range.intersectsNode(node) && node.dataset.span) spans.push(node.dataset.span);
   }
-  return spans.length ? { spanIds: spans, quote } : null;
+  return spans.length ? { spanIds: spans, quote, ...(quote !== asSelected ? { anchorQuote: asSelected } : {}) } : null;
 }

@@ -1,6 +1,6 @@
 # UX fixes: broken controls, second round (group B)
 
-Stage 3 of the UX journey audit's second part (`ux-journey-audit-2.md` §8, row 3), group B: the defects the second wave of walks found in the Reader, on the phone and in math rendering. Ledger ids UX-15, UX-23 to UX-26 (`refactor-bug-ledger.md`, "From the UX journey audit's walks"). Group A (Today, lessons, the workbench) is `ux-fix-round-2a.md`. Branch `ux/broken-controls-2b` from group A's `ux/broken-controls-2` at `38bc245f58`, one commit per defect. Judged against `ux-journey-audit-criteria.md`. Frontend only: no sidecar change.
+Stage 3 of the UX journey audit's second part (`ux-journey-audit-2.md` §8, row 3), group B: the defects the second wave of walks found in the Reader, on the phone and in math rendering. Ledger ids UX-15, UX-23 to UX-26 (`refactor-bug-ledger.md`, "From the UX journey audit's walks"). Group A (Today, lessons, the workbench) is `ux-fix-round-2a.md`. Branch `ux/broken-controls-2b` from group A's `ux/broken-controls-2` at `38bc245f58`, one commit per defect. Judged against `ux-journey-audit-criteria.md`. Frontend only: no sidecar change. UX-26 came after the first report, on the owner's ruling; its commit carries its record section and ledger cell.
 
 | Defect | Sev | Commit | What |
 |---|---|---|---|
@@ -8,10 +8,10 @@ Stage 3 of the UX journey audit's second part (`ux-journey-audit-2.md` §8, row 
 | UX-23 | S3 | `123d438cd8` | The phone's feedback says a review reason in words, never its code |
 | UX-24 | S3 | `972a0169c6` | A web page's sections are named in words, not by their slugs |
 | UX-25 | S3 | `d636f4bbe3` | A kept display environment is drawn as display math |
-| UX-26 | S3 | not fixed | The fix changes what is sent with a question: stopped, both forms below |
+| UX-26 | S3 | the UX-26 commit | A selection's quote takes each formula once, as its TeX (the owner's ruling, option a) |
 | words | | `42af32415e` | The deny-list checks every sentence this round adds |
 
-This record and the ledger cells are the last commit.
+This record and the ledger cells were the last commit of the first report; UX-26's commit, on the owner's ruling, adds its section and cell.
 
 ## UX-15 (S2): the Reader scrolled the whole window
 
@@ -82,21 +82,39 @@ A criterion a different route never used (`assessed: false`) reads "(not assesse
 - `render/displayEnvironments.test.tsx` (new, the real renderer), fail-first: 7 failed, 2 passed (the controls: an environment KaTeX cannot draw or never closed stays text; the check finds no equation in the three kept blocks). The three kept environments of the sample (`expected +0 to be 1`, no `katex-display`), the macros (`expected '<p>\begin{equation*}\nV = \frac 1N\su…' to contain '<mi mathvariant="bold">d</mi>'`), in a paragraph, the other environments, and already-delimited math. Two inputs were corrected after that first run, before the fix: a one-line `$$\begin{equation*} … \end{equation*}$$` (remark-math reads one-line `$$` as inline math, so it is no display today either, and stays untouched) became the same on lines of its own, and the `equation` case lost an `&` (invalid there).
 - `apps/learnloop-mobile/src/read/displayEnvironments.test.tsx` (new, the phone Reader through the fake host): written after the fix; run with `MarkdownMath.tsx` at its base version it failed (`expected +0 to be 2`), with the fix it passes.
 
-## UX-26 (S3): not fixed, because the quote shown is the quote sent
+## UX-26 (S3): a selection's quote takes each formula once, as its TeX
 
 **What the person saw.** student-2 #87: Ask's "§ from the book" quote of the passage showed each formula twice (the rendered formula's text layers, e.g. "matrix Q Q").
 
-**Where the quote is built.** `screens/ReaderScreen.tsx` `onMouseUp`: `quote = getSelection().toString()`, whitespace squeezed (and `collectSelectionNodes` the same per block). A KaTeX formula is a MathML copy (with its TeX in an `<annotation>`) beside an HTML copy, and the selection's text holds them all. That string is `selection.quote`; `useReaderInquiry.ts` `ask` sends it as `reader_ask`'s `selectionQuote`, which the tutor reads (`reader_dialogue.py` `selection_quote_md`) and the exchange stores; the composer's "ASKING ABOUT" chip shows it, and "§ from the book" shows the stored `selectionQuoteMd`. The note's capture quote and its `nodes[].quote` come from the same text. So the quote the learner sees and the quote sent with the question are one string, built in one place: taking each formula once changes what is sent, and the brief says to stop there.
+**Where the quote is built.** `screens/ReaderScreen.tsx` `onMouseUp`: `quote = getSelection().toString()`, whitespace squeezed. A KaTeX formula is a MathML copy (with its TeX in an `<annotation>`) beside an HTML copy, and the selection's text holds them all. That string is `selection.quote`; `useReaderInquiry.ts` `ask` sends it as `reader_ask`'s `selectionQuote`, which the tutor reads (`reader_dialogue.py` `selection_quote_md`) and the exchange stores; the composer's "ASKING ABOUT" chip shows it, and "§ from the book" shows the stored `selectionQuoteMd`. So the quote the learner sees and the quote sent are one string. This stage first stopped there (the fix changes what is sent); the owner ruled for option (a): the chip, the stored exchange and what the tutor reads are the same clean string, and no prompt template changes.
 
-**Both forms**, for the sample's sentence "… into a matrix \(Q\) produces an orthogonal matrix, which means that \(Q^T = Q^{-1}\text{.}\) We then have" (measured in jsdom with the real renderer; the walk's Chrome gave the two visible layers, jsdom also includes the annotation's TeX):
+**Both forms**, for the sample's sentence "… into a matrix \(Q\) produces an orthogonal matrix, which means that \(Q^T = Q^{-1}\text{.}\) We then have" (jsdom with the real renderer; the walk's Chrome gave the two visible layers, jsdom also includes the annotation's TeX):
 
 | | The text |
 |---|---|
-| Sent and shown today (jsdom) | `… into a matrix QQQ produces an orthogonal matrix, which means that QT=Q−1.Q^T = Q^{-1}\text{.}QT=Q−1. We then have` |
-| Sent and shown today (the walk, Chrome) | each formula as its MathML and its HTML text, as the audit quotes it: "matrix 𝑄 Q", "Q T =Q −1" |
-| Proposed (each formula once, as its TeX) | `… into a matrix $Q$ produces an orthogonal matrix, which means that $Q^T = Q^{-1}\text{.}$ We then have` (a display formula as `$$…$$`) |
+| Before (jsdom) | `… into a matrix QQQ produces an orthogonal matrix, which means that QT=Q−1.Q^T = Q^{-1}\text{.}QT=Q−1. We then have` |
+| Before (the walk, Chrome) | each formula as its MathML and its HTML text, as the audit quotes it: "matrix 𝑄 Q", "Q T =Q −1" |
+| Now | `… into a matrix $Q$ produces an orthogonal matrix, which means that $Q^T = Q^{-1}\text{.}$ We then have` (a display formula as `$$…$$`) |
 
-**What the owner decides.** (a) Build the quote from the selection with each KaTeX node taken once as its annotation's TeX: the tutor then reads the book's formulas as TeX, the stored exchange and the note's quote hold that, and "§ from the book" draws it with `MarkdownMath`; already saved exchanges keep their doubled text. It changes a prompt's input, not a prompt: the reader tutor's identity pins would need checking. (b) Keep sending today's text and show a TeX-built copy only on screen: a saved exchange comes back from history in the sent form, so "§ from the book" (the walk's case) would still show it twice unless the display copy is stored too, which is a schema change. Neither is done here; the ledger row stays open.
+**The function.** `render/mathSnippet.ts` `selectionQuote(range, asSelected)`: it walks the text nodes the range touches; a text node inside a formula (`.katex`, or KaTeX's `.katex-error`) stands for its whole formula, taken once: the TeX is read from the formula's own `<annotation encoding="application/x-tex">` (the source KaTeX was given, after the page's `\(…\)` to `$…$` rewrite, so the book's own macros stay as written, `\vvec`), written `$…$`, or `$$…$$` when the formula is inside `.katex-display` (a `.katex-error` gives its own text, which is its source). So a selection that starts or ends inside a formula takes it whole. Text outside formulas is taken as selected (cut at the range's ends), with a line break between blocks, and the result's whitespace squeezed to single spaces. A selection that touches no formula returns `asSelected` unchanged, so every quote without math is byte for byte what it was.
+
+**Where it is used.** Wherever a selection becomes a quote for Ask:
+- the desktop Reader's selection (`ReaderScreen.tsx` `onMouseUp`): `selection.quote`, so the "ASKING ABOUT" chip, `reader_ask`'s `selectionQuote`, the stored exchange, and the other places that read `selection.quote` (the intent box's question, "make your own practice"'s stem, the Library compose box, an exercise import's shown quote) all get the clean form;
+- side by side's second pane (`SideBySidePane.tsx` `selectionIn`), whose quote its Ask sends;
+- the phone's selection sheet (`apps/learnloop-mobile/src/read/ReaderScreen.tsx` `readSelection`): it had the same defect (`toString().trim()` over the same renderer); the sheet shows, Ask sends and Copy copies the clean form.
+
+**Notes and highlights: not changed.** A highlight or note anchors through its `rawSelection.nodes`, whose per-block `quote` the sidecar finds the passage by (`reader/annotations.py` `_locate_quote`: exact, canonical, then a word alignment; the stored anchor's `exact_quote` is then the block's own text). Those words stay the words as selected: on the desktop `collectSelectionNodes` and the right-click tag are untouched, side by side's fallback node keeps the text as selected, and the phone's Save sends `anchorQuote` (the words as selected) where the two differ. A highlight's shown quote after saving is the sidecar's anchored text, as before.
+
+**Old exchanges.** No migration, no rewrite. An exchange saved before keeps its stored quote and comes back from history as it was stored: "§ from the book" draws a quote with `MarkdownMath` only when it holds a `$` (a quote taken the new way, with a formula); a quote with no `$` (every quote saved before, which holds the formulas' layers as text) is the stored text in the same blockquote as before, so an old exchange still shows "matrix QQQ …" exactly as it did. A quote from before that held a literal dollar (the book's own text) would now be drawn as Markdown; no such case is known.
+
+**Identity and prompts.** No template changed; only the learner's selection is read correctly. `tests/test_identity_pins.py`, `tests/test_retired_config_identities.py` and the tutor and Reader ask files (`test_reader_dialogue.py`, `test_reader_tutor_offers.py`, `test_reader_tutor_retrieval.py`, `test_reader_tutor_switch_off.py`, `test_sidecar_tutor_qa.py`, `test_tutor_qa.py`): 450 passed, nothing moved.
+
+**Tests**, written first:
+- `render/selectionQuote.test.tsx` (new, the real renderer): `the walk's passage: inline math in a sentence`, `a selection that starts or ends inside a formula takes the formula whole`, `display math is quoted as $$…$$`, `a selection with no math is the selection's text, byte for byte`. All 4 failed first (`selectionQuote is not a function`).
+- `screens/reader/askQuoteMath.test.tsx` (new, the real Reader and renderer): `UX-26: asking about a passage with a formula sends the passage with the formula once, as its TeX` failed first (`expected 'A real symmetric matrix A=A⊤A = A^\to…' to be 'A real symmetric matrix $A = A^\top$ …'`; the test's first run failed on its own selector and was corrected before this). Its last three assertions ("§ from the book" draws the formula once, with no dollar sign) were added with the "§ from the book" change. Controls that passed before and after: `UX-26: a highlight of the same selection anchors with the words it always did` (`readerCapture`'s `rawSelection.nodes` are the block's selected text, every layer included) and `UX-26: an exchange saved before the fix is shown as it was stored`.
+- `apps/learnloop-mobile/src/read/selectionQuote.test.tsx` (new, through the fake host): the sheet shows, Ask sends, and Save anchors with the words as selected. Run with the phone's `ReaderScreen.tsx` and `SelectionSheet.tsx` at their base versions it failed (`expected '§ orthonormal vectors into a matrix Q…' to be '§ orthonormal vectors into a matrix $…'`); with the fix it passes. (Its selection was narrowed to the passage's paragraph before that run: the block also holds a "View the page" button.)
+
+**Snapshot moved, deliberately:** `screens/reader/__snapshots__/tutorSwitchOff.test.tsx.snap`, one entry ("ask rail after an answer lands"): that test's selection quote is the block's raw markdown (it mocks the renderer, so the quote holds `$A = A^\top$`), so its "§ from the book" is now drawn through `MarkdownMath` (`<blockquote class="md-tight"><div>…</div>`); the text is the same, checked character by character.
 
 ## Plain words
 
@@ -104,7 +122,7 @@ A criterion a different route never used (`assessed: false`) reads "(not assesse
 
 ## Sidecar change
 
-None. No schema, migration, algorithm tag, config key, stored text, block hash or prompt change, and nothing sent to a model changes (UX-26 stopped for that reason). The phone's service worker and caching and the book-math check bundle are untouched.
+None. No schema, migration, algorithm tag, config key, stored text, block hash or prompt change. What is sent to a model changes in one place, on the owner's ruling: the selection quote Ask sends (UX-26) now holds each formula once, as its TeX; no template changes. The phone's service worker and caching and the book-math check bundle are untouched.
 
 ## What a walk must check
 
@@ -112,7 +130,7 @@ None. No schema, migration, algorithm tag, config key, stored text, block hash o
 - **phone-3 #8-10 (UX-23).** Submit an answer whose grade carries a review reason: no code under the score; for a different route the sentence above, for the nine others nothing. A criterion the route did not use reads "(not assessed (a different route))".
 - **retainer-2 #16 and #43-45 (UX-24).** The elevator article's Guide: Contents, the reading path and "Next: read Introduction · about 1 min of reading" name the sections in words; "side by side with Wikipedia Elevator Paradox Modeling the elevator problem" and the pane's header likewise. A PDF book's sections are named as before. The phone's section list (phone-2 or phone-3 on the article) likewise.
 - **student-2 #65, retainer-2 #38-44, project-1, expert-1 (UX-25).** The sample chapter's "A = QDQ^{-1} = QDQ^T." and the two variance equations drawn as display math, with bold vectors, no backslashes. The phone's Reader on the same section.
-- **student-2 #87 (UX-26).** Unchanged until the owner's ruling: the quote still shows each formula twice.
+- **student-2 #79-87 (UX-26).** Select a passage with formulas ("…into a matrix Q produces…, which means that Q^T = Q^{-1}") and ask: the "ASKING ABOUT" chip and the answer's "§ from the book" show each formula once, drawn; select from the middle of a formula: it is quoted whole. An exchange saved before shows its old quote unchanged. Highlight the same passage: it lands on the passage as before. On the phone (phone-2 or phone-3, the sample): the selection sheet's quote, likewise.
 
 ## What was run
 
@@ -142,6 +160,22 @@ Every command through the scratch wrapper (`env -i`, isolated HOME, CODEX_HOME, 
 | `ruff check` | All checks passed! |
 | `lint-imports --no-cache` | Contracts: 43 kept, 0 broken. |
 | `scripts/check_gate_partition.py` | collected 31709: landing 31644 + arc_close 65 (exit 0) |
+
+For UX-26 (after the owner's ruling), the same way:
+
+| Command | Result |
+|---|---|
+| `npx vitest run` the new UX-26 files, fail-first and passing | as in its section |
+| desktop `src/screens/reader` | 1 failed (the `tutorSwitchOff` snapshot, updated deliberately), 1499 passed; then 4 passed in that file |
+| desktop `npm run typecheck` | exit 0 |
+| desktop `npx vitest run --maxWorkers=4` (whole suite) | Test Files 312 passed (312), Tests 3113 passed (3113) |
+| desktop `npm run frontend:build` | exit 0, "✓ built in 2.81s" |
+| phone `npm run typecheck` | exit 0 |
+| phone `npx vitest run --maxWorkers=4` (whole suite) | Test Files 41 passed (41), Tests 409 passed (409) |
+| phone `npm run build` | exit 0, "✓ built in 821ms" |
+| `pytest tests/test_identity_pins.py tests/test_retired_config_identities.py tests/test_reader_dialogue.py tests/test_reader_tutor_offers.py tests/test_reader_tutor_retrieval.py tests/test_reader_tutor_switch_off.py tests/test_sidecar_tutor_qa.py tests/test_tutor_qa.py` | 450 passed |
+| `scripts/affected_tests.py --files <the five changed source files>` | `tests/test_rw5c_block_policy.py`: 39 passed |
+| `pytest tests/test_structure_ratchets.py tests/test_desktop_activation_audit.py` | 7 passed |
 
 ## Not verified here
 

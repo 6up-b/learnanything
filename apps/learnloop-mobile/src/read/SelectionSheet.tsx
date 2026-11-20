@@ -14,7 +14,10 @@ import { PhoneMarkdown } from "./PageImage";
 
 export interface PhoneSelection {
   readonly spanIds: string[];
+  /** What the sheet shows and Ask sends: each formula once, as its TeX. */
   readonly quote: string;
+  /** The words as selected, which Save's anchor is found by (absent: the quote). */
+  readonly anchorQuote?: string;
 }
 
 type Intent = "explain" | "alternative" | "remediate";
@@ -67,6 +70,7 @@ export function SelectionSheet({
   const [saved, setSaved] = useState(false);
   const closed = useRef(false);
   const quote = selection.quote.slice(0, QUOTE_LIMIT);
+  const anchorQuote = (selection.anchorQuote ?? selection.quote).slice(0, QUOTE_LIMIT);
 
   async function ask(intent: Intent, text: string) {
     const asked = text.trim() || (intent === "alternative" ? "Explain it another way." : intent === "remediate" ? "That didn't help." : "");
@@ -94,7 +98,7 @@ export function SelectionSheet({
       await phone.save({
         sourceId: section.sourceId, revisionId: section.revisionId, extractionId: section.extractionId,
         clientIdempotencyKey: newUlid(), renderViewId: section.renderViewId,
-        rawSelection: { nodes: selection.spanIds.map((spanId, index) => ({ spanId, quote: index === 0 ? quote : "" })) }
+        rawSelection: { nodes: selection.spanIds.map((spanId, index) => ({ spanId, quote: index === 0 ? anchorQuote : "" })) }
       });
       setSaved(true);
     } catch (error) {

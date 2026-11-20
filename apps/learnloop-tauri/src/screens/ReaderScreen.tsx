@@ -131,6 +131,7 @@ import type { AskAnchor } from "./reader/useReaderInquiry";
 import { ALSO_COPY, AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
+import { selectionQuote } from "../render/mathSnippet";
 import { scrollIntoViewWithin } from "../components/scrollWithin";
 import {
   sectionWords,
@@ -1774,7 +1775,9 @@ export function ReaderScreen({
   const onMouseUp = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) return;
-    const quote = sel.toString().replace(/\s+/g, " ").trim();
+    // What Ask shows and the tutor reads: each formula once, as its TeX. The anchor (the nodes below) keeps the
+    // selection's own words, which the sidecar finds the passage by.
+    const quote = selectionQuote(sel.getRangeAt(0), sel.toString()).replace(/\s+/g, " ").trim();
     if (!quote) return;
     const nodes = collectSelectionNodes();
     if (!nodes.length) return;

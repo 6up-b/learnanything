@@ -29,6 +29,7 @@ import { newActivityId } from "./activity";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { MathMacrosProvider } from "../../render/mathMacros";
 import { clip, sectionWords } from "./readerShared";
+import { selectionQuote } from "../../render/mathSnippet";
 import { MeaningLabel } from "./voices";
 import { IntentBox } from "./IntentBox";
 import type { IntentBoxController } from "./useIntentBox";
@@ -118,7 +119,9 @@ function selectionIn(root: HTMLElement | null): PaneSelection | null {
   if (!root || !sel || sel.isCollapsed || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
   if (!root.contains(range.commonAncestorContainer)) return null;
-  const quote = sel.toString().replace(/\s+/g, " ").trim();
+  // The question's quote takes each formula once, as its TeX; the nodes (the anchor) keep the words as selected.
+  const asSelected = sel.toString();
+  const quote = selectionQuote(range, asSelected).replace(/\s+/g, " ").trim();
   if (!quote) return null;
   const spans: string[] = [];
   const nodes: PaneSelection["nodes"] = [];
@@ -132,7 +135,9 @@ function selectionIn(root: HTMLElement | null): PaneSelection | null {
     const words = part.toString().replace(/\s+/g, " ").trim();
     if (words) nodes.push({ spanId: node.dataset.sbsSpan, quote: words });
   });
-  return spans.length ? { spanIds: spans, quote, nodes: nodes.length ? nodes : [{ spanId: spans[0], quote }] } : null;
+  return spans.length
+    ? { spanIds: spans, quote, nodes: nodes.length ? nodes : [{ spanId: spans[0], quote: asSelected.replace(/\s+/g, " ").trim() }] }
+    : null;
 }
 
 export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(
