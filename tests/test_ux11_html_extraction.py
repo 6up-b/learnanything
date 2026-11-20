@@ -209,6 +209,38 @@ def test_ux11_hidden_and_collapsed_parts_are_treated_as_the_old_extraction_treat
     assert "Search Results" not in text
 
 
+MATH_PAGE = (
+    "<html><head><title>Means</title></head><body><main><h1>Means</h1>"
+    "<p>The sample mean of a list of measurements, written out for a sample of any size, is "
+    "<math display=\"block\"><semantics><mrow><mover><mi>x</mi><mo>-</mo></mover></mrow>"
+    "<annotation encoding=\"application/x-tex\">\\bar x = \\frac1n\\sum_i x_i</annotation></semantics></math>"
+    " for the measurements <math alttext=\"x_1, \\ldots, x_n\"><mi>x</mi></math> taken in order.</p>"
+    "<p>A right triangle with legs a and b and hypotenuse c satisfies "
+    "<span class=\"mwe-math-element\"><span class=\"mwe-math-mathml-inline mwe-math-mathml-a11y\" style=\"display: none;\">"
+    "<math><semantics><mrow><mi>a</mi></mrow><annotation encoding=\"application/x-tex\">{\\displaystyle a^2+b^2=c^2}"
+    "</annotation></semantics></math></span><img class=\"mwe-math-fallback-image-inline\" alt=\"{\\displaystyle a^2+b^2=c^2}\">"
+    "</span> in every case that a textbook on plane geometry would consider.</p>"
+    "<p>The energy of a body at rest is given by the formula "
+    "<script type=\"math/tex; mode=display\">E = mc^2</script> which every physics student learns early on.</p>"
+    "</main></body></html>"
+)
+
+
+def test_ux11_mathml_and_script_math_reach_the_text_as_tex():
+    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.ingest.extractors.web_page import readable_markdown
+
+    fetched = FetchedBytes(raw_bytes=MATH_PAGE.encode(), content_type="text/html",
+                           original_uri="https://example.org/means.html", retrieved_at="2026-11-20T00:00:00Z")
+    text = "\n".join(block.text for block in default_extract(fetched, "web", SimpleNamespace(payload={}, job={})).blocks)
+    assert "\\[\\bar x = \\frac1n\\sum_i x_i\\]" in text
+    assert "\\(x_1, \\ldots, x_n\\)" in text
+    assert "\\(a^2+b^2=c^2\\)" in text
+    assert "\\[E = mc^2\\]" in text
+    old = readable_markdown(MATH_PAGE) or ""
+    assert "\\frac1n" not in old and "E = mc^2" not in old
+
+
 def test_ux11_other_source_kinds_extract_byte_for_byte_as_before(tmp_path):
     root = fresh_library(tmp_path / "kinds")
     ctx = _ctx(root, fake_services())
