@@ -127,7 +127,7 @@ it("sends the tap when tapped, and a second tap takes it back", async () => {
 it("hides the tap for the session with one tap, remembered for the next item", async () => {
   setAlgoConfig({ ui: { practiceFeedback: "simple" }, adaptiveDifficulty: AD_ON });
   await open();
-  fireEvent.click(screen.getByRole("button", { name: "hide this for the session" }));
+  fireEvent.click(screen.getByRole("button", { name: "hide easy · about right · hard for this session" }));
   expect(screen.queryByRole("group", { name: /How did this one feel/ })).toBeNull();
   cleanup();
   await open();

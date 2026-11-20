@@ -43,13 +43,13 @@ it("is locked once Submit is pressed", () => {
   render(<DifficultyRatingTap sessionId="s1" value="hard" onChange={onChange} locked />);
   const hard = screen.getByRole("button", { name: "hard" }) as HTMLButtonElement;
   expect(hard.disabled).toBe(true);
-  expect(screen.queryByRole("button", { name: "hide this for the session" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "hide easy · about right · hard for this session" })).toBeNull();
 });
 
 it("hides for the session only, and shows when storage throws", () => {
   const onChange = vi.fn();
   render(<DifficultyRatingTap sessionId="s1" value={null} onChange={onChange} locked={false} />);
-  fireEvent.click(screen.getByRole("button", { name: "hide this for the session" }));
+  fireEvent.click(screen.getByRole("button", { name: "hide easy · about right · hard for this session" }));
   expect(screen.queryByRole("group")).toBeNull();
   cleanup();
   render(<DifficultyRatingTap sessionId="s2" value={null} onChange={onChange} locked={false} />);

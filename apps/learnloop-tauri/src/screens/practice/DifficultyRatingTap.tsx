@@ -86,8 +86,8 @@ export function DifficultyRatingTap({
       {locked ? null : (
         <button
           type="button"
-          aria-label="hide this for the session"
-          title="hide this for the session"
+          aria-label="hide easy · about right · hard for this session"
+          title="hide easy · about right · hard for this session"
           onClick={() => {
             rememberHidden(sessionId);
             setHidden(true);
