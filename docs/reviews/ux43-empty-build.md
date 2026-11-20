@@ -230,7 +230,7 @@ loosened). No other assertion changed.
 Every Python run went through the scratch wrapper (`env -i`, empty `HOME`, `CODEX_HOME` and config dir, `TMPDIR` in
 `~/.cache/learnloop-ux43-tmp`) as `uv run --no-sync pytest -q -n 1 -p no:cacheprovider` from a script file that
 refuses an empty target list, in a `systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=1G`, one at a time.
-Every npm/npx run went through the same wrapper with `npm_config_cache=/home/saturn/.npm` in a 3G or 4G scope
+Every npm/npx run went through the same wrapper with the shared npm cache in a 3G or 4G scope
 (`npm ci --offline` first: the worktree had no `node_modules`), vitest with `--maxWorkers=2`.
 
 - The new file on the base sources: 8 failed, 3 passed (above); with `tests/test_first_questions_today.py`: 9 failed,
