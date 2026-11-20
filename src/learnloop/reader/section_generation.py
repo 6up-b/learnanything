@@ -17,20 +17,21 @@ from collections.abc import Callable
 from typing import Any
 
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.reader import (
+    SECTION_DEFERRED_TO_PRIMARY as DEFERRED_TO_PRIMARY,
+    SECTION_ENQUEUING as ENQUEUING,
+    SECTION_NONE_NEEDED as NONE_NEEDED,
+    SECTION_NONE_NEEDED_BEFORE as NONE_NEEDED_BEFORE,
+    SECTION_WAITING_FOR_BUILD as WAITING_FOR_BUILD,
+)
 from learnloop.reader.reader_progression import learning_objects_for_section
 from learnloop.vault.models import LoadedVault
 
-#: The section's writing is being queued (taken before the queueing, replaced by the batch id after).
-ENQUEUING = "enqueuing"
-#: Finished on the phone host, whose own work never includes model calls: the desktop starts it.
-DEFERRED_TO_PRIMARY = "deferred_to_primary"
-#: Finished before the build that writes its chapter's topics had settled: started when it has.
-WAITING_FOR_BUILD = "waiting_for_build"
-#: Settled with nothing to write: its chapter's build had settled, and no topic citing it needed questions.
-NONE_NEEDED = "none_needed_after_build"
-#: What older versions wrote for "nothing to write", also while the book's topics were not in yet; read as
-#: undecided and decided again once (:func:`start_section_questions`).
-NONE_NEEDED_BEFORE = "none_needed"
+__all__ = [
+    "DEFERRED_TO_PRIMARY", "ENQUEUING", "NONE_NEEDED", "NONE_NEEDED_BEFORE", "OWED", "WAITING_FOR_BUILD",
+    "section_generation_candidates", "section_reason", "start_section_questions",
+]
+
 #: The stamps a finished section can still owe its questions under.
 OWED = (DEFERRED_TO_PRIMARY, WAITING_FOR_BUILD, NONE_NEEDED_BEFORE)
 

@@ -37,8 +37,10 @@ from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
 from learnloop.ids import new_ulid
+from learnloop.reader import reader_progression as RPROG
 from learnloop.reader import reader_quick_check as RQC
 from learnloop.reader import reader_requests as RR
+from learnloop.reader import section_generation as SG
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.tutor.promotions import (
     PromotionError,
@@ -3518,6 +3520,59 @@ def practice_expansion_payload(learning_object_ids: Sequence[str], reason: str,
         "reason": reason,
         "source_refs": [dict(ref) for ref in source_refs or []],
     }
+
+
+def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
+    """A build's synthesis finished: start the question writing of every
+    section the learner finished while this book's topics were not in yet,
+    now that they may be. Returns how many were queued. Best effort.
+
+    A section none of whose topics is in yet stays waiting: the build may
+    have left them for a look, and the next read of the books, once the build
+    has settled, either starts it or settles it as needing nothing. Each claim,
+    its queueing and the batch it names are one transaction, so a section
+    either keeps waiting or has exactly one batch."""
+
+    from learnloop.ai import plan_fallback
+    from learnloop.content.pipeline.add_source import _completed_extraction
+    from learnloop.vault.loader import load_vault
+
+    queued = 0
+    try:
+        resolved = _completed_extraction(ctx.repo, source_id)
+        if resolved is None:
+            return 0
+        extraction_id = resolved[1]
+        rows = ctx.repo.deferred_section_generations(SG.WAITING_FOR_BUILD, extraction_id=extraction_id)
+        if not rows:
+            return 0
+        vault = load_vault(ctx.vault_root)  # the topics this build just applied
+        for row in rows:
+            section_id = str(row["section_id"])
+            lo_ids = SG.section_generation_candidates(vault, ctx.repo, extraction_id=extraction_id,
+                                                      section_id=section_id)
+            if not lo_ids:
+                continue
+            refs = RPROG.source_refs_for_section(vault, ctx.repo, extraction_id=extraction_id, section_id=section_id,
+                                                 learning_object_ids=lo_ids)
+            # Reading progress is not a press: the writing asks nothing and carries no grant.
+            with plan_fallback.quiet(), ctx.repo.atomic():
+                if not ctx.repo.swap_section_generation(extraction_id=extraction_id, section_id=section_id,
+                                                        from_batch_id=SG.WAITING_FOR_BUILD, batch_id=SG.ENQUEUING):
+                    continue  # started elsewhere meanwhile
+                batch_id = ctx.enqueue_batch(
+                    "practice_expansion",
+                    [JobSpec("practice_expansion",
+                             practice_expansion_payload(lo_ids, SG.section_reason(section_id), refs))],
+                )
+                ctx.repo.set_section_generation_batch(extraction_id=extraction_id, section_id=section_id,
+                                                      batch_id=batch_id)
+            queued += 1
+    except JobCancelled:
+        pass  # this build was cancelled meanwhile: the sections keep waiting, nothing was queued
+    except Exception:  # noqa: BLE001 - starting a section's writing must never fail the build that applied
+        logging.getLogger(__name__).warning("could not start a waiting section's questions", exc_info=True)
+    return queued
 
 
 def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:

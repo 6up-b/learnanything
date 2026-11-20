@@ -34,6 +34,22 @@ _STANDING_DELETE = (
 )
 
 
+# What ``reader_section_progress.generation_batch_id`` holds besides NULL (not finished, or not yet stamped) and
+# the id of the batch writing a finished section's questions. When each is written is
+# ``learnloop.reader.section_generation``'s rule.
+#: The section's writing is being queued (taken before the queueing, replaced by the batch id after).
+SECTION_ENQUEUING = "enqueuing"
+#: Finished on the phone host, whose own work never includes model calls: the desktop starts it.
+SECTION_DEFERRED_TO_PRIMARY = "deferred_to_primary"
+#: Finished before the build that writes its chapter's topics had settled: started when it has.
+SECTION_WAITING_FOR_BUILD = "waiting_for_build"
+#: Settled with nothing to write: its chapter's build had settled, and no topic citing it needed questions.
+SECTION_NONE_NEEDED = "none_needed_after_build"
+#: What older versions wrote for "nothing to write", also while the book's topics were not in yet; read as
+#: undecided and decided again once.
+SECTION_NONE_NEEDED_BEFORE = "none_needed"
+
+
 class ReaderStoreMixin:
 
     def insert_source_exposure_event(
