@@ -2360,7 +2360,21 @@ def build_minutes_phrase(repo, *, section_count: int, sample: int = 5) -> str | 
     """How long questions for ``section_count`` sections take, from this
     library's own finished automatic builds ("in about 4 min", "in under a
     minute"), or ``None`` when it has none to go on (usability round 2: "in
-    about 13 min" was a made-up formula for a build that took seconds).
+    about 13 min" was a made-up formula for a build that took seconds)."""
+
+    minutes = build_minutes(repo, section_count=section_count, sample=sample)
+    if minutes is None:
+        return None
+    if minutes < 1:
+        return "in under a minute"
+    return f"in about {round(minutes)} min"
+
+
+def build_minutes(repo, *, section_count: int, sample: int = 5) -> float | None:
+    """The minutes a build of ``section_count`` sections takes in this library:
+    the median, over its last ``sample`` finished automatic builds, of each
+    build's time from its start to its end per section in its scope, times
+    ``section_count``. ``None`` before the library has finished one.
 
     The rate is per section in a build's scope, not per chapter: chapters
     differ in size (a paper's ten short sections took 48 s where two
@@ -2390,10 +2404,121 @@ def build_minutes_phrase(repo, *, section_count: int, sample: int = 5) -> str | 
         return None
     ordered = sorted(per_section)
     middle = ordered[len(ordered) // 2]
-    minutes = middle * max(1, section_count) / 60.0
-    if minutes < 1:
-        return "in under a minute"
-    return f"in about {round(minutes)} min"
+    return middle * max(1, section_count) / 60.0
+
+
+_BUILD_STEP_JOBS = frozenset({"inventory", "bootstrap_synthesis", "append_synthesis"})
+
+
+def build_progress(jobs: Iterable[Mapping[str, Any]]) -> dict[str, int] | None:
+    """How far a build is, in its own steps: each model window of its
+    inventory and each pass of its synthesis, ``{"done": d, "total": t}``.
+
+    A step counts as done only once its answer is kept: the inventory reports
+    the windows it finished; the synthesis reports the pass it is working on,
+    so its last pass is done only when the job is (span checks, structuring and
+    the gates follow the last pass). A job not started yet counts one step,
+    since its windows or passes are known only once it starts: for a first
+    document (one window, one pass) the total is exact from the start; for a
+    larger book it can grow when the synthesis starts. ``None`` with no step,
+    or once a step stopped (nothing is under way to measure)."""
+
+    done = total = 0
+    for job in jobs:
+        if job.get("job_type") not in _BUILD_STEP_JOBS:
+            continue
+        status = str(job.get("status") or "")
+        reported = job.get("total_windows")
+        steps = int(reported) if isinstance(reported, int) and reported >= 0 else 1
+        current = job.get("current_window")
+        current = int(current) if isinstance(current, int) else 0
+        if status == "completed":
+            done += steps
+        elif status == "running":
+            finished = current if job.get("job_type") == "inventory" else current - 1
+            done += max(0, min(steps, finished))
+        elif status != "queued":
+            return None
+        total += steps
+    return {"done": done, "total": total} if total > 0 else None
+
+
+#: Stamps a finished section's generation holds before its job exists, or
+#: instead of one (``learnloop_sidecar.handlers.reader``).
+_SECTION_STAMP_PENDING = frozenset({"enqueuing", "deferred_to_primary"})
+_SECTION_STAMP_NOTHING = "none_needed"
+
+
+def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
+    """The questions written from what the learner finished reading of this
+    book: the only questions an as-you-read book gets. Its build writes topics
+    and question plans; a section's questions are written when the learner
+    finishes it (``reader.mark_section_progress`` with ``completed``).
+
+    ``count`` and ``item_ids``: the questions applied from those sections and
+    still in the vault, not retired; ``sections``: the finished sections they
+    came from; ``writing``: finished sections whose questions are being
+    written; ``failed``: finished sections whose writing stopped, with the
+    batch to resume; ``to_look_at``: written questions waiting for a look;
+    ``section_count``: how many sections the reading has (one: the whole
+    source). ``None`` when the book has no reading."""
+
+    from learnloop.content.pipeline.runner import effective_ingest_job_status
+
+    resolved = _completed_extraction(repo, source_id)
+    if resolved is None:
+        return None
+    extraction_id = resolved[1]
+    with repo.connection() as connection:
+        units = connection.execute(
+            "SELECT unit_id, label FROM source_document_units WHERE extraction_id = ? ORDER BY ordinal",
+            (extraction_id,),
+        ).fetchall()
+    order = {str(row["unit_id"]): index for index, row in enumerate(units)}
+    labels = {str(row["unit_id"]): str(row["label"] or "").strip() for row in units}
+    live = getattr(vault, "practice_items", None) or {}
+    fact: dict[str, Any] = {"count": 0, "item_ids": [], "sections": [], "writing": [], "failed": [],
+                            "to_look_at": 0, "section_count": len(units)}
+    finished = [row for row in repo.reader_section_progress_for(extraction_id) if row.get("completed_at")]
+    for row in sorted(finished, key=lambda row: order.get(str(row["section_id"]), len(order))):
+        label = labels.get(str(row["section_id"])) or ""
+        stamp = row.get("generation_batch_id")
+        if not stamp or stamp == _SECTION_STAMP_NOTHING:
+            continue
+        if stamp in _SECTION_STAMP_PENDING:
+            fact["writing"].append(label)
+            continue
+        job = next((job for job in repo.ingest_jobs_for_batch(str(stamp))
+                    if job.get("job_type") == "practice_expansion"), None)
+        if job is None:
+            continue
+        if _active(job):
+            fact["writing"].append(label)
+            continue
+        if effective_ingest_job_status(job) in {"failed", "blocked", "cancelled"}:
+            fact["failed"].append({"label": label, "resume_id": str(stamp)})
+            continue
+        patch_id = (job.get("result") or {}).get("patch_id")
+        written = 0
+        for item in repo.proposal_items(str(patch_id)) if patch_id else []:
+            if item.get("item_type") != "practice_item":
+                continue
+            if item.get("decision") == "pending":
+                fact["to_look_at"] += 1
+                continue
+            if item.get("decision") != "accepted" or not item.get("applied_change_batch_id"):
+                continue
+            payload = item.get("edited_payload") or item.get("payload") or {}
+            item_id = str(payload.get("id") or item.get("target_entity_id") or "")
+            entity = live.get(item_id)
+            if entity is None or getattr(entity, "status", "active") == "retired" or item_id in fact["item_ids"]:
+                continue
+            fact["item_ids"].append(item_id)
+            written += 1
+        if written:
+            fact["sections"].append(label)
+    fact["count"] = len(fact["item_ids"])
+    return fact
 
 
 def _budget_used_line(details: str | None = None) -> dict[str, Any]:
@@ -2404,8 +2529,25 @@ def _budget_used_line(details: str | None = None) -> dict[str, Any]:
 def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None = None) -> dict[str, Any] | None:
     """The one quiet line a book card shows, or ``None`` when there is
     nothing to say. ``batch_id`` names an Add whose link is still being
-    fetched (no source yet)."""
+    fetched (no source yet).
 
+    The line of a built book carries ``questions`` (:func:`reading_questions`):
+    what the learner's finished sections gave, so Today can offer them by name
+    or say what must happen first; any other line carries it once a finished
+    section gave something (questions, or questions being written, stopped or
+    waiting for a look). Additive: the line's words and action never depend on
+    it."""
+
+    line = _source_status_line(repo, vault, source_id, batch_id=batch_id)
+    if line is not None and source_id is not None and "questions" not in line:
+        questions = reading_questions(repo, vault, source_id)
+        if questions is not None and (questions["count"] or questions["writing"] or questions["failed"]
+                                      or questions["to_look_at"]):
+            line["questions"] = questions
+    return line
+
+
+def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None = None) -> dict[str, Any] | None:
     if source_id is None:
         if not batch_id:
             return None
@@ -2494,8 +2636,11 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         return _line("Chapters found", "working")
     if outcome is None:
         # Retry plans again; it is not the learner's "Build them" (no approval).
-        return _line(f"Questions for this {noun} need another try", "problem", ("retry", "Retry"),
+        # Planning is never tried again on its own.
+        line = _line(f"Questions for this {noun} need another try", "problem", ("retry", "Retry"),
                      BUILD_STOPPED_DETAILS)
+        line["retried"] = False
+        return line
     kind = outcome.get("outcome")
     phrase = chapter_phrase(outcome.get("chapters") or [], whole=bool(outcome.get("whole_source")), noun=noun)
     if kind == "skipped":
@@ -2526,10 +2671,18 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     if state["undone"]:
         return _line(f"Questions for this {noun} were taken back out", "quiet", ("build_now", "Build them again"))
     if _active(state["batch"]):
-        estimate = build_minutes_phrase(repo, section_count=_scope_size(outcome))
-        if estimate is None:
-            return _line(f"Writing questions for {phrase}", "working")
-        return _line(f"Questions for {phrase} {estimate}", "working")
+        minutes = build_minutes(repo, section_count=_scope_size(outcome))
+        estimate = build_minutes_phrase(repo, section_count=_scope_size(outcome)) if minutes is not None else None
+        line = (_line(f"Writing questions for {phrase}", "working") if estimate is None
+                else _line(f"Questions for {phrase} {estimate}", "working"))
+        # Facts for a screen that says how far along it is (P11). Additive: the
+        # words above are unchanged and an older screen ignores them.
+        progress = build_progress(repo.ingest_jobs_for_batch(str(state["batch"]["id"])))
+        if progress is not None:
+            line["progress"] = progress
+        if minutes is not None:
+            line["minutes"] = round(minutes, 1)
+        return line
     if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
         if state["error_code"] == "spend_paused":
             if state["error_details"].get("reason") == "daily_cap":
@@ -2546,7 +2699,14 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if state["status"] == "cancelled" and not vault.config.ingest.auto_build:
             # The owner turned automatic building off while it was queued.
             return _health_line(repo, source_id, config=vault.config if vault else None)
-        return _line(f"Questions for {phrase} need another try", "problem", ("retry", "Retry"), BUILD_STOPPED_DETAILS)
+        line = _line(f"Questions for {phrase} need another try", "problem", ("retry", "Retry"), BUILD_STOPPED_DETAILS)
+        # Whether the build already tried a failed step once more on its own
+        # (UX-13), so the screen need not offer a retry as if none was made.
+        from learnloop.content.pipeline.runner import retried_on_its_own
+
+        jobs = repo.ingest_jobs_for_batch(str(state["batch"]["id"])) if state["batch"] else []
+        line["retried"] = any(retried_on_its_own(job) for job in jobs)
+        return line
     if not state["applied"]:
         return _line(f"Questions for {phrase} need a look", "quiet", ("open_changes", "Review"))
     if state["pending"]:
@@ -2565,6 +2725,9 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     # 2: with no AI the card still promised questions as you read).
     line["without_ai"] = _line(f"Questions for {built} come up as you read once an AI is connected", "quiet",
                                ("connect_ai", "Connect"))
+    questions = reading_questions(repo, vault, source_id)
+    if questions is not None:
+        line["questions"] = questions
     return line
 
 

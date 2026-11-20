@@ -141,6 +141,11 @@ _QUEUE_AFFECTING_JOB_TYPES = frozenset(
     }
 )
 
+# The batches whose end, however it ends, bumps the same revision: a book's
+# build (its topics and question plans) and the questions written for a section
+# the learner finished.
+_BUILD_WORKFLOWS = frozenset({"bootstrap_synthesis", "append_synthesis", "practice_expansion"})
+
 
 class IngestRunnerError(ValueError):
     """A typed, user-actionable job failure persisted for the Activity UI."""
@@ -1241,6 +1246,13 @@ class IngestRunner:
             # A batch's extraction, synthesis and apply writes can leave a
             # large -wal behind; truncate it once the batch is done.
             checkpoint_wal(self.repo.sqlite_path, reason=f"ingest batch {batch_id}")
+            if (batch or {}).get("workflow_type") in _BUILD_WORKFLOWS:
+                # A build that ends (written, or stopped) changes what Today and
+                # the book's card say, while the learner is usually in the
+                # Reader. The shell reads this revision on every screen, so it
+                # is how they learn of it without a poll of their own; only a
+                # completed practice job bumped it before, never a failure.
+                self.repo.bump_queue_revision(clock=self.clock)
 
     def _lease_cutoff_iso(self) -> str:
         cutoff = self.clock.now() - timedelta(seconds=self.lease_ttl_seconds)
@@ -1338,6 +1350,41 @@ def a_retry_may_cure(exc: BaseException) -> bool:
     if isinstance(exc, AIInterrupted):
         return False
     return isinstance(exc, (AIProviderUnavailable, InventoryValidationError, TimeoutError))
+
+
+def retried_on_its_own(job: Mapping[str, Any]) -> bool:
+    """Whether a failed job was already tried once more on its own before it
+    stopped: the rule above, read back from the stored row. Nothing records the
+    second try (it runs in the same claim, ``attempt_count`` stays 1), but the
+    stored failure is the second try's whenever the job retries on its own and
+    its error code is one a fresh try may cure, since only the last try's
+    failure is kept and a curable first failure is always tried again.
+
+    False when it cannot be told: a code from an error class this process has
+    not imported reads as not curable, so the card never claims a retry that
+    did not happen."""
+
+    if effective_ingest_job_status(job) != "failed" or not retries_on_its_own(job):
+        return False
+    return str((job.get("error") or {}).get("code") or "") in _curable_error_codes()
+
+
+def _curable_error_codes() -> frozenset[str]:
+    """The stored codes (``_error_code``) of the failures :func:`a_retry_may_cure` cures."""
+
+    from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+    from learnloop.content.synthesis.source_unit_inventory import InventoryValidationError
+
+    def family(cls: type) -> set[str]:
+        names = {cls.__name__}
+        for subclass in cls.__subclasses__():
+            names |= family(subclass)
+        return names
+
+    return frozenset(
+        set(_CURABLE_CODES) | {"timeout"} | (family(AIProviderUnavailable) - family(AIInterrupted))
+        | family(InventoryValidationError)
+    )
 
 
 def _error_code(exc: Exception) -> str:
