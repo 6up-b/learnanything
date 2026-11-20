@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_restoration.py](../../../../../../src/learnloop/reader/reader_restoration.py) |
-| Source lines | 178 |
+| Source lines | 179 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Public API
 
 - `class ReaderRestorationError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 44) — Domain error for the reader-restoration service.
-- `restore(repository: Repository, *, source_id: str, extraction_id: str | None=None, run_id: str | None=None, idempotency_key: str | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 53) — Restore source + annotations after a closed cold observation (§11).
-- `restore_before_response(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 151) — Opening restoration material BEFORE the cold response (§11, §15.6): appends a contamination/feedback exposure event and removes cold eligibility.
+- `restore(repository: Repository, *, source_id: str, extraction_id: str | None=None, run_id: str | None=None, idempotency_key: str | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None, vault: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 53) — Restore source + annotations after a closed cold observation (§11).
+- `restore_before_response(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 152) — Opening restoration material BEFORE the cold response (§11, §15.6): appends a contamination/feedback exposure event and removes cold eligibility.
 
 ### Module constants
 

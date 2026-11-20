@@ -489,6 +489,11 @@ def _append_interpretation(
     return interpretation_id
 
 
+#: The exam channel's purpose: an exam answer's grade is read on an assessment administration
+#: (``goals.exam_session``'s dual write, and from mvp-0.61 a regraded exam answer's replay).
+EXAM_GRADE_PURPOSE = "assessment"
+
+
 def grade_channel_fixes_on(config: Any) -> bool:
     """The grade channel fixes (mvp-0.60): replay keeps each practice answer's
     observation and appends only what changed. Gated by the vault's tag alone

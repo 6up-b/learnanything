@@ -408,6 +408,8 @@ def seed_exam_attempts(
         now_iso = exam_clock.now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
         attempt_id = new_ulid()
         confidence = outcome.confidence if outcome.confidence is not None else config.default_learner_confidence
+        # A score-only outcome is a review on the exam date like one with work, a zero included: the receipt cannot
+        # tell a question left blank from one answered wrong, and skipping the review would move the schedule.
         answer_md = outcome.answer_md if has_work else f"[imported exam outcome: score {outcome.score:.2f}]"
         evidence_rows = [
             {

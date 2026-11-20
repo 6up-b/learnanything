@@ -244,6 +244,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
 - [tests/test_dual_authority_administration.py](../../../../../../tests/test_dual_authority_administration.py) — direct import
 - [tests/test_e2e_local.py](../../../../../../tests/test_e2e_local.py) — direct import
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_reader_preset_fails_before_any_model_call_when_the_vault_config_disappears`
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import

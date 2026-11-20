@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `CANONICAL_PROJECTION_VERSION`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `held_for_review_attempts`, `pfc_assessments`; statically calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `surface_group_id`; statically calls `surface_group_id`
-- [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `surface_group_id`; statically calls `surface_group_id`
+- [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `surface_group_id`, `unassessed_evidence_row`; statically calls `surface_group_id`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `surface_group_id`, `unassessed_evidence_row`; statically calls `surface_group_id`, `unassessed_evidence_row`

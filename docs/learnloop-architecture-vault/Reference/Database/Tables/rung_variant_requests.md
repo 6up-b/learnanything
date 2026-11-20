@@ -18,6 +18,7 @@ source_paths:
   - "migrations/108_rung_variant_requests.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/attempts/replay_reading.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/content.py"
@@ -25,7 +26,6 @@ source_paths:
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -99,6 +99,7 @@ Indexes and uniqueness:
 - `Repository.retry_failed_rung_variant_request()`
 - `Repository.rung_variant_pending_source_ids()`
 - `Repository.rung_variant_request()`
+- `Repository.rung_variant_request_for_attempt()`
 - `Repository.rung_variant_requests()`
 - `Repository.update_rung_variant_request()`
 
@@ -114,6 +115,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/replay_reading.py`
 - `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
@@ -131,6 +133,7 @@ Indexes and uniqueness:
 - `tests/test_ingest_jobs.py`
 - `tests/intent_fakes.py`
 - `tests/test_daily_loop_reader_retire.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`

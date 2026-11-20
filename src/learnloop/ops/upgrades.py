@@ -31,6 +31,7 @@ from pathlib import Path
 
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
+    EVIDENCE_READING_FIX_ALGORITHM_VERSION,
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
@@ -123,6 +124,10 @@ UPGRADES: tuple[Link, ...] = (
     # The grade channel fixes re-read, once, the answers whose live observation earlier rebuilds never superseded,
     # which moves canonical facet cells.
     Link(GRADE_CHANNEL_FIX_ALGORITHM_VERSION, whole_vault_rebuild),
+    # The evidence reading fixes move what a rebuild derives from stored history: a replacement grade's channel and
+    # source, a 0.0 confidence, the diagnosis receipts of answers with an unassessed criterion, and the episode
+    # posteriors that held an exposed probe answer.
+    Link(EVIDENCE_READING_FIX_ALGORITHM_VERSION, whole_vault_rebuild),
 )
 
 

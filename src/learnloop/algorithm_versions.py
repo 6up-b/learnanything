@@ -934,6 +934,18 @@ FACET_BELIEF_FIX_ALGORITHM_VERSION = "mvp-0.59"
 # (owner rule 2026-11-16). No migration. ONE constant.
 GRADE_CHANNEL_FIX_ALGORITHM_VERSION = "mvp-0.60"
 
+# mvp-0.61 (the evidence reading fixes; refactor bug ledger G3-1, ER-2, K5-3, K5-8, K5-11, K5-12;
+# docs/reviews/algorithm-mvp-0.61.md), on top of the grade channel fixes' mvp-0.60. Six readings of recorded evidence
+# change, each on this tag and later and exactly as before below it: a probe answer given after its feedback was shown
+# or after a reveal updates no belief in its episode and qualifies nothing, as the discriminating observation already
+# refused it as not independent (G3-1); a criterion row marked unassessed is no assessed zero to either diagnosis
+# reader (ER-2); a replacement grade replays under its own source, and a replaced exam answer reaches the exam channel
+# (K5-11); a grader confidence of 0.0 stays 0.0 on replay (K5-12); a certificate probe whose every criterion is
+# unassessed abstains (K5-3, policy v2); a request for an easier or harder variant is no FSRS review of its source item
+# and leaves its forgetting clock, memory and due date as they were (K5-8). What a rebuild derives moves, so
+# activation is a whole-vault rebuild. No kill switch (owner rule 2026-11-16). No migration. ONE constant.
+EVIDENCE_READING_FIX_ALGORITHM_VERSION = "mvp-0.61"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -992,6 +1004,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     FIGURE_WAIT_ALGORITHM_VERSION,
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
+    EVIDENCE_READING_FIX_ALGORITHM_VERSION,
 )
 
 
@@ -1042,6 +1055,19 @@ ROBUST_GATE_FIX_VERSIONS: frozenset[str] = FACET_BELIEF_FIX_VERSIONS
 # changed (the grade channel fixes; ``attempts.grade_resolution.grade_channel_fixes_on`` is the only reader). Every
 # later successor keeps them; gates must use this set, never equality.
 GRADE_CHANNEL_FIX_VERSIONS: frozenset[str] = successors_from(GRADE_CHANNEL_FIX_ALGORITHM_VERSION)
+
+# Versions that carry the evidence reading fixes (G3-1, ER-2, K5-3, K5-11, K5-12). Every later successor keeps them;
+# gates must use this set, never equality, and read it through :func:`evidence_reading_fixes_on`.
+EVIDENCE_READING_FIX_VERSIONS: frozenset[str] = successors_from(EVIDENCE_READING_FIX_ALGORITHM_VERSION)
+
+
+def evidence_reading_fixes_on(config: object) -> bool:
+    """The evidence reading fixes (mvp-0.61), gated by the vault's tag alone (no kill switch): below it every one of
+    their readings is mvp-0.60's exactly. ``config`` is a vault's config (anything whose algorithms section names its
+    algorithm version); the one predicate, so the call sites cannot disagree on the tag."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in EVIDENCE_READING_FIX_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

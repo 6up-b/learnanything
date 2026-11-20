@@ -281,6 +281,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]] — imports `KNOWN_INPUT_MODALITIES`
 - [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] — imports `DEFAULT_OUTPUT_TOKENS`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `CHATGPT_PLAN_PROFILE_TYPE`, `DECIDER_PROFILE_TYPE`, `DEFAULT_DECIDER_PROVIDER`, `DEFAULT_EMBEDDING_PROVIDER`, `VOYAGE_CONTEXTUAL_PROFILE_TYPE`
+- [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] — imports `CODEX_PROVIDER_NAMES`
 - [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `CHATGPT_PLAN_API_BASE_URL`, `CHATGPT_PLAN_PROFILE_TYPE`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `module`
 - [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] — imports `AIProviderConfig`, `AudioIngestConfig`, `DEFAULT_CODEX_MODEL`, `DEFAULT_CODEX_REASONING_EFFORT`, `LEGACY_CODEX_MODEL`, `LEGACY_CODEX_TASK_ROUTES`, `OPENROUTER_TRANSCRIPTION_PROVIDER`, `openrouter_provider`; statically calls `AudioIngestConfig`, `openrouter_provider`
@@ -331,7 +332,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/ai/agent_harness|learnloop.ai.agent_harness]], [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]], [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] and 31 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/ai/agent_harness|learnloop.ai.agent_harness]], [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]], [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] and 32 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

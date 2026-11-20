@@ -38,7 +38,11 @@ def inspect_entity(ctx: SidecarContext, params: InspectInput) -> dict[str, Any]:
         return versioned({"kind": "note", "id": params.id, "detail": note_detail})
     episode = repository.probe_episode(params.id)
     if episode is not None:
-        observations = repository.probe_observations_for_episode(episode.id)
+        from learnloop.diagnosis.probe_episodes import ANSWER_EXPOSED, effective_episode_observations
+
+        # The flags as the episode reads them at the vault's tag (an exposed answer recorded below mvp-0.61 qualifies
+        # nothing and updates no belief); the entropies are what was recorded when the answer was written.
+        observations = effective_episode_observations(vault, repository, episode.id)
         return versioned(
             {
                 "kind": "probe_episode",
@@ -51,9 +55,10 @@ def inspect_entity(ctx: SidecarContext, params: InspectInput) -> dict[str, Any]:
                             "practice_item_id": row["practice_item_id"],
                             "eligible_for_completion": row["observation"].eligible_for_completion,
                             "updates_belief": row["observation"].updates_belief,
-                            "entropy_before": row["observation"].entropy_before,
-                            "entropy_after": row["observation"].entropy_after,
-                            "realized_information_gain": row["observation"].realized_information_gain,
+                            "exposure_reason": (row["observation"].contamination or {}).get(ANSWER_EXPOSED),
+                            "recorded_entropy_before": row["observation"].entropy_before,
+                            "recorded_entropy_after": row["observation"].entropy_after,
+                            "recorded_information_gain": row["observation"].realized_information_gain,
                             "contamination": row["observation"].contamination,
                             "created_at": row["observation"].created_at,
                         }

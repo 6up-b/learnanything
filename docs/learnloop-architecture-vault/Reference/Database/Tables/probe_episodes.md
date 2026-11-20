@@ -23,10 +23,11 @@ source_paths:
   - "src/learnloop/config/kill_switches.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/confusable_concepts.py"
-  - "src/learnloop/daily_plan/router_reader.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
+  - "src/learnloop/daily_plan/router_reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -111,6 +112,7 @@ Indexes and uniqueness:
 - `Repository.open_state_segment()`
 - `Repository.probe_episode()`
 - `Repository.probe_episodes_for_learning_object()`
+- `Repository.qualifying_probe_observation_attempt_ids()`
 - `Repository.record_scheduler_slate()`
 - `Repository.update_probe_episode_status()`
 

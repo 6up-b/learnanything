@@ -47,52 +47,63 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py) |
-| Source lines | 1365 |
+| Source lines | 1606 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class EligibleInstrument` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 60) — One (item, compiled instrument) pair usable by the open episode.
-  - `selection_components(self) -> dict[str, Any]` (line 95; public) — §7.3 separately-inspectable utility components for telemetry.
-- `class EpisodePosterior` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 111)
-  - `top(self) -> tuple[str, float]` (line 120; public)
-- `episode_open_contract(vault: LoadedVault, repository: Repository, learning_object_id: str, *, trigger: str, goal_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 134) — What an episode opened now for ``trigger`` is held to: its observation budget, required facets, terminal-contract pin, calibration channel pin and algorithm version (the ``probe_episodes`` columns set at open).
-- `enter_episode(vault: LoadedVault, repository: Repository, learning_object_id: str, *, trigger: str='initial', origin: str | None=None, goal_id: str | None=None, causal_factor_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, reserved_for: str | None=None) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 202) — Open a diagnostic episode with a fresh ULID and locked hypothesis set.
-- `episode_has_observations(repository: Repository, episode_id: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 357) — True when this episode's locked hypothesis set has interpreted evidence.
-- `retarget_episode_to_causal_factor(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, causal_factor_id: str, *, origin: str, clock: Clock | None=None, reserved_for: str | None=None) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 440) — Point an OBSERVATION-FREE open episode at a causal cause set.
-- `adopt_ignored_opening_episode(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, trigger: str, origin: str | None, goal_id: str | None=None, clock: Clock | None=None) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 535) — Adopt an unanswered opening episode placement ignores (owner decision 2026-10-12).
-- `maybe_reprobe_for_misconception(vault: LoadedVault, repository: Repository, learning_object_id: str, *, severity: float, clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 641) — Re-probe trigger (§6.5): a new high-severity misconception opens a new episode with a new locked hypothesis-set snapshot.
-- `maybe_reprobe_for_predictive_failure(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 661) — Re-probe trigger (§6.5/Checkpoint 2.7): repeated prediction errors indicate model misspecification.
-- `enter_stale_uncertainty_reprobes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[ProbeEpisodeRecord]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 709) — Periodic re-probe producer (§6.5): high uncertainty that persists after a completed episode re-enters probing with trigger ``stale_uncertainty``.
-- `episode_hypothesis_set(repository: Repository, episode: ProbeEpisodeRecord) -> HypothesisSet | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 787)
-- `administered_surface_exclusions(vault: LoadedVault, repository: Repository) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 801) — Surfaces the learner has already seen in ANY administration.
-- `eligible_instruments(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, hypothesis_set: HypothesisSet | None=None, posterior: Mapping[str, float] | None=None, reserved_for: str | None=None) -> list[EligibleInstrument]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 820) — Instruments admitted for this episode's locked set, ranked by EIG.
-- `resolve_instrument(vault: LoadedVault, repository: Repository, item: PracticeItem, hypothesis_set: HypothesisSet) -> tuple[CompiledInstrument, dict[str, str]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1011) — The executable instrument binding this item to the locked set, if any.
-- `compile_fallback_instrument(vault: LoadedVault, repository: Repository, item: PracticeItem, hypothesis_set: HypothesisSet) -> CompiledInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1082) — Legacy fallback instrument (§7.2): registry discrimination + IRT model.
-- `episode_posterior(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, hypothesis_set: HypothesisSet | None=None, held_attempt_ids: Iterable[str]=()) -> EpisodePosterior | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1140) — Replay the episode's evidence into the locked-set posterior.
+- `class EligibleInstrument` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 61) — One (item, compiled instrument) pair usable by the open episode.
+  - `selection_components(self) -> dict[str, Any]` (line 96; public) — §7.3 separately-inspectable utility components for telemetry.
+- `class EpisodePosterior` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 112)
+  - `top(self) -> tuple[str, float]` (line 121; public)
+- `episode_open_contract(vault: LoadedVault, repository: Repository, learning_object_id: str, *, trigger: str, goal_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 135) — What an episode opened now for ``trigger`` is held to: its observation budget, required facets, terminal-contract pin, calibration channel pin and algorithm version (the ``probe_episodes`` columns set at open).
+- `enter_episode(vault: LoadedVault, repository: Repository, learning_object_id: str, *, trigger: str='initial', origin: str | None=None, goal_id: str | None=None, causal_factor_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, reserved_for: str | None=None) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 203) — Open a diagnostic episode with a fresh ULID and locked hypothesis set.
+- `episode_has_observations(repository: Repository, episode_id: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 358) — True when this episode's locked hypothesis set has interpreted evidence.
+- `retarget_episode_to_causal_factor(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, causal_factor_id: str, *, origin: str, clock: Clock | None=None, reserved_for: str | None=None) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 441) — Point an OBSERVATION-FREE open episode at a causal cause set.
+- `adopt_ignored_opening_episode(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, trigger: str, origin: str | None, goal_id: str | None=None, clock: Clock | None=None) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 536) — Adopt an unanswered opening episode placement ignores (owner decision 2026-10-12).
+- `maybe_reprobe_for_misconception(vault: LoadedVault, repository: Repository, learning_object_id: str, *, severity: float, clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 642) — Re-probe trigger (§6.5): a new high-severity misconception opens a new episode with a new locked hypothesis-set snapshot.
+- `maybe_reprobe_for_predictive_failure(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 662) — Re-probe trigger (§6.5/Checkpoint 2.7): repeated prediction errors indicate model misspecification.
+- `enter_stale_uncertainty_reprobes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[ProbeEpisodeRecord]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 710) — Periodic re-probe producer (§6.5): high uncertainty that persists after a completed episode re-enters probing with trigger ``stale_uncertainty``.
+- `episode_hypothesis_set(repository: Repository, episode: ProbeEpisodeRecord) -> HypothesisSet | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 788)
+- `administered_surface_exclusions(vault: LoadedVault, repository: Repository) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 802) — Surfaces the learner has already seen in ANY administration.
+- `eligible_instruments(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, hypothesis_set: HypothesisSet | None=None, posterior: Mapping[str, float] | None=None, reserved_for: str | None=None) -> list[EligibleInstrument]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 821) — Instruments admitted for this episode's locked set, ranked by EIG.
+- `resolve_instrument(vault: LoadedVault, repository: Repository, item: PracticeItem, hypothesis_set: HypothesisSet) -> tuple[CompiledInstrument, dict[str, str]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1012) — The executable instrument binding this item to the locked set, if any.
+- `compile_fallback_instrument(vault: LoadedVault, repository: Repository, item: PracticeItem, hypothesis_set: HypothesisSet) -> CompiledInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1083) — Legacy fallback instrument (§7.2): registry discrimination + IRT model.
+- `episode_posterior(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, hypothesis_set: HypothesisSet | None=None, held_attempt_ids: Iterable[str]=()) -> EpisodePosterior | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1141) — Replay the episode's evidence into the locked-set posterior.
+- `probe_answer_admissibility(repository: Repository, *, probe_attempt_id: str | None, own_answer_rules: bool=False, read_at: str | None=None) -> ProductionAdmissibility | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1256) — Was the probe answer produced before anything was revealed to it?
+- `answer_exposure(vault: LoadedVault, repository: Repository, attempt_id: str, *, recorded_at: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1320) — Why a probe answer was not an independent production, or None: the discriminating observation's exposure test (feedback shown before it, a recorded display of its causes, or a reveal in its window), from the evidence reading fixes (mvp-0.61) on, with the answer's own rules (:fun…
+- `effective_episode_observations(vault: LoadedVault, repository: Repository, episode_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1341) — The episode's observation rows (``probe_observations_for_episode``, the held-grade view) as the episode reads them at the vault's tag.
+- `effective_qualifying_total(vault: LoadedVault, repository: Repository, *, session_id: str | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1400) — Qualifying observations vault-wide, or in one session (``session_id``), as the episodes read them: the serving gates' counts (``probe_presentations.probe_serving_block_reason``: the onboarding ceiling and the session cap) and the value decision's former-cap count.
+- `session_qualifying_total(vault: LoadedVault, repository: Repository, session_id: str | None) -> int` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1420) — :func:`effective_qualifying_total` for one session; none without a session (the value decision's former cap).
+- `effective_posterior_as_of(vault: LoadedVault, repository: Repository, episode_id: str, now_iso: str) -> tuple[str, dict[str, float]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1426) — The episode's posterior as of ``now_iso`` where the tag reads its stored posteriors differently, as ``(as-of instant, posterior)``; None where the stored posteriors stand (below the evidence reading fixes, or no observation up to ``now_iso`` that the episode now reads as updatin…
+- `effective_posterior_reader(vault: LoadedVault, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1475) — :func:`effective_posterior_as_of` bound to this vault, for a reader that cannot import this module (the router objective's sensor and decision state, which sit below diagnosis); None below the evidence reading fixes, where the stored posteriors stand.
+- `qualifying_observation_count(vault: LoadedVault, repository: Repository, episode_id: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1487) — The episode's qualifying observations as the episode reads them (:func:`effective_episode_observations`).
 
 ### Module constants
 
-- `FALLBACK_FAMILY_ID` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 55)
-- `FALLBACK_FAMILY_VERSION` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 56)
-- `_CONTRACT_COLUMNS` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 376)
-- `ADOPTED_OPENING_EPISODE_KIND` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 532)
+- `FALLBACK_FAMILY_ID` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 56)
+- `FALLBACK_FAMILY_VERSION` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 57)
+- `_CONTRACT_COLUMNS` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 377)
+- `ADOPTED_OPENING_EPISODE_KIND` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 533)
+- `ANSWER_EXPOSED` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1314)
+- `EXPOSURE_JUDGED` ([src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1317)
 
 ## Internal implementation anchors
 
-- `_entropy(distribution: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 127)
-- `_relock_episode_row(repository: Repository, episode_id: str, *, hypothesis_set_id: str, origin: str | None, target_decision: Mapping[str, Any], clock: Clock | None, contract: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 389) — Point the row at the new set.
-- `_open_episode_blocks(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 625) — Whether an open episode already owns the LO for a re-probe trigger.
-- `_record_generation_need(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, hypothesis_set: HypothesisSet, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 759)
-- `_resolved_slot_map_from_snapshot(snapshot: Mapping[str, Any], instrument: CompiledInstrument, labels: list[str]) -> dict[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1053) — Return the frozen selection-time label mapping for this presentation.
-- `_first_intervention_at(repository: Repository, episode: ProbeEpisodeRecord) -> Any` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1255)
-- `_observation_likelihoods_from_row(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, attempt: Mapping[str, Any], observation_row: Mapping[str, Any]) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1264)
-- `_fired_error_types(repository: Repository, attempt_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1300)
-- `_item_max_points(vault: LoadedVault, practice_item_id: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1312)
-- `_incidental_likelihoods(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], hypothesis_set: HypothesisSet) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1320)
-- `_bayes_update(posterior: dict[str, float], likelihoods: Mapping[str, float], *, weight: float=1.0, prior_for_marginal: Mapping[str, float] | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1345) — Weighted Bayes step: ``L_w = w·L + (1−w)·marginal`` dampens partially trusted evidence toward the mixture marginal (no update at w=0).
+- `_entropy(distribution: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 128)
+- `_relock_episode_row(repository: Repository, episode_id: str, *, hypothesis_set_id: str, origin: str | None, target_decision: Mapping[str, Any], clock: Clock | None, contract: Mapping[str, Any] | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 390) — Point the row at the new set.
+- `_open_episode_blocks(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 626) — Whether an open episode already owns the LO for a re-probe trigger.
+- `_record_generation_need(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, hypothesis_set: HypothesisSet, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 760)
+- `_resolved_slot_map_from_snapshot(snapshot: Mapping[str, Any], instrument: CompiledInstrument, labels: list[str]) -> dict[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1054) — Return the frozen selection-time label mapping for this presentation.
+- `_reread_exposure(vault: LoadedVault, repository: Repository, observation: Any) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1389) — The exposure a reading at the tag finds in a stored observation that does not already record one: None for a row judged when it was written (:data:`EXPOSURE_JUDGED`, its verdict stands), else the persisted-rows judgment as of its own writing (:func:`answer_exposure` with ``recor…
+- `_first_intervention_at(repository: Repository, episode: ProbeEpisodeRecord) -> Any` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1496)
+- `_observation_likelihoods_from_row(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, attempt: Mapping[str, Any], observation_row: Mapping[str, Any]) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1505)
+- `_fired_error_types(repository: Repository, attempt_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1541)
+- `_item_max_points(vault: LoadedVault, practice_item_id: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1553)
+- `_incidental_likelihoods(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], hypothesis_set: HypothesisSet) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1561)
+- `_bayes_update(posterior: dict[str, float], likelihoods: Mapping[str, float], *, weight: float=1.0, prior_for_marginal: Mapping[str, float] | None=None) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 1586) — Weighted Bayes step: ``L_w = w·L + (1−w)·marginal`` dampens partially trusted evidence toward the mixture marginal (no update at w=0).
 
 ## Who imports or calls it
 
@@ -100,34 +111,44 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]] — imports `episode_posterior`; statically calls `episode_posterior`
-- [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `eligible_instruments`, `enter_episode`, `episode_posterior`; statically calls `eligible_instruments`, `enter_episode`, `episode_posterior`
-- [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] — imports `module`; statically calls `enter_episode`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `effective_posterior_reader`; statically calls `effective_posterior_reader`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `effective_posterior_reader`; statically calls `effective_posterior_reader`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `effective_posterior_reader`; statically calls `effective_posterior_reader`
+- [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `effective_posterior_reader`; statically calls `effective_posterior_reader`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `effective_posterior_reader`; statically calls `effective_posterior_reader`
+- [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `effective_episode_observations`, `eligible_instruments`, `enter_episode`, `episode_posterior`; statically calls `effective_episode_observations`, `eligible_instruments`, `enter_episode`, `episode_posterior`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `probe_answer_admissibility`; statically calls `probe_answer_admissibility`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] — imports `effective_episode_observations`, `module`; statically calls `effective_episode_observations`, `enter_episode`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `_record_generation_need`, `administered_surface_exclusions`, `episode_hypothesis_set`; statically calls `_record_generation_need`, `administered_surface_exclusions`, `episode_hypothesis_set`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `episode_posterior`, `maybe_reprobe_for_predictive_failure`; statically calls `episode_posterior`, `maybe_reprobe_for_predictive_failure`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `maybe_reprobe_for_misconception`; statically calls `maybe_reprobe_for_misconception`
-- [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]] — imports `_bayes_update`, `_observation_likelihoods_from_row`, `episode_hypothesis_set`, `episode_posterior`; statically calls `_bayes_update`, `_observation_likelihoods_from_row`, `episode_hypothesis_set`, `episode_posterior`
-- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `EpisodePosterior`, `eligible_instruments`, `episode_posterior`; statically calls `eligible_instruments`, `episode_posterior`
-- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `EligibleInstrument`, `EpisodePosterior`, `_record_generation_need`, `eligible_instruments`; statically calls `_record_generation_need`, `eligible_instruments`
+- [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]] — imports `_bayes_update`, `_observation_likelihoods_from_row`, `effective_episode_observations`, `episode_hypothesis_set`, `episode_posterior`; statically calls `_bayes_update`, `_observation_likelihoods_from_row`, `effective_episode_observations`, `episode_hypothesis_set`, `episode_posterior`
+- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `EpisodePosterior`, `effective_episode_observations`, `eligible_instruments`, `episode_posterior`, `session_qualifying_total`; statically calls `effective_episode_observations`, `eligible_instruments`, `episode_posterior`, `session_qualifying_total`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `EligibleInstrument`, `EpisodePosterior`, `_record_generation_need`, `effective_episode_observations`, `eligible_instruments`, `session_qualifying_total`; statically calls `_record_generation_need`, `effective_episode_observations`, `eligible_instruments`, `session_qualifying_total`
 - [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]] — imports `EligibleInstrument`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`; statically calls `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `EligibleInstrument`, `episode_hypothesis_set`; statically calls `EligibleInstrument`, `episode_hypothesis_set`
-- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `_bayes_update`, `_entropy`, `_fired_error_types`, `_item_max_points`, `_resolved_slot_map_from_snapshot`, `episode_hypothesis_set`, `episode_posterior`; statically calls `_bayes_update`, `_entropy`, `_fired_error_types`, `_item_max_points`, `_resolved_slot_map_from_snapshot`, `episode_hypothesis_set`, `episode_posterior`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `ANSWER_EXPOSED`, `EXPOSURE_JUDGED`, `_bayes_update`, `_entropy`, `_fired_error_types`, `_item_max_points`, `_resolved_slot_map_from_snapshot`, `answer_exposure`, `episode_hypothesis_set`, `episode_posterior`; statically calls `_bayes_update`, `_entropy`, `_fired_error_types`, `_item_max_points`, `_resolved_slot_map_from_snapshot`, `answer_exposure`, `episode_hypothesis_set`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `episode_has_observations`; statically calls `episode_has_observations`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `administered_surface_exclusions`, `eligible_instruments`; statically calls `administered_surface_exclusions`, `eligible_instruments`
 - [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `eligible_instruments`, `enter_episode`, `retarget_episode_to_causal_factor`; statically calls `eligible_instruments`, `enter_episode`, `retarget_episode_to_causal_factor`
-- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `EligibleInstrument`, `_entropy`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`; statically calls `_entropy`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `EligibleInstrument`, `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `session_qualifying_total`; statically calls `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `session_qualifying_total`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `administered_surface_exclusions`; statically calls `administered_surface_exclusions`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `effective_posterior_reader`; statically calls `effective_posterior_reader`
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`; statically calls `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `EligibleInstrument`, `EpisodePosterior`, `administered_surface_exclusions`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`; statically calls `administered_surface_exclusions`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `EligibleInstrument`, `EpisodePosterior`, `administered_surface_exclusions`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `session_qualifying_total`; statically calls `administered_surface_exclusions`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `session_qualifying_total`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `eligible_instruments`, `episode_posterior`; statically calls `eligible_instruments`, `episode_posterior`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `episode_hypothesis_set`, `episode_posterior`; statically calls `episode_hypothesis_set`, `episode_posterior`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `enter_episode`, `enter_stale_uncertainty_reprobes`; statically calls `enter_episode`, `enter_stale_uncertainty_reprobes`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `episode_hypothesis_set`; statically calls `episode_hypothesis_set`
+- [[Reference/Modules/learnloop_sidecar/handlers/inspector|learnloop_sidecar.handlers.inspector]] — imports `ANSWER_EXPOSED`, `effective_episode_observations`; statically calls `effective_episode_observations`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `enter_episode`, `episode_hypothesis_set`; statically calls `enter_episode`, `episode_hypothesis_set`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `evidence_reading_fixes_on`; calls `evidence_reading_fixes_on`
+- [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `ProductionAdmissibility`, `production_admissibility`; calls `ProductionAdmissibility`, `production_admissibility`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `ProbeEpisodeRecord`
@@ -140,6 +161,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `door_sets`; calls `door_sets`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_entry`; calls `enqueue_entry`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `probe_answer_exposed`; calls `probe_answer_exposed`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `resolve_head`; calls `resolve_head`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -163,7 +185,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]], [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]], [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 19 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] and 27 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -209,6 +231,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_staged_owned_item_never_surfaces_in_probe_slate`
   - `test_unowned_probe_slate_is_byte_identical`
   - `test_wholly_staged_owned_lo_refuses_probe_administration`
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_g3_1_an_exposed_answer_recorded_below_the_tag_updates_no_belief_after_the_upgrade`
+  - `test_r1_a_stored_answer_reads_the_same_at_any_reading_time`
+  - `test_r3_the_serving_counts_leave_out_an_exposed_answer`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f3_the_mint_and_the_batch_write_the_identity_before_the_file`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
@@ -279,6 +305,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_hierarchy.py](../../../../../../tests/test_probe_hierarchy.py) — direct import
   - `test_resolve_instrument_reads_calibrated_rows`
 - [tests/test_probe_instance_generation.py](../../../../../../tests/test_probe_instance_generation.py) — direct import
+  - `test_approving_an_answered_probe_keeps_its_scheduling_state`
   - `test_generation_is_idempotent`
   - `test_provisional_family_instances_park_behind_review`
   - `test_trusted_family_generation_unparks_episode_with_provenance`

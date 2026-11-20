@@ -530,12 +530,14 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
     if not candidates:
         return None
     from learnloop.adaptive_difficulty.readiness import decision_state_fields
+    from learnloop.diagnosis.probe_episodes import effective_posterior_reader
 
     # RO0 rows 9 and 13, adaptive difficulty's included, read before the draw's transaction opens; written with its row.
     decision_receipt = decision_state.prepare(
         vault, repository, session_id=session_id, clock=clock, retrievability=retrievability,
         candidates=[{"learning_object_ids": list(candidate.learning_object_ids)} for candidate in candidates],
-        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)))
+        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)),
+        effective_posterior=effective_posterior_reader(vault, repository))
     with repository.atomic():
         connection = repository.connection()
         from learnloop.router_objective_switches import lesson_offers_on

@@ -23,11 +23,11 @@ source_paths:
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop/router_objective/decision_state.py"
-  - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
   - "src/learnloop/diagnosis/probe_blocks.py"
-  - "src/learnloop/diagnosis/probe_completion.py"
+  - "src/learnloop/diagnosis/probe_episodes.py"
+  - "src/learnloop/diagnosis/probe_evidence.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `Repository.insert_probe_observation()`
 - `Repository.probe_observation_for_attempt()`
 - `Repository.probe_observations_for_episode()`
+- `Repository.qualifying_probe_observation_attempt_ids()`
 - `Repository.qualifying_probe_observation_count()`
 - `Repository.qualifying_probe_observation_count_for_session()`
 
@@ -114,17 +115,13 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
-- `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/probe_presentations.py`
-- `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/followup_serve/workflow.py`
-- `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -133,6 +130,7 @@ Indexes and uniqueness:
 
 - `tests/figure_fixtures.py`
 - `tests/reader_active_reading_helpers.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_hint_discriminating.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_notes_as_learner_text.py`
@@ -150,7 +148,6 @@ Indexes and uniqueness:
 - `tests/test_characterization_probe_submission.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_mobile_handoff.py`
-- `tests/test_mobile_v3_probes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

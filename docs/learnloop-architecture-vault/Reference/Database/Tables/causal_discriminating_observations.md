@@ -136,6 +136,7 @@ None found by exact static reference scan.
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_dialogue_causal_join.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_followup_fg1c_codex_review.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_fg1d_probe_shadow.py`

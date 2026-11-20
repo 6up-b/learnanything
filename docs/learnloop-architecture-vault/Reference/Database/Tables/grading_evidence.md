@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/attempts/regrade.py"
-  - "src/learnloop/attempts/stuck.py"
+  - "src/learnloop/attempts/replay_reading.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/clarification.py"
   - "src/learnloop/attempts/coldness_receipt.py"
@@ -150,6 +150,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/attempts/regrade.py`
+- `src/learnloop/attempts/replay_reading.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/cli/grading.py`
 - `src/learnloop/db/repositories.py`
@@ -163,7 +164,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/tui/screens/feedback.py`
-- `src/learnloop/tutor/tutor_qa.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -21,6 +21,7 @@ source_paths:
   - "tests/sim_probe_validation_helpers.py"
   - "tests/successor_switches.py"
   - "tests/test_architecture.py"
+  - "tests/test_evidence_reading_successor.py"
   - "tests/test_followup_fg1c_r1_exposure_independence.py"
   - "tests/test_followup_successor.py"
   - "tests/test_hypothesis_marks.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/test_hypothesis_marks_migration.py"
   - "tests/test_ih7_lesson_sources_follow_diagnosis.py"
   - "tests/test_kill_switches.py"
-  - "tests/test_mobile_v2_feedback.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/followup"
@@ -63,6 +63,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/sim_probe_validation_helpers.py`
 - `tests/successor_switches.py`
 - `tests/test_architecture.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_successor.py`
 - `tests/test_hypothesis_marks.py`
@@ -70,7 +71,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_hypothesis_marks_migration.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_kill_switches.py`
-- `tests/test_mobile_v2_feedback.py`
 
 ## Extension and modification guidance
 

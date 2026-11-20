@@ -237,6 +237,7 @@ def advance(
     policy_calibration: Mapping[str, Any] | None = None,
     burden: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
+    vault: Any = None,
 ) -> AdvanceResult:
     """Append exactly one transition (§4.1). Idempotent on ``idempotency_key``
     (§12.6 exactly-once) and fenced on the optimistic head (§4.3). Validates the
@@ -302,7 +303,7 @@ def advance(
     # pinned baseline diagnostic segment and snapshots the baseline boundary view (the
     # frozen `before` of the post-assessment boundary diff, §8.4).
     if to_state in INSTRUCTION_STATES:
-        _close_diagnostic_segment_on_instruction(repository, run_id, clock=clock)
+        _close_diagnostic_segment_on_instruction(repository, run_id, clock=clock, vault=vault)
     return AdvanceResult(
         run_id=run_id, event_id=event["id"], seq=event["seq"],
         from_state=event["from_state"], to_state=event["to_state"], already_exists=False,
@@ -310,7 +311,7 @@ def advance(
 
 
 def _close_diagnostic_segment_on_instruction(
-    repository: Repository, run_id: str, *, clock: Clock | None
+    repository: Repository, run_id: str, *, clock: Clock | None, vault: Any = None,
 ) -> None:
     """Close the run's pinned baseline episode + snapshot its boundary view when
     instruction begins (invariant 7 / §5.3 / §8.4). No-op when the run pinned no pack
@@ -325,7 +326,7 @@ def _close_diagnostic_segment_on_instruction(
 
     # Snapshot the baseline boundary BEFORE closing the episode -- the projection reads
     # the (about-to-be-frozen) baseline observations, and the snapshot is idempotent.
-    DP.snapshot_baseline_boundary(repository, run_id=run_id, clock=clock)
+    DP.snapshot_baseline_boundary(repository, run_id=run_id, clock=clock, vault=vault)
     episode_id = pin.get("probe_episode_id")
     if episode_id:
         closed = PC.close_diagnostic_segment(repository, episode_id, clock=clock)

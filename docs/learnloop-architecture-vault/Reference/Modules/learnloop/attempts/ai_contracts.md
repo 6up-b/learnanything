@@ -206,6 +206,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_clean_solution_false_positive_writes_a_candidate_not_a_facet_failure`
   - `test_repeats_on_one_solution_stay_one_observation_and_do_not_promote`
   - `test_the_repair_is_required_not_the_flag`
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_joint_grading_builder.py](../../../../../../tests/test_joint_grading_builder.py) — direct import
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_grader_prompt_version_bumped`

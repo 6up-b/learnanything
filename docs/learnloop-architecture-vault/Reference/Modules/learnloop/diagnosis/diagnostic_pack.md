@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/diagnostic_pack.py](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py) |
-| Source lines | 501 |
+| Source lines | 511 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,8 +66,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `clamp_visible_cap(requested: int | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 212)
 - `pin_pack_to_run(repository: Repository, *, run_id: str, pack_id: str, goal_contract_version_id: str | None=None, visible_cap: int | None=None, probe_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 219) — Pin exactly one reviewed pack to the run at diagnostic entry (§5.2).
 - `enter_baseline(vault: Any, repository: Repository, *, run_id: str, learning_object_id: str, pack_id: str, visible_cap: int | None=None, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 253) — Open one bounded diagnostic episode for the run and pin the pack (§5.2).
-- `boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 423) — Render only the facet x capability cells relevant to the target blueprint (§5.3), projected over the pinned baseline episode's P0/P1 evidence.
-- `snapshot_baseline_boundary(repository: Repository, *, run_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 454) — Persist the baseline boundary view as a run artifact at diagnostic-segment close (§5.3 / §8.4).
+- `boundary_view(repository: Repository, *, run_id: str, vault: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 433) — Render only the facet x capability cells relevant to the target blueprint (§5.3), projected over the pinned baseline episode's P0/P1 evidence.
+- `snapshot_baseline_boundary(repository: Repository, *, run_id: str, clock: Clock | None=None, vault: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 464) — Persist the baseline boundary view as a run artifact at diagnostic-segment close (§5.3 / §8.4).
 
 ### Module constants
 
@@ -80,8 +80,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_canonical_cards(cards: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 78)
 - `_reject_unstable_repair(card: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 107) — §5.1 admission gate: reject a card whose recommended repair is unstable under plausible grader/likelihood perturbations unless it carries a disclosure/abstention path.
 - `_recipe_cells(spec: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 309) — The ordered, de-duplicated (facet, capability) cells of the blueprint's solution recipes (§5.3).
-- `_baseline_evidence_projection(repository: Repository, run: Mapping[str, Any], spec: Mapping[str, Any]) -> dict[tuple[str, str], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 333) — Project the pinned baseline episode's observations onto the recipe cells (§5.3).
-- `_load_pack(repository: Repository, pack_id: str, *, minted: bool=True) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 478)
+- `_baseline_evidence_projection(repository: Repository, run: Mapping[str, Any], spec: Mapping[str, Any], vault: Any=None) -> dict[tuple[str, str], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 333) — Project the pinned baseline episode's observations onto the recipe cells (§5.3).
+- `_load_pack(repository: Repository, pack_id: str, *, minted: bool=True) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 488)
 
 ## Who imports or calls it
 
@@ -98,7 +98,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `DEMONSTRATED_CLAIM_CERTAINTY`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `module`; calls `enter_episode`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `effective_episode_observations`, `module`; calls `effective_episode_observations`, `enter_episode`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_hash`, `canonical_json`; calls `canonical_hash`, `canonical_json`
 
 ### Platform and third-party dependencies
@@ -130,6 +130,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pin_binds_pack_to_run_and_goal_contract_version`
   - `test_pin_requires_reviewed_pack`
   - `test_visible_cap_is_clamped_into_the_2_to_4_band`
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_r3_the_baseline_projection_reads_the_effective_view`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import

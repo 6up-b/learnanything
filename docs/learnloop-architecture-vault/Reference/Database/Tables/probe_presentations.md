@@ -24,10 +24,10 @@ source_paths:
   - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/db/stores/attempts.py"
-  - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
+  - "src/learnloop/diagnosis/probe_blocks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -142,7 +142,6 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/db/stores/attempts.py`
-- `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/probe_audit.py`
@@ -154,13 +153,14 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/diagnosis/probe_presentations.py`
-- `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/followup_run/serving.py`
 - `src/learnloop/followup_serve/identity.py`
 - `src/learnloop/followup_serve/workflow.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
+- `src/learnloop_sidecar/handlers/knowledge_map.py`
+- `src/learnloop_sidecar/handlers/practice.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -176,6 +176,7 @@ Indexes and uniqueness:
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_characterization_probe_regrade.py`
 - `tests/test_characterization_probe_replay.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_grade_resolution_pipeline.py`
@@ -186,7 +187,6 @@ Indexes and uniqueness:
 - `tests/test_probability_prep.py`
 - `tests/test_probe_audit.py`
 - `tests/test_probe_episodes.py`
-- `tests/test_probe_longform_families.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

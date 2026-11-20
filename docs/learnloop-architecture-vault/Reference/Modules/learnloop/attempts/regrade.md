@@ -156,6 +156,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_regrade_replay_never_reads_the_superseded_diagnosis`
   - `test_regrade_to_full_marks_retires_the_diagnosis`
   - `test_the_accessor_and_the_overlays_agree_on_the_diagnosis_in_force`
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_k5_11_a_regraded_exam_answer_reaches_the_exam_channel`
+  - `test_r5_a_same_second_legacy_regrade_of_an_exam_answer_reaches_the_exam_channel`
 - [tests/test_field_split_outcomes.py](../../../../../../tests/test_field_split_outcomes.py) — direct import
   - `test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import

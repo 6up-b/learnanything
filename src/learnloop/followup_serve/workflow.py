@@ -307,8 +307,11 @@ def _instant(value: Any) -> Any:
         return None
 
 
-def _causes_shown_before(repository: Repository, row: Mapping[str, Any], answered_at: str | None) -> str | None:
+def _causes_shown_before(
+    repository: Repository, row: Mapping[str, Any], answered_at: str | None, *, same_second: bool = False,
+) -> str | None:
     """A recorded display of the workflow's causes before the answer, from any surface, held or not (R1).
+    ``same_second``: a display stamped in the answer's own second counts too (the stamps have no finer order).
 
     A display whose time can't be placed against the answer counts: nothing shows it came after. An
     unreadable table is not independent either, since it can't say the causes weren't on screen, and it
@@ -326,12 +329,14 @@ def _causes_shown_before(repository: Repository, row: Mapping[str, Any], answere
         return CAUSE_EXPOSURES_UNREADABLE
     for exposure in shown:
         at = _instant(exposure.get("shown_at"))
-        if answered is None or at is None or at < answered:
+        if answered is None or at is None or at < answered or (same_second and at == answered):
             return CAUSES_SHOWN_BEFORE_PROBE
     return None
 
 
-def probe_answer_exposed(repository: Repository, presentation_id: str, *, answered_at: str | None = None) -> str | None:
+def probe_answer_exposed(
+    repository: Repository, presentation_id: str, *, answered_at: str | None = None, same_second: bool = False,
+) -> str | None:
     """Why a generated probe's answer is not independent, or None.
 
     ``Show anyway`` marks it, a wait labels the later probe exposed (spec §6.0), and so does any
@@ -351,7 +356,7 @@ def probe_answer_exposed(repository: Repository, presentation_id: str, *, answer
         return "followup_feedback_shown_anyway"
     if row.get("exposed_at"):
         return "followup_feedback_released_before_probe"
-    return _causes_shown_before(repository, row, answered_at)
+    return _causes_shown_before(repository, row, answered_at, same_second=same_second)
 
 
 def session_rows(repository: Repository, session_id: str) -> list[dict[str, Any]]:

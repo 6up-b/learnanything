@@ -21,9 +21,9 @@ source_paths:
   - "src/learnloop/ai/runs.py"
   - "src/learnloop/ai/usage.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/replay_reading.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/grading.py"
   - "src/learnloop/attempts/regrade.py"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/attempts/grading.py`
 - `src/learnloop/attempts/regrade.py`
+- `src/learnloop/attempts/replay_reading.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/proposals/method_phrasing.py`
@@ -133,7 +134,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/missing_vocabulary.py`
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/jobs.py`
-- `src/learnloop/goals/certification_cold_probe.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -145,6 +145,7 @@ Indexes and uniqueness:
 - `tests/test_attempt_completion.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_diagnosis_pipeline.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_ingest_m3.py`
@@ -159,7 +160,6 @@ Indexes and uniqueness:
 - `tests/test_source_ingestion.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_synthesis_manifests.py`
-- `tests/test_synthesis_tail_golden.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

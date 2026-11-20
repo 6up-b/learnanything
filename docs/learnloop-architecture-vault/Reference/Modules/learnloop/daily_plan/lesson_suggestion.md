@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/lesson_suggestion.py](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py) |
-| Source lines | 748 |
+| Source lines | 750 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,8 +66,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `reservation_problem(vault: Any, repository: Any, view: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 424) — Why a pending card's reserved lesson can no longer open on the current vault, or None.
 - `draw_inputs(config: Any, state: LS.AcceptanceState, context: LS.Context, scored: Sequence[LS.ScoredCandidate]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 499) — What the day's draw seed hashes with the day (``LS.seed_for``) and its row stores as ``snapshot_hash``: a byte that moves here at a fixed input draws a different card (``tests/test_identity_pins.py``).
 - `today_suggestion(vault: Any, repository: Any, *, clock: Clock | None=None, session_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 513) — Today's suggestion card, drawing the day's decision on the first call; None when there is none.
-- `respond(vault: Any, repository: Any, *, decision_id: str, response: str, candidate_ref: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 623) — Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
-- `offer_card_view(block: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 684) — Teacher TE3b: a plan block's offer card (the step's and the plan view's), from the card its decision drew: "Learn *X* now?
+- `respond(vault: Any, repository: Any, *, decision_id: str, response: str, candidate_ref: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 625) — Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
+- `offer_card_view(block: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 686) — Teacher TE3b: a plan block's offer card (the step's and the plan view's), from the card its decision drew: "Learn *X* now?
 
 ### Module constants
 
@@ -111,8 +111,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_expire(connection: Any, view: Mapping[str, Any], problem: str, *, now_iso: str) -> None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 440) — Let an unopenable reservation go: an ``expired`` row on its decision (nothing deleted).
 - `_recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tuple[bool, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 452) — Today's card before any draw: ``(True, card)`` when the day already has its decision or an earlier day's Start still waits to open (validated first; R2), else ``(False, None)`` (draw).
 - `_target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.Target` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 480) — The day's target, drawn the router's way (spec §15.1, codex re-review F5).
-- `_release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 700) — Let a pending card's reservation go (the learner's "Not now" on it); idempotent.
-- `_response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 723)
+- `_release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 702) — Let a pending card's reservation go (the learner's "Not now" on it); idempotent.
+- `_response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 725)
 
 ## Who imports or calls it
 
@@ -140,6 +140,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `module`; calls `decision_row_material`, `record`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `ROUTER_LOG_VERSION`, `insert_router_decision`; calls `insert_router_decision`
 - [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `all_decisions`, `attempts_by_learning_object`, `attempts_classified_by`, `decision`, `decision_for_day`, `decisions`, `insert_response`, `last_lesson_ended_by_learning_object`, `last_lesson_opened_by_learning_object`, `lesson_exists`, `offer_decision`, `open_lesson_learning_objects`, `receipt_key`, `release_for`, `releases`, `response_for`, `responses`, `tables_present`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `effective_posterior_reader`; calls `effective_posterior_reader`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `COLD_ATTEMPT_TYPES`, `predicted_success`; calls `predicted_success`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `item_irt_params`; calls `initial_mastery_state_for_learning_object`, `item_irt_params`

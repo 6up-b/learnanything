@@ -331,7 +331,7 @@ def _recipe_cells(spec: Mapping[str, Any]) -> list[tuple[str, str]]:
 
 
 def _baseline_evidence_projection(
-    repository: Repository, run: Mapping[str, Any], spec: Mapping[str, Any]
+    repository: Repository, run: Mapping[str, Any], spec: Mapping[str, Any], vault: Any = None,
 ) -> dict[tuple[str, str], dict[str, Any]]:
     """Project the pinned baseline episode's observations onto the recipe cells (§5.3).
 
@@ -350,6 +350,11 @@ def _baseline_evidence_projection(
     an observation whose grade a later regrade holds for review reads as
     non-belief-updating, non-qualifying and scoreless while it is held, so its
     provisional score labels no cell ``weak`` or ``demonstrated`` (``contested``).
+    With the ``vault``, the rows are the episode's own reading at its tag
+    (``probe_episodes.effective_episode_observations``): from mvp-0.61 an exposed
+    answer recorded below the tag updates no belief there either, so it labels
+    no cell ``demonstrated`` or ``weak``. Without one (a caller that has no
+    vault) the repository's rows, as before.
 
     Cells with no touching observation are absent here (the caller defaults them
     ``untested``). ``demonstrated`` reuses the P0 ``DEMONSTRATED_CLAIM_CERTAINTY`` floor
@@ -359,7 +364,12 @@ def _baseline_evidence_projection(
     episode_id = pin.get("probe_episode_id") if pin else None
     if not episode_id:
         return {}
-    rows = repository.probe_observations_for_episode(episode_id)
+    if vault is not None:
+        from learnloop.diagnosis.probe_episodes import effective_episode_observations
+
+        rows = effective_episode_observations(vault, repository, episode_id)
+    else:
+        rows = repository.probe_observations_for_episode(episode_id)
     if not rows:
         return {}
 
@@ -420,7 +430,7 @@ def _baseline_evidence_projection(
     return projection
 
 
-def boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]:
+def boundary_view(repository: Repository, *, run_id: str, vault: Any = None) -> dict[str, Any]:
     """Render only the facet x capability cells relevant to the target blueprint
     (§5.3), projected over the pinned baseline episode's P0/P1 evidence.
 
@@ -436,7 +446,7 @@ def boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]:
     import json as _json_mod
 
     spec = _json_mod.loads(version["spec_json"]) if version else {}
-    projection = _baseline_evidence_projection(repository, run, spec)
+    projection = _baseline_evidence_projection(repository, run, spec, vault)
     cells: list[dict[str, Any]] = []
     for facet, capability in _recipe_cells(spec):
         cell: dict[str, Any] = {"facet": facet, "capability": capability, "status": "untested"}
@@ -452,7 +462,7 @@ def boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]:
 
 
 def snapshot_baseline_boundary(
-    repository: Repository, *, run_id: str, clock: Clock | None = None
+    repository: Repository, *, run_id: str, clock: Clock | None = None, vault: Any = None,
 ) -> dict[str, Any]:
     """Persist the baseline boundary view as a run artifact at diagnostic-segment close
     (§5.3 / §8.4). Idempotent: the first snapshot wins so the ``before`` side of the
@@ -464,7 +474,7 @@ def snapshot_baseline_boundary(
         import json as _json_mod
 
         return _json_mod.loads(existing["payload_json"])
-    view = boundary_view(repository, run_id=run_id)
+    view = boundary_view(repository, run_id=run_id, vault=vault)
     repository.append_golden_path_artifact(
         run_id=run_id,
         kind="baseline_boundary",

@@ -113,7 +113,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/recurrence/report|learnloop.diagnosis.recurrence.report]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`; statically calls `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
-- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
+- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `held_attempt_ids`, `pfc_assessments`; statically calls `held_attempt_ids`, `pfc_assessments`
 - [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`

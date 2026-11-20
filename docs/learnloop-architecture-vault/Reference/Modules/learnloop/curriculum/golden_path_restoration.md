@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/golden_path_restoration.py](../../../../../../src/learnloop/curriculum/golden_path_restoration.py) |
-| Source lines | 441 |
+| Source lines | 444 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,11 +55,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `class RestorationReceipt` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 47)
   - `as_dict(self) -> dict[str, Any]` (line 59; public)
-- `boundary_diff(repository: Repository, *, run_id: str, result: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 103) — Diff the demonstrated boundary before/after the cold assessment (§8.4).
-- `record_milestone_and_invite(repository: Repository, *, run_id: str, idempotency_key: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 164) — On a passed cold assessment, append the milestone fact and evaluate ONE reviewed edge as a ``suggest_next`` invitation (§7.5).
-- `restore(repository: Repository, *, run_id: str, idempotency_key: str, clock: Clock | None=None) -> RestorationReceipt` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 240) — Restore source context + boundary diff after the grade is committed (§8.4).
-- `accept_depth_invitation(repository: Repository, *, run_id: str, idempotency_key: str, live_activation_enabled: bool | None=None, fork_edit: Mapping[str, Any] | None=None, goal_id: str | None=None, proposed_contract_body: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 336) — Record the learner's EXPLICIT acceptance of the reviewed depth edge (§7.5).
-- `decline_depth_invitation(repository: Repository, *, run_id: str, idempotency_key: str, reason: str | None=None, to_state: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 410) — Log the learner's explicit decline of the depth invitation (§7.5).
+- `boundary_diff(repository: Repository, *, run_id: str, result: Mapping[str, Any], vault: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 103) — Diff the demonstrated boundary before/after the cold assessment (§8.4).
+- `record_milestone_and_invite(repository: Repository, *, run_id: str, idempotency_key: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 166) — On a passed cold assessment, append the milestone fact and evaluate ONE reviewed edge as a ``suggest_next`` invitation (§7.5).
+- `restore(repository: Repository, *, run_id: str, idempotency_key: str, clock: Clock | None=None, vault: Any=None) -> RestorationReceipt` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 242) — Restore source context + boundary diff after the grade is committed (§8.4).
+- `accept_depth_invitation(repository: Repository, *, run_id: str, idempotency_key: str, live_activation_enabled: bool | None=None, fork_edit: Mapping[str, Any] | None=None, goal_id: str | None=None, proposed_contract_body: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 339) — Record the learner's EXPLICIT acceptance of the reviewed depth edge (§7.5).
+- `decline_depth_invitation(repository: Repository, *, run_id: str, idempotency_key: str, reason: str | None=None, to_state: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_restoration.py), line 413) — Log the learner's explicit decline of the depth invitation (§7.5).
 
 ### Module constants
 

@@ -34,6 +34,7 @@ import pytest
 from learnloop.daily_plan.lanes import register_scheduled_check_provider, unregister_scheduled_check_provider, ScheduledCheck
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis import voi_stopping as voi
+from learnloop.diagnosis.probe_episodes import qualifying_observation_count
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.daily_plan_fakes import make_env, scheduled
@@ -759,7 +760,9 @@ def test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_p
         posterior = {label: 0.9 if label == top else 0.1 / (len(labels) - 1) for label in labels}
         eligible = eligible_instruments(vault, repository, episode, posterior=posterior)
         assert eligible[0].selection_objective == "predictive_eig"
-        decision = voi.probe_episode_decision(voi.VoiContext(vault, repository), episode, eligible, posterior, session_id=None)
+        decision = voi.probe_episode_decision(voi.VoiContext(vault, repository), episode, eligible, posterior, session_id=None,
+                                          qualifying_observations=qualifying_observation_count(vault, repository, episode.id),
+                                          session_qualifying_observations=0)
         lookahead = decision.as_dict()["lookahead"]
         assert lookahead["paid"] and lookahead["member_count"] == 129 and lookahead["quantile"] == 0.25
         assert all(value.value_robust_minutes <= value.cost_minutes for value in decision.candidates if not value.continues)
@@ -934,7 +937,9 @@ def _paying_lookahead_episode(tmp_path, monkeypatch, groups=None):
     _minutes_patch(monkeypatch, 0.02)
     posterior = {label: 0.9 if label == labels[0] else 0.1 / (len(labels) - 1) for label in labels}
     eligible = eligible_instruments(vault, repository, episode, posterior=posterior)
-    decision = voi.probe_episode_decision(voi.VoiContext(vault, repository), episode, eligible, posterior, session_id=None)
+    decision = voi.probe_episode_decision(voi.VoiContext(vault, repository), episode, eligible, posterior, session_id=None,
+                                          qualifying_observations=qualifying_observation_count(vault, repository, episode.id),
+                                          session_qualifying_observations=0)
     return vault, repository, episode, eligible, decision
 
 

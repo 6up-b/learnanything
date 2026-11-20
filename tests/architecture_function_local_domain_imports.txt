@@ -62,7 +62,6 @@ learnloop.diagnosis.causal_attribution -> learnloop.substrate.canonical_projecti
 learnloop.diagnosis.causal_cold_verification -> learnloop.attempts.coldness_receipt
 learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.instrument_serving
-learnloop.diagnosis.causal_discrimination -> learnloop.attempts.reveal_ledger
 learnloop.diagnosis.causal_discrimination -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.contrast_pairs -> learnloop.learner.identifiability
 learnloop.diagnosis.diagnosis_adjudication -> learnloop.tutor.durable_promotion
