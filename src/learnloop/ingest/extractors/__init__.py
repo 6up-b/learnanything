@@ -6,6 +6,8 @@ Downstream code imports from here; it never imports marker/pypdf classes directl
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
+from typing import NamedTuple
 
 from learnloop.ingest.extractors.base import (
     DocumentExtractor,
@@ -53,8 +55,10 @@ __all__ = [
     "MarkerUnavailableError",
     "PyPdfDocumentExtractor",
     "PyPdfExtractionError",
+    "PdfExtractorConsent",
     "captions_to_ir",
     "chunk_output_to_ir",
+    "document_pdf_config",
     "extract_with_fallback",
     "fallback_model_versions",
     "local_pdf_extractor",
@@ -81,7 +85,79 @@ class NativeEngineNotLocalError(ValueError):
     substitute marker or pypdf for it."""
 
 
-def pdf_extractor_for(config: dict | None = None, *, local_only: bool = False) -> DocumentExtractor:
+def document_pdf_config(config: dict, raw_bytes: bytes) -> dict:
+    """Only GLM-OCR reads a PNG/JPG: a PDF-only engine choice (the native
+    PDF model, Marker, pypdf) reads an image the automatic way."""
+
+    from learnloop.ingest.extractors.glm_ocr import is_image_document
+
+    if config.get("engine") in {"native", "marker", "pypdf"} and is_image_document(raw_bytes):
+        return {**config, "engine": "auto"}
+    return config
+
+
+class PdfExtractorConsent(NamedTuple):
+    flow: str
+    plain_message: str | None = None
+    code: str = "needs_upload_ok"
+    retryable: bool = True
+
+
+def pdf_extractor_for(
+    config: dict | None = None, *, local_only: bool = False, raw_bytes: bytes | None = None,
+    upload_allowed: bool | Callable[[], bool] = False, require_upload_ok: bool = False,
+) -> DocumentExtractor | tuple[DocumentExtractor | None, PdfExtractorConsent | None]:
+    """Choose a reader and, when bytes are supplied, the consent it requires.
+
+    Calls without bytes retain the provider-only API for extraction tools.
+    Import jobs supply bytes and the upload OK, then render any returned card.
+    """
+    settings = dict(config or {})
+    if raw_bytes is not None:
+        settings = document_pdf_config(settings, raw_bytes)
+    extractor = _selected_pdf_extractor(settings, local_only=local_only)
+    if raw_bytes is None:
+        return extractor
+    from learnloop.ingest.extractors.glm_ocr import is_image_document
+
+    image = is_image_document(raw_bytes)
+    # A repair OK'd as local, of an image only text recognition elsewhere can read.
+    local_image = PdfExtractorConsent(
+        "glm_ocr_image",
+        "Only text recognition can read an image, and none runs on this computer, where this repair was asked "
+        'to stay. Turn on "external VLM" to repair it with text recognition, which sends the image off this computer.',
+        "local_repair", False,
+    )
+    if extractor.name != "glm_ocr" and image:
+        if local_only and selected_backend(settings.get("glm_ocr")) is not None:
+            # Text recognition is set up, only off this computer (never "add
+            # a key" when one is set).
+            return None, local_image
+        raise MarkerUnavailableError(GLM_UNAVAILABLE_MESSAGE)
+    if extractor.name != "glm_ocr":
+        return extractor, None
+    if local_only and extractor.leaves_this_computer():
+        # An explicit glm_ocr engine still names a reader off this computer,
+        # and the learner OK'd this repair as local: a PDF is read here, and
+        # an image, which only text recognition reads, is refused.
+        return (None, local_image) if image else (local_pdf_extractor(settings), None)
+    if extractor.backend == "api":
+        if (
+            str(settings.get("engine") or "auto") == "auto" and not image and not require_upload_ok
+            and not (upload_allowed() if callable(upload_allowed) else upload_allowed)
+        ):
+            local = local_pdf_extractor(settings)
+            local.selection_reason = "glm_ocr_needs_upload_ok"
+            return local, None
+        return extractor, PdfExtractorConsent(
+            "glm_ocr_upload",
+            "Reading this image with GLM-OCR sends it to z.ai, which needs your OK first. "
+            "Say OK on its card in the Library." if image else None,
+        )
+    return extractor, None
+
+
+def _selected_pdf_extractor(config: dict | None = None, *, local_only: bool = False) -> DocumentExtractor:
     """Select the document extractor (§2.9) for a PDF, PNG or JPG.
 
     ``config["engine"]`` decides. ``"auto"`` (or absent) prefers GLM-OCR's
@@ -95,7 +171,7 @@ def pdf_extractor_for(config: dict | None = None, *, local_only: bool = False) -
     computer (an extraction repair the learner OK'd as local) never selects
     hosted GLM-OCR, or a self-hosted server on another computer, in
     ``"auto"``; an explicit ``"glm_ocr"`` still returns either, so the
-    import's guard (``jobs._document_extractor``) reads it locally instead."""
+    consent-aware selection (``pdf_extractor_for``) reads it locally instead."""
 
     settings = dict(config or {})
     engine = str(settings.pop("engine", "") or "auto")

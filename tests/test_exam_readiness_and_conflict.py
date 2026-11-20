@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from learnloop.clock import FrozenClock
 from learnloop.content.proposals.conflict_resolution import ConflictResolutionError, resolve_conflict, conflict_with_audit
 from learnloop.goals.exam_readiness import exam_readiness_report
@@ -112,3 +114,60 @@ def test_conflict_resolution_notation_mapping_materializes_mapping(tmp_path):
                      clock=_CLOCK)
     mappings = repo.notation_mappings_for_entity("facet", "facet_symmetry_definition")
     assert any(m["canonical_notation"] == "A^T" and m["alternate_notation"] == "A'" for m in mappings)
+
+
+def _open_notation_conflict(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo,
+                     clock=_CLOCK, apply=True, brief={"depth": "intro"})
+    conflict_id = repo.insert_source_conflict(
+        entity_type="facet", entity_id="facet_symmetry_definition", statement="notation differs",
+        left_locator="span:s1", right_locator="span:s2", clock=_CLOCK,
+    )
+    return repo, conflict_id
+
+
+@pytest.mark.parametrize("failure_at", ["after_mapping", "after_status"])
+def test_conflict_resolution_rolls_back_every_write(tmp_path, monkeypatch, failure_at):
+    import sqlite3
+
+    repo, conflict_id = _open_notation_conflict(tmp_path)
+    before = repo.source_conflict(conflict_id)
+    if failure_at == "after_mapping":
+        def fail(*args, **kwargs):
+            raise RuntimeError("injected after mapping")
+        monkeypatch.setattr(repo, "resolve_source_conflict", fail)
+        error = RuntimeError
+    else:
+        with repo.connection() as connection:
+            connection.execute("""CREATE TRIGGER fail_audit BEFORE INSERT ON source_conflict_resolutions
+                BEGIN SELECT RAISE(ABORT, 'injected after status'); END""")
+            connection.commit()
+        error = sqlite3.IntegrityError
+    with pytest.raises(error, match="injected"):
+        resolve_conflict(repo, conflict_id, resolution_kind="notation_mapping",
+                         resolution={"canonical_notation": "A^T", "alternate_notation": "A'"}, clock=_CLOCK)
+    assert repo.notation_mappings_for_entity("facet", "facet_symmetry_definition") == []
+    assert repo.source_conflict(conflict_id) == before
+    assert repo.source_conflict_resolutions(conflict_id) == []
+
+
+def test_conflict_resolution_rejects_a_stale_open_read_without_writes(tmp_path, monkeypatch):
+    repo, conflict_id = _open_notation_conflict(tmp_path)
+    stale = repo.source_conflict(conflict_id)
+    resolve_conflict(repo, conflict_id, resolution_kind="dismiss", clock=_CLOCK)
+    before = conflict_with_audit(repo, conflict_id)
+    read = repo.source_conflict
+    calls = 0
+
+    def stale_once(row_id):
+        nonlocal calls
+        calls += 1
+        return stale if calls == 1 else read(row_id)
+
+    monkeypatch.setattr(repo, "source_conflict", stale_once)
+    with pytest.raises(ConflictResolutionError, match="already dismissed"):
+        resolve_conflict(repo, conflict_id, resolution_kind="notation_mapping",
+                         resolution={"canonical_notation": "A^T", "alternate_notation": "A'"}, clock=_CLOCK)
+    assert conflict_with_audit(repo, conflict_id) == before
+    assert repo.notation_mappings_for_entity("facet", "facet_symmetry_definition") == []

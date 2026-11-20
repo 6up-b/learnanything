@@ -249,14 +249,9 @@ def _is_document(fetched: FetchedBytes, category: str) -> bool:
 
 
 def _image_config(pdf_config: dict[str, Any], fetched: FetchedBytes) -> dict[str, Any]:
-    """Only GLM-OCR reads a PNG/JPG: a PDF-only engine choice (the native
-    PDF model, Marker, pypdf) reads an image the automatic way."""
+    from learnloop.ingest.extractors import document_pdf_config
 
-    from learnloop.ingest.extractors.glm_ocr import is_image_document
-
-    if pdf_config.get("engine") in {"native", "marker", "pypdf"} and is_image_document(fetched.raw_bytes):
-        return {**pdf_config, "engine": "auto"}
-    return pdf_config
+    return document_pdf_config(pdf_config, fetched.raw_bytes)
 
 
 def _document_extractor(ctx: JobContext, pdf_config: Mapping[str, Any], fetched: FetchedBytes) -> Any:
@@ -273,44 +268,22 @@ def _document_extractor(ctx: JobContext, pdf_config: Mapping[str, Any], fetched:
     over z.ai and a text recognition server on another computer. An image
     needs GLM-OCR: Marker and pypdf read PDFs only."""
 
-    from learnloop.ingest.extractors import MarkerUnavailableError, local_pdf_extractor, pdf_extractor_for
-    from learnloop.ingest.extractors.glm_ocr import UNAVAILABLE_MESSAGE, is_image_document, selected_backend
+    from learnloop.ingest.extractors import MarkerUnavailableError, pdf_extractor_for
 
-    local_repair = _local_repair(ctx)
     try:
-        extractor = pdf_extractor_for({**pdf_config, "glm_ocr": _glm_settings(ctx)}, local_only=local_repair)
+        extractor, consent = pdf_extractor_for(
+            {**pdf_config, "glm_ocr": _glm_settings(ctx)}, local_only=_local_repair(ctx),
+            raw_bytes=fetched.raw_bytes, upload_allowed=lambda: _upload_allowed(ctx, "glm_ocr_upload"),
+            require_upload_ok=bool(ctx.payload.get("require_upload_ok")),
+        )
     except MarkerUnavailableError as exc:
         raise IngestRunnerError(str(exc), code="pdf_extractor_unavailable", retryable=True) from exc
-    image = is_image_document(fetched.raw_bytes)
-    if extractor.name != "glm_ocr" and image:
-        if local_repair and selected_backend(_glm_settings(ctx)) is not None:
-            # Text recognition is set up, only off this computer (never "add
-            # a key" when one is set).
-            _refuse_local_repair_of_an_image()
-        raise IngestRunnerError(UNAVAILABLE_MESSAGE, code="pdf_extractor_unavailable", retryable=True)
-    if extractor.name != "glm_ocr":
-        return extractor
-    if local_repair and extractor.leaves_this_computer():
-        # An explicit glm_ocr engine still names a reader off this computer,
-        # and the learner OK'd this repair as local: a PDF is read here, and
-        # an image, which only text recognition reads, is refused.
-        if not image:
-            return local_pdf_extractor(dict(pdf_config))
-        _refuse_local_repair_of_an_image()
-    if extractor.backend == "api":
-        if (
-            str(pdf_config.get("engine") or "auto") == "auto"
-            and not image
-            and not ctx.payload.get("require_upload_ok")
-            and not _upload_allowed(ctx, "glm_ocr_upload")
-        ):
-            local = local_pdf_extractor(dict(pdf_config))
-            local.selection_reason = GLM_NEEDS_UPLOAD_OK
-            return local
-        _guard_file_upload(
-            ctx, "glm_ocr_upload", plain_message=_PLAIN_IMPORT_IMAGE_MESSAGE if image else None,
-            details=glm_upload_estimate(ctx, fetched),
-        )
+    if consent is not None:
+        if consent.code != "needs_upload_ok":
+            raise IngestRunnerError(consent.plain_message, code=consent.code, retryable=consent.retryable,
+                                    details={"flow": consent.flow})
+        _guard_file_upload(ctx, consent.flow, plain_message=consent.plain_message,
+                           details=glm_upload_estimate(ctx, fetched))
     return extractor
 
 
@@ -374,27 +347,12 @@ _PLAIN_IMPORT_UPLOAD_MESSAGES = {
         "Say OK on its card in the Library, or choose another PDF engine."
     ),
 }
-_PLAIN_IMPORT_IMAGE_MESSAGE = (
-    "Reading this image with GLM-OCR sends it to z.ai, which needs your OK first. "
-    "Say OK on its card in the Library."
-)
 _PLAIN_IMPORT_SCAN_MESSAGE = (
     "This PDF has no text layer (it looks scanned), so only text recognition can read it. Reading it with "
     "GLM-OCR sends the whole file to z.ai, which needs your OK first. Say OK on its card in the Library."
 )
 # Why a PDF was read locally: the z.ai OK was missing where no card could ask.
 GLM_NEEDS_UPLOAD_OK = "glm_ocr_needs_upload_ok"
-# A repair OK'd as local, of an image only text recognition elsewhere can read.
-_LOCAL_REPAIR_IMAGE_MESSAGE = (
-    "Only text recognition can read an image, and none runs on this computer, where this repair was asked "
-    'to stay. Turn on "external VLM" to repair it with text recognition, which sends the image off this computer.'
-)
-
-
-def _refuse_local_repair_of_an_image() -> None:
-    raise IngestRunnerError(
-        _LOCAL_REPAIR_IMAGE_MESSAGE, code="local_repair", retryable=False, details={"flow": "glm_ocr_image"}
-    )
 
 
 def _guard_file_upload(ctx: JobContext, flow: str, *, plain_message: str | None = None,
