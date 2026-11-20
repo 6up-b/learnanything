@@ -78,6 +78,7 @@ import {
   GOAL_NOT_UP_TODAY,
   KEEP_GOING_NOTHING_LEAD,
   PLAN_FINISHED,
+  PLAN_STOPPED_WITH_MORE,
   WHATS_SENT,
   causeActionLabel,
   causeSendsPassages,
@@ -534,7 +535,7 @@ export function TodayPlace({
     [session?.sessionId, session?.availableMinutes, planOff, offMinutes]
   );
   const queueQuery = useCachedQuery(
-    queueInput && (list || planOff || emptyDay || keptGoingToNothing) ? ["get_today_queue", queueInput] : null,
+    queueInput && (list || planOff || emptyDay || planDone || keptGoingToNothing) ? ["get_today_queue", queueInput] : null,
     () => api.getTodayQueue(queueInput!),
     { tags: [TAG.queue] }
   );
@@ -550,6 +551,14 @@ export function TodayPlace({
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0;
   const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section) => count + section.items.length, 0) : null;
+  // A closed plan with work left: a block of it not done, or questions still on today's list. The plan closes the
+  // same way whether the router stopped with work feasible or nothing was left (its stopReason is free text), so
+  // what is left is read from its rows and the list; null until the list is read, so neither line flashes.
+  const moreLeft: boolean | null = !plan || !planDone
+    ? null
+    : plan.blocks.some((block) => block.status !== "done") || (listItems !== null && listItems > 0)
+      ? true
+      : listItems === null ? null : false;
   // Item 6: Keep going that came back with nothing open says the day's cause too.
   const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn)
     ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems })
@@ -974,11 +983,23 @@ export function TodayPlace({
         <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text }}>
           {empty ? "Nothing planned for today." : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
         </div>
-        {empty ? causeLine : keptGoingToNothing ? null : (
+        {empty ? causeLine : keptGoingToNothing ? null : moreLeft ? (
+          <div data-testid="today-stopped-more" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
+            {PLAN_STOPPED_WITH_MORE}
+            {(listItems ?? 0) > 0 ? (
+              <>
+                {" "}
+                <button type="button" style={linkButton} onClick={() => setList(true)}>
+                  {causeActionLabel({ kind: "list_has_more" })}
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : moreLeft === false ? (
           <div data-testid="today-finished" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
             {PLAN_FINISHED}
           </div>
-        )}
+        ) : null}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" style={actionButton(true)} disabled={busy} onClick={() => void keepGoing()}>
             Keep going ↵

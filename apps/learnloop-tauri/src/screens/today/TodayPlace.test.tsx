@@ -1261,8 +1261,10 @@ describe("UX fix stage 3, P1: an empty or finished Today names its cause and car
 
   it("a finished plan: nothing else is needed", async () => {
     const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    // UX-16: "nothing else is needed" is said only when nothing is left, so today's list is empty here.
     apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 6 } }), {
-      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] }))
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([]))
     });
     show(causeProps({ session: SESSION }));
     const line = await screen.findByTestId("today-finished");
@@ -1604,3 +1606,53 @@ function defaultProps(): TodayPlaceProps {
     onError: vi.fn()
   };
 }
+
+describe("UX-16: a plan that stopped with work left never says nothing else is needed", () => {
+  const finished = (overrides: Partial<DailyPlanBodyDto> = {}) =>
+    body({ status: "complete", stopReason: "A good place to stop for today.", blocks: [block({ status: "done" })], currentBlockId: null, projected: [], ...overrides });
+
+  it("stopped with questions still on today's list: says there is more, and offers the list (seasoned-2 #59)", async () => {
+    const done = finished();
+    apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 0.6 } }), {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2), scheduled(3)]))
+    });
+    show({ session: SESSION });
+    const line = await screen.findByTestId("today-stopped-more");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(line.textContent).toContain("The plan stopped here, but there's more for today if you'd like it.");
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+    expect(surface()).not.toContain("Nothing else is needed today.");
+    expect(screen.getByRole("button", { name: /Keep going/ })).toBeTruthy();
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+    fireEvent.click(within(line).getByRole("button", { name: "Open today's list" }));
+    expect(await screen.findByTestId("today-list")).toBeTruthy();
+  });
+
+  it("a catch-up done beside a list still holding questions says the same (returner-1 #49-51)", async () => {
+    const done = finished({ kind: "reentry", reentry: { gapDays: 22, solidCount: 4, slippedCount: 9, slippedNames: [], namedBy: "priority", target: 0.8, planMinutes: 2, planItems: 2 } });
+    apis(dto(done), { getTodayQueue: vi.fn(async () => queue(Array.from({ length: 9 }, (_, index) => scheduled(index + 1)))) });
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Catch-up done.");
+    expect((await screen.findByTestId("today-stopped-more")).textContent).toContain("there's more for today");
+    expect(surface()).not.toContain("Nothing else is needed today.");
+  });
+
+  it("a block of the closed plan not done yet is work left too, whatever the list says", async () => {
+    const done = finished({ blocks: [block({ status: "done" }), block({ id: "blk_2", ordinal: 2, status: "upcoming" })] });
+    apis(dto(done), { getTodayQueue: vi.fn(async () => queue([])) });
+    show({ session: SESSION });
+    const line = await screen.findByTestId("today-stopped-more");
+    expect(within(line).queryByRole("button", { name: "Open today's list" })).toBeNull();
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+  });
+
+  it("nothing is claimed before the list is read", async () => {
+    const done = finished();
+    apis(dto(done), { getTodayQueue: vi.fn(() => new Promise<QueueSnapshot>(() => undefined)) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-done");
+    await flush();
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+    expect(screen.queryByTestId("today-stopped-more")).toBeNull();
+  });
+});
