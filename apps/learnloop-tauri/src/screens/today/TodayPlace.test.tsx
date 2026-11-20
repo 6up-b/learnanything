@@ -2341,3 +2341,59 @@ describe("Broken controls, third round: a topic that failed while the rest are s
     expect(findJargon(cause.textContent ?? "")).toEqual([]);
   });
 });
+
+describe("Broken controls, third round: Today offering questions says no 'nothing planned', and one control shows Enter (UX-52)", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const facts = (overrides: Partial<NonNullable<SourceStatusLineDto["questions"]>> = {}) => ({
+    count: 0, itemIds: [], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, ...overrides
+  });
+  const built = (questions = facts()): SourceStatusLineDto => ({ ...LINE.built, questions });
+  const enterMarked = () => screen.getAllByRole("button").filter((button) => (button.textContent ?? "").includes("↵"));
+
+  it("an empty, finished plan with questions offered: no 'Nothing planned for today.', and only Begin shows ↵ (Enter is Begin)", async () => {
+    const f = emptyToday([libraryCard(built(facts({ count: 3, itemIds: ["pi_1", "pi_2", "pi_3"], writing: ["Document"], progress: { done: 1, total: 8 } })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2), scheduled(3)]))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain("3 questions from what you read in “Symmetric Matrices and Variance” are ready."));
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
+    expect(surface()).not.toMatch(/Nothing planned/);
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+    await press({ key: "Enter" });
+    await waitFor(() => expect(f.planLearnerPick).toHaveBeenCalledWith("pi_1", "s1", "cand_1"));
+    expect(f.planKeepGoing).not.toHaveBeenCalled();
+  });
+
+  it("after practice outside the plan: the plan stays empty, and still no 'nothing planned' while questions are offered", async () => {
+    // Two minutes answered outside the plan (picks from the list): the day's plan still had nothing in it.
+    emptyToday([libraryCard(built(facts({ count: 3, itemIds: ["pi_1", "pi_2", "pi_3"], writing: ["Document"], progress: { done: 2, total: 8 } })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2), scheduled(3)])),
+      getDailyPlan: vi.fn(async () => dto(emptyPlan(), { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 2, plannedItems: 0, readingBlocks: 0 } } as Partial<DailyPlanDto>))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("are ready"));
+    expect(surface()).not.toMatch(/Nothing planned/);
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
+  });
+
+  it("an empty, finished plan with nothing offered: the heading stays, and Keep going is the one control with ↵ (Enter is Keep going)", async () => {
+    const f = emptyToday([libraryCard(built(facts({ writing: ["Document"], progress: { done: 0, total: 8 } })))]);
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Nothing planned for today.");
+    await screen.findByTestId("today-cause");
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Keep going ↵"]);
+    await press({ key: "Enter" });
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalled());
+  });
+
+  it("an open plan with nothing in it and questions offered: no 'Nothing planned for today.', and only Begin shows ↵", async () => {
+    emptyToday([libraryCard(built(facts({ count: 2, itemIds: ["pi_1", "pi_2"] })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2)]))
+    }, body({ status: "open", blocks: [], currentBlockId: null, projected: [], totals: EMPTY_TOTALS }));
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("2 questions from what you read"));
+    expect(surface()).not.toMatch(/Nothing planned/);
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
+  });
+});
