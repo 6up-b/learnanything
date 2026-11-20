@@ -10,6 +10,7 @@ from pydantic import (
     BeforeValidator,
     Field,
     ValidationError,
+    ValidationInfo,
     WithJsonSchema,
     model_validator,
 )
@@ -17,6 +18,7 @@ from pydantic import (
 from learnloop.ai.schemas import WireModel, describe_wire_validation_error
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.attempt_types import AttemptType
+from learnloop.content.proposals.create_ids import mint_create_ids
 from learnloop.vault.required_method import CRITERIA_BY_FACT_GUIDANCE
 
 EntityType = Literal[
@@ -792,6 +794,11 @@ class AuthoringProposal(WireModel):
     summary: str
     source_refs: list[SourceRef] = Field(default_factory=list)
     items: list[AuthoringProposalItem] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def name_anonymous_creates(cls, data: Any, info: ValidationInfo) -> Any:
+        return mint_create_ids(data, info.context)
 
 
 #: Method-explicit items (owner rule 2026-10-13): every prompt that carries

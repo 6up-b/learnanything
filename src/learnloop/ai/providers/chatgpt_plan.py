@@ -278,7 +278,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             # (the same sentence, the same recorded allowance): the repaired
             # answer is the same complete JSON response (final verification F9).
             try:
-                repaired = self._respond(_JSON_ONLY, _with_budget(_repair_prompt(text, model_type), budget),
+                repaired = self._respond(_JSON_ONLY, _with_budget(_repair_prompt(text, model_type, first), budget),
                                          model_type, deadline=deadline, effort=effort, budget=budget)
             except _PLAN_UNAVAILABLE as failure:
                 note_plan_failure(signed_out=isinstance(failure, (ChatGPTSignInRequired, ChatGPTPlanNotEnabled)))
@@ -697,10 +697,11 @@ def _with_budget(prompt: str, budget: int | None) -> str:
     return f"{prompt}\n\nKeep the complete JSON response within {budget} output tokens."
 
 
-def _repair_prompt(text: str, model_type: type[BaseModel]) -> str:
+def _repair_prompt(text: str, model_type: type[BaseModel], failure: Exception) -> str:
     schema = json.dumps(model_type.model_json_schema(), sort_keys=True, ensure_ascii=False)
     return ("Repair the following model output into a JSON object that validates against "
-            f"this JSON schema. Return only JSON.\n\nSchema:\n{schema}\n\nOutput:\n{text}")
+            f"this JSON schema. Return only JSON.\n\nValidation error:\n{failure}"
+            f"\n\nSchema:\n{schema}\n\nOutput:\n{text}")
 
 
 __all__ = [

@@ -25,6 +25,7 @@ from learnloop.content.proposals.ai_contracts import (
     SourceRef,
     authoring_prompt,
 )
+from learnloop.content.proposals.create_ids import reserve_vault_create_ids
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.learner_model import MisconceptionRecord
@@ -64,14 +65,15 @@ def request_authoring_proposal(
 ) -> AuthoringProposal:
     """Run the feature-owned authoring operation on a structured provider."""
 
-    return execute_structured_operation(
-        client,
-        purpose="authoring",
-        prompt=authoring_prompt(context),
-        result_model=AuthoringProposal,
-        legacy_capability="authoring",
-        legacy_context=context,
-    )
+    with reserve_vault_create_ids(context.vault_root):
+        return execute_structured_operation(
+            client,
+            purpose="authoring",
+            prompt=authoring_prompt(context),
+            result_model=AuthoringProposal,
+            legacy_capability="authoring",
+            legacy_context=context,
+        )
 
 
 class AuthoringRequestRefused(ValueError):

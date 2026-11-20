@@ -2607,7 +2607,10 @@ def propose(
         return
     try:
         raw = read_yaml(file) if file.suffix.lower() in {".yaml", ".yml"} else jsonlib.loads(file.read_text(encoding="utf-8"))
-        proposal = AuthoringProposal.model_validate(raw)
+        from learnloop.content.proposals.create_ids import reserve_vault_create_ids
+
+        with reserve_vault_create_ids(vault_root):
+            proposal = AuthoringProposal.model_validate(raw)
         patch_id = persist_authoring_proposal(vault_root, proposal, provider="import")
     except Exception as exc:
         if json_output:

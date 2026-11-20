@@ -25,6 +25,7 @@ from learnloop.content.pipeline.ai_contracts import (
 )
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.content.proposals.ai_contracts import AuthoringProposal
+from learnloop.content.proposals.create_ids import reserve_vault_create_ids
 from learnloop.vault.repository import vault_repository
 from learnloop.ids import kebab_case, new_ulid, snake_case
 from learnloop.ingest.models import UnsupportedSourceError
@@ -48,14 +49,15 @@ def request_canonical_ingest(
 ) -> AuthoringProposal:
     """Run the feature-owned canonical-ingest operation."""
 
-    return execute_structured_operation(
-        client,
-        purpose="canonical_ingest",
-        prompt=canonical_ingest_prompt(context),
-        result_model=AuthoringProposal,
-        legacy_capability="canonical_ingest",
-        legacy_context=context,
-    )
+    with reserve_vault_create_ids(context.vault_root):
+        return execute_structured_operation(
+            client,
+            purpose="canonical_ingest",
+            prompt=canonical_ingest_prompt(context),
+            result_model=AuthoringProposal,
+            legacy_capability="canonical_ingest",
+            legacy_context=context,
+        )
 
 
 class SourceIngestionError(ValueError):
