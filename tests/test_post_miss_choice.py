@@ -295,3 +295,60 @@ def test_a_case_is_the_same_bytes_run_twice(case, monkeypatch):
         second = serialized(run_case(case, spec, patch))
     assert first == second and "0x" not in first
 
+
+# -- the pure choice with literals --------------------------------------------------------------------------------
+
+
+def _inputs(**overrides):
+    from learnloop.router_objective import choose as C
+
+    values = dict(support=(INSERT_NOW, CONTINUE_CURRENT, NO_INTERVENTION), staged_ref=INSERT_NOW,
+                  wait_ref=CONTINUE_CURRENT, per_option=True, llm_status=ANSWERED,
+                  llm_options={INSERT_NOW: 0.2, CONTINUE_CURRENT: 0.3, NO_INTERVENTION: 0.5},
+                  llm_option_rationale="Words.", llm_p_yes=None, llm_rationale=None, numeric_status=ANSWERED,
+                  numeric_choice=NO_INTERVENTION, w=0.5, to_other_policy=True, epsilon=0.02, seed="literal-seed")
+    return C.PostMissInputs(**{**values, **overrides})
+
+
+def test_the_choice_reads_only_its_inputs_and_draws_only_from_its_seed():
+    from learnloop.router_objective import choose as C
+
+    first, again = C.post_miss_choice(_inputs()), C.post_miss_choice(_inputs())
+    assert first == again and first.failed == ()
+    assert first.effective == {"staged": 0.0, "llm": 0.5, "numeric": 0.5}
+    assert first.components["numeric"] == {INSERT_NOW: 0.0, CONTINUE_CURRENT: 0.0, NO_INTERVENTION: 1.0}
+    assert first.propensity == first.drawn.pi[first.drawn.chosen] < 1.0
+    seeds = {C.post_miss_choice(_inputs(seed=f"s{index}")).drawn.chosen for index in range(40)}
+    assert seeds == {INSERT_NOW, CONTINUE_CURRENT, NO_INTERVENTION}
+
+
+def test_an_answer_the_mix_cannot_use_fails_its_policy_and_moves_its_share():
+    from learnloop.router_objective import choose as C
+
+    # An arm with no mass, a parse that is not the policy's, or a status other than answered: the LLM failed, and
+    # with the failure rule on, the numeric policy takes the whole mix. Only the policy's own parse, answered, keeps
+    # its words on the record.
+    for broken, words in ((dict(llm_options={INSERT_NOW: 0.5, CONTINUE_CURRENT: 0.5, NO_INTERVENTION: 0.0}), "Words."),
+                          (dict(llm_options=None, llm_option_rationale=None), None),
+                          (dict(llm_status=TIMEOUT), None)):
+        choice = C.post_miss_choice(_inputs(**broken))
+        assert choice.failed == ("llm",) and choice.llm_distribution is None and choice.rationale == words
+        assert choice.effective == {"staged": 0.0, "llm": 0.0, "numeric": 1.0}
+    # The numeric policy's choice outside the support fails it too; off the rule, the share goes to staged.
+    choice = C.post_miss_choice(_inputs(numeric_choice="elsewhere", to_other_policy=False))
+    assert choice.failed == ("numeric",) and choice.numeric_choice is None
+    assert choice.effective == {"staged": 0.5, "llm": 0.5, "numeric": 0.0}
+
+
+def test_a_yes_no_answer_is_two_arms_and_keeps_its_words_whatever_it_answered():
+    from learnloop.router_objective import choose as C
+
+    two = dict(support=(INSERT_NOW, CONTINUE_CURRENT), per_option=False, llm_options=None,
+               llm_option_rationale=None, llm_rationale="Finish this first.", numeric_choice=INSERT_NOW)
+    choice = C.post_miss_choice(_inputs(**two, llm_p_yes=0.25))
+    assert choice.llm_distribution == {INSERT_NOW: 0.25, CONTINUE_CURRENT: 0.75}
+    for certain in (0.0, 1.0, None):
+        refused = C.post_miss_choice(_inputs(**two, llm_p_yes=certain))
+        assert refused.failed == ("llm",) and refused.rationale == "Finish this first."
+    failed = C.post_miss_choice(_inputs(**two, llm_p_yes=0.25, llm_status=FAILED))
+    assert failed.failed == ("llm",) and failed.rationale == "Finish this first."

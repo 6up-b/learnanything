@@ -1186,25 +1186,23 @@ class ObjectiveRestraintGate(RestraintGate):
         for name in (DECIDER, LLM):
             results.setdefault(name, ComponentResult(name=name, status=NOT_READY, error=str(readiness.get(name) or "not_ready")))
         llm = results[LLM]
-        rationale = llm.rationale
-        if llm_schema == rq.LLM_POLICY_SCHEMA:
-            parsed = llm.parsed if llm.status == ANSWERED else None
-            llm_dist = ({ref: float(parsed.distribution[ref]) for ref in support}
-                        if isinstance(parsed, rq.ParsedPolicy) and set(parsed.distribution) == set(support)
-                        and all(float(value) > 0.0 for value in parsed.distribution.values()) else None)
-            rationale = parsed.rationale if isinstance(parsed, rq.ParsedPolicy) else None
-        else:
-            llm_dist = ({INSERT_NOW: float(llm.p_yes), CONTINUE_CURRENT: 1.0 - float(llm.p_yes)}
-                        if llm.status == ANSWERED and llm.p_yes is not None and 0.0 < float(llm.p_yes) < 1.0 else None)
-        numeric_ok = numeric.status == ANSWERED and numeric.choice in support
-        failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
+        parsed = llm.parsed if isinstance(llm.parsed, rq.ParsedPolicy) else None
+        # The reads keep their order (the weight, then the decision's id, which seeds the draw); the mix itself is
+        # the pure choice's.
         w, weight_record = current_weight(self.repository, config, at=now_iso)
         to_other = failure_share_to_other_policy_on(config)
-        effective = mix.effective_weights(w, failed, to_other_policy=to_other)
-        parts = mix.components(support, INSERT_NOW, llm=llm_dist, numeric_ref=numeric.choice if numeric_ok else None)
         decision_id = new_ulid()
         seed = mix_seed(self.runtime, entry.key, decision_id)
-        drawn = mix.draw(support, parts, effective, float(settings["epsilon_min"]), seed)
+        choice = C.post_miss_choice(C.PostMissInputs(
+            support=tuple(support), staged_ref=INSERT_NOW, wait_ref=CONTINUE_CURRENT,
+            per_option=llm_schema == rq.LLM_POLICY_SCHEMA, llm_status=llm.status,
+            llm_options=parsed.distribution if parsed is not None else None,
+            llm_option_rationale=parsed.rationale if parsed is not None else None,
+            llm_p_yes=llm.p_yes, llm_rationale=llm.rationale, numeric_status=numeric.status,
+            numeric_choice=numeric.choice, w=w, to_other_policy=to_other, epsilon=float(settings["epsilon_min"]),
+            seed=seed))
+        llm_dist, rationale, drawn = choice.llm_distribution, choice.rationale, choice.drawn
+        failed, effective, parts = list(choice.failed), choice.effective, choice.components
         card = entry.material["card"]
         decider = results.get(DECIDER)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
@@ -1226,7 +1224,7 @@ class ObjectiveRestraintGate(RestraintGate):
             fallback_reasons={name: (llm.status if name == mix.LLM else numeric.status) for name in failed},
             mixture={"boundary_key": entry.key, "support": support, "staged_ref": INSERT_NOW, "k": len(support),
                      "epsilon": settings["epsilon_min"], "effective_weights": effective, "w": w, "failed": failed,
-                     **T.failure_rule_field(to_other), "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
+                     **T.failure_rule_field(to_other), "llm_distribution": llm_dist, "numeric_choice": choice.numeric_choice,
                      "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                      "models": {name: result.summary() for name, result in sorted(results.items())},
                      "rationale": {"text": rationale}},
@@ -1254,7 +1252,7 @@ class ObjectiveRestraintGate(RestraintGate):
                                                      rationale_shown=drawn.component == mix.LLM and guard is None)
             base["offer_why_kind"] = why_kind
             base["lesson_offer_card"] = dict((offer_drawn.annotations or {}).get("lesson_offer") or {})
-        return RestraintOutcome(drawn.chosen, 1.0 if drawn.deterministic else drawn.propensity, base, why=why)
+        return RestraintOutcome(drawn.chosen, choice.propensity, base, why=why)
 
     def _numeric_restraint(self, state: PlanState, insert: BlockCandidate, cont: BlockCandidate, now_iso: str,
                            seed: str) -> NumericPolicy:
