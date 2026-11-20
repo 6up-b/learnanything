@@ -73,6 +73,58 @@ function splitBlocks(value: string): Block[] {
   return blocks;
 }
 
+// A press that takes the focus from the active block arrives with the pointer still down. Swapping the text box for
+// its rendered block at that moment moves everything below it (a rendered paragraph is taller than the one-line box),
+// so the release lands off the control that was pressed and its click never fires: the first click on a control
+// under a workbench step did nothing while its key worked. The swap waits for the release, and for the click the
+// release brings. One listener set for every editor, installed with the first.
+let pointerTracked = false;
+let pointerDown = false;
+
+function trackPointer(): void {
+  if (pointerTracked || typeof window === "undefined") return;
+  pointerTracked = true;
+  const down = () => {
+    pointerDown = true;
+  };
+  const up = () => {
+    pointerDown = false;
+  };
+  window.addEventListener("mousedown", down, true);
+  window.addEventListener("pointerdown", down, true);
+  window.addEventListener("mouseup", up, true);
+  window.addEventListener("pointerup", up, true);
+  window.addEventListener("pointercancel", up, true);
+  window.addEventListener("blur", up);
+}
+
+/** Runs `run` now, or after the press that is down now is released (and its click dispatched). Returns a cancel. */
+function afterPress(run: () => void): () => void {
+  if (!pointerDown) {
+    run();
+    return () => undefined;
+  }
+  let timer: number | null = null;
+  const release = () => {
+    stop();
+    timer = window.setTimeout(run, 0);
+  };
+  const stop = () => {
+    window.removeEventListener("mouseup", release, true);
+    window.removeEventListener("pointerup", release, true);
+    window.removeEventListener("pointercancel", release, true);
+    window.removeEventListener("blur", release);
+  };
+  window.addEventListener("mouseup", release, true);
+  window.addEventListener("pointerup", release, true);
+  window.addEventListener("pointercancel", release, true);
+  window.addEventListener("blur", release);
+  return () => {
+    stop();
+    if (timer !== null) window.clearTimeout(timer);
+  };
+}
+
 const SCROLL_STYLE = { flex: 1, overflow: "auto", minHeight: 0 } as const;
 // Reader workbench RW2a: a step grows with its text inside the step list.
 const COMPACT_STYLE = { minHeight: 0 } as const;
@@ -118,6 +170,12 @@ export function LiveMarkdownEditor({
   // While a block is active we hold the frozen text on either side of it.
   const [editing, setEditing] = useState<{ before: string; after: string } | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
+  // A leave waiting for the press that caused it to be released (see afterPress).
+  const pendingLeave = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    trackPointer();
+    return () => pendingLeave.current?.();
+  }, []);
 
   const blocks = useMemo(() => splitBlocks(value), [value]);
 
@@ -210,7 +268,13 @@ export function LiveMarkdownEditor({
       value={draft}
       onChange={(event) => onDraftChange(event.target.value)}
       onBlur={() => {
-        setEditing(null);
+        pendingLeave.current?.();
+        pendingLeave.current = afterPress(() => {
+          pendingLeave.current = null;
+          // The box got the focus back before the release: still editing.
+          if (taRef.current && document.activeElement === taRef.current) return;
+          setEditing(null);
+        });
         onBlur?.();
       }}
       {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
