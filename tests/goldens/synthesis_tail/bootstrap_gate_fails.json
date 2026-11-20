@@ -16,7 +16,7 @@
      "model": "fake-synth-1",
      "output_schema": "SourceSetSynthesis",
      "prompt_template": "source-set-synthesis",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "provider_revision": null,
      "provider_type": "codex",
@@ -73,7 +73,7 @@
       ]
      },
      "model": "fake-synth-1",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "revision_ids_json": {
       "<json>": [
@@ -188,7 +188,7 @@
         "status": "judge_unavailable",
         "version": "facet-identity-plan-v1"
        },
-       "input_tokens_estimate": 7309,
+       "input_tokens_estimate": 7319,
        "output_tokens_charged": 1278,
        "reused_shards": 0,
        "shard_count": 1
@@ -525,7 +525,7 @@
  "model_requests": [
   [
    "source_set_synthesis",
-   "394e00ffb38c0779"
+   "7fed21ca7c3b7544"
   ]
  ]
 }

@@ -64,6 +64,9 @@ _ECHOED_FIELDS = {
     "message": ("type", "role", "content"),
 }
 _ERROR_TEXT_LIMIT = 300
+# Measured indentation runs were at most 15 characters; a stuck answer emitted
+# 97,992. Two thousand leaves ample formatting room but cuts that runaway early.
+MAX_STRUCTURED_WHITESPACE = 2_000
 
 
 class ResponsesError(Exception):
@@ -80,7 +83,7 @@ class ResponsesError(Exception):
 
 
 class StreamCancelled(Exception):
-    """The deadline passed or the caller interrupted; ``reason`` says which."""
+    """The stream was cut for a deadline, interrupt or runaway; ``reason`` says which."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
@@ -320,6 +323,10 @@ class ResponsesStream:
         self._socket: socket.socket | None = None
         self._lock = threading.Lock()
         self._cancel_reason: str | None = None
+        self.request_id: str | None = None
+        self.delivery: dict[str, int | float | None] = {
+            "output_characters": 0, "seconds_to_first_output": None,
+        }
 
     def cancel(self, reason: str) -> None:
         with self._lock:
@@ -384,7 +391,7 @@ class ResponsesStream:
                 raise ResponsesError(f"The Responses endpoint could not be reached ({type(exc).__name__}).",
                                      status=None) from None
             headers_at = time.monotonic() - started
-            request_id = _request_id(response.headers)
+            request_id = self.request_id = _request_id(response.headers)
             if response.status != 200:
                 try:
                     raw = response.read()
@@ -399,8 +406,10 @@ class ResponsesStream:
                     message or f"HTTP {response.status}", status=response.status, code=code, param=param,
                     request_id=request_id,
                 )
+            text_format = (body.get("text") or {}).get("format") or {}
             return self._read_stream(response, request_id=request_id, started=started,
-                                     headers_at=headers_at, on_event=observe)
+                                     headers_at=headers_at, on_event=observe,
+                                     structured=text_format.get("type") == "json_schema")
         except (OSError, http.client.HTTPException) as exc:
             if idle_timeout is not None and isinstance(exc, TimeoutError):
                 self.cancel("ceiling" if time.monotonic() >= timer.end else "idle")
@@ -416,7 +425,10 @@ class ResponsesStream:
             connection.close()
 
     def _read_stream(self, response: http.client.HTTPResponse, *, request_id: str | None, started: float,
-                     headers_at: float, on_event: Callable[[str, Mapping[str, Any]], None] | None) -> StreamResult:
+                     headers_at: float, on_event: Callable[[str, Mapping[str, Any]], None] | None,
+                     structured: bool = False) -> StreamResult:
+        whitespace_run = 0
+        output_characters = 0
         deltas: list[str] = []
         items: list[dict[str, Any]] = []
         first_event: float | None = None
@@ -441,7 +453,21 @@ class ResponsesStream:
             if on_event is not None:
                 on_event(kind, event)
             if kind == "response.output_text.delta" and isinstance(event.get("delta"), str):
-                deltas.append(event["delta"])
+                delta = event["delta"]
+                output_characters += len(delta)
+                self.delivery["output_characters"] = output_characters
+                if delta and self.delivery["seconds_to_first_output"] is None:
+                    self.delivery["seconds_to_first_output"] = time.monotonic() - started
+                self._raise_if_cancelled()
+                if structured:
+                    # Check every character: a delta may contain both the runaway
+                    # and a later non-space, and the run can span many deltas.
+                    for char in delta:
+                        whitespace_run = whitespace_run + 1 if char.isspace() else 0
+                        if whitespace_run > MAX_STRUCTURED_WHITESPACE:
+                            self.cancel("runaway_whitespace")
+                            self._raise_if_cancelled()
+                deltas.append(delta)
             elif kind == "response.output_item.done" and isinstance(event.get("item"), Mapping):
                 items.append(dict(event["item"]))
             elif kind == "response.completed":

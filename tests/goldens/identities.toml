@@ -1,8 +1,8 @@
 # Compared identities at fixed inputs, one sha256 per pin (tests/identity_pins_helpers.py), sorted.
 # Generated; never edit by hand. Regenerate only with a deliberate bump (docs/algorithm-change-playbook.md when
 # persisted meaning changes; the reason goes in the landing note): uv run python tests/test_identity_pins.py --write
-"A1-A4.manifest_hash.init" = "6240b4e6ac12ec42ec9139fa87179baf31e7b610991962a5d5485f9d4754b500"
-"A1-A4.manifest_hash.legacy" = "cafe24d6a39f2a971ef010d13f77919ca56b5df428bfc457e81315b49d0cc7e6"
+"A1-A4.manifest_hash.init" = "8609bfe44177fe14b79272b7994263165f20741d951d88ba019e2fd752de4cdb"
+"A1-A4.manifest_hash.legacy" = "e734f5a7762668917c601a5e2c1eb3de787c5bf78e9ed0251cb89f23ff4e0430"
 "A1-A4.scope.init" = "b5cd34e2b496d9ddf20a194be4d57127d6509d5e3ca743d546bbdbfd57be2e0d"
 "A1-A4.scope.legacy" = "d8a2a2b52455e9348e52216a03758786b624224e3a271c52278bbb31ce352e17"
 "A1.init" = "a86a21e99129979f16c1c9a14ba3b040fb78ea18ec3c8ca81356f92ac4eccc91"
@@ -12,8 +12,8 @@
 "A11-A12.prompt" = "940130c486a9f90adddaeeb16403c6534fcf06ede6fa8661a88231afadc768db"
 "A11-A12.structure_hash" = "c364574e8c40985ee526e7d941db4f03c8fff920bc8678543767be15bebfc5e4"
 "A13.prompt" = "da604a199ebc66e268aefbbcf5555b4b65327a7820c99c27ac51be3c1ae9b6a7"
-"A14.pass_key" = "b4fcba8761d3e0fd0e23ec55357c66c8996b5c83fe28432954db99a73f3dbafc"
-"A14.pass_key.one_facet_per_skill" = "b223e76b7f52c01f5f37eae354fb86e4a56b9fda254f5d0a6cbdb4d1a59e83cf"
+"A14.pass_key" = "75340fb6c697d1b83b7752de8d77106636295f056706a09c0d07c96e24b58d68"
+"A14.pass_key.one_facet_per_skill" = "0ced5e31c54c7d10580e081cf8b2897fb97a4be11e8756622d75caaf65a8500b"
 "A15.window_key" = "d015dee6949843eb9bb87bad30c2df56a3fdf4cab0ad23756c79872e41d78906"
 "A19.family" = "1f2fcf37799318730d4e6bb7b70aa4fa35eaf0e3964d10b94fb902769fa15e76"
 "A19.item" = "d26738a88dcb5d4ced0aef566d6a2a282eaa8a3aae1007fd49914160da9fbb81"

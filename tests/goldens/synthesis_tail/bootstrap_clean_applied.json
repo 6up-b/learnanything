@@ -16,7 +16,7 @@
      "model": "fake-synth-1",
      "output_schema": "SourceSetSynthesis",
      "prompt_template": "source-set-synthesis",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "provider_revision": null,
      "provider_type": "codex",
@@ -584,7 +584,7 @@
    "added": [
     {
      "<rowid>": 3,
-     "cache_key": "3a93dba1b6a4b06666a615bee35da9bcd9e9555a16f1611ef9ef0c295f4c9335",
+     "cache_key": "2b81ece803784d3550838b1aed342f6b963699ccefa53851dc6489a2d4df4e88",
      "created_at": "<wall>",
      "purpose": "synthesis_pass",
      "result_json": {
@@ -863,7 +863,7 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7427,
+       "input_tokens_estimate": 7437,
        "output_tokens_estimate": 1328
       }
      }
@@ -1615,7 +1615,7 @@
       ]
      },
      "model": "fake-synth-1",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "revision_ids_json": {
       "<json>": [
@@ -1737,7 +1737,7 @@
         "status": "judge_unavailable",
         "version": "facet-identity-plan-v1"
        },
-       "input_tokens_estimate": 7427,
+       "input_tokens_estimate": 7437,
        "output_tokens_charged": 1328,
        "reused_shards": 0,
        "shard_count": 1
@@ -2345,7 +2345,7 @@
       }
      },
      "shard_count": 1,
-     "shard_key": "3a93dba1b6a4b06666a615bee35da9bcd9e9555a16f1611ef9ef0c295f4c9335",
+     "shard_key": "2b81ece803784d3550838b1aed342f6b963699ccefa53851dc6489a2d4df4e88",
      "shard_ordinal": 0
     }
    ]
@@ -2840,7 +2840,7 @@
  "model_requests": [
   [
    "source_set_synthesis",
-   "13d7d687865bddf9"
+   "c267a5eadc483ece"
   ],
   [
    "vault_epigraphs",

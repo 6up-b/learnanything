@@ -633,10 +633,10 @@ SOURCE_UNIT_INVENTORY_PROMPT_VERSION = "mvp-0.7-source-unit-inventory-role-aware
 #: mvp-1.4 / append mvp-0.11 (owner rule 2026-10-13): criteria by fact, and a
 #: required method only on a method target (rule 15 / append rule 9). ``-v2``
 #: (review F14 reopened): LearnLoop appends the instruction sentence.
-SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-1.4-sibling-criterion-dependencies-criteria-by-fact-v2"
+SOURCE_SET_SYNTHESIS_PROMPT_VERSION = "mvp-1.4-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration"
 # Facet identity (handoff §4): the same prompt plus the one-facet-per-skill
 # rule, used only while facet_identity.enabled is on.
-SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION = "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2"
+SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION = "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration"
 CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1"
 CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION = "mvp-0.7-concept-graph-structuring-1+t5-registry-nominations-1"
 APPEND_RECONCILIATION_PROMPT_VERSION = "mvp-0.11-append-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2"
@@ -792,11 +792,11 @@ would use for any other component. A blueprint whose recipes are empty is
 invalid and will be rejected — author a real recipe or drop the blueprint (and
 its learning object). This holds in `as_you_read` mode too: recipes are authored
 now even though practice items are deferred.
-14. INTEGRATION IS THE EXCEPTION, NOT THE DEFAULT: `integration` is OPTIONAL and
-most recipes should OMIT it. Author one only when a learner could hold every
+14. INTEGRATION IS THE EXCEPTION, NOT THE DEFAULT: `integration` key is always present
+and most recipes should set `integration` to null. Author one only when a learner could hold every
 `all_of` component and STILL fail the task in a repeatable, observable,
 separately repairable way — a genuine assembly failure, not "the task has several
-steps." If you cannot name that failure, leave `integration` absent; an omitted
+steps." If you cannot name that failure, set `integration` to null; a null
 integration component is the correct and expected output. When you do author one,
 choose its `capability` on the same evidence as any other component and state it
 explicitly — there is no default, and an integration component with no capability

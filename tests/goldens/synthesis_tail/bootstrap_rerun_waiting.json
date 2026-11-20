@@ -16,7 +16,7 @@
      "model": "fake-synth-1",
      "output_schema": "SourceSetSynthesis",
      "prompt_template": "source-set-synthesis",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "provider_revision": null,
      "provider_type": "codex",

@@ -8,7 +8,7 @@
      "actual_output_tokens": 0,
      "codex_revision": null,
      "completed_at": "2026-07-13T12:00:00Z",
-     "error_message": "budget_exceeded: Uncached synthesis base passes need about 7309 input tokens, over the total-input ceiling of 10. Each pass counts the full request: instructions, output schema, brief, registry index and the shard's inventories. Narrow the source scope or raise synthesis_total_input_ceiling.",
+     "error_message": "budget_exceeded: Uncached synthesis base passes need about 7319 input tokens, over the total-input ceiling of 10. Each pass counts the full request: instructions, output schema, brief, registry index and the shard's inventories. Narrow the source scope or raise synthesis_total_input_ceiling.",
      "est_input_tokens": 0,
      "est_output_tokens": 0,
      "id": "01M3250V00TP209AYDNCPVR73S",
@@ -16,7 +16,7 @@
      "model": "fake-synth-1",
      "output_schema": "SourceSetSynthesis",
      "prompt_template": "source-set-synthesis",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "provider_revision": null,
      "provider_type": "codex",
@@ -73,7 +73,7 @@
       ]
      },
      "model": "fake-synth-1",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "revision_ids_json": {
       "<json>": [
@@ -169,7 +169,7 @@
   "candidate_preserved": false,
   "code": "budget_exceeded",
   "diagnostics": [],
-  "message": "Uncached synthesis base passes need about 7309 input tokens, over the total-input ceiling of 10. Each pass counts the full request: instructions, output schema, brief, registry index and the shard's inventories. Narrow the source scope or raise synthesis_total_input_ceiling.",
+  "message": "Uncached synthesis base passes need about 7319 input tokens, over the total-input ceiling of 10. Each pass counts the full request: instructions, output schema, brief, registry index and the shard's inventories. Narrow the source scope or raise synthesis_total_input_ceiling.",
   "synthesis_run_id": null
  },
  "files": {},

@@ -16,7 +16,7 @@
      "model": "fake-synth-1",
      "output_schema": "SourceSetSynthesis",
      "prompt_template": "source-set-synthesis",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "provider_revision": null,
      "provider_type": "codex",
@@ -31,7 +31,7 @@
    "added": [
     {
      "<rowid>": 4,
-     "cache_key": "2f79d8a436881e86431c784c3cf47416e26e171c089790278507b50ee5e8bd2e",
+     "cache_key": "bdb95932e8972446afba3240eccdf6d5d85af8b93f8b75d0cb2ded071cb47c3f",
      "created_at": "<wall>",
      "purpose": "synthesis_pass",
      "result_json": {
@@ -310,7 +310,7 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7309,
+       "input_tokens_estimate": 7319,
        "output_tokens_estimate": 1328
       }
      }
@@ -319,7 +319,7 @@
    "removed": [
     {
      "<rowid>": 2,
-     "cache_key": "2f79d8a436881e86431c784c3cf47416e26e171c089790278507b50ee5e8bd2e",
+     "cache_key": "bdb95932e8972446afba3240eccdf6d5d85af8b93f8b75d0cb2ded071cb47c3f",
      "created_at": "<wall>",
      "purpose": "synthesis_pass",
      "result_json": {
@@ -598,7 +598,7 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7309,
+       "input_tokens_estimate": 7319,
        "output_tokens_estimate": 1328
       }
      }
@@ -1273,7 +1273,7 @@
         "status": "judge_unavailable",
         "version": "facet-identity-plan-v1"
        },
-       "input_tokens_estimate": 7309,
+       "input_tokens_estimate": 7319,
        "output_tokens_charged": 1328,
        "reused_shards": 0,
        "shard_count": 1
@@ -1601,7 +1601,7 @@
  "model_requests": [
   [
    "source_set_synthesis",
-   "394e00ffb38c0779"
+   "7fed21ca7c3b7544"
   ],
   [
    "vault_epigraphs",

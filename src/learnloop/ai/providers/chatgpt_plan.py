@@ -112,7 +112,7 @@ _MIN_ATTEMPT_SECONDS = 1.0
 _JSON_ONLY = "Return only valid JSON. Do not include Markdown fences."
 _TRANSIENT_CODES = frozenset({
     "subscription_sharing_usage_unavailable", "subscription_sharing_user_unavailable",
-    "server_error", "rate_limit_exceeded", "stream_ended",
+    "server_error", "rate_limit_exceeded", "stream_ended", "runaway_whitespace",
 })
 _TRANSIENT_STATUSES = frozenset({408, 409, 429, 500, 502, 503, 504})
 _CONFIG_CODES = frozenset({
@@ -491,21 +491,32 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                     stream_limits = {"idle_timeout": deadline.idle_seconds} if deadline.idle_seconds is not None else {}
                     result = stream.send(body, access_token=token, timeout=remaining, **stream_limits)
                 except StreamCancelled as cancelled:
+                    self._meter({}, getattr(stream, "request_id", None), extra={
+                        **(extra or {}), **getattr(stream, "delivery", {}),
+                    })
                     receipt.update(finish_reason=cancelled.reason)
                     if cancelled.reason == "interrupt":
                         raise AIInterrupted("ChatGPT plan request interrupted.") from None
+                    if cancelled.reason == "runaway_whitespace":
+                        raise self._classify(ResponsesError(
+                            "The structured answer stopped making progress (excessive whitespace).",
+                            status=200, code=cancelled.reason, request_id=getattr(stream, "request_id", None),
+                        )) from None
                     raise AITurnTimeout("The ChatGPT plan request exceeded its deadline.",
                                         reason=cancelled.reason) from None
                 except StreamIncomplete as incomplete:
-                    self._meter(incomplete.response, None, extra=extra)
+                    self._meter(incomplete.response, getattr(stream, "request_id", None), extra={
+                        **(extra or {}), **getattr(stream, "delivery", {}),
+                    })
                     if incomplete.reason in {"max_output_tokens", "max_tokens"}:
                         raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget.") from None
                     raise AIProviderUnavailable(
                         f"{self.provider_name} returned an incomplete response ({incomplete.reason or 'unknown'})."
                     ) from None
                 except ResponsesError as error:
-                    if error.response:
-                        self._meter(error.response, error.request_id, extra=extra)
+                    self._meter(error.response or {}, error.request_id or getattr(stream, "request_id", None), extra={
+                        **(extra or {}), **getattr(stream, "delivery", {}),
+                    })
                     receipt.update(finish_reason=error.code or (f"http_{error.status}" if error.status else "network"))
                     raise self._classify(error) from None
                 self.last_timing = {

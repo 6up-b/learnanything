@@ -66,7 +66,11 @@ def install_stream(monkeypatch, events, *, interrupt_at=None, detach_socket=Fals
             self.lines = deque()
             connections.append(self)
             start = clock.now
-            for at, event in events:
+            request_events = events(len(connections)) if callable(events) else events
+            for at, event in request_events:
+                if event is None:
+                    self.lines.append((start + at, b""))
+                    continue
                 self.lines.append((start + at, b"data: " + json.dumps(event).encode() + b"\n"))
                 self.lines.append((start + at, b"\n"))
 

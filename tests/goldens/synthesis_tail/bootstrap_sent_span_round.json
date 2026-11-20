@@ -16,7 +16,7 @@
      "model": "fake-synth-1",
      "output_schema": "SourceSetSynthesis",
      "prompt_template": "source-set-synthesis",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "provider_revision": null,
      "provider_type": "codex",
@@ -31,7 +31,7 @@
    "added": [
     {
      "<rowid>": 2,
-     "cache_key": "2f79d8a436881e86431c784c3cf47416e26e171c089790278507b50ee5e8bd2e",
+     "cache_key": "bdb95932e8972446afba3240eccdf6d5d85af8b93f8b75d0cb2ded071cb47c3f",
      "created_at": "<wall>",
      "purpose": "synthesis_pass",
      "result_json": {
@@ -317,14 +317,14 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7309,
+       "input_tokens_estimate": 7319,
        "output_tokens_estimate": 1353
       }
      }
     },
     {
      "<rowid>": 3,
-     "cache_key": "aeef46fbaf95f8121936b3241f017941ecfd4f772a2030fe69efa158761b6f59",
+     "cache_key": "4e2ea05aa997c01f5bb306bab862924b051816bbddfdcc54105ac60331e6c0d1",
      "created_at": "<wall>",
      "purpose": "synthesis_pass",
      "result_json": {
@@ -603,7 +603,7 @@
      },
      "usage_json": {
       "<json>": {
-       "input_tokens_estimate": 7358,
+       "input_tokens_estimate": 7368,
        "output_tokens_estimate": 1328
       }
      }
@@ -1315,7 +1315,7 @@
       ]
      },
      "model": "fake-synth-1",
-     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "prompt_version": "mvp-1.4-one-facet-per-testable-skill-sibling-criterion-dependencies-criteria-by-fact-v2-null-integration",
      "provider": "codex",
      "revision_ids_json": {
       "<json>": [
@@ -1430,7 +1430,7 @@
         "status": "judge_unavailable",
         "version": "facet-identity-plan-v1"
        },
-       "input_tokens_estimate": 14667,
+       "input_tokens_estimate": 14687,
        "output_tokens_charged": 2681,
        "reused_shards": 0,
        "shard_count": 1
@@ -2042,7 +2042,7 @@
       }
      },
      "shard_count": 1,
-     "shard_key": "2f79d8a436881e86431c784c3cf47416e26e171c089790278507b50ee5e8bd2e",
+     "shard_key": "bdb95932e8972446afba3240eccdf6d5d85af8b93f8b75d0cb2ded071cb47c3f",
      "shard_ordinal": 0
     }
    ]
@@ -2101,11 +2101,11 @@
  "model_requests": [
   [
    "source_set_synthesis",
-   "394e00ffb38c0779"
+   "7fed21ca7c3b7544"
   ],
   [
    "source_set_synthesis",
-   "05e47b47eb4f025c"
+   "20b9cd96aa9ba64e"
   ],
   [
    "vault_epigraphs",

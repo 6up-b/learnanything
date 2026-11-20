@@ -307,11 +307,11 @@ def test_a_synthesis_that_fails_twice_stops_with_retry_and_the_card_says_so(tmp_
 # -- What is sent, and what the learner is shown -----------------------------------
 
 
-# The requests of a build that fits the working sizes, rendered as before this
-# change (computed on the base commit, 713a0efd08): each step's prompt and the
-# limit it is sent under, which the plan route states at the prompt's end.
+# Pin the prompts together with their working limits: changing a ceiling must
+# not silently change what generation asks for. The synthesis prompt now writes
+# unused integration as null; its version changes, but the limits stay the same.
 _ULID = re.compile(r"_[0-9A-HJKMNP-TV-Z]{26}")
-WITHIN_BUDGET_REQUESTS = "dde2d9311363cd77c271d95d0acb2a5269eae805a79ded4fd44c598bd560177c"
+WITHIN_BUDGET_REQUESTS = "646fb09aa7694a73078e6324b5a0ce6c657c0104562645efb97c639aad3e854f"
 
 
 def test_a_build_that_fits_the_working_sizes_sends_the_same_requests(tmp_path):
