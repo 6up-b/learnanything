@@ -202,7 +202,10 @@ def evaluate_probe(inputs: Inputs, action: Action, *, decisions: DP.OwnerDecisio
                    consistent_review_draw: bool = False, held_ad_link: bool = False,
                    clock: Callable[[], float] = time.perf_counter) -> ProbeValuation:
     """The value of the diagnostic probe ``action`` carries (alone, as one step of a sequence, or in an offer's
-    declined branch) against acting now, with its record. ``decisions``: the owner's open decisions, explicitly.
+    declined branch) against acting now, with its record. It runs every acting-now path, then (unless a hard stop
+    keeps the probe out) every path with the probe in the true world and in the belief's, picks each result's repair
+    on the belief's paths, and weights the true paths by ``p(h)·L(r | h)`` into one ledger; an offer mixes that
+    ledger with its accepted branch. ``decisions``: the owner's open decisions, explicitly.
     ``wait_feasible``: whether the boundary has room to wait (decision 3 reads it). The switches are the rollouts'
     (:func:`rollouts.evaluate`'s), so a comparison runs at the boundary's own settings. ``clock`` times the record's
     cost only; no value depends on it."""
@@ -301,8 +304,7 @@ def evaluate_probe(inputs: Inputs, action: Action, *, decisions: DP.OwnerDecisio
                                               elapsed_ms=0, complete=True), support) if rows else (None, {}))
     record["choice"] = rule
     finished = clock()
-    # The acting-now arms are what the router values as separate candidates anyway; the probe's own paths (true and
-    # believed) are what pricing the probe adds.
+    # Split, so a reader can tell the acting-now arms' cost from what the probe's own paths (true and believed) add.
     record["cost"] = {"ms": (finished - started) * 1000.0, "rollouts": true_paths.tails + belief_paths.tails,
                       "ms_act_now": (now_done - started) * 1000.0, "rollouts_act_now": now_tails,
                       "ms_probe": ((probe_done - now_done) * 1000.0) if not payload.hard_stops else 0.0,
