@@ -115,6 +115,7 @@ def _llm_answers(support, choice_schema: bool) -> dict[str, ComponentResult]:
         return {
             "yes_0.3": result(ANSWERED, p_yes=0.3, rationale="Finish this first."),
             "yes_1.0": result(ANSWERED, p_yes=1.0, rationale="Now."),
+            "yes_0.0": result(ANSWERED, p_yes=0.0, rationale="Later."),
             "no_p": result(ANSWERED, p_yes=None, rationale=None),
             "failed": result(FAILED, error="boom", rationale="stale words"),
             "timeout": result(TIMEOUT, error="late"),
@@ -131,6 +132,8 @@ def _llm_answers(support, choice_schema: bool) -> dict[str, ComponentResult]:
         "unknown_evidence": result(ANSWERED, parsed=parsed(tilted, "You missed this recently.", ("att_elsewhere",))),
         "no_rationale": result(ANSWERED, parsed=parsed(tilted, None, ())),
         "missing_arm": result(ANSWERED, parsed=parsed({support[0]: 1.0}, "Only this.", ())),
+        "zero_mass": result(ANSWERED, parsed=parsed({**tilted, support[0]: 0.0}, "Not that one.", ())),
+        "failed_with_parse": result(FAILED, parsed=parsed(tilted, "Late words.", ("att_card_1",)), error="late"),
         "wrong_type": result(ANSWERED, parsed=rq.ParsedChoice(distribution=tilted, rationale="Choice.")),
         "invalid": result(INVALID, error="unparsable"),
         "timeout": result(TIMEOUT, error="late"),
