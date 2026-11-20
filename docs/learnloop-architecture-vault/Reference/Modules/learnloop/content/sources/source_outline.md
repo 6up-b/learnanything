@@ -195,7 +195,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_retrieval_search.py](../../../../../../../tests/test_source_retrieval_search.py) — direct import
   - `test_quick_add_ranks_units_by_their_text_not_only_their_labels`
   - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
+- [tests/test_ux11_html_extraction.py](../../../../../../../tests/test_ux11_html_extraction.py) — direct import
+  - `test_ux11_a_page_read_before_keeps_its_stored_reading_under_the_new_code`
+  - `test_ux11_reading_it_again_gives_the_new_text_and_carries_progress_the_study_map_and_a_highlight`
+  - `test_ux11_reading_the_article_again_maps_its_sections_and_its_held_out_mark_waits_for_the_owner`
 - [tests/test_ux2_source_macros.py](../../../../../../../tests/test_ux2_source_macros.py) — direct import
+  - `test_ux2_a_new_read_of_the_sample_carries_the_pages_macros_and_stores_none_of_them`
 - [tests/test_ux_phase1_add_source.py](../../../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_reading_progress_reaches_the_reading_order_build`
 - [tests/test_ux_phase1_auto_build.py](../../../../../../../tests/test_ux_phase1_auto_build.py) — direct import

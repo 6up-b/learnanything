@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py) |
-| Source lines | 503 |
+| Source lines | 534 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -80,8 +80,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_route_every_use_case(updates: dict[tuple[str, ...], Any], target: str, tiers: dict[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 168)
 - `_written_plan_model(vault) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 178) — The slug written under ``[ai.providers.chatgpt] model`` in the vault's file ("" when unset).
 - `_allow_file_upload(ctx: SidecarContext, flow: str | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 306) — The separate OK for sending whole files out (spec §6.6, review F1), recorded once with its date like the connection's OK.
-- `_latest_import_pages(repository, source_id: str) -> list[int] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 477)
-- `_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 483) — What reading this book again reads, costs and carries; refuses at once when its original file changed or went missing (re-read safety E1).
+- `_latest_import_pages(repository, source_id: str) -> list[int] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 487)
+- `_web_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 493) — What reading a web page again reads and carries; refuses a book whose reading is not a web page's old one, and one whose saved copy changed or went missing.
+- `_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 514) — What reading this book again reads, costs and carries; refuses at once when its original file changed or went missing (re-read safety E1).
 
 ## Who imports or calls it
 
@@ -102,12 +103,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `DEFAULT_CHATGPT_PLAN_MODEL`, `DEFAULT_SERVING_TASK_ROUTES`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `module`; calls `AddSourceOptions`, `_completed_extraction`, `add_source`, `authoring_route_for`, `consent_label`, `file_upload_allowed`, `import_jobs`, `latest_add_batch`, `latest_planner`, `learner_title`, `outline_chapters`, `pending_upload_flow`, `release_waiting_builds`, `request_auto_build`, `retry_build`, `source_kind_noun`, `text_recognition_available`, `undo_source_questions`, `upload_consent_key`, `what_leaves`, `whole_book_notice`, `whole_book_state`
 - [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `module`; calls `mark_exam_material`, `mark_plan`
-- [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `module`, `restore_readable_revision`; calls `carry_owed`, `finish_carry_over`, `original_bytes`, `reread_plan`, `restore_readable_revision`
+- [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `module`, `restore_readable_revision`; calls `carry_owed`, `finish_carry_over`, `original_bytes`, `reread_plan`, `reread_reading`, `restore_readable_revision`, `web_reread_plan`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `IngestRunnerError`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `OutstandingApplyIntentError`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `build_source_outline`; calls `build_source_outline`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `connection_note`; calls `connection_note`
 - [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `selected_backend`; calls `selected_backend`
+- [[Reference/Modules/learnloop/ingest/extractors/web_page|learnloop.ingest.extractors.web_page]] — imports `OLD_WEB_PAGE_EXTRACTOR_VERSION`
 - [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] — imports `SettingsStoreError`, `USE_CASE_ROUTES`, `apply_config_updates`, `save_ai_settings_to`; calls `apply_config_updates`, `save_ai_settings_to`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `versioned`; calls `versioned`

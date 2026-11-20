@@ -14,6 +14,7 @@ source_paths:
   - "src/learnloop/ingest/extractors/marker_worker.py"
   - "src/learnloop/ingest/extractors/normalizers.py"
   - "src/learnloop/ingest/extractors/pypdf.py"
+  - "src/learnloop/ingest/extractors/web_page.py"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ingest.extractors"
@@ -58,6 +59,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]] | [[Reference/Modules/learnloop/ingest/extractors/marker_worker#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/ingest/extractors/normalizers|learnloop.ingest.extractors.normalizers]] | [[Reference/Modules/learnloop/ingest/extractors/normalizers#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
 | [[Reference/Modules/learnloop/ingest/extractors/pypdf|learnloop.ingest.extractors.pypdf]] | [[Reference/Modules/learnloop/ingest/extractors/pypdf#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
+| [[Reference/Modules/learnloop/ingest/extractors/web_page|learnloop.ingest.extractors.web_page]] | [[Reference/Modules/learnloop/ingest/extractors/web_page#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 
 ## Cross-package dependencies
 
@@ -69,9 +71,9 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 3 static module edges
 
 ### Dependency neighborhood
 
@@ -87,10 +89,10 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_config["learnloop.config"]
     center -->|12| n_learnloop_ingest
-    n_learnloop_content_pipeline -->|8| center
+    n_learnloop_content_pipeline -->|10| center
     center -->|3| n_learnloop_ai
     n_learnloop_content_sources -->|3| center
-    n_learnloop_sidecar_handlers -->|2| center
+    n_learnloop_sidecar_handlers -->|3| center
     center -->|1| n_learnloop_config
 ```
 

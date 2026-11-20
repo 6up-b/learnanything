@@ -219,6 +219,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_one_source_two_sets_different_roles`
   - `test_source_coverage_readiness_report`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_ux11_html_extraction.py](../../../../../../../tests/test_ux11_html_extraction.py) — direct import
+  - `test_ux11_a_page_read_before_keeps_its_stored_reading_under_the_new_code`
+  - `test_ux11_reading_it_again_gives_the_new_text_and_carries_progress_the_study_map_and_a_highlight`
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 
 ## Modification guidance

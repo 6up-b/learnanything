@@ -242,10 +242,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_span_view_text_anchor_mode_without_geometry`
 - [tests/test_t6_followup_rereview.py](../../../../../../tests/test_t6_followup_rereview.py) — direct import
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
+- [tests/test_ux11_html_extraction.py](../../../../../../tests/test_ux11_html_extraction.py) — direct import
+  - `test_ux11_a_page_read_before_keeps_its_stored_reading_under_the_new_code`
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
   - `test_u2_pdf_view_lists_each_passages_page_for_a_text_only_extraction`
 - [tests/test_ux_phase3_today.py](../../../../../../tests/test_ux_phase3_today.py) — direct import
 - [tests/ux_phase1_round2_review_helpers.py](../../../../../../tests/ux_phase1_round2_review_helpers.py) — direct import
+- [tests/web_page_reading_helpers.py](../../../../../../tests/web_page_reading_helpers.py) — direct import
 
 ## Modification guidance
 

@@ -991,6 +991,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_offline_runner_renders_the_confidence_block_into_each_arms_prompt`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
   - `test_the_complete_passages_kill_switch_restores_the_judges_900_characters`
+- [tests/test_ux11_html_extraction.py](../../../../../../tests/test_ux11_html_extraction.py) — direct import
+  - `test_ux11_a_page_read_before_keeps_its_stored_reading_under_the_new_code`
 - [tests/test_ux2_source_macros.py](../../../../../../tests/test_ux2_source_macros.py) — direct import
   - `test_ux2_a_source_added_before_reads_its_macros_from_the_stored_original_without_a_new_reading`
 - [tests/test_ux_phase2_error_type_proposals.py](../../../../../../tests/test_ux_phase2_error_type_proposals.py) — direct import

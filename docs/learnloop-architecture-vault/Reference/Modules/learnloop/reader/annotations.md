@@ -168,6 +168,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_orphaned_annotation_shows_quote_without_false_attachment`
 - [tests/test_reader_rw1b_final_verify.py](../../../../../../tests/test_reader_rw1b_final_verify.py) — direct import
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
+- [tests/test_ux11_html_extraction.py](../../../../../../tests/test_ux11_html_extraction.py) — direct import
+  - `test_ux11_reading_it_again_gives_the_new_text_and_carries_progress_the_study_map_and_a_highlight`
 
 ## Modification guidance
 

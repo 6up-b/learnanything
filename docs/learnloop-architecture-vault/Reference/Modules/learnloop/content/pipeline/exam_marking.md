@@ -156,6 +156,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_redesign_a_study_map_save_keeps_the_owners_marks`
   - `test_redesign_an_unprotected_book_is_unaffected`
   - `test_redesign_marking_the_new_reading_makes_it_usable`
+- [tests/test_ux11_html_extraction.py](../../../../../../../tests/test_ux11_html_extraction.py) — direct import
+  - `test_ux11_reading_the_article_again_maps_its_sections_and_its_held_out_mark_waits_for_the_owner`
 
 ## Modification guidance
 

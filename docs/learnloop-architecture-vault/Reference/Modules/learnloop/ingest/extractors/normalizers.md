@@ -46,31 +46,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py) |
-| Source lines | 412 |
+| Source lines | 423 |
 | Owning package | [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `markdown_to_ir(markdown: str, *, title: str | None, extractor_name: str, extractor_version: str='2') -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 37) — Build trivial IR from a markdown body: blocks by paragraph, units by top-level heading, with a level-2 (##) fallback when the level-1 structure collapses to a single unit (heading-path section trail, no geometry).
-- `captions_to_ir(cues: list[Any], *, title: str | None, extractor_name: str='youtube', extractor_version: str='2') -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 210) — Build trivial IR from caption cues: one caption block per cue, one unit covering the transcript's time range (no geometry).
-- `transcript_to_ir(cues: list[Any], *, title: str | None, extractor_name: str='transcript', extractor_version: str='1') -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 303) — Build IR from parsed transcript cues (``learnloop.ingest.transcripts``).
+- `markdown_to_ir(markdown: str, *, title: str | None, extractor_name: str, extractor_version: str='2', section_titles: bool=False) -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 37) — Build trivial IR from a markdown body: blocks by paragraph, units by top-level heading, with a level-2 (##) fallback when the level-1 structure collapses to a single unit (heading-path section trail, no geometry).
+- `captions_to_ir(cues: list[Any], *, title: str | None, extractor_name: str='youtube', extractor_version: str='2') -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 221) — Build trivial IR from caption cues: one caption block per cue, one unit covering the transcript's time range (no geometry).
+- `transcript_to_ir(cues: list[Any], *, title: str | None, extractor_name: str='transcript', extractor_version: str='1') -> DocumentIR` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 314) — Build IR from parsed transcript cues (``learnloop.ingest.transcripts``).
 
 ### Module constants
 
 - `_HEADING_RE` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 29)
-- `_TRANSCRIPT_GAP_SECONDS` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 286)
-- `_TRANSCRIPT_MIN_SEGMENT_SECONDS` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 287)
-- `_TRANSCRIPT_MAX_SEGMENT_SECONDS` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 288)
-- `_TRANSCRIPT_BLOCK_CHAR_CAP` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 291)
+- `_TRANSCRIPT_GAP_SECONDS` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 297)
+- `_TRANSCRIPT_MIN_SEGMENT_SECONDS` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 298)
+- `_TRANSCRIPT_MAX_SEGMENT_SECONDS` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 299)
+- `_TRANSCRIPT_BLOCK_CHAR_CAP` ([src/learnloop/ingest/extractors/normalizers.py](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 302)
 
 ## Internal implementation anchors
 
 - `_slug(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 32)
-- `_units_from_headings(blocks: list[DocumentBlock], *, title: str | None) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 119)
-- `_units_from_level2(blocks: list[DocumentBlock]) -> list[DocumentUnit] | None` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 167) — Derive units from the level-2 (##) section trail.
-- `_format_clock(seconds: float) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 294)
+- `_units_from_headings(blocks: list[DocumentBlock], *, title: str | None, titles: dict[tuple[str, ...], str] | None=None) -> list[DocumentUnit]` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 126)
+- `_units_from_level2(blocks: list[DocumentBlock], *, titles: dict[tuple[str, ...], str] | None=None) -> list[DocumentUnit] | None` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 176) — Derive units from the level-2 (##) section trail.
+- `_format_clock(seconds: float) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/normalizers.py), line 305)
 
 ## Who imports or calls it
 

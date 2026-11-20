@@ -643,6 +643,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_sidecar.py](../../../../../tests/test_teacher_te2_sidecar.py) — direct import
   - `test_the_config_carries_the_te2_key_with_lessons`
 - [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
+- [tests/test_ux11_html_extraction.py](../../../../../tests/test_ux11_html_extraction.py) — direct import
+- [tests/test_ux2_source_macros.py](../../../../../tests/test_ux2_source_macros.py) — direct import
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
 - [tests/test_ux_phase1_finish.py](../../../../../tests/test_ux_phase1_finish.py) — direct import
 - [tests/test_ux_phase1_landing.py](../../../../../tests/test_ux_phase1_landing.py) — direct import

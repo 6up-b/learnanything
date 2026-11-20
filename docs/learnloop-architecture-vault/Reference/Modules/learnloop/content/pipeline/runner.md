@@ -433,6 +433,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ingest_batch_checkpoints_once_when_it_becomes_terminal`
 - [tests/test_synthesis_sweep_primary_only.py](../../../../../../../tests/test_synthesis_sweep_primary_only.py) — direct import
   - `test_recover_stale_leases_skips_only_the_sweep_when_asked`
+- [tests/test_ux11_html_extraction.py](../../../../../../../tests/test_ux11_html_extraction.py) — direct import
+  - `test_ux11_hidden_and_collapsed_parts_are_treated_as_the_old_extraction_treated_them`
+  - `test_ux11_mathml_and_script_math_reach_the_text_as_tex`
 - [tests/test_ux_phase1_auto_build.py](../../../../../../../tests/test_ux_phase1_auto_build.py) — direct import
   - `test_a_failed_fetch_says_so_in_one_line`
 - [tests/test_ux_phase1_review_fixes.py](../../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
@@ -445,6 +448,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
   - `test_a_link_being_fetched_has_a_readable_name`
 - [tests/ux_phase1_support.py](../../../../../../../tests/ux_phase1_support.py) — direct import
+- [tests/web_page_reading_helpers.py](../../../../../../../tests/web_page_reading_helpers.py) — direct import
 
 ## Modification guidance
 

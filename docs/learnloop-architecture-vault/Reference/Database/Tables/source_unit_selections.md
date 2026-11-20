@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_v4_codex_review.py`
 - `tests/test_mobile_v4_reader.py`
 - `tests/test_reread_safety.py`
+- `tests/test_ux11_html_extraction.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
