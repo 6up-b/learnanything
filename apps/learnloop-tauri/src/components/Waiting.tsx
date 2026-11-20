@@ -27,7 +27,8 @@ export interface WaitingProps {
   later?: string | null;
   /** The Reader posture: the mark does not move (G54). */
   still?: boolean;
-  /** Controls that belong on the line itself (the Ask panel's cancel); shown with the line. */
+  /** Controls that work during the wait and belong on its line (a hint's "use the item's hint instead"):
+   *  shown from the first moment, never held back by the delay, and never remounted when the words appear. */
   children?: ReactNode;
   style?: CSSProperties;
   testId?: string;
@@ -37,6 +38,13 @@ function reducedMotion(): boolean {
   // jsdom and older webviews have no matchMedia: then the mark moves, as CSS also stills it under the media query.
   return typeof window !== "undefined" && typeof window.matchMedia === "function"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** The moving mark alone, for a line that keeps its own layout and timing (the Reader's model actions):
+ *  one mark for every wait in the app. Hidden from assistive technology; the words carry the message. */
+export function WaitMark({ still = false }: { still?: boolean }) {
+  const moving = !still && !reducedMotion();
+  return <span className="ll-wait-mark" data-motion={moving ? "moving" : "still"} aria-hidden="true">◐</span>;
 }
 
 export function Waiting({ line, later = null, still = false, children, style, testId = "waiting" }: WaitingProps) {
@@ -53,10 +61,14 @@ export function Waiting({ line, later = null, still = false, children, style, te
   const moving = !still && !reducedMotion();
   return (
     <div role="status" aria-live="polite" data-testid={testId} data-waiting={stage === 0 ? "pending" : "shown"} style={style}>
-      {stage >= 1 ? (
+      {stage >= 1 || children ? (
         <>
           <div style={{ color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 12, lineHeight: 1.6 }}>
-            <span className="ll-wait-mark" data-motion={moving ? "moving" : "still"} aria-hidden="true">◐</span> {line}
+            {stage >= 1 ? (
+              <>
+                <WaitMark still={!moving} /> <span>{line}</span>
+              </>
+            ) : null}
             {children}
           </div>
           {stage === 2 && later ? (

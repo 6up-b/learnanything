@@ -409,6 +409,12 @@ export function FeedbackSurface({
         </div>
       ) : null}
 
+      {/* The look into a miss is still running: the sentence below changes when it lands, and nothing said so
+          (the phone says it in these words). No time is claimed: the walks timed it at 1 to 10 s, too few to say. */}
+      {diagnosis.status === "pending" ? (
+        <Waiting testId="diagnosis-wait" line={WAITING_COPY.lookingIntoAnswer} style={{ marginTop: 14 }} />
+      ) : null}
+
       {/* One sentence on what went wrong; it updates in place when the
           diagnosis lands. */}
       {sentence || prerequisite || (whyHasContent && verdict !== "right") ? (

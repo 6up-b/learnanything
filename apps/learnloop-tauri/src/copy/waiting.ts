@@ -28,8 +28,14 @@ export const WAITING_COPY = {
   /** A Teacher lesson's turn. */
   teacherWriting: "The teacher is writing…",
   teacherWritingLater: "This can take a minute or two.",
+  /** A lesson's typed goal being found in the books (Find it in my books). */
+  lookingInBooks: "Looking in your books…",
   /** A hint being written for the learner's work. */
-  hintLater: "This can take half a minute.",
+  hintLater: "This can take up to half a minute.",
+  /** A miss being looked into (the diagnosis), on the phone's feedback: the phone's own words, kept. */
+  lookingIntoAnswer: "Looking into what happened here…",
+  /** "This doesn't sound right" sent on the phone's feedback: the answer is graded again. */
+  lookingAgain: "Looking again…",
   /** Keep going on a finished day: the plan is extended. */
   addingMore: "Adding more to today…",
 } as const;

@@ -247,7 +247,7 @@ export function FeedbackScreen({
       ) : null}
       <FullAnswer feedback={feedback} held={followupHeld} />
       {feedback.gradingSource !== "self" ? <Contest attemptId={attemptId} onBundle={setFeedback} /> : null}
-      {pending ? <p className="dim" role="status">Looking into what happened here…</p> : null}
+      {pending ? <Waiting testId="diagnosis-wait" line={WAITING_COPY.lookingIntoAnswer} /> : null}
       {feedback.diagnosisStatus === "failed" ? (
         <p className="dim" role="status">{DIAGNOSIS_FAILED_LINE}</p>
       ) : null}

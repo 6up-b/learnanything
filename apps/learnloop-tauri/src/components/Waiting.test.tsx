@@ -76,3 +76,12 @@ it("in the Reader posture the mark is still whatever the preference", () => {
   act(() => { vi.advanceTimersByTime(WAIT_DELAY_MS); });
   expect(screen.getByText("◐").getAttribute("data-motion")).toBe("still");
 });
+
+it("a control on the line is there from the first moment, before the words", () => {
+  render(<Waiting line="Writing a hint…"><button type="button">use the item's hint instead</button></Waiting>);
+  expect(screen.getByRole("button", { name: "use the item's hint instead" })).toBeTruthy();
+  expect(screen.queryByText("Writing a hint…")).toBeNull();
+  act(() => { vi.advanceTimersByTime(WAIT_DELAY_MS); });
+  expect(screen.getByText("Writing a hint…")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "use the item's hint instead" })).toBeTruthy();
+});

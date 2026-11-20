@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { getCommandError } from "../../errors";
 import { MeaningLabel } from "./voices";
+import { WaitMark } from "../../components/Waiting";
 
 export type ModelActionPhase = "idle" | "pending" | "landed" | "failed" | "unreachable" | "offline" | "capped" | "off";
 
@@ -85,7 +86,8 @@ export function ModelActionState({
   if (phase === "pending") {
     body = (
       <>
-        <span aria-hidden="true">◐</span> {verb}…
+        {/* The app's one waiting mark (components/Waiting.tsx), still: the Reader never animates (G54). */}
+        <WaitMark still /> {verb}…
         {typeof usuallySeconds === "number" && usuallySeconds > 0 ? ` · usually about ${Math.round(usuallySeconds)} s` : null}
         {onCancel ? (
           <>

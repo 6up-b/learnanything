@@ -44,6 +44,8 @@ import type {
 } from "../api/dto";
 import { getCommandError } from "../errors";
 import { COLOR, FONT_MONO, Faint } from "../components/term";
+import { Waiting } from "../components/Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { DIAGNOSIS_POLL_MS } from "../components/DiagnosisCard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { FigureInline } from "./reader/figures/FigureInline";
@@ -104,6 +106,8 @@ export function LessonScreen({
 }) {
   const [view, setView] = useState<LessonViewDto | null>(null);
   const [busy, setBusy] = useState(false);
+  // Which wait `busy` is, so the waiting line says the true one (the goal lookup is not the teacher writing).
+  const [busyFor, setBusyFor] = useState<"turn" | "goal">("turn");
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [answer, setAnswer] = useState("");
@@ -125,6 +129,7 @@ export function LessonScreen({
 
   const run = useCallback(async (input: LessonTurnInput) => {
     setBusy(true);
+    setBusyFor("turn");
     setUnavailable(null);
     setRetry(null);
     // TE2-log: the intervals so far reach the sidecar before the step (a close's receipt counts them).
@@ -244,6 +249,7 @@ export function LessonScreen({
     const text = goalText.trim();
     if (!text) return;
     setBusy(true);
+    setBusyFor("goal");
     try {
       const found = await api.lessonGoal({ text });
       setGoal(found);
@@ -438,7 +444,12 @@ export function LessonScreen({
               </button>
             </section>
           ) : null}
-          {busy ? <Faint>The teacher is writing…</Faint> : null}
+          {busy ? (
+            // A lesson turn took 11 to 83 s in the walks; finding a typed goal in the books is a lookup, not the teacher.
+            busyFor === "goal"
+              ? <Waiting testId="lesson-wait" line={WAITING_COPY.lookingInBooks} />
+              : <Waiting testId="lesson-wait" line={WAITING_COPY.teacherWriting} later={WAITING_COPY.teacherWritingLater} />
+          ) : null}
           {unavailable ? (
             <div role="status" data-testid="lesson-unavailable" style={{ color: COLOR.textDim }}>
               {unavailable}

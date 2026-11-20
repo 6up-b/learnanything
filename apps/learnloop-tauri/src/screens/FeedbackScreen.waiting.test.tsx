@@ -44,16 +44,20 @@ function deferred<T>() {
 
 let feedbackRead: Promise<FeedbackBundle>;
 let served: Promise<unknown> | null;
+let diagnosis: () => unknown;
 beforeEach(() => {
   vi.useFakeTimers();
   feedbackRead = Promise.resolve(FEEDBACK);
   served = null;
+  diagnosis = () => ({ version: 1, attemptId: "att_1", status: "done", cardEnabled: true, responses: [], summaryMd: "You stopped early." });
   invoke.mockImplementation(async (command: string, args: { input?: Record<string, unknown> }) => {
     switch (command) {
       case "get_feedback":
         return feedbackRead;
       case "get_practice_item":
         return new Promise(() => undefined);
+      case "diagnosis_status":
+        return diagnosis();
       case "next_plan_item":
         if (args.input?.serve && served) return served;
         return { version: 1, enabled: true, plan: null, step: NEXT };
@@ -112,4 +116,23 @@ it("Next: 'Choosing what's next…' after the delay, gone when the step is hande
   await advance(0);
   expect(callbacks.onPlanStep).toHaveBeenCalledOnce();
   expect(screen.queryByTestId("next-wait")).toBeNull();
+});
+
+it("a miss being looked into: 'Looking into what happened here…' after the delay (the phone's words), gone when it lands", async () => {
+  feedbackRead = Promise.resolve({ ...FEEDBACK, diagnosisStatus: "pending" } as FeedbackBundle);
+  let polls = 0;
+  diagnosis = () => (++polls > 1
+    ? { version: 1, attemptId: "att_1", status: "done", cardEnabled: true, responses: [], summaryMd: "You stopped early." }
+    : { version: 1, attemptId: "att_1", status: "pending", cardEnabled: true, responses: [], summaryMd: null });
+  show();
+  await advance(0);
+  expect(screen.getByRole("button", { name: /Next/ })).toBeTruthy();
+  await advance(300);
+  expect(screen.queryByText("Looking into what happened here…")).toBeNull();
+  await advance(100);
+  expect(screen.getByTestId("diagnosis-wait").textContent).toBe("◐ Looking into what happened here…");
+  await advance(2500);
+  // (MarkdownMath is mocked to nothing here: the landing is the second read saying done.)
+  expect(polls).toBe(2);
+  expect(screen.queryByTestId("diagnosis-wait")).toBeNull();
 });

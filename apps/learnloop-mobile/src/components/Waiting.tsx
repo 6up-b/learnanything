@@ -38,7 +38,7 @@ export function Waiting({ line, later = null, testId = "waiting" }: { line: stri
       {stage >= 1 ? (
         <>
           <p className="dim">
-            <span className="wait-mark" data-motion={reducedMotion() ? "still" : "moving"} aria-hidden="true">◐</span> {line}
+            <span className="wait-mark" data-motion={reducedMotion() ? "still" : "moving"} aria-hidden="true">◐</span> <span>{line}</span>
           </p>
           {stage === 2 && later ? <p className="dim wait-later" data-testid={`${testId}-later`}>{later}</p> : null}
         </>
