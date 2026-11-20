@@ -369,6 +369,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_rw5ab_request_hashes_and_prompts_exactly_as_before`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../tests/test_figures_show_me_codex_review.py) — direct import
 - [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
+  - `test_the_ceiling_at_its_default_leaves_every_whole_config_hash_as_it_was`
   - `test_the_plan_route_request_is_byte_identical_under_a_ceiling`
   - `test_the_plan_route_states_the_working_size_and_a_chat_route_is_capped_at_the_ceiling`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import

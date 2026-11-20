@@ -125,6 +125,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
+  - `test_the_ceiling_at_its_default_leaves_every_whole_config_hash_as_it_was`
 - [tests/test_identity_pins.py](../../../../../../tests/test_identity_pins.py) — direct import
   - `test_an_identity_view_leaves_out_an_added_field_and_refuses_a_removed_one`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
