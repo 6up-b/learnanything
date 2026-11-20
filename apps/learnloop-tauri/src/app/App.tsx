@@ -1567,12 +1567,21 @@ export function App() {
     }
     setSettingsOpen(false);
     setReviewOpen(false);
+    // A check screen ("Check what I already know", a calibration) covers every place's body, so a tab moved only its
+    // highlight. Leaving by a tab is leaving as esc does: the check stays where it was, and starting it again finds it.
+    if (calibrationSessionId) {
+      setCalibrationSessionId(null);
+      setQuickCheckActive(false);
+    }
     setTab(next);
     if (next !== "today") setTodayStage("queue");
   }
 
   // UX Phase 2 (§5.1): a place is a view over the tabs.
   function gotoPlace(place: Place) {
+    // Today's place while a question (a short check among them) or its feedback is open on Today: its tab is
+    // already Today's, so moving to it changed nothing. It goes back to the plan, as esc does.
+    if (place === "today" && placeOfTab(tab) === "today" && todayStage !== "queue") setTodayStage("queue");
     gotoTab(tabForPlace(place, Boolean(session)));
   }
 

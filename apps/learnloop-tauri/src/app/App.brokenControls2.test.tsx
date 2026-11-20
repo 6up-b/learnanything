@@ -224,3 +224,25 @@ it("UX-21: the same when Begin started the session", async () => {
   expect(await screen.findByTestId("lesson-offer-page")).toBeTruthy();
 });
 
+it("UX-27: a place tab leaves the 'Check what I already know' screen", async () => {
+  apis({ startQuickCheck: vi.fn(async () => quickCheckProgress({ ...NOTHING_ASKED, finished: false, results: null }, "active")) });
+  render(<App />);
+  await click("open lesson");
+  await click("check first");
+  expect(await screen.findByTestId("calibration-stub")).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Progress" })); });
+  await flush();
+  expect(screen.queryByTestId("calibration-stub")).toBeNull();
+  expect(screen.getByTestId("graph-stub")).toBeTruthy();
+});
+
+it("UX-27: Today's tab on a question (a short check among them) goes back to Today's plan", async () => {
+  apis();
+  render(<App />);
+  await click("open item");
+  expect(await screen.findByTestId("practice-pi_1")).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Today" })); });
+  await flush();
+  expect(screen.queryByTestId("practice-pi_1")).toBeNull();
+  expect(screen.getByTestId("today-place")).toBeTruthy();
+});
