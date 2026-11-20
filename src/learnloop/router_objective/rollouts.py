@@ -999,6 +999,10 @@ class _Model:
     def value(self, action: Action) -> tuple[_Ledger, dict[str, Any]]:
         """``Q`` per draw for one action, with its branch record."""
 
+        if _carries_diagnostic(action):
+            # Priced here it would be a binary-ability probe with its hypotheses ignored, a value no caller can tell
+            # from the right one.
+            raise ValueError("a diagnostic payload is priced by diagnostic_value.evaluate_probe, not the rollouts")
         extra: dict[str, Any] = {}
         if action.kind == STOP:
             self.return_days_moved = False
@@ -1143,6 +1147,13 @@ class _Model:
                                         "own world before the branches are compared"},
                  "information": float(chosen.q.mean()) - fixed}
         return chosen, extra
+
+
+def _carries_diagnostic(action: Action | None) -> bool:
+    if action is None:
+        return False
+    return (action.diagnostic is not None or _carries_diagnostic(action.repair) or _carries_diagnostic(action.declined)
+            or any(_carries_diagnostic(step) for step in action.steps))
 
 
 # -- the public evaluation -----------------------------------------------------------------------------
