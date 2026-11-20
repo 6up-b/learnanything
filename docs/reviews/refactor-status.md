@@ -185,7 +185,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K2.4c part A | Drive append calls through the shard runner | landed | `2f35db5173` | [refactor-k2.4c.md](refactor-k2.4c.md) | — |
 | K2.4c part B | Split oversized appends into checkpointed passes | waiting on | — | [refactor-k2.4c.md](refactor-k2.4c.md#part-b-splitting-an-oversized-append-design-only-not-built) | Owner's call on splitting append |
 | K2.5 | Split normalization into named stages with one state | landed | `f623e525ac` | [refactor-k2.5.md](refactor-k2.5.md) | — |
-| K2.6 | Share the judge heartbeat and lapse checks | not started | — | — | — |
+| K2.6 | Share the judge heartbeat and lapse checks | landed | this commit | [refactor-k2.6.md](refactor-k2.6.md) | `judgment_claims.claim_heartbeat` replaces the two copied loops (it stops and joins its thread); a lapsed lease no longer commits (the paid answer is kept for the retry); service spend renews in each reservation's injected clock. Production −5 lines |
 | K2.7 | Put each job type in one table row | not started | — | — | — |
 | K2.8 | Give each source kind one definition | not started | — | — | — |
 | K2.9 | Centralize extractor choice and consent checks | not started | — | — | — |

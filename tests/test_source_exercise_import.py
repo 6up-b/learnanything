@@ -369,6 +369,76 @@ def _later_lease_clock(monkeypatch, hours=1):
     monkeypatch.setattr(SEI, "_lease_now", lambda: later, raising=False)
 
 
+def test_a_lapsed_unclaimed_check_cannot_complete_or_clear_pending(textbook, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    from learnloop.clock import FrozenClock, utc_now_iso
+
+    paths, repository, spans = textbook
+    imported = _import(paths, repository, spans["exercises"][1], FakeServiceLLM())
+    item = loaded(paths).practice_items[imported["practice_item_id"]]
+    clock = FrozenClock(datetime(2001, 1, 1, tzinfo=UTC))
+    monkeypatch.setattr(SEI, "_lease_now", lambda: utc_now_iso(clock))
+    status, claim = SEI.claim_check(repository, "lapsed-check", reference_content_hash(item))
+    assert status == SEI.CLAIMED
+    clock = FrozenClock(clock.now() + timedelta(seconds=SEI.CHECK_LEASE_SECONDS))
+    checks = _checks(repository, item.id)
+    row = _row(repository, imported["import_id"])
+    assert SEI._fenced_complete(
+        repository, claim, import_id=imported["import_id"], item_id=item.id,
+        content_hash=reference_content_hash(item), result=SEI.LadderResult("book_solution", "book_solution"),
+        trigger="background", started_at=utc_now_iso(clock), clock=clock) is None
+    assert not SEI._clear_pending(repository, imported["import_id"], claim, clock=clock, reason="cleared")
+    assert _checks(repository, item.id) == checks
+    assert _row(repository, imported["import_id"]) == row
+
+
+def test_a_fenced_resume_keeps_its_paid_answer_for_retry(textbook, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    from learnloop.clock import FrozenClock, utc_now_iso
+    from learnloop.db.stores.source_service import update_import
+
+    paths, repository, spans = textbook
+    config = paths.root / "learnloop.toml"
+    original_config = config.read_text()
+    set_config(paths, "source_service", exercise_verification=False)
+    llm = FakeServiceLLM()
+    imported = _import(paths, repository, spans["exercises"][1], llm, caller="reader")
+    config.write_text(original_config)
+    vault = loaded(paths)
+    row = _row(repository, imported["import_id"])
+    pending = {"content_hash": row["content_hash"], "trigger": "background"}
+    with repository.connection() as connection:
+        update_import(connection, row["id"], updated_at=row["updated_at"],
+                      verification={**row["verification"], "pending_check": pending})
+    clock = FrozenClock(datetime(2001, 1, 1, tzinfo=UTC))
+    monkeypatch.setattr(SEI, "_lease_now", lambda: utc_now_iso(clock))
+    real_ladder = SEI._ladder_for_item
+
+    def lapse(*args, **kwargs):
+        nonlocal clock
+        answer = real_ladder(*args, **kwargs)
+        clock = FrozenClock(clock.now() + timedelta(seconds=SEI.CHECK_LEASE_SECONDS))
+        return answer
+
+    monkeypatch.setattr(SEI, "_ladder_for_item", lapse)
+    checks = _checks(repository, imported["practice_item_id"])
+    calls_before_resume = len(llm.calls)
+    assert SEI._resume_pending(paths.root, repository, vault, row, pending,
+                               clients=service_clients(llm), clock=None) == "fenced"
+    assert _checks(repository, imported["practice_item_id"]) == checks
+    assert _row(repository, row["id"])["verification"]["pending_check"] == pending
+    paid_calls = len(llm.calls)
+    assert paid_calls > calls_before_resume
+    monkeypatch.setattr(SEI, "_ladder_for_item", real_ladder)
+    assert SEI._resume_pending(paths.root, repository, vault, row, pending,
+                               clients=service_clients(llm), clock=None) == "resumed_check"
+    assert len(llm.calls) == paid_calls
+    assert len(_checks(repository, imported["practice_item_id"])) == len(checks) + 1
+    assert "pending_check" not in _row(repository, row["id"])["verification"]
+
+
 def test_a_live_check_in_another_process_is_never_taken_over(textbook, monkeypatch):
     """Codex re-review F9: one sidecar is still checking an import when another
     process opens the vault. A different process token is not a dead process."""

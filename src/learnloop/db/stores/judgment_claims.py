@@ -8,18 +8,56 @@ worker means "someone is already paying for this": the pair is skipped. An
 expired lease (a crashed worker) is re-claimed with a new epoch, so the late
 worker's verdict is fenced out instead of landing as a second, conflicting one.
 
-Every function runs inside the caller's transaction; none commits.
+The store functions run inside the caller's transaction; none commits.
+``claim_heartbeat`` owns short renewal transactions on its background thread.
 """
 
 from __future__ import annotations
 
 import sqlite3
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import timedelta
 from typing import Any
 
-from learnloop.clock import parse_utc
+from learnloop.clock import parse_utc, utc_now_iso
 
 CLAIMED, HELD, DONE = "claimed", "held", "done"
+
+
+@contextmanager
+def claim_heartbeat(repository: Any, claim: Any, *, lease_seconds: int, interval: float) -> Iterator[None]:
+    """Renew a claim's ``key``, ``owner`` and ``epoch`` on wall time until exit or loss.
+
+    A missing claim needs no heartbeat. Lease liveness uses wall time even
+    when the caller stamps its results with an injected vault clock.
+    """
+
+    if claim is None:
+        yield
+        return
+    stop = threading.Event()
+
+    def beat() -> None:
+        while not stop.wait(interval):
+            try:
+                with repository.atomic():
+                    held = renew_claim(repository.connection(), claim_key=claim.key, owner=claim.owner,
+                                       epoch=claim.epoch, now=utc_now_iso(), lease_seconds=lease_seconds)
+            except Exception:  # noqa: BLE001 - the next beat retries; the lease may lapse
+                continue
+            if not held:
+                return
+
+    thread = threading.Thread(target=beat, name="judgment-claim-lease", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        # A renewal already inside a transaction must finish before the owner exits.
+        thread.join()
 
 
 def _row(connection: sqlite3.Connection, claim_key: str) -> dict[str, Any] | None:
@@ -195,6 +233,6 @@ def release_claim(connection: sqlite3.Connection, *, claim_key: str, owner: str,
 
 
 __all__ = [
-    "CLAIMED", "DONE", "HELD", "claim_work", "complete_claim", "holds_claim", "lease_holder", "live_lease",
+    "CLAIMED", "DONE", "HELD", "claim_heartbeat", "claim_work", "complete_claim", "holds_claim", "lease_holder", "live_lease",
     "release_claim", "renew_claim", "take_over_claim",
 ]

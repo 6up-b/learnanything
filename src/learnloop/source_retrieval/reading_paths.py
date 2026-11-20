@@ -45,10 +45,9 @@ import json
 import math
 import os
 import sqlite3
-import threading
 import time
-from collections.abc import Iterable, Iterator, Mapping, Sequence
-from contextlib import closing, contextmanager
+from collections.abc import Iterable, Mapping, Sequence
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -74,11 +73,11 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import reading_paths as store
 from learnloop.db.stores.judgment_claims import (
     CLAIMED,
+    claim_heartbeat,
     claim_work,
     complete_claim,
     holds_claim,
     release_claim,
-    renew_claim,
 )
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.goals import goal_certification as GC
@@ -816,31 +815,6 @@ def _release(repository: Repository, claim: _Claim) -> None:
         pass
 
 
-@contextmanager
-def _heartbeat(repository: Repository, claim: _Claim) -> Iterator[None]:
-    """Renew the claim's lease while the call runs (stops once it is lost)."""
-
-    stop = threading.Event()
-
-    def beat() -> None:
-        while not stop.wait(CLAIM_HEARTBEAT_SECONDS):
-            try:
-                with repository.atomic():
-                    held = renew_claim(repository.connection(), claim_key=claim.key, owner=claim.owner,
-                                       epoch=claim.epoch, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
-            except Exception:  # noqa: BLE001 - the next beat retries; the lease may lapse
-                continue
-            if not held:
-                return
-
-    thread = threading.Thread(target=beat, name="reading-path-claim-lease", daemon=True)
-    thread.start()
-    try:
-        yield
-    finally:
-        stop.set()
-
-
 def _ledger_question(extraction_id: str, depth: str) -> str:
     return f"{extraction_id}:{depth}"
 
@@ -891,7 +865,10 @@ def _judge_claimed(vault: Any, repository: Repository, extraction_id: str, depth
 
     owner_id = f"{extraction_id}:{depth}:{key[:16]}"
     try:
-        with _heartbeat(repository, claim), call_labels(judge="llm", question_set_version=PROMPT_VERSION):
+        with (
+            claim_heartbeat(repository, claim, lease_seconds=CLAIM_LEASE_SECONDS, interval=CLAIM_HEARTBEAT_SECONDS),
+            call_labels(judge="llm", question_set_version=PROMPT_VERSION),
+        ):
             output = route.ask(prompt, owner_id=owner_id)
     except JudgeUnavailable as exc:
         return JudgeResult("unavailable", state_key=key, reason=exc.reason, message=exc.message)
@@ -916,9 +893,9 @@ def _judge_claimed(vault: Any, repository: Repository, extraction_id: str, depth
             connection = repository.connection()
             if store.judged(connection, extraction_id, depth, key):
                 return JudgeResult("fresh", state_key=key)  # another writer judged this state meanwhile
-            if not holds_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch):
-                # The lease lapsed and another process took the judgment over:
-                # its rows count, this late answer is fenced out.
+            if not holds_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch, now=_lease_now()):
+                # A lapsed lease cannot publish, even without a takeover.
+                # PaidCalls kept the answer so a retry does not pay again.
                 return JudgeResult("held", state_key=key)
             previous = _latest_ledger(connection, extraction_id, depth)
             first_ledger: str | None = None
