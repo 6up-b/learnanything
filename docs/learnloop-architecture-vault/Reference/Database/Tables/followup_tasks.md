@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/remediation.py"
-  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`

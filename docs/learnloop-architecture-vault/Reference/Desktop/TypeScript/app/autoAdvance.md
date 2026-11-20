@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/autoAdvance.ts](../../../../../../apps/learnloop-tauri/src/app/autoAdvance.ts) |
-| Source lines | 97 |
+| Source lines | 149 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -54,24 +54,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function todayQueueInput(session: SessionSnapshot | null): QueueInput` — function, line 20
-- `export function todayQueueKey(input: QueueInput): QueryKey` — function, line 28
-- `export function queueHead(snapshot: QueueSnapshot | null | undefined): ScheduledItemDto | null` — function, line 33
-- `export interface NextQueueItem` — interface, line 40
-- `export function useNextQueueItem(input: QueueInput | null, prefetch: boolean): NextQueueItem` — function, line 59
+- `export function todayQueueInput(session: SessionSnapshot | null): QueueInput` — function, line 21
+- `export function todayQueueKey(input: QueueInput): QueryKey` — function, line 29
+- `export function queueHead(snapshot: QueueSnapshot | null | undefined): ScheduledItemDto | null` — function, line 34
+- `export interface NextQueueItem` — interface, line 41
+- `export function useNextQueueItem(input: QueueInput | null, prefetch: boolean): NextQueueItem` — function, line 60
+- `export interface NextReadingQuestion` — interface, line 103
+- `export function useNextReadingQuestion(input: QueueInput | null, enabled: boolean, answered: string | null): NextReadingQuestion` — function, line 121
 
 ## Internal implementation anchors
 
-- `const MAX_HEAD_READS = 4` — const, line 17
-- `const hash = input ? hashKey(todayQueueKey(input)) : null` — const, line 61
-- `const key = useMemo(()` — const, line 63
-- `const query = useCachedQuery<QueueSnapshot>( prefetch ? key : null, ()` — const, line 64
-- `const current = query.data !== undefined && !query.refreshing` — const, line 70
-- `const head = current ? queueHead(query.data) : null` — const, line 71
-- `const empty = current && head === null` — const, line 72
-- `const resolve = useCallback(async (): Promise<ScheduledItemDto | null>` — const, line 74
-- `const snapshot = await getOrFetch<QueueSnapshot>(key, ()` — const, line 83
-- `const state = peek<QueueSnapshot>(key)` — const, line 87
+- `const MAX_HEAD_READS = 4` — const, line 18
+- `const hash = input ? hashKey(todayQueueKey(input)) : null` — const, line 62
+- `const key = useMemo(()` — const, line 64
+- `const query = useCachedQuery<QueueSnapshot>( prefetch ? key : null, ()` — const, line 65
+- `const current = query.data !== undefined && !query.refreshing` — const, line 71
+- `const head = current ? queueHead(query.data) : null` — const, line 72
+- `const empty = current && head === null` — const, line 73
+- `const resolve = useCallback(async (): Promise<ScheduledItemDto | null>` — const, line 75
+- `const snapshot = await getOrFetch<QueueSnapshot>(key, ()` — const, line 84
+- `const state = peek<QueueSnapshot>(key)` — const, line 88
+- `const LIBRARY_KEY: QueryKey = ["get_source_library"]` — const, line 101
+- `const hash = input ? hashKey(todayQueueKey(input)) : null` — const, line 122
+- `const key = useMemo(()` — const, line 124
+- `const on = enabled && key !== null` — const, line 125
+- `const queue = useCachedQuery<QueueSnapshot>(on ? key : null, ()` — const, line 126
+- `const library = useCachedQuery<SourceLibrarySnapshot>(on ? LIBRARY_KEY : null, ()` — const, line 127
+- `const known = on && queue.data !== undefined && !queue.refreshing && library.data !== undefined` — const, line 128
+- `const item = known ? askableReadingQuestion(library.data?.sources, queue.data, answered) : null` — const, line 129
+- `const open = useCallback(async (sessionId: string): Promise<PlanStepDto | null>` — const, line 131
+- `const next = askableReadingQuestion(books.sources, snapshot, answered)` — const, line 138
+- `const picked = await api.planLearnerPick(next.practiceItemId, sessionId, next.schedulerCandidateId ?? null)` — const, line 140
+- `const step = picked.step ?? null` — const, line 141
 
 ## Who imports or calls it
 
@@ -79,7 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `todayQueueInput`; references `todayQueueInput`
-- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `useNextQueueItem`; references `useNextQueueItem`
+- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `useNextQueueItem`, `useNextReadingQuestion`; references `useNextQueueItem`, `useNextReadingQuestion`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `todayQueueInput`; references `todayQueueInput`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `todayQueueInput`; references `todayQueueInput`
 
@@ -88,10 +102,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `QueueInput`, `QueueSnapshot`, `ScheduledItemDto`, `SessionSnapshot`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `PlanStepDto`, `QueueInput`, `QueueSnapshot`, `ScheduledItemDto`, `SessionSnapshot`, `SourceLibrarySnapshot`
 - [[Reference/Desktop/TypeScript/api/queryCache|src/api/queryCache.ts]] — import-or-re-export; imports `QueryKey`, `getOrFetch`, `hashKey`, `isStale`, `peek`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
+- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `askableReadingQuestion`
 
 ### Assets, platform, and third-party dependencies
 

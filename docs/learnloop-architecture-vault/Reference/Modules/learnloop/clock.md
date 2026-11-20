@@ -1142,6 +1142,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
   - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
 - [tests/test_first_questions_today.py](../../../../../tests/test_first_questions_today.py) — direct import
+  - `test_answered_and_reserved_questions_are_named_as_not_askable_now`
+  - `test_questions_come_back_into_the_askable_set_once_due`
 - [tests/test_followup_authoring_retry.py](../../../../../tests/test_followup_authoring_retry.py) — direct import
   - `test_expired_queued_correction_fails_without_a_new_request`
   - `test_retry_uses_only_the_original_provider_time_left`

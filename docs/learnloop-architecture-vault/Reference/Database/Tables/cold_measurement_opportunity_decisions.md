@@ -122,12 +122,12 @@ None found by exact static reference scan.
 - `tests/test_compare_methods.py`
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
+- `tests/test_first_questions_today.py`
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_instrument_servability_journeys.py`
 - `tests/test_intent_codex_rereview.py`
 - `tests/test_intent_codex_review.py`
 - `tests/test_intent_fix_round4.py`
-- `tests/test_item_authoring.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

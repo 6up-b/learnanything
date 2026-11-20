@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/dailyPlan.ts](../../../../../../apps/learnloop-tauri/src/app/dailyPlan.ts) |
-| Source lines | 197 |
+| Source lines | 206 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -69,7 +69,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function waitingLine(waiting:` — function, line 164
 - `export function questionInProgressLine(question:` — function, line 171
 - `export function rereadPlanAfterWorkbenchClosed(): void` — function, line 181
-- `export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): string` — function, line 186
+- `export function nextPlanKeyLabel( advancing: boolean, step: PlanStepDto | null, reading:` — function, line 188
 
 ## Internal implementation anchors
 

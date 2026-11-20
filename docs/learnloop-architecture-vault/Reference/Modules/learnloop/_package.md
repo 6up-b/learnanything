@@ -112,7 +112,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/reveal_coverage|learnloop.reveal_coverage]] | [[Reference/Modules/learnloop/reveal_coverage#^module-purpose|purpose]] | `ACTIVE` | 7 | 3 |
 | [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] | [[Reference/Modules/learnloop/router_objective_switches#^module-purpose|purpose]] | `ACTIVE` | 23 | 21 |
 | [[Reference/Modules/learnloop/section_map|learnloop.section_map]] | [[Reference/Modules/learnloop/section_map#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
-| [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] | [[Reference/Modules/learnloop/serve_eligibility#^module-purpose|purpose]] | `ACTIVE` | 16 | 10 |
+| [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] | [[Reference/Modules/learnloop/serve_eligibility#^module-purpose|purpose]] | `ACTIVE` | 17 | 10 |
 | [[Reference/Modules/learnloop/symbolic_view|learnloop.symbolic_view]] | [[Reference/Modules/learnloop/symbolic_view#^module-purpose|purpose]] | `ACTIVE` | 12 | 1 |
 | [[Reference/Modules/learnloop/text_canon|learnloop.text_canon]] | [[Reference/Modules/learnloop/text_canon#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] | [[Reference/Modules/learnloop/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 24 | 6 |
@@ -215,7 +215,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 18 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 18 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 18 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 16 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 17 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 16 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 15 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 14 static module edges

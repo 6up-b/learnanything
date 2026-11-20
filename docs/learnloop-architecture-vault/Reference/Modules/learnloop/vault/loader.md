@@ -1549,6 +1549,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
   - `test_the_build_estimate_charts_what_a_build_may_now_write`
 - [tests/test_first_questions_today.py](../../../../../../tests/test_first_questions_today.py) — direct import
+  - `test_answered_and_reserved_questions_are_named_as_not_askable_now`
+  - `test_questions_come_back_into_the_askable_set_once_due`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_an_interrupted_withdrawal_is_redone_whole`
   - `test_f10_recovery_redoes_a_withdrawal_a_crash_cut_at_the_job_boundary`

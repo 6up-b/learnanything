@@ -20,10 +20,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/synthesis/coverage_rollup.py"
   - "src/learnloop/daily_plan/objective_inputs.py"
-  - "src/learnloop/daily_plan/schedule_effects.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/practice_generation.py"
@@ -100,6 +100,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_state.py`
