@@ -5,7 +5,8 @@ during the learner's own reading) and ``reachedEnd`` (the section's last readabl
 real handler, on a synthetic book of three sections (``tests/mobile_v4_reader_helpers.py``: ``u1`` is b0-b2, ``u2``
 b3-b4, ``u3`` b5-b6), and through the phone host for the phone's origin:
 
-* ids are checked against the reading and the section, and a report naming one that is not there writes nothing;
+* only ids that are readable passages of the section on the reading are kept; any other is left out (logged with
+  counts only), and the report's count, reveal and completion land exactly as without passages, never refused;
 * reports union: a repeated, a smaller or a replayed report removes nothing and keeps each passage's first time and
   origin, across a restart;
 * a count, or a completion, never becomes a passage (the phone's count cannot say which were seen);
@@ -25,7 +26,6 @@ import pytest
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.reader.seen_passages import section_ends_on, seen_on
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.errors import SidecarError
 from tests.mobile_host_helpers import rows
 from tests.mobile_v4_reader_helpers import EXTRACTION, call, desktop, job
 from tests.mobile_v4_reader_helpers import world  # noqa: F401 - a fixture, used by parameter name
@@ -56,7 +56,7 @@ def _ends(repository, extraction: str = EXTRACTION) -> dict[str, dict]:
         repository, "SELECT * FROM reader_section_ends WHERE extraction_id = ? ORDER BY section_id", extraction)}
 
 
-# -- recording and checking ------------------------------------------------------------------------------------------
+# -- recording and leaving out ------------------------------------------------------------------------------------------
 
 
 def test_a_report_records_each_observed_passage_once_with_its_section_time_and_origin(world):
@@ -70,25 +70,65 @@ def test_a_report_records_each_observed_passage_once_with_its_section_time_and_o
     assert world["repo"].reader_section_progress_row(EXTRACTION, "u1")["spans_seen"] == 2
 
 
-@pytest.mark.parametrize("section, ids", [
-    ("u1", ["zz"]),          # no such passage in the reading
-    ("u1", ["b1", "b3"]),    # b3 is u2's
-    ("u9", ["b1"]),          # no such section
-])
-def test_a_report_naming_a_passage_not_in_its_reading_and_section_is_refused_whole(world, section, ids):
+def _without_times(row: dict | None) -> dict | None:
+    return None if row is None else {key: value for key, value in row.items() if key != "updated_at"}
+
+
+@pytest.mark.parametrize("ids", [
+    ["zz"],          # no such passage in the reading
+    ["b1", "b3"],    # b3 is u2's
+], ids=["unknown_passage", "another_sections_passage"])
+def test_an_id_that_is_not_a_passage_of_the_section_is_left_out_and_the_rest_of_the_report_lands(world, ids, caplog):
     ctx = desktop(world["root"])
-    with pytest.raises(SidecarError) as refused:
-        _report(ctx, section, ids=ids, spansSeen=2, spanCount=3)
-    assert refused.value.code == "validation_error"
-    assert _seen(world["repo"]) == {}
-    assert world["repo"].reader_section_progress_row(EXTRACTION, section) is None
+    with caplog.at_level("WARNING", logger="learnloop.reader.seen_passages"):
+        reply = _report(ctx, "u1", ids=ids, spansSeen=2, spanCount=3, completed=True)
+    # The section's own passages are kept, the stranger is never recorded, and the count and the completion land.
+    assert sorted(_seen(world["repo"])) == [span for span in ids if span == "b1"]
+    row = world["repo"].reader_section_progress_row(EXTRACTION, "u1")
+    assert row["spans_seen"] == 2 and row["completed_at"] is not None
+    assert reply["progress"]["completedAt"] is not None
+    # One warning, with counts only: a client mismatch shows, never an id.
+    warnings = [record.getMessage() for record in caplog.records if record.name == "learnloop.reader.seen_passages"]
+    assert len(warnings) == 1 and "1 of" in warnings[0]
+    assert not any(span in warnings[0] for span in ("zz", "b3", "b1"))
 
 
-def test_a_report_on_a_reading_that_does_not_exist_is_refused(world):
-    with pytest.raises(SidecarError) as refused:
-        _report(desktop(world["root"]), "u1", ids=["b1"], extraction="ext_nowhere")
-    assert refused.value.code == "validation_error"
+@pytest.mark.parametrize("extraction, section", [
+    (EXTRACTION, "u9"),          # no such section
+    ("ext_nowhere", "u1"),       # no such reading
+], ids=["unknown_section", "unknown_reading"])
+def test_on_an_unknown_section_or_reading_no_passage_is_recorded_and_the_report_is_mains(world, extraction, section):
+    """Main records the count of any section id on any reading id it is sent (no check: the row is written as
+    named) and answers with it. The same report with passages does exactly that and records no passage."""
+
+    with_ids = desktop(world["root"])
+    reply = _report(with_ids, section, ids=["b1"], end=True, extraction=extraction, spansSeen=2, spanCount=3)
+    without = _report(with_ids, section + "_plain", extraction=extraction, spansSeen=2, spanCount=3)
+    row = _without_times(world["repo"].reader_section_progress_row(extraction, section))
+    plain = _without_times(world["repo"].reader_section_progress_row(extraction, section + "_plain"))
+    assert row is not None and {**row, "section_id": None} == {**plain, "section_id": None}
+    assert row["spans_seen"] == 2 and row["span_count"] == 3
+    assert {key: value for key, value in reply.items() if key != "progress"} == {
+        key: value for key, value in without.items() if key != "progress"}
     assert rows(world["repo"], "SELECT * FROM reader_seen_spans") == []
+    assert rows(world["repo"], "SELECT * FROM reader_section_ends") == []
+
+
+def test_a_phone_completion_coalesced_with_passages_and_a_stranger_lands_whole(world):
+    """The phone's outbox merges a section's queued reports, so a completion ("Next section") can arrive with the
+    passages of an earlier report. One id the host does not count as the section's passage must not keep the
+    completion from landing: the completion and the good ids are recorded, the stranger is not."""
+
+    done = job(world["phone"], "reader.mark_section_progress",
+               {"extractionId": EXTRACTION, "sectionId": "u1", "spansSeen": 3, "spanCount": 3, "completed": True,
+                "seenSpanIds": ["b0", "b1", "node-footnote-7"], "reachedEnd": True}, "merged_1")
+    row = world["repo"].reader_section_progress_row(EXTRACTION, "u1")
+    assert row["completed_at"] is not None and row["spans_seen"] == 3
+    assert row["generation_batch_id"] == "deferred_to_primary" and done["enqueuedGeneration"] is False
+    seen = _seen(world["repo"])
+    assert sorted(seen) == ["b0", "b1"] and {r["origin"] for r in seen.values()} == {"phone"}
+    # Its end named b2, which it did not keep: no end is recorded, and nothing was refused.
+    assert _ends(world["repo"]) == {}
 
 
 # -- union ----------------------------------------------------------------------------------------------------------
@@ -185,10 +225,10 @@ def test_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing(wo
 
 def test_an_end_is_recorded_only_when_its_last_passage_is_seen(world):
     ctx = desktop(world["root"])
-    with pytest.raises(SidecarError) as refused:
-        _report(ctx, "u1", ids=["b1"], end=True, spansSeen=2, spanCount=3)
-    assert refused.value.code == "validation_error"
-    assert _ends(world["repo"]) == {} and _seen(world["repo"]) == {}
+    # Its last passage not seen: the end is left out, not refused; the passage and the count land.
+    _report(ctx, "u1", ids=["b1"], end=True, spansSeen=2, spanCount=3)
+    assert _ends(world["repo"]) == {} and sorted(_seen(world["repo"])) == ["b1"]
+    assert world["repo"].reader_section_progress_row(EXTRACTION, "u1")["spans_seen"] == 2
     # Seen in an earlier report, the last passage makes a later end good on its own.
     _report(ctx, "u1", ids=["b2"], spansSeen=3, spanCount=3)
     _report(ctx, "u1", end=True)

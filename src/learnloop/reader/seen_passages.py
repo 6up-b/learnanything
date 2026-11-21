@@ -2,8 +2,9 @@
 
 The Reader's progress report (``reader.mark_section_progress``) names the passages the desktop or the phone saw
 during the learner's own scrolling or playback, and whether the section's last readable passage was among them.
-:func:`check_report` holds those ids to the reading and the section before anything is written; the store appends
-them (``upsert_reader_section_progress``), so reports union and a smaller one removes nothing.
+:func:`check_report` keeps the ids that are the section's passages on that reading and leaves the rest out (it never
+refuses a report: its count and completion land as before); the store appends the kept ones
+(``upsert_reader_section_progress``), so reports union and a smaller one removes nothing.
 
 These are generation evidence for a later step, never evidence of understanding: no mastery, exposure, scheduling,
 reading-credit or generation reader reads them yet, and a section is finished exactly as before. :func:`seen_on`
@@ -15,6 +16,7 @@ A count is never turned into passages: the phone's count cannot say which passag
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,48 +26,52 @@ from learnloop.section_map import extraction_sections
 ORIGINS = ("desktop", "phone")
 
 
-class SeenReportRefused(ValueError):
-    """A report names a reading, a section or a passage that is not there; nothing of it is written."""
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class CheckedReport:
-    """A report's passages, checked: in reading order, once each, and the section's end when it was reached."""
+    """A report's passages, kept: those that are readable passages of its section, in reading order, once each; the
+    section's end when its last passage is seen; and how many named ids were left out."""
 
     seen_span_ids: tuple[str, ...]
     end_span_id: str | None
+    left_out: int = 0
 
 
 def check_report(repository: Any, *, extraction_id: str, section_id: str, seen_span_ids: list[str] | None,
                  reached_end: bool) -> CheckedReport:
-    """Hold a report's passages to the reading and the section it names.
+    """Keep the passages a report names that are readable passages of its section on its reading.
 
-    Each id must be one of the section's readable passages (``section_map.extraction_sections``, the one definition
-    the guide, the phone and the quick checks share). An end needs the section's last readable passage seen, in this
-    report or an earlier one on the same reading: an end is an observation of that passage, never a position."""
+    Never refuses: the passages are an optional addition to a report whose count, reveal and completion must land
+    exactly as before (a phone's queued passages coalesce with its later completion into one record, and a refused
+    record is never sent again). An id that is not one of the section's readable passages
+    (``section_map.extraction_sections``, the definition the guide, the phone and the quick checks share), and every
+    id on an unknown reading or section, is left out: never recorded, and counted in one warning per report. An end
+    is kept only when the section's last readable passage is seen, in this report's kept passages or recorded
+    earlier on the same reading: an end is an observation of that passage, never a position."""
 
     wanted = [str(span_id) for span_id in dict.fromkeys(seen_span_ids or ())]
     if not wanted and not reached_end:
         return CheckedReport((), None)
     ir = repository.load_document_ir(extraction_id) if repository.get_extraction_run(extraction_id) else None
-    if ir is None:
-        raise SeenReportRefused(f"No reading {extraction_id!r} to record seen passages on.")
-    sections, _blocks, _span_to_section = extraction_sections(ir)
+    sections = extraction_sections(ir)[0] if ir is not None else []
     section = next((row for row in sections if row["id"] == section_id), None)
-    if section is None:
-        raise SeenReportRefused(f"No section {section_id!r} in reading {extraction_id!r}.")
-    order = {span_id: index for index, span_id in enumerate(section["span_ids"])}
-    strangers = [span_id for span_id in wanted if span_id not in order]
-    if strangers:
-        raise SeenReportRefused(f"Not passages of section {section_id!r}: {', '.join(strangers[:5])}.")
+    order = {span_id: index for index, span_id in enumerate(section["span_ids"])} if section is not None else {}
+    kept = sorted((span_id for span_id in wanted if span_id in order), key=order.__getitem__)
     end_span_id = None
-    if reached_end:
+    if reached_end and section is not None:
         last = str(section["end_span_id"])
-        recorded = {str(row["span_id"]) for row in repository.reader_seen_spans_for(extraction_id)}
-        if last not in wanted and last not in recorded:
-            raise SeenReportRefused(f"The end of section {section_id!r} is its last passage, which was not seen.")
-        end_span_id = last
-    return CheckedReport(tuple(sorted(wanted, key=order.__getitem__)), end_span_id)
+        if last in kept or last in {str(row["span_id"]) for row in repository.reader_seen_spans_for(extraction_id)}:
+            end_span_id = last
+    left_out = len(wanted) - len(kept)
+    if left_out or (reached_end and end_span_id is None):
+        # Counts only: a client and the host disagreeing on a section's passages shows here, never its ids or text.
+        _log.warning("seen passages left out of a progress report: %d of %d ids, end %s (reading known: %s, "
+                     "section known: %s)", left_out, len(wanted),
+                     "left out" if reached_end and end_span_id is None else "kept" if reached_end else "not reported",
+                     ir is not None, section is not None)
+    return CheckedReport(tuple(kept), end_span_id, left_out)
 
 
 @dataclass(frozen=True)

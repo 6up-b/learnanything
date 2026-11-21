@@ -10,8 +10,9 @@
 --
 -- reader_seen_spans: one row per passage of one reading, written the first time the Reader reported it
 -- observed during the learner's own reading (scrolling or playback, on the desktop or the phone; never a
--- restore, a jump or an explicit completion). section_id is the section it was reported in, checked
--- against the reading. A later report of the same passage changes nothing: reports union, and the first
+-- restore, a jump or an explicit completion). section_id is the section it was reported in; only ids that
+-- are readable passages of that section on that reading are written (others are left out, and the report's
+-- count and completion land as before: a report is never refused for them). A later report of the same passage changes nothing: reports union, and the first
 -- time and origin stay.
 --
 -- reader_section_ends: one row per section of one reading, written the first time the section's last
