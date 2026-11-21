@@ -133,26 +133,27 @@ async function wait(ms: number) {
 /** The learner's own movement: their hand on the page (wheel, touch, the scrollbar) and then the frames it scrolls
  *  through, one scroll event and one frame each. One frame is a step that displays nothing in between. */
 async function moveByHand(result: Harness, frames: number[]) {
-  await act(async () => {
-    result.current.noteUserScroll();
-    for (const y of frames) {
+  act(() => result.current.noteUserScroll());
+  await frameByFrame(result, frames);
+}
+
+/** Each frame drawn and rendered on its own, as the browser does. */
+async function frameByFrame(result: Harness, frames: number[]) {
+  for (const y of frames) {
+    await act(async () => {
       scrollY = y;
       result.current.onReadingScroll();
       await vi.advanceTimersByTimeAsync(17);
-    }
-  });
+    });
+  }
 }
 
 /** The same with a scroll key: the keydown the Reader listens for on the window, then the frames. */
 async function moveByKey(result: Harness, key: string, frames: number[]) {
-  await act(async () => {
+  act(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key }));
-    for (const y of frames) {
-      scrollY = y;
-      result.current.onReadingScroll();
-      await vi.advanceTimersByTimeAsync(17);
-    }
   });
+  await frameByFrame(result, frames);
 }
 
 /** The page moving without the learner (a restore landing, layout settling, a jump's scroll). */
