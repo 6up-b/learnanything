@@ -54,6 +54,7 @@ import json
 import logging
 from typing import Any
 
+from learnloop.db.evidence_cutoff import Cutoff, closure_admits, closure_at_limit, closure_through_limit
 from learnloop.router import mixture as mx
 from learnloop.router_objective import assignments as A
 
@@ -468,48 +469,39 @@ class Closure:
     Intended, and the one exception (Codex review F1): an answer's grade and its hold are read as they stand NOW. A
     hold placed or released, a regrade, a quarantine, or a current grading epoch that assesses nothing applies to every
     read, closed ones included: the assessment rules say what an answer measured, and a later correction of its grade
-    is the truth about that answer, not later data about the learner."""
+    is the truth about that answer, not later data about the learner.
+
+    The rule is the ``closure`` preset of :class:`learnloop.db.evidence_cutoff.Cutoff` (:attr:`cutoff`), whose
+    kernels compute the limit and the test, so a snapshot can store the cutoff a read honoured."""
 
     limit: datetime
     inclusive: bool
     local_date: str
+    #: The preset this closure is (``Cutoff.closure_through`` or ``Cutoff.closure_at``); None for a closure built
+    #: directly from a limit. Not compared: two closures with one limit and inclusivity read the same events.
+    cutoff: Cutoff | None = field(default=None, compare=False, repr=False)
 
     @classmethod
     def through(cls, local_date: str) -> "Closure":
         """The end of ``local_date`` (local time): events before the next local midnight."""
 
-        try:
-            following = date.fromisoformat(local_date) + timedelta(days=1)
-            limit = datetime(following.year, following.month, following.day).astimezone().astimezone(UTC)
-            return cls(limit=limit, inclusive=False, local_date=local_date)
-        except (OverflowError, ValueError):  # the far future (``9999-12-31``): every event
-            return cls(limit=datetime.max.replace(tzinfo=UTC), inclusive=True, local_date=local_date)
+        cutoff = Cutoff.closure_through(local_date)
+        limit, inclusive = closure_through_limit(local_date)
+        return cls(limit=limit, inclusive=inclusive, local_date=local_date, cutoff=cutoff)
 
     @classmethod
     def at(cls, stamp: str) -> "Closure":
         """``stamp`` itself (a window's ``window_closes_at``): events at or before it."""
 
-        from learnloop.clock import parse_utc
-
-        moment = parse_utc(str(stamp))
-        assert moment is not None
-        return cls(limit=moment, inclusive=True, local_date=moment.astimezone().date().isoformat())
+        moment = closure_at_limit(stamp)
+        return cls(limit=moment, inclusive=True, local_date=moment.astimezone().date().isoformat(),
+                   cutoff=Cutoff.closure_at(stamp))
 
     def admits(self, occurred: Any, received: Any = None) -> bool:
         """Whether an event that happened at ``occurred`` (and, for an answer, became known at ``received``, None
         where the two are one) is in the read: both at or before the closure. An event with no time is not."""
 
-        from learnloop.clock import parse_utc
-
-        if not occurred:
-            return False
-        for stamp in (occurred, received):
-            if not stamp:
-                continue
-            moment = parse_utc(str(stamp))
-            if moment is None or moment > self.limit or (moment == self.limit and not self.inclusive):
-                return False
-        return True
+        return closure_admits(self.limit, self.inclusive, occurred, received)
 
 
 def _closure(through: str | None, closure: Closure | None) -> Closure:
