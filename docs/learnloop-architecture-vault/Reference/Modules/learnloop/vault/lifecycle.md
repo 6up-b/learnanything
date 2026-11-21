@@ -85,6 +85,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 
 - [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `practice_item_serving_block`; statically calls `practice_item_serving_block`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `practice_item_servable`; statically calls `practice_item_servable`
+- [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]] — imports `practice_item_servable`; statically calls `practice_item_servable`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `practice_item_serving_block`; statically calls `practice_item_serving_block`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `learning_object_servable`; statically calls `learning_object_servable`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `learning_object_servable`; statically calls `learning_object_servable`
@@ -117,7 +118,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 11 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

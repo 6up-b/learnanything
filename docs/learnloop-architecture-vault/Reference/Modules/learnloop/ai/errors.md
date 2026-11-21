@@ -187,7 +187,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `AIInterrupted`, `AIInvalidOutput`; statically calls `AIInterrupted`, `AIInvalidOutput`
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `AIInvalidOutput`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `AIInvalidOutput`; statically calls `AIInvalidOutput`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `AITurnTimeout`; statically calls `AIInterrupted`, `AIInvalidOutput`, `AITurnTimeout`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `CodexUnavailable`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `AIInterrupted`
@@ -341,6 +341,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_the_llm_judge_runs_on_the_subscription_route_by_default`
 - [tests/test_label_roles_cli.py](../../../../../../tests/test_label_roles_cli.py) — direct import
+- [tests/test_live_dialogue_contract_baseline.py](../../../../../../tests/test_live_dialogue_contract_baseline.py) — direct import
+  - `test_initial_deadline_and_cancellation`
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`
 - [tests/test_multimodal_client.py](../../../../../../tests/test_multimodal_client.py) — direct import
@@ -445,6 +447,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_compare_harness_never_resends_a_profile_maximum`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_failed_teach_back_grading_closes_its_run_as_failed`
+- [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
+  - `test_stop_between_blank_and_correction_sends_nothing`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f10_deferred_read_results_are_kept_until_a_turn_consumes_them`
   - `test_f11_an_opening_failure_carries_the_saved_lesson_and_resume_runs_it`

@@ -170,6 +170,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `parse_utc`; statically calls `parse_utc`
@@ -527,7 +528,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 426 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 427 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -588,6 +589,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_review_helpers.py](../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/mobile_v2_plan_helpers.py](../../../../../tests/mobile_v2_plan_helpers.py) — direct import
+- [tests/next_practice_helpers.py](../../../../../tests/next_practice_helpers.py) — direct import
 - [tests/notes_as_learner_text_helpers.py](../../../../../tests/notes_as_learner_text_helpers.py) — direct import
 - [tests/p2_acceptance_helpers.py](../../../../../tests/p2_acceptance_helpers.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../tests/passage_cue_fakes.py) — direct import
@@ -1544,6 +1546,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_codex_review.py](../../../../../tests/test_mobile_v3_codex_review.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_mvp017_route_check_replay.py](../../../../../tests/test_mvp017_route_check_replay.py) — direct import
+- [tests/test_next_practice.py](../../../../../tests/test_next_practice.py) — direct import
+  - `test_a_due_after_the_clocks_go_back_stays_on_its_own_day`
 - [tests/test_observation_ledger_bulk.py](../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_canonical_projection_bulk_loads_historical_contracts_once`
   - `test_p0_replays_bulk_load_calibration_references_once`

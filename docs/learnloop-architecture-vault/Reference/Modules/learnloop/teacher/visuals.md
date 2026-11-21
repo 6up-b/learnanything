@@ -185,6 +185,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_figure_never_reaches_the_grader_and_is_never_a_help_row`
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_figure_quoting_a_reserved_stem_is_not_shown`
+- [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
+  - `test_all_eight_turn_variants_check_inside_receipt`
 
 ## Modification guidance
 

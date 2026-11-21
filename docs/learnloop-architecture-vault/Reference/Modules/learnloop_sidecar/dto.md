@@ -204,6 +204,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_transport.py](../../../../../tests/test_sidecar_transport.py) — direct import
   - `test_duplicate_method_registration_fails_loudly`
   - `test_unexpected_handler_failure_marks_the_commit_outcome_unknown`
+- [tests/test_ux_phase4_feedback.py](../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_the_session_finish_says_what_comes_next_dated`
 
 ## Modification guidance
 

@@ -371,6 +371,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
 - [tests/test_migrations.py](../../../../../../tests/test_migrations.py) — direct import
   - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
+- [tests/test_next_practice.py](../../../../../../tests/test_next_practice.py) — direct import
+  - `test_a_writable_read_of_the_due_queue_would_have_changed_it`
 - [tests/test_placement_diagnosis_decides.py](../../../../../../tests/test_placement_diagnosis_decides.py) — direct import
   - `test_a_diagnosis_that_never_lands_stops_holding_the_check`
   - `test_a_miss_the_diagnosis_does_not_call_a_gap_keeps_the_topic_in_maintenance`

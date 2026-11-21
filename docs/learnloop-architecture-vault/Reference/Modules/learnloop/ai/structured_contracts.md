@@ -129,6 +129,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `Predicate`; statically calls `Predicate`
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Predicate`, `contract_of`, `correction_prompt`; statically calls `Predicate`, `contract_of`, `correction_prompt`
 - [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `ContractFailure`, `RecoveryAllowance`, `RecoveryState`, `checked_structured_call`, `recover_from_receipts`, `recovery_note`; statically calls `RecoveryAllowance`, `RecoveryState`, `checked_structured_call`, `recover_from_receipts`, `recovery_note`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `ContractFailure`, `ContractRejected`, `Predicate`, `RecoveryAllowance`, `checked_structured_call`; statically calls `Predicate`, `RecoveryAllowance`, `checked_structured_call`
 
 ## Dependencies
 
@@ -149,7 +150,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -200,6 +201,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_correction_reproduces_the_followup_authors_reask_byte_for_byte`
   - `test_the_correction_runs_on_what_remains_of_the_one_deadline`
   - `test_without_a_contract_an_operation_and_its_receipt_are_as_before`
+- [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
+  - `test_all_eight_turn_variants_check_inside_receipt`
+  - `test_two_failed_turns_leave_the_existing_third_slot`
 
 ## Modification guidance
 

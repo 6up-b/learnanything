@@ -306,8 +306,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_flow_helpers.py](../../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
 - [tests/learner_text_gaps_helpers.py](../../../../../../tests/learner_text_gaps_helpers.py) — direct import
 - [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
+- [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
+- [tests/next_practice_helpers.py](../../../../../../tests/next_practice_helpers.py) — direct import
 - [tests/normalize_helpers.py](../../../../../../tests/normalize_helpers.py) — direct import
 - [tests/notes_linked_helpers.py](../../../../../../tests/notes_linked_helpers.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
@@ -2162,6 +2164,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_reenters_each_attempts_stored_lane`
 - [tests/test_mvp017_route_check_replay.py](../../../../../../tests/test_mvp017_route_check_replay.py) — direct import
   - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
+- [tests/test_next_practice.py](../../../../../../tests/test_next_practice.py) — direct import
+  - `test_a_writable_read_of_the_due_queue_would_have_changed_it`
+  - `test_it_reads_nothing_through_the_callers_repository`
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_a_changed_note_is_read_with_its_current_snapshot_and_the_old_one_is_not`
   - `test_a_hidden_link_is_never_read_and_undo_queues_it_again`
@@ -3298,6 +3303,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_kind_of_gap_is_named_in_the_topic_s_own_words`
   - `test_the_lesson_rpc_passes_the_episode_only_for_a_learner_s_own_start`
   - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
+- [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
+  - `test_all_eight_turn_variants_check_inside_receipt`
+  - `test_three_blanks_close_and_resume_never_resends`
 - [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
   - `test_a_note_never_reaches_the_grader`
   - `test_the_brief_reads_the_deliverable_its_path_and_the_learners_notes`

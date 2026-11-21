@@ -166,7 +166,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] | [[Reference/Modules/learnloop/db/stores/probes#^module-purpose|purpose]] | `ACTIVE` | 9 | 0 |
 | [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 18 | 7 |
 | [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]] | [[Reference/Modules/learnloop/db/stores/questions#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] | [[Reference/Modules/learnloop/db/stores/reader#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
+| [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] | [[Reference/Modules/learnloop/db/stores/reader#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] | [[Reference/Modules/learnloop/db/stores/reader_cue_links#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/db/stores/reader_digests|learnloop.db.stores.reader_digests]] | [[Reference/Modules/learnloop/db/stores/reader_digests#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/db/stores/reading_paths|learnloop.db.stores.reading_paths]] | [[Reference/Modules/learnloop/db/stores/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -202,7 +202,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 27 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 24 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 25 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 21 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 19 static module edges
@@ -273,7 +273,7 @@ flowchart LR
     n_learnloop_source_retrieval -->|54| center
     n_learnloop_adaptive_difficulty -->|28| center
     n_learnloop_sidecar_handlers -->|27| center
-    n_learnloop_daily_plan -->|24| center
+    n_learnloop_daily_plan -->|25| center
     n_learnloop_instructional -->|23| center
     n_learnloop_figures -->|21| center
     n_learnloop_diagnosis -->|19| center

@@ -96,7 +96,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/RepairTrace|RepairTrace.tsx]] | `ACTIVE` | Provides the reusable `RepairTrace` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/RewordConfirms|RewordConfirms.tsx]] | `ACTIVE` | Provides the reusable `RewordConfirms` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/SessionElsewherePrompt|SessionElsewherePrompt.tsx]] | `ACTIVE` | Provides the reusable `SessionElsewherePrompt` interaction surface used by one or more desktop workflows. | 2 | 1 |
-| [[Reference/Desktop/TypeScript/components/SessionFinishHud|SessionFinishHud.tsx]] | `ACTIVE` | Provides the reusable `SessionFinishHud` interaction surface used by one or more desktop workflows. | 5 | 1 |
+| [[Reference/Desktop/TypeScript/components/SessionFinishHud|SessionFinishHud.tsx]] | `ACTIVE` | Provides the reusable `SessionFinishHud` interaction surface used by one or more desktop workflows. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/components/SessionMovedBanner|SessionMovedBanner.tsx]] | `ACTIVE` | Provides the reusable `SessionMovedBanner` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/ShellNav|ShellNav.tsx]] | `ACTIVE` | Provides the reusable `ShellNav` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|SourceLibrarySidebar.tsx]] | `ACTIVE` | Provides the reusable `SourceLibrarySidebar` interaction surface used by one or more desktop workflows. | 9 | 1 |

@@ -115,6 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]] — imports `ESTIMATE_DECIMALS`, `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
+- [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice_index|learnloop_sidecar.handlers.practice_index]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 
 ## Dependencies
@@ -135,7 +136,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

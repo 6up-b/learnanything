@@ -155,6 +155,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `SECTION_DEFERRED_TO_PRIMARY`, `SECTION_ENQUEUING`, `SECTION_NONE_NEEDED`, `SECTION_NONE_NEEDED_BEFORE`, `SECTION_TOPIC_MANAGED`, `SECTION_WAITING_FOR_BUILD`
+- [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]] — imports `SECTION_DEFERRED_TO_PRIMARY`, `SECTION_ENQUEUING`, `SECTION_WAITING_FOR_BUILD`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ReaderStoreMixin`
 - [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `READER_FIRST_SET`
 - [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `READER_FIRST_SET`, `SECTION_DEFERRED_TO_PRIMARY`, `SECTION_ENQUEUING`, `SECTION_NONE_NEEDED`, `SECTION_NONE_NEEDED_BEFORE`, `SECTION_TOPIC_MANAGED`, `SECTION_WAITING_FOR_BUILD`
@@ -179,7 +180,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]], [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]], [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

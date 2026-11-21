@@ -374,6 +374,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]] — imports `load_records_from_connection`, `local_date`, `plan_active`; statically calls `load_records_from_connection`, `local_date`, `plan_active`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `module`; statically calls `_close`, `_decision_state`, `_device_detail`, `_done_step`, `_event`, `_feasibility`, `_item_step`, `_live_context`, `_persist_block`, `_reading_step`, `_reload`, `_serve`, `_standing_presentation`, `get_or_create_today`, `plan_active`, `reconcile`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `PlanEnv`, `latest_today`; statically calls `PlanEnv`, `latest_today`
+- [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]] — imports `review_population`; statically calls `review_population`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `DEFAULT_POLICY`, `PlanPolicy`, `plan_active`; statically calls `PlanPolicy`, `plan_active`
 - [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] — imports `review_population`; statically calls `review_population`
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `admitted_new_material_ids`; statically calls `admitted_new_material_ids`
@@ -471,7 +472,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

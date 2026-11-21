@@ -21,12 +21,13 @@ source_paths:
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/daily_plan/next_practice.py"
   - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
+  - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/diagnosis/causal_cold_verification.py"
 tags:
   - "learnloop/database/table"
@@ -120,6 +121,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`

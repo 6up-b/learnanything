@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/live_dialogue_contract_helpers.py](../../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_chat_client_accumulates_usage_across_calls_and_resets_on_consume`
   - `test_chat_client_counts_tokens_of_a_call_whose_body_is_unusable`

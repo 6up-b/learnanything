@@ -68,17 +68,17 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] | [[Reference/Modules/learnloop/teacher/delayed#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] | [[Reference/Modules/learnloop/teacher/diagnosed_sources#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/teacher/doctrines|learnloop.teacher.doctrines]] | [[Reference/Modules/learnloop/teacher/doctrines#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] | [[Reference/Modules/learnloop/teacher/episodes#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
+| [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] | [[Reference/Modules/learnloop/teacher/episodes#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/teacher/exposure|learnloop.teacher.exposure]] | [[Reference/Modules/learnloop/teacher/exposure#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/teacher/from_check|learnloop.teacher.from_check]] | [[Reference/Modules/learnloop/teacher/from_check#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] | [[Reference/Modules/learnloop/teacher/guards#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] | [[Reference/Modules/learnloop/teacher/notes#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] | [[Reference/Modules/learnloop/teacher/probes#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] | [[Reference/Modules/learnloop/teacher/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] | [[Reference/Modules/learnloop/teacher/service#^module-purpose|purpose]] | `ACTIVE` | 3 | 39 |
-| [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] | [[Reference/Modules/learnloop/teacher/te2#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
+| [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] | [[Reference/Modules/learnloop/teacher/service#^module-purpose|purpose]] | `ACTIVE` | 3 | 42 |
+| [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] | [[Reference/Modules/learnloop/teacher/te2#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] | [[Reference/Modules/learnloop/teacher/topics#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] | [[Reference/Modules/learnloop/teacher/visuals#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
+| [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] | [[Reference/Modules/learnloop/teacher/visuals#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 
 ## Cross-package dependencies
 
@@ -88,7 +88,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 11 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 9 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 10 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 5 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 4 static module edges
@@ -136,7 +136,7 @@ flowchart LR
     center -->|16| n_learnloop_db_stores
     center -->|11| n_learnloop_attempts
     center -->|11| n_learnloop_source_retrieval
-    center -->|9| n_learnloop_ai
+    center -->|10| n_learnloop_ai
     n_learnloop_figures -->|3| center
     center -->|4| n_learnloop_figures
     center -->|6| n_learnloop_learner

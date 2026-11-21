@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/todayPlan.ts](../../../../../../apps/learnloop-tauri/src/app/todayPlan.ts) |
-| Source lines | 405 |
+| Source lines | 413 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -54,80 +54,82 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function dayPhrase(now: Date = new Date()): string` — function, line 32
-- `export interface TodayRow` — interface, line 93
-- `export function onYourOwnItem(item: PlanItemDto): boolean` — function, line 146
-- `export function todayRows(plan: Plan): TodayRow[]` — function, line 152
-- `export function planSentence(plan: Plan): string | null` — function, line 195
-- `export function reentrySentence(plan: Plan): string` — function, line 237
-- `export function reentryWhy(plan: Plan): string | null` — function, line 243
-- `export function splitWhy(plan: Plan): string[]` — function, line 252
-- `export function doneLine(data: DailyPlanDto): string` — function, line 271
-- `export const GOAL_NOTHING_READY = "Nothing for this goal is ready to practise yet."` — const, line 279
-- `export function planWasEmpty(data: DailyPlanDto): boolean` — function, line 282
-- `export function streakLine(streak: StreakSummary | null | undefined): string | null` — function, line 287
-- `export const THREADS_SHOWN = 3` — const, line 295
-- `export type TodayThread = |` — type, line 297
-- `export function questionThread(row: QuestionQueueRowDto): TodayThread` — function, line 308
-- `export function problemThread(problem: WorkbenchOpenProblemDto): TodayThread` — function, line 319
-- `export function todayThreads(questionRows: readonly QuestionQueueRowDto[], problems: readonly WorkbenchOpenProblemDto[]): TodayThread[]` — function, line 325
-- `export function fullListWhy(item: ScheduledItemDto, now: number = Date.now()): string` — function, line 341
-- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 376
-- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 391
+- `export function dayPhrase(now: Date = new Date()): string` — function, line 34
+- `export interface TodayRow` — interface, line 95
+- `export function onYourOwnItem(item: PlanItemDto): boolean` — function, line 148
+- `export function todayRows(plan: Plan): TodayRow[]` — function, line 154
+- `export function planSentence(plan: Plan): string | null` — function, line 197
+- `export function reentrySentence(plan: Plan): string` — function, line 239
+- `export function reentryWhy(plan: Plan): string | null` — function, line 245
+- `export function splitWhy(plan: Plan): string[]` — function, line 254
+- `export function doneLine(data: DailyPlanDto): string` — function, line 273
+- `export const GOAL_NOTHING_READY = "Nothing for this goal is ready to practise yet."` — const, line 281
+- `export function planWasEmpty(data: DailyPlanDto): boolean` — function, line 284
+- `export function streakLine(streak: StreakSummary | null | undefined): string | null` — function, line 289
+- `export const THREADS_SHOWN = 3` — const, line 297
+- `export type TodayThread = |` — type, line 299
+- `export function questionThread(row: QuestionQueueRowDto): TodayThread` — function, line 310
+- `export function problemThread(problem: WorkbenchOpenProblemDto): TodayThread` — function, line 321
+- `export function todayThreads(questionRows: readonly QuestionQueueRowDto[], problems: readonly WorkbenchOpenProblemDto[]): TodayThread[]` — function, line 327
+- `export function fullListWhy(item: ScheduledItemDto, now: number = Date.now(), next?: NextPracticeDto | null): string` — function, line 346
+- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 384
+- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 399
 
 ## Internal implementation anchors
 
-- `type Plan = DailyPlanBodyDto` — type, line 29
-- `const weekday = now.toLocaleDateString(undefined,` — const, line 33
-- `const hour = now.getHours()` — const, line 34
-- `const part = hour < 5 ? "night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 22 ? "evening" : "night"` — const, line 36
-- `function titles(list: readonly string[]): string` — function, line 40
-- `const unique = [...new Set(list.filter(Boolean))]` — const, line 41
-- `function questions(count: number): string` — function, line 46
-- `function lanePhrase(lane: PlanLane | null, itemCount: number, loTitles: readonly string[]): string` — function, line 51
-- `const about = titles(loTitles)` — const, line 52
-- `function laneRow(lane: PlanLane | null, itemCount: number, loTitles: readonly string[]): string` — function, line 68
-- `const about = titles(loTitles)` — const, line 69
-- `function readingStarted(block: PlanBlockDto): boolean` — function, line 84
-- `function readingTitle(title: string | null | undefined): string` — function, line 88
-- `function chosenRow(block: PlanBlockDto, current: boolean): TodayRow` — function, line 108
-- `let text: string` — let, line 109
-- `const items = block.items.filter((item)` — const, line 118
-- `function projectedRow(block: PlanProjectedBlockDto): TodayRow` — function, line 132
-- `const text = block.readingTitle ? `Read $` — const, line 133
-- `const rows: TodayRow[] = []` — const, line 153
-- `function sentencePhrase(row:` — function, line 162
-- `function joinPhrases(phrases: string[]): string` — function, line 169
-- `function minutesWord(minutes: number): string` — function, line 175
-- `function roomWords(minutesLeft: number): string` — function, line 180
-- `const minutes = Math.max(1, Math.round(minutesLeft))` — const, line 181
-- `const phrases: string[] = []` — const, line 196
-- `const begun = plan.blocks.some((block)` — const, line 217
-- `const list = `$` — const, line 218
-- `const past = Math.round(plan.minutesPastPlan ?? 0)` — const, line 221
-- `const suggested = begun ? past > 0 ? `About $` — const, line 222
-- `const head = begun ? `Room for $` — const, line 229
-- `const minutes = plan.reentry ? Math.max(1, Math.round(plan.reentry.planMinutes)) : Math.max(1, Math.round(plan.minutesBudget))` — const, line 238
-- `const reentry = plan.reentry` — const, line 244
-- `const away = `You were away $` — const, line 246
-- `const named = reentry.slippedNames.length ? ` Today's catch-up starts with what faded most: $` — const, line 247
-- `const words: Record<PlanLane, string> =` — const, line 253
-- `const lines = plan.split.lanes .filter((lane)` — const, line 259
-- `const minutes = wholeMinutes(data.day?.actualMinutes)` — const, line 272
-- `const reading = (data.day?.readingBlocks ?? 0) > 0 ? " and reading" : ""` — const, line 274
-- `const days = `$` — const, line 289
-- `function oneLine(markdown: string, limit = 80): string` — function, line 302
-- `const text = plainMathLine(markdown)` — const, line 303
-- `const steps = problem.stepCount === 1 ? "1 step written" : problem.stepCount > 1 ? `$` — const, line 320
-- `const open = questionRows.filter((row)` — const, line 326
-- `const dated: Array<` — const, line 327
-- `function laterWhy(dueAt: string | null, now: number): string` — function, line 362
-- `const due = dueAt ? Date.parse(dueAt) : Number.NaN` — const, line 363
-- `const day = (time: number)` — const, line 366
-- `const date = new Date(time)` — const, line 367
-- `const days = Math.round(day(due) - day(now))` — const, line 370
-- `const plan = await api.getDailyPlan(null)` — const, line 393
-- `const summary = await api.getStartSummary()` — const, line 399
+- `type Plan = DailyPlanBodyDto` — type, line 31
+- `const weekday = now.toLocaleDateString(undefined,` — const, line 35
+- `const hour = now.getHours()` — const, line 36
+- `const part = hour < 5 ? "night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 22 ? "evening" : "night"` — const, line 38
+- `function titles(list: readonly string[]): string` — function, line 42
+- `const unique = [...new Set(list.filter(Boolean))]` — const, line 43
+- `function questions(count: number): string` — function, line 48
+- `function lanePhrase(lane: PlanLane | null, itemCount: number, loTitles: readonly string[]): string` — function, line 53
+- `const about = titles(loTitles)` — const, line 54
+- `function laneRow(lane: PlanLane | null, itemCount: number, loTitles: readonly string[]): string` — function, line 70
+- `const about = titles(loTitles)` — const, line 71
+- `function readingStarted(block: PlanBlockDto): boolean` — function, line 86
+- `function readingTitle(title: string | null | undefined): string` — function, line 90
+- `function chosenRow(block: PlanBlockDto, current: boolean): TodayRow` — function, line 110
+- `let text: string` — let, line 111
+- `const items = block.items.filter((item)` — const, line 120
+- `function projectedRow(block: PlanProjectedBlockDto): TodayRow` — function, line 134
+- `const text = block.readingTitle ? `Read $` — const, line 135
+- `const rows: TodayRow[] = []` — const, line 155
+- `function sentencePhrase(row:` — function, line 164
+- `function joinPhrases(phrases: string[]): string` — function, line 171
+- `function minutesWord(minutes: number): string` — function, line 177
+- `function roomWords(minutesLeft: number): string` — function, line 182
+- `const minutes = Math.max(1, Math.round(minutesLeft))` — const, line 183
+- `const phrases: string[] = []` — const, line 198
+- `const begun = plan.blocks.some((block)` — const, line 219
+- `const list = `$` — const, line 220
+- `const past = Math.round(plan.minutesPastPlan ?? 0)` — const, line 223
+- `const suggested = begun ? past > 0 ? `About $` — const, line 224
+- `const head = begun ? `Room for $` — const, line 231
+- `const minutes = plan.reentry ? Math.max(1, Math.round(plan.reentry.planMinutes)) : Math.max(1, Math.round(plan.minutesBudget))` — const, line 240
+- `const reentry = plan.reentry` — const, line 246
+- `const away = `You were away $` — const, line 248
+- `const named = reentry.slippedNames.length ? ` Today's catch-up starts with what faded most: $` — const, line 249
+- `const words: Record<PlanLane, string> =` — const, line 255
+- `const lines = plan.split.lanes .filter((lane)` — const, line 261
+- `const minutes = wholeMinutes(data.day?.actualMinutes)` — const, line 274
+- `const reading = (data.day?.readingBlocks ?? 0) > 0 ? " and reading" : ""` — const, line 276
+- `const days = `$` — const, line 291
+- `function oneLine(markdown: string, limit = 80): string` — function, line 304
+- `const text = plainMathLine(markdown)` — const, line 305
+- `const steps = problem.stepCount === 1 ? "1 step written" : problem.stepCount > 1 ? `$` — const, line 322
+- `const open = questionRows.filter((row)` — const, line 328
+- `const dated: Array<` — const, line 329
+- `function localDay(time: number): string` — function, line 367
+- `const date = new Date(time)` — const, line 368
+- `function laterWhy(dueAt: string | null, now: number): string` — function, line 372
+- `const due = dueAt ? Date.parse(dueAt) : Number.NaN` — const, line 373
+- `const today = localDay(now)` — const, line 376
+- `const day = localDay(due)` — const, line 377
+- `const days = daysFrom(today, day) ?? 0` — const, line 378
+- `const plan = await api.getDailyPlan(null)` — const, line 401
+- `const summary = await api.getStartSummary()` — const, line 407
 
 ## Who imports or calls it
 
@@ -142,8 +144,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DailyPlanBodyDto`, `DailyPlanDto`, `PlanBlockDto`, `PlanItemDto`, `PlanLane`, `PlanProjectedBlockDto`, `QuestionQueueRowDto`, `ScheduledItemDto`, `StreakSummary`, `WorkbenchOpenProblemDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DailyPlanBodyDto`, `DailyPlanDto`, `NextPracticeDto`, `PlanBlockDto`, `PlanItemDto`, `PlanLane`, `PlanProjectedBlockDto`, `QuestionQueueRowDto`, `ScheduledItemDto`, `StreakSummary`, `WorkbenchOpenProblemDto`
 - [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export; imports `aboutMinutes`, `wholeMinutes`
+- [[Reference/Desktop/TypeScript/app/nextPractice|src/app/nextPractice.ts]] — import-or-re-export; imports `dayName`, `daysFrom`, `nextPracticeRowWhy`
 - [[Reference/Desktop/TypeScript/render/mathSnippet|src/render/mathSnippet.ts]] — import-or-re-export; imports `plainMathLine`
 
 ### Assets, platform, and third-party dependencies

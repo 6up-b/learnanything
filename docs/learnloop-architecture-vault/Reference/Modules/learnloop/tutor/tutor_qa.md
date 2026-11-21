@@ -273,6 +273,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_a_job_that_keeps_failing_is_logged_as_failed_without_a_target`
   - `test_the_queue_runs_a_text_once_retries_failures_and_respects_the_switch`
+- [tests/test_live_dialogue_contract_baseline.py](../../../../../../tests/test_live_dialogue_contract_baseline.py) — direct import
+  - `test_initial_deadline_and_cancellation`
+  - `test_surfaces_without_recovery_admission`
+  - `test_tutor_schema_variants_and_tool_only_fixture`
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
   - `test_b3_a_reattempt_starts_a_fresh_ask_thread`
 - [tests/test_pinned_span_bridge.py](../../../../../../tests/test_pinned_span_bridge.py) — direct import

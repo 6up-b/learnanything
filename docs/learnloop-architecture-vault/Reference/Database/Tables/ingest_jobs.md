@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
+  - "src/learnloop/daily_plan/next_practice.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/cli/ingest_batches.py"
@@ -124,6 +125,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/ingest_queue.py`
 
 ### Direct SQL writers
@@ -156,6 +158,7 @@ Indexes and uniqueness:
 - `tests/background_owners.py`
 - `tests/figure_build_golden_helpers.py`
 - `tests/figure_rich_rpc_helpers.py`
+- `tests/next_practice_helpers.py`
 - `tests/part_read_helpers.py`
 - `tests/reading_request_sweep_helpers.py`
 - `tests/reread_safety_helpers.py`
@@ -171,7 +174,6 @@ Indexes and uniqueness:
 - `tests/test_figure_build_golden.py`
 - `tests/test_figure_rich_failed_correction_durable.py`
 - `tests/test_figure_rich_job.py`
-- `tests/test_figure_rich_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

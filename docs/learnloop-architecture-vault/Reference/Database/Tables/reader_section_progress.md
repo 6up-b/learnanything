@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/next_practice.py"
   - "src/learnloop/daily_plan/reading.py"
-  - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/reread.py"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/data_capture.py`
 - `src/learnloop/db/stores/reader.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -131,6 +132,7 @@ Indexes and uniqueness:
 - `tests/ad23_contract_helpers.py`
 - `tests/ad_ingest_fakes.py`
 - `tests/data_capture_codex_rereview_helpers.py`
+- `tests/next_practice_helpers.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad23_contract.py`
@@ -147,7 +149,6 @@ Indexes and uniqueness:
 - `tests/test_reader_topic_question_work_migration.py`
 - `tests/test_ro4_codex_review.py`
 - `tests/test_rospeed2_section_map.py`
-- `tests/test_router_reader_activity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

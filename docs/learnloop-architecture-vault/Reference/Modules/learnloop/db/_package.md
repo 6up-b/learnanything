@@ -65,7 +65,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 93 |
 | [[Reference/Modules/learnloop/db/prediction_target|learnloop.db.prediction_target]] | [[Reference/Modules/learnloop/db/prediction_target#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/db/records|learnloop.db.records]] | [[Reference/Modules/learnloop/db/records#^module-purpose|purpose]] | `ACTIVE` | 16 | 0 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 410 | 727 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 411 | 728 |
 | [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] | [[Reference/Modules/learnloop/db/row_serialization#^module-purpose|purpose]] | `ACTIVE` | 18 | 0 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 6 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
@@ -105,9 +105,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 15 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 13 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 12 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 11 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 11 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 10 static module edges

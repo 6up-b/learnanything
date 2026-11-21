@@ -152,6 +152,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed`
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
   - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
+- [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
+  - `test_all_eight_turn_variants_check_inside_receipt`
 - [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
   - `test_on_the_brief_is_v2_and_the_turn_carries_te2s_actions`
   - `test_the_next_lesson_on_the_same_topics_starts_where_the_last_left_off`

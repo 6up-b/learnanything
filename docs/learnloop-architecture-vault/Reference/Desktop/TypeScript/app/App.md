@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/App.tsx](../../../../../../apps/learnloop-tauri/src/app/App.tsx) |
-| Source lines | 2690 |
+| Source lines | 2691 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -281,20 +281,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function renderBody()` — function, line 2017
 - `const practicing = tab === "today" && (todayStage === "practice" || todayStage === "feedback")` — const, line 2041
 - `const todayPlace = ()` — const, line 2067
-- `const start = ( <StartScreen onBegin=` — const, line 2099
-- `const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId)` — const, line 2213
-- `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 2214
-- `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 2217
-- `const today = ( <TodayScreen key=` — const, line 2258
-- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2299
-- `function renderIngest()` — function, line 2321
-- `function renderProposals()` — function, line 2338
-- `function renderRegistry()` — function, line 2354
-- `function renderMaintain()` — function, line 2369
-- `function renderUthTool(tool: UthToolId)` — function, line 2381
-- `function renderRemainingTabs()` — function, line 2410
-- `const shellTree = ( <> <TerminalFrame active=` — const, line 2439
-- `function unique(values: Array<string | null>): string[]` — function, line 2688
+- `const start = ( <StartScreen onBegin=` — const, line 2100
+- `const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId)` — const, line 2214
+- `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 2215
+- `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 2218
+- `const today = ( <TodayScreen key=` — const, line 2259
+- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2300
+- `function renderIngest()` — function, line 2322
+- `function renderProposals()` — function, line 2339
+- `function renderRegistry()` — function, line 2355
+- `function renderMaintain()` — function, line 2370
+- `function renderUthTool(tool: UthToolId)` — function, line 2382
+- `function renderRemainingTabs()` — function, line 2411
+- `const shellTree = ( <> <TerminalFrame active=` — const, line 2440
+- `function unique(values: Array<string | null>): string[]` — function, line 2689
 
 ## Who imports or calls it
 

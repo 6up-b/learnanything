@@ -237,7 +237,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `active_request_gate`, `call_labels`, `content_key`, `gate_model_requests`; statically calls `active_request_gate`, `call_labels`, `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `content_key`; statically calls `content_key`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `gate_model_requests`; statically calls `gate_model_requests`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `active_request_gate`, `gate_model_requests`; statically calls `active_request_gate`, `gate_model_requests`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `record_model_calls`; statically calls `record_model_calls`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `content_key`; statically calls `content_key`
@@ -297,6 +297,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
+- [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/local_embeddings_fakes.py](../../../../../../tests/local_embeddings_fakes.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
@@ -508,6 +509,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_synthesis_tail_golden.py](../../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
   - `test_the_seed_unit_is_admitted_at_the_policy_budget`
+- [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
+  - `test_all_eight_turn_variants_check_inside_receipt`
+  - `test_two_failed_turns_leave_the_existing_third_slot`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_check_and_ledger`
   - `test_decider_receipt_and_spend_ignore_llm_output_budget`

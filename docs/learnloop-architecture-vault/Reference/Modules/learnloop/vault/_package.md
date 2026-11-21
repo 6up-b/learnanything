@@ -59,8 +59,8 @@ For system intent, use [[State and Persistence]].
 | [[Reference/Modules/learnloop/vault/embedding_recipes|learnloop.vault.embedding_recipes]] | [[Reference/Modules/learnloop/vault/embedding_recipes#^module-purpose|purpose]] | `ACTIVE` | 16 | 12 |
 | [[Reference/Modules/learnloop/vault/facet_fingerprint|learnloop.vault.facet_fingerprint]] | [[Reference/Modules/learnloop/vault/facet_fingerprint#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] | [[Reference/Modules/learnloop/vault/hashes#^module-purpose|purpose]] | `ACTIVE` | 22 | 19 |
-| [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] | [[Reference/Modules/learnloop/vault/lifecycle#^module-purpose|purpose]] | `ACTIVE` | 16 | 3 |
-| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 99 | 908 |
+| [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] | [[Reference/Modules/learnloop/vault/lifecycle#^module-purpose|purpose]] | `ACTIVE` | 17 | 3 |
+| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 99 | 912 |
 | [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 304 | 85 |
 | [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 99 | 127 |
 | [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] | [[Reference/Modules/learnloop/vault/repository#^module-purpose|purpose]] | `ACTIVE` | 48 | 31 |
@@ -112,7 +112,7 @@ For system intent, use [[State and Persistence]].
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 8 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 8 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 5 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 4 static module edges

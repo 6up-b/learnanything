@@ -19,11 +19,12 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/daily_plan/next_practice.py"
   - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/reader/part_read.py"
   - "src/learnloop/reader/reader_progression.py"
-  - "src/learnloop/reader/section_generation.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/reader/section_generation.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/reader.py`
 
 ### Direct SQL writers
@@ -124,6 +126,7 @@ Indexes and uniqueness:
 - `tests/section_question_parts_helpers.py`
 - `tests/test_reader_topic_question_work_migration.py`
 - `tests/test_section_done_before_build.py`
+- `tests/next_practice_helpers.py`
 - `tests/test_empty_first_build.py`
 - `tests/test_mobile_v4_reader.py`
 

@@ -229,6 +229,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rr_f1_a_stuck_retry_finishes_the_recorded_creation_whatever_the_second_reading`
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f5_a_match_on_the_items_own_lo_is_no_prerequisite_target`
+- [tests/test_live_dialogue_contract_baseline.py](../../../../../../tests/test_live_dialogue_contract_baseline.py) — direct import
+  - `test_tutor_schema_variants_and_tool_only_fixture`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_a_hidden_link_is_never_read_and_undo_queues_it_again`

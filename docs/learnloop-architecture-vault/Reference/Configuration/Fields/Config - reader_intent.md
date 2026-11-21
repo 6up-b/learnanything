@@ -29,7 +29,7 @@ source_paths:
   - "tests/hint_fakes.py"
   - "tests/http_provider_double.py"
   - "tests/identity_pins_helpers.py"
-  - "tests/local_embeddings_fakes.py"
+  - "tests/live_dialogue_contract_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-intent"
@@ -74,7 +74,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/hint_fakes.py`
 - `tests/http_provider_double.py`
 - `tests/identity_pins_helpers.py`
-- `tests/local_embeddings_fakes.py`
+- `tests/live_dialogue_contract_helpers.py`
 
 ## Extension and modification guidance
 

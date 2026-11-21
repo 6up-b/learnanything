@@ -156,6 +156,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
+- [tests/test_live_dialogue_contract_baseline.py](../../../../../../tests/test_live_dialogue_contract_baseline.py) — direct import
+  - `test_initial_deadline_and_cancellation`
+  - `test_sanitized_empty_teach_back_baseline_stays_stopped`
+  - `test_surfaces_without_recovery_admission`
 - [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
   - `test_f4_the_teach_back_author_reads_the_task_as_it_was_set`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import

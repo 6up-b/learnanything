@@ -211,7 +211,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 26 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 21 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 21 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 17 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 19 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 16 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 14 static module edges
