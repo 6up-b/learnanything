@@ -146,6 +146,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — Mastery, recall, evidence, claims, ability transitions, and learner-state views.
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — Local contextual source retrieval: the local document space's pins, capped batch worker, GPU meter, locks and owner-run commands.
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — The one 'same or different?' step: registered match kinds, embedding shortlists and LLM judges, recorded in the judgment ledger.
+- [[Reference/Modules/learnloop/notebook_authoring/_package|learnloop.notebook_authoring]] — The owner-side notebook harness, imported by no serving package: a parser adapter over marimo's non-executing loader and the structural check behind `learnloop notebook check`.
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — Vault diagnostics, locks, settings, startup, upgrades, and operator-facing maintenance.
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — Algorithm parameter registry, fitted values, and sensitivity certificates.
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — Placement for new material through the LearnerPredictor contract; writes only its own receipts, never evidence.

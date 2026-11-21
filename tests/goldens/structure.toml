@@ -7,7 +7,9 @@
 [ratchet]
 largest_import_component = 84
 modules_in_an_import_cycle = 220
-first_level_packages = 46
+# 47: learnloop.notebook_authoring, the owner-side notebook harness the owner queued on 2026-11-20. It is its own
+# first-level package so an import contract can keep every serving package from importing it.
+first_level_packages = 47
 first_level_root_modules = 36
 first_level_root_modules_not_upgrade = 36
 functions_over_200_lines = 70
