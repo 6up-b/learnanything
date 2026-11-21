@@ -247,6 +247,42 @@ On idle backup-API copies of `arxiv_v2`, `linear_algebra` and `probability` (eac
 9. Optional, if a no-model plan build is available on a copy: one boundary with a lesson offer at mvp-0.62, then the
    report: EXACT 1 for it, and its trace's `check_credit_replay` decodes.
 
+## The owner-copy lane, as run (2026-11-21; aggregates only)
+
+Backup-API copies of the owner's three vaults in a gitignored directory, with this branch; the copies were
+deleted afterwards. The live databases' SHA-256 were equal before the copy, after it and at the end.
+
+| | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Tag before | mvp-0.61 | mvp-0.58 | mvp-0.58 |
+| `learnloop upgrade --to mvp-0.62` | upgraded | upgraded (through .59, .60, .61) | upgraded (through .59, .60, .61) |
+| Shadow rebuild: mastery rows whose values differ | 0 of 37 | 0 of 21 | 0 of 18 |
+| Shadow rebuild: facet rows whose values differ | 0 of 60 | 0 of 80 | 0 of 3 |
+| Shadow rebuild: schedule rows changed | 0 of 81 | 0 of 99 | 0 of 77 |
+| Rows that differ only in their `algorithm_version` stamp | 37 mastery, 12 facet | 21 mastery, 4 facet | 18 mastery, 1 facet |
+| A second shadow rebuild | identical to the first | identical | identical |
+| `PRAGMA foreign_key_check`; `integrity_check` | 0 rows; ok | 0 rows; ok | 0 rows; ok |
+| Doctor errors (content findings that predate this tag) | 46 `criterion:unknown_dependency` | none | 46 `criterion:unknown_dependency`, 2 `yaml:invalid` |
+
+The stamp-only rows are what a projection activation leaves: it re-runs the canonical facet projection and
+records the activation, and does not rewrite the mastery or facet-uncertainty rows, which keep the tag they
+were last written under (`mvp-0.61`) until their topic is next written; a full replay stamps `mvp-0.62`. No
+value differs.
+
+**The report on the arxiv copy, under the rollout options decisions are served with** (the step-5 run used
+the `mvp-0.49` review draw: ledger TV2-3): 5 of 6 offers computable in the present-day lesson-versus-stop
+scenario; expected completed checks 0; exact historical values 0 of 6 before and after the upgrade (no stored
+decision has the lossless payload yet).
+
+| Draws | proposed minus old q | old accepted / declined | proposed accepted / declined | numeric choice changed | ranking changed |
+|---|---|---|---|---|---|
+| 8 | -0.061 | 8.439 / 8.280 | 8.377 / 8.280 | 1 of 5 | 1 of 5 |
+| 64 | -0.034 | 11.515 / 11.678 | 11.476 / 11.678 | 0 of 5 | 1 of 5 |
+
+So under the served draw the fix LOWERS the lesson's value on this vault, as the defect's description
+predicts, and the positive difference reported on 2026-11-20 was explanation B above (the report's draw), not
+A. The report's numbers before and after the upgrade are identical.
+
 ## Remaining limitations
 
 - TV2-2 stays: a delivered check, and every first practice, still switches an unpractised topic onto forgetting.
