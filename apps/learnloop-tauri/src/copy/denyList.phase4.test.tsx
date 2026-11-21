@@ -157,10 +157,28 @@ it("the session finish", async () => {
     attemptsRecorded: 3, itemsReviewed: 1, followupsQueued: 1, streak: { current: 2, longest: 2, activeToday: true },
     facetsDemonstrated: 2, predictionsMoved: { up: 1, down: 0 }, corrections: 1, misconceptionsTouched: { resolved: 1, returned: 0 },
     coldChecksCompleted: 1, coldChecksPassed: 1,
-    topics: [{ learningObjectId: "lo_1", title: "Conditional probability", evidence: "on_your_own" }]
+    topics: [{ learningObjectId: "lo_1", title: "Conditional probability", evidence: "on_your_own" }],
+    // The first evening, step 7: what comes next, dated, in every line the finish says.
+    nextPractice: {
+      asOf: "2026-10-15T10:20:00Z",
+      calendar: { zone: "EDT", today: "2026-10-15", tomorrow: "2026-10-16", nextDayStartsAt: "2026-10-16T04:00:00Z" },
+      reviews: [
+        { date: "2026-10-15", count: 1, itemIds: ["pi_0"], learningObjectIds: ["lo_0"], minutes: 2 },
+        { date: "2026-10-16", count: 2, itemIds: ["pi_1", "pi_2"], learningObjectIds: ["lo_1"], minutes: 3 }
+      ],
+      checks: [
+        { date: "2026-10-15", count: 1, itemIds: ["pi_3"], learningObjectIds: ["lo_3"], kinds: ["cold_retry"] },
+        { date: "2026-10-24", count: 1, itemIds: ["pi_4"], learningObjectIds: ["lo_4"], kinds: ["certification_cold_probe"] }
+      ],
+      nextReviewDate: "2026-10-16",
+      writing: { topicCount: 2, learningObjectIds: ["lo_5", "lo_6"] },
+      waiting: { sectionCount: 0 },
+      held: { topicCount: 0, learningObjectIds: [] }
+    }
   } as unknown as SessionEndSummary;
   await act(async () => {
     render(<SessionFinishHud summary={summary} onDismiss={vi.fn()} />);
   });
+  expect(screen.getByTestId("session-next").textContent).toContain("Tomorrow: 2 more questions due");
   expectPlain();
 });

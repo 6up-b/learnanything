@@ -49,3 +49,25 @@ describe("Today", () => {
   });
 });
 
+
+describe("the first evening, step 7: the finish says what comes next, dated, with the plan off too", () => {
+  it("ending the session shows the summary read at its end under 'Session finished'", async () => {
+    answers.end_session = {
+      attemptsRecorded: 2,
+      nextPractice: {
+        asOf: "2026-11-06T23:00:00Z",
+        calendar: { zone: "EST", today: "2026-11-06", tomorrow: "2026-11-07", nextDayStartsAt: "2026-11-07T05:00:00Z" },
+        reviews: [{ date: "2026-11-09", count: 2, itemIds: ["i1", "i2"], learningObjectIds: ["lo"], minutes: 4 }],
+        checks: [],
+        nextReviewDate: "2026-11-09",
+        writing: { topicCount: 0, learningObjectIds: [] },
+        waiting: { sectionCount: 0 },
+        held: { topicCount: 0, learningObjectIds: [] }
+      }
+    };
+    await beginSession();
+    fireEvent.click(screen.getByRole("button", { name: "End session" }));
+    expect((await screen.findByTestId("session-next")).textContent).toBe("Nothing is due tomorrow. Your next questions are due Monday.");
+    expect(screen.getByText("Session finished: 2 answers.")).toBeTruthy();
+  });
+});

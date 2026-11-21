@@ -31,8 +31,9 @@ import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
 import { citationWords, sectionWords } from "../screens/reader/readerShared";
 import { sessionTopicLine } from "../components/SessionFinishHud";
+import { nextPracticeLines, nextPracticeRowWhy } from "../app/nextPractice";
 import { INTENT_COPY } from "../screens/reader/intentPalette";
-import type { CalibrationSessionProgressDto, GoalDto, QuickCheckResultDto } from "../api/dto";
+import type { CalibrationSessionProgressDto, GoalDto, NextPracticeDto, QuickCheckResultDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
   api: {
@@ -284,7 +285,34 @@ const ROUND_3B_SENTENCES = [
     { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, queued: ["Past Exam", "Notes"] }
   ] as TodayCause[]).map(causeSentence),
   // UX-44c: the full list's words for a question that waits.
-  "not answered yet", "coming back later today", "comes back tomorrow", "comes back in 9 days"
+  "not answered yet", "coming back later today", "comes back tomorrow", "comes back on 9 November"
+];
+
+// The first evening, step 7: what comes next, dated (the session's finish and Today, desktop and phone alike), and the
+// full list's day for a row that waits.
+const STEP7_NEXT: NextPracticeDto = {
+  asOf: "2026-10-31T23:00:00Z",
+  calendar: { zone: "EDT", today: "2026-10-31", tomorrow: "2026-11-01", nextDayStartsAt: "2026-11-01T04:00:00Z" },
+  reviews: [
+    { date: "2026-10-31", count: 1, itemIds: ["pi_left"], learningObjectIds: ["lo_left"], minutes: 2 },
+    { date: "2026-11-01", count: 2, itemIds: ["pi_a", "pi_b"], learningObjectIds: ["lo_a"], minutes: 3 },
+    { date: "2026-11-09", count: 1, itemIds: ["pi_nine"], learningObjectIds: ["lo_nine"], minutes: null }
+  ],
+  checks: [
+    { date: "2026-10-31", count: 2, itemIds: ["pi_c", "pi_d"], learningObjectIds: ["lo_c"], kinds: ["cold_retry"] },
+    { date: "2026-11-14", count: 1, itemIds: ["pi_e"], learningObjectIds: ["lo_e"], kinds: ["certification_cold_probe"] }
+  ],
+  nextReviewDate: "2026-11-01",
+  writing: { topicCount: 3, learningObjectIds: ["lo_x", "lo_y", "lo_z"] },
+  waiting: { sectionCount: 1 },
+  held: { topicCount: 1, learningObjectIds: ["lo_h"] }
+};
+const STEP7_SENTENCES = [
+  ...nextPracticeLines(STEP7_NEXT, { finish: true }),
+  ...nextPracticeLines({ ...STEP7_NEXT, reviews: STEP7_NEXT.reviews.slice(2), nextReviewDate: "2026-11-09", checks: [STEP7_NEXT.checks[1]] }),
+  ...nextPracticeLines({ ...STEP7_NEXT, reviews: [{ ...STEP7_NEXT.reviews[2], date: "2026-11-03" }], nextReviewDate: "2026-11-03" }),
+  ...["pi_a", "pi_nine", "pi_e", "pi_c"].map((id) => nextPracticeRowWhy(STEP7_NEXT, { practiceItemId: id }) ?? ""),
+  "comes back Wednesday", "comes back on 9 November"
 ];
 
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).
@@ -385,6 +413,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(ROUND_3B_SENTENCES)("the broken controls 3b sentence: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(STEP7_SENTENCES)("what comes next, dated: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
   });

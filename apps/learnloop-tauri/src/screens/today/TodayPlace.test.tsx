@@ -43,6 +43,7 @@ vi.mock("../../components/GoalWizard", () => ({ GoalWizard: () => <div data-test
 import { TodayPlace, type TodayPlaceProps } from "./TodayPlace";
 import { KEEP_GOING_NOTHING_LEAD } from "../../app/todayCause";
 import { notifyQueueChanged } from "../../queueEvents";
+import { dayName } from "../../app/nextPractice";
 
 /** No count of waiting things (rule 10), no lane names, no percentages (rule 9). */
 const WAITING_WORDS = /due now|probe queue|later today|follow-ups?\b|\bqueue\b|overdue|backlog|to review|pending|slipped|\bitems?\b/i;
@@ -2472,7 +2473,9 @@ describe("Broken controls, third round: the full list's words and a done plan's 
     await press({ key: "l" });
     const rows = await screen.findAllByTestId("today-list-row");
     const words = rows.map((row) => row.textContent ?? "");
-    expect(words[0]).toMatch(/comes back in 9 days/);
+    // The first evening, step 7: the day it comes back, by name (a date after the week), not "in 9 days".
+    const local = (time: number) => { const d = new Date(time); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+    expect(words[0]).toContain(`comes back on ${dayName(local(Date.parse(inDays(9))), local(Date.now()))}`);
     expect(words[1]).toMatch(/not answered yet/);
     // A due time a minute away is later today unless the day turns over in that minute.
     expect(words[2]).toMatch(/coming back later today|comes back tomorrow/);
@@ -2555,5 +2558,102 @@ describe("The first evening, step 4: questions from the part of a section read, 
     emptyToday([libraryCard(built(facts({ writing: [PART] })))]);
     show(causeProps({ aiConnection: ready() }));
     expect(await within(await screen.findByTestId("today-cause")).findByText(`Writing questions from “${PART}”, the part you read…`)).toBeTruthy();
+  });
+});
+
+describe("The first evening, step 7: Today says what comes next, dated", () => {
+  const NEXT = {
+    asOf: "2026-10-31T23:00:00Z",
+    calendar: { zone: "EDT", today: "2026-10-31", tomorrow: "2026-11-01", nextDayStartsAt: "2099-11-01T04:00:00Z" },
+    reviews: [
+      { date: "2026-11-01", count: 2, itemIds: ["pi_dst", "pi_tomorrow"], learningObjectIds: ["lo_tomorrow"], minutes: 3.0 },
+      { date: "2026-11-04", count: 1, itemIds: ["pi_1"], learningObjectIds: ["lo_1"], minutes: 1.5 }
+    ],
+    checks: [{ date: "2026-11-14", count: 1, itemIds: ["pi_2"], learningObjectIds: ["lo_2"], kinds: ["cold_retry"] }],
+    nextReviewDate: "2026-11-01",
+    writing: { topicCount: 3, learningObjectIds: ["lo_b", "lo_c", "lo_d"] },
+    waiting: { sectionCount: 0 },
+    held: { topicCount: 0, learningObjectIds: [] }
+  };
+  const finished = () => body({ status: "complete", stopReason: "A good place to stop for today.", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+
+  it("a done day: tomorrow's questions and minutes, the check's first day, what is still being written", async () => {
+    apis(dto(finished(), { nextPractice: NEXT }));
+    show({ session: SESSION });
+    const next = await screen.findByTestId("today-next");
+    expect(next.textContent).toBe(
+      "Tomorrow: 2 questions due · about 3 minutes.A check on your own is available from 14 November.Questions on 3 more topics are still being written."
+    );
+    expect(next.getAttribute("role")).toBe("status");
+    expect(findJargon(next.textContent ?? "")).toEqual([]);
+  });
+
+  it("a done day with nothing due tomorrow names the nearest later day", async () => {
+    const quiet = { ...NEXT, reviews: NEXT.reviews.slice(1), nextReviewDate: "2026-11-04", checks: [], writing: { topicCount: 0, learningObjectIds: [] } };
+    apis(dto(finished(), { nextPractice: quiet }));
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-next")).textContent).toBe("Nothing is due tomorrow. Your next question is due Wednesday.");
+  });
+
+  it("an open plan with questions in it says nothing of tomorrow: the plan is what comes next", async () => {
+    apis(dto(body(), { nextPractice: NEXT }));
+    show();
+    await screen.findByTestId("today-sentence");
+    await flush();
+    expect(screen.queryByTestId("today-next")).toBeNull();
+  });
+
+  it("an empty day whose cause speaks of a book's questions leaves the writing to it, and still dates the rest", async () => {
+    const facts = { count: 0, itemIds: [], sections: [], writing: ["Conditional probability"], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, progress: { done: 1, total: 3 } };
+    const f = emptyToday([libraryCard({ ...LINE.built, questions: facts })]);
+    f.getDailyPlan.mockImplementation(async () => dto(emptyPlan(), { nextPractice: NEXT }));
+    show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }), session: SESSION }));
+    await screen.findByTestId("today-cause");
+    const next = await screen.findByTestId("today-next");
+    expect(next.textContent).toContain("Tomorrow: 2 questions due · about 3 minutes.");
+    expect(next.textContent).not.toContain("still being written");
+  });
+
+  it("while the session's finish card shows the same summary, Today does not repeat it", async () => {
+    apis(dto(finished(), { nextPractice: NEXT }));
+    show({ session: SESSION, finishCardShown: true });
+    await screen.findByTestId("today-done");
+    await flush();
+    expect(screen.queryByTestId("today-next")).toBeNull();
+  });
+
+  it("no summary (an older sidecar, or one it could not read): nothing is said", async () => {
+    apis(dto(finished(), { nextPractice: null }));
+    show({ session: SESSION });
+    await screen.findByTestId("today-done");
+    await flush();
+    expect(screen.queryByTestId("today-next")).toBeNull();
+  });
+
+  it("the full list says each row's day from the summary: its effective due, or its check's first day", async () => {
+    apis(dto(body(), { nextPractice: NEXT }), {
+      getTodayQueue: vi.fn(async () => queue([
+        scheduled(1, { dueStatus: "later", dueAt: "2026-11-02T15:00:00Z" }),
+        scheduled(2, { dueStatus: "later", dueAt: "2026-11-03T15:00:00Z" }),
+        scheduled(3, { dueStatus: "later", dueAt: null })
+      ]))
+    });
+    show();
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    const rows = await screen.findAllByTestId("today-list-row");
+    const words = rows.map((row) => row.textContent ?? "");
+    expect(words[0]).toContain("comes back Wednesday");
+    expect(words[1]).toContain("a check on your own from 14 November");
+    expect(words[2]).toContain("not answered yet");
+    for (const text of words) expect(findJargon(text)).toEqual([]);
+  });
+
+  it("Today is read again when the plan's next day starts", async () => {
+    const f = apis(dto(finished(), { nextPractice: { ...NEXT, calendar: { ...NEXT.calendar, nextDayStartsAt: new Date(Date.now() - 1000).toISOString() } } }));
+    show({ session: SESSION });
+    await screen.findByTestId("today-next");
+    const reads = f.getDailyPlan.mock.calls.length;
+    await waitFor(() => expect(f.getDailyPlan.mock.calls.length).toBeGreaterThan(reads), { timeout: 3000 });
   });
 });

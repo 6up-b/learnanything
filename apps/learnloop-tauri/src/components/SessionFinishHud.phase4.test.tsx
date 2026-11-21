@@ -98,3 +98,48 @@ it("a topic answered partly right on your own and finished with help says both, 
   expect(moved).toContain("● Conditional probability (on your own)");
   expect(moved).toContain("◌ Mixtures (with help)");
 });
+
+// The first evening, step 7: the finish says what comes next, dated, from the summary read at the session's end.
+const NEXT = {
+  asOf: "2026-10-31T23:00:00Z",
+  calendar: { zone: "EDT", today: "2026-10-31", tomorrow: "2026-11-01", nextDayStartsAt: "2026-11-01T04:00:00Z" },
+  reviews: [
+    { date: "2026-11-01", count: 2, itemIds: ["pi_dst", "pi_tomorrow"], learningObjectIds: ["lo_tomorrow"], minutes: 3.0 },
+    { date: "2026-11-09", count: 1, itemIds: ["pi_nine"], learningObjectIds: ["lo_nine"], minutes: 2.5 }
+  ],
+  checks: [{ date: "2026-11-14", count: 1, itemIds: ["pi_checked"], learningObjectIds: ["lo_checked"], kinds: ["cold_retry"] }],
+  nextReviewDate: "2026-11-01",
+  writing: { topicCount: 3, learningObjectIds: ["lo_b", "lo_c", "lo_d"] },
+  waiting: { sectionCount: 0 },
+  held: { topicCount: 0, learningObjectIds: [] }
+};
+
+it("says what comes next, dated: tomorrow's questions, the check's first day, what is still being written", () => {
+  render(<SessionFinishHud summary={{ ...SUMMARY, nextPractice: NEXT } as unknown as SessionEndSummary} onDismiss={vi.fn()} />);
+  const next = screen.getByTestId("session-next").textContent ?? "";
+  expect(next).toContain("Tomorrow: 2 questions due · about 3 minutes.");
+  expect(next).toContain("A check on your own is available from 14 November.");
+  expect(next).toContain("Questions on 3 more topics are still being written.");
+});
+
+it("with nothing due tomorrow names the next day, and says what is still due today", () => {
+  const next = {
+    ...NEXT,
+    reviews: [{ date: "2026-10-31", count: 1, itemIds: ["pi_left"], learningObjectIds: ["lo_left"], minutes: null }, NEXT.reviews[1]],
+    nextReviewDate: "2026-11-09",
+    checks: [],
+    writing: { topicCount: 0, learningObjectIds: [] }
+  };
+  render(<SessionFinishHud summary={{ ...SUMMARY, nextPractice: next } as unknown as SessionEndSummary} onDismiss={vi.fn()} />);
+  expect(screen.getByTestId("session-next").textContent).toBe(
+    "Still due today: 1 question.Nothing more is due tomorrow. Your next question is due on 9 November."
+  );
+});
+
+it("says nothing of what comes next when the summary is missing or holds nothing", () => {
+  render(<SessionFinishHud summary={{ ...SUMMARY, nextPractice: null } as unknown as SessionEndSummary} onDismiss={vi.fn()} />);
+  expect(screen.queryByTestId("session-next")).toBeNull();
+  cleanup();
+  render(<SessionFinishHud summary={SUMMARY} onDismiss={vi.fn()} />);
+  expect(screen.queryByTestId("session-next")).toBeNull();
+});

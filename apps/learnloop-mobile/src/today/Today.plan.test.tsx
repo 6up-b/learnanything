@@ -786,3 +786,67 @@ describe("questions from the part of a section read (the first evening, step 4):
       "Read a little further in “Symmetric Matrices and Variance” for your first questions.");
   });
 });
+
+describe("the first evening, step 7: what comes next, dated, on the phone", () => {
+  const NEXT = {
+    asOf: "2026-11-06T23:00:00Z",
+    calendar: { zone: "EST", today: "2026-11-06", tomorrow: "2026-11-07", nextDayStartsAt: "2099-11-07T05:00:00Z" },
+    reviews: [
+      { date: "2026-11-07", count: 2, itemIds: ["i1", "i2"], learningObjectIds: ["lo"], minutes: 3 },
+      { date: "2026-11-15", count: 1, itemIds: ["i3"], learningObjectIds: ["lo"], minutes: null }
+    ],
+    checks: [{ date: "2026-11-10", count: 1, itemIds: ["i4"], learningObjectIds: ["lo"], kinds: ["cold_retry"] }],
+    nextReviewDate: "2026-11-07",
+    writing: { topicCount: 3, learningObjectIds: ["lo_b", "lo_c", "lo_d"] },
+    waiting: { sectionCount: 0 },
+    held: { topicCount: 0, learningObjectIds: [] }
+  };
+  const done = (next: unknown = NEXT) => reply({ status: "complete", stopReason: "A good place to stop." }, { nextPractice: next });
+
+  it("a done day says tomorrow's questions and minutes, the check's first day, and what is still being written", async () => {
+    answers.get_daily_plan = done();
+    render(<App />);
+    const next = await screen.findByTestId("today-next");
+    expect(next.textContent).toBe(
+      "Tomorrow: 2 questions due · about 3 minutes.A check on your own is available from Tuesday.Questions on 3 more topics are still being written."
+    );
+    expect(findJargon(next.textContent ?? "")).toEqual([]);
+  });
+
+  it("nothing due tomorrow names the nearest later day", async () => {
+    answers.get_daily_plan = done({ ...NEXT, reviews: NEXT.reviews.slice(1), nextReviewDate: "2026-11-15", checks: [], writing: { topicCount: 0, learningObjectIds: [] } });
+    render(<App />);
+    expect((await screen.findByTestId("today-next")).textContent).toBe("Nothing is due tomorrow. Your next question is due on 15 November.");
+  });
+
+  it("an open plan with a question in it says nothing of tomorrow", async () => {
+    answers.get_daily_plan = reply({}, { nextPractice: NEXT });
+    render(<App />);
+    await screen.findByRole("button", { name: "Begin" });
+    expect(screen.queryByTestId("today-next")).toBeNull();
+  });
+
+  it("the session's finish says it as read at the end, and Today does not say it twice", async () => {
+    answers.get_daily_plan = reply({}, { nextPractice: NEXT });
+    answers.next_plan_item = reply({ status: "complete" }, { step: { kind: "done", planId: "p1", status: "complete", stopReason: "x" } });
+    answers.plan_keep_going = reply({ status: "stopped" });
+    const atEnd = { ...NEXT, reviews: [{ date: "2026-11-06", count: 1, itemIds: ["i9"], learningObjectIds: ["lo"], minutes: null }, ...NEXT.reviews] };
+    answers.end_session = { attemptsRecorded: 1, nextPractice: atEnd };
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Begin" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Done for today" }));
+    const next = await screen.findByTestId("session-next");
+    expect(next.textContent).toBe(
+      "Still due today: 1 question.Tomorrow: 2 more questions due · about 3 minutes.A check on your own is available from Tuesday.Questions on 3 more topics are still being written."
+    );
+    expect(screen.queryByTestId("today-next")).toBeNull();
+  });
+
+  it("Today is read again when the plan's next day starts", async () => {
+    answers.get_daily_plan = done({ ...NEXT, calendar: { ...NEXT.calendar, nextDayStartsAt: new Date(Date.now() - 1000).toISOString() } });
+    render(<App />);
+    await screen.findByTestId("today-next");
+    const reads = called("get_daily_plan").length;
+    await waitFor(() => expect(called("get_daily_plan").length).toBeGreaterThan(reads), { timeout: 3000 });
+  });
+});
