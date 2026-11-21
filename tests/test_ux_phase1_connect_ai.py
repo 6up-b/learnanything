@@ -1,4 +1,4 @@
-"""The one sheet: connect an AI, and say OK once before LearnLoop uses AI at all (ux_learnloop_v1 §6.6, Q4; UX-10).
+"""The one sheet: connect an AI, and say OK once before LearnLoop uses AI at all (ux_learnloop_v1 §6.6, Q4).
 
 The OK covers every use of AI and every provider (``learnloop.ai.model_use``): it is recorded once in the
 library's config (with the date and the version of the words it was given under), travels to libraries created

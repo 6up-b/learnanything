@@ -1,4 +1,4 @@
-"""One OK before LearnLoop uses AI at all (learnloop.ai.model_use; ledger UX-10).
+"""One OK before LearnLoop uses AI at all (learnloop.ai.model_use).
 
 The learner says OK once and it covers every use. Before it, no request leaves on any route: the factory binds
 every client to the library's OK and ``model_call`` refuses before anything is sent, so the dispatch trap of each
