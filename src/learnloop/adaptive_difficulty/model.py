@@ -510,11 +510,14 @@ class Bank:
         return m, np.maximum(v, 0.0)
 
     def update(self, u: np.ndarray, category: np.ndarray | int, guess: np.ndarray | float = 0.0,
-               *, rows: np.ndarray | None = None) -> UpdateRecord:
+               *, rows: np.ndarray | None = None,
+               residual_variance: np.ndarray | float | None = None) -> UpdateRecord:
         """One base-arm factor: §5.3's category (or the censored ``{0, 1}``) on ``η_e = ũᵀs``.
 
         ``rows`` (bool, ``(B,)``): the rows this event applies to (a simulation's learners
-        that answered); the others are untouched."""
+        that answered); the others are untouched. ``residual_variance`` is an
+        optional variance in eta units for value-only simulations with stored
+        effects. Omission preserves the production residual exactly."""
 
         u = np.array(np.broadcast_to(u, (self.B, self.d)), dtype=np.float64)
         category = np.broadcast_to(np.asarray(category), (self.B,))
@@ -522,7 +525,10 @@ class Bank:
         K = np.einsum("bij,bj->bi", self.S, u)
         m = np.einsum("bi,bi->b", u, self.mu)
         v = np.maximum(np.einsum("bi,bi->b", u, K), 0.0)
-        v_total = v + (P.A * P.TAU0) ** 2
+        residual = (P.A * P.TAU0) ** 2 if residual_variance is None else np.asarray(residual_variance)
+        if residual_variance is not None and (np.any(~np.isfinite(residual)) or np.any(residual < 0)):
+            raise ValueError("residual variance must be finite and nonnegative")
+        v_total = v + residual
         eta = m[:, None] + np.sqrt(v_total)[:, None] * X32[None, :]
         likelihood = np.maximum(category_likelihood(eta, guess, category), 1e-300)
         z = (W32 * likelihood).sum(1)
