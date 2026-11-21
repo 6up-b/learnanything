@@ -29,7 +29,7 @@ from learnloop.plan_refs import LESSON_OFFER_PREFIX as PREFIX
 from learnloop.router_objective import check_value as CV
 from learnloop.router_objective import mix, rollouts as ROL, types as OT
 from learnloop.router_objective.objective import numeric_choice
-from learnloop.teacher import check_delivery as CD
+from learnloop.daily_plan import check_delivery as CD
 
 REPLAY_VERSION = "check_credit_report_replay_v1"
 HISTORICAL_MISSING = [

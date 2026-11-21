@@ -541,7 +541,7 @@ evidence = "the learned tail's logged traces as known at a stamp"
 differs = "text: known > at excluded, inclusive"
 
 [[reader]]
-caller = "src/learnloop/teacher/check_delivery.py::classify"
+caller = "src/learnloop/daily_plan/check_delivery.py::classify"
 calls = "attempt_time_sql"
 preset = ""
 mode = ""
