@@ -202,7 +202,9 @@ describe("the full list's words for a question that waits (UX-44c)", () => {
   it("an answered one says when it comes back, by the day", () => {
     expect(fullListWhy(item({ dueAt: at(0, 21) }), now)).toBe("coming back later today");
     expect(fullListWhy(item({ dueAt: at(1, 9) }), now)).toBe("comes back tomorrow");
-    expect(fullListWhy(item({ dueAt: at(9, 9) }), now)).toBe("comes back in 9 days");
+    // Within the week by its weekday, after it by its date (Friday 20 November is today).
+    expect(fullListWhy(item({ dueAt: at(4, 9) }), now)).toBe("comes back Tuesday");
+    expect(fullListWhy(item({ dueAt: at(9, 9) }), now)).toBe("comes back on 29 November");
   });
   it("one whose time has come is brought back now", () => {
     expect(fullListWhy(item({ dueAt: at(0, 10) }), now)).toBe("time to bring it back");
