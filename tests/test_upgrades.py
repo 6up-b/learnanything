@@ -26,6 +26,7 @@ from typer.testing import CliRunner
 from learnloop import activation_journal
 from learnloop.activation_journal import InterruptedActivation, journal_path
 from learnloop.algorithm_versions import (
+    COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION,
     EVIDENCE_READING_FIX_ALGORITHM_VERSION,
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
@@ -60,6 +61,7 @@ EXPECTED_ACTIVATIONS = {
     FACET_BELIEF_FIX_ALGORITHM_VERSION: whole_vault_rebuild,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION: whole_vault_rebuild,
     EVIDENCE_READING_FIX_ALGORITHM_VERSION: whole_vault_rebuild,
+    COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION: idempotent_projection,
 }
 
 LINKS = pytest.mark.parametrize("link", UPGRADES, ids=lambda link: link.tag)

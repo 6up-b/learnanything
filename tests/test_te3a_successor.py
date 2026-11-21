@@ -31,7 +31,7 @@ TE3A_KEYS = {"lesson_opportunities": True}
 def test_the_successor_is_one_constant_after_te2_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.51"
     # Teacher TE3b's router successor (mvp-0.53) landed after it and keeps it.
-    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-10] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.61"
+    assert TAG == "mvp-0.52" == SUCCESSOR_CHAIN[-11] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.62"
 
 
 def test_the_switch_defaults_on_and_is_classified():
