@@ -6,9 +6,10 @@ during the learner's own scrolling or playback, and whether the section's last r
 refuses a report: its count and completion land as before); the store appends the kept ones
 (``upsert_reader_section_progress``), so reports union and a smaller one removes nothing.
 
-These are generation evidence for a later step, never evidence of understanding: no mastery, exposure, scheduling,
-reading-credit or generation reader reads them yet, and a section is finished exactly as before. :func:`seen_on`
-and :func:`section_ends_on` are the reads that step will use; nothing in ``src`` calls them yet
+These are generation evidence, never evidence of understanding: no mastery, exposure, scheduling or
+reading-credit reader reads them, and a section is finished exactly as before. Their one reader is the first set of
+questions from the part of a section read (``learnloop.reader.part_read``), through :func:`seen_on` and
+:func:`seen_marker` and :func:`seen_readings`; :func:`section_ends_on` is called by nothing in ``src`` yet
 (``tests/test_reader_seen_passages.py`` fails on a new reader).
 
 A count is never turned into passages: the phone's count cannot say which passages were seen.
@@ -110,6 +111,19 @@ def seen_on(repository: Any, extraction_id: str) -> dict[str, SeenPassage]:
             if held is None or passage.first_seen_at < held.first_seen_at:
                 found[resolution.span_id] = passage
     return found
+
+
+def seen_marker(repository: Any) -> tuple[int, int]:
+    """A value that changes whenever a passage of any reading is recorded as seen (the rows are only ever added)."""
+
+    return repository.reader_seen_spans_marker()
+
+
+def seen_readings(repository: Any) -> list[str]:
+    """The readings with any passage recorded as seen (each book's reread carries its evidence through
+    :func:`seen_on`, so a reading listed here may be an earlier one of a book)."""
+
+    return repository.reader_seen_readings()
 
 
 @dataclass(frozen=True)

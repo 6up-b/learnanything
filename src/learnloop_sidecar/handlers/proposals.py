@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from typing import Any, Literal
 
@@ -237,7 +238,23 @@ def accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) ->
     # Applying writes vault files, so refresh the in-memory vault — but proposal
     # review is fully offline; skip the Codex runtime probe that would block reload.
     ctx.reload(maintenance=False)
+    _claim_part_read_questions(ctx)
     return _proposals_payload(ctx)
+
+
+def _claim_part_read_questions(ctx: SidecarContext) -> None:
+    """A build's topics held for a look are applied now: those whose every cited passage the learner has seen get
+    their first set of questions (``learnloop.reader.part_read``). Best effort: never fails the review."""
+
+    try:
+        from learnloop.reader.part_read import read_readings
+        from learnloop_sidecar.section_questions import reconcile_part_read
+
+        vault, repository = ctx.require_vault()
+        for extraction_id in read_readings(repository):
+            reconcile_part_read(ctx, vault, repository, extraction_id=extraction_id)
+    except Exception:  # noqa: BLE001 - the review stands; the next read of the books claims them
+        logging.getLogger(__name__).warning("questions from the part read were not queued", exc_info=True)
 
 
 @method("reject_proposal_items", ProposalDecisionInput)

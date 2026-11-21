@@ -58,6 +58,7 @@ from learnloop.content.sources.source_outline import title_from_file_name, title
 from learnloop.ids import kebab_case
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
+from learnloop.reader import part_read as part_read_rule
 
 AUTO_STUDY_MAP_JOB = "auto_study_map"
 ADD_SOURCE_WORKFLOW = "add_source"
@@ -2598,7 +2599,18 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     ``topic_managed``, the jobs its own topic claims name: the same facts, one
     job or several. A section whose every topic was claimed through another is
     ``none_needed`` (that section reports them). Claims made on an earlier
-    reading of the book follow the current reading's sections."""
+    reading of the book follow the current reading's sections.
+
+    The part read (``reader.part_read``): a section the learner has not
+    finished whose topics got their first sets from the passages they saw is
+    counted like a finished one (its questions in ``count``, ``sections``,
+    ``writing``, ``failed``, ``to_look_at``) and named in ``part_read``. Of the
+    unfinished sections with seen passages, present only when there are some:
+    ``before_build``, those whose chapter's topics are not in yet;
+    ``owed``, those with a topic that qualifies and is not claimed yet (the
+    desktop claims it on its next read; the phone leaves it to the desktop);
+    ``read_further``, those with no claim of their own whose topics need
+    questions and none has every cited passage seen."""
 
     from learnloop.content.pipeline.runner import effective_ingest_job_status
     from learnloop.db.stores.reader import (
@@ -2609,7 +2621,6 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
         SECTION_TOPIC_MANAGED as TOPIC_MANAGED,
         SECTION_WAITING_FOR_BUILD as WAITING_FOR_BUILD,
     )
-
     resolved = _completed_extraction(repo, source_id)
     if resolved is None:
         return None
@@ -2681,38 +2692,56 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
         return [(batch_id, job) for batch_id in batches for job in repo.ingest_jobs_for_batch(batch_id)
                 if job.get("job_type") == "practice_expansion"]
 
-    finished = [row for row in repo.reader_section_progress_for(extraction_id) if row.get("completed_at")]
+    progress_rows = repo.reader_section_progress_for(extraction_id)
+    finished = [row for row in progress_rows if row.get("completed_at")]
     claims = repo.topic_question_work_rows(source_id=source_id, owner="topic")
+
+    def own_claims(section_id: str) -> list[dict[str, Any]]:
+        return [claim for claim in claims if claim["extraction_id"] == extraction_id and claim["section_id"] == section_id]
+
     for row in sorted(finished, key=lambda row: order.get(str(row["section_id"]), len(order))):
         label = labels.get(str(row["section_id"])) or ""
         stamp = row.get("generation_batch_id")
-        if stamp in {NONE_NEEDED, NONE_NEEDED_BEFORE}:
-            # Finished, with nothing to write: a finished section still, never one to finish.
-            fact["none_needed"].append(label)
-            continue
-        if not stamp:
-            continue
-        if stamp == WAITING_FOR_BUILD:
-            fact["waiting"].append(label)
-            continue
-        if stamp in {ENQUEUING, DEFERRED_TO_PRIMARY}:
-            fact["writing"].append(label)
-            continue
-        if stamp == TOPIC_MANAGED:
-            # Its topics' claims name its work (a stamp, never a batch). With no claim of its own, every topic
-            # citing it was claimed through another section, which reports them: nothing is left to write here.
-            own = [claim for claim in claims if claim["extraction_id"] == extraction_id
-                   and claim["section_id"] == str(row["section_id"])]
+        # Topics its part read claimed before it was finished: their work is this section's, whatever its stamp
+        # says of the rest (finished on the phone, or before its chapter's topics were all in).
+        own = own_claims(str(row["section_id"]))
+        if stamp in {NONE_NEEDED, NONE_NEEDED_BEFORE, TOPIC_MANAGED}:
+            # Finished with nothing to write (a finished section still, never one to finish); or ``topic_managed``
+            # (a stamp, never a batch), whose topics' claims name its work, and with no claim of its own every topic
+            # citing it was claimed through another section, which reports them.
             if own:
                 add_section(label, topic_jobs(own))
             else:
                 fact["none_needed"].append(label)
+            continue
+        if not stamp:
+            continue
+        if stamp in {WAITING_FOR_BUILD, ENQUEUING, DEFERRED_TO_PRIMARY}:
+            fact["waiting" if stamp == WAITING_FOR_BUILD else "writing"].append(label)
+            if own:
+                add_section(label, topic_jobs(own))
             continue
         job = next((job for job in repo.ingest_jobs_for_batch(str(stamp))
                     if job.get("job_type") == "practice_expansion"), None)
         if job is None:
             continue
         add_section(label, [(str(stamp), job)])
+    # Sections the learner has read part of, unfinished: the first sets of the topics whose every cited passage they
+    # saw (``reader.part_read``), and what the rest of their reading can say.
+    unfinished = {str(row["section_id"]) for row in progress_rows if not row.get("completed_at")}
+    part_read = [section for section in sorted(unfinished, key=lambda section: order.get(section, len(order)))
+                 if own_claims(section)]
+    for section_id in part_read:
+        label = labels.get(section_id) or ""
+        add_section(label, topic_jobs(own_claims(section_id)))
+        fact.setdefault("part_read", []).append(label)
+    for state, label in _part_read_states(repo, vault, extraction_id, order, labels):
+        if state == part_read_rule.BEFORE_BUILD:
+            fact.setdefault("before_build", []).append(label)
+        elif state == part_read_rule.OWED:
+            fact.setdefault("owed", []).append(label)
+        elif state == part_read_rule.READ_FURTHER and label not in fact.get("part_read", []):
+            fact.setdefault("read_further", []).append(label)
     # Claims made on an earlier reading of this book (a reread carries the stamp, not the claims): reported under
     # the section they were made in, after the current reading's.
     earlier: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -2726,11 +2755,32 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
                 (old_extraction, section_id),
             ).fetchone()
         add_section(str((unit["label"] if unit else "") or "").strip(), topic_jobs(rows))
+    fact["writing"] = list(dict.fromkeys(fact["writing"]))
+    fact["sections"] = list(dict.fromkeys(fact["sections"]))
     fact["count"] = len(fact["item_ids"])
     later = _not_askable_now(repo, fact["item_ids"], utc_now_iso(clock))
     if later:
         fact["later_item_ids"] = later
     return fact
+
+
+def _part_read_states(repo, vault, extraction_id: str, order: Mapping[str, int], labels: Mapping[str, str]
+                      ) -> list[tuple[str, str]]:
+    """``(state, label)`` of each unfinished section the learner has seen passages of, in reading order
+    (``reader.part_read.assess``; remembered until what it reads changes). Nothing when the vault cannot say."""
+
+    if not hasattr(vault, "learning_objects"):
+        return []
+    try:
+        sections = part_read_rule.assess(vault, repo, extraction_id,
+                          topics_settled=lambda section_id: section_topics_settled(repo, extraction_id, section_id))
+    except Exception:  # noqa: BLE001 - Today's other facts stand without these
+        import logging
+
+        logging.getLogger(__name__).warning("could not read what the part read owes", exc_info=True)
+        return []
+    ordered = sorted(sections.values(), key=lambda section: order.get(section.section_id, len(order)))
+    return [(section.state, labels.get(section.section_id) or "") for section in ordered]
 
 
 def _not_askable_now(repo, item_ids: Sequence[str], now_iso: str) -> list[str]:

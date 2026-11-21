@@ -282,6 +282,11 @@ def start_section_questions(
         lo_ids = section_generation_candidates(vault, repository, extraction_id=extraction_id, section_id=section_id)
     if not lo_ids:
         to = NONE_NEEDED if settled else WAITING_FOR_BUILD
+        if settled and repository.topic_question_work_rows(extraction_id=extraction_id, section_id=section_id,
+                                                           owner="topic"):
+            # Its part read claimed its topics before it was finished: their work is its questions, which "none
+            # needed" would hide.
+            to = TOPIC_MANAGED
         if to != from_stamp:
             move(to)
         return None

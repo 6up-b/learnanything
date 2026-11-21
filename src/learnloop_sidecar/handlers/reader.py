@@ -2083,7 +2083,8 @@ class ReaderMarkSectionProgressInput(ParamsModel):
     completed: bool = False
     # The passages the Reader observed during the learner's own reading (never a
     # restore, a jump or a completion), and whether the section's last readable passage was among them.
-    # Recorded only (``learnloop.reader.seen_passages``): nothing reads them yet, and an end finishes nothing.
+    # Recorded (``learnloop.reader.seen_passages``); a topic whose every cited passage is seen gets its first set
+    # of questions (``learnloop.reader.part_read``). An end finishes nothing.
     # No length bound: a list too long must never refuse the count and completion beside it (the phone host's
     # body limit bounds it).
     seen_span_ids: list[str] | None = None
@@ -2105,9 +2106,9 @@ def reader_mark_section_progress(
     chapter's topics are in waits for them (``waiting_for_build``)."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
-    from learnloop.reader.section_generation import DEFERRED_TO_PRIMARY, WAITING_FOR_BUILD
+    from learnloop.reader.section_generation import DEFERRED_TO_PRIMARY, TOPIC_MANAGED, WAITING_FOR_BUILD
     from learnloop.reader.seen_passages import check_report
-    from learnloop_sidecar.section_questions import start_section_questions
+    from learnloop_sidecar.section_questions import reconcile_part_read, start_section_questions
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
@@ -2151,21 +2152,45 @@ def reader_mark_section_progress(
 
     enqueued = False
     batch_id: str | None = None
-    if params.completed and row.get("generation_batch_id") is None:
+    stamp = row.get("generation_batch_id")
+    # A section whose part read already claimed topics is ``topic_managed`` before it is finished: its first finish
+    # claims what is left through the same claims (a claimed topic is never written again).
+    first_finish = params.completed and not (before or {}).get("completed_at")
+    if params.completed and (stamp is None or (first_finish and stamp == TOPIC_MANAGED)):
         if getattr(ctx, "secondary", False):
             # Mobile v2 D6: the phone host runs only the phone's own work, so a section
             # finished there leaves its generation to the primary (the desktop app, or later
             # the hub), which takes it from this stamp (``drain_owed_section_questions``).
             # The stamp is the same once-only claim, so it is never enqueued twice.
-            repository.mark_section_generation(
-                extraction_id=resolved, section_id=params.section_id, batch_id=DEFERRED_TO_PRIMARY
-            )
+            if stamp is None:
+                repository.mark_section_generation(
+                    extraction_id=resolved, section_id=params.section_id, batch_id=DEFERRED_TO_PRIMARY
+                )
+            else:
+                repository.swap_section_generation(extraction_id=resolved, section_id=params.section_id,
+                                                   from_batch_id=TOPIC_MANAGED, batch_id=DEFERRED_TO_PRIMARY)
         else:
-            batch_id = start_section_questions(ctx, vault, repository, resolved, params.section_id)
+            batch_id = start_section_questions(ctx, vault, repository, resolved, params.section_id, from_stamp=stamp)
             enqueued = batch_id is not None
         row = repository.upsert_reader_section_progress(
             extraction_id=resolved, section_id=params.section_id
         )
+    elif seen.seen_span_ids and not getattr(ctx, "secondary", False):
+        # New passage evidence: a topic whose every cited passage is now seen gets its first set, the section
+        # unfinished. The reply stays a progress report's (the Reader's finish is unchanged).
+        try:
+            from learnloop_sidecar.handlers.ingest import _reload_applied_batches
+
+            # A build that applied in the background since the vault was loaded wrote the topics to qualify: read
+            # them, as the books' reads do (once per applied job).
+            _reload_applied_batches(ctx, ctx.ingest_jobs.list_batches(limit=10))
+            vault, repository = _require_reader(ctx)
+            reconcile_part_read(ctx, vault, repository, extraction_id=resolved)
+        except Exception:  # noqa: BLE001 - claiming never fails the report; the next read claims it
+            import logging
+
+            logging.getLogger(__name__).warning("questions from the part read were not queued", exc_info=True)
+        row = repository.upsert_reader_section_progress(extraction_id=resolved, section_id=params.section_id)
 
     # Act on the recorded request now. Best effort, like the plan receipt
     # below: it never fails the Reader (a failure is kept and retried). Never on

@@ -37,6 +37,7 @@ from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
 from learnloop.ids import new_ulid
+from learnloop.reader import part_read as PART_READ
 from learnloop.reader import reader_progression as RPROG
 from learnloop.reader import reader_quick_check as RQC
 from learnloop.reader import reader_requests as RR
@@ -3486,7 +3487,9 @@ def practice_expansion_payload(learning_object_ids: Sequence[str], reason: str,
 def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
     """A build's synthesis finished: start the question writing of every
     section the learner finished while this book's topics were not in yet,
-    now that they may be. Returns how many were queued. Best effort.
+    now that they may be, and the first sets of the topics it applied whose
+    every cited passage the learner has seen (``reader.part_read``). Returns
+    how many batches were queued. Best effort.
 
     A section none of whose topics is in yet stays waiting: the build may
     have left them for a look, and the next read of the books, once the build
@@ -3515,7 +3518,10 @@ def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
         settled = ctx.repo.deferred_section_generations(SG.NONE_NEEDED, extraction_id=extraction_id)
         if settled and found_no_topics_before(ctx.repo, source_id, batch_id=ctx.job.get("batch_id")):
             rows.extend((SG.NONE_NEEDED, row) for row in settled)
-        if not rows:
+        # The part read: a learner who stopped reading while this build ran gets the first sets of the topics it
+        # applied whose passages they saw, now, not on their next visit.
+        part_read = extraction_id in PART_READ.read_readings(ctx.repo)
+        if not rows and not part_read:
             return 0
         vault = load_vault(ctx.vault_root)  # the topics this build just applied
 
@@ -3544,6 +3550,13 @@ def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
                 )
             if batch_id is not None:
                 queued += 1
+        if part_read:
+            # The build's own batch is still running here, so its chapter is not "settled" yet by the shared
+            # definition; what it applied is in ``vault`` (topics it left for a look are not, and come in when a
+            # review applies them). Not remembered: this readiness is this hook's alone.
+            with plan_fallback.quiet():
+                queued += len(PART_READ.reconcile_part_read(vault, ctx.repo, extraction_id=extraction_id, enqueue=enqueue,
+                                                  topics_settled=lambda _section_id: (True, None), remember=False))
     except JobCancelled:
         pass  # this build was cancelled meanwhile: the sections keep waiting, nothing was queued
     except Exception:  # noqa: BLE001 - starting a section's writing must never fail the build that applied
