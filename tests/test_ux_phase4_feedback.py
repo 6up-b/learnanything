@@ -57,6 +57,7 @@ from tests.ux_phase4_feedback_helpers import (
     _served_items,
 )
 from tests.ux_phase4_feedback_helpers import ctx  # noqa: F401 - fixtures, used by parameter name
+from tests.next_practice_helpers import new_york  # noqa: F401 - a fixture, used by parameter name
 
 def _call(ctx, name: str, params: dict):
     from learnloop_sidecar.registry import METHOD_REGISTRY
@@ -320,6 +321,69 @@ def test_a_missed_unassisted_answer_names_no_topic(ctx):
     session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
     _self_graded(ctx, session_id=session_id, points=0)
     assert _call(ctx, "end_session", {"sessionId": session_id})["topics"] == []
+
+
+# -- what comes next (the first evening, step 7) ----------------------------------------------
+
+
+@pytest.fixture()
+def evening(tmp_path, new_york, monkeypatch):
+    """The sidecar on ``tests/next_practice_helpers.py``'s evening, every read of what comes next at its instant."""
+
+    import learnloop.daily_plan.next_practice as next_module
+    import learnloop_sidecar.handlers  # noqa: F401
+    from learnloop_sidecar.context import SidecarContext
+    from tests.next_practice_helpers import CLOCK, evening_vault, question_work
+
+    paths, _repository = evening_vault(tmp_path / "vault", writing=False)
+    monkeypatch.setattr(next_module, "SystemClock", lambda: CLOCK)
+    context = SidecarContext()
+    context.load(paths.root)
+    context.grading_provider_override = "manual"
+    context.paths = paths
+    # After the load: opening a vault settles a writing job no process holds, and this one stands for one that is.
+    question_work(context.require_vault()[1])
+    return context
+
+
+def test_the_session_finish_says_what_comes_next_dated(evening):
+    from learnloop_sidecar.dto import to_camel
+    from tests.next_practice_helpers import EXPECTED
+
+    session_id = _call(evening, "start_session", {"availableMinutes": 20})["sessionId"]
+
+    summary = _call(evening, "end_session", {"sessionId": session_id})
+
+    assert summary["nextPractice"] == to_camel(EXPECTED)
+    # Dates and ids are values, never keys: camel case leaves them as they are.
+    assert summary["nextPractice"]["reviews"][0]["itemIds"] == ["pi_dst", "pi_tomorrow"]
+    assert summary["nextPractice"]["calendar"]["nextDayStartsAt"] == "2026-11-01T04:00:00Z"
+
+
+def test_the_session_finish_and_today_agree_at_the_same_instant(evening):
+    session_id = _call(evening, "start_session", {"availableMinutes": 20})["sessionId"]
+    finish = _call(evening, "end_session", {"sessionId": session_id})["nextPractice"]
+
+    today = _call(evening, "get_daily_plan", {"sessionId": None})["nextPractice"]
+
+    assert finish is not None
+    assert today == finish
+
+
+def test_the_session_finish_stands_when_what_comes_next_cannot_be_read(evening, monkeypatch):
+    import learnloop.daily_plan.next_practice as next_module
+
+    def unreadable(*_args, **_kwargs):
+        raise RuntimeError("no")
+
+    monkeypatch.setattr(next_module, "next_practice", unreadable)
+    session_id = _call(evening, "start_session", {"availableMinutes": 20})["sessionId"]
+
+    summary = _call(evening, "end_session", {"sessionId": session_id})
+
+    assert summary["nextPractice"] is None
+    assert summary["sessionId"] == session_id
+    assert _call(evening, "get_daily_plan", {"sessionId": None})["nextPractice"] is None
 
 
 def test_the_learning_diff_names_the_facets_it_counts(ctx):
