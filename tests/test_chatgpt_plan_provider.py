@@ -24,7 +24,7 @@ from learnloop.ai.chatgpt_plan.session import (
 )
 from learnloop.ai.disclosures import recipient
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AITurnTimeout
-from learnloop.ai.execution import observe_model_calls, single_request
+from learnloop.ai.execution import background_model_work, observe_model_calls, single_request
 from learnloop.ai.isolation import isolation_mode
 from learnloop.ai.providers.chatgpt_plan import (
     ChatGPTPlanProviderClient,
@@ -37,6 +37,13 @@ from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.runtime import check_ai_runtime
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import is_subscription_transport
+from learnloop.ai.structured_contracts import (
+    Predicate,
+    RecoveryAllowance,
+    checked_structured_answer,
+    contract_of,
+    correction_prompt,
+)
 from learnloop.ai.transport import (
     BOUNDED_STRUCTURED_COMPLETION,
     ISOLATED_TURN,
@@ -59,6 +66,7 @@ from tests.chatgpt_plan_fakes import (
     sign_in,
 )
 from tests.helpers import create_basic_vault
+from tests.structured_contracts_helpers import Admit, Refused, operation_send, refused, root_receipts
 
 
 class Answer(WireModel):
@@ -558,3 +566,83 @@ def test_t6_rewrite_runs_on_the_plan_with_receipts(tmp_path, server):
         ).fetchall()
     assert ("responses_request", "chatgpt", "gpt-test-fast", "gpt-test-2026-10-01", "completed") in rows
     assert any(row[0] == "source_query_rewrite" and row[4] == "completed" for row in rows)
+
+
+# -- the shared contract step on the plan route (learnloop.ai.structured_contracts) ------------------------------
+
+_NOTED = contract_of(Predicate("blank_note", lambda answer: bool(answer.note.strip()), "Supply a nonblank note."))
+
+
+def _checked(client, allowance=None):
+    send = operation_send(client, purpose="probe", result_model=Answer)
+    return checked_structured_answer(
+        first_prompt="Say ok", contract=_NOTED, send=send,
+        recovery=allowance if allowance is not None else RecoveryAllowance(admit=Admit()),
+        checkpoint=None, failure=refused,
+    )
+
+
+def test_a_checked_call_sends_the_first_request_unchanged_and_one_correction(server):
+    client = _client(server)
+    server.replies.extend([Reply(events=completed_events('{"ok": true, "note": "  "}')),
+                           Reply(events=completed_events('{"ok": true, "note": "fine"}'))])
+    events: list = []
+    with observe_model_calls(lambda action, event: events.append((action, event))):
+        assert _checked(client).answer == Answer(ok=True, note="fine")
+    first, correction = (request["body"] for request in server.requests[-2:])
+    assert first["input"] == [{"role": "user", "content": "Say ok"}]
+    assert correction["input"] == [{"role": "user", "content": correction_prompt("Say ok", _NOTED[0])}]
+    assert {key: value for key, value in correction.items() if key != "input"} == {
+        key: value for key, value in first.items() if key != "input"}
+    rejected, accepted = root_receipts(events)
+    assert (rejected["status"], rejected["error_type"], rejected["output_text"]) == (
+        "failed", "ContractRejected", '{"ok":true,"note":"  "}')
+    assert accepted["status"] == "completed"
+
+
+def test_malformed_then_repaired_then_contract_failing_stops(server):
+    client = _client(server)
+    server.replies.extend([Reply(events=completed_events('{"ok": true}')),
+                           Reply(events=completed_events('{"ok": true, "note": ""}')),
+                           Reply(events=completed_events('{"ok": true, "note": "never sent"}'))])
+    before = len(server.requests)
+    with pytest.raises(Refused) as raised:
+        _checked(client, RecoveryAllowance(admit=Admit(slots=5)))
+    assert len(server.requests) - before == 2
+    assert server.requests[-1]["body"]["input"][0]["content"].startswith("Repair the following model output")
+    assert (raised.value.info.reason, raised.value.info.predicate) == ("contract_failed", "blank_note")
+
+
+def test_contract_failing_then_a_malformed_correction_gets_no_repair(server):
+    client = _client(server)
+    server.replies.extend([Reply(events=completed_events('{"ok": true, "note": ""}')),
+                           Reply(events=completed_events('{"ok": true}')),
+                           Reply(events=completed_events('{"ok": true, "note": "never sent"}'))])
+    before = len(server.requests)
+    with pytest.raises(Refused) as raised:
+        _checked(client, RecoveryAllowance(admit=Admit(slots=5)))
+    assert len(server.requests) - before == 2
+    assert isinstance(raised.value.__cause__, AIInvalidOutput)
+    assert raised.value.info.reason == "schema_failed"
+
+
+def test_a_checked_call_with_no_admitted_recovery_sends_no_plan_repair(server):
+    client = _client(server)
+    server.replies.extend([Reply(events=completed_events('{"ok": true}')),
+                           Reply(events=completed_events('{"ok": true, "note": "never sent"}'))])
+    before = len(server.requests)
+    with pytest.raises(Refused) as raised:
+        _checked(client, RecoveryAllowance())
+    assert len(server.requests) - before == 1 and raised.value.info.reason == "recovery_refused"
+
+
+def test_a_background_request_gets_no_fresh_ceiling_past_the_checked_calls_deadline(server):
+    client = _client(server)
+    server.replies.append(Reply(events=completed_events('{"ok": true, "note": "never sent"}')))
+    before = len(server.requests)
+    with background_model_work(), pytest.raises(AITurnTimeout):
+        _checked(client, RecoveryAllowance(admit=Admit(), remaining_seconds=lambda: 0.0))
+    assert len(server.requests) == before
+    # Without a checked call the same background request runs under its own ceiling, as before.
+    with background_model_work():
+        assert _ask(client).note == "never sent"

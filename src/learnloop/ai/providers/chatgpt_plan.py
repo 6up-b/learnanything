@@ -84,6 +84,7 @@ from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncate
 from learnloop.ai.execution import model_call, report_call_usage, single_request_active
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.strict_schema import strict_output_schema
+from learnloop.ai.structured_contracts import claim_schema_repair, recovery_remaining_seconds
 from learnloop.ai.transport import (
     BOUNDED_STRUCTURED_COMPLETION,
     INTERRUPT,
@@ -244,10 +245,13 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
     # -- structured completion --------------------------------------------
     def complete(self, request: StructuredRequest[Any]) -> Any:
         timeout = float(request.timeout_seconds or self.profile.timeout_seconds or DEFAULT_TIMEOUT_SECONDS)
-        deadline = _Deadline(
-            _monotonic() + (BACKGROUND_CEILING_SECONDS if request.background else timeout),
-            self.idle_timeout_seconds if request.background else None,
-        )
+        at = _monotonic() + (BACKGROUND_CEILING_SECONDS if request.background else timeout)
+        # A checked call keeps one deadline across its first request and its
+        # recovery: the background ceiling must not start afresh on a re-ask.
+        logical = recovery_remaining_seconds()
+        if logical is not None:
+            at = min(at, _monotonic() + logical)
+        deadline = _Deadline(at, self.idle_timeout_seconds if request.background else None)
         model_type = request.result_model
         budget = request.output_budget_tokens
         if budget is not None and budget <= 0:
@@ -272,6 +276,9 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError) as first:
             if single_request_active():
+                raise AIInvalidOutput(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from first
+            if not claim_schema_repair():
+                # A checked call's one recovery is spent or not admitted.
                 raise AIInvalidOutput(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from first
             # The repair is tool-free: it sees the output to repair, never the
             # workspace. It is sent with the budget of the request it repairs
