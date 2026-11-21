@@ -177,43 +177,6 @@ def _hint_policy_value(mapping: dict[int | str, object], hints_used: int) -> obj
         return None
     return mapping.get(max(eligible)) or mapping.get(str(max(eligible)))
 ''',
-    "cold_item_reveal_rows": '''
-def _cold_item_reveal_rows(scan: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Ledger rows (migration 154) that exposed the COLD item's own answer."""
-
-    return [
-        dict(event)
-        for event in scan.get("events") or []
-        if event.get("ledger") == "reveal_events"
-        and event.get("why") == "reveal_ledger_answer_exposed_on_cold_item"
-    ]
-''',
-    "unassisted_for_coldness": '''
-def _unassisted(cold_attempt, scan=None):
-    if cold_attempt is None:
-        return _dimension("unknown", {"reason": "no_attempt_yet"})
-    hints = int(cold_attempt.get("hints_used") or 0)
-    primed = bool(cold_attempt.get("primed"))
-    ledger_rows = _cold_item_reveal_rows(scan) if scan is not None else []
-    ok = hints == 0 and not primed and not ledger_rows
-    evidence: dict[str, Any] = {
-        "hints_used": hints,
-        "primed": primed,
-        "attempt_type": str(cold_attempt.get("attempt_type") or "") or None,
-        "reveal_ledger_rows": ledger_rows,
-        "reveal_ledger_amount": sum(
-            float(row.get("amount") or 0.0) for row in ledger_rows
-        ),
-        "reveal_ledger_scanned": scan is not None,
-        "rule": (
-            "pass requires hints_used == 0, primed false, AND no recorded "
-            "reveal of this item's answer in the measurement window"
-        ),
-    }
-    if ledger_rows:
-        evidence["violation"] = "answer_revealed_before_the_cold_attempt"
-    return _dimension("pass" if ok else "fail", evidence)
-''',
     "diagnoser_assisted": 'bool(hints_used) or attempt_type in ASSISTED_ATTEMPT_TYPES',
     "unhelped_cold_type": 'row["attempt_type"] in _COLD_TYPES and not row["primed"] and not row["hints_used"]',
     "graded_cold_check": ('row["attempt_type"] in COLD_ATTEMPT_TYPES and not row["primed"] and not row["hints_used"]'

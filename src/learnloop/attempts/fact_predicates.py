@@ -11,7 +11,7 @@ and names the module that owns it.
 
 A function either holds its reader's kernel (moved here verbatim, the reader now calling it through a compatibility
 adapter that builds the facts from the values it read before) or delegates to the owner's function where the owner
-keeps it (the canonical causal-activity policy, intervention outcomes). Reading a submitted count or flag goes
+keeps it (the canonical causal-activity policy, intervention outcomes, the coldness receipt). Reading a submitted count or flag goes
 through the same coercion the reader applied (``int(x or 0)``, ``bool(x)``, plain truthiness), never a normalized
 copy, so a value the reader treated one way is treated the same way here.
 
@@ -25,6 +25,7 @@ from __future__ import annotations
 from collections.abc import Collection, Mapping
 from typing import Any
 
+from learnloop.attempts.coldness_receipt import _unassisted as _coldness_unassisted
 from learnloop.attempts.facts import AttemptFacts
 from learnloop.diagnosis.causal_activity_policy import attempt_counts_as_assisted, resolve_attempt_activity_policy
 from learnloop.substrate.intervention_outcomes import is_assisted as _intervention_is_assisted
@@ -67,45 +68,16 @@ def intervention_assisted(facts: AttemptFacts) -> bool:
 # -- the coldness receipt's unassisted dimension (owner: attempts.coldness_receipt) ------------------------------
 
 
-def cold_item_reveal_rows(scan: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Ledger rows (migration 154) that exposed the COLD item's own answer."""
-
-    return [
-        dict(event)
-        for event in scan.get("events") or []
-        if event.get("ledger") == "reveal_events"
-        and event.get("why") == "reveal_ledger_answer_exposed_on_cold_item"
-    ]
-
-
-def unassisted_for_coldness(facts: AttemptFacts, scan: Mapping[str, Any] | None) -> tuple[str, dict[str, Any]]:
-    """The coldness receipt's ``unassisted`` dimension for a cold attempt: ``(status, evidence)``.
+def unassisted_for_coldness(facts: AttemptFacts, scan: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The coldness receipt's ``unassisted`` dimension for a cold attempt (``coldness_receipt._unassisted``): its
+    status and its evidence.
 
     Stricter than the canonical test on purpose: any recorded reveal of the cold item's answer inside the
     measurement window (``scan``) fails it, below the auto-prime threshold too, with the rows as the evidence;
     ``reveal_ledger_scanned`` says whether a scan was made at all."""
 
-    hints = int(facts.hints_used or 0)
-    primed = bool(facts.primed)
-    ledger_rows = cold_item_reveal_rows(scan) if scan is not None else []
-    ok = hints == 0 and not primed and not ledger_rows
-    evidence: dict[str, Any] = {
-        "hints_used": hints,
-        "primed": primed,
-        "attempt_type": str(facts.produced_as or "") or None,
-        "reveal_ledger_rows": ledger_rows,
-        "reveal_ledger_amount": sum(
-            float(row.get("amount") or 0.0) for row in ledger_rows
-        ),
-        "reveal_ledger_scanned": scan is not None,
-        "rule": (
-            "pass requires hints_used == 0, primed false, AND no recorded "
-            "reveal of this item's answer in the measurement window"
-        ),
-    }
-    if ledger_rows:
-        evidence["violation"] = "answer_revealed_before_the_cold_attempt"
-    return ("pass" if ok else "fail"), evidence
+    return _coldness_unassisted({"attempt_type": facts.produced_as, "hints_used": facts.hints_used,
+                                 "primed": facts.primed}, scan)
 
 
 # -- the FSRS rating cap (owner: attempts.attempts, the grade application) ---------------------------------------
@@ -163,7 +135,7 @@ def diagnoser_cold_unassisted(facts: AttemptFacts) -> bool:
 
 # -- the teacher's brief and the lesson suggestion (owners: teacher.brief, daily_plan.lesson_suggestion) --------
 
-#: The attempt types a cold check can be: the teacher's ``_COLD_TYPES``; the same members as
+#: The attempt types a cold check can be (the teacher brief's); the same members as
 #: ``learner.lesson_weight.COLD_ATTEMPT_TYPES``, which the lesson suggestion reads from its owner.
 COLD_CHECK_TYPES = frozenset({"independent_attempt", "open_text", "diagnostic_probe", "exam_attempt"})
 
@@ -207,7 +179,7 @@ def primed_only(facts: AttemptFacts) -> bool:
 
 
 __all__ = [
-    "COLD_CHECK_TYPES", "DIAGNOSER_ASSISTED_TYPES", "cold_item_reveal_rows", "counts_as_assisted",
+    "COLD_CHECK_TYPES", "DIAGNOSER_ASSISTED_TYPES", "counts_as_assisted",
     "diagnoser_assisted", "diagnoser_cold_unassisted", "fsrs_cap_value", "fsrs_rating_cap", "graded_cold_check",
     "hinted_or_primed", "intervention_assisted", "primed_only", "recorded_counts_as_assisted",
     "teacher_attempt_kind", "unhelped_cold_type", "unassisted_for_coldness",

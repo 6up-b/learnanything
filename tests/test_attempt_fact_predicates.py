@@ -54,8 +54,7 @@ def test_every_predicate_equals_its_readers_expression_on_the_matrix():
         assert P.hinted_or_primed(facts) == base_card_assisted(row), row
         assert P.primed_only(facts) == base_primed_only(row), row
         for scan in SCANS:
-            status, evidence = P.unassisted_for_coldness(facts, scan)
-            assert {"status": status, "evidence": evidence} == base_coldness(dict(row), scan), (row, scan)
+            assert P.unassisted_for_coldness(facts, scan) == base_coldness(dict(row), scan), (row, scan)
 
 
 def test_the_recorded_classification_reaches_the_projections_assisted():
@@ -81,7 +80,7 @@ def test_the_fsrs_cap_lookup_keeps_key_coercion_and_fallback():
 _FIELDS = {"attempt_type": "produced_as", "hints_used": "hints_used", "primed": "primed",
            "correctness": "correctness"}
 _NAMES = {"ASSISTED_ATTEMPT_TYPES": "DIAGNOSER_ASSISTED_TYPES", "_COLD_TYPES": "cold_types",
-          "COLD_ATTEMPT_TYPES": "cold_types", "_cold_item_reveal_rows": "cold_item_reveal_rows"}
+          "COLD_ATTEMPT_TYPES": "cold_types"}
 
 
 def _facts_field(key: str) -> ast.Attribute:
@@ -159,25 +158,11 @@ def test_the_moved_expression_kernels_are_the_readers_expressions():
     assert _dump(_returned("primed_only")) != _dump(_returned("hinted_or_primed"))
 
 
-def test_the_moved_function_kernels_are_the_readers_functions():
-    for name in ("fsrs_cap_value", "cold_item_reveal_rows"):
-        old = ast.parse(BASE_SOURCES[name]).body[0]
-        new = _kernel(name)
-        assert [arg.arg for arg in old.args.args] == [arg.arg for arg in new.args.args], name
-        assert [_dump(statement) for statement in _body(old)] == [_dump(statement) for statement in _body(new)], name
-
-
-def test_the_coldness_kernel_is_the_old_dimension_between_its_guard_and_its_wrapper():
-    old = _ToFacts(("cold_attempt",)).visit(ast.parse(BASE_SOURCES["unassisted_for_coldness"]).body[0])
-    old_body, new_body = old.body, _body(_kernel("unassisted_for_coldness"))
-    # The guard for a missing attempt and the dimension wrapper stay in the coldness receipt's adapter.
-    assert isinstance(old_body[0], ast.If) and isinstance(old_body[-1], ast.Return)
-    assert [_dump(statement) for statement in old_body[1:-1]] == [_dump(statement) for statement in new_body[:-1]]
-    wrapped = old_body[-1].value
-    assert isinstance(wrapped, ast.Call) and wrapped.func.id == "_dimension"
-    returned = new_body[-1].value
-    assert isinstance(returned, ast.Tuple)
-    assert [_dump(arg) for arg in wrapped.args] == [_dump(element) for element in returned.elts]
+def test_the_moved_function_kernel_is_the_readers_function():
+    old = ast.parse(BASE_SOURCES["fsrs_cap_value"]).body[0]
+    new = _kernel("fsrs_cap_value")
+    assert [arg.arg for arg in old.args.args] == [arg.arg for arg in new.args.args]
+    assert [_dump(statement) for statement in _body(old)] == [_dump(statement) for statement in _body(new)]
 
 
 # -- the grader sees none of it -----------------------------------------------------------------------------------
