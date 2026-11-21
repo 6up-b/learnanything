@@ -409,6 +409,7 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
     spec = _spec(vault, connection, snapshot, item, served_at, view)
     warmth = _warmth(connection, view, str(item.learning_object_id), served_at)
     constants = S.constants_from_config(vault.config)
+    served = served_item(vault, item)
     out = []
     for name, state, weights, mixture in (
         ("ad_threshold@subject", snapshot.subject, None, "bank"),
@@ -420,9 +421,11 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
         prediction = PR.predict(state, item_spec, warmth=warmth, weights=weights, band=constants.band)
         # The categories ``p̄`` is the last of, and the prediction snapshot (evaluation-only).
         categories, parts = threshold_snapshot(
-            vault, item, name=name, state=state, spec=item_spec, warmth=warmth, weights=weights, mixture=mixture,
-            state_hash=snapshot.state_hash(), presentation_kind=presentation_kind, presentation_id=presentation_id,
-            served_at=served_at, epoch=view.epoch)
+            served, name=name, mixture=mixture, state_hash=snapshot.state_hash(),
+            categories_of=lambda state=state, item_spec=item_spec, weights=weights: PR.category_mixture(
+                state, item_spec, warmth=warmth, weights=weights),
+            presentation_kind=presentation_kind, presentation_id=presentation_id, served_at=served_at,
+            epoch=view.epoch, threshold_version=THRESHOLD_VERSION, replay_version=RP.REPLAY_VERSION)
         out.append(ForecastReceipt(
             receipt_key=receipt_key(presentation_kind, presentation_id, name), kind=ITEM_UNASSISTED_SUCCESS,
             forecaster=name, forecaster_version=f"{THRESHOLD_VERSION}:{P.PRIORS_VERSION}:{P.HYPER_VERSION}",
@@ -441,6 +444,22 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
             snapshot=parts,
         ))
     return out
+
+
+def served_item(vault: Any, item: Any) -> Any:
+    """The served revision's identity for the prediction snapshots (``snapshot_parts.ServedItem``), or None when
+    it cannot be read: metadata only, so the receipts are written without it."""
+
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.adaptive_difficulty.snapshot_parts import ServedItem, surface_source
+
+    try:
+        key = RP.surface_group(item)
+        return ServedItem(str(item.id), item_revision(item)[0], str(item.learning_object_id),
+                          tuple(sorted(PR.facet_weights(vault, item))), key, surface_source(item, key))
+    except Exception:  # noqa: BLE001 - a snapshot never costs the serve its receipts
+        warn_failure(LOG, "served item identity for %s not built", getattr(item, "id", None))
+        return None
 
 
 def _no_loadings(spec: Any) -> Any:
@@ -462,6 +481,7 @@ __all__ = [
     "commission_draw",
     "decide_slot",
     "frozen_loadings",
+    "served_item",
     "slot_applies",
     "threshold_receipts",
     "view_for",

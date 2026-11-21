@@ -299,6 +299,13 @@ def test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provena
     assert stored["ad_threshold@subject_uniform"]["versions"]["snapshot"]["provenance"]["mixture"] == "uniform"
 
 
+def test_the_snapshot_names_the_resolver_that_scores_it():
+    from learnloop.adaptive_difficulty.scoring import SCORE_VERSION
+    from learnloop.adaptive_difficulty.snapshot_parts import RESOLVER_VERSION
+
+    assert RESOLVER_VERSION == SCORE_VERSION
+
+
 # -- non-interference ----------------------------------------------------------------------------------------------
 
 

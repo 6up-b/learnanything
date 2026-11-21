@@ -116,8 +116,10 @@ def _challenger(vault: Any, connection: Any, item: Any, served_at: str, *,
 
 
 def in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str,
-                        presentation_id: str, served_at: str, view: Any) -> list[ForecastReceipt]:
-    """The two in-process forecasts of one presentation (each skipped alone on failure)."""
+                        presentation_id: str, served_at: str, view: Any, served: Any = None) -> list[ForecastReceipt]:
+    """The two in-process forecasts of one presentation (each skipped alone on failure). ``served``: the served
+    revision's identity (``snapshot_parts.ServedItem``) their prediction snapshots name; without it the writer
+    derives the target from the receipt's columns."""
 
     receipts: list[ForecastReceipt] = []
     for forecaster in IN_PROCESS_FORECASTERS:
@@ -134,9 +136,9 @@ def in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any,
         p = min(max(float(p), 0.0), 1.0)
         from learnloop.adaptive_difficulty.snapshot_parts import in_process_snapshot
 
-        parts = in_process_snapshot(vault, item, forecaster=forecaster, version_hash=version_hash, inputs=inputs,
-                                    presentation_kind=presentation_kind, presentation_id=presentation_id,
-                                    served_at=served_at)
+        parts = in_process_snapshot(served, incumbent=forecaster == INCUMBENT, version_hash=version_hash,
+                                    inputs=inputs, presentation_kind=presentation_kind,
+                                    presentation_id=presentation_id, served_at=served_at)
         receipts.append(ForecastReceipt(
             receipt_key=receipt_key(presentation_kind, presentation_id, forecaster),
             kind=ITEM_UNASSISTED_SUCCESS,
