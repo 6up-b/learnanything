@@ -86,6 +86,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/lessons.py`
 - `src/learnloop/router_objective/offer_report.py`
+- `src/learnloop/teacher/check_delivery.py`
 
 ### Direct SQL writers
 
@@ -100,8 +101,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/check_credit_report_helpers.py`
 - `tests/teacher_te1_migration_helpers.py`
 - `tests/teacher_te2log_receipt_helpers.py`
+- `tests/test_check_credit_report.py`
+- `tests/test_check_delivery.py`
 - `tests/test_followups_batch5_lesson.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_salience_firewall.py`

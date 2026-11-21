@@ -112,6 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
+- [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]] — imports `ESTIMATE_DECIMALS`, `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice_index|learnloop_sidecar.handlers.practice_index]] — imports `Estimator`, `load_duration_evidence`; statically calls `Estimator`, `load_duration_evidence`
@@ -134,14 +135,18 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/check_credit_helpers.py](../../../../../../tests/check_credit_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_feedback_dwell_skips_a_serve_withheld_with_its_presentation`
+- [tests/test_check_inputs.py](../../../../../../tests/test_check_inputs.py) — direct import
+  - `test_the_minutes_are_the_plans_estimate_of_the_item_the_picker_would_choose`
+  - `test_with_no_candidate_the_estimators_unknown_item_estimate`
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
   - `test_f12_a_pick_after_the_plan_closed_adds_no_feedback_dwell`
 - [tests/test_duration_estimates.py](../../../../../../tests/test_duration_estimates.py) — direct import

@@ -136,6 +136,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_check_credit_report.py](../../../../../../tests/test_check_credit_report.py) — direct import
+  - `test_current_copy_from_real_builders_is_read_only`
 - [tests/test_config_refactor.py](../../../../../../tests/test_config_refactor.py) — direct import
   - `test_config_responsibilities_have_canonical_module_owners`
   - `test_loader_orchestrates_compatibility_before_validation`

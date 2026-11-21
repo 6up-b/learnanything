@@ -17,7 +17,7 @@ from typing import Any, Mapping
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
 from learnloop.db.copies import backup_database
-from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from learnloop.db.table_roles import CAPTURE_EXCLUDED_TABLES, TABLE_ROLES, TableRole
 from learnloop.outcome_contract import (
     COLLECTION_VERSION,
     GRADE_HELD_FOR_REVIEW,
@@ -667,7 +667,11 @@ def _export_snapshot(snapshot: Path, output: Path, *, split_policy: str, embargo
 
     with closing(connect(snapshot, read_only=True)) as connection:
         tables = table_names(connection)
-        included = sorted(table for table in tables if TABLE_ROLES.get(table) in {TableRole.RAW_LEDGER, TableRole.RECEIPT} or table in _CAPTURED_WORKFLOW_TABLES)
+        included = sorted(
+            table for table in tables - CAPTURE_EXCLUDED_TABLES
+            if TABLE_ROLES.get(table) in {TableRole.RAW_LEDGER, TableRole.RECEIPT}
+            or table in _CAPTURED_WORKFLOW_TABLES
+        )
         for table in included:
             export_rows(table, _ordered_table_rows(connection, table))
         export_rows("outcome_contract", outcome_records(connection))

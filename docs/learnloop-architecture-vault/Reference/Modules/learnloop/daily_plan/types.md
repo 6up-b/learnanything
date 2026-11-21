@@ -141,6 +141,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `BLOCK_MAX_MINUTES`, `BlockCandidate`, `BlockChoice`, `LANE_ACTIONS`, `PlanState`, `STOP_OFFER_MINUTES`; statically calls `BlockChoice`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `LANES`
 
+### Repository tooling consumers
+
+- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py); calls `BlockCandidate`, `PlanState`
+
 ## Dependencies
 
 ### LearnLoop dependencies

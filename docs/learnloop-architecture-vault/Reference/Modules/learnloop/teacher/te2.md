@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py) |
-| Source lines | 174 |
+| Source lines | 173 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,7 +64,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `stored_turn(data: Mapping[str, Any] | None) -> TeacherTurnV1` ([source](../../../../../../src/learnloop/teacher/te2.py), line 98) — A stored accepted turn read back: TE1's widest shape when it validates (so a TE1 turn reads back exactly as before), else TE2's widest (a turn holding a TE2 request).
 - `learner_ref(entry: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 108) — How the transcript names a learner's turn (``propose_gap``'s ``ref``).
 - `delayed_check_words(vault: Any, repository: Any, learning_object_id: str, *, withheld: Any, attempted: set[str]) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 119) — Whether a delayed check could be committed on the LO now: an unseen, unrevealed, unwithheld question exists (the delayed checks' own candidate rule, before this lesson shows anything), or none yet.
-- `where_you_left_off(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, exclude: str | None, notes_check: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/te2.py), line 131) — The newest earlier lesson on these LOs with a stored plan: its latest plan version, labelled "where you left off" (§11.8).
+- `where_you_left_off(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, exclude: str | None, notes_check: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/te2.py), line 130) — The newest earlier lesson on these LOs with a stored plan: its latest plan version, labelled "where you left off" (§11.8).
 
 ### Module constants
 
@@ -120,7 +120,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `lessons_on`, `plans`
-- [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `candidates`, `revealed_items`; calls `candidates`, `revealed_items`
+- [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `check_available`; calls `check_available`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `recap_admissible`; calls `recap_admissible`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnTE2EpisodesV1`, `TeacherTurnTE2V1`, `TeacherTurnTE2VisualsEpisodesV1`, `TeacherTurnTE2VisualsV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 
@@ -142,6 +142,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
+  - `test_intended_an_offer_with_no_eligible_question_credits_no_check`
+  - `test_today_an_offer_is_built_with_a_check_whether_or_not_a_question_exists`
+- [tests/test_check_inputs.py](../../../../../../tests/test_check_inputs.py) — direct import
+  - `test_the_adapters_write_nothing_and_call_no_model`
+  - `test_the_brief_says_the_same_words_and_the_offer_reads_the_same_rule`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed`
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`

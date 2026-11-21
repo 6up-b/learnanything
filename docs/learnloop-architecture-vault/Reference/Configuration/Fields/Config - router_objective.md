@@ -26,14 +26,14 @@ source_paths:
   - "tests/ad3_subject_view_helpers.py"
   - "tests/ad_guard_offer_receipts_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/check_credit_helpers.py"
+  - "tests/check_credit_report_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/figure_build_golden_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
-  - "tests/followup_serve_helpers.py"
-  - "tests/hint_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router-objective"
@@ -118,14 +118,14 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad3_subject_view_helpers.py`
 - `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/check_credit_helpers.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/figure_build_golden_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
-- `tests/followup_serve_helpers.py`
-- `tests/hint_fakes.py`
 
 ## Extension and modification guidance
 

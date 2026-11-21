@@ -120,6 +120,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]] — imports `Fsrs`, `logit`, `perform`, `sigmoid`; statically calls `Fsrs`, `logit`, `perform`, `sigmoid`
 - [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `Combiner`
 
+### Repository tooling consumers
+
+- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py)
+
 ## Dependencies
 
 ### LearnLoop dependencies

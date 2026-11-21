@@ -149,6 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
+  - `test_recent_retrieval_resets_the_cold_delay_anchor`
 - [tests/test_intervention_outcomes_replayer.py](../../../../../../tests/test_intervention_outcomes_replayer.py) — direct import
   - `test_the_replayer_is_registered_deterministic_and_calls_nothing`
   - `test_the_replayer_reads_persisted_exposure`

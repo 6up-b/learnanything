@@ -36,6 +36,11 @@ class TableRole(str, Enum):
     COMPAT = "compat"
 
 
+# Rebuild roles do not expand the collection contract. Keep locked hypothesis
+# sets out of the dataset's JSONL inventory and adjudication evidence.
+CAPTURE_EXCLUDED_TABLES = frozenset({"hypothesis_sets"})
+
+
 # Keep this list alphabetical so schema diffs and review are mechanical.  An
 # item list (rather than a dict literal) lets us reject an accidental duplicate
 # instead of silently keeping the last declaration.
@@ -333,7 +338,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("hypothesis_recurrence_groups", TableRole.DERIVED),
     ("hypothesis_recurrence_review", TableRole.DERIVED),
     ("hypothesis_recurrence_state", TableRole.DERIVED),
-    ("hypothesis_sets", TableRole.COMPAT),
+    ("hypothesis_sets", TableRole.RAW_LEDGER),
     ("ingest_batches", TableRole.WORKFLOW),
     ("ingest_job_dependencies", TableRole.WORKFLOW),
     ("ingest_jobs", TableRole.WORKFLOW),

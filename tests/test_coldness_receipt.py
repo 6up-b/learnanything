@@ -39,6 +39,9 @@ from learnloop.diagnosis.remediation import (
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
+from learnloop.db.stores.source_service import outcomes
+from learnloop.instructional.interventions import record_need_served
+from learnloop.substrate.intervention_outcomes import rebuild_intervention_outcomes
 
 from tests.helpers import (
     NOW,
@@ -103,7 +106,7 @@ def _setup(tmp_path, *, third_item=False):
     return vault_root, vault, repository, misconception_id
 
 
-def _attempt(vault, repository, item_id, *, clock, primed=False, hints_used=0):
+def _attempt(vault, repository, item_id, *, clock, primed=False, hints_used=0, latency_seconds=None):
     return complete_self_graded_attempt(
         vault,
         repository,
@@ -113,6 +116,7 @@ def _attempt(vault, repository, item_id, *, clock, primed=False, hints_used=0):
             attempt_type="independent_attempt",
             hints_used=hints_used,
             primed=primed,
+            latency_seconds=latency_seconds,
         ),
         SelfGradeInput(
             criterion_points={"correctness": 4}, fatal_errors=[], confidence=4
@@ -398,6 +402,11 @@ def test_recent_retrieval_resets_the_cold_delay_anchor(tmp_path):
         vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True
     )
     task = _cold_retry_task(repository)
+    intervention_id = record_need_served(
+        vault, repository, {"id": "research-intervention", "learning_object_id": LO_ID},
+        practice_item_id=treatment["cold_item_id"], clock=DAY1,
+    )
+    assert intervention_id is not None
     third = next(
         item_id
         for item_id in ("pi_svd_define_001", "pi_svd_define_002", "pi_svd_define_003")
@@ -409,7 +418,7 @@ def test_recent_retrieval_resets_the_cold_delay_anchor(tmp_path):
         third,
         clock=FrozenClock(NOW + timedelta(days=1, hours=23)),
     )
-    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=DAY2, latency_seconds=60)
 
     assert record_cold_verification_from_task(
         vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=DAY2
@@ -425,6 +434,11 @@ def test_recent_retrieval_resets_the_cold_delay_anchor(tmp_path):
     assert delay["evidence"]["delay_seconds_from_anchor"] == 3600
     assert final["derived"]["qualifies_as_cold_retrieval"] is False
     assert final["derived"]["qualifies_as_repair_effect_verification"] is False
+    rebuild_intervention_outcomes(vault, repository)
+    with repository.connection() as connection:
+        outcome = outcomes(connection)[intervention_id]
+    assert outcome["cold_attempt_id"] == cold.attempt_id
+    assert outcome["cold_outcome_state"] == "cold_success"
 
 
 # -- hard leakage -------------------------------------------------------------

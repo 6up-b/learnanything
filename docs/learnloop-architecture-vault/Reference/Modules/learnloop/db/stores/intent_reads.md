@@ -89,6 +89,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `module`; statically calls `attempts_for_anchor`
 - [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] — imports `module`; statically calls `commitment_tables_present`, `commitments_covering_items`, `events_for`, `head_targets_for`, `versions_for`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `module`; statically calls `attempts_since`
+- [[Reference/Modules/learnloop/teacher/check_delivery|learnloop.teacher.check_delivery]] — imports `module`; statically calls `commitment_tables_present`, `events_for`, `head_targets_for`, `versions_for`
 
 ## Dependencies
 
@@ -108,7 +109,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]], [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]], [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]], [[Reference/Modules/learnloop/teacher/check_delivery|learnloop.teacher.check_delivery]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

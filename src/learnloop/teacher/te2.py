@@ -121,11 +121,10 @@ def delayed_check_words(vault: Any, repository: Any, learning_object_id: str, *,
     """Whether a delayed check could be committed on the LO now: an unseen, unrevealed, unwithheld question exists
     (the delayed checks' own candidate rule, before this lesson shows anything), or none yet. No item is named."""
 
-    from learnloop.delayed_checks import candidates, revealed_items
+    from learnloop.delayed_checks import check_available
 
-    found = candidates(vault, repository, learning_object_id, exclude=(), withheld=withheld, attempted=attempted,
-                       revealed=revealed_items(repository, ""))
-    return UNSEEN_EXISTS if found else UNSEEN_NONE
+    available = check_available(vault, repository, learning_object_id, withheld=withheld, attempted=attempted)
+    return UNSEEN_EXISTS if available else UNSEEN_NONE
 
 
 def where_you_left_off(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, exclude: str | None,

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/delayed_checks.py](../../../../../src/learnloop/delayed_checks.py) |
-| Source lines | 169 |
+| Source lines | 180 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,9 +58,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `revealed_items(repository: Any, lesson_id: str) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 29) — Items this lesson exposed (a reveal row with basis ``lesson:<id>``), and items whose summed exposure already reaches the auto-prime threshold (an answer would be primed: never cold).
 - `lineage(item: Any) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 44) — The structural kin an item declares: its family, its contrast pair, its shared stimulus and the source exercise it presents (any shared key makes two items the same material).
 - `candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude: Iterable[str], withheld: Any, attempted: set[str], revealed: set[str], excluded_lineage: set[str] | frozenset[str]=frozenset()) -> list[Any]` ([source](../../../../../src/learnloop/delayed_checks.py), line 62) — The candidate rule (§13 step 1) for one LO, in id order.
-- `predicted_item_success(vault: Any, repository: Any, item: Any) -> float | None` ([source](../../../../../src/learnloop/delayed_checks.py), line 86) — The active predictor's predicted unassisted success on this item: the LO's mastery (its first update's prior when it has no evidence yet) through the item's own IRT parameters.
-- `pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> tuple[Any | None, dict[str, Any]]` ([source](../../../../../src/learnloop/delayed_checks.py), line 116) — The candidate pitched nearest the band's middle by its own prediction, and what was decided.
-- `due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 146) — Days until the check is due, and how they were set (``retrievability`` or ``fallback``).
+- `check_available(vault: Any, repository: Any, learning_object_id: str, *, withheld: Any, attempted: set[str]) -> bool` ([source](../../../../../src/learnloop/delayed_checks.py), line 86) — Whether a delayed check could be committed on the LO now: the candidate rule finds an unseen, unrevealed, unwithheld, servable question, before any lesson shows anything (no exclusion of a lesson's own items).
+- `predicted_item_success(vault: Any, repository: Any, item: Any) -> float | None` ([source](../../../../../src/learnloop/delayed_checks.py), line 97) — The active predictor's predicted unassisted success on this item: the LO's mastery (its first update's prior when it has no evidence yet) through the item's own IRT parameters.
+- `pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> tuple[Any | None, dict[str, Any]]` ([source](../../../../../src/learnloop/delayed_checks.py), line 127) — The candidate pitched nearest the band's middle by its own prediction, and what was decided.
+- `due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 157) — Days until the check is due, and how they were set (``retrievability`` or ``fallback``).
 
 ### Module constants
 
@@ -74,6 +75,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PICK_VERSION`
 - `attempted_items`
 - `candidates`
+- `check_available`
 - `due_days`
 - `lineage`
 - `pick_with_receipt`
@@ -82,18 +84,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_band_middle(vault: Any) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 104)
-- `_uniform(seed: str) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 109) — A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws).
+- `_band_middle(vault: Any) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 115)
+- `_uniform(seed: str) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 120) — A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]] — imports `attempted_items`, `candidates`, `check_available`, `pick_with_receipt`, `revealed_items`; statically calls `attempted_items`, `candidates`, `check_available`, `pick_with_receipt`, `revealed_items`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; statically calls `attempted_items`, `candidates`, `due_days`, `pick_with_receipt`, `revealed_items`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `candidates`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `PICK_VERSION`, `attempted_items`, `candidates`, `due_days`, `lineage`, `pick_with_receipt`, `revealed_items`; statically calls `attempted_items`, `candidates`, `due_days`, `lineage`, `pick_with_receipt`, `revealed_items`
-- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `candidates`, `revealed_items`; statically calls `candidates`, `revealed_items`
+- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `check_available`; statically calls `check_available`
 
 ## Dependencies
 
@@ -119,13 +122,18 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]], [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]], [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/diagnosis_journey_helpers.py](../../../../../tests/diagnosis_journey_helpers.py) — direct import
+- [tests/test_check_credit_characterization.py](../../../../../tests/test_check_credit_characterization.py) — direct import
+- [tests/test_check_inputs.py](../../../../../tests/test_check_inputs.py) — direct import
+  - `test_the_adapters_write_nothing_and_call_no_model`
+  - `test_the_brief_says_the_same_words_and_the_offer_reads_the_same_rule`
+  - `test_the_minutes_are_the_plans_estimate_of_the_item_the_picker_would_choose`
 - [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — direct import
   - `test_no_question_to_ask_is_recorded_unavailable_and_visible_on_the_outcome`
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import

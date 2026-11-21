@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_agent_run_token_columns_exist_and_default_to_zero`
 - [tests/test_approach_maps_schema.py](../../../../../../tests/test_approach_maps_schema.py) — direct import
 - [tests/test_card_lineage.py](../../../../../../tests/test_card_lineage.py) — direct import
+- [tests/test_check_delivery.py](../../../../../../tests/test_check_delivery.py) — direct import
 - [tests/test_commitments.py](../../../../../../tests/test_commitments.py) — direct import
 - [tests/test_connection_reuse.py](../../../../../../tests/test_connection_reuse.py) — direct import
   - `test_a_copied_fresh_schema_matches_a_built_one_and_stamps_this_builds_clock`

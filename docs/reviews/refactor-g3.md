@@ -39,3 +39,89 @@ How it was run: the implementer's sandbox could not open the memory scope, so th
 ## Which readers could change
 
 The scoreboard directly counts admitted receipts that closed a factor (`diagnosis/scoreboard.py:1328–1338`, paths relative to `src/learnloop/`). Causal health counts outcomes, sensors and admissions (`diagnosis/causal_health.py:284–296`). EVSI calibration reads the independent single match and forecast linkage (`evsi_calibration/live_report.py:742–761,795–808,888–898`). Deferral tests whether a receipt exists (`diagnosis/causal_factor_deferral.py:345–355`). The picks and capture reports compare picks or marks with classified causes (`router_objective/picks.py:82–87,111–119`, `ops/capture_report.py:286–303,317–342`). Hypothesis marks exposes the latest answered classification through the probe state (`db/stores/hypothesis_marks.py:157–166`, `followup_serve/marks.py:103–126`). Instructional valuation reads the replayed episode posterior and renormalizes concrete mass (`instructional/valuation.py:208–230`). A change to the closure bit alone directly affects the scoreboard formula. Reports retaining the pre-registered match can still report that match. On the four real pairs, the readers of the discriminating observation saw no resolution, while `instructional/valuation`, which reads the episode posterior, saw a posterior moved by three answers the other channel had refused.
+
+## Rerun on the upgraded vault (2026-11-20)
+
+**G4 decision input: on the upgraded vault the two records never disagree on evidence. The full G4 as the strategy writes it would make the discriminating observation defer to a posterior that cannot move, so the skip branch is recommended. The owner decides.** The owner upgraded the live arxiv vault to `mvp-0.61` and asked for this rerun before deciding G4 (2026-11-20). The rerun used a backup-API copy of the live vault made that evening at `mvp-0.61`. On it the orchestrator's isolated shadow rebuild replays all 60 attempts and changes no facet, mastery or schedule row. There is still no new probe: the same five presentations, four answers and four pairs as on Nov 18. The stored rows read exactly as the first measurement read them. Under the effective reading the tag introduced, the two records now agree on independence in all four pairs, for the same reasons. The "B only" verdict stays in all four, but it is not two readings of one answer that disagree. In every pair the episode posterior's leader is the leader of the locked set's verbalized prior, which the discriminating observation's lock holds too. No answer moved that posterior, before the tag or after it, because the card each probe was served with maps every locked hypothesis to its one open-set row.
+
+### How it was run
+
+The scratch script is rebuilt from the method above (the Nov 18 script was not kept). Pairing goes from A's `probe_attempt_id` to `practice_attempts.id` to `probe_observations.attempt_id`, with A's `presentation_id` equal to the attempt's `probe_presentation_id`. Null answer ids, ambiguous A rows and unpaired rows are counted, with each unpaired B's reason (an invalidated presentation, no causal pin, a recorded decline, or no reason on record). A supplies a cause only when `resolved_factor` is set and `classified_as_json` names one cause. B supplies the unique concrete maximum of the posterior after the answer. A tie within 1e−12 or a winning `other_or_unknown` arm counts as undecided; the stored posteriors carry float noise of about 1e−17. The locks are compared by ordered labels, `causal_hypothesis_version`, prior, prior basis and id. "Held or unassessed" combines B's contamination naming a hold, the held-grade predicate now (`held_grades.held_for_review_attempts`), and grading evidence live at B's write that `outcome_contract.unassessed_evidence_row` marks unassessed.
+
+The script reads a backup-API working copy in the worktree's gitignored fixtures directory, deleted afterwards. The copy's backup read its source through an immutable read-only connection, so nothing in the source could be written; the source's database file and its `-wal` and `-shm` had the same sha256 before and after. The script reads B in one of two ways, and A is the same in both:
+
+- **Stored:** plain SQL over the rows in URI `mode=ro`, as on Nov 18.
+- **Effective:** B as the vault's tag reads it. The flags (`updates_belief`, `eligible_for_completion`, `independent_evidence_discount`, `contamination`) come from `probe_episodes.effective_episode_observations`. The posterior after the answer comes from `probe_episodes.effective_posterior_as_of(episode, the observation's own created_at)`, or is the stored `posterior_after` where that returns None. These readers ran on a `Repository.attach(..., read_only=True)` of the working copy, so they could not write, and the working copy's hash did not change.
+- **A in both readings:** the tag added no reader for A. The discriminating observation is still written and read as before.
+
+### The counts
+
+| Owner vault arxiv_v2 | Presentations | Answered / pairs | Unpaired A / B | Same / different / A only / B only / both undecided | Among the one-sided pairs: A refused independence / B discounted / held or unassessed / locks differ in membership |
+|---|---|---|---|---|---|
+| Nov 18 copy, stored rows (above) | 5 (one abandoned) | 4 / 4 | 0 / 0 | 0 / 0 / 0 / 4 / 0 | 3 / 0 / 0 / 0 |
+| Nov 20 copy at `mvp-0.61`, stored rows | 5 (one abandoned) | 4 / 4 | 0 / 0 | 0 / 0 / 0 / 4 / 0 | 3 / 0 / 0 / 0 |
+| Nov 20 copy at `mvp-0.61`, effective view | 5 (one abandoned) | 4 / 4 | 0 / 0 | 0 / 0 / 0 / 4 / 0 | 3 / 3 / 0 / 0 |
+
+No A row has a null answer id, none is ambiguous, and both ledgers reconcile (A: 4 = 4 + 0 + 0; B: 4 = 4 + 0). The table below gives the further facts behind the verdicts. "Not recorded" means the Nov 18 record did not state it; those stored rows are the same rows read tonight.
+
+| | Nov 18, stored | Nov 20, stored | Nov 20, effective |
+|---|---|---|---|
+| Independence verdicts agree (A refused ⇔ B updates no belief, with a reason) | 1 of 4 | 1 of 4 | 4 of 4. B's reason equals A's in all three refusals: `followup_feedback_shown_anyway` once, `post_reveal_not_independent` twice |
+| B: `updates_belief` / qualifying / discount | 4 / 4 / 1.0 in all four | 4 / 4 / 1.0 in all four | 1 / 1 / 1.0 for the clean answer; 0.0 with `answer_exposed` for the other three |
+| Largest change of B's posterior by the answer | not recorded | at most 6e−17 (float noise) in all four | 0 for the three exposed answers; 1.4e−17 for the clean one |
+| B's leader is the lock prior's leader; B's posterior before the answer equals the lock prior | not recorded | 4 of 4; 4 of 4 | 4 of 4; 4 of 4 |
+| Locks: same labels, order, versions, prior (largest difference 0) and prior basis (`model_verbalized_prior`); different ids | 4 of 4 (prior not recorded) | 4 of 4 | 4 of 4 |
+| A: outcome / admitted / closed a factor | `no_bundle_matched` ×4 / 1 / 0 | the same | the same (A has no effective reader) |
+| Probe answers held at write or now, or regraded (K9 Q2's size) | not recorded | 0 held. 0 regraded: each probe answer has one raw grade event and one blind grade record, and none of its grading evidence is superseded | the same |
+
+The current episode posterior, `episode_posterior` at the tag with incidental attempts included, equals the lock prior in all four probed episodes (largest difference 1.4e−17). The episodes' qualifying counts are 1, 0, 0 and 0.
+
+### What changed since Nov 18, and why
+
+- **No new probe evidence.** The copy holds 60 attempts; ledger row G3-2 counted 53 in the live vault on Nov 18. No presentation, episode entry or discriminating observation is newer than the last probe answer. None of the 11 attempts after that answer is a probe answer, and the copy has no attempt dated after Nov 18. So the pairs are the same four.
+- **The upgrade rewrote nothing these counts read.** `probe_observations` and `causal_discriminating_observations` are raw ledgers. The upgrade's whole-vault rebuild replays with `record_probe_update=False` and runs no completion. Every stored value the Nov 18 record states reads the same tonight. The stored observations carry no `answer_exposure_judged` mark, because they were written below the tag. All four probed episodes are still `complete` with `action_equivalent`, because the tag does not reopen an episode.
+- **What the tag reads differently.** The three answers A refused now read as exposed in B, for the same reasons. Each updates no belief, has a discount of 0.0 and qualifies nothing, so qualifying observations across the four episodes go from 4 to 1. Their effective posterior after the answer is the posterior before it. That moves the "B discounted" column from 0 to 3 and independence agreement from 1 of 4 to 4 of 4. The verdict columns cannot move, for the reason below.
+- **Why "B only" stays: the episode instrument is flat across the locked set.** Each presentation's frozen `resolved_slot_map` sends every locked hypothesis (the causal hypotheses and the open arm) to the card's `other_or_unknown` row. The card's rows are `robust_initial_grasp`, `unfamiliar` and `other_or_unknown`. `probe_families.map_episode_labels_to_slots` sends a label the card does not bind to the open-set row (the §9.4 abstention), and `probe_episodes._observation_likelihoods_from_row` reads the frozen map. So every locked hypothesis has the same likelihood for every outcome, and no answer at any weight moves the posterior. The selection-time `actual_hypothesis_eig` is 0 (at most 1e−16) on all five presentations. B's leader is therefore the model's verbalized prior, unmoved, and A's lock holds the same prior. A reports that no pre-registered prediction matched; B reports that prior. Neither learned a cause from any of the four answers.
+- **A correction to the Nov 18 reading.** The section "Which readers could change" says `instructional/valuation` "saw a posterior moved by three answers the other channel had refused". The three answers were counted at full weight, but with a flat likelihood they moved no posterior. What G3-1 changed on this vault was the qualifying count (episode completion, the serving caps and the value decision's count), not any belief.
+
+So under the effective reading the records disagree nowhere on evidence. They refuse the same answers for the same reasons, hold the same locked hypotheses and prior, and neither names a cause from an answer. They still differ in what they report: a pre-registered match, which is none, against the prior's leader.
+
+### G4's decision input
+
+The strategy's G4 makes the episode posterior serve both records: `enter_episode` reuses commissioning's lock, and `resolved_factor` for new rows is derived from the posterior. "If G3 shows they rarely disagree on real data, skip the semantic change, keep a `doctor` warning when they do, and stop." Its premise is that "the episode posterior … already has a prior and a likelihood". For the causal-probe episodes on real data, the likelihood is flat across the locked set. Deriving `resolved_factor` from that posterior would either never resolve a factor from a probe or resolve it to the verbalized prior's leader. Either way the one record that tests the causal hypotheses, the match against pre-registered bundles, would defer to one that cannot test them.
+
+**How much data would settle it.** The pairing rules give the answer. While these cards bind no causal hypothesis, B cannot move, so a disagreement that matters needs A to name a cause: an admitted single match that closes a factor, on a clean answer, with a cause other than the prior's leader. So far there is one clean answer of four and no closure. Under today's cards, more answered probes can only measure how often A closes a factor; they cannot produce a B-side disagreement. No count of answered probes settles G4's question until a card binds the causal hypotheses. The first clean closure whose cause differs from the prior's leader would be the first real "A only" or "different" pair. It would show the posterior not following A, and G4 as written would settle that the wrong way round.
+
+**Options** (the owner decides):
+
+1. **The full G4 as written, with K9.13 and K9.17 folded in.**
+   - **Builds:** one lock (today the two locks match in content, so this part is only tidier); `resolved_factor` derived from the posterior for new rows; the A readers (`scoreboard`, `causal_health`, `evsi_calibration/live_report`, `causal_factor_deferral`, `router_objective/picks`, `ops/capture_report`, hypothesis marks) tested on old and new rows. K9.13 first makes the episode posterior a gather and a pure fold (M). Folding K9.17 in makes the gather read each attempt's latest grading epoch and the released holds, with literal tests.
+   - **Cost:** L plus M, a successor tag, P-playbook and a shadow rebuild, landing alone.
+   - **On the owner's data:** old rows keep theirs. New causal probes would never close a factor through the posterior, so the scoreboard's closure count for new rows would stay at zero. Not recommended until a card binds the causal hypotheses.
+2. **The strategy's skip branch.**
+   - **Builds:** the narrow fix, already landed, stands. G4 closes as skipped on measurement. A `doctor` warning (S) flags a pair whose independence verdicts differ at the tag, or where A closes a factor and B's leader differs.
+   - **K9.13** is not needed: it was only for G4 or K9.17.
+   - **K9.17** stays behind Q2 as its own small successor (M). Its measured size on this vault is zero: no probe answer has been held or regraded. On these cards a release or a regrade could not move a causal episode's posterior anyway.
+3. **Wait for more data under today's cards.**
+   - **Costs:** nothing to build; G4 stays open.
+   - **Buys:** only A's closure rate. It cannot show B disagreeing.
+4. **Give the belief something to learn from first** (not in the strategy).
+   - **Builds:** compile a causal-probe episode's likelihood from the presentation's pinned blind bundles: P(observed features | hypothesis) from the same predictions A matches. The episode posterior then learns from the evidence A tests, G4's "one belief" means something, and a G3 rerun can measure a real disagreement.
+   - **Cost:** a spec, then an L behaviour change in instrument compilation under a tag. Selection-time hypothesis EIG becomes nonzero, so which probes are chosen changes.
+   - **Needs:** the owner to queue it, for example with arc G's G2 or the Teacher's diagnosis work.
+
+**Recommendation: option 2**, with option 4 put to the owner as its own question. This needs a ledger row, for the orchestrator to file: causal-probe episodes' cards map every locked hypothesis to the open-set row, so their posterior is the verbalized prior, and they complete as `action_equivalent` on it. What would change this recommendation:
+
+- a clean probe answer whose discriminating observation closes a factor while B's leader differs (G4 would then matter, but after option 4);
+- a card that binds the causal hypotheses, and a rerun with differing leaders;
+- a probe answer held and released, or regraded, mid-episode on such a card;
+- the two records' independence verdicts differing on a clean pair at the tag. The `mvp-0.61` record names the two cases where they still can: the answer's own reveals present when A is written, and a display of the causes in the answer's own second.
+
+### Not verified
+
+- **No byte comparison with the Nov 18 copy,** which was deleted. "Unchanged" rests on the counts and on every field value this record states.
+- **The script is a reconstruction.** Its agreement with the Nov 18 table on the stored reading is the check.
+- **Only arxiv_v2.** On Nov 18, linear_algebra and probability had no presentation, and they were not re-copied tonight.
+- **"Held at write"** is read from B's contamination keys, and "held now" from the predicate.
+- **The flat instrument was found by reading.** It rests on the five presentations' frozen slot maps and on reading the code, not on a test. No other vault's cards were checked, and neither was whether any card in the product binds causal hypotheses.
+- **No test was run;** this is a docs-only change.

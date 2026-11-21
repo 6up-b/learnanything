@@ -267,6 +267,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_causal_trace_consistency_p2.py](../../../../../tests/test_causal_trace_consistency_p2.py) — direct import
   - `test_a_criterion_left_unassessed_neither_holds_nor_fails_a_claim`
   - `test_an_assessed_zero_reads_the_same_at_both_tags`
+- [tests/test_check_credit_characterization.py](../../../../../tests/test_check_credit_characterization.py) — direct import
 - [tests/test_cold_retry_reschedule.py](../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_mvp038_is_one_constant_after_mvp037`
 - [tests/test_config_refactor.py](../../../../../tests/test_config_refactor.py) — direct import

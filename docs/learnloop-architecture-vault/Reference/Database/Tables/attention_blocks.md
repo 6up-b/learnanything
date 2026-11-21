@@ -19,11 +19,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/check_inputs.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lesson_offer.py"
   - "src/learnloop/daily_plan/records.py"
-  - "src/learnloop/db/stores/daily_plans.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -98,6 +98,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/daily_plan/check_inputs.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/daily_plan/lesson_offer.py`
@@ -123,6 +124,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/ad23_contract_helpers.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/figure_fixtures.py`
 - `tests/forecast_receipts_helpers.py`
 - `tests/instruct_handoff_ih0_helpers.py`
@@ -133,6 +135,7 @@ None found by exact static reference scan.
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad23_fix_review.py`
 - `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_check_credit_report.py`
 - `tests/test_curriculum_c1_landing.py`
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_owner_decisions.py`
@@ -140,8 +143,6 @@ None found by exact static reference scan.
 - `tests/test_data_capture_a2_measurement.py`
 - `tests/test_data_capture_a3_time_metric.py`
 - `tests/test_data_capture_codex_rereview.py`
-- `tests/test_data_capture_codex_review.py`
-- `tests/test_forced_withdrawal_records.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

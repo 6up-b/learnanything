@@ -83,6 +83,17 @@ def candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude:
     return out
 
 
+def check_available(vault: Any, repository: Any, learning_object_id: str, *, withheld: Any,
+                    attempted: set[str]) -> bool:
+    """Whether a delayed check could be committed on the LO now: the candidate rule finds an unseen, unrevealed,
+    unwithheld, servable question, before any lesson shows anything (no exclusion of a lesson's own items). The
+    brief's words (``teacher.te2.delayed_check_words``) and the lesson offer's availability read this one rule.
+    Protection that could not be read withholds every item (``Withheld.available``), so it answers False."""
+
+    return bool(candidates(vault, repository, learning_object_id, exclude=(), withheld=withheld, attempted=attempted,
+                           revealed=revealed_items(repository, "")))
+
+
 def predicted_item_success(vault: Any, repository: Any, item: Any) -> float | None:
     """The active predictor's predicted unassisted success on this item: the LO's mastery (its first
     update's prior when it has no evidence yet) through the item's own IRT parameters."""
@@ -165,5 +176,5 @@ def due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequ
     return min(max(days, 0.0), float(config.max_wait_days)), basis
 
 
-__all__ = ["PICK_VERSION", "attempted_items", "candidates", "due_days", "lineage", "pick_with_receipt",
-           "predicted_item_success", "revealed_items"]
+__all__ = ["PICK_VERSION", "attempted_items", "candidates", "check_available", "due_days", "lineage",
+           "pick_with_receipt", "predicted_item_success", "revealed_items"]

@@ -963,8 +963,8 @@ def _final_receipt_veto(connection: Any, attempt_id: str) -> str | None:
     derives its own ``qualifies_as_cold_retrieval`` claim (delay + unassisted +
     no hard exposure). Any final receipt for the attempt that fails either
     dimension, or that does not qualify the attempt as cold retrieval (False,
-    or unknown when the receipt could not be constructed), vetoes it (the
-    field's strict rule). None when no receipt exists or every receipt passes."""
+    or unknown when the receipt could not be constructed), vetoes it for
+    placement. None when no receipt exists or every receipt passes."""
 
     rows = connection.execute(
         "SELECT dimensions_json, derived_json FROM coldness_receipts "

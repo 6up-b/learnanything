@@ -102,6 +102,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `LESSON_OFFER_PREFIX`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `LESSON_OFFER_PREFIX`
 
+### Repository tooling consumers
+
+- [scripts/check_credit_report.py](../../../../../scripts/check_credit_report.py)
+
 ## Dependencies
 
 ### LearnLoop dependencies

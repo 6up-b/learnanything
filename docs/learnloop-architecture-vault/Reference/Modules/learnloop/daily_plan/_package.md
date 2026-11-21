@@ -9,6 +9,7 @@ source_paths:
   - "src/learnloop/daily_plan/ad_slot.py"
   - "src/learnloop/daily_plan/admission.py"
   - "src/learnloop/daily_plan/boundary_records.py"
+  - "src/learnloop/daily_plan/check_inputs.py"
   - "src/learnloop/daily_plan/chooser.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
@@ -84,19 +85,20 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] | [[Reference/Modules/learnloop/daily_plan/ad_slot#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/daily_plan/admission|learnloop.daily_plan.admission]] | [[Reference/Modules/learnloop/daily_plan/admission#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] | [[Reference/Modules/learnloop/daily_plan/boundary_records#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]] | [[Reference/Modules/learnloop/daily_plan/check_inputs#^module-purpose|purpose]] | `ACTIVE` | 0 | 2 |
 | [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] | [[Reference/Modules/learnloop/daily_plan/chooser#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
-| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 18 | 157 |
-| [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] | [[Reference/Modules/learnloop/daily_plan/estimates#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
+| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 18 | 159 |
+| [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] | [[Reference/Modules/learnloop/daily_plan/estimates#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] | [[Reference/Modules/learnloop/daily_plan/headline#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] | [[Reference/Modules/learnloop/daily_plan/intent_cost#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] | [[Reference/Modules/learnloop/daily_plan/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 13 |
 | [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] | [[Reference/Modules/learnloop/daily_plan/learner_action#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
-| [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] | [[Reference/Modules/learnloop/daily_plan/lesson_offer#^module-purpose|purpose]] | `ACTIVE` | 7 | 10 |
-| [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] | [[Reference/Modules/learnloop/daily_plan/lesson_suggestion#^module-purpose|purpose]] | `ACTIVE` | 7 | 23 |
+| [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] | [[Reference/Modules/learnloop/daily_plan/lesson_offer#^module-purpose|purpose]] | `ACTIVE` | 7 | 11 |
+| [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] | [[Reference/Modules/learnloop/daily_plan/lesson_suggestion#^module-purpose|purpose]] | `ACTIVE` | 7 | 24 |
 | [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] | [[Reference/Modules/learnloop/daily_plan/measurement#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] | [[Reference/Modules/learnloop/daily_plan/objective_card#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] | [[Reference/Modules/learnloop/daily_plan/objective_chooser#^module-purpose|purpose]] | `ACTIVE` | 3 | 34 |
-| [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] | [[Reference/Modules/learnloop/daily_plan/objective_inputs#^module-purpose|purpose]] | `ACTIVE` | 2 | 18 |
+| [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] | [[Reference/Modules/learnloop/daily_plan/objective_inputs#^module-purpose|purpose]] | `ACTIVE` | 2 | 19 |
 | [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]] | [[Reference/Modules/learnloop/daily_plan/objective_job#^module-purpose|purpose]] | `ACTIVE` | 2 | 8 |
 | [[Reference/Modules/learnloop/daily_plan/objective_seeds|learnloop.daily_plan.objective_seeds]] | [[Reference/Modules/learnloop/daily_plan/objective_seeds#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/daily_plan/plan_records|learnloop.daily_plan.plan_records]] | [[Reference/Modules/learnloop/daily_plan/plan_records#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -124,14 +126,14 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 65 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 67 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 40 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 23 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 21 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 20 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 14 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 10 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 9 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 7 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 6 static module edges
@@ -179,7 +181,7 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop -->|1| center
-    center -->|65| n_learnloop
+    center -->|67| n_learnloop
     center -->|40| n_learnloop_router_objective
     center -->|23| n_learnloop_db_stores
     center -->|21| n_learnloop_adaptive_difficulty
@@ -187,7 +189,7 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|17| center
     center -->|14| n_learnloop_scheduling
     center -->|11| n_learnloop_ai
-    center -->|9| n_learnloop_db
+    center -->|10| n_learnloop_db
     center -->|9| n_learnloop_scheduling_intent
 ```
 

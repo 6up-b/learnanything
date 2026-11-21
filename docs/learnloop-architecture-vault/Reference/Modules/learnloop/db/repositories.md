@@ -547,6 +547,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py)
+- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py)
 
 ## Dependencies
 
@@ -630,6 +631,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/causal_p2_acceptance_helpers.py](../../../../../../tests/causal_p2_acceptance_helpers.py) — direct import
 - [tests/causal_shadow_selection_helpers.py](../../../../../../tests/causal_shadow_selection_helpers.py) — direct import
 - [tests/certification_cold_probe_helpers.py](../../../../../../tests/certification_cold_probe_helpers.py) — direct import
+- [tests/check_credit_report_helpers.py](../../../../../../tests/check_credit_report_helpers.py) — direct import
 - [tests/cli_generate_practice_helpers.py](../../../../../../tests/cli_generate_practice_helpers.py) — direct import
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
 - [tests/contamination_report_helpers.py](../../../../../../tests/contamination_report_helpers.py) — direct import
@@ -1054,6 +1056,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_probe_submission.py](../../../../../../tests/test_characterization_probe_submission.py) — direct import
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_t6_rewrite_runs_on_the_plan_with_receipts`
+- [tests/test_check_delivery.py](../../../../../../tests/test_check_delivery.py) — direct import
+  - `test_retention_and_transfer_are_pooled_apart`
+  - `test_the_reader_writes_nothing_and_settles_nothing`
+- [tests/test_check_inputs.py](../../../../../../tests/test_check_inputs.py) — direct import
+  - `test_the_adapters_write_nothing_and_call_no_model`
 - [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — direct import
   - `test_cli_attempt_defaults_to_allowed_open_text_attempt_type`
   - `test_cli_attempt_passes_available_minutes_to_followup_gate`

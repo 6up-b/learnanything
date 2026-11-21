@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of the third round of broken controls (group B) on main `002c58fe17` (Nov 20), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of the owner's small decisions (batch 1), the notebook and teach-back specs and the teacher v2 decisions on main `52b9edc050` (Nov 20), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -52,9 +52,9 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | J1 | List candidate tables and correct their roles | landed | `f930ecb2cf` | [refactor-j1.md](refactor-j1.md) | — |
-| J2 | Drop the first approved family of tables | waiting on | — | — | Owner's approval and removal of readers and writers |
-| J3 | Drop the next approved family of tables | waiting on | — | — | Owner's approval and removal of readers and writers |
-| J4 | Drop the final approved family of tables | waiting on | — | — | Owner's approval and removal of readers and writers |
+| J2 | Drop the first approved family of tables | not started | — | — | Owner decided on 2026-11-20: drop the dead groups (a drop refuses a table that holds rows); `hypothesis_sets` is RAW_LEDGER (landed Nov 20, [owner-decisions-small-1.md](owner-decisions-small-1.md)) |
+| J3 | Drop the next approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: retired-but-read tables are dropped once the steps that own their readers have removed them |
+| J4 | Drop the final approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: as J3 |
 
 ## Arc D
 
@@ -124,7 +124,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | I1 | Extract the pure core of grade application | landed | `67a5364df0` | [refactor-i1.md](refactor-i1.md) | — |
-| I2 | Extract pure due queue ranking from persistence | waiting on | — | [refactor-i2.md](refactor-i2.md) | Owner's call about reading more rows on the decision path |
+| I2 | Extract pure due queue ranking from persistence | not started | — | [refactor-i2.md](refactor-i2.md) | Owner decided on 2026-11-20: superset reads, two pure stages (I2a, I2b, I2c) |
 | I2-1 | Split serving writes from due queue reads | landed | `e1df438a03` | [refactor-i2.md](refactor-i2.md) | — |
 
 ## Arc G
@@ -132,10 +132,10 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | G1 | Extract probe facts and hard stops | landed | `df8a5961b6` | [refactor-g1.md](refactor-g1.md) | `probe_facts` (pure) and `probe_verdict`; `decide_probe` derived, byte-equal on recorded and synthetic inputs; FG1's verdict on zeros replaced by its absence with the reason; one resolver for the three fitted-knob scopes |
-| G2 | Make the action router the probe decider | waiting on | — | [design](refactor-g2-design.md), [steps 1 to 3](refactor-g2a.md), [steps 4 and 5](refactor-g2b.md) | Steps 1 to 5 are on main: every door characterized, the post-miss choice and the diagnostic proposal's reads as pure values (`9a91561184`), the successor evaluator `evaluate_probe`, unserved, and the comparison report `scripts/probe_router_report.py` (`bcccfa2174`). The behaviour step (alone, as `mvp-0.62`) waits for the owner: the four decisions of the design's section 7, read with the report on the owner's copies (the successor at the recommended settings would have asked none of the seven probes today's code asked) |
+| G2 | Make the action router the probe decider | waiting on | — | [design](refactor-g2-design.md), [steps 1 to 3](refactor-g2a.md), [steps 4 and 5](refactor-g2b.md) | Owner decided on 2026-11-20: no probes until learned, plus a small randomized share (the share's size is owed); lands as `mvp-0.63` after the check-credit fix. The G3 rerun found the probe instrument cannot separate causes on the owner's cards (ledger G3-4): asked whether to bind the hypotheses first |
 | G3 | Measure disagreement between the two diagnosis beliefs | landed | `8804080fcf` | [refactor-g3.md](refactor-g3.md) | Result on the live arxiv vault: four real pairs, none with different causes, all four one-sided, three with an exposed answer counted at full weight by the episode posterior (ledger G3-1). |
 | mvp-0.61 | The evidence reading fixes as an algorithm tag: an exposed probe answer updates no belief (G3-1), unassessed criteria (ER-2), a regrade's source and a zero confidence on replay (K5-11, K5-12), the certificate probe's abstention (K5-3), a variant request is no review (K5-8) | landed | `0f309a8687` | [algorithm-mvp-0.61.md](algorithm-mvp-0.61.md) | Adversarial review and its fix round inside (ledger T61-1 to T61-5 fixed; G3-3 open). The owner chose the clock cases and "no update" on Nov 19. The owner upgrades each vault (`learnloop upgrade --vault <path>`): the record's last section says what moves |
-| G4 | Unify beliefs when measured disagreements warrant it | waiting on | — | [refactor-g3.md](refactor-g3.md) | The narrow fix G3-1 is on main as `mvp-0.61`. The full step is decided with a rerun of G3 on the owner's upgraded vaults |
+| G4 | Unify beliefs when measured disagreements warrant it | waiting on | — | [refactor-g3.md](refactor-g3.md) | The owner, from the rerun of 2026-11-20 ([refactor-g3.md](refactor-g3.md)): the two records never disagree about a cause because neither learns one (ledger G3-4); the rerun recommends the skip branch |
 | G5 | Give each duplicated fact one owner | deferred | — | — | Owner's Nov 17 queue |
 | G6 | Use one authority for each protection question | being built | — | [design](refactor-g6-design.md) | G6.1, the six fixes and G6.2 are on main; G6.3 was stopped by the cost rule. Left: the five surfaces the matrix does not drive yet (with G6-P4 and G6.10), the display accounting extraction, G6-P8. K6-10 to K6-13 are independent fixes in the same area; K5-5 to K5-7 and K6-1 need a priming successor (a tag) |
 | G6.1 | Pin what every protection surface answers for every protected fixture | landed | `99cda9d0ce` | [refactor-g6.1.md](refactor-g6.1.md) | `tests/test_protection_surface_matrix.py`: 37 fixture rows, 51 of 56 surfaces driven through their production functions, 1,502 cells, 100 fault cells, 30 reach cells; six defects confirmed as strict xfails. Not driven: the book solution region, the phone's dose offer, the pinned tutor job per row, compare, held feedback. Eleven cells differed from the design, none a leak |
@@ -148,7 +148,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | H1 | Distinguish the old scalar from FSRS difficulty | landed | `ece7907885` | [refactor-h1.md](refactor-h1.md) | Six callers read item parameters through the one seam (`resolve_item_irt_params`); a guard test (`tests/test_difficulty_kinds_apart.py`: 54 modules, 161 sites) fails on a crossing read; 24 caller cases give the same numbers. Left: the lesson weight's reconstruction (ledger L4-2). Found: H1-1 (the terminal app's scalar bar can show FSRS D; with H5) |
-| H2 | Compare four ways to use difficulty in replay | not started | — | — | Owner's decision 11 stands; [refactor-h1.md](refactor-h1.md) lists what the four-way replay needs |
+| H2 | Compare four ways to use difficulty in replay | not started | — | — | Owner decided on 2026-11-20: run H2 now; H3 to H6 are decided from its report |
 | H3 | Retire scalar difficulty from mastery and surprise | waiting on | — | — | H2 and owner's call with the [AD memory spec](../specs/spec_ad_memory_v1.md) |
 | H4 | Retire the model-estimated difficulty signal from AD | waiting on | — | — | Owner's call with the AD memory spec |
 | H5 | Update exam strata, retrieval filters and authoring | waiting on | — | — | Owner's call with the AD memory spec |
@@ -183,7 +183,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K2.4b | Share synthesis inputs, scope and manifest resolution | landed | `cb8bcb9a7f` | [refactor-k2.4b.md](refactor-k2.4b.md) | — |
 | K2.4c | Run append through the shared shard runner | waiting on | — | [refactor-k2.4c.md](refactor-k2.4c.md) | Part B |
 | K2.4c part A | Drive append calls through the shard runner | landed | `2f35db5173` | [refactor-k2.4c.md](refactor-k2.4c.md) | — |
-| K2.4c part B | Split oversized appends into checkpointed passes | waiting on | — | [refactor-k2.4c.md](refactor-k2.4c.md#part-b-splitting-an-oversized-append-design-only-not-built) | Owner's call on splitting append |
+| K2.4c part B | Split oversized appends into checkpointed passes | not started | — | [refactor-k2.4c.md](refactor-k2.4c.md#part-b-splitting-an-oversized-append-design-only-not-built) | Owner decided on 2026-11-20: split, one neighbourhood per run, using cached tokens |
 | K2.5 | Split normalization into named stages with one state | landed | `f623e525ac` | [refactor-k2.5.md](refactor-k2.5.md) | — |
 | K2.6 | Share the judge heartbeat and lapse checks | landed | `ece7907885` | [refactor-k2.6.md](refactor-k2.6.md) | `judgment_claims.claim_heartbeat` replaces the two copied loops (it stops and joins its thread); a lapsed lease no longer commits (the paid answer is kept for the retry); service spend renews in each reservation's injected clock. Production −5 lines |
 | K2.7 | Put each job type in one table row | not started | — | — | — |
@@ -208,7 +208,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K6 | Map Reader Ask and retrieval side effects | landed | `99707376c7` | [refactor-k6.md](refactor-k6.md) | Fourteen ledger rows (K6-1 to K6-14, nine high). Fix round A landed K6-2 to K6-9 and K6-14 (`659772cde4`, [refactor-k6-fixes-a.md](refactor-k6-fixes-a.md)); K6-1 goes with the Decider's first stage and K6-10 to K6-13 with G6 |
 | K7 | Review AI transport and network boundaries | deferred | — | — | Terminal app rebuild or MCP v2 |
 | K8 | Review sidecar handlers as the application layer | deferred | — | — | Terminal app rebuild or MCP v2 |
-| K11 | Map the daily plan engine before moving code | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | The owner: E2 has landed, so the question is now whether the map is made at all (now, at the close, or dropped) |
+| K11 | Map the daily plan engine before moving code | not started | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: run the map now |
 
 ## Arc K: diagnosis
 
@@ -220,7 +220,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K9.1 | Settle block answers on a mid-check stop | landed | `55205863a2` | [refactor-adfix2.md](refactor-adfix2.md) | — |
 | K9.2 | Explain why a check was withheld | landed | `4f5b325939` | [refactor-adfix2.md](refactor-adfix2.md) | — |
 | K9.3 | Use an injected clock for primed-sibling ranking | landed | `ce11173c99` | [refactor-adfix2.md](refactor-adfix2.md) | — |
-| K9.4 | Expire an untaken primed repair episode | waiting on | — | [ledger R1-2](refactor-bug-ledger.md) | Owner's answer to K9 Q1 |
+| K9.4 | Expire an untaken primed repair episode | not started | — | [ledger R1-2](refactor-bug-ledger.md) | Owner decided on 2026-11-20: an untaken episode ends at the item's next ordinary review |
 | K9.5 | Pin diagnosis identities and golden its journeys | landed | `4874f304e8` | [part 1](refactor-k9.5a.md), [part 2](refactor-k9.5b.md) | — |
 | K9.5 part 1 | Pin the diagnosis package's compared identities | landed | `9cb87cfa16` | [refactor-k9.5a.md](refactor-k9.5a.md) | — |
 | K9.5 part 2 | Golden the diagnosis journeys before moving code | landed | `4874f304e8` | [refactor-k9.5b.md](refactor-k9.5b.md) | — |
@@ -231,11 +231,11 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K9.10 | Extract presentations and delete dead block planning | landed | `f104eabe79` | [refactor-k9.10.md](refactor-k9.10.md) | — |
 | K9.11 | Extract probe evidence and learner controls | landed | `753b68eac4` | [refactor-k9.11.md](refactor-k9.11.md) | — |
 | K9.12 | Record declined probe answers and failed hooks | landed | `8311e90261` | [refactor-k9.12.md](refactor-k9.12.md) | — |
-| K9.13 | Separate episode posterior reads from its fold | waiting on | — | — | Arc G and owner's answer to K9 Q2 |
+| K9.13 | Separate episode posterior reads from its fold | waiting on | — | — | Owner decided on 2026-11-20: folded into G4 if G4 runs |
 | K9.14 | Update the Diagnosis note to match code | landed | `1d3edadcfe` | [Diagnosis and Remediation](../learnloop-architecture-vault/Concepts/Diagnosis%20and%20Remediation.md) | — |
 | K9.15 | Remove failure triage and its registry entries | landed | `be3cb2ac11` | [refactor-k9.15.md](refactor-k9.15.md) | — |
 | K9.16 | Remove EVSI shadow selection and its panel | landed | `1fad9526bd` | [refactor-k9.16.md](refactor-k9.16.md) | — |
-| K9.17 | Feed released holds and regrades into belief | waiting on | — | [ledger K9-3](refactor-bug-ledger.md) | Arc G and owner's answer to K9 Q2 |
+| K9.17 | Feed released holds and regrades into belief | waiting on | — | [ledger K9-3](refactor-bug-ledger.md) | Owner decided on 2026-11-20: folded into G4 if G4 runs |
 
 ## Arc K: figures
 
@@ -257,7 +257,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K10.13 | Move attempt-host policy under the figures package | dropped | — | — | Owner ruled out figures on phone and MCP |
 | K10.14 | Read shown state and labels from the server | not started | — | [ledger K10-5](refactor-bug-ledger.md) | Due before the UX overhaul |
 | K10.15 | Write the Figures note and correct stale lines | landed | `53f330c743` | [Figures](../learnloop-architecture-vault/Concepts/Figures.md) | — (K10-4 fixed) |
-| K10.16 | Retire the eight figure content switches | waiting on | — | — | Owner's count for removing legacy reuse reads |
+| K10.16 | Retire the eight figure content switches | not started | — | — | The count is in (2026-11-20, backup copies): 28 stored figures in one vault across six prompt versions, none in the other two, no legacy `verified` row anywhere |
 | K10.17 | Remove the dormant JavaScript animation tier | landed | `5f35fa7ac8` | [refactor-k10.9-17.md](refactor-k10.9-17.md) | 20 source lines in 7 files; no config field and no stored row ever named it; an answer with that status, which no menu offers, is now recorded as `other` |
 
 ## Measure and layout steps
@@ -274,11 +274,11 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | L2b | Split five store groups from the repository | landed | `914145d0b9` | [refactor-l2b.md](refactor-l2b.md) | — |
 | L2c | Split attempt, grade and diagnostic store groups | landed | `f10dbf51ae` | [refactor-l2c.md](refactor-l2c.md) | — |
 | L2d | Split content, scheduling and other repository groups | landed | `f243c960e1` | [refactor-l2d.md](refactor-l2d.md) | — |
-| L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | — | Owner's list of CLI-only code that stays |
+| L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | — | Owner decided on 2026-11-20: the orchestrator produces the per-package list, the owner marks what stays |
 | L4 | Review which learned models need pure cores | landed (review) | `53f330c743` | [refactor-l4-review.md](refactor-l4-review.md) | Six extraction steps, in the order L4.1 claim priors, L4.2 cause slopes, L4.3 the episode posterior, L4.4 lesson-weight replay inputs, L4.5 the AD slot and commission decision, L4.6 the tail's fit-and-record assembly: not started, each under the stop rule. Five reproducibility gaps in the ledger (L4-1 to L4-5) |
 | L5 | Explain long functions that other steps missed | waiting on | — | — | Refactor close |
 | L6 | Make each extracted core return its record | waiting on | — | — | E2 and later core extraction briefs |
-| L6a | Return records from the already extracted cores | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval and the I2 core |
+| L6a | Return records from the already extracted cores | not started | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: approved; the due-queue half waits for I2's core |
 | L7 | Move the support floor as vaults advance | landed | `1da959e7d7` | [refactor-d1.md](refactor-d1.md) | — |
 
 ## Tests and phase reviews
@@ -288,7 +288,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | T1 | Stop test files importing one another | landed | `732fe09aaf` | [refactor-t1.md](refactor-t1.md) | — |
 | T2 | Rename tests for the behavior they prove | waiting on | — | — | Documentation stage at the close |
 | T3 | Pin seeded draws in tests by default | landed | `412cc63b4b` | [refactor-t3.md](refactor-t3.md) | — |
-| T4 | Port private patches and ratchet their counts | waiting on | — | [ledger K9-8](refactor-bug-ledger.md) | Ratchet decision. Porting rule already applies. |
+| T4 | Port private patches and ratchet their counts | landed | this commit | [owner-decisions-small-1.md](owner-decisions-small-1.md) | — |
 | T5 | Merge stage-named tests and review slow tests and goldens | waiting on | — | — | Arc E and the refactor close |
 | Phase 1 review | Review the first phase and land its fixes | landed | `04a0154c0d` | [refactor-phase-1-review.md](refactor-phase-1-review.md) | — |
 | Phase 2 review | Review the second phase and land its fixes | waiting on | — | — | Arc D close |
@@ -329,8 +329,8 @@ The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 1
 | S1 | Keep one status table in the repository | landed | `31ce39ec3d` | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | — |
 | S2 | Stop batches when cost per removal more than doubles | landed | `31ce39ec3d` | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | — |
 | S3 | Reorder open lanes around cuts and reviews | landed | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Applied as a reordering: L1 and L2 ran ahead of the interior splits. L4's review has no slot yet. |
-| S4 | Name the next features and their prerequisites | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval of the strategy edits |
-| P1 | Record what evidence each model call saw | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's call on packet records before the evidence packet build |
+| S4 | Name the next features and their prerequisites | landed | this commit | [owner-decisions-small-1.md](owner-decisions-small-1.md) | — |
+| P1 | Record what evidence each model call saw | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: approved as EP2, before EP3 |
 
 ## Notebook activities (queued by the owner on Nov 20; track H and NA0 run beside the queue)
 
@@ -341,3 +341,14 @@ The spec is `docs/specs/spec_notebook_activities_v1.md` (an untracked draft in t
 | H1 | `learnloop notebook check PATH --scope structure --out DIR`: a marimo notebook parsed without being run; cells, what each defines and reads, duplicate definitions, cycles; the `notebook` extra (marimo 0.25.2, wigglystuff 0.6.0); an import contract keeps serving code from importing the harness | landed | this commit | [notebook-h1.md](notebook-h1.md) | — |
 | H2 to H12 | The cell writer, cards and the example index, the contract and manifest checks, the sandboxed runtime, layout and theme checks, review routes, acceptance and promotion, the author loop, retrieval, the evaluation set, the review console | not started | — | — | H5 waits on spike NA0.2; H7's real calls and H8 wait on the owner's image route and cap |
 | NA0.1 to NA0.6 | Packaging and the content-security policy; the server under the sandbox; runtime budgets; authoring yield; non-computable activities; the power calculation | not started | — | — | The owner: a scratch root outside the repository, real material, a session with the packaged app and the phone |
+
+## Lesson check credit (ledger TV2-1; ahead of the teacher track)
+
+The router credits each lesson offer's committed delayed check as a full practice dose with no minutes charged, whether or not the learner returns or a question exists. The design is `docs/specs/spec_teacher_v2.md` §7.4; the fix is its own algorithm tag.
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| Steps 1 to 4 | Today's pricing pinned by tests; the as-of statistics of planned checks with a one-trial seed; the availability predicate shared with `delayed_check_words` and the dry minutes; a new rollout path for typed checks that no live decision can reach | landed | this commit | [algorithm-check-credit-steps-1-4.md](algorithm-check-credit-steps-1-4.md) | — |
+| Step 5 | A read-only report over stored lesson offers and their delayed checks (`scripts/check_credit_report.py`) | landed | this commit | [algorithm-check-credit-step-5.md](algorithm-check-credit-step-5.md) | — |
+| Step 6 | Switch on at `mvp-0.62`: the offer builder attaches the sensors, the typed checks are priced, the inputs a later report needs are stored | not started | — | — | An explanation, from the value's components, of why the fix raises a lesson's value on the owner's present-day inputs (the report, 2026-11-20) |
+| Step 7 | The record, the comparison on copies of the owner's vaults, the G2 design renumbered to `mvp-0.63` | waiting on | — | — | Step 6 |

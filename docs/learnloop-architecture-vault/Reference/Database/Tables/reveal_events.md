@@ -146,6 +146,8 @@ Database triggers:
 - `tests/router_outcomes_helpers.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad_protected_readings.py`
+- `tests/test_check_delivery.py`
+- `tests/test_check_inputs.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_compare_sources.py`
 - `tests/test_contamination_report.py`
@@ -156,8 +158,6 @@ Database triggers:
 - `tests/test_hint_authored_reveal_ruling.py`
 - `tests/test_hint_discriminating.py`
 - `tests/test_hint_evidence.py`
-- `tests/test_hint_feedback_texts.py`
-- `tests/test_hint_telemetry.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
