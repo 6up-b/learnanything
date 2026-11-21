@@ -31,7 +31,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.ux_phase1_review_fixes_helpers import _add, _jobs
-from tests.ux_phase1_support import CLOCK, FakeBookSynthesisClient, fake_services, fresh_library, grant_consent, write_book
+from tests.ux_phase1_support import BOOK_MARKDOWN, CLOCK, FakeBookSynthesisClient, fake_services, fresh_library, grant_consent, write_book
 
 
 @pytest.fixture(autouse=True)
@@ -40,12 +40,12 @@ def isolated_config(tmp_path, monkeypatch):
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
 
 
-def _book(tmp_path, *, synthesis=None, name="probability_book.md", root=None, services=None):
+def _book(tmp_path, *, synthesis=None, name="probability_book.md", root=None, services=None, text=BOOK_MARKDOWN):
     root = root or fresh_library(tmp_path)
     grant_consent(root)
     overrides = {"synthesis_client_factory": synthesis} if synthesis else {}
     repo, jobs = _jobs(root, services or fake_services(**overrides))
-    item = _add(root, jobs, write_book(tmp_path, name))
+    item = _add(root, jobs, write_book(tmp_path, name, text))
     outcome = latest_auto_outcome(repo, item["source_id"])
     assert outcome["outcome"] == "building", outcome
     return root, repo, jobs, item, outcome["build_batch_id"]
@@ -114,7 +114,7 @@ def test_a_building_books_line_says_how_far_along_it_is(tmp_path):
     line = _line(root, repo, item)
 
     assert line["tone"] == "working"
-    assert line["text"] == "Writing questions for Ch. 1–2"  # the card's words are unchanged
+    assert line["text"] == "Getting Ch. 1–2 ready for questions"  # the card says what Today says (UX-30)
     # Two chapters: two inventory windows kept, then the synthesis on its one pass.
     inventory = next(job for job in repo.ingest_jobs_for_batch(batch_id) if job["job_type"] == "inventory")
     assert (inventory["current_window"], inventory["total_windows"]) == (2, 2)
@@ -125,13 +125,15 @@ def test_a_building_books_line_says_how_far_along_it_is(tmp_path):
 
 def test_the_duration_is_this_librarys_own_measured_one(tmp_path):
     root, repo, jobs, _first, _first_batch = _book(tmp_path)
-    root, repo, _jobs_, item, batch_id = _book(tmp_path, name="second_book.md", root=root)
+    # Another book: the same bytes under another name are the first book again (UX-57).
+    root, repo, _jobs_, item, batch_id = _book(tmp_path, name="second_book.md", root=root,
+                                               text=BOOK_MARKDOWN + "\nA second book's own closing line.\n")
     _as_running(repo, batch_id)
 
     line = _line(root, repo, item)
 
     # The first build took no time on the frozen clock: under a minute, as the words say.
-    assert line["text"] == "Questions for Ch. 1–2 in under a minute"
+    assert line["text"] == "Getting Ch. 1–2 ready for questions in under a minute"
     assert line["minutes"] == 0.0
 
 
@@ -244,7 +246,7 @@ def test_a_built_book_with_no_section_finished_says_none_came_yet(tmp_path):
 
     line = _line(root, repo, item)
 
-    assert line["text"] == "Questions for Ch. 1–2 come up as you read"
+    assert line["text"] == "Questions for Ch. 1–2 are written as you finish sections"
     questions = line["questions"]
     assert questions == {"count": 0, "item_ids": [], "sections": [], "writing": [], "waiting": [], "failed": [],
                          "to_look_at": 0, "section_count": len(_section_ids(repo, item)), "none_needed": []}

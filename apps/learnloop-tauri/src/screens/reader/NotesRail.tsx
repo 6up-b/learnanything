@@ -75,6 +75,11 @@ export interface NotesRailProps {
   note: string;
   setNote: Dispatch<SetStateAction<string>>;
   captureHighlight: () => void | Promise<void>;
+  /** The note of the highlight this selection made ("" for none); null while
+   *  the selection is not highlighted. */
+  highlightNote?: string | null;
+  /** Adds the note box's words to that highlight's note. */
+  saveHighlightNote?: () => void | Promise<void>;
   invokePreset: (preset: string) => void | Promise<void>;
   // exercise import
   importExercise: () => void | Promise<void>;
@@ -155,7 +160,7 @@ export function NotesRail(props: NotesRailProps) {
   const {
     visible, offline, busy, pdfSurfaceActive, activeSpan, activeBlock,
     selection, selectionActions, editingCapture, setEditingCapture, clearSelection,
-    editCaptureText, resetCaptureText, note, setNote, captureHighlight, invokePreset,
+    editCaptureText, resetCaptureText, note, setNote, captureHighlight, highlightNote = null, saveHighlightNote, invokePreset,
     importExercise, exerciseImport, setExerciseImport, exerciseImportActive, onWorkThrough, onWorkThroughItem, onTeachMe,
     authoringOpen, setAuthoringOpen, setAuthoringSpanId, authoringQuote, setAuthoringQuote,
     authoredQuestion, setAuthoredQuestion, authoredAnswer, setAuthoredAnswer,
@@ -168,6 +173,9 @@ export function NotesRail(props: NotesRailProps) {
     editingAnnotationId, setEditingAnnotationId, editingAnnotationText, setEditingAnnotationText,
     saveAnnotationEdit, deleteAnnotation, protectionMessage = null, header, scopeAction,
   } = props;
+  const highlighted = highlightNote !== null;
+  // Words in the box that no control has sent yet: "saved" would be untrue.
+  const unsaved = note.trim() !== "";
   return (
     <div style={{ display: visible ? "block" : "none" }}>
       {header}
@@ -233,19 +241,31 @@ export function NotesRail(props: NotesRailProps) {
             ) : (
               <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>“{clip(selection.quote, 360)}”</span>
             )}
-            {selectionActions.length > 0 ? (
+            {highlightNote && highlightNote.trim() ? (
+              <span data-testid="highlight-note" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                your note: “{clip(highlightNote.replace(/\s+/g, " ").trim(), 360)}”
+              </span>
+            ) : null}
+            {selectionActions.length > 0 && !unsaved ? (
               <Faint style={{ fontSize: 10, color: COLOR.green }}>✓ saved · choose another action or select another passage</Faint>
             ) : null}
           </Card>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="your note (optional)…"
+            // Leaving the box keeps what was written on the highlight, as if saved.
+            onBlur={() => { if (highlighted && unsaved && saveHighlightNote) void saveHighlightNote(); }}
+            placeholder={highlightNote === null ? "your note (optional)…"
+              : highlightNote.trim() ? "add to your note on this highlight…" : "add a note to this highlight…"}
             style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
           />
-          <PrimaryButton onClick={() => captureHighlight()} disabled={busy || selectionActions.includes("highlight")}>
-            {selectionActions.includes("highlight") ? "highlighted ✓" : "highlight"}
-          </PrimaryButton>
+          {highlighted && unsaved && saveHighlightNote ? (
+            <PrimaryButton onClick={() => saveHighlightNote()} disabled={busy}>save note</PrimaryButton>
+          ) : (
+            <PrimaryButton onClick={() => captureHighlight()} disabled={busy || selectionActions.includes("highlight")}>
+              {selectionActions.includes("highlight") ? "highlighted ✓" : "highlight"}
+            </PrimaryButton>
+          )}
           {protectionMessage ? (
             <span data-capture-protected="" style={{ color: COLOR.textFaint, fontSize: 11, lineHeight: 1.6 }}>
               {protectionMessage} You can still highlight it, mark it and keep notes.

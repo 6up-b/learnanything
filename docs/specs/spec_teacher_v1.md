@@ -1,6 +1,8 @@
 # Teacher: LearnHarness-quality lessons on LearnLoop's latent learner state (v1)
 
-**Status:** revision 5, 2026-11-05: TE2 and TE3 re-specified for owner review (§1.5); nothing of revision 5 is built. TE0, TE1 (with curriculum C4 and Reader RW5d P4b) and TE1b are built and landed as their "As built" notes in §20 say; their history below is kept as written.
+**Status (2026-11-20): superseded as the plan by `spec_teacher_v2.md`; kept as the record of what was built.** Revision 5's stages TE2-log, TE2, TE3a and TE3b are all built and on main (their "As built" notes in §20); since then arc D removed their switches (`teacher.probes`, `router.lesson_suggestions.enabled`/`.in_objective`, `teacher.weight.*`). Sensor rendering moved to `spec_evidence_packets_v1.md` Part F; chat lessons (§16) to `spec_mcp_v2.md` M6; liquid stability to `spec_ad_memory_v1.md`.
+
+*Previous status line:* revision 5, 2026-11-05: TE2 and TE3 re-specified for owner review (§1.5); nothing of revision 5 is built. TE0, TE1 (with curriculum C4 and Reader RW5d P4b) and TE1b are built and landed as their "As built" notes in §20 say; their history below is kept as written.
 - Revision 5 re-specifies TE2 and TE3 against what landed since revision 4: FG1 generate-and-serve, data capture, and the router objective RO0-RO6 (§1.5). Its census is `docs/reviews/census-error-episodes-2026-11.md`.
 - Revisions 3 and 4 apply the owner's decisions of 2026-10-24 (§1.3, items 1–7) to revision 2 of the same day.
 - Every open question is now decided (§23). Every number is a seeded prior, a structural form or `keep` (§18.4).

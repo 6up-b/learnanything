@@ -16,7 +16,10 @@ export const INTENT_COPY = {
   routing: "choosing",
   change: "change",
   // UX §4.10: where the box's words go.
-  whereThisGoes: "Used to pick the action you meant. If it becomes a question, it's kept like one.",
+  whereThisGoes: "Used to pick the action you meant. If it becomes a question or a note, it's kept like one; an action's name typed only to find it is not kept.",
+  // Under the list while the box has words: whether a highlight or note would keep them.
+  findsOnly: (words: string) => `“${words}” only finds an action: it isn't kept as a note.`,
+  keptAsNote: "A highlight or a note keeps your words as its note.",
   protected: "This passage is held out of LearnLoop's models. You can still highlight it, mark it and keep notes.",
 } as const;
 
@@ -37,6 +40,19 @@ export function visiblePalette(
       }),
     }))
     .filter((group) => group.actions.length > 0);
+}
+
+/** Words typed only to find an action: the start of an action's or a group's
+ *  name ("highl", "highlight", "Mark"), or a whole name with "this", "it" or
+ *  "that" after it. A highlight or a mark does not keep them as its note:
+ *  someone looking for "highlight" in the list has written no note. */
+export function onlyNamesAnAction(words: string, groups: ReaderIntentGroupDto[]): boolean {
+  const said = words.toLowerCase().replace(/\s+/g, " ").trim().replace(/[.!?…:;,]+$/, "").trim();
+  if (!said) return false;
+  const names = groups.flatMap((group) => [group.label, ...group.actions.map((action) => action.label)]).map((name) => name.toLowerCase());
+  if (names.some((name) => name.startsWith(said))) return true;
+  const bare = said.replace(/ (this|it|that)$/, "");
+  return bare !== said && names.includes(bare);
 }
 
 export function paletteActions(groups: ReaderIntentGroupDto[]): ReaderIntentActionDto[] {

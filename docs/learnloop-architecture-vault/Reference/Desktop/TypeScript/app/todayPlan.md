@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/todayPlan.ts](../../../../../../apps/learnloop-tauri/src/app/todayPlan.ts) |
-| Source lines | 389 |
+| Source lines | 405 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -71,9 +71,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function questionThread(row: QuestionQueueRowDto): TodayThread` — function, line 308
 - `export function problemThread(problem: WorkbenchOpenProblemDto): TodayThread` — function, line 319
 - `export function todayThreads(questionRows: readonly QuestionQueueRowDto[], problems: readonly WorkbenchOpenProblemDto[]): TodayThread[]` — function, line 325
-- `export function fullListWhy(item: ScheduledItemDto): string` — function, line 338
-- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 360
-- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 375
+- `export function fullListWhy(item: ScheduledItemDto, now: number = Date.now()): string` — function, line 341
+- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 376
+- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 391
 
 ## Internal implementation anchors
 
@@ -121,8 +121,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const steps = problem.stepCount === 1 ? "1 step written" : problem.stepCount > 1 ? `$` — const, line 320
 - `const open = questionRows.filter((row)` — const, line 326
 - `const dated: Array<` — const, line 327
-- `const plan = await api.getDailyPlan(null)` — const, line 377
-- `const summary = await api.getStartSummary()` — const, line 383
+- `function laterWhy(dueAt: string | null, now: number): string` — function, line 362
+- `const due = dueAt ? Date.parse(dueAt) : Number.NaN` — const, line 363
+- `const day = (time: number)` — const, line 366
+- `const date = new Date(time)` — const, line 367
+- `const days = Math.round(day(due) - day(now))` — const, line 370
+- `const plan = await api.getDailyPlan(null)` — const, line 393
+- `const summary = await api.getStartSummary()` — const, line 399
 
 ## Who imports or calls it
 

@@ -56,7 +56,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/pipeline/__init__|learnloop.content.pipeline]] | [[Reference/Modules/learnloop/content/pipeline/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 16 | 35 |
+| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 16 | 36 |
 | [[Reference/Modules/learnloop/content/pipeline/ai_contracts|learnloop.content.pipeline.ai_contracts]] | [[Reference/Modules/learnloop/content/pipeline/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
 | [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] | [[Reference/Modules/learnloop/content/pipeline/build_plan#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] | [[Reference/Modules/learnloop/content/pipeline/exam_marking#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -72,7 +72,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 24 static module edges
-- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 18 static module edges
+- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 19 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 17 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 13 static module edges
@@ -121,7 +121,7 @@ flowchart LR
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     center -->|24| n_learnloop_ai
-    center -->|18| n_learnloop_ingest
+    center -->|19| n_learnloop_ingest
     center -->|17| n_learnloop
     center -->|15| n_learnloop_content_sources
     n_learnloop_sidecar_handlers -->|14| center

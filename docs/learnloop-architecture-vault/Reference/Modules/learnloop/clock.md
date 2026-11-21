@@ -2072,6 +2072,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold`
   - `test_state_sync_uses_strong_learner_claim_for_initial_mastery`
 - [tests/test_state_sync_scheduling_race.py](../../../../../tests/test_state_sync_scheduling_race.py) — direct import
+- [tests/test_status_line_waiting_turn.py](../../../../../tests/test_status_line_waiting_turn.py) — direct import
 - [tests/test_stuck_prompt.py](../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_worked_answer_shown_in_the_attempts_own_second_still_primes_the_retry`
   - `test_an_empty_stuck_answer_is_a_bare_zero_with_no_error_tag`

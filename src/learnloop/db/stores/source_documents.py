@@ -264,6 +264,15 @@ class SourceDocumentStoreMixin:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def source_revisions_by_asset_hash(self, asset_hash: str) -> list[dict[str, Any]]:
+        """Every source's revision of these exact bytes, oldest first."""
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_revisions WHERE asset_hash = ? ORDER BY created_at, id",
+                (asset_hash,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def source_revisions_for(self, source_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(

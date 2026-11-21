@@ -33,6 +33,20 @@ export function sectionWords(label: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/** A cited passage's label, "<title> · <section>", as the learner reads it:
+ *  the section in words (a web page's slug, "(intro)"), and a one-section
+ *  reading's "root" (the unit of a page with no sections) dropped, so the
+ *  chip names the reading by its title. The label stays what the tutor was
+ *  given; only what is shown changes. */
+export function citationWords(label: string): string {
+  const at = label.lastIndexOf(" · ");
+  if (at < 0) return label;
+  const title = label.slice(0, at);
+  const section = label.slice(at + 3).trim();
+  if (!section || section === "root") return title;
+  return `${title} · ${sectionWords(section)}`;
+}
+
 // The wire nodes for a selection: one per covered block (atomic-unit captures
 // also carry glyph context for backend disambiguation), falling back to the
 // single primary block for selections made outside the DOM capture path.

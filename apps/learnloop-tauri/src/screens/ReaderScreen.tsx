@@ -100,6 +100,7 @@ import { RECAP_COPY } from "./reader/recapCopy";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
+import { onlyNamesAnAction } from "./reader/intentPalette";
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
 import { FiguresUnder } from "./reader/figures/FigureInline";
@@ -218,6 +219,14 @@ interface RemovedAnnotation {
 
 /** How long "undo" stays offered after a highlight is removed. */
 const UNDO_REMOVE_MS = 10_000;
+
+/** The highlight a selection made: which passage, and the note it holds now. */
+interface SelectionHighlight {
+  annotationId: string | null;
+  spanId: string;
+  quote: string;
+  saved: string;
+}
 
 function newKey(): string {
   try {
@@ -371,6 +380,11 @@ export function ReaderScreen({
   // selection, a ctrl-marquee union, or a block sweep.
   const [selection, setSelection] = useState<ReaderSelection | null>(null);
   const [selectionActions, setSelectionActions] = useState<string[]>([]);
+  // The highlight this selection made, so words written in the Notes box after
+  // it go onto that highlight: the box's only other sender ("highlight") is
+  // done by then, and without this they were never saved.
+  const [selectionHighlight, setSelectionHighlight] = useState<SelectionHighlight | null>(null);
+  const savingHighlightNote = useRef(false);
   // Capture editor: the learner can fix OCR mishaps in the captured text
   // before acting on it; edited nodes are flagged so the backend prefers the
   // fixed text as the exercise surface.
@@ -2376,6 +2390,7 @@ export function ReaderScreen({
         ...a,
       ]);
       setSelectionActions((actions) => [...new Set([...actions, "highlight"])]);
+      setSelectionHighlight({ annotationId: null, spanId: selection.spanId, quote: selection.quote, saved: note_ });
       setNote("");
       return null;
     }
@@ -2397,6 +2412,7 @@ export function ReaderScreen({
       ]);
       logReaderAction("action_invoked", { ...visitPayload(), action_kind: "highlight", ...(meta ?? {}) });
       setSelectionActions((actions) => [...new Set([...actions, "highlight"])]);
+      setSelectionHighlight({ annotationId: receipt.annotationId ?? null, spanId: selection.spanId, quote: selection.quote, saved: note_ });
       setNote("");
       void refreshAnnotations();
       return receipt.annotationId ?? null;
@@ -2407,6 +2423,46 @@ export function ReaderScreen({
       setBusy(false);
     }
   }, [render, selection, note, offline, onError, refreshAnnotations, optimisticSegments, captureIn]);
+
+  // The selection's highlight, while the selection is still the one it was made
+  // on and the highlight stands ("change" reverts it; a new selection starts over).
+  const currentHighlight = selection && selectionHighlight && selectionActions.includes("highlight")
+    && selectionHighlight.spanId === selection.spanId && selectionHighlight.quote === selection.quote
+    ? selectionHighlight : null;
+  // Words written in the Notes box once the passage is highlighted are added to
+  // that highlight's note, on the same path as editing a note in the list.
+  const saveHighlightNote = useCallback(async () => {
+    const target = currentHighlight;
+    const words = note.trim();
+    if (!target || !words || savingHighlightNote.current) return;
+    const learnerText = target.saved.trim() ? `${target.saved.trim()}\n\n${words}` : words;
+    const typed = note;
+    const kept = () => {
+      setSelectionHighlight((current) => (current === target ? { ...target, saved: learnerText } : current));
+      // Words typed while the save was on its way stay in the box, unsaved.
+      setNote((current) => (current === typed ? "" : current));
+    };
+    if (offline || !target.annotationId) {
+      setAnnotations((list) => list.map((a) => (a.annotationId === null && a.kind === "highlight" && a.quote === target.quote
+        ? { ...a, learnerText } : a)));
+      kept();
+      return;
+    }
+    const annotationId = target.annotationId;
+    savingHighlightNote.current = true;
+    setBusy(true);
+    try {
+      await api.readerEditAnnotation({ annotationId, learnerText });
+      setAnnotations((list) => list.map((a) => (a.annotationId === annotationId ? { ...a, learnerText } : a)));
+      kept();
+      void refreshAnnotations();
+    } catch (error) {
+      onError(errorMessage(error));
+    } finally {
+      savingHighlightNote.current = false;
+      setBusy(false);
+    }
+  }, [currentHighlight, note, offline, onError, refreshAnnotations]);
 
   // §10.2 arc controls: pause or change depth policy. Neither widens the envelope.
   const pauseArc = useCallback(async () => {
@@ -3223,6 +3279,11 @@ export function ReaderScreen({
   const runIntentIn = (pane: IntentPane, action: ReaderIntentActionDto, text: string, how: IntentRunHow): Promise<IntentRunHandle | null> | void => {
     const meta = { intention: action.intention, entry: how.entry, ...sideMeta(pane) };
     const effect = action.effect;
+    // A highlight or mark keeps the box's words as its note, except words that
+    // only named the action (typed to find it in the list). An action a model
+    // reads keeps the words as they were.
+    const noteText = !action.model && intentContract
+      && onlyNamesAnAction(text, [...intentContract.palette, ...intentContract.notesPalette]) ? "" : text;
     const sideSection = pane.side?.section ?? null;
     switch (effect.kind) {
       case "ask": {
@@ -3271,15 +3332,15 @@ export function ReaderScreen({
       case "preset":
         if (pane.side) {
           const target = pane.side.target;
-          return target ? invokePreset(effect.preset, text, meta, target).then((annotationId) => ({ annotationId })) : undefined;
+          return target ? invokePreset(effect.preset, noteText, meta, target).then((annotationId) => ({ annotationId })) : undefined;
         }
-        return invokePreset(effect.preset, text, meta).then((annotationId) => ({ annotationId }));
+        return invokePreset(effect.preset, noteText, meta).then((annotationId) => ({ annotationId }));
       case "highlight":
         if (pane.side) {
           const target = pane.side.target;
-          return target ? captureHighlight(text, meta, target).then((annotationId) => ({ annotationId })) : undefined;
+          return target ? captureHighlight(noteText, meta, target).then((annotationId) => ({ annotationId })) : undefined;
         }
-        return captureHighlight(text, meta).then((annotationId) => ({ annotationId }));
+        return captureHighlight(noteText, meta).then((annotationId) => ({ annotationId }));
       case "import_exercise":
         if (pane.side) {
           const target = pane.side.target;
@@ -4375,6 +4436,8 @@ export function ReaderScreen({
             note={note}
             setNote={setNote}
             captureHighlight={async () => { await captureHighlight(); }}
+            highlightNote={currentHighlight ? currentHighlight.saved : null}
+            saveHighlightNote={async () => { await saveHighlightNote(); }}
             invokePreset={async (preset) => { await invokePreset(preset); }}
             importExercise={async () => { await importExercise(); }}
             onWorkThrough={wbCtl.enabled && selection ? workThroughSelection : undefined}

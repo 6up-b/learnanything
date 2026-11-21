@@ -129,3 +129,71 @@ it("a move is clamped to what the scroller can scroll", () => {
   scrollIntoViewWithin(card, { block: "start" });
   expect(scrolled).toEqual([{ box: rail, top: 2000 - 400, behavior: "auto" }]);
 });
+
+// The Reader's rail: a sticky tab bar at its top (the rail's padding 18 px, the
+// bar `top: -18px`, 52 px tall), stuck over the rail's first 52 px. A target
+// placed at the rail's top edge sat under it, and the first click on it landed
+// on the bar (student-3 #73, expert-2 #34).
+function railWithStickyBar(cardTop: number, cardHeight = 50) {
+  const { shell, rail, card } = shellRailCard(cardTop);
+  boxes.set(card, { top: cardTop, height: cardHeight });
+  rail.style.paddingTop = "18px";
+  const bar = place(document.createElement("div"), { top: 100, height: 52 });
+  bar.style.position = "sticky";
+  bar.style.top = "-18px";
+  rail.prepend(bar);
+  return { shell, rail, card, bar };
+}
+/** Where the card's top lands in the window once the rail has moved from `from`. */
+const landedTop = (rail: HTMLElement, cardTop: number, from = 0) => cardTop - (rail.scrollTop - from);
+const BAR_BOTTOM = 100 + 18 - 18 + 52;
+
+it("start and nearest put a target clear of a sticky bar at the scroller's top, never under it", () => {
+  const { rail } = railWithStickyBar(700);
+  scrollIntoViewWithin(rail.lastElementChild, { block: "start" });
+  expect(scrolled).toEqual([{ box: rail, top: 600 - 52, behavior: "auto" }]);
+  expect(landedTop(rail, 700)).toBe(BAR_BOTTOM);
+
+  // Above the view (the follow-up box over the thread the learner was reading).
+  rail.scrollTop = 900;
+  boxes.set(rail.lastElementChild!, { top: 40, height: 50 });
+  scrolled.length = 0;
+  scrollIntoViewWithin(rail.lastElementChild, { block: "nearest" });
+  expect(scrolled).toHaveLength(1);
+  expect(landedTop(rail, 40, 900)).toBe(BAR_BOTTOM);
+});
+
+it("nearest moves a target that is in the scroller's view but under its sticky bar", () => {
+  // The rail scrolled down; the card's top is 10 px below the rail's top: inside the rail, under the bar.
+  const { rail } = railWithStickyBar(110, 30);
+  rail.scrollTop = 500;
+  scrollIntoViewWithin(rail.lastElementChild, { block: "nearest" });
+  expect(scrolled).toHaveLength(1);
+  expect(landedTop(rail, 110, 500)).toBe(BAR_BOTTOM);
+});
+
+it("center centres the target in the part of the scroller the bar leaves clear", () => {
+  const { rail } = railWithStickyBar(700);
+  scrollIntoViewWithin(rail.lastElementChild, { block: "center" });
+  const clear = 400 - 52;
+  expect(scrolled).toEqual([{ box: rail, top: 600 + 25 - 52 - clear / 2, behavior: "auto" }]);
+});
+
+it("end and nearest keep a target above a sticky bar at the scroller's bottom", () => {
+  const { rail, card } = shellRailCard(700);
+  const footer = place(document.createElement("div"), { top: 460, height: 40 });
+  footer.style.position = "sticky";
+  footer.style.bottom = "0px";
+  rail.append(footer);
+  scrollIntoViewWithin(card, { block: "end" });
+  expect(scrolled).toEqual([{ box: rail, top: 600 + 50 - 400 + 40, behavior: "auto" }]);
+  expect(landedTop(rail, 700) + 50).toBeLessThanOrEqual(100 + 400 - 40);
+});
+
+it("a target inside the sticky bar itself is not pushed below it", () => {
+  const { rail, bar } = railWithStickyBar(700);
+  const tab = place(document.createElement("button"), { top: 700, height: 20 });
+  bar.append(tab);
+  scrollIntoViewWithin(tab, { block: "start" });
+  expect(scrolled).toEqual([{ box: rail, top: 600, behavior: "auto" }]);
+});

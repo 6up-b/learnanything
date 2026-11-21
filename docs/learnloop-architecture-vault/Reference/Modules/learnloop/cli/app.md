@@ -552,6 +552,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_route_health.py](../../../../../../tests/test_model_route_health.py) — direct import
   - `test_doctor_reports_routes_in_json_and_text_and_flags_the_dead_one`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
+- [tests/test_notebook_check.py](../../../../../../tests/test_notebook_check.py) — direct import
+  - `test_out_is_required`
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_accept_cli_all_flag_applies_every_pending_item`
   - `test_accept_cli_applies_and_show_proposal_includes_items`

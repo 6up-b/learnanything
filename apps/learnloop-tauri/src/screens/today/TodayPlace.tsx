@@ -568,11 +568,13 @@ export function TodayPlace({
   // A closed plan with work left: a block of it not done, or questions still on today's list. The plan closes the
   // same way whether the router stopped with work feasible or nothing was left (its stopReason is free text), so
   // what is left is read from its rows and the list; null until the list is read, so neither line flashes.
+  // Rows only waiting to come back (answered, not due again) are no more for today.
+  const listAskable = listItems === null ? null : Math.max(0, listItems - listWaiting.length);
   const moreLeft: boolean | null = !plan || !planDone
     ? null
-    : plan.blocks.some((block) => block.status !== "done") || (listItems !== null && listItems > 0)
+    : plan.blocks.some((block) => block.status !== "done") || (listAskable !== null && listAskable > 0)
       ? true
-      : listItems === null ? null : false;
+      : listAskable === null ? null : false;
   // Item 6: Keep going that came back with nothing open says the day's cause too.
   const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn)
     ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems, listItemIds, listWaiting })
@@ -1054,7 +1056,7 @@ export function TodayPlace({
         {empty ? causeLine : keptGoingToNothing ? null : moreLeft ? (
           <div data-testid="today-stopped-more" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
             {PLAN_STOPPED_WITH_MORE}
-            {(listItems ?? 0) > 0 ? (
+            {(listAskable ?? 0) > 0 ? (
               <>
                 {" "}
                 <button type="button" style={linkButton} onClick={() => setList(true)}>

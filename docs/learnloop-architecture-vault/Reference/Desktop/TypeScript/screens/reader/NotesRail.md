@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/NotesRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/NotesRail.tsx) |
-| Source lines | 706 |
+| Source lines | 726 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -57,17 +57,19 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const PALETTE: Array<` — const, line 19
 - `export interface ExerciseImportState` — interface, line 46
 - `export interface NotesRailProps` — interface, line 60
-- `export function NotesRail(props: NotesRailProps)` — function, line 154
+- `export function NotesRail(props: NotesRailProps)` — function, line 159
 
 ## Internal implementation anchors
 
-- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 152
-- `const spanId = selection?.spanId ?? activeSpan` — const, line 384
-- `const requestError = parseRequestError(request.errorJson)` — const, line 493
-- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 494
-- `const expanded = expandedRequests.has(request.id)` — const, line 495
-- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 496
-- `const next = new Set(ids)` — const, line 515
+- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 157
+- `const highlighted = highlightNote !== null` — const, line 176
+- `const unsaved = note.trim() !== ""` — const, line 178
+- `const spanId = selection?.spanId ?? activeSpan` — const, line 404
+- `const requestError = parseRequestError(request.errorJson)` — const, line 513
+- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 514
+- `const expanded = expandedRequests.has(request.id)` — const, line 515
+- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 516
+- `const next = new Set(ids)` — const, line 535
 
 ## Who imports or calls it
 

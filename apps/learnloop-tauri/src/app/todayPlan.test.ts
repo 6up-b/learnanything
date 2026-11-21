@@ -185,9 +185,27 @@ describe("the full list's words", () => {
     expect(fullListWhy(item({ isFollowup: true, followupKind: "certification_cold_probe" }))).toBe("on your own · no hints");
     expect(fullListWhy(item({ isFollowup: true, followupKind: "intervention_followup" }))).toBe("after a fix, once more");
     expect(fullListWhy(item({ isProbe: true }))).toBe("to see what you know");
-    expect(fullListWhy(item({ dueStatus: "later" }))).toBe("coming back later today");
+    // A later row with no due time is a question never answered (UX-44c).
+    expect(fullListWhy(item({ dueStatus: "later" }))).toBe("not answered yet");
     expect(onYourOwnWhy(item({ isFollowup: true, followupKind: "cold_retry" }))).toContain("To see whether last week's fix held.");
     expect(onYourOwnWhy(item({}))).toBeNull();
+  });
+});
+
+describe("the full list's words for a question that waits (UX-44c)", () => {
+  const item = (overrides: Partial<ScheduledItemDto>) => ({ isFollowup: false, followupKind: null, isProbe: false, dueStatus: "later", dueAt: null, ...overrides }) as ScheduledItemDto;
+  const now = new Date(2026, 10, 20, 15, 0).getTime();
+  const at = (days: number, hour: number) => new Date(2026, 10, 20 + days, hour, 0).toISOString();
+  it("a question never answered is not 'coming back'", () => {
+    expect(fullListWhy(item({ dueAt: null }), now)).toBe("not answered yet");
+  });
+  it("an answered one says when it comes back, by the day", () => {
+    expect(fullListWhy(item({ dueAt: at(0, 21) }), now)).toBe("coming back later today");
+    expect(fullListWhy(item({ dueAt: at(1, 9) }), now)).toBe("comes back tomorrow");
+    expect(fullListWhy(item({ dueAt: at(9, 9) }), now)).toBe("comes back in 9 days");
+  });
+  it("one whose time has come is brought back now", () => {
+    expect(fullListWhy(item({ dueAt: at(0, 10) }), now)).toBe("time to bring it back");
   });
 });
 

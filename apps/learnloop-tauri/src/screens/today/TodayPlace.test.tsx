@@ -2397,3 +2397,85 @@ describe("Broken controls, third round: Today offering questions says no 'nothin
     expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
   });
 });
+
+describe("Broken controls, third round: a book whose getting ready waits its turn behind another's says so (UX-54)", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const waiting: SourceStatusLineDto = {
+    text: "Waiting its turn behind “Symmetric Matrices and Variance”", tone: "working", action: null, details: null,
+    waitingBehind: "Symmetric Matrices and Variance"
+  };
+
+  it("the waiting book's line names the book it waits behind, and says one book is got ready at a time", async () => {
+    const exam = libraryCard(waiting, { sourceId: "src_exam", title: "Past Exam", kindNoun: "PDF", acquisitionKind: "pdf" });
+    emptyToday([exam]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("“Past Exam” is waiting its turn behind “Symmetric Matrices and Variance”")).toBeTruthy();
+    expect(cause.textContent).toContain("LearnLoop gets one book ready at a time. Keep reading meanwhile.");
+    expect(cause.textContent).not.toContain("Getting “Past Exam” ready");
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("the book being got ready first: its own line, and the book waiting behind it named after it", async () => {
+    const chapter = libraryCard(LINE.writing);
+    const exam = libraryCard(waiting, { sourceId: "src_exam", title: "Past Exam", kindNoun: "PDF", acquisitionKind: "pdf" });
+    emptyToday([chapter, exam]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Getting “Symmetric Matrices and Variance” ready for questions")).toBeTruthy();
+    expect(cause.textContent).toContain("“Past Exam” is waiting its turn behind it.");
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("no book waiting: the line is as it was", async () => {
+    emptyToday([libraryCard(LINE.writing)]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Getting “Symmetric Matrices and Variance” ready for questions")).toBeTruthy();
+    expect(cause.textContent).not.toMatch(/its turn/);
+  });
+});
+
+describe("Broken controls, third round: the full list's words and a done plan's count tell waiting rows apart (UX-44c)", () => {
+  const finished = () => body({ status: "complete", stopReason: "A good place to stop for today.", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+  const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+
+  it("a done plan whose list holds only questions waiting to come back does not say there's more for today (firstq-9 #85)", async () => {
+    const done = finished();
+    apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 3 } }), {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1, { dueStatus: "later", dueAt: inDays(9) }), scheduled(2, { dueStatus: "later", dueAt: inDays(9) })]))
+    });
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-finished")).textContent).toBe("Nothing else is needed today.");
+    expect(screen.queryByTestId("today-stopped-more")).toBeNull();
+  });
+
+  it("a question never answered still counts as more for today, beside ones waiting to come back", async () => {
+    const done = finished();
+    apis(dto(done), {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1, { dueStatus: "later", dueAt: inDays(9) }), scheduled(2, { dueStatus: "later", dueAt: null })]))
+    });
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-stopped-more")).textContent).toContain("there's more for today");
+  });
+
+  it("the full list says when an answered question comes back, and a question never answered as one", async () => {
+    apis(dto(body()), {
+      getTodayQueue: vi.fn(async () => queue([
+        scheduled(1, { dueStatus: "later", dueAt: inDays(9) }),
+        scheduled(2, { dueStatus: "later", dueAt: null }),
+        scheduled(3, { dueStatus: "later", dueAt: new Date(Date.now() + 60_000).toISOString() })
+      ]))
+    });
+    show();
+    await screen.findByTestId("today-sentence");
+    await press({ key: "l" });
+    const rows = await screen.findAllByTestId("today-list-row");
+    const words = rows.map((row) => row.textContent ?? "");
+    expect(words[0]).toMatch(/comes back in 9 days/);
+    expect(words[1]).toMatch(/not answered yet/);
+    // A due time a minute away is later today unless the day turns over in that minute.
+    expect(words[2]).toMatch(/coming back later today|comes back tomorrow/);
+    for (const text of words) expect(findJargon(text)).toEqual([]);
+  });
+});

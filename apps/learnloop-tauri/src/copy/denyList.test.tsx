@@ -29,8 +29,9 @@ import { LESSON_KEPT, PLAN_STOPPED_WITH_MORE, continueLessonLine } from "../app/
 import { emptyGoalSentence } from "../components/GoalBanner";
 import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
-import { sectionWords } from "../screens/reader/readerShared";
+import { citationWords, sectionWords } from "../screens/reader/readerShared";
 import { sessionTopicLine } from "../components/SessionFinishHud";
+import { INTENT_COPY } from "../screens/reader/intentPalette";
 import type { CalibrationSessionProgressDto, GoalDto, QuickCheckResultDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
@@ -100,8 +101,8 @@ const ROUND2_SENTENCES = [
 // Every line the sidecar can put on a card (learnloop.content.pipeline.add_source).
 const LINES: SourceStatusLineDto[] = [
   { text: "Getting this book ready", tone: "working", action: null, details: null },
-  { text: "Questions for Ch. 1–2 in about 5 min", tone: "working", action: null, details: null },
-  { text: "Questions for Ch. 1–2 come up as you read", tone: "quiet", action: null, details: null },
+  { text: "Getting Ch. 1–2 ready for questions in about 5 min", tone: "working", action: null, details: null },
+  { text: "Questions for Ch. 1–2 are written as you finish sections", tone: "quiet", action: null, details: null },
   { text: "Questions need an AI connection", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: null },
   { text: "Building questions for Ch. 1–2 would cost about $3.10", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
@@ -134,15 +135,15 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Text recognition isn't set up", tone: "problem", action: { kind: "open_settings", label: "Set it up" }, details: null },
   // Usability round 2: no invented build time, a book with no questions yet,
   // a paper, and what a built book says while no AI is connected.
-  { text: "Writing questions for Ch. 1–2", tone: "working", action: null, details: null },
-  { text: "Questions for Ch. 1–2 in under a minute", tone: "working", action: null, details: null },
-  { text: "Questions for this paper in about 2 min", tone: "working", action: null, details: null },
+  { text: "Getting Ch. 1–2 ready for questions", tone: "working", action: null, details: null },
+  { text: "Getting Ch. 1–2 ready for questions in under a minute", tone: "working", action: null, details: null },
+  { text: "Getting this paper ready for questions in about 2 min", tone: "working", action: null, details: null },
   { text: "No questions for this book yet", tone: "quiet", action: { kind: "retry", label: "Build them as you read" }, details: null },
-  { text: "Questions for Ch. 1–2 come up as you read once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
+  { text: "Questions for Ch. 1–2 are written as you finish sections once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" },
   // Finishing pass (#6): a PDF is a PDF until its text says book or paper.
   { text: "Getting this PDF ready", tone: "working", action: null, details: null },
-  { text: "Questions for this PDF come up as you read", tone: "quiet", action: null, details: null },
+  { text: "Questions for this PDF are written as you finish sections", tone: "quiet", action: null, details: null },
   // UX-43: a build that found no topic to practise (docs/reviews/ux43-empty-build.md).
   {
     text: "LearnLoop found no topics to practise in this article", tone: "problem", action: { kind: "retry", label: "Try again" },
@@ -208,7 +209,7 @@ const STAGE3_SENTENCES = [
   NO_ASK_TEACH_BACK,
   NO_ASK_NOT_YET,
   NOTE_NO_SUBJECT,
-  // UX-43: what "Build questions for the whole article at once" says on a book whose build found no topic (add_source.py).
+  // UX-43: what "Get the whole article ready for questions at once" says on a book whose build found no topic (add_source.py).
   "LearnLoop found no topics to practise in this article, so there are no questions to write from it yet. Try again on its card to look once more."
 ].filter(Boolean);
 
@@ -256,6 +257,25 @@ const ROUND_3A_SENTENCES = [
   // UX-49: the session end's marks.
   ...([{ evidence: "on_your_own", finishedWithHelp: true }, { evidence: "on_your_own" }, { evidence: "with_help" }] as const).map((mark) =>
     sessionTopicLine({ learningObjectId: "lo_1", title: "Dot product", ...mark }))
+];
+
+// Broken controls, third round, group B (docs/reviews/ux-fix-round-3b.md): every sentence this round adds.
+const ROUND_3B_SENTENCES = [
+  // UX-50: the Notes rail's note box once the passage is highlighted.
+  "save note", "add a note to this highlight…", "add to your note on this highlight…", "your note: “the gaps between arrivals matter”",
+  // UX-51: the selection box's words.
+  INTENT_COPY.whereThisGoes, INTENT_COPY.findsOnly("highlight"), INTENT_COPY.keptAsNote,
+  // UX-56: Ask's source chips.
+  ...["Wikipedia Elevator Paradox · modeling-the-elevator-problem", "Some Notes · root", "Wikipedia Elevator Paradox · (intro)"].map(citationWords),
+  // UX-54: a book waiting its turn (the card's line is the sidecar's; Today's sentences).
+  "Waiting its turn behind “Probability”",
+  ...([
+    { kind: "on_the_way", title: "Past Exam", card: BOOK, progress: null, minutes: null, behind: "Probability" },
+    { kind: "on_the_way", title: "Probability", card: BOOK, progress: { done: 1, total: 2 }, minutes: null, queued: ["Past Exam"] },
+    { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, queued: ["Past Exam", "Notes"] }
+  ] as TodayCause[]).map(causeSentence),
+  // UX-44c: the full list's words for a question that waits.
+  "not answered yet", "coming back later today", "comes back tomorrow", "comes back in 9 days"
 ];
 
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).
@@ -342,6 +362,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(ROUND_3A_SENTENCES)("the broken controls 3a sentence: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(ROUND_3B_SENTENCES)("the broken controls 3b sentence: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
   });

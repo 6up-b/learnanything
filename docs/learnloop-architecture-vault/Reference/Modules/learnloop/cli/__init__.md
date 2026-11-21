@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/__init__.py](../../../../../../src/learnloop/cli/__init__.py) |
-| Source lines | 110 |
+| Source lines | 112 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -107,6 +107,7 @@ No live LearnLoop module directly imports this module in the static graph.
 - [[Reference/Modules/learnloop/cli/inbox|learnloop.cli.inbox]] — imports `inbox_app`
 - [[Reference/Modules/learnloop/cli/ingest_batches|learnloop.cli.ingest_batches]] — imports `module`
 - [[Reference/Modules/learnloop/cli/mcp|learnloop.cli.mcp]] — imports `mcp_app`
+- [[Reference/Modules/learnloop/cli/notebook|learnloop.cli.notebook]] — imports `notebook_app`
 - [[Reference/Modules/learnloop/cli/pf|learnloop.cli.pf]] — imports `pf_app`
 - [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]] — imports `placement_app`
 - [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]] — imports `plan_app`

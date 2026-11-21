@@ -72,6 +72,8 @@ export function PlanToday({
   const library = useCachedQuery(empty ? ["get_source_library", "phone_today"] : null, () => phone.library(), { tags: [TAG.sources] });
   const cause = empty && library.data ? todayCause({ cards: library.data.sources, ai: null, listItems: 0, listUnknown: true }) : null;
   const causeLine = cause ? <p className="dim" role="status" data-testid="today-cause">{causeSentence(cause)}</p> : null;
+  // As on the desktop: a book's questions offered are the day's news, so no "Nothing planned for today." above them.
+  const offersQuestions = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work";
   useEffect(() => {
     if (planOff(query.data, query.error)) {
       onMode("queue");
@@ -140,7 +142,7 @@ export function PlanToday({
       <div className="screen">
         <h1>Today</h1>
         {finishedLine}
-        <p data-testid="today-sentence">{causeLine ? "Nothing planned for today." : doneLine(data)}</p>
+        {offersQuestions ? null : <p data-testid="today-sentence">{causeLine ? "Nothing planned for today." : doneLine(data)}</p>}
         {causeLine}
         {waiting ? <p className="dim" role="status">{waiting}</p> : null}
         <div className="actions">
@@ -161,7 +163,7 @@ export function PlanToday({
       <h1>Today</h1>
       {finishedLine}
       <p data-testid="today-sentence">
-        {held && !sentence ? "Nothing here for the phone right now." : sentence ?? "Nothing planned for today."}{" "}
+        {held && !sentence ? "Nothing here for the phone right now." : sentence ?? (offersQuestions ? "" : "Nothing planned for today.")}{" "}
         <WhyLink why={why.why} details={why.details} explainId={why.decisionId} />
       </p>
       {!held && !sentence ? causeLine : null}

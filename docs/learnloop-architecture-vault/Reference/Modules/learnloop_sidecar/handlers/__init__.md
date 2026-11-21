@@ -179,6 +179,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
 - [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — direct import
 - [tests/test_ad3_dose_arm.py](../../../../../../tests/test_ad3_dose_arm.py) — direct import
+- [tests/test_add_source_same_content.py](../../../../../../tests/test_add_source_same_content.py) — direct import
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
@@ -308,6 +309,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — direct import
 - [tests/test_sidecar_measurement.py](../../../../../../tests/test_sidecar_measurement.py) — direct import
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
+- [tests/test_status_line_waiting_turn.py](../../../../../../tests/test_status_line_waiting_turn.py) — direct import
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
 - [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
 - [tests/test_teacher_te2log_activity.py](../../../../../../tests/test_teacher_te2log_activity.py) — direct import

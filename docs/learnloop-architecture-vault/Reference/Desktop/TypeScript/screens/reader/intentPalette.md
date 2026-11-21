@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `INTENT_COPY`, `visiblePalette`, `paletteActions`, `SHOW_ME_LABEL` and related exports within the desktop's TypeScript/screens/reader ownership area.
+Provides `INTENT_COPY`, `visiblePalette`, `onlyNamesAnAction`, `paletteActions` and related exports within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/intentPalette.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/intentPalette.ts) |
-| Source lines | 62 |
+| Source lines | 78 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,31 +50,36 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/IntentBox|src/screens/reader/IntentBox.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/intentPalette|src/screens/reader/intentPalette.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/intentPalette|src/screens/reader/intentPalette.ts]]
 
 ## Public API
 
 - `export const INTENT_COPY =` — const, line 10
-- `export function visiblePalette( contract: ReaderIntentContractDto, options:` — function, line 24
-- `export function paletteActions(groups: ReaderIntentGroupDto[]): ReaderIntentActionDto[]` — function, line 42
-- `export const SHOW_ME_LABEL = "show me…"` — const, line 51
-- `export function routedLine(action: Pick<ReaderIntentActionDto, "label" | "intention"> &` — function, line 55
+- `export function visiblePalette( contract: ReaderIntentContractDto, options:` — function, line 27
+- `export function onlyNamesAnAction(words: string, groups: ReaderIntentGroupDto[]): boolean` — function, line 49
+- `export function paletteActions(groups: ReaderIntentGroupDto[]): ReaderIntentActionDto[]` — function, line 58
+- `export const SHOW_ME_LABEL = "show me…"` — const, line 67
+- `export function routedLine(action: Pick<ReaderIntentActionDto, "label" | "intention"> &` — function, line 71
 
 ## Internal implementation anchors
 
-- `const groups = options.notes ? contract.notesPalette : contract.palette` — const, line 28
-- `const GROUP_WORDS: Record<string, string> =` — const, line 46
-- `const intention = action.intention ? GROUP_WORDS[action.intention] : null` — const, line 57
-- `const showMe = action.label === SHOW_ME_LABEL && action.effect?.kind === "figure"` — const, line 58
-- `const label = showMe ? "show me" : action.label` — const, line 59
-- `const uses = showMe ? (words?.trim() ? "from your selection and your words" : "from your selection") : null` — const, line 60
+- `const groups = options.notes ? contract.notesPalette : contract.palette` — const, line 31
+- `const said = words.toLowerCase().replace(/\s+/g, " ").trim().replace(/[.!?…:` — const, line 50
+- `const names = groups.flatMap((group)` — const, line 52
+- `const bare = said.replace(/ (this|it|that)$/, "")` — const, line 54
+- `const GROUP_WORDS: Record<string, string> =` — const, line 62
+- `const intention = action.intention ? GROUP_WORDS[action.intention] : null` — const, line 73
+- `const showMe = action.label === SHOW_ME_LABEL && action.effect?.kind === "figure"` — const, line 74
+- `const label = showMe ? "show me" : action.label` — const, line 75
+- `const uses = showMe ? (words?.trim() ? "from your selection and your words" : "from your selection") : null` — const, line 76
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/reader/IntentBox|src/screens/reader/IntentBox.tsx]] — import-or-re-export: `INTENT_COPY`, `routedLine`; references `INTENT_COPY`, `routedLine`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `onlyNamesAnAction`; references `onlyNamesAnAction`
+- [[Reference/Desktop/TypeScript/screens/reader/IntentBox|src/screens/reader/IntentBox.tsx]] — import-or-re-export: `INTENT_COPY`, `onlyNamesAnAction`, `routedLine`; references `INTENT_COPY`, `onlyNamesAnAction`, `routedLine`
 - [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|src/screens/reader/useIntentBox.ts]] — import-or-re-export: `paletteActions`, `visiblePalette`; references `paletteActions`, `visiblePalette`
 
 ## Dependencies
@@ -97,7 +102,10 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/intentNoteWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/intentNoteWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/highlightNote.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/highlightNote.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/showMe.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/showMe.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/copy/denyList.test.tsx](../../../../../../../apps/learnloop-tauri/src/copy/denyList.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

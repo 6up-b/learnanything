@@ -697,3 +697,52 @@ describe("after the first answers (UX-44): the phone counts only what can be ask
     );
   });
 });
+
+describe("the phone's own Today heading agrees with the desktop (UX-52b): no 'Nothing planned' above questions offered", () => {
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...extra
+  });
+  const book = (questions: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1",
+      statusLine: { text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null, questions } }]
+  });
+  const doneEmpty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const openEmpty = () => reply({ status: "open", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: false, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+
+  async function headingFor(day: unknown, questions: Record<string, unknown>): Promise<{ heading: string | null; cause: string }> {
+    answers.get_daily_plan = day;
+    answers.get_source_library = book(questions);
+    render(<App />);
+    const cause = (await screen.findByTestId("today-cause")).textContent ?? "";
+    const heading = screen.queryByTestId("today-sentence")?.textContent ?? null;
+    cleanup();
+    return { heading, cause };
+  }
+
+  it("an empty, finished day with a book's questions written: the offer, and no 'Nothing planned for today.'", async () => {
+    const { heading, cause } = await headingFor(doneEmpty(), facts({ count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"] }));
+    expect(cause).toBe("3 questions from “Conditional probability”, the part you read. More come as you finish sections.");
+    expect(heading ?? "").not.toMatch(/Nothing planned/);
+  });
+
+  it("questions written while more are: the same", async () => {
+    const { heading, cause } = await headingFor(doneEmpty(), facts({
+      count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"], writing: ["Conditional probability"], progress: { done: 2, total: 8 }
+    }));
+    expect(cause).toContain("are ready");
+    expect(heading ?? "").not.toMatch(/Nothing planned/);
+  });
+
+  it("an open plan with nothing in it and questions written: the same", async () => {
+    const { heading, cause } = await headingFor(openEmpty(), facts({ count: 2, itemIds: ["i1", "i2"], sections: ["Conditional probability"] }));
+    expect(cause).toContain("2 questions");
+    expect(heading ?? "").not.toMatch(/Nothing planned/);
+  });
+
+  it("nothing offered (the writing line): the heading stays", async () => {
+    const { heading } = await headingFor(doneEmpty(), facts({ writing: ["Conditional probability"], progress: { done: 1, total: 8 } }));
+    expect(heading).toBe("Nothing planned for today.");
+  });
+});

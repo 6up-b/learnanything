@@ -3707,6 +3707,8 @@ export interface SourceStatusLineDto {
   /** The book's build finished but found no topic to practise (its answer was asked for twice): the line says so, with
    *  Try again (the card's retry). Present only on that line. */
   noTopics?: boolean;
+  /** The book's getting ready is queued while another book's work runs: that book's title. Present only then. */
+  waitingBehind?: string;
   /** What the learner's finished sections gave (on a built book's line, and on any line once there is something). */
   questions?: ReadingQuestionsDto | null;
 }

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/readerShared.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/readerShared.ts) |
-| Source lines | 152 |
+| Source lines | 166 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -58,37 +58,42 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function answerModeLabel(mode: string): string` — function, line 12
 - `export function clip(text: string, max: number): string` — function, line 16
 - `export function sectionWords(label: string): string` — function, line 28
-- `export interface SelectionNode` — interface, line 39
-- `export interface ReaderSelection` — interface, line 56
-- `export function passageKeys(reading: string, spanIds: ReadonlyArray<string | null | undefined>): string[]` — function, line 73
-- `export function selectionNodes(sel:` — function, line 77
-- `export interface AnnotationSegment` — interface, line 85
-- `export interface MarginAnnotation` — interface, line 95
-- `export function placedSpanIds(annotation: MarginAnnotation): string[]` — function, line 110
-- `export function groundingProtected(protection: ReaderProtectionDto | null | undefined, spanIds: readonly string[]): boolean` — function, line 123
-- `export function selectionProtected( protection: ReaderProtectionDto | null | undefined, selection:` — function, line 133
-- `export function askGroundingSpans( parent:` — function, line 144
+- `export function citationWords(label: string): string` — function, line 41
+- `export interface SelectionNode` — interface, line 53
+- `export interface ReaderSelection` — interface, line 70
+- `export function passageKeys(reading: string, spanIds: ReadonlyArray<string | null | undefined>): string[]` — function, line 87
+- `export function selectionNodes(sel:` — function, line 91
+- `export interface AnnotationSegment` — interface, line 99
+- `export interface MarginAnnotation` — interface, line 109
+- `export function placedSpanIds(annotation: MarginAnnotation): string[]` — function, line 124
+- `export function groundingProtected(protection: ReaderProtectionDto | null | undefined, spanIds: readonly string[]): boolean` — function, line 137
+- `export function selectionProtected( protection: ReaderProtectionDto | null | undefined, selection:` — function, line 147
+- `export function askGroundingSpans( parent:` — function, line 158
 
 ## Internal implementation anchors
 
 - `const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/` — const, line 20
 - `const trimmed = label.trim()` — const, line 29
 - `const words = trimmed.replace(/-/g, " ")` — const, line 32
-- `const held = new Set(protection.heldOutSpanIds)` — const, line 127
+- `const at = label.lastIndexOf(" · ")` — const, line 42
+- `const title = label.slice(0, at)` — const, line 44
+- `const section = label.slice(at + 3).trim()` — const, line 45
+- `const held = new Set(protection.heldOutSpanIds)` — const, line 141
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `passageKeys`; references `passageKeys`
+- [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `citationWords`, `passageKeys`; references `citationWords`, `passageKeys`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `AnnotationSegment`, `MarginAnnotation`, `ReaderSelection`, `askGroundingSpans`, `clip`, `groundingProtected`, `passageKeys`, `placedSpanIds`, `sectionWords`, `selectionNodes`, `selectionProtected`; references `AnnotationSegment`, `MarginAnnotation`, `ReaderSelection`, `askGroundingSpans`, `clip`, `groundingProtected`, `passageKeys`, `placedSpanIds`, `sectionWords`, `selectionNodes`, `selectionProtected`
 - [[Reference/Desktop/TypeScript/screens/reader/AlsoInBooks|src/screens/reader/AlsoInBooks.tsx]] — import-or-re-export: `clip`, `sectionWords`; references `clip`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `ANSWER_MODE_OPTIONS`, `ReaderSelection`, `answerModeLabel`, `clip`; references `ANSWER_MODE_OPTIONS`, `ReaderSelection`, `answerModeLabel`, `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export: `clip`, `sectionWords`; references `clip`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `clip`, `sectionWords`; references `clip`, `sectionWords`
+- [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|src/screens/reader/LibraryAnswer.tsx]] — import-or-re-export: `citationWords`; references `citationWords`
 - [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]] — import-or-re-export: `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`; references `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`
-- [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export: `answerModeLabel`; references `answerModeLabel`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export: `answerModeLabel`, `citationWords`; references `answerModeLabel`, `citationWords`
 - [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export: `sectionWords`; references `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/ReconnectLine|src/screens/reader/ReconnectLine.tsx]] — import-or-re-export: `clip`; references `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `clip`, `sectionWords`; references `clip`, `sectionWords`
@@ -124,6 +129,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/citationWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/citationWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/copy/denyList.test.tsx](../../../../../../../apps/learnloop-tauri/src/copy/denyList.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

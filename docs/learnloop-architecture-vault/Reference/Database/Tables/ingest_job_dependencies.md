@@ -110,6 +110,7 @@ Indexes and uniqueness:
 - `tests/test_reading_hardening_review_fixes.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_secondary_attach.py`
+- `tests/test_status_line_waiting_turn.py`
 - `tests/test_synthesis_sweep_primary_only.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

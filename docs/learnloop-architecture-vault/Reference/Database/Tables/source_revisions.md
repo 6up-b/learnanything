@@ -95,6 +95,7 @@ Indexes and uniqueness:
 - `Repository.insert_source_revision()`
 - `Repository.reading_request_unsettled()`
 - `Repository.source_revision_by_asset_hash()`
+- `Repository.source_revisions_by_asset_hash()`
 - `Repository.source_revisions_for()`
 - `Repository.upsert_unit_selection()`
 
@@ -168,7 +169,7 @@ Indexes and uniqueness:
 - `tests/source_inventory_helpers.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
-- `tests/test_exam_protection.py`
+- `tests/test_add_source_same_content.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
