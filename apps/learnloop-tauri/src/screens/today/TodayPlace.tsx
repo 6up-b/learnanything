@@ -8,7 +8,7 @@
 //     6 short questions · Conditional probability           about 8 min
 //                                                          [ Begin ↵ ]
 //   Pick up a thread
-//   4 days · best 9                              all of today's list (l)
+//   4 days in a row · best 9                     all of today's list (l)
 //
 // The plan is minutes; there is no count of waiting things anywhere (§4.2
 // rule 10): no due, probe, later or follow-up tiles, no queue size, no
@@ -45,6 +45,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { GoalCard } from "../../components/GoalCard";
 import { GoalWizard } from "../../components/GoalWizard";
 import { Waiting } from "../../components/Waiting";
+import { WAIT_DETAILS_LABEL, useWaitWords, waitDetailOf } from "../../app/waitDetail";
 import { WAITING_COPY } from "../../copy/waiting";
 import { InboxStrip } from "../../components/InboxStrip";
 import { targetForDialogue } from "../../components/QuestionQueue";
@@ -81,6 +82,7 @@ import { errorMessage, type ErrorReport } from "../../errors";
 import {
   GOAL_NOT_UP_TODAY,
   KEEP_GOING_NOTHING_LEAD,
+  NO_QUESTIONS_YET,
   PLAN_FINISHED,
   PLAN_STOPPED_WITH_MORE,
   WHATS_SENT,
@@ -90,8 +92,11 @@ import {
   causeSendsPassages,
   causeSentence,
   causeTopicsFailed,
+  causeUnderway,
   continueLessonLine,
   goalCauseSentence,
+  heldLine,
+  notAskableOnList,
   readyWithWorkSentence,
   todayCause,
   waitingOnList,
@@ -360,6 +365,7 @@ function PlainList({
   queue,
   plan,
   next,
+  underway = false,
   busy,
   failed,
   onRetry,
@@ -370,6 +376,8 @@ function PlainList({
   plan: DailyPlanDto["plan"] | null;
   /** The plan's dated summary: a waiting row says its day from it. */
   next: NextPracticeDto | null;
+  /** A book is being got ready or its questions written: an empty list says none are ready yet, not "nothing". */
+  underway?: boolean;
   busy: boolean;
   /** Fix round 1 (F6): the list's read failed (with `queue`, its refresh). */
   failed: boolean;
@@ -437,7 +445,7 @@ function PlainList({
           </div>
         )
       ) : items.length === 0 ? (
-        <div style={{ fontSize: 13, color: COLOR.textDim }}>Nothing else for today.</div>
+        <div data-testid="today-list-empty" style={{ fontSize: 13, color: COLOR.textDim }}>{underway ? NO_QUESTIONS_YET : "Nothing else for today."}</div>
       ) : (
         items.map((item, index) => {
           const minutes = minutesOf.get(item.practiceItemId);
@@ -577,7 +585,10 @@ export function TodayPlace({
   // same way whether the router stopped with work feasible or nothing was left (its stopReason is free text), so
   // what is left is read from its rows and the list; null until the list is read, so neither line flashes.
   // Rows only waiting to come back (answered, not due again) are no more for today.
-  const listAskable = listItems === null ? null : Math.max(0, listItems - listWaiting.length);
+  // A book's question kept for a later check on your own is on the list too, and no more askable today than one
+  // waiting to come back.
+  const listNotNow = useMemo(() => notAskableOnList(library.data?.sources, listItemIds, listWaiting), [library.data, listItemIds, listWaiting]);
+  const listAskable = listItems === null ? null : Math.max(0, listItems - listNotNow.length);
   const moreLeft: boolean | null = !plan || !planDone
     ? null
     : plan.blocks.some((block) => block.status !== "done") || (listAskable !== null && listAskable > 0)
@@ -926,7 +937,8 @@ export function TodayPlace({
       case "finish_section":
       case "none_up":
       case "read_further":
-      case "reading_saved": {
+      case "reading_saved":
+      case "held": {
         const card = shown.card;
         return card && onOpenBook ? () => onOpenBook(card) : null;
       }
@@ -944,6 +956,13 @@ export function TodayPlace({
   // above it read as "my reading gave nothing"), and Enter is its Begin, so only that Begin shows ↵.
   const offersQuestions = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work";
   const offerBegin = cause && offersQuestions ? causeAction(cause) : null;
+  // Work under way is the cause line's to say: the heading above it says no questions are ready yet, never "nothing".
+  // The full list's own read of the books, for its empty state.
+  const underway = causeUnderway(cause ?? (list ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems: 0 }) : null));
+  const nothingPlanned = underway ? NO_QUESTIONS_YET : "Nothing planned for today.";
+  // Questions held for the learner's OK: a line of its own, beside whatever the cause is, once the day's plan is done
+  // or holds nothing. It opens nothing: no screen yet shows a held question without its answer.
+  const held = cause?.kind === "held" ? null : heldLine(library.data?.sources);
 
   const causeLine = cause ? (
     <CauseLine
@@ -1032,6 +1051,7 @@ export function TodayPlace({
         queue={queue}
         plan={plan}
         next={nextPractice}
+        underway={underway}
         busy={busy}
         failed={queueQuery.error !== null}
         onRetry={retryQueue}
@@ -1070,7 +1090,7 @@ export function TodayPlace({
       <div data-testid="today-done" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {empty && offersQuestions ? null : (
           <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text }}>
-            {empty ? "Nothing planned for today." : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
+            {empty ? nothingPlanned : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
           </div>
         )}
         {empty ? causeLine : keptGoingToNothing ? null : moreLeft ? (
@@ -1105,7 +1125,7 @@ export function TodayPlace({
             </button>
           ) : null}
         </div>
-        {keptGoingToNothing ? <KeepGoingNothing /> : null}
+        {keptGoingToNothing ? <KeepGoingNothing underway={underway} /> : null}
         {keptGoingToNothing && !empty ? causeLine : null}
         {moreNew ? (
           <div data-testid="today-more-new" style={{ fontSize: 12, color: COLOR.textDim }}>
@@ -1130,7 +1150,7 @@ export function TodayPlace({
         {!waiting && !inProgress && sentence === null && !deciding && offersQuestions ? null : (
           <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text, lineHeight: 1.5 }}>
             {plan.kind === "keep_going" ? "Keep going. " : ""}
-            {waiting ? waitingLine(waiting) : inProgress ? questionInProgressLine(inProgress) : sentence ?? (deciding ? "Choosing what's next…" : "Nothing planned for today.")}{" "}
+            {waiting ? waitingLine(waiting) : inProgress ? questionInProgressLine(inProgress) : sentence ?? (deciding ? "Choosing what's next…" : nothingPlanned)}{" "}
             <button type="button" style={dimLink} aria-expanded={why} onClick={() => setWhy((open) => !open)}>
               why? {why ? "▾" : "▸"}
             </button>
@@ -1188,7 +1208,7 @@ export function TodayPlace({
             </button>
           </div>
         ) : null}
-        {!waiting && rows.length === 0 && !deciding && !inProgress && keptGoingToNothing ? <KeepGoingNothing /> : null}
+        {!waiting && rows.length === 0 && !deciding && !inProgress && keptGoingToNothing ? <KeepGoingNothing underway={underway} /> : null}
         {/* IH3 (spec §6): the quiet link at any plan boundary, with a session (the choice is served into it). */}
         {session && data?.somethingElse && !waiting ? (
           <SomethingElse sessionId={session.sessionId} surface="today" enabled canStartLesson={Boolean(onStartLesson)}
@@ -1212,6 +1232,11 @@ export function TodayPlace({
         ) : null}
         {!list && onStartLesson ? <OpenLessons lessonOpen={lessonOpen} onStartLesson={onStartLesson} /> : null}
         {body}
+        {held && planOn && data && !list && (done || emptyDay) ? (
+          <div data-testid="today-held" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
+            {held}
+          </div>
+        ) : null}
         {nextLines.length ? (
           <div data-testid="today-next" role="status" style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 13, color: COLOR.textDim }}>
             {nextLines.map((line) => <div key={line}>{line}</div>)}
@@ -1293,6 +1318,8 @@ function CauseLine({
   const label = causeActionLabel(cause);
   const second = causeSecondActionLabel(cause);
   const wait = sentence === undefined ? causeWait(cause) : null;
+  // What the wait is doing now, under its line (app/waitDetail): read again with the cause, by the reads already here.
+  const detail = useWaitWords(wait ? waitDetailOf(cause) : null, "ago");
   if (wait) {
     // A wait (a book being got ready, a finished section's questions being written): the shared waiting
     // indicator says what is happening and how far, the action beside it from the first moment; the line under it
@@ -1312,6 +1339,17 @@ function CauseLine({
             </>
           ) : null}
         </Waiting>
+        {detail ? (
+          <div data-testid={`${testId}-detail`} style={{ color: COLOR.textDim, fontSize: 12, lineHeight: 1.6, paddingLeft: "1.6em" }}>
+            {detail.lines.map((line) => <div key={line}>{line}</div>)}
+            {detail.details.length ? (
+              <details data-testid={`${testId}-detail-more`}>
+                <summary style={{ cursor: "pointer" }}>{WAIT_DETAILS_LABEL}</summary>
+                {detail.details.map((line) => <div key={line}>{line}</div>)}
+              </details>
+            ) : null}
+          </div>
+        ) : null}
         {failed ? <div data-testid={`${testId}-failed`}>{failed}</div> : null}
         <div>{wait.after}</div>
       </div>
@@ -1412,10 +1450,10 @@ function OpenLessons({ lessonOpen, onStartLesson }: { lessonOpen: boolean; onSta
 }
 
 /** UX-4: said in place, where Keep going was pressed; a notice, never an error. */
-function KeepGoingNothing() {
+function KeepGoingNothing({ underway = false }: { underway?: boolean }) {
   return (
     <div data-testid="today-keep-going-nothing" role="status" style={{ fontSize: 12, color: COLOR.textDim }}>
-      {KEEP_GOING_NOTHING_LEAD}
+      {underway ? NO_QUESTIONS_YET : KEEP_GOING_NOTHING_LEAD}
     </div>
   );
 }

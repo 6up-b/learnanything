@@ -39,6 +39,7 @@ _withhold_input: ContextVar[bool] = ContextVar("model_withhold_input", default=F
 _truncation_retry: ContextVar[bool] = ContextVar("model_truncation_retry", default=False)
 _request_gate: ContextVar["RequestGate | None"] = ContextVar("model_request_gate", default=None)
 _background: ContextVar[bool] = ContextVar("model_background", default=False)
+_output_observer: ContextVar[Callable[[str | None, int], Any] | None] = ContextVar("model_output_observer", default=None)
 
 
 @contextmanager
@@ -190,6 +191,32 @@ def report_call_usage(values: dict[str, Any]) -> None:
                 metadata[key] = (metadata.get(key) or 0) + value
             else:
                 metadata[key] = value
+
+
+@contextmanager
+def observe_model_output(observer: Callable[[str | None, int], Any]):
+    """Tell ``observer`` as a streamed model request in this context produces output: with the request's receipt
+    id (None where no receipt is kept) and how many non-empty output pieces it has streamed so far. A transport
+    that does not stream reports nothing, so its silence never reads as a stalled reply."""
+
+    token = _output_observer.set(observer)
+    try:
+        yield
+    finally:
+        _output_observer.reset(token)
+
+
+def report_model_output(pieces: int) -> None:
+    """The request in flight in this context has streamed ``pieces`` non-empty output pieces so far. A measurement
+    only: what the observer does with it never touches the request (its failure is logged, never raised)."""
+
+    observer = _output_observer.get()
+    if observer is None:
+        return
+    try:
+        observer(_parent.get(), pieces)
+    except Exception:  # noqa: BLE001 - a measurement never fails the call it measures
+        logger.exception("A model-output observer failed")
 
 
 def content_key(payload: Any) -> str:

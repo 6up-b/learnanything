@@ -13,8 +13,9 @@ import { WAITING_COPY } from "@desktop/copy/waiting";
 import { Waiting } from "../components/Waiting";
 import { RouterLine, WhyLink } from "../practice/RouterLine";
 import { currentWhy, doneLine, planSentence, stepOf, waitingForDesktop } from "./planWords";
-import { causeSentence, todayCause } from "@desktop/app/todayCause";
+import { NO_QUESTIONS_YET, causeSentence, causeUnderway, heldLine, todayCause } from "@desktop/app/todayCause";
 import { nextPracticeLines, useLatestNextPractice, useNextDayRefresh } from "@desktop/app/nextPractice";
+import { WAIT_DETAILS_LABEL, useWaitWords, waitDetailOf } from "@desktop/app/waitDetail";
 
 /** A day whose plan has nothing in it: no question and no reading planned (the desktop's `planWasEmpty`). */
 function emptyDay(data: PhonePlanDto | undefined): boolean {
@@ -74,11 +75,36 @@ export function PlanToday({
   // `todayCause`), read from the books' lines as the Read tab gets them. Today's list is not read here, so a book's
   // questions are named by how many were written, and the primary action stays the plan's. A failed read says nothing.
   const empty = emptyDay(query.data) && (query.data?.plan?.blocks.length ?? 0) === 0;
-  const library = useCachedQuery(empty ? ["get_source_library", "phone_today"] : null, () => phone.library(), { tags: [TAG.sources] });
+  // The books are read on an empty day (for its cause) and once the plan is done (for the held questions' line).
+  const planDone = Boolean(query.data?.plan) && query.data?.plan?.status !== "open";
+  const library = useCachedQuery(empty || planDone ? ["get_source_library", "phone_today"] : null, () => phone.library(), { tags: [TAG.sources] });
   const cause = empty && library.data ? todayCause({ cards: library.data.sources, ai: null, listItems: 0, listUnknown: true }) : null;
-  const causeLine = cause ? <p className="dim" role="status" data-testid="today-cause">{causeSentence(cause)}</p> : null;
-  // As on the desktop: a book's questions offered are the day's news, so no "Nothing planned for today." above them.
+  // While a book is got ready or its questions are written, what is happening now under the sentence, in the desktop's
+  // words, with clock times: this Today is not read again on its own, so an age would grow false as it sat.
+  const detail = useWaitWords(waitDetailOf(cause), "at");
+  const causeLine = cause ? (
+    <>
+      <p className="dim" role="status" data-testid="today-cause">{causeSentence(cause)}</p>
+      {detail ? (
+        <div className="dim" data-testid="today-cause-detail">
+          {detail.lines.map((line) => <p key={line}>{line}</p>)}
+          {detail.details.length ? (
+            <details>
+              <summary>{WAIT_DETAILS_LABEL}</summary>
+              {detail.details.map((line) => <p key={line}>{line}</p>)}
+            </details>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  ) : null;
+  // As on the desktop: a book's questions offered are the day's news, so no "Nothing planned for today." above them;
+  // above work under way the heading says no questions are ready yet, never "nothing".
   const offersQuestions = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work";
+  const nothingPlanned = causeUnderway(cause) ? NO_QUESTIONS_YET : "Nothing planned for today.";
+  // Questions held for the learner's OK: their own line, beside whatever the cause is. It opens nothing.
+  const heldText = (empty || planDone) && library.data && cause?.kind !== "held" ? heldLine(library.data.sources) : null;
+  const heldNote = heldText ? <p className="dim" role="status" data-testid="today-held">{heldText}</p> : null;
   useEffect(() => {
     if (planOff(query.data, query.error)) {
       onMode("queue");
@@ -166,8 +192,9 @@ export function PlanToday({
       <div className="screen">
         <h1>Today</h1>
         {finishedLine}
-        {offersQuestions ? null : <p data-testid="today-sentence">{causeLine ? "Nothing planned for today." : doneLine(data)}</p>}
+        {offersQuestions ? null : <p data-testid="today-sentence">{causeLine ? nothingPlanned : doneLine(data)}</p>}
         {causeLine}
+        {heldNote}
         {todayNext}
         {waiting ? <p className="dim" role="status">{waiting}</p> : null}
         <div className="actions">
@@ -188,10 +215,11 @@ export function PlanToday({
       <h1>Today</h1>
       {finishedLine}
       <p data-testid="today-sentence">
-        {held && !sentence ? "Nothing here for the phone right now." : sentence ?? (offersQuestions ? "" : "Nothing planned for today.")}{" "}
+        {held && !sentence ? "Nothing here for the phone right now." : sentence ?? (offersQuestions ? "" : nothingPlanned)}{" "}
         <WhyLink why={why.why} details={why.details} explainId={why.decisionId} />
       </p>
       {!held && !sentence ? causeLine : null}
+      {!held && !sentence && empty ? heldNote : null}
       {!held && !sentence && empty ? todayNext : null}
       <RouterLine decision={data.routerDecision} explainId={why.decisionId} />
       {waiting ? <p className="dim" role="status">{waiting}</p> : null}

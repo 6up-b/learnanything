@@ -949,10 +949,12 @@ def generate_post_probe_practice_proposal(
     part_status: Callable[[list[dict[str, Any]]], None] | None = None,
     topic_scopes: Mapping[str, str] | None = None,
     applied_patch_ids: Sequence[str] = (),
+    note_filter: Callable[[str], bool] | None = None,
 ) -> PracticeExpansionResult:
     """``checkpoint_scope`` writes one part per topic under that scope (a section job's); ``topic_scopes`` does
     the same with each topic's part under its own scope (topic work's), judged also against the applied rows of
-    ``applied_patch_ids``."""
+    ``applied_patch_ids``. ``note_filter`` decides which notes' excerpts the requests carry (every one in scope by
+    default)."""
 
     by_parts = checkpoint_scope is not None or topic_scopes is not None
     vault = load_vault(root)
@@ -1045,6 +1047,7 @@ def generate_post_probe_practice_proposal(
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
         row_transform=judge,
+        **({"note_filter": note_filter} if note_filter is not None else {}),
         **({"part_requests": parts, "checkpoint_scope": checkpoint_scope, "progress": progress, "part_status": report_parts}
            if checkpoint_scope is not None else {}),
         **({"part_requests": parts, "part_scopes": [topic_scopes[part["topic_id"]] for part in parts or []],

@@ -26,14 +26,16 @@ import {
 } from "../app/todayCause";
 import { NOTE_NO_SUBJECT, NO_ASK_NOT_YET, NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK, NO_HINTS_ON_YOUR_OWN, NO_HINTS_SHORT_CHECK, quickCheckNothingToAsk } from "./refusals";
 import { LESSON_KEPT, PLAN_STOPPED_WITH_MORE, continueLessonLine } from "../app/todayCause";
+import { MORE_AS_YOU_READ, NO_QUESTIONS_YET, QUESTIONS_FROM_READING, heldLine } from "../app/todayCause";
 import { emptyGoalSentence } from "../components/GoalBanner";
 import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
 import { citationWords, sectionWords } from "../screens/reader/readerShared";
 import { sessionTopicLine } from "../components/SessionFinishHud";
 import { nextPracticeLines, nextPracticeRowWhy } from "../app/nextPractice";
+import { WAIT_DETAILS_LABEL, buildWaitWords, writingWaitWords } from "../app/waitDetail";
 import { INTENT_COPY } from "../screens/reader/intentPalette";
-import type { CalibrationSessionProgressDto, GoalDto, NextPracticeDto, QuickCheckResultDto } from "../api/dto";
+import type { BuildDetailDto, CalibrationSessionProgressDto, GoalDto, NextPracticeDto, QuickCheckResultDto, WaitDeliveryDto, WritingDetailDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
   api: {
@@ -103,7 +105,7 @@ const ROUND2_SENTENCES = [
 const LINES: SourceStatusLineDto[] = [
   { text: "Getting this book ready", tone: "working", action: null, details: null },
   { text: "Getting Ch. 1–2 ready for questions in about 5 min", tone: "working", action: null, details: null },
-  { text: "Questions for Ch. 1–2 are written as you finish sections", tone: "quiet", action: null, details: null },
+  { text: "Questions for Ch. 1–2 are written from the parts you read", tone: "quiet", action: null, details: null },
   { text: "Questions need an AI connection", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: null },
   { text: "Building questions for Ch. 1–2 would cost about $3.10", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
@@ -140,11 +142,11 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Getting Ch. 1–2 ready for questions in under a minute", tone: "working", action: null, details: null },
   { text: "Getting this paper ready for questions in about 2 min", tone: "working", action: null, details: null },
   { text: "No questions for this book yet", tone: "quiet", action: { kind: "retry", label: "Build them as you read" }, details: null },
-  { text: "Questions for Ch. 1–2 are written as you finish sections once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
+  { text: "Questions for Ch. 1–2 are written from the parts you read once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" },
   // Finishing pass (#6): a PDF is a PDF until its text says book or paper.
   { text: "Getting this PDF ready", tone: "working", action: null, details: null },
-  { text: "Questions for this PDF are written as you finish sections", tone: "quiet", action: null, details: null },
+  { text: "Questions for this PDF are written from the parts you read", tone: "quiet", action: null, details: null },
   // UX-43: a build that found no topic to practise (docs/reviews/ux43-empty-build.md).
   {
     text: "LearnLoop found no topics to practise in this article", tone: "problem", action: { kind: "retry", label: "Try again" },
@@ -206,6 +208,39 @@ const STAGE3_CAUSES: TodayCause[] = [
   { kind: "read_further", title: "Probability", card: BOOK },
   { kind: "reading_saved", title: "Probability", card: BOOK }
 ];
+// The first evening, step 6: an honest wait's lines and details, in every state a build or the writing can show.
+const WAIT_AS_OF = "2026-11-21T18:10:00Z";
+const waitDelivery = (overrides: Partial<WaitDeliveryDto> = {}): WaitDeliveryDto =>
+  ({ requestSentAt: null, replyReceivedAt: null, outputPieces: 0, lastOutputAt: null, ...overrides });
+const WAIT_BUILDS: BuildDetailDto[] = [
+  { stage: "queued" },
+  { stage: "reading", inventory: { done: 1, total: 3, reused: 2 }, retry: true },
+  { stage: "planning", synthesis: { part: 1, parts: 2, pass: "evidence" }, delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z" }) },
+  { stage: "planning", synthesis: { part: 1, parts: 2, pass: "plan_reused" },
+    delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z", outputPieces: 4, lastOutputAt: "2026-11-21T18:09:50Z" }) },
+  { stage: "organizing", delivery: waitDelivery({ replyReceivedAt: "2026-11-21T18:09:58Z" }) },
+  { stage: "checking", draftedTopics: 8, measured: { minutes: 4, samples: 3 } },
+  { stage: "saving" }
+].map((detail) => ({ asOf: WAIT_AS_OF, startedAt: "2026-11-21T18:07:00Z", retry: false, delivery: null, measured: null, ...detail }) as BuildDetailDto);
+const WAIT_WRITINGS: WritingDetailDto[] = [
+  { queued: true, topic: null },
+  { topic: { title: "Bayes' rule", index: 1, total: 4 }, delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z" }) },
+  { topic: { title: null, index: 2, total: 4 }, retry: true, measured: { minutes: 2, samples: 5 },
+    delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z", outputPieces: 9, lastOutputAt: "2026-11-21T18:09:59Z" }) }
+].map((detail) => ({ asOf: WAIT_AS_OF, startedAt: "2026-11-21T18:05:00Z", queued: false, retry: false,
+  topicStartedAt: "2026-11-21T18:08:30Z", delivery: null, measured: null, ...detail }) as WritingDetailDto);
+const WAIT_SENTENCES = [...new Set([
+  WAIT_DETAILS_LABEL,
+  ...WAIT_BUILDS.flatMap((detail) => [true, false].flatMap((grew) => (["ago", "at"] as const).flatMap((clock) => {
+    const words = buildWaitWords(detail, { clock, grew });
+    return [...words.lines, ...words.details];
+  }))),
+  ...WAIT_WRITINGS.flatMap((detail) => [true, false].flatMap((grew) => (["ago", "at"] as const).flatMap((clock) => {
+    const words = writingWaitWords(detail, { clock, grew });
+    return [...words.lines, ...words.details];
+  })))
+])];
+
 const STAGE3_SENTENCES = [
   ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "", causeSecondActionLabel(cause) ?? "",
     causeWait(cause)?.line ?? "", causeWait(cause)?.after ?? "", causeWait(cause)?.later ?? "", causeTopicsFailed(cause) ?? ""]),
@@ -219,7 +254,7 @@ const STAGE3_SENTENCES = [
   NO_ASK_TEACH_BACK,
   NO_ASK_NOT_YET,
   NOTE_NO_SUBJECT,
-  // UX-43: what "Get the whole article ready for questions at once" says on a book whose build found no topic (add_source.py).
+  // UX-43: what "Get the whole article ready for questions" says on a book whose build found no topic (add_source.py).
   "LearnLoop found no topics to practise in this article, so there are no questions to write from it yet. Try again on its card to look once more."
 ].filter(Boolean);
 
@@ -315,6 +350,39 @@ const STEP7_SENTENCES = [
   "comes back Wednesday", "comes back on 9 November"
 ];
 
+// The first evening, step 8: where questions come from, where to read to, held questions, no contradictory "nothing".
+const STEP8_CARD = (questions: Partial<NonNullable<SourceStatusLineDto["questions"]>>) => card({
+  text: "Questions for Ch. 1–2 are written from the parts you read · 2 written so far", tone: "quiet", action: null, details: null,
+  questions: { count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...questions }
+});
+const STEP8_CAUSES: TodayCause[] = [
+  { kind: "held", title: "Probability", card: STEP8_CARD({}), count: 2 },
+  { kind: "held", title: "Probability", card: STEP8_CARD({}), count: 1 },
+  ...[{ heading: "Variance and its additivity", words: null, sectionEnd: false },
+      { heading: null, words: "Suppose we have a dataset of…", sectionEnd: false },
+      { heading: null, words: null, sectionEnd: true }].map((place) => ({
+    kind: "read_further" as const, title: "Probability", card: STEP8_CARD({}), place: { part: "Conditional probability", ...place }
+  })),
+  { kind: "read_further", title: "Probability", card: STEP8_CARD({}), place: { part: null, heading: null, words: null, sectionEnd: true } },
+  { kind: "finish_section", card: STEP8_CARD({}) },
+  { kind: "none_up", title: "Probability", card: STEP8_CARD({}) },
+  { kind: "on_the_way", title: "Probability", card: null, progress: { done: 1, total: 2 }, minutes: null }
+];
+const STEP8_SENTENCES = [
+  QUESTIONS_FROM_READING, MORE_AS_YOU_READ, NO_QUESTIONS_YET,
+  ...STEP8_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? ""]).filter(Boolean),
+  heldLine([STEP8_CARD({ count: 1, itemIds: ["pi_1"], sections: ["x"], awaitingOk: 2, toLookAt: 2 })]) ?? "",
+  heldLine([STEP8_CARD({ awaitingOk: 1, toLookAt: 1 })]) ?? "",
+  "4 days in a row · best 9", "1 day in a row",
+  "Questions for Ch. 1–2 are written from the parts you read · 2 written so far",
+  "Questions for Ch. 1–2 are written from the parts you read once an AI is connected",
+  "All of this article is ready for questions. Questions are written from the parts you read.",
+  "Get the whole article ready for questions",
+  // An error hunt's work, shown before the learner answers (the sidecar's presentation label).
+  "The work to check",
+  ...nextPracticeLines({ ...STEP7_NEXT, reviews: [], checks: [], nextReviewDate: null, writing: { topicCount: 0, learningObjectIds: [] }, waiting: { sectionCount: 2 } })
+];
+
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).
 const UX11_SENTENCES = [
   "Read “Symmetric matrices and variance” again with its equations?",
@@ -397,6 +465,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
     expectPlain(sentence);
   });
 
+  it.each(WAIT_SENTENCES)("the honest wait's line: %s", (sentence) => {
+    expectPlain(sentence);
+    expect(sentence).not.toMatch(/%|percent|remaining|stall|estimat/i);
+  });
+
   it.each(ROUND_2A_SENTENCES)("the broken controls 2 sentence: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
@@ -418,6 +491,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(STEP7_SENTENCES)("what comes next, dated: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(STEP8_SENTENCES)("where questions come from, where to read to, held questions: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
   });

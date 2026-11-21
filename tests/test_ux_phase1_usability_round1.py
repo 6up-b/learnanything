@@ -315,7 +315,7 @@ def test_u8_a_built_book_says_its_questions_come_as_you_read(tmp_path):
 
     line = source_status_line(ctx.repository, load_vault(root), source_id)
 
-    assert line["text"] == "Questions for Ch. 1–2 are written as you finish sections"
+    assert line["text"] == "Questions for Ch. 1–2 are written from the parts you read"
     assert line["action"] is None
 
 

@@ -199,8 +199,9 @@ def main() -> int:
     # Broken controls, second round (Reader): components/scrollWithin.ts (a Reader scroll moves its own pane, never the shell).
     # The one OK to use AI: app/aiOk.ts (requests waiting for the sheet's answer; entry-reachable).
     # What comes next, dated: app/nextPractice.ts (what comes next, dated; entry-reachable, shared with the phone).
-    if len(ts_sources) != 335:
-        errors.append(f"source inventory drift: expected 335 TypeScript/TSX files, found {len(ts_sources)}")
+    # An honest wait: app/waitDetail.ts (a wait's lines from recorded facts; entry-reachable, shared with the phone).
+    if len(ts_sources) != 336:
+        errors.append(f"source inventory drift: expected 336 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -299,8 +300,8 @@ def main() -> int:
         # Owner captures (Nov 8): screens/workbench/BookPassage.tsx. IH1, IH3: LessonOfferPage.tsx, SomethingElse.tsx.
         # IH6: QuestionInProgress.tsx. RE0: attemptClock.ts, useAttemptClock.ts. C5: the six Golden Path files left.
         # Waiting you can see: components/Waiting.tsx, copy/waiting.ts. Reader scrolls: components/scrollWithin.ts.
-        # The one OK to use AI: app/aiOk.ts. What comes next, dated: app/nextPractice.ts.
-        "entry-reachable build graph": 324,
+        # The one OK to use AI: app/aiOk.ts. What comes next, dated: app/nextPractice.ts. An honest wait: app/waitDetail.ts.
+        "entry-reachable build graph": 325,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -314,7 +315,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 341}:
+    if dict(status_counts) != {"ACTIVE": 342}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

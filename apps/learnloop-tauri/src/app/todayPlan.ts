@@ -285,10 +285,10 @@ export function planWasEmpty(data: DailyPlanDto): boolean {
   return (data.day?.plannedItems ?? 0) === 0 && (data.day?.readingBlocks ?? 0) === 0;
 }
 
-/** The footer's streak: "4 days · best 9". Never red, never a loss. */
+/** The footer's streak: "4 days in a row · best 9". Never red, never a loss. */
 export function streakLine(streak: StreakSummary | null | undefined): string | null {
   if (!streak || streak.current <= 0) return null;
-  const days = `${streak.current} day${streak.current === 1 ? "" : "s"}`;
+  const days = `${streak.current} day${streak.current === 1 ? "" : "s"} in a row`;
   return streak.longest > streak.current ? `${days} · best ${streak.longest}` : days;
 }
 

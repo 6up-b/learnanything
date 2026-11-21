@@ -7,6 +7,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { ReaderGuideSectionDto } from "../../api/dto";
 import { findJargon } from "../../copy/denyList";
 import { GuideRail, SECTION_DONE, type GuideRailProps } from "./GuideRail";
+import { QUESTIONS_FROM_READING } from "../../app/todayCause";
 
 const { api } = vi.hoisted(() => ({ api: { readerAuthoredQuestionAction: vi.fn(async () => ({})) } }));
 vi.mock("../../api/client", () => ({ api }));
@@ -138,4 +139,13 @@ it("without the book's title it names the book plainly", async () => {
   expect((await screen.findByTestId("section-done")).textContent).toContain(
     "Your questions from this section will be written as soon as the book is ready."
   );
+});
+
+it("the guide says where questions come from in the one explanation Today and the Library use (not offline)", () => {
+  render(<GuideRail {...props({ sectionSeen: { u2: 1 } })} />);
+  expect(screen.getByTestId("guide-questions-from").textContent).toBe(QUESTIONS_FROM_READING);
+  expect(findJargon(QUESTIONS_FROM_READING)).toEqual([]);
+  cleanup();
+  render(<GuideRail {...props({ offline: true })} />);
+  expect(screen.queryByTestId("guide-questions-from")).toBeNull();
 });

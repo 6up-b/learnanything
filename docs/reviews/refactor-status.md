@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of the first evening's step 7 (what comes next, in dated words) and the contract check's step 6 (the teacher turn) (Nov 21), at `mvp-0.62`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of the first evening's steps 6 (an honest wait) and 8 (wording) (Nov 21), at `mvp-0.62`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -363,10 +363,10 @@ A first set of questions from the part read; a section's end finishes it; an hon
 | Step 2 | Which passages were seen (migration 256, two append-only tables) and the section's end as an observation; nothing reads them yet | landed | this commit | [first-evening-step-2.md](first-evening-step-2.md), [ux62-seen-viewport.md](ux62-seen-viewport.md) | Fixed after a live walk (ledger UX-62): the desktop recorded only the passage under its reading marker; it now records every passage shown during the learner's own movement. The walk is to be rerun |
 | Step 3 | Question work owned per topic (migration 257, one claim per topic, the `topic_managed` stamp, topic-scoped checkpoints); old section jobs indexed and resumed unchanged; still triggered only by a section's finish | landed | this commit | [first-evening-step-3.md](first-evening-step-3.md) | — |
 | Step 4 | A topic gets its questions once every passage it cites has been seen; Today says what is and is not ready | landed | this commit | [first-evening-step-4.md](first-evening-step-4.md) | A live-route walk is owed (the first step a walk can see); ledger UX-60 and UX-61 (a note's excerpt and the request's wording on a part-read request) |
-| Step 5 | A section's end finishes it; the quick-check controls split (a successor tag); the phone's count observer (ledger UX-59) | not started | — | — | A successor tag after `mvp-0.62` |
-| Step 6 | Typed build stages and a several-line wait | not started | — | — | — |
+| Step 5 | A section's end finishes it; the quick-check controls split (a successor tag); the phone's count observer (ledger UX-59) | running | — | — | A successor tag after `mvp-0.62` |
+| Step 6 | Typed build stages and a several-line wait | landed | this commit | [first-evening-step-6.md](first-evening-step-6.md) | A live-route walk is owed; an append build (a book added to a subject that already has a map) names no part |
 | Step 7 | A dated next-practice line at the session's end and on Today | landed | this commit | [first-evening-step-7.md](first-evening-step-7.md) | A live-route walk is owed: the days named match the days the questions are offered |
-| Step 8 | Wording and the held-question line | not started | — | — | — |
+| Step 8 | Wording and the held-question line | landed | this commit | [first-evening-step-8.md](first-evening-step-8.md) | A live-route walk is owed. Open: ledger UX-67 (the answer box and the confidence control) and UX-68 (the what-comes-next summary's held count can go stale); the held line links nowhere until an answer-hidden review screen exists |
 | Step 9 | Web-page paragraphs and figures (UX-34, UX-35) | not started | — | — | — |
 | Step 10 | A second source is readable while the first is still being built (UX-54) | not started | — | — | — |
 | Step 11 | Keep an Ask answer's problems as practice | waiting on | — | — | Its own persisted-meaning review |

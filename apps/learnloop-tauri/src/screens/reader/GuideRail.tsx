@@ -17,7 +17,7 @@ import type { PassageAlign } from "../../components/PdfReaderPane";
 import { clip, sectionWords } from "./readerShared";
 import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 import { WaitMark } from "../../components/Waiting";
-import { readableTitle } from "../../app/todayCause";
+import { QUESTIONS_FROM_READING, readableTitle } from "../../app/todayCause";
 
 /** The phone's words for finishing a section (apps/learnloop-mobile/src/read/ReaderScreen.tsx), which the desktop had
  *  no way to say: a section's questions are written when it is finished, and before this only the quick check's
@@ -230,6 +230,9 @@ export function GuideRail({
                   ? "You’re near the section break. Keep going, or revisit a useful passage."
                   : "Keep reading at your own pace."}
           </Faint>
+          {/* Where questions come from, as Today and the Library say it: a reader who stops part-way knows the part
+              read counts, and that finishing the section is not the rule. */}
+          {offline ? null : <Faint style={{ fontSize: 10 }}><span data-testid="guide-questions-from">{QUESTIONS_FROM_READING}</span></Faint>}
           <SectionDone
             section={currentGuideSection}
             // The Contents' own "read" rule: every passage of the section seen, never a jump past it.

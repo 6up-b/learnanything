@@ -252,9 +252,9 @@ def test_the_as_you_read_line_carries_what_to_say_when_no_ai_is_connected(tmp_pa
 
     line = _card(ctx, source_id)["statusLine"]
 
-    assert line["text"] == "Questions for Ch. 1–2 are written as you finish sections"
+    assert line["text"] == "Questions for Ch. 1–2 are written from the parts you read"
     assert line["withoutAi"] == {
-        "text": "Questions for Ch. 1–2 are written as you finish sections once an AI is connected",
+        "text": "Questions for Ch. 1–2 are written from the parts you read once an AI is connected",
         "tone": "quiet",
         "action": {"kind": "connect_ai", "label": "Connect"},
         "details": None,
@@ -284,7 +284,7 @@ def test_a_built_books_line_reads_its_text_at_most_once(tmp_path, monkeypatch):
 
     line = source_status_line(repo, load_vault(root), source_id)
 
-    assert line["text"] == "Questions for Ch. 1–2 are written as you finish sections"
+    assert line["text"] == "Questions for Ch. 1–2 are written from the parts you read"
     assert len(loads) <= 1, loads
 
 

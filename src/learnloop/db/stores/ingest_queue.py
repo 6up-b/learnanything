@@ -1,7 +1,7 @@
 """Durable ingest queue persistence.
 
-This module is the sole SQL owner for ``ingest_batches``, ``ingest_jobs``, and
-``ingest_job_dependencies``.  :class:`learnloop.db.repositories.Repository`
+This module is the sole SQL owner for ``ingest_batches``, ``ingest_jobs``,
+``ingest_job_dependencies`` and ``ingest_job_progress``.  :class:`learnloop.db.repositories.Repository`
 inherits the mixin to preserve its public API while the queue remains a
 self-contained persistence family.
 
@@ -528,6 +528,86 @@ class IngestQueueStoreMixin:
             connection.commit()
             return cursor.rowcount == 1
 
+    def start_ingest_job_progress(
+        self, job_id: str, *, attempt_count: int, try_number: int, clock: Clock | None = None
+    ) -> None:
+        """Start the job's progress row afresh for this attempt and try (``ingest_job_progress``,
+        migration 258): what an earlier try recorded says nothing about this one."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO ingest_job_progress (job_id, attempt_count, try_number, try_started_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET
+                  attempt_count = excluded.attempt_count, try_number = excluded.try_number,
+                  try_started_at = excluded.try_started_at, step = NULL, drafted_topics = NULL, reused = NULL,
+                  output_call_id = NULL, output_events = 0, last_output_at = NULL, updated_at = excluded.updated_at
+                """,
+                (job_id, attempt_count, try_number, now, now),
+            )
+            connection.commit()
+
+    def record_ingest_job_progress(
+        self,
+        job_id: str,
+        *,
+        attempt_count: int,
+        step: str | None = None,
+        drafted_topics: int | None = None,
+        reused: int | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        """Record a step the job's handler reached (and, at the checks, how many topics the parsed candidate
+        drafted; once known, how many units it kept from before). A step clears an earlier step's topic count;
+        nothing is written for an older attempt than the row's."""
+
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO ingest_job_progress (job_id, attempt_count, try_started_at, step, drafted_topics, reused,
+                                                 updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET
+                  step = COALESCE(excluded.step, step),
+                  drafted_topics = CASE WHEN excluded.step IS NULL THEN drafted_topics ELSE excluded.drafted_topics END,
+                  reused = COALESCE(excluded.reused, reused),
+                  updated_at = excluded.updated_at
+                 WHERE ingest_job_progress.attempt_count <= excluded.attempt_count
+                """,
+                (job_id, attempt_count, now, step, drafted_topics, reused, now),
+            )
+            connection.commit()
+
+    def record_ingest_job_output(
+        self, job_id: str, *, attempt_count: int, call_id: str | None, events: int, at: str
+    ) -> None:
+        """Record that the model request ``call_id`` has streamed ``events`` output pieces, the last at ``at``."""
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO ingest_job_progress (job_id, attempt_count, try_started_at, output_call_id, output_events,
+                                                 last_output_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET
+                  output_call_id = excluded.output_call_id, output_events = excluded.output_events,
+                  last_output_at = excluded.last_output_at, updated_at = excluded.updated_at
+                 WHERE ingest_job_progress.attempt_count <= excluded.attempt_count
+                """,
+                (job_id, attempt_count, at, call_id, events, at, at),
+            )
+            connection.commit()
+
+    def ingest_job_progress(self, job_id: str) -> dict[str, Any] | None:
+        """The job's progress row (``start_ingest_job_progress``), or None before its first try started."""
+
+        with self.connection() as connection:
+            row = connection.execute("SELECT * FROM ingest_job_progress WHERE job_id = ?", (job_id,)).fetchone()
+        return dict(row) if row is not None else None
+
     def finish_owned_ingest_job(
         self, job_id: str, *, owner: JobOwner, status: str, **fields: Any
     ) -> bool:
@@ -696,6 +776,9 @@ class IngestQueueStoreMixin:
                     [*job_ids, *job_ids],
                 )
                 dependencies = cursor.rowcount
+                connection.execute(
+                    f"DELETE FROM ingest_job_progress WHERE job_id IN ({job_placeholders})", job_ids,
+                )
                 connection.execute(
                     f"DELETE FROM ingest_jobs WHERE id IN ({job_placeholders})",
                     job_ids,

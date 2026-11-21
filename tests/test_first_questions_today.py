@@ -206,7 +206,10 @@ def _section_ids(repo, item):
             (extraction_id,)).fetchall()]
 
 
-def _write_questions(root, repo, batch_id, *, applied: int, pending: int = 0):
+def _write_questions(root, repo, batch_id, *, applied: int, pending: int = 0, invalid: int = 0, blocked: int = 0):
+    """``applied`` questions in, ``pending`` held for the learner's OK; of the held, the last ``invalid`` refused by
+    validation and the ``blocked`` before them waiting on a prerequisite that was turned down."""
+
     vault = load_vault(root)
     lo_id = sorted(vault.learning_objects)[0]
     now = utc_now_iso(CLOCK)
@@ -228,9 +231,13 @@ def _write_questions(root, repo, batch_id, *, applied: int, pending: int = 0):
         accepted = index < applied
         if accepted:
             upsert_practice_item(root, payload, clock=CLOCK)
+        from_end = applied + pending - index
         items.append({"client_item_id": f"c{index}", "item_type": "practice_item", "operation": "create",
                       "payload": payload, "decision": "accepted" if accepted else "pending",
-                      "applied_change_batch_id": "chg_1" if accepted else None, "created_at": now})
+                      "applied_change_batch_id": "chg_1" if accepted else None, "created_at": now,
+                      **({"validation_status": "invalid"} if not accepted and from_end <= invalid else {}),
+                      **({"dependency_status": "blocked"}
+                         if not accepted and invalid < from_end <= invalid + blocked else {})})
     with repo.connection() as connection:
         # The build's own run stands in for the section's (a proposal names the run that wrote it).
         run_id = connection.execute("SELECT agent_run_id FROM proposed_patches LIMIT 1").fetchone()[0]
@@ -246,7 +253,8 @@ def test_a_built_book_with_no_section_finished_says_none_came_yet(tmp_path):
 
     line = _line(root, repo, item)
 
-    assert line["text"] == "Questions for Ch. 1–2 are written as you finish sections"
+    # Where questions come from, as every screen says it: the parts read, not finished sections.
+    assert line["text"] == "Questions for Ch. 1–2 are written from the parts you read"
     questions = line["questions"]
     assert questions == {"count": 0, "item_ids": [], "sections": [], "writing": [], "waiting": [], "failed": [],
                          "to_look_at": 0, "section_count": len(_section_ids(repo, item)), "none_needed": []}
@@ -269,6 +277,43 @@ def test_a_finished_sections_questions_are_named_while_written_and_once_written(
     assert questions["sections"] == [label]
     assert questions["writing"] == []
     assert questions["to_look_at"] == 1
+
+
+def test_the_card_line_says_how_many_were_written_so_far(tmp_path):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    (section_id, _label), *_ = [(unit, label) for unit, label in _section_ids(repo, item) if label]
+    _write_questions(root, repo, _finish_section(repo, item, section_id), applied=2, pending=1)
+
+    line = _line(root, repo, item)
+
+    assert line["text"] == "Questions for Ch. 1–2 are written from the parts you read · 2 written so far"
+    assert line["without_ai"]["text"] == "Questions for Ch. 1–2 are written from the parts you read once an AI is connected"
+
+
+def test_held_questions_that_can_be_given_an_ok_are_counted_apart(tmp_path):
+    """Of the questions held for a look, only those an OK could apply: valid (a warning is valid), and not blocked on
+    a prerequisite turned down. Every held one is still ``to_look_at``."""
+
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    (section_id, _label), *_ = [(unit, label) for unit, label in _section_ids(repo, item) if label]
+    _write_questions(root, repo, _finish_section(repo, item, section_id), applied=1, pending=5, invalid=1, blocked=1)
+
+    questions = _line(root, repo, item)["questions"]
+
+    assert questions["to_look_at"] == 5
+    assert questions["awaiting_ok"] == 3
+    assert questions["count"] == 1
+
+
+def test_nothing_held_says_no_count_of_held_questions(tmp_path):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    (section_id, _label), *_ = [(unit, label) for unit, label in _section_ids(repo, item) if label]
+    _write_questions(root, repo, _finish_section(repo, item, section_id), applied=2, pending=1, invalid=1)
+
+    questions = _line(root, repo, item)["questions"]
+
+    assert questions["to_look_at"] == 1
+    assert "awaiting_ok" not in questions
 
 
 def _read_part(repo, item, section_id, *span_ids):
@@ -328,6 +373,22 @@ def test_a_section_read_before_its_build_settles_waits_for_it(tmp_path):
     questions = reading_questions(repo, load_vault(root), item["source_id"])
     assert questions["before_build"] == [label]
     assert "owed" not in questions and "read_further" not in questions
+
+
+def test_the_line_while_the_book_is_got_ready_carries_what_was_read_of_it(tmp_path):
+    """The card's working line is the one Today reads while the build runs: it carries the part read, so Today says
+    the questions from what was read follow when the book is ready (it said "Questions come as you finish
+    sections" to a learner who had read half a section)."""
+
+    root, repo, _jobs_, item, batch_id = _book(tmp_path)
+    _as_running(repo, batch_id, synthesis_window=1)
+    section_id, label = next((unit, label) for unit, label in _section_ids(repo, item) if unit == "u2")
+
+    _read_part(repo, item, section_id, "s2", "s3")
+
+    line = _line(root, repo, item)
+    assert line["tone"] == "working"
+    assert line["questions"]["before_build"] == [label]
 
 
 def test_a_section_whose_writing_stopped_names_the_batch_to_resume(tmp_path):

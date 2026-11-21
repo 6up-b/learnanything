@@ -7,7 +7,7 @@
 // the captures line; the first-run, done, loading and error states.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AiConnectionDto, DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, SourceLibraryCard, SourceStatusLineDto, WorkbenchOpenProblemDto } from "../../api/dto";
+import type { AiConnectionDto, BuildDetailDto, DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, SourceLibraryCard, SourceStatusLineDto, WaitDeliveryDto, WorkbenchOpenProblemDto, WritingDetailDto } from "../../api/dto";
 import { clear, invalidateAll } from "../../api/queryCache";
 import { setAlgoConfig, setRenderedShell } from "../../app/algoConfig";
 import { findJargon } from "../../copy/denyList";
@@ -41,7 +41,7 @@ vi.mock("../../components/GoalBanner", async () => {
 vi.mock("../../components/GoalWizard", () => ({ GoalWizard: () => <div data-testid="goal-wizard" /> }));
 
 import { TodayPlace, type TodayPlaceProps } from "./TodayPlace";
-import { KEEP_GOING_NOTHING_LEAD } from "../../app/todayCause";
+import { KEEP_GOING_NOTHING_LEAD, MORE_AS_YOU_READ, NO_QUESTIONS_YET, QUESTIONS_FROM_READING, TOPICS_NOT_WRITTEN } from "../../app/todayCause";
 import { notifyQueueChanged } from "../../queueEvents";
 import { dayName } from "../../app/nextPractice";
 
@@ -707,7 +707,7 @@ describe("the streak in the footer", () => {
     apis(dto(body()));
     show();
     await screen.findByTestId("today-sentence");
-    expect(screen.getByTestId("today-streak").textContent).toBe("4 days · best 9");
+    expect(screen.getByTestId("today-streak").textContent).toBe("4 days in a row · best 9");
     expect(screen.getByTestId("today-footer").textContent).not.toMatch(/keep your streak|lose/i);
   });
 
@@ -1212,7 +1212,7 @@ describe("UX fix stage 3, P1: an empty or finished Today names its cause and car
     const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
     const cause = await screen.findByTestId("today-cause");
     expect(await within(cause).findByText("Getting “Symmetric Matrices and Variance” ready for questions")).toBeTruthy();
-    expect(cause.textContent).toContain("Questions come as you finish sections. Keep reading meanwhile.");
+    expect(cause.textContent).toContain(`${QUESTIONS_FROM_READING} Keep reading meanwhile.`);
     expect(within(cause).queryByRole("button", { name: /what's sent/ })).toBeNull();
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(card);
@@ -1242,7 +1242,7 @@ describe("UX fix stage 3, P1: an empty or finished Today names its cause and car
     emptyToday([card]);
     const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
     const cause = await screen.findByTestId("today-cause");
-    expect(cause.textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end.");
+    expect(cause.textContent).toContain(`Read “Symmetric Matrices and Variance” for your first questions. ${QUESTIONS_FROM_READING}`);
     expect(cause.textContent).not.toContain("Everything you've read");
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(card);
@@ -1321,7 +1321,7 @@ describe("UX fix stage 3: Practise for this goal with nothing ready says why, an
     const card = await screen.findByTestId("goal-card");
     fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
     const line = await screen.findByTestId("goal-nothing-ready");
-    expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end.");
+    expect(line.textContent).toContain(`Nothing for this goal is ready to practise yet: read “Symmetric Matrices and Variance” for your first questions. ${QUESTIONS_FROM_READING}`);
     fireEvent.click(within(line).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(book);
   });
@@ -1344,7 +1344,7 @@ describe("UX fix stage 3 (item 6): Keep going that comes back with nothing open 
     await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
     expect((await screen.findByTestId("today-keep-going-nothing")).textContent).toBe("Nothing more to plan today.");
     const cause = await screen.findByTestId("today-cause");
-    expect(cause.textContent).toContain("Your first questions come when you finish a section of");
+    expect(cause.textContent).toContain(`for your first questions. ${QUESTIONS_FROM_READING}`);
     expect(screen.queryByTestId("today-finished")).toBeNull();
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(book);
@@ -1706,7 +1706,7 @@ describe("First questions arrive (P11, F20): Today offers a book's first questio
     expect(cause.getAttribute("role")).toBeNull();
     expect(within(cause).getByTestId("today-cause-wait").getAttribute("role")).toBe("status");
     expect(await within(cause).findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done · usually about 4 min")).toBeTruthy();
-    expect(cause.textContent).toContain("Questions come as you finish sections. Keep reading meanwhile.");
+    expect(cause.textContent).toContain(`${QUESTIONS_FROM_READING} Keep reading meanwhile.`);
   });
 
   it("a build with no measured time says none, and under a minute only when measured so", async () => {
@@ -1739,7 +1739,7 @@ describe("First questions arrive (P11, F20): Today offers a book's first questio
     emptyToday([card]);
     const props = show(causeProps({ aiConnection: ready() }));
     const cause = await screen.findByTestId("today-cause");
-    expect(cause.textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end.");
+    expect(cause.textContent).toContain(`Read “Symmetric Matrices and Variance” for your first questions. ${QUESTIONS_FROM_READING}`);
     expect(cause.textContent).not.toMatch(/Everything you've read|on their way/);
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(card);
@@ -1762,7 +1762,7 @@ describe("First questions arrive (P11, F20): Today offers a book's first questio
     });
     const props = show(causeProps({ aiConnection: ready() }));
     const cause = await screen.findByTestId("today-cause");
-    expect(cause.textContent).toContain("2 questions from “Conditional probability”, the part you read. More come as you finish sections.");
+    expect(cause.textContent).toContain(`2 questions from “Conditional probability”, the part you read. ${MORE_AS_YOU_READ}`);
     expect(cause.textContent).not.toContain("Today's list still has questions");
     fireEvent.click(within(cause).getByRole("button", { name: "Begin ↵" }));
     // The first of them in today's list's order, as a pick from the list (a session for the plan's minutes first).
@@ -1786,13 +1786,13 @@ describe("First questions arrive (P11, F20): Today offers a book's first questio
       getTodayQueue: vi.fn(async () => queue([scheduled(1)]))
     });
     show(causeProps({ aiConnection: ready() }));
-    expect((await screen.findByTestId("today-cause")).textContent).toContain("1 question from what you read in “Symmetric Matrices and Variance”. More come as you finish sections.");
+    expect((await screen.findByTestId("today-cause")).textContent).toContain(`1 question from what you read in “Symmetric Matrices and Variance”. ${MORE_AS_YOU_READ}`);
   });
 
   it("questions from reading, none on today's list: not up today, and more come as sections are finished", async () => {
     emptyToday([libraryCard(built(facts({ count: 4, itemIds: ["pi_x"], sections: ["Conditional probability"] })))]);
     show(causeProps({ aiConnection: ready() }));
-    expect((await screen.findByTestId("today-cause")).textContent).toContain("Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections.");
+    expect((await screen.findByTestId("today-cause")).textContent).toContain(`Nothing from “Symmetric Matrices and Variance” is up today. ${MORE_AS_YOU_READ}`);
   });
 
   it("a finished section whose questions stopped: Try again asks for them again", async () => {
@@ -1876,7 +1876,7 @@ describe("A section finished before its book is ready: Today says its questions 
     expect(cause.textContent).toContain(
       "Your questions from “Conditional probability” will be written as soon as “Symmetric Matrices and Variance” is ready."
     );
-    expect(cause.textContent).not.toContain("Your first questions come when you finish a section");
+    expect(cause.textContent).not.toMatch(/for your first questions|finish a section/);
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(card);
   });
@@ -1959,7 +1959,7 @@ describe("Question writing you can follow: how far it is, the questions already 
     const props = show(causeProps({ aiConnection: ready() }));
     const cause = await screen.findByTestId("today-cause");
     await waitFor(() => expect(cause.textContent).toContain("2 questions from “Conditional probability” are ready. More are being written (2 of 8 topics done)."));
-    expect(cause.textContent).not.toMatch(/Writing questions from|More come as you finish sections/);
+    expect(cause.textContent).not.toMatch(/Writing questions from|More come as you (finish sections|read on)/);
     expect(within(cause).queryByRole("button", { name: "Continue reading" })).toBeNull();
     // The next topic's questions apply: the revision the shell reads moves, Today reads the books and the list again.
     lines[0] = built(facts({ count: 6, itemIds: ["pi_2", "pi_1", "pi_9", "pi_3"], sections: ["Conditional probability"], writing: ["Conditional probability"], progress: { done: 3, total: 8 } }));
@@ -1993,7 +1993,7 @@ describe("Question writing you can follow: how far it is, the questions already 
     });
     const props = show(causeProps({ aiConnection: ready() }));
     const cause = await screen.findByTestId("today-cause");
-    await waitFor(() => expect(cause.textContent).toContain("2 questions from “Conditional probability”, the part you read. More come as you finish sections."));
+    await waitFor(() => expect(cause.textContent).toContain(`2 questions from “Conditional probability”, the part you read. ${MORE_AS_YOU_READ}`));
     const failed = within(cause).getByTestId("today-cause-failed");
     expect(failed.textContent).toContain(FAILED_TOPIC);
     expect(cause.textContent).not.toContain("Couldn't write the questions");
@@ -2042,7 +2042,7 @@ describe("Question writing you can follow: how far it is, the questions already 
     });
     show(causeProps({ aiConnection: ready() }));
     const cause = await screen.findByTestId("today-cause");
-    await waitFor(() => expect(cause.textContent).toContain("2 questions from what you read in “Symmetric Matrices and Variance”. More come as you finish sections."));
+    await waitFor(() => expect(cause.textContent).toContain(`2 questions from what you read in “Symmetric Matrices and Variance”. ${MORE_AS_YOU_READ}`));
     const failed = within(cause).getByTestId("today-cause-failed");
     expect(failed.textContent).toContain(FAILED_TOPIC);
     fireEvent.click(within(failed).getByRole("button", { name: "Try again" }));
@@ -2147,7 +2147,7 @@ describe("A book whose build found no topics: Today says so, with Try again, and
     text: "LearnLoop found no topics to practise in this article", tone: "problem", action: { kind: "retry", label: "Try again" },
     details: "LearnLoop read it but came back without a topic to write questions from.", noTopics: true
   };
-  const SENTENCE = "LearnLoop found no topics to practise in “Symmetric Matrices and Variance”. Try again, or keep reading: the sections you finish get their questions once topics are found.";
+  const SENTENCE = "LearnLoop found no topics to practise in “Symmetric Matrices and Variance”. Try again, or keep reading: what you read gets its questions once topics are found.";
 
   it("the book's build found no topics: Today says so, Try again plans it again on the card, Continue reading opens the book", async () => {
     const card = libraryCard({ ...NO_TOPICS, questions: facts({ noneNeeded: ["Document"] }) });
@@ -2177,8 +2177,8 @@ describe("A book whose build found no topics: Today says so, with Try again, and
     emptyToday([card]);
     const props = show(causeProps({ aiConnection: ready() }));
     const cause = await screen.findByTestId("today-cause");
-    expect(cause.textContent).toContain("Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections.");
-    expect(cause.textContent).not.toContain("Your first questions come when you finish a section");
+    expect(cause.textContent).toContain(`Nothing from “Symmetric Matrices and Variance” is up today. ${MORE_AS_YOU_READ}`);
+    expect(cause.textContent).not.toMatch(/for your first questions|finish a section/);
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(card);
     cleanup();
@@ -2186,7 +2186,7 @@ describe("A book whose build found no topics: Today says so, with Try again, and
     // Still said for a book with no section finished.
     emptyToday([libraryCard({ ...LINE.built, questions: facts({ sectionCount: 4 }) })]);
     show(causeProps({ aiConnection: ready() }));
-    expect((await screen.findByTestId("today-cause")).textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”");
+    expect((await screen.findByTestId("today-cause")).textContent).toContain("Read “Symmetric Matrices and Variance” for your first questions.");
   });
 
   it("the new line is in plain words", async () => {
@@ -2254,7 +2254,7 @@ describe("After the first answers: Today counts and Begin opens only what can be
     show(causeProps({ aiConnection: ready(), session: SESSION }));
     const cause = await screen.findByTestId("today-cause");
     await waitFor(() => expect(cause.textContent).toContain(
-      "Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections."
+      `Nothing from “Symmetric Matrices and Variance” is up today. ${MORE_AS_YOU_READ}`
     ));
     expect(cause.textContent).not.toMatch(/questions from what you read|are ready|still has questions/);
     expect(within(cause).queryByRole("button", { name: "Begin ↵" })).toBeNull();
@@ -2378,10 +2378,11 @@ describe("Broken controls, third round: Today offering questions says no 'nothin
     expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
   });
 
-  it("an empty, finished plan with nothing offered: the heading stays, and Keep going is the one control with ↵ (Enter is Keep going)", async () => {
+  it("an empty, finished plan with nothing offered: the heading says none are ready yet, and Keep going is the one control with ↵ (Enter is Keep going)", async () => {
     const f = emptyToday([libraryCard(built(facts({ writing: ["Document"], progress: { done: 0, total: 8 } })))]);
     show(causeProps({ aiConnection: ready(), session: SESSION }));
-    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Nothing planned for today.");
+    // Questions are being written: "Nothing planned for today." above that read as nothing coming (F45).
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe(NO_QUESTIONS_YET);
     await screen.findByTestId("today-cause");
     expect(enterMarked().map((button) => button.textContent)).toEqual(["Keep going ↵"]);
     await press({ key: "Enter" });
@@ -2655,5 +2656,262 @@ describe("The first evening, step 7: Today says what comes next, dated", () => {
     await screen.findByTestId("today-next");
     const reads = f.getDailyPlan.mock.calls.length;
     await waitFor(() => expect(f.getDailyPlan.mock.calls.length).toBeGreaterThan(reads), { timeout: 3000 });
+  });
+});
+
+describe("The first evening, step 8: one explanation, where to read to, held questions, no contradictory 'nothing'", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const facts = (overrides: Partial<NonNullable<SourceStatusLineDto["questions"]>> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...overrides
+  });
+  const built = (questions = facts()): SourceStatusLineDto => ({ ...LINE.built, questions });
+  const PART = "Conditional probability";
+  const BOOK = "Symmetric Matrices and Variance";
+  const enterMarked = () => screen.getAllByRole("button").filter((button) => (button.textContent ?? "").includes("↵"));
+  const finished = () => body({ status: "complete", stopReason: "A good place to stop for today.", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+  const noRule = (text: string) => expect(text).not.toMatch(/finish(ed)? (a )?sections?|as you finish|when you finish/i);
+
+  it("ready + writing + held + a topic not written: the offer, the held line apart, one Enter (Begin), no 'nothing'", async () => {
+    emptyToday([libraryCard(built(facts({
+      count: 2, itemIds: ["pi_1", "pi_2"], sections: [PART], writing: [PART], partRead: [PART],
+      failed: [{ label: `${PART}: Topic X`, resumeId: "batch_1" }], toLookAt: 3, awaitingOk: 2
+    })))], { getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2)])) });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain(`2 questions from what you’ve read of “${PART}” are ready. More are being written.`));
+    expect(cause.textContent).toContain(TOPICS_NOT_WRITTEN);
+    const held = await screen.findByTestId("today-held");
+    expect(held.textContent).toBe("2 more questions need your OK.");
+    expect(held.getAttribute("role")).toBe("status");
+    // It opens nothing (no screen yet shows a held question without its answer) and names no question.
+    expect(within(held).queryAllByRole("button")).toEqual([]);
+    expect(within(held).queryAllByRole("link")).toEqual([]);
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
+    expect(surface()).not.toMatch(/Nothing planned|Nothing more|Nothing else/);
+    noRule(surface());
+    expect(findJargon(held.textContent ?? "")).toEqual([]);
+  });
+
+  it("every question held: one line saying so, with Continue reading and no Library link; no second held line", async () => {
+    const card = libraryCard(built(facts({ toLookAt: 3, awaitingOk: 3, sections: [] })));
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain(`3 questions from what you’ve read in “${BOOK}” need your OK.`);
+    expect(within(cause).queryByRole("button", { name: "Open Library" })).toBeNull();
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+    expect(screen.queryByTestId("today-held")).toBeNull();
+  });
+
+  it("every question answered and waiting to come back, with more held: the day is finished, and the held line says so", async () => {
+    const later = new Date(Date.now() + 9 * 86_400_000).toISOString();
+    apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(built(facts({ count: 2, itemIds: ["pi_1", "pi_2"], sections: [PART], toLookAt: 1, awaitingOk: 1 })))], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1, { dueStatus: "later", dueAt: later }), scheduled(2, { dueStatus: "later", dueAt: later })]))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    expect((await screen.findByTestId("today-finished")).textContent).toBe("Nothing else is needed today.");
+    expect((await screen.findByTestId("today-held")).textContent).toBe("1 more question needs your OK.");
+  });
+
+  it("a book's question kept for a later check is no 'more for today' (moreLeft counts what can be asked now)", async () => {
+    apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(built(facts({ count: 1, itemIds: ["pi_1"], sections: [PART], laterItemIds: ["pi_1"] })))], pending: [] })),
+      // Never answered (no due time): the list's rows alone would count it as more for today.
+      getTodayQueue: vi.fn(async () => queue([scheduled(1, { dueStatus: "later", dueAt: null })]))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    expect((await screen.findByTestId("today-finished")).textContent).toBe("Nothing else is needed today.");
+    expect(screen.queryByTestId("today-stopped-more")).toBeNull();
+  });
+
+  it("no topics found: Try again, and what you read gets its questions once topics are found", async () => {
+    emptyToday([libraryCard({ text: "LearnLoop found no topics to practise in this article", tone: "problem", action: { kind: "retry", label: "Try again" }, details: null, noTopics: true, questions: facts() })]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Try again, or keep reading: what you read gets its questions once topics are found.");
+    noRule(cause.textContent ?? "");
+  });
+
+  it("read some and no topic qualifies yet: where to read to, from the nearest topic's passage", async () => {
+    emptyToday([libraryCard(built(facts({ readFurther: [PART], readTo: { section: PART, heading: null, words: "Suppose we have a dataset of…", sectionEnd: false } })))]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain(`Read as far as the passage that begins “Suppose we have a dataset of…” in “${BOOK}” for your first questions.`);
+    expect(cause.textContent).not.toMatch(/a little further/);
+  });
+
+  it("an open plan with questions in it: neither the cause nor the held line (the plan is what comes next)", async () => {
+    apis(dto(body()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(built(facts({ toLookAt: 2, awaitingOk: 2 })))], pending: [] }))
+    });
+    show(causeProps({ aiConnection: ready() }));
+    await screen.findByTestId("today-sentence");
+    await flush();
+    expect(screen.queryByTestId("today-cause")).toBeNull();
+    expect(screen.queryByTestId("today-held")).toBeNull();
+  });
+
+  it("while the book is got ready, after reading part of a section: no questions ready yet, and they follow from what was read", async () => {
+    emptyToday([libraryCard({ ...LINE.writing, progress: { done: 1, total: 2 }, questions: facts({ beforeBuild: [PART] }) })]);
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe(NO_QUESTIONS_YET);
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain(`Questions from what you’ve read will follow when “${BOOK}” is ready. Keep reading meanwhile.`);
+    noRule(surface());
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Keep going ↵"]);
+  });
+
+  it("while the book is got ready with nothing read: the one explanation", async () => {
+    emptyToday([libraryCard({ ...LINE.writing, progress: { done: 1, total: 2 }, questions: facts() })]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain(`${QUESTIONS_FROM_READING} Keep reading meanwhile.`);
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe(NO_QUESTIONS_YET);
+  });
+
+  it("nothing from the book up today: more come as you read on, never 'as you finish sections'", async () => {
+    emptyToday([libraryCard(built(facts({ count: 1, itemIds: ["pi_1"], sections: [PART], laterItemIds: ["pi_1"] })))]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain(`Nothing from “${BOOK}” is up today. ${MORE_AS_YOU_READ}`);
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Nothing planned for today.");
+  });
+
+  it("the full list while questions are being written says none are ready yet, not 'nothing else'", async () => {
+    emptyToday([libraryCard(built(facts({ writing: [PART], partRead: [PART] })))]);
+    show(causeProps({ aiConnection: ready() }));
+    await screen.findByTestId("today-cause");
+    await press({ key: "l" });
+    expect((await screen.findByTestId("today-list-empty")).textContent).toBe(NO_QUESTIONS_YET);
+  });
+
+  it("Keep going that adds nothing while questions are being written says none are ready yet", async () => {
+    const plan = finished();
+    apis(dto(plan), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(built(facts({ writing: [PART], partRead: [PART] })))], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([])),
+      planKeepGoing: vi.fn(async () => dto(plan))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    fireEvent.click(await screen.findByRole("button", { name: /Keep going/ }));
+    expect((await screen.findByTestId("today-keep-going-nothing")).textContent).toBe(NO_QUESTIONS_YET);
+  });
+});
+
+describe("An honest wait (the first evening, step 6): what is happening now, in a few lines, read with the existing reads", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const AS_OF = "2026-11-21T18:10:00Z";
+  const ago = (seconds: number, asOf = AS_OF) => new Date(Date.parse(asOf) - seconds * 1000).toISOString().replace(".000Z", "Z");
+  const delivery = (overrides: Partial<WaitDeliveryDto> = {}): WaitDeliveryDto =>
+    ({ requestSentAt: null, replyReceivedAt: null, outputPieces: 0, lastOutputAt: null, ...overrides });
+  const buildLine = (detail: Partial<BuildDetailDto> = {}): SourceStatusLineDto => ({
+    text: "Getting Ch. 1 ready for questions", tone: "working", action: null, details: null, progress: { done: 1, total: 2 },
+    buildDetail: { asOf: AS_OF, startedAt: ago(130), stage: "planning", retry: false, delivery: delivery({ requestSentAt: ago(40) }),
+      measured: null, synthesis: { part: 1, parts: 1, pass: "plan" }, ...detail }
+  });
+  const writingLine = (detail: Partial<WritingDetailDto> = {}): SourceStatusLineDto => ({
+    ...LINE.built,
+    questions: { count: 0, itemIds: [], sections: [], writing: ["Document"], waiting: [], failed: [], toLookAt: 0, sectionCount: 1,
+      progress: { done: 0, total: 4 }, partRead: ["Document"],
+      writingDetail: { asOf: AS_OF, startedAt: ago(200), queued: false, retry: false, topic: { title: "Spectral theorem", index: 1, total: 4 },
+        topicStartedAt: ago(75), delivery: delivery({ requestSentAt: ago(75) }), measured: null, ...detail } }
+  });
+
+  async function reread(expected: string) {
+    act(() => notifyQueueChanged());
+    await waitFor(() => expect(screen.getByTestId("today-cause-detail").textContent).toContain(expected), { timeout: 2000 });
+  }
+
+  it("a book being got ready: its step and part, how long, the request; details collapsed; no time where none was measured", async () => {
+    emptyToday([libraryCard(buildLine())]);
+    show(causeProps({ aiConnection: ready() }));
+    const detail = await screen.findByTestId("today-cause-detail");
+    // The existing line stays as it was; the new lines sit under it.
+    expect(await within(screen.getByTestId("today-cause")).findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done")).toBeTruthy();
+    expect(within(detail).getByText("Planning questions · part 1 of 1")).toBeTruthy();
+    expect(within(detail).getByText("Started 2 minutes ago · asked 40 seconds ago, no reply yet")).toBeTruthy();
+    const more = screen.getByTestId("today-cause-detail-more") as HTMLDetailsElement;
+    expect(more.open).toBe(false);
+    expect(more.textContent).toContain("No book has finished getting ready in this library yet, so no time is given.");
+    expect(screen.getByTestId("today-cause").textContent).not.toMatch(/%|still writing|stall|left/);
+    expect(findJargon(screen.getByTestId("today-cause").textContent ?? "")).toEqual([]);
+  });
+
+  it("the reply as reads come: when its last part came on a first read, still writing once it grew, then a long silence by its time", async () => {
+    const lines = [buildLine({ delivery: delivery({ requestSentAt: ago(40), outputPieces: 3, lastOutputAt: ago(5) }) })];
+    emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+    show(causeProps({ aiConnection: ready() }));
+    expect(await within(await screen.findByTestId("today-cause-detail")).findByText("Started 2 minutes ago · reply arriving, last part 5 seconds ago")).toBeTruthy();
+    const later = "2026-11-21T18:10:05Z";
+    lines[0] = buildLine({ asOf: later, delivery: delivery({ requestSentAt: ago(40), outputPieces: 9, lastOutputAt: ago(1, later) }) });
+    await reread("Started 2 minutes ago · still writing");
+    // Nothing new on the next read (a silence): no "still writing", the time of its last part instead.
+    const silent = "2026-11-21T18:12:05Z";
+    lines[0] = buildLine({ asOf: silent, delivery: delivery({ requestSentAt: ago(40), outputPieces: 9, lastOutputAt: ago(1, later) }) });
+    await reread("reply arriving, last part 2 minutes ago");
+    expect(screen.getByTestId("today-cause-detail").textContent).not.toContain("still writing");
+  });
+
+  it("a retry says it is one; a connection that does not stream never says still writing", async () => {
+    const quiet = delivery({ requestSentAt: ago(100) });
+    const lines = [buildLine({ retry: true, stage: "reading", synthesis: undefined, inventory: { done: 0, total: 1, reused: null }, delivery: quiet })];
+    emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+    show(causeProps({ aiConnection: ready() }));
+    const detail = await screen.findByTestId("today-cause-detail");
+    expect(within(detail).getByText("Trying again · Reading the text · 0 of 1 part read")).toBeTruthy();
+    lines[0] = buildLine({ retry: true, stage: "reading", synthesis: undefined, inventory: { done: 0, total: 1, reused: null }, asOf: "2026-11-21T18:11:00Z", delivery: quiet });
+    await reread("asked 2 minutes ago, no reply yet");
+    expect(screen.getByTestId("today-cause-detail").textContent).not.toContain("still writing");
+  });
+
+  it("when the wait ends the lines give way to the ready state as before", async () => {
+    const lines = [writingLine()];
+    const listed: ScheduledItemDto[] = [];
+    emptyToday([], {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue(listed))
+    });
+    show(causeProps({ aiConnection: ready() }));
+    await screen.findByTestId("today-cause-detail");
+    lines[0] = { ...LINE.built, questions: { count: 1, itemIds: ["pi_1"], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, partRead: ["Document"] } };
+    listed.push(scheduled(1));
+    act(() => notifyQueueChanged());
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("1 question from what you’ve read in “Symmetric Matrices and Variance” is ready."), { timeout: 2000 });
+    expect(screen.queryByTestId("today-cause-detail")).toBeNull();
+  });
+
+  it("question writing at 0 of 4: which topic, since when, and the first can take a few minutes; output advancing then says still writing", async () => {
+    const lines = [writingLine()];
+    emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Writing questions from what you’ve read in “Symmetric Matrices and Variance” · 0 of 4 topics done")).toBeTruthy();
+    const detail = screen.getByTestId("today-cause-detail");
+    expect(within(detail).getByText("Writing topic 1 of 4: “Spectral theorem”")).toBeTruthy();
+    expect(within(detail).getByText("Started 1 minute ago · asked 1 minute ago, no reply yet")).toBeTruthy();
+    expect(within(detail).getByText("The first questions can take a few minutes.")).toBeTruthy();
+    lines[0] = writingLine({ asOf: "2026-11-21T18:10:05Z", delivery: delivery({ requestSentAt: ago(75), outputPieces: 5, lastOutputAt: "2026-11-21T18:10:04Z" }) });
+    // The reply's first parts came since the previous read: it grew.
+    await reread("Started 1 minute ago · still writing");
+    lines[0] = writingLine({ asOf: "2026-11-21T18:10:10Z", delivery: delivery({ requestSentAt: ago(75), outputPieces: 5, lastOutputAt: "2026-11-21T18:10:04Z" }) });
+    await reread("reply arriving, last part 6 seconds ago");
+  });
+
+  it("question writing with this library's measured time per topic, and the number it rests on in the details", async () => {
+    emptyToday([libraryCard(writingLine({ measured: { minutes: 2.3, samples: 3 } }))]);
+    show(causeProps({ aiConnection: ready() }));
+    const detail = await screen.findByTestId("today-cause-detail");
+    expect(within(detail).getByText("Here a topic's questions have taken about 2 minutes to write.")).toBeTruthy();
+    expect(screen.getByTestId("today-cause-detail-more").textContent).toContain("Measured on the last 3 topics written in this library.");
+    expect(detail.textContent).not.toContain("The first questions can take a few minutes.");
+  });
+
+  it("an older sidecar's line (no detail) shows the line as before and nothing more", async () => {
+    emptyToday([libraryCard({ ...buildLine(), buildDetail: undefined })]);
+    show(causeProps({ aiConnection: ready() }));
+    await screen.findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done");
+    expect(screen.queryByTestId("today-cause-detail")).toBeNull();
   });
 });

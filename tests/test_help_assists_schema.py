@@ -63,6 +63,7 @@ from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
 from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
 from tests.reader_seen_spans_migration_helpers import SEEN_SPANS_ADDED_OBJECTS
 from tests.reader_topic_question_work_migration_helpers import TOPIC_WORK_ADDED_OBJECTS
+from tests.ingest_job_progress_migration_helpers import JOB_PROGRESS_ADDED_OBJECTS
 from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
@@ -177,7 +178,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H1's 211, approach_maps) follow 210 on the way to head.
     # ... and adaptive difficulty AD1's 213 (its receipts).
     assert {name for name in set(after) - set(before)
-            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS | TOPIC_WORK_ADDED_OBJECTS} == {
+            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS | TOPIC_WORK_ADDED_OBJECTS | JOB_PROGRESS_ADDED_OBJECTS} == {
         "help_assists", "idx_help_assists_session_item", "idx_help_assists_attempt", "idx_help_assists_submission",
         "idx_help_assists_workbench",
         "idx_help_assists_requested", "help_assists_no_delete", "help_assists_identity_fixed",

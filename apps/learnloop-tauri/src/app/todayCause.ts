@@ -23,7 +23,9 @@
 // offered while more are written, or beside a topic that could not be written
 // (docs/reviews/ux-first-questions-progress.md). A topic also gets its first questions before its section is
 // finished, once the learner has seen every passage it cites: those are "questions from what you've read", and a
-// section read in part with none yet says to read a little further (docs/reviews/first-evening-step-4.md).
+// section read in part with none yet says where to read to (docs/reviews/first-evening-step-4.md, -step-8.md).
+// Wherever Today says where questions come from, it says one thing: QUESTIONS_FROM_READING, and MORE_AS_YOU_READ
+// after questions offered. "As you finish sections" stopped being the rule when a part read could give questions.
 //
 // Today's list comes first: when it still has questions, there is something
 // to practise, whatever the books say. The plan alone cannot tell a stop the
@@ -34,8 +36,19 @@
 // Pure: the phone imports it (`@desktop/app/todayCause`), so it reaches no
 // Tauri binding (apps/learnloop-mobile/src/desktopImports.test.ts).
 
-import type { AiConnectionDto, PendingAddDto, QueueSnapshot, ReadingQuestionsDto, ScheduledItemDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
+import type { AiConnectionDto, BuildDetailDto, PendingAddDto, QueueSnapshot, ReadingQuestionsDto, ScheduledItemDto, SourceLibraryCard, SourceStatusLineDto, WritingDetailDto } from "../api/dto";
 import { WAITING_COPY } from "../copy/waiting";
+
+/** Where questions come from, in the one set of words every screen that says it uses (Today on the desktop and the
+ *  phone, the Library's card details, the Reader's guide; the sidecar's card line and whole-book notice say the same
+ *  in its `READING_RULE`). */
+export const QUESTIONS_FROM_READING = "Questions are written from the parts you read.";
+/** The same rule said after questions offered, or none up today. */
+export const MORE_AS_YOU_READ = "More come as you read on.";
+/** The heading above work under way (a book being got ready, questions being written or waiting for the book), in
+ *  place of "Nothing planned for today." or "Nothing more to plan today.": the cause line below says what is under
+ *  way, and "nothing" above it read as nothing coming. */
+export const NO_QUESTIONS_YET = "No questions ready yet.";
 
 /** The card's action that asks for the one-time OK to write questions (UX
  *  fix stage 3, audit F7: it read "Review", which opened the OK while the
@@ -111,24 +124,31 @@ export type TodayCause =
       /** Its getting ready waits its turn behind this book's work. */
       behind?: string | null;
       /** Books whose getting ready waits its turn behind this one's. */
-      queued?: readonly string[] }
+      queued?: readonly string[];
+      /** What the build is doing now, in recorded facts (`app/waitDetail`); absent where the line carries none. */
+      detail?: BuildDetailDto | null }
   /** The questions of a section the learner finished are being written; `progress`: how many of its topics are done,
    *  where the fact says it for that section. `failedTopics`: some of its topics' questions could not be written while
    *  the rest still are; said beside the writing, with no Try again (a resume requeues nothing while the job runs). */
   | { kind: "section_writing"; title: string; part: string | null; card: SourceLibraryCard; progress?: Progress | null; failedTopics?: boolean;
       /** The writing is of sections the learner has not finished: questions from what they've read. */
-      fromReading?: boolean }
+      fromReading?: boolean;
+      /** What the writing is doing now, in recorded facts (`app/waitDetail`); absent where the fact carries none. */
+      detail?: WritingDetailDto | null }
   /** A section the learner finished waits for its book to be ready: its questions are written then. `fromReading`: it is
    *  a section they read part of. */
   | { kind: "section_waiting"; title: string; part: string | null; card: SourceLibraryCard; fromReading?: boolean }
   /** The learner read part of a section and no topic of it has every passage seen yet: reading on brings the first
-   *  questions. */
-  | { kind: "read_further"; title: string; card: SourceLibraryCard }
+   *  questions. `place`: where reading on must reach for the nearest topic, when the book's facts say. */
+  | { kind: "read_further"; title: string; card: SourceLibraryCard; place?: { part: string | null; heading: string | null; words: string | null; sectionEnd: boolean } | null }
+  /** Every question written from the book's reading waits for the learner's OK (`count`: those an OK would apply). No
+   *  screen yet lets them be looked at without their answers, so nothing here opens one. */
+  | { kind: "held"; title: string; card: SourceLibraryCard; count: number }
   /** On the phone: what the learner read qualifies topics for questions, which the desktop writes when it runs. */
   | { kind: "reading_saved"; title: string; card: SourceLibraryCard }
   /** Only books kept for practice (past exams): nothing to read. */
   | { kind: "no_reading" }
-  /** No section is finished yet: a book's first questions come when one is. */
+  /** Nothing read yet that could give questions: a book's first questions come from the parts the learner reads. */
   | { kind: "finish_section"; card: SourceLibraryCard | null }
   /** A book's questions from reading exist and none is on today's list. */
   | { kind: "none_up"; title: string; card: SourceLibraryCard };
@@ -355,7 +375,7 @@ export function todayCause(input: {
         const behind = (first.line ?? line)?.waitingBehind ?? null;
         const queued = hits.slice(1).filter((hit) => (hit.line ?? hit.card?.statusLine)?.waitingBehind === first.title).map((hit) => hit.title);
         return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting, firstBuild,
-          ...(behind ? { behind } : {}), ...(queued.length ? { queued } : {}) };
+          ...(behind ? { behind } : {}), ...(queued.length ? { queued } : {}), ...(!behind && line?.buildDetail ? { detail: line.buildDetail } : {}) };
       }
       case "section_writing": {
         // Where the list is not read (the phone), questions already written are said with the writing.
@@ -371,7 +391,8 @@ export function todayCause(input: {
           card: first.card as SourceLibraryCard,
           progress: questions ? writingProgress(questions) : null,
           failedTopics: (questions?.failed.length ?? 0) > 0,
-          ...(questions && fromReading(questions, labels) ? { fromReading: true } : {})
+          ...(questions && fromReading(questions, labels) ? { fromReading: true } : {}),
+          ...(questions?.writing.length && questions.writingDetail ? { detail: questions.writingDetail } : {})
         };
       }
       case "section_waiting": {
@@ -386,9 +407,12 @@ export function todayCause(input: {
   }
   if (readable.length === 0) return { kind: "no_reading" };
   for (const card of readable) {
-    // Questions from reading written but held for a look: the Library is where they are looked at.
+    // Every question from its reading held for the learner's OK. Not "needs a look in your Library": the screens there
+    // show a held question's answer before it was tried. Held rows no OK could apply are not counted.
     const questions = questionsOf(card);
-    if (questions && questions.toLookAt > 0 && questions.count === 0) return { kind: "needs_look", title: readableTitle(card.title) };
+    if (questions && (questions.awaitingOk ?? 0) > 0 && questions.count === 0) {
+      return { kind: "held", title: readableTitle(card.title), card, count: questions.awaitingOk as number };
+    }
   }
   const withQuestions = readable.find((card) => (questionsOf(card)?.count ?? 0) > 0);
   const askable = unknown
@@ -408,7 +432,12 @@ export function todayCause(input: {
   const finishedNone = (card: SourceLibraryCard) => (questionsOf(card)?.noneNeeded?.length ?? 0) > 0;
   // Read in part, with no topic's passages all seen yet: reading on is what brings the first questions.
   const readSome = readable.find((card) => questionsOf(card)?.count === 0 && (questionsOf(card)?.readFurther?.length ?? 0) > 0);
-  if (readSome) return { kind: "read_further", title: readableTitle(readSome.title), card: readSome };
+  if (readSome) {
+    const questions = questionsOf(readSome) as ReadingQuestionsDto;
+    const to = questions.readTo ?? null;
+    return { kind: "read_further", title: readableTitle(readSome.title), card: readSome,
+      place: to ? { part: partName([to.section], questions.sectionCount), heading: to.heading, words: to.words, sectionEnd: to.sectionEnd } : null };
+  }
   const unfinished = readable.find((card) => questionsOf(card)?.count === 0 && !finishedNone(card));
   if (unfinished) return { kind: "finish_section", card: unfinished };
   const finished = withQuestions ?? readable.find(finishedNone);
@@ -439,6 +468,44 @@ export function askableReadingQuestion(
 
 function questionsWord(count: number): string {
   return count === 1 ? "1 question" : `${count} questions`;
+}
+
+/** Whether the cause is work under way (a book being got ready, questions being written, or waiting for the book or
+ *  the desktop): the cause line says it, and the heading above says no questions are ready yet. */
+export function causeUnderway(cause: TodayCause | null | undefined): boolean {
+  return cause?.kind === "on_the_way" || cause?.kind === "section_writing" || cause?.kind === "section_waiting" || cause?.kind === "reading_saved";
+}
+
+/** The line for questions held for the learner's OK, beside whatever else Today says, or null when none: how many an
+ *  OK would apply, across the books ("more" when some of their questions are already there). It names no question and
+ *  opens nothing: no screen yet shows a held question without its answer. */
+export function heldLine(cards: readonly SourceLibraryCard[] | null | undefined): string | null {
+  const readable = (cards ?? []).filter((card) => card.readerEnabled !== false);
+  const held = readable.reduce((sum, card) => sum + (questionsOf(card)?.awaitingOk ?? 0), 0);
+  if (held <= 0) return null;
+  const more = readable.some((card) => (questionsOf(card)?.count ?? 0) > 0) ? "more " : "";
+  return held === 1 ? `1 ${more}question needs your OK.` : `${held} ${more}questions need your OK.`;
+}
+
+/** Of today's list, the questions that cannot be asked now: answered and not due again yet (`listWaiting`), or a
+ *  book's question kept for a later check on your own (its `laterItemIds`). "More for today" counts only the rest. */
+export function notAskableOnList(cards: readonly SourceLibraryCard[] | null | undefined, listItemIds: readonly string[],
+                                 listWaiting: readonly string[]): string[] {
+  const later = new Set((cards ?? []).flatMap((card) => questionsOf(card)?.laterItemIds ?? []));
+  const waiting = new Set(listWaiting);
+  return [...new Set(listItemIds.filter((id) => waiting.has(id) || later.has(id)))];
+}
+
+/** Where reading on must reach for the first questions, as far as the book's facts say it. */
+function readToSentence(cause: Extract<TodayCause, { kind: "read_further" }>): string {
+  const place = cause.place;
+  const book = `“${cause.title}”`;
+  if (place?.heading) return `Read through “${place.heading}” in ${book} for your first questions.`;
+  if (place?.sectionEnd) {
+    return place.part ? `Read to the end of “${place.part}” in ${book} for your first questions.` : `Read to the end of ${book} for your first questions.`;
+  }
+  if (place?.words) return `Read as far as the passage that begins “${place.words}” in ${book} for your first questions.`;
+  return `Read a little further in ${book} for your first questions.`;
 }
 
 /** A finished section's questions, promised for when its book is ready. */
@@ -475,7 +542,7 @@ export function causeWait(cause: TodayCause): { line: string; after: string; lat
         line: `Getting “${cause.title}” ready for questions${amount}${usually}`,
         after: queued + (cause.waiting
           ? `${waitingWords(cause.title, cause.waiting.part, cause.waiting.fromReading === true)} Keep reading meanwhile.`
-          : "Questions come as you finish sections. Keep reading meanwhile."),
+          : `${QUESTIONS_FROM_READING} Keep reading meanwhile.`),
         later: cause.firstBuild ? WAITING_COPY.firstBuildLater : null
       };
     }
@@ -506,11 +573,11 @@ function fromWhatYouRead(cause: { title: string; part: string | null }): string 
 
 function readySentence(cause: { title: string; part: string | null; count: number; fromReading?: boolean }): string {
   if (cause.fromReading) {
-    return `${questionsWord(cause.count)} ${fromWhatYouRead(cause)} ${cause.count === 1 ? "is" : "are"} ready. More come as you read on.`;
+    return `${questionsWord(cause.count)} ${fromWhatYouRead(cause)} ${cause.count === 1 ? "is" : "are"} ready. ${MORE_AS_YOU_READ}`;
   }
   return cause.part
-    ? `${questionsWord(cause.count)} from “${cause.part}”, the part you read. More come as you finish sections.`
-    : `${questionsWord(cause.count)} from what you read in “${cause.title}”. More come as you finish sections.`;
+    ? `${questionsWord(cause.count)} from “${cause.part}”, the part you read. ${MORE_AS_YOU_READ}`
+    : `${questionsWord(cause.count)} from what you read in “${cause.title}”. ${MORE_AS_YOU_READ}`;
 }
 
 /** On the phone, for reading that qualifies topics whose questions the desktop writes (the phone writes none). */
@@ -557,11 +624,13 @@ export function causeSentence(cause: TodayCause): string {
       if (!cause.build) return `Couldn't get questions ready for “${cause.title}”.`;
       return `Couldn't get “${cause.title}” ready for questions${cause.retried ? ", after trying twice" : ""}. Try again, or keep reading: nothing is lost.`;
     case "no_topics":
-      return `LearnLoop found no topics to practise in “${cause.title}”. Try again, or keep reading: the sections you finish get their questions once topics are found.`;
+      return `LearnLoop found no topics to practise in “${cause.title}”. Try again, or keep reading: what you read gets its questions once topics are found.`;
     case "section_waiting":
       return waitingWords(cause.title, cause.part, cause.fromReading === true);
     case "read_further":
-      return `Read a little further in “${cause.title}” for your first questions.`;
+      return readToSentence(cause);
+    case "held":
+      return `${questionsWord(cause.count)} from what you’ve read in “${cause.title}” ${cause.count === 1 ? "needs" : "need"} your OK.`;
     case "reading_saved":
       return READING_SAVED;
     case "section_failed":
@@ -581,10 +650,10 @@ export function causeSentence(cause: TodayCause): string {
       return "LearnLoop writes questions from what you read. Add a book, paper or lecture to read.";
     case "finish_section":
       return cause.card
-        ? `Your first questions come when you finish a section of “${readableTitle(cause.card.title)}”: finish its quick check, or press Done with this section at its end.`
-        : "Your first questions come when you finish a section: finish its quick check, or press Done with this section at its end.";
+        ? `Read “${readableTitle(cause.card.title)}” for your first questions. ${QUESTIONS_FROM_READING}`
+        : QUESTIONS_FROM_READING;
     case "none_up":
-      return `Nothing from “${cause.title}” is up today. More questions come as you finish sections.`;
+      return `Nothing from “${cause.title}” is up today. ${MORE_AS_YOU_READ}`;
   }
 }
 
@@ -644,6 +713,7 @@ export function causeActionLabel(cause: TodayCause): string | null {
     case "none_up":
     case "read_further":
     case "reading_saved":
+    case "held":
       return cause.card ? "Continue reading" : null;
     case "no_reading":
       return "+ Add";
