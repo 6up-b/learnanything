@@ -48,7 +48,7 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
@@ -237,6 +237,7 @@ def record_receipts(
     vault: Any = None,
     clock: Clock | None = None,
     created_at: str | None = None,
+    new_id: Callable[[], str] | None = None,
 ) -> list[str]:
     """Append ``receipts`` in the caller's transaction; never raises.
 
@@ -246,7 +247,8 @@ def record_receipts(
     alone (logged) while the decision proceeds. Off with the kill switch, on a
     read-only repository, or on a database without the table, it writes
     nothing. ``created_at`` (default: now) is the issue time every receipt
-    records. Returns the ids written (an existing receipt key writes nothing).
+    records. Returns the ids written (an existing receipt key writes nothing). ``new_id``: the id stream of
+    receipts whose writing must not shift ``ids.new_ulid``'s (default: that stream, as before).
     """
 
     if repository is None or getattr(repository, "_read_only", False) or not receipts:
@@ -292,6 +294,7 @@ def record_receipts(
                     parameters=[dict(entry) for entry in receipt.parameters],
                     versions={"receipt_shape_version": RECEIPT_SHAPE_VERSION, **versions},
                     created_at=issued,
+                    receipt_id=None if new_id is None else new_id(),
                     **columns,
                 )
                 if receipt_id is not None:

@@ -60,17 +60,19 @@ def insert_receipt(
     versions: Mapping[str, Any],
     created_at: str,
     status: str = "ok",
+    receipt_id: str | None = None,
     **columns: Any,
 ) -> str | None:
     """Append one receipt; None when its receipt key already exists.
 
-    The caller owns the transaction (the decision's own).
+    The caller owns the transaction (the decision's own). ``receipt_id``: an id the caller drew from a stream of
+    its own; without one the id is the next ``new_ulid``, as for every receipt written before such streams.
     """
 
     unknown = sorted(set(columns) - set(OPTIONAL_COLUMNS))
     if unknown:
         raise ValueError(f"unknown forecast receipt columns: {unknown}")
-    receipt_id = new_ulid()
+    receipt_id = receipt_id or new_ulid()
     values: dict[str, Any] = {name: columns.get(name) for name in OPTIONAL_COLUMNS}
     values.update(
         id=receipt_id, receipt_key=receipt_key, kind=kind, forecaster=forecaster,
