@@ -52,6 +52,7 @@ pedagogy.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -60,6 +61,9 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from learnloop.ai.structured_contracts import (
+    ContractFailure, ContractRejected, Predicate, RecoveryAllowance, checked_structured_call,
+)
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.stores import lessons as store
@@ -1445,6 +1449,75 @@ def _schema_detail(exc: BaseException, model: type[Any]) -> str:
     return "; ".join(lines)[:2000]
 
 
+class _BlankTeacherTurn(Exception):
+    """A rejected blank returns to the existing consecutive-failure policy."""
+
+
+TEACHER_MESSAGE_CONTRACT = (Predicate(
+    "blank_message", lambda turn: bool(turn.message.strip()),
+    "Provide a non-blank learner-visible message in the message field.",
+),)
+
+
+def _teacher_contract_failure(info: ContractFailure) -> Exception:
+    from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AITurnTimeout
+
+    if info.reason == "deadline":
+        return AITurnTimeout("The teacher request ran out of time.")
+    if info.reason == "cancelled":
+        return AIInterrupted("The teacher request was interrupted.")
+    if info.predicate is None:
+        # Schema failure retains the existing consecutive-failure policy.
+        return AIInvalidOutput("The teacher turn did not match its schema.")
+    return _BlankTeacherTurn()
+
+
+def _request_teacher_turn(vault: Any, repository: Any, state: LessonState, client: Any, *, prompt: str,
+                          model: type, outcome: _Outcome, clock: Clock | None) -> Any:
+    from learnloop.ai.errors import AIInvalidOutput
+    from learnloop.ai.execution import active_request_gate
+
+    # The configured provider timeout is the existing foreground allowance;
+    # the correction receives only what remains, never a fresh timeout.
+    profile = getattr(client, "profile", None)
+    seconds = getattr(profile, "timeout_seconds", None) or vault.config.ai.timeout_seconds
+    deadline = time.monotonic() + float(seconds)
+
+    def send(attempt, check):
+        if attempt.ordinal and protection_changed(vault, repository, state):
+            _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
+            raise _BlankTeacherTurn()
+        try:
+            answer = execute_structured_operation(
+                client, purpose=TEACHER_PURPOSE, prompt=attempt.prompt, result_model=model, check=check,
+                timeout_seconds=attempt.timeout_seconds if attempt.ordinal else None,
+            )
+        except ContractRejected:
+            # Each blank consumes one of the loop's existing failure slots,
+            # including the shared re-ask. Its answer stays on the failed receipt.
+            _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
+                    payload={"reason": "contract", "detail": "the turn is empty"}, clock=clock)
+            _record_usage(client, outcome)
+            raise
+        except AIInvalidOutput:
+            _record_usage(client, outcome)
+            raise
+        _record_usage(client, outcome)
+        return answer
+
+    return checked_structured_call(
+        first_prompt=prompt, contract=TEACHER_MESSAGE_CONTRACT, send=send,
+        recovery=RecoveryAllowance(
+            # _lesson_spend owns this gate. model_call reserves each physical
+            # send against it, including a provider's schema repair.
+            admit=lambda: (state.gate is not None and active_request_gate() is state.gate
+                           and state.failures < MAX_CONTRACT_FAILURES),
+            remaining_seconds=lambda: deadline - time.monotonic(), cancelled=lambda: state.closed,
+        ),
+        checkpoint=None, failure=_teacher_contract_failure,
+    )
+
+
 def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
                   help_reply: bool, outcome: _Outcome, clock: Clock | None,
                   deliver: Sequence[str] = (), visuals: bool = False,
@@ -1459,15 +1532,17 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     prompt = _prompt(state, results=results, help_reply=help_reply, visuals=visuals, episodes=episodes, te2=te2)
     model = T2.turn_model(E.turn_model(V.turn_model(visuals), episodes), te2)
     try:
-        raw = execute_structured_operation(client, purpose=TEACHER_PURPOSE, prompt=prompt, result_model=model)
+        raw = _request_teacher_turn(vault, repository, state, client, prompt=prompt, model=model,
+                                    outcome=outcome, clock=clock)
+    except _BlankTeacherTurn:
+        # Both blanks were already counted; the loop may use any remaining slot.
+        return None
     except AIInvalidOutput as exc:
         # The provider could not produce a valid TeacherTurnV1 even after its own repair (review F12):
         # a correctable contract refusal, counted toward the consecutive-failure rule.
-        _record_usage(client, outcome)
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
                 payload={"reason": "schema", "detail": _schema_detail(exc, model)}, clock=clock)
         return None
-    _record_usage(client, outcome)
     try:
         turn_obj = raw if type(raw) is model else model.model_validate(
             raw.model_dump() if isinstance(raw, TeacherTurnV1) else raw)
@@ -1622,9 +1697,6 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1, *, vault: Any
     visual_problem = V.contract_problem(state, turn_obj)
     if visual_problem is not None:
         return visual_problem
-    if not turn_obj.message and turn_obj.check is None and turn_obj.prediction is None and not turn_obj.requests \
-            and getattr(turn_obj, "visual", None) is None:
-        return "the turn is empty"
     return None
 
 

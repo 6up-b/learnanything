@@ -207,6 +207,12 @@ The audit is `docs/reviews/student-exam-journey-audit-2026-11-14.md`; the fixes 
 | D7-8 | D7 batch 1 part 4 (step 0) | `tests/test_field_split_outcomes.py::test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract` compared a blind grade's field rows with a "joint" vault's, but that vault was built at the head since D2a (the basic vault is at the head), so both sides were blind and the comparison it names never ran | The joint side is a jointly graded attempt from `tests/joint_grading_helpers.py`, asserted to carry no blind record; the blind and joint rows still agree | fixed (`4d59c0a826`) |
 | D7-9 | D7 batch 1 part 4 | `diagnostic_augmentation.history_limit` (the joint grader's C4 history bound) is read by nothing once the joint door is gone: a learner or owner who sets it changes nothing, and the parameter registry still describes it as live | Retire it like a kill switch (`RETIRED_FIELDS` on a `KeepsRetiredFields` `DiagnosticAugmentationConfig`, which allows extras, so its identity behaviour needs the retired-config test), with its registry rule; the brief for this part named only the two switches, so it was left | open (D7's next batch or the config pass) |
 
+## From structured contracts step 6: blank live dialogue (2026-11-21)
+
+| Id | Found in | Bug or open question | Fix | Status |
+|---|---|---|---|---|
+| SC-1 | Step 6's real-service baseline with a fake SDK ([record](structured-contracts-step-6.md)) | A blank teach-back question is appended and consumes a follow-up; a blank tutor reply can be recorded and shown. Open owner question: may the tutor and teach-back send one extra request for a blank reply, counted as part of the learner's own question, given that neither call has a spend envelope today? | Owner decides the extra-request policy and its admission/spend envelope before adoption. Both production surfaces remain unadopted; baseline tests characterize today's defects. Question-count caps and provider schema repair do not authorize a contract re-ask. | open; owner's decision |
+
 ## From the review of the evidence-packets and AD memory specs (2026-11-17; SR-1 is learner-visible and is fixed first; SR-2 to SR-4 are due with the evidence-packets spec's EPp, and all four before EP3b and ADM2a)
 
 Two independent reviews of `docs/specs/spec_evidence_packets_v1.md` and `docs/specs/spec_ad_memory_v1.md` at `88b10fb90d`; each row was checked against the code at that tip before it was added.
