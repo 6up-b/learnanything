@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/ingest_queue.py](../../../../../../../src/learnloop/db/stores/ingest_queue.py) |
-| Source lines | 961 |
+| Source lines | 973 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -73,33 +73,34 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `add_ingest_job_dependency(self, job_id: str, depends_on_job_id: str) -> None` (line 279; public)
   - `get_ingest_job(self, job_id: str) -> dict[str, Any] | None` (line 290; public)
   - `newest_ingest_job_by_payload(self, job_type: str, key: str, value: str) -> dict[str, Any] | None` (line 297; public) — The newest job of ``job_type`` whose payload's top-level ``key`` is ``value``, over the whole queue (Reader RW5d P2b, Codex review F8: a rich figure job by the quick figure it follows).
-  - `ingest_jobs_for_batch(self, batch_id: str) -> list[dict[str, Any]]` (line 310; public)
-  - `ingest_jobs_for_batches(self, batch_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]` (line 313; public) — Bulk-load ordered jobs, including requested empty batches.
-  - `ingest_job_dependency_ids(self, job_id: str) -> list[str]` (line 336; public)
-  - `ingest_job_dependencies_for_jobs(self, job_ids: Iterable[str]) -> dict[str, list[str]]` (line 339; public) — Bulk-load dependency ids for job progress views.
-  - `ingest_job_dependents(self, job_id: str) -> list[str]` (line 363; public)
-  - `claim_next_ingest_job(self, *, worker_id: str, now_iso: str, lease_cutoff_iso: str, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> dict[str, Any] | None` (line 374; public) — Atomically claim the next eligible queued job for ``worker_id``.
-  - `heartbeat_ingest_job(self, job_id: str, *, owner: JobOwner, phase: str | None=None, message: str | None=None, current_window: int | None=None, total_windows: int | None=None, clock: Clock | None=None) -> bool` (line 487; public) — Renew ``owner``'s lease; False when the attempt no longer owns the job.
-  - `finish_owned_ingest_job(self, job_id: str, *, owner: JobOwner, status: str, **fields: Any) -> bool` (line 519; public) — Move ``owner``'s running attempt to ``status``.
-  - `expire_ingest_lease(self, job_id: str, *, worker_id: str | None, attempt_count: int, lease_cutoff_iso: str, **fields: Any) -> bool` (line 536; public) — Fail the running attempt identified by ``worker_id``/``attempt_count`` if its heartbeat still predates ``lease_cutoff_iso``.
-  - `transition_unleased_ingest_job(self, job_id: str, *, status: str, **fields: Any) -> bool` (line 563; public) — Move a job that holds no lease (queued, blocked, waiting) to ``status``.
-  - `_update_ingest_job_state(self, job_id: str, *, status: str, where: str, where_params: Sequence[Any], phase: str | None=None, message: str | None=None, result: Mapping[str, Any] | None=None, error: Mapping[str, Any] | None=None, usage: Mapping[str, Any] | None=None, release_lease: bool=True, clear_finished: bool=False, current_window: int | None=None, total_windows: int | None=None, clock: Clock | None=None) -> bool` (line 574; internal)
-  - `requeue_ingest_job(self, job_id: str, *, message: str='Waiting to start', clock: Clock | None=None) -> None` (line 630; public)
-  - `delete_finished_ingest_batches(self, batch_ids: Sequence[str]) -> dict[str, int]` (line 651; public) — Delete finished queue history without touching source artifacts.
-  - `update_ingest_job_payload(self, job_id: str, payload: Mapping[str, Any]) -> None` (line 702; public) — Replace a durable job payload before an explicit retry.
-  - `set_ingest_job_cancel_requested(self, job_id: str) -> None` (line 714; public)
-  - `ingest_jobs_by_types(self, job_types: Sequence[str], *, limit: int | None=None) -> list[dict[str, Any]]` (line 721; public)
-  - `ingest_jobs_for_source(self, job_types: Sequence[str], source_id: str) -> list[dict[str, Any]]` (line 737; public) — Every job of ``job_types`` whose payload or result names ``source_id``, newest first.
-  - `latest_ingest_job_per_source(self, job_type: str) -> list[dict[str, Any]]` (line 772; public) — The newest ``job_type`` job for every source it names (complete: no window over the whole queue).
-  - `ingest_batch_spend_rows(self, *, batch_prefix: str, started_since: str) -> list[dict[str, Any]]` (line 802; public) — Usage rows (as :meth:`model_call_spend_rows`) of the ingest jobs in batches whose id starts with ``batch_prefix`` (automatic book preparation: ``batch_auto_``), started at or after ``started_since``, each with its job's ``batch_id``.
-  - `ingest_batches_by_workflow(self, workflow_type: str, *, exclude_statuses: Sequence[str]=()) -> list[dict[str, Any]]` (line 819; public) — Every batch of one workflow, newest first, optionally without the terminal statuses named (no window over the whole queue).
-  - `active_ingest_jobs(self) -> list[dict[str, Any]]` (line 835; public) — Return every job that has not reached a terminal state.
-  - `has_runnable_ingest_job(self, *, job_types: Sequence[str] | None=None, workflow_types: Sequence[str]=(), batch_id_prefixes: Sequence[str]=()) -> bool` (line 848; public) — Whether a queued job could be claimed now, as :meth:`claim_next_ingest_job` picks one: its batch is not being cancelled and every job it depends on completed.
-  - `expired_running_ingest_jobs(self, lease_cutoff_iso: str) -> list[dict[str, Any]]` (line 906; public)
-  - `rung_variant_batch_dead(self, batch_id: str | None) -> bool` (line 921; public) — Whether a rung-variant batch is absent or wholly terminal.
-  - `concept_animation_batch_dead(self, batch_id: str | None) -> bool` (line 926; public) — Whether a concept-animation batch is absent or wholly terminal.
-  - `_ingest_batch_dead(self, batch_id: str | None, *, job_type: str) -> bool` (line 931; internal)
-  - `rung_variant_pending_source_ids(self) -> set[str]` (line 945; public) — Source item ids held by live durable rung-variant work.
+  - `ingest_jobs_by_payload(self, job_type: str, key: str, value: str) -> list[dict[str, Any]]` (line 310; public) — Every job of ``job_type`` whose payload's top-level ``key`` is ``value``, newest first (a reading's section checks, by extraction).
+  - `ingest_jobs_for_batch(self, batch_id: str) -> list[dict[str, Any]]` (line 322; public)
+  - `ingest_jobs_for_batches(self, batch_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]` (line 325; public) — Bulk-load ordered jobs, including requested empty batches.
+  - `ingest_job_dependency_ids(self, job_id: str) -> list[str]` (line 348; public)
+  - `ingest_job_dependencies_for_jobs(self, job_ids: Iterable[str]) -> dict[str, list[str]]` (line 351; public) — Bulk-load dependency ids for job progress views.
+  - `ingest_job_dependents(self, job_id: str) -> list[str]` (line 375; public)
+  - `claim_next_ingest_job(self, *, worker_id: str, now_iso: str, lease_cutoff_iso: str, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> dict[str, Any] | None` (line 386; public) — Atomically claim the next eligible queued job for ``worker_id``.
+  - `heartbeat_ingest_job(self, job_id: str, *, owner: JobOwner, phase: str | None=None, message: str | None=None, current_window: int | None=None, total_windows: int | None=None, clock: Clock | None=None) -> bool` (line 499; public) — Renew ``owner``'s lease; False when the attempt no longer owns the job.
+  - `finish_owned_ingest_job(self, job_id: str, *, owner: JobOwner, status: str, **fields: Any) -> bool` (line 531; public) — Move ``owner``'s running attempt to ``status``.
+  - `expire_ingest_lease(self, job_id: str, *, worker_id: str | None, attempt_count: int, lease_cutoff_iso: str, **fields: Any) -> bool` (line 548; public) — Fail the running attempt identified by ``worker_id``/``attempt_count`` if its heartbeat still predates ``lease_cutoff_iso``.
+  - `transition_unleased_ingest_job(self, job_id: str, *, status: str, **fields: Any) -> bool` (line 575; public) — Move a job that holds no lease (queued, blocked, waiting) to ``status``.
+  - `_update_ingest_job_state(self, job_id: str, *, status: str, where: str, where_params: Sequence[Any], phase: str | None=None, message: str | None=None, result: Mapping[str, Any] | None=None, error: Mapping[str, Any] | None=None, usage: Mapping[str, Any] | None=None, release_lease: bool=True, clear_finished: bool=False, current_window: int | None=None, total_windows: int | None=None, clock: Clock | None=None) -> bool` (line 586; internal)
+  - `requeue_ingest_job(self, job_id: str, *, message: str='Waiting to start', clock: Clock | None=None) -> None` (line 642; public)
+  - `delete_finished_ingest_batches(self, batch_ids: Sequence[str]) -> dict[str, int]` (line 663; public) — Delete finished queue history without touching source artifacts.
+  - `update_ingest_job_payload(self, job_id: str, payload: Mapping[str, Any]) -> None` (line 714; public) — Replace a durable job payload before an explicit retry.
+  - `set_ingest_job_cancel_requested(self, job_id: str) -> None` (line 726; public)
+  - `ingest_jobs_by_types(self, job_types: Sequence[str], *, limit: int | None=None) -> list[dict[str, Any]]` (line 733; public)
+  - `ingest_jobs_for_source(self, job_types: Sequence[str], source_id: str) -> list[dict[str, Any]]` (line 749; public) — Every job of ``job_types`` whose payload or result names ``source_id``, newest first.
+  - `latest_ingest_job_per_source(self, job_type: str) -> list[dict[str, Any]]` (line 784; public) — The newest ``job_type`` job for every source it names (complete: no window over the whole queue).
+  - `ingest_batch_spend_rows(self, *, batch_prefix: str, started_since: str) -> list[dict[str, Any]]` (line 814; public) — Usage rows (as :meth:`model_call_spend_rows`) of the ingest jobs in batches whose id starts with ``batch_prefix`` (automatic book preparation: ``batch_auto_``), started at or after ``started_since``, each with its job's ``batch_id``.
+  - `ingest_batches_by_workflow(self, workflow_type: str, *, exclude_statuses: Sequence[str]=()) -> list[dict[str, Any]]` (line 831; public) — Every batch of one workflow, newest first, optionally without the terminal statuses named (no window over the whole queue).
+  - `active_ingest_jobs(self) -> list[dict[str, Any]]` (line 847; public) — Return every job that has not reached a terminal state.
+  - `has_runnable_ingest_job(self, *, job_types: Sequence[str] | None=None, workflow_types: Sequence[str]=(), batch_id_prefixes: Sequence[str]=()) -> bool` (line 860; public) — Whether a queued job could be claimed now, as :meth:`claim_next_ingest_job` picks one: its batch is not being cancelled and every job it depends on completed.
+  - `expired_running_ingest_jobs(self, lease_cutoff_iso: str) -> list[dict[str, Any]]` (line 918; public)
+  - `rung_variant_batch_dead(self, batch_id: str | None) -> bool` (line 933; public) — Whether a rung-variant batch is absent or wholly terminal.
+  - `concept_animation_batch_dead(self, batch_id: str | None) -> bool` (line 938; public) — Whether a concept-animation batch is absent or wholly terminal.
+  - `_ingest_batch_dead(self, batch_id: str | None, *, job_type: str) -> bool` (line 943; internal)
+  - `rung_variant_pending_source_ids(self) -> set[str]` (line 957; public) — Source item ids held by live durable rung-variant work.
 
 ## Internal implementation anchors
 

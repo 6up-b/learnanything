@@ -351,6 +351,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_records_one_recalibration_for_an_unstamped_practised_vault`
 - [tests/test_carried_valuation_lifecycle.py](../../../../../tests/test_carried_valuation_lifecycle.py) — direct import
   - `test_closing_the_sidecar_stops_and_joins_its_vaults_carries`
+- [tests/test_certification_serving_reservation.py](../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_a_full_list_pick_cannot_choose_the_reserved_question_because_it_is_not_listed`
+  - `test_dead_by_date_matches_the_no_reservation_rows`
+  - `test_dead_by_date_reads_agree_across_lazy_housekeeping`
+  - `test_the_phone_list_withholds_the_reserved_question`
 - [tests/test_chatgpt_plan_sidecar.py](../../../../../tests/test_chatgpt_plan_sidecar.py) — direct import
   - `test_cancel_and_failure_are_reported`
   - `test_resume_clears_a_pause`
@@ -549,6 +554,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_pdf_selection.py](../../../../../tests/test_reader_pdf_selection.py) — direct import
   - `test_a_reading_held_back_by_rule_4_is_withheld_whole`
   - `test_the_reader_is_told_which_passages_are_held_out`
+- [tests/test_reader_quick_check_failed.py](../../../../../tests/test_reader_quick_check_failed.py) — direct import
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_kill_switches_default_on_and_the_config_dto_names_them`

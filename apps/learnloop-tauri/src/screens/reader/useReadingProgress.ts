@@ -363,6 +363,14 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   const [timedOutSections, setTimedOutSections] = useState<string[]>([]);
   const authoringRef = useRef<string[]>([]);
   authoringRef.current = authoringSections;
+  // The sections whose check job failed, as the guide plan says (the job queue's own state): said at once, and again
+  // whenever the Reader opens, where a failed job used to read as "writing" until the poll gave up, then as nothing.
+  const failedChecks = guidePlan?.checkFailedSectionIds;
+  const failedCheckSections = useMemo(() => failedChecks ?? [], [failedChecks]);
+  const shownTimedOutSections = useMemo(
+    () => [...new Set([...timedOutSections, ...failedCheckSections])],
+    [timedOutSections, failedCheckSections],
+  );
   // Where the learner was in the original when the text became ready: the full
   // Reader opens there, not at the top (review F8).
   const handoffRef = useRef<ReadingPosition | null>(null);
@@ -767,6 +775,8 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     const section = currentGuideSection;
     if (!section || section.question || authorRequestedRef.current.has(section.id)) return;
     if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
+    // A check that failed is asked for again only by its Try again, never silently on reopening.
+    if (failedCheckSections.includes(section.id)) return;
     // Only where the learner has read: never on the page a book opened at,
     // nor where a jump has only just landed.
     if (!readingMoved || currentSectionProgress < 0.6 || Date.now() < settleUntilRef.current) return;
@@ -782,7 +792,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
         /* Authoring is best-effort (provider may be off); never interrupt reading. */
       }
     })();
-  }, [render, offline, boundaryChecksAvailable, guideLoading, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, readingMoved]);
+  }, [render, offline, boundaryChecksAvailable, guideLoading, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, readingMoved, failedCheckSections]);
 
   // "Try again" on a section whose check took too long (UX Phase 1, 1.10).
   const retryQuickCheck = useCallback(
@@ -844,8 +854,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
             if (current && current.sections.length > 0 && plan.sections.length === 0) return current;
             return plan;
           });
+          // A section whose job failed stops "writing" here and says so (it is in the plan's failed list).
+          const failed = new Set(plan.checkFailedSectionIds ?? []);
           setAuthoringSections((ids) =>
-            ids.filter((id) => !plan.sections.find((s) => s.id === id)?.question),
+            ids.filter((id) => !plan.sections.find((s) => s.id === id)?.question && !failed.has(id)),
           );
         })
         .catch(() => {
@@ -1126,7 +1138,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     readingSpan, setReadingSpan, readingOffset, restoredSpan, noteRestored, sectionSeen, progressSaves, readingMoved, focusQuickCheck,
     hiddenPdfOffers, setHiddenPdfOffers, answeredSections, setAnsweredSections, revealedSections,
     dismissedSections, setDismissedSections, completedSections, sectionPromptsEnabled, setSectionPromptsEnabled,
-    boundaryChecksAvailable, authoringSections, timedOutSections, guideSectionBySpan, guideSectionByEnd,
+    boundaryChecksAvailable, authoringSections, timedOutSections: shownTimedOutSections, guideSectionBySpan, guideSectionByEnd,
     currentGuideSection, currentSectionProgress, currentSectionRead, pdfSurfaceActive, pageMode, checkSurface,
     offeredCheckSections, openQuestionSections, pendingQuickCheckCount, currentQuestionOpen, pdfOfferSection,
     readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, jumpToSpan, notePlacement, revealSegment,

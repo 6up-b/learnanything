@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK, quickCheckNothingToAsk } from "../copy/refusals";
 import { LESSON_KEPT } from "./todayCause";
-import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
+import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { setNextReaderVisitInitiator } from "../screens/reader/activity";
 import { DockedAsk } from "../components/DockedAsk";
@@ -27,6 +27,7 @@ import { EmptyPlaceholder, TerminalFrame, type NavBadgeCounts, type TopTab } fro
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
+import type { RedoContext } from "../screens/feedback/FeedbackSurface";
 import { MaintenanceScreen } from "../screens/MaintenanceScreen";
 import { SettingsOverlay } from "../screens/SettingsScreen";
 import { PracticeScreen } from "../screens/PracticeScreen";
@@ -232,7 +233,7 @@ export function App() {
   // Fix 3 guided partial redo: when set, PracticeScreen renders the preserved
   // learner work read-only and the learner rewrites only the failed portion;
   // the composed answer is submitted primed on the SAME item.
-  const [redoContext, setRedoContext] = useState<GuidedRedoDto | null>(null);
+  const [redoContext, setRedoContext] = useState<RedoContext | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   // §5.7: the unified Diagnostic Check review, shown instead of single-attempt
   // feedback when a probe block just closed (releasedFeedback covers every
@@ -325,7 +326,7 @@ export function App() {
   // start_guided_redo has already committed the repair episode to treatment on
   // the redo item, so dropping the DTO here would strand that episode exactly
   // like a discarded primed handoff. Stash it, route to session start, resume.
-  const [pendingRedo, setPendingRedo] = useState<GuidedRedoDto | null>(null);
+  const [pendingRedo, setPendingRedo] = useState<RedoContext | null>(null);
   const startupStartedRef = useRef(false);
   // Whether the practice screen is currently a teach-back conversation. Only
   // PracticeScreen knows the item's mode; it reports it up so the
@@ -1345,7 +1346,7 @@ export function App() {
 
   // Fix 3: reuse the primed-retry plumbing, but carry the redo context so
   // PracticeScreen locks the preserved prefix and submits the composed answer.
-  function openGuidedRedo(redo: GuidedRedoDto) {
+  function openGuidedRedo(redo: RedoContext) {
     if (!session && shellRef.current === "simple") {
       withImplicitSession(() => showGuidedRedo(redo));
       return;
@@ -1361,7 +1362,7 @@ export function App() {
     showGuidedRedo(redo);
   }
 
-  function showGuidedRedo(redo: GuidedRedoDto) {
+  function showGuidedRedo(redo: RedoContext) {
     setPrimedRetry(true);
     setRedoContext(redo);
     setAskTarget(null);

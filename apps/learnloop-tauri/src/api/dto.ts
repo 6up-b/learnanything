@@ -742,6 +742,9 @@ export interface SessionTopicDto {
   learningObjectId: string;
   title: string;
   evidence: "on_your_own" | "with_help";
+  /** True when no credited answer of the learner's own on this topic was fully right and an answer with help earned
+   *  points after it (display only; absent otherwise, and from an older sidecar). */
+  finishedWithHelp?: boolean;
 }
 
 export interface SessionCheckpoint {
@@ -2203,7 +2206,8 @@ export interface GuidedRedoDto {
   practiceItemId: string;
   prompt: string;
   learnerWorkPrefix: string;
-  /** The repair op's rationale — what went wrong and what to fix. */
+  /** The repair suggestion's rationale: the diagnosis model's reason for its repair, written for the system, so never
+   *  shown to the learner (the redo shows the rubric lines the answer missed instead). */
   redoInstruction: string | null;
   failedCheckpointIds: string[];
   repairClassId: string | null;
@@ -7369,6 +7373,9 @@ export interface ReaderGuidePlanDto {
     targetContractVersionId: string | null;
   } | null;
   sections: ReaderGuideSectionDto[];
+  /** Sections with no question whose newest quick-check job failed: the Reader says so with Try again. Absent when
+   *  there is none, and from an older sidecar. */
+  checkFailedSectionIds?: string[];
   /** Reader workbench RW3a: the plan's own misunderstanding passages as
    *  margin cues, within the learner's choices. Absent when cues are
    *  switched off (cues.enabled = false) or from an older sidecar. */

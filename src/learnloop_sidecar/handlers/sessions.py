@@ -255,6 +255,13 @@ def _session_topics(vault, repository, session_id: str, demonstrated_attempt_ids
 
     A topic only tried, missed, skipped or held is not named: the line says
     what moved, never a count of what did not. Display only.
+
+    ``finished_with_help`` (present, true, only on an ``on_your_own`` topic):
+    none of the topic's credited own answers was fully right, and an answer
+    with help earned points after the last of them. The mark then says both
+    ("partly on your own, finished with help"); without it, "(on your own)"
+    beside a redo the feedback called "practice with help" contradicted it.
+    The evidence word and the credit are unchanged.
     """
 
     from learnloop.held_grades import held_attempt_ids
@@ -266,6 +273,10 @@ def _session_topics(vault, repository, session_id: str, demonstrated_attempt_ids
     held = held_attempt_ids(repository, (row["id"] for row in rows))
     order: list[str] = []
     evidence: dict[str, str | None] = {}
+    # Per topic: whether a credited own answer was fully right, and whether help earned points after the last
+    # partly right one (reset by each later own credited answer).
+    own_full: set[str] = set()
+    helped_after_part: dict[str, bool] = {}
     for row in rows:
         learning_object_id = str(row.get("learning_object_id") or "")
         if not learning_object_id or row.get("attempt_type") == "skip":
@@ -273,29 +284,41 @@ def _session_topics(vault, repository, session_id: str, demonstrated_attempt_ids
         if learning_object_id not in evidence:
             order.append(learning_object_id)
             evidence[learning_object_id] = None
-        if evidence[learning_object_id] == "on_your_own" or row["id"] in held:
+        if row["id"] in held:
             continue
         assisted = (
             int(row.get("hints_used") or 0) > 0
             or bool(row.get("primed"))
             or row.get("attempt_type") in _ASSISTED_ATTEMPT_TYPES
         )
+        correctness = float(row.get("correctness") or 0.0)
         if row["id"] in earned and not assisted:
             evidence[learning_object_id] = "on_your_own"
-        elif assisted and float(row.get("correctness") or 0.0) > 0.0:
-            evidence[learning_object_id] = "with_help"
+            if correctness >= 1.0:
+                own_full.add(learning_object_id)
+            helped_after_part[learning_object_id] = False
+        elif assisted and correctness > 0.0:
+            if evidence[learning_object_id] == "on_your_own":
+                helped_after_part[learning_object_id] = True
+            else:
+                evidence[learning_object_id] = "with_help"
     topics: list[dict[str, Any]] = []
     for learning_object_id in order:
         if evidence[learning_object_id] is None:
             continue
         learning_object = vault.learning_objects.get(learning_object_id)
-        topics.append(
-            {
-                "learning_object_id": learning_object_id,
-                "title": learning_object.title if learning_object is not None else learning_object_id,
-                "evidence": evidence[learning_object_id],
-            }
-        )
+        topic: dict[str, Any] = {
+            "learning_object_id": learning_object_id,
+            "title": learning_object.title if learning_object is not None else learning_object_id,
+            "evidence": evidence[learning_object_id],
+        }
+        if (
+            evidence[learning_object_id] == "on_your_own"
+            and learning_object_id not in own_full
+            and helped_after_part.get(learning_object_id)
+        ):
+            topic["finished_with_help"] = True
+        topics.append(topic)
     return topics
 
 

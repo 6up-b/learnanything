@@ -102,8 +102,9 @@ export type TodayCause =
    *  the learner finished waits for it (`part`: that section, or null for what they read of the book). */
   | { kind: "on_the_way"; title: string; card: SourceLibraryCard | null; progress: { done: number; total: number } | null; minutes: number | null; waiting?: { part: string | null } | null; firstBuild?: boolean }
   /** The questions of a section the learner finished are being written; `progress`: how many of its topics are done,
-   *  where the fact says it for that section. */
-  | { kind: "section_writing"; title: string; part: string | null; card: SourceLibraryCard; progress?: Progress | null }
+   *  where the fact says it for that section. `failedTopics`: some of its topics' questions could not be written while
+   *  the rest still are; said beside the writing, with no Try again (a resume requeues nothing while the job runs). */
+  | { kind: "section_writing"; title: string; part: string | null; card: SourceLibraryCard; progress?: Progress | null; failedTopics?: boolean }
   /** A section the learner finished waits for its book to be ready: its questions are written then. */
   | { kind: "section_waiting"; title: string; part: string | null; card: SourceLibraryCard }
   /** Only books kept for practice (past exams): nothing to read. */
@@ -178,6 +179,11 @@ function stillWriting(entry: { label: string }, writing: readonly string[]): boo
   return writing.some((label) => entry.label === label || entry.label.startsWith(`${label}: `));
 }
 
+/** The stopped entries: those whose section is no longer being written, which a resume can requeue. */
+function stoppedEntries(questions: ReadingQuestionsDto): ReadingQuestionsDto["failed"] {
+  return questions.failed.filter((entry) => !stillWriting(entry, questions.writing));
+}
+
 /** How many topics of the sections being written are done. The fact's `progress` adds up every finished section of
  *  the reading, so it is said only where no other finished section shows in the fact (none gave questions or stopped
  *  outside the writing): otherwise the amount would not be the named section's. */
@@ -193,7 +199,7 @@ function writingProgress(questions: ReadingQuestionsDto): Progress | null {
  *  null when neither, and the plain offer stands. */
 function readyWithSectionWork(card: SourceLibraryCard, questions: ReadingQuestionsDto, count: number, itemId: string | null): TodayCause | null {
   if (questions.writing.length === 0 && questions.failed.length === 0) return null;
-  const stopped = questions.failed.filter((entry) => !stillWriting(entry, questions.writing));
+  const stopped = stoppedEntries(questions);
   return {
     kind: "questions_ready_with_section_work",
     title: readableTitle(card.title),
@@ -258,9 +264,10 @@ export function todayCause(input: {
   for (const card of readable) {
     const rank = rankOf(shownLine(card, input.ai), input.ai);
     if (rank) found.push({ rank, title: readableTitle(card.title), card, batchId: null });
-    // A finished section's questions being written, or stopped, whatever the card's own line says.
+    // A finished section's questions being written, or stopped, whatever the card's own line says. A topic that failed
+    // in a section still being written is said with that writing, not as a stop: Try again would requeue nothing.
     const questions = questionsOf(card);
-    if (questions?.failed.length) found.push({ rank: "section_failed", title: readableTitle(card.title), card, batchId: null });
+    if (questions && stoppedEntries(questions).length > 0) found.push({ rank: "section_failed", title: readableTitle(card.title), card, batchId: null });
     if (questions?.writing.length) found.push({ rank: "section_writing", title: readableTitle(card.title), card, batchId: null });
     if (questions?.waiting?.length) found.push({ rank: "section_waiting", title: readableTitle(card.title), card, batchId: null });
   }
@@ -297,7 +304,7 @@ export function todayCause(input: {
           ? readyWithSectionWork(first.card, questions, askableWritten(questions), null)
           : null;
         if (written) return written;
-        const stopped = questions?.failed ?? [];
+        const stopped = questions ? stoppedEntries(questions) : [];
         return { kind: "section_failed", title: first.title, part: partName(stopped.map((entry) => entry.label), questions?.sectionCount ?? 0), resumeId: stopped[0].resumeId };
       }
       case "needs_look":
@@ -324,7 +331,8 @@ export function todayCause(input: {
           title: first.title,
           part: partName(questions?.writing ?? [], questions?.sectionCount ?? 0),
           card: first.card as SourceLibraryCard,
-          progress: questions ? writingProgress(questions) : null
+          progress: questions ? writingProgress(questions) : null,
+          failedTopics: (questions?.failed.length ?? 0) > 0
         };
       }
       case "section_waiting":
@@ -448,9 +456,10 @@ export function readyWithWorkSentence(cause: Extract<TodayCause, { kind: "questi
     : `${questionsWord(cause.count)} from what you read in “${cause.title}” ${verb} ready. ${more}`;
 }
 
-/** The line under questions offered when some topics' questions could not be written, or null. */
+/** The line under questions offered, or under the writing still going on, when some topics' questions could not be
+ *  written, or null. */
 export function causeTopicsFailed(cause: TodayCause): string | null {
-  return cause.kind === "questions_ready_with_section_work" && cause.failedTopics ? TOPICS_NOT_WRITTEN : null;
+  return (cause.kind === "questions_ready_with_section_work" || cause.kind === "section_writing") && cause.failedTopics ? TOPICS_NOT_WRITTEN : null;
 }
 
 /** The cause in one plain sentence (or two short ones), as Today says it. */
@@ -484,7 +493,9 @@ export function causeSentence(cause: TodayCause): string {
     case "on_the_way":
     case "section_writing": {
       const wait = causeWait(cause) as { line: string; after: string };
-      return wait.line.endsWith("…") ? `${wait.line} ${wait.after}` : `${wait.line}. ${wait.after}`;
+      const failed = causeTopicsFailed(cause);
+      const after = failed ? `${failed} ${wait.after}` : wait.after;
+      return wait.line.endsWith("…") ? `${wait.line} ${after}` : `${wait.line}. ${after}`;
     }
     case "no_reading":
       return "LearnLoop writes questions from what you read. Add a book, paper or lecture to read.";

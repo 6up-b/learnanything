@@ -239,6 +239,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shared_surface_group_makes_the_certificate_unmeasurable`
   - `test_the_only_instrument_being_the_certifying_one_is_unmeasurable`
   - `test_withdrawn_certificate_schedules_nothing_and_cancels_a_queued_probe`
+- [tests/test_certification_serving_reservation.py](../../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_dead_by_date_matches_the_no_reservation_rows`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
   - `test_k5_3_a_probe_answer_with_every_criterion_unassessed_abstains`
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import

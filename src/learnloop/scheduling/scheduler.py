@@ -321,7 +321,7 @@ def _due_queue(
     # (``serving_exclusions``): items reserved for a goal's held-out exam are
     # quarantined from practice so the exam stays an honest, uncontaminated
     # test; pending-variant holds and staged-owned commitments are below.
-    exclusions = routine_serving_exclusions(vault, repository)
+    exclusions = routine_serving_exclusions(vault, repository, now=now)
     reserved_item_ids = set(exclusions.reserved_exam_item_ids)
     # Exam protection (Codex review F1): an item made from held-out material
     # is never routine practice, however long ago it was imported.
@@ -1508,7 +1508,7 @@ def _placement_serving(
 
         out_of_timing = out_of_timing_serving_exclusions(
             vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
-            reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
+            reveal_window=COLD_RETRIEVAL_DELAY, clock=clock or SystemClock(),
         ).out_of_timing_item_ids
         unevidenced_return_item_ids = answered_unscheduled - out_of_timing
         if due:
@@ -3485,7 +3485,7 @@ def _outside_build_admission(
     clock = FrozenClock(now)
     config = vault.config
     item_states = _Once(repository.practice_item_states) if item_states is None else _Once.of(item_states)
-    exclusions = _Once(lambda: routine_serving_exclusions(vault, repository))
+    exclusions = _Once(lambda: routine_serving_exclusions(vault, repository, now=now))
 
     def placement() -> Any:
         excluded = exclusions()

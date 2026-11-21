@@ -2280,3 +2280,120 @@ describe("After the first answers: Today counts and Begin opens only what can be
     await waitFor(() => expect(f.planLearnerPick).toHaveBeenCalledWith("pi_1", "s1", "cand_1"));
   });
 });
+
+describe("Broken controls, third round: a topic that failed while the rest are still written (UX-47)", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const facts = (overrides: Partial<NonNullable<SourceStatusLineDto["questions"]>> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, ...overrides
+  });
+  const built = (questions = facts()): SourceStatusLineDto => ({ ...LINE.built, questions });
+  const FAILED_TOPIC = "Not every topic's questions could be written.";
+
+  it("nothing offered yet: the writing line with its amount, the failed topic beside it with no Try again; Try again once the writing stops", async () => {
+    // The walk's state: topic 1 refused, topics 2 to 8 still being written, nothing applied yet.
+    const lines = [built(facts({
+      writing: ["Document"], progress: { done: 0, total: 8 },
+      failed: [{ label: "Document: Recognize and verify eigenpairs", resumeId: "batch_sec" }]
+    }))];
+    const f = emptyToday([], {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })),
+      resumeIngestBatch: vi.fn(async () => ({ id: "batch_sec", status: "queued" }))
+    });
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Writing questions from what you read in “Symmetric Matrices and Variance” · 0 of 8 topics done")).toBeTruthy();
+    expect(within(cause).getByTestId("today-cause-failed").textContent).toBe(FAILED_TOPIC);
+    expect(cause.textContent).toContain("Keep reading meanwhile.");
+    expect(cause.textContent).not.toContain("Couldn't write the questions");
+    expect(within(cause).queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(within(cause).queryByRole("button", { name: /what's sent/ })).toBeNull();
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalled();
+    // The writing stops with nothing else written: the stopped part's own line, and Try again resumes it.
+    lines[0] = built(facts({ progress: undefined, failed: [{ label: "Document: Recognize and verify eigenpairs", resumeId: "batch_sec" }] }));
+    act(() => notifyQueueChanged());
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain(
+      "Couldn't write the questions from what you read in “Symmetric Matrices and Variance”. Try again, or keep reading: nothing is lost."
+    ), { timeout: 2000 });
+    fireEvent.click(within(screen.getByTestId("today-cause")).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(f.resumeIngestBatch).toHaveBeenCalledWith("batch_sec"));
+  });
+
+  it("a stopped section beside another still being written: the stopped one's Try again resumes its own batch, never the running one's", async () => {
+    const f = emptyToday([libraryCard(built(facts({
+      sectionCount: 4, writing: ["Independence"],
+      failed: [{ label: "Independence: Pairwise", resumeId: "batch_running" }, { label: "Conditional probability", resumeId: "batch_stopped" }]
+    })))], { resumeIngestBatch: vi.fn(async () => ({ id: "batch_stopped", status: "queued" })) });
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Couldn't write the questions from “Conditional probability”. Try again, or keep reading: nothing is lost.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(f.resumeIngestBatch).toHaveBeenCalledWith("batch_stopped"));
+  });
+
+  it("its words are plain", async () => {
+    emptyToday([libraryCard(built(facts({
+      writing: ["Document"], progress: { done: 1, total: 8 }, failed: [{ label: "Document: Eigenpairs", resumeId: "b" }]
+    })))]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+});
+
+describe("Broken controls, third round: Today offering questions says no 'nothing planned', and one control shows Enter (UX-52)", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const facts = (overrides: Partial<NonNullable<SourceStatusLineDto["questions"]>> = {}) => ({
+    count: 0, itemIds: [], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, ...overrides
+  });
+  const built = (questions = facts()): SourceStatusLineDto => ({ ...LINE.built, questions });
+  const enterMarked = () => screen.getAllByRole("button").filter((button) => (button.textContent ?? "").includes("↵"));
+
+  it("an empty, finished plan with questions offered: no 'Nothing planned for today.', and only Begin shows ↵ (Enter is Begin)", async () => {
+    const f = emptyToday([libraryCard(built(facts({ count: 3, itemIds: ["pi_1", "pi_2", "pi_3"], writing: ["Document"], progress: { done: 1, total: 8 } })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2), scheduled(3)]))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain("3 questions from what you read in “Symmetric Matrices and Variance” are ready."));
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
+    expect(surface()).not.toMatch(/Nothing planned/);
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+    await press({ key: "Enter" });
+    await waitFor(() => expect(f.planLearnerPick).toHaveBeenCalledWith("pi_1", "s1", "cand_1"));
+    expect(f.planKeepGoing).not.toHaveBeenCalled();
+  });
+
+  it("after practice outside the plan: the plan stays empty, and still no 'nothing planned' while questions are offered", async () => {
+    // Two minutes answered outside the plan (picks from the list): the day's plan still had nothing in it.
+    emptyToday([libraryCard(built(facts({ count: 3, itemIds: ["pi_1", "pi_2", "pi_3"], writing: ["Document"], progress: { done: 2, total: 8 } })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2), scheduled(3)])),
+      getDailyPlan: vi.fn(async () => dto(emptyPlan(), { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 2, plannedItems: 0, readingBlocks: 0 } } as Partial<DailyPlanDto>))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("are ready"));
+    expect(surface()).not.toMatch(/Nothing planned/);
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
+  });
+
+  it("an empty, finished plan with nothing offered: the heading stays, and Keep going is the one control with ↵ (Enter is Keep going)", async () => {
+    const f = emptyToday([libraryCard(built(facts({ writing: ["Document"], progress: { done: 0, total: 8 } })))]);
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Nothing planned for today.");
+    await screen.findByTestId("today-cause");
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Keep going ↵"]);
+    await press({ key: "Enter" });
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalled());
+  });
+
+  it("an open plan with nothing in it and questions offered: no 'Nothing planned for today.', and only Begin shows ↵", async () => {
+    emptyToday([libraryCard(built(facts({ count: 2, itemIds: ["pi_1", "pi_2"] })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2)]))
+    }, body({ status: "open", blocks: [], currentBlockId: null, projected: [], totals: EMPTY_TOTALS }));
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("2 questions from what you read"));
+    expect(surface()).not.toMatch(/Nothing planned/);
+    expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
+  });
+});

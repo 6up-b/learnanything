@@ -16,7 +16,6 @@ import type {
   GradingClarificationDto,
   FollowupGateDiagnosticsDto,
   FollowupGateSignalDto,
-  GuidedRedoDto,
   MasteryDto,
   MasteryStepDto,
   MatchedMisconceptionDto,
@@ -68,8 +67,10 @@ import {
   answeredCriterionRows,
   answeredMaxPoints,
   gradedVersionUnrecorded,
+  missedRubricLines,
   scoreOutOf,
-  type FeedbackNextStep
+  type FeedbackNextStep,
+  type RedoContext
 } from "./feedback/FeedbackSurface";
 import { PrimaryAction, QuietAction } from "../components/PlainParts";
 import { IntentCheckFeedback } from "../components/IntentCheckFeedback";
@@ -1529,7 +1530,7 @@ export function FeedbackScreen({
   onPrimedRetry: (practiceItemId: string) => void;
   /** Fix 3: redo ONLY the failed part of THIS item, primed, with the preserved
    *  prefix locked (available when the attempt stored a repair selection). */
-  onGuidedRedo?: (redo: GuidedRedoDto) => void;
+  onGuidedRedo?: (redo: RedoContext) => void;
   /** Open a practice item cold (teach-back opt-in navigation). */
   onOpenPractice?: (practiceItemId: string) => void;
   /** Launch the §4.10 Repair flow for a matched misconception (the statement
@@ -2215,7 +2216,7 @@ export function FeedbackScreen({
     setStartingRedo(true);
     try {
       const redo = await api.startGuidedRedo(feedback.attemptId);
-      onGuidedRedo(redo);
+      onGuidedRedo({ ...redo, missedLines: missedRubricLines(feedback) });
     } catch (error) {
       onError(errorMessage(error));
     } finally {

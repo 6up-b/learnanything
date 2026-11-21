@@ -924,6 +924,11 @@ export function TodayPlace({
     return shown.kind === "no_topics" && onOpenBook ? () => onOpenBook(shown.card) : null;
   }
 
+  // A book's questions offered on Today: the offer is what Today says (an empty plan's "Nothing planned for today."
+  // above it read as "my reading gave nothing"), and Enter is its Begin, so only that Begin shows ↵.
+  const offersQuestions = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work";
+  const offerBegin = cause && offersQuestions ? causeAction(cause) : null;
+
   const causeLine = cause ? (
     <CauseLine
       cause={cause}
@@ -956,8 +961,7 @@ export function TodayPlace({
         if (enterOnControl(event)) return;
         event.preventDefault();
         // A book's first questions on Today: Enter is their Begin, as the line says.
-        const first = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work" ? causeAction(cause) : null;
-        if (first) first();
+        if (offerBegin) offerBegin();
         else if (done) void keepGoing();
         else void begin();
       } else if (event.key === "l") {
@@ -1042,9 +1046,11 @@ export function TodayPlace({
     const empty = planWasEmpty(data);
     body = (
       <div data-testid="today-done" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text }}>
-          {empty ? "Nothing planned for today." : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
-        </div>
+        {empty && offersQuestions ? null : (
+          <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text }}>
+            {empty ? "Nothing planned for today." : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
+          </div>
+        )}
         {empty ? causeLine : keptGoingToNothing ? null : moreLeft ? (
           <div data-testid="today-stopped-more" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
             {PLAN_STOPPED_WITH_MORE}
@@ -1064,7 +1070,7 @@ export function TodayPlace({
         ) : null}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" style={actionButton(true)} disabled={busy} onClick={() => void keepGoing()}>
-            Keep going ↵
+            {offerBegin ? "Keep going" : "Keep going ↵"}
           </button>
           {plan.kind !== "reentry" ? (
             <button type="button" style={actionButton()} disabled={busy} onClick={() => void somethingNew(false)}>
@@ -1099,13 +1105,15 @@ export function TodayPlace({
     const sentence = plan.kind === "reentry" ? reentrySentence(plan) : planSentence(plan);
     body = (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text, lineHeight: 1.5 }}>
-          {plan.kind === "keep_going" ? "Keep going. " : ""}
-          {waiting ? waitingLine(waiting) : inProgress ? questionInProgressLine(inProgress) : sentence ?? (deciding ? "Choosing what's next…" : "Nothing planned for today.")}{" "}
-          <button type="button" style={dimLink} aria-expanded={why} onClick={() => setWhy((open) => !open)}>
-            why? {why ? "▾" : "▸"}
-          </button>
-        </div>
+        {!waiting && !inProgress && sentence === null && !deciding && offersQuestions ? null : (
+          <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text, lineHeight: 1.5 }}>
+            {plan.kind === "keep_going" ? "Keep going. " : ""}
+            {waiting ? waitingLine(waiting) : inProgress ? questionInProgressLine(inProgress) : sentence ?? (deciding ? "Choosing what's next…" : "Nothing planned for today.")}{" "}
+            <button type="button" style={dimLink} aria-expanded={why} onClick={() => setWhy((open) => !open)}>
+              why? {why ? "▾" : "▸"}
+            </button>
+          </div>
+        )}
         {causeLine}
         {inProgress ? (
           <QuestionInProgress
@@ -1147,7 +1155,7 @@ export function TodayPlace({
         {!waiting && (rows.length > 0 || deciding || inProgress) ? (
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button type="button" data-testid="today-begin" style={actionButton(true)} disabled={busy} onClick={() => void begin()}>
-              {busy ? "opening…" : current?.startedAt ? "Continue ↵" : "Begin ↵"}
+              {busy ? "opening…" : `${current?.startedAt ? "Continue" : "Begin"}${offerBegin ? "" : " ↵"}`}
             </button>
           </div>
         ) : null}
@@ -1261,7 +1269,10 @@ function CauseLine({
   if (wait) {
     // A wait (a book being got ready, a finished section's questions being written): the shared waiting
     // indicator says what is happening and how far, the action beside it from the first moment; the line under it
-    // says what to know meanwhile. The indicator is the status region, so this frame is not one too.
+    // says what to know meanwhile. The indicator is the status region, so this frame is not one too. A topic that
+    // failed while the rest are written is said under the writing with no Try again: a resume of a running job
+    // requeues nothing, so the button would do nothing visible.
+    const failed = causeTopicsFailed(cause);
     return (
       <div data-testid={testId} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
         <Waiting testId={`${testId}-wait`} line={wait.line} later={wait.later}>
@@ -1274,6 +1285,7 @@ function CauseLine({
             </>
           ) : null}
         </Waiting>
+        {failed ? <div data-testid={`${testId}-failed`}>{failed}</div> : null}
         <div>{wait.after}</div>
       </div>
     );

@@ -814,6 +814,10 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
         plan = RG.build_guide_plan(vault, repository, extraction_id=resolved)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    # Only when there is one: a plan with no failed check keeps its bytes (the stage pins of the plan hold them).
+    failed_checks = _failed_section_checks(repository, resolved, plan["sections"])
+    if failed_checks:
+        plan["check_failed_section_ids"] = failed_checks
     # Reader workbench RW3a: the plan's own misunderstanding passages as margin
     # cues, within the learner's choices. Switched off, the plan is unchanged.
     if RCU.cues_enabled(vault):
@@ -832,6 +836,23 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
     if ctx.request_origin is not None:
         plan = _phone_guide_plan(vault, repository, resolved, plan)
     return versioned(plan)
+
+
+def _failed_section_checks(repository: Any, extraction_id: str, sections: list[dict[str, Any]]) -> list[str]:
+    """The sections with no question whose newest quick-check job failed. Without this the Reader, which polls the
+    plan while a check is written, read a failed job as still writing until its poll gave up, and after a reopen as
+    nothing; a newer job for the section (Try again) replaces the failure."""
+
+    newest: dict[str, str] = {}
+    for job in repository.ingest_jobs_by_payload("reader_quick_check", "extraction_id", extraction_id):
+        section_id = (job.get("payload") or {}).get("section_id")
+        # Passage and selection checks carry no section; only the newest job of a section counts.
+        if section_id and section_id not in newest:
+            newest[str(section_id)] = str(job.get("status") or "")
+    return [
+        str(section["id"]) for section in sections
+        if not section.get("question") and newest.get(str(section["id"])) == "failed"
+    ]
 
 
 def _phone_guide_plan(vault: Any, repository: Any, extraction_id: str, plan: dict[str, Any]) -> dict[str, Any]:

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SessionEndSummary } from "../api/dto";
+import type { SessionEndSummary, SessionTopicDto } from "../api/dto";
 import { simplePracticeFeedback } from "../app/practiceFeedback";
 import { PrimaryAction, quietLine } from "./PlainParts";
 import { COLOR } from "./term";
@@ -92,6 +92,14 @@ export function sessionLengthLine(summary: SessionEndSummary): string {
   return `${plural(minutes, "minute", "minutes")} this session · ${plural(summary.itemsReviewed, "question", "questions")}`;
 }
 
+/** One topic's mark: what happened, from the session's answers. A partly right answer of the learner's own that help
+ *  then finished says both; "(on your own)" alone beside a redo the feedback called "practice with help" read as a
+ *  contradiction. */
+export function sessionTopicLine(topic: SessionTopicDto): string {
+  if (topic.evidence !== "on_your_own") return `◌ ${topic.title} (with help)`;
+  return topic.finishedWithHelp ? `● ${topic.title} (partly on your own, finished with help)` : `● ${topic.title} (on your own)`;
+}
+
 function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary; onDismiss: () => void }) {
   // Enter or Escape dismisses it; nothing else is captured, so the screen
   // beneath stays usable (it is a card, not a modal).
@@ -138,9 +146,7 @@ function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary;
               {topics.map((topic, index) => (
                 <span key={topic.learningObjectId}>
                   {index > 0 ? <span style={{ color: COLOR.textDim }}> · </span> : null}
-                  {topic.evidence === "on_your_own"
-                    ? `● ${topic.title} (on your own)`
-                    : `◌ ${topic.title} (with help)`}
+                  {sessionTopicLine(topic)}
                 </span>
               ))}
             </div>

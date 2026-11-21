@@ -648,6 +648,12 @@ describe("question writing you can follow: the phone says the desktop's sentence
       "Couldn't write the questions from “Conditional probability”. Try again, or keep reading: nothing is lost."
     );
   });
+
+  it("nothing written yet and a topic failed while the rest are written: the writing, with the failed topic, never 'Couldn't write' (UX-47)", async () => {
+    expect(await causeFor(facts({ writing: ["Conditional probability"], failed: [FAILED], progress: { done: 1, total: 8 } }))).toBe(
+      "Writing questions from “Conditional probability”, the part you read · 1 of 8 topics done. Not every topic's questions could be written. Keep reading meanwhile."
+    );
+  });
 });
 
 describe("after the first answers (UX-44): the phone counts only what can be asked now", () => {

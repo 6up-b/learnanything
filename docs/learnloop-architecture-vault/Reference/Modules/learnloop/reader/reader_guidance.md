@@ -172,6 +172,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_escalate_mints_practice_item_with_span_provenance`
   - `test_guide_plan_falls_back_to_authored_question`
   - `test_owner_reviewed_placement_wins_over_authored`
+- [tests/test_reader_quick_check_failed.py](../../../../../../tests/test_reader_quick_check_failed.py) — direct import
 - [tests/test_reader_reconnect.py](../../../../../../tests/test_reader_reconnect.py) — direct import
   - `test_an_inquiry_row_never_shadows_its_sections_quick_check`
 - [tests/test_reader_rw3b_fix_round4.py](../../../../../../tests/test_reader_rw3b_fix_round4.py) — direct import

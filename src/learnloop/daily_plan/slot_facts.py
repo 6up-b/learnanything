@@ -22,6 +22,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import replace
 from typing import Any
 
+from learnloop.clock import FrozenClock
 from learnloop.daily_plan.lanes import PoolItem
 from learnloop.daily_plan.slot_facts_schema import EXCLUSION_NAMES, SlotFacts, SlotInputs
 from learnloop.daily_plan.types import BLOCK_MAX_MINUTES
@@ -56,7 +57,7 @@ def _verdicts(env: Any, record: Any, built: Any, inputs: SlotInputs, *, slot_ite
     states = dict(inputs.item_states)
     exclusions = out_of_timing_serving_exclusions(
         env.vault, env.repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS, reveal_window=COLD_RETRIEVAL_DELAY,
-        clock=env.clock, exclude_reveal_ids=frozenset(inputs.withheld_reveal_ids))
+        clock=FrozenClock(env.now()), exclude_reveal_ids=frozenset(inputs.withheld_reveal_ids))
     unclaimed = (slot_item_id,) if slot_item_id is not None else ()
     admitted = admitted_new_material_ids(env, record, scheduled=built.scheduled, item_states=states,
                                          released=released, unclaimed=unclaimed)

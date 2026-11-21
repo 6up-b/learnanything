@@ -56,7 +56,8 @@ const plan: ReaderGuidePlanDto = {
   ]
 } as ReaderGuidePlanDto;
 
-const backend = { authorCalls: 0 };
+// The guide plan's sections whose newest check job failed (the sidecar reads the job queue).
+const backend = { authorCalls: 0, failedChecks: [] as string[] };
 
 function sidecar(command: string): unknown {
   switch (command) {
@@ -71,7 +72,7 @@ function sidecar(command: string): unknown {
     case "reader_render_view":
       return readerRenderViewFixture;
     case "reader_guide_plan":
-      return plan;
+      return { ...plan, checkFailedSectionIds: backend.failedChecks };
     case "reader_get_progress":
       return { version: 1, extractionId: EXTRACTION_ID, sections: [] };
     case "reader_pdf_view":
@@ -116,6 +117,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   clear();
   backend.authorCalls = 0;
+  backend.failedChecks = [];
   vi.stubGlobal("localStorage", memoryStorage());
   // jsdom has no layout: the Reader scrolls the resumed passage into view.
   Element.prototype.scrollIntoView = vi.fn();
@@ -183,5 +185,39 @@ it("says when a section's check could not be written, and offers to try again", 
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   await settle();
   expect(backend.authorCalls).toBe(2);
+  expect(screen.getByText(/writing a quick check for this section/)).toBeTruthy();
+});
+
+// Broken controls, third round (UX-53): a check whose writing failed kept "writing a quick check…" until the poll gave
+// up three minutes on, and after the Reader reopened said only "Keep reading at your own pace."
+it("a check whose writing failed is said at the next look at the plan, with Try again, not after the poll gives up", async () => {
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: CARD, spanId: null }} />);
+  await settle();
+  await readOnAtTheSectionEnd();
+  expect(screen.getByText(/writing a quick check for this section/)).toBeTruthy();
+
+  // The job fails (an overloaded provider): the next poll of the plan, four seconds on, says so.
+  backend.failedChecks = ["u1"];
+  await settle(4_000);
+  await settle(4_000);
+  expect(screen.queryByText(/writing a quick check for this section/)).toBeNull();
+  expect(screen.getByText(/Couldn't write a check for this section/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await settle();
+  expect(backend.authorCalls).toBe(2);
+  expect(screen.getByText(/writing a quick check for this section/)).toBeTruthy();
+});
+
+it("reopened at a section whose check failed: the failure and Try again, and no check asked for again on its own", async () => {
+  backend.failedChecks = ["u1"];
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: CARD, spanId: null }} />);
+  await settle();
+  await readOnAtTheSectionEnd();
+  expect(screen.getByText(/Couldn't write a check for this section/)).toBeTruthy();
+  expect(screen.queryByText("Keep reading at your own pace.")).toBeNull();
+  expect(backend.authorCalls).toBe(0);
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await settle();
+  expect(backend.authorCalls).toBe(1);
   expect(screen.getByText(/writing a quick check for this section/)).toBeTruthy();
 });

@@ -348,6 +348,24 @@ it("offers the guided redo when the grader kept the learner's correct work", asy
   expect(callbacks.onGuidedRedo).toHaveBeenCalled();
 });
 
+it("the guided redo carries the rubric lines the answer missed, as the feedback showed them (UX-48)", async () => {
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, guidedRedoAvailable: true });
+  api.startGuidedRedo.mockResolvedValue({
+    practiceItemId: "pi_cond_001", learnerWorkPrefix: "Setup",
+    redoInstruction: "Preserve the correct setup and elicit the omitted computations before revealing the repaired trace."
+  });
+  const callbacks = props();
+  render(<FeedbackScreen {...callbacks} />);
+  const redo = await screen.findByRole("button", { name: "Redo the part you missed" });
+  await act(async () => {
+    fireEvent.click(redo);
+  });
+  expect(callbacks.onGuidedRedo).toHaveBeenCalledWith(expect.objectContaining({
+    practiceItemId: "pi_cond_001",
+    missedLines: [{ text: "Restricted the sample space to the condition", partly: false }]
+  }));
+});
+
 it("otherwise offers a similar question, on the button or `t`", async () => {
   api.startPrimedRetry.mockResolvedValue({ available: true, practiceItem: { id: "pi_sibling" } });
   const callbacks = props();

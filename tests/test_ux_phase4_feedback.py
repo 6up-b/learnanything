@@ -772,6 +772,69 @@ def test_f4_the_learning_diff_names_the_attempts_whose_points_raised_a_demonstra
     assert diff["demonstrated_attempt_ids"] == ["att_up"]
 
 
+# -- The session finish says what happened on a topic finished with help ----------------------
+
+
+def _graded_at(ctx, *, session_id, points, minutes, primed=False):
+    from datetime import UTC, datetime
+
+    vault, repository = ctx.require_vault()
+    # Distinct whole seconds: the session's attempts are ordered by their created time.
+    at = datetime(2026, 11, 19, 20, 0, tzinfo=UTC) + timedelta(minutes=minutes)
+    return complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id=ITEM, learner_answer_md="work", session_id=session_id, primed=primed),
+        SelfGradeInput(criterion_points={"correctness": points}, confidence=3),
+        clock=FrozenClock(at),
+    ).attempt_id
+
+
+def _topics_crediting(ctx, monkeypatch, session_id, credited):
+    import learnloop.learner.session_learning_diff as diff_module
+
+    real = diff_module.session_learning_diff
+
+    def with_credit(vault_arg, repository_arg, sid):
+        diff = dict(real(vault_arg, repository_arg, sid))
+        diff["demonstrated_facet_ids"] = ["recall"]
+        diff["demonstrated_attempt_ids"] = list(credited)
+        return diff
+
+    monkeypatch.setattr(diff_module, "session_learning_diff", with_credit)
+    return _call(ctx, "end_session", {"sessionId": session_id})["topics"]
+
+
+def test_a_partly_right_answer_on_your_own_then_finished_with_help_says_both(ctx, monkeypatch):
+    # The walk: a partly right answer of one's own earned credit for its right parts, then a redo with help
+    # (primed) finished the topic. The mark is display only: the evidence word and the credit stay as they are.
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    own = _graded_at(ctx, session_id=session_id, points=2, minutes=0)
+    _graded_at(ctx, session_id=session_id, points=4, minutes=3, primed=True)
+
+    topics = _topics_crediting(ctx, monkeypatch, session_id, [own])
+
+    assert [(t["learningObjectId"], t["evidence"], t.get("finishedWithHelp")) for t in topics] == [
+        ("lo_svd_definition", "on_your_own", True)
+    ]
+
+
+@pytest.mark.parametrize("case", ["fully_right_then_help", "partly_right_no_help", "help_then_partly_right"])
+def test_on_your_own_stays_plain_unless_help_finished_a_partly_right_answer(ctx, monkeypatch, case):
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    if case == "fully_right_then_help":
+        own = _graded_at(ctx, session_id=session_id, points=4, minutes=0)
+        _graded_at(ctx, session_id=session_id, points=4, minutes=3, primed=True)
+    elif case == "partly_right_no_help":
+        own = _graded_at(ctx, session_id=session_id, points=2, minutes=0)
+    else:
+        _graded_at(ctx, session_id=session_id, points=4, minutes=0, primed=True)
+        own = _graded_at(ctx, session_id=session_id, points=2, minutes=3)
+
+    topics = _topics_crediting(ctx, monkeypatch, session_id, [own])
+
+    assert [(t["evidence"], "finishedWithHelp" in t) for t in topics] == [("on_your_own", False)]
+
+
 # -- F5: the question, its answer key and rubric all come from the graded contract -----------
 
 

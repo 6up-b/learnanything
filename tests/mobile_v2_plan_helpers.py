@@ -71,6 +71,19 @@ def _desktop(root: Path) -> SidecarContext:
     return ctx
 
 
+def _desktop_without_worker(root: Path) -> SidecarContext:
+    """The desktop for journeys that never read post-attempt work: its post-attempt slots never start, as in the
+    suites that run that work by hand (``tests/test_mobile_v2_followup.py``). Each submit's notify starts all four
+    slots; one still inside its work (a claim retrying a database another connection holds, a follow-up job) outlived
+    the context's close and the thread guard's grace at teardown under load. Waiting on the queues does not close it:
+    the diagnosis queue is empty here, and a slot can be inside its claim with nothing queued. The follow-up jobs the
+    answers queue stay queued; the plan's steps are the same either way."""
+
+    ctx = _desktop(root)
+    ctx.post_attempt_worker.autostart = False
+    return ctx
+
+
 def _call(ctx: SidecarContext, name: str, params: dict) -> Any:
     spec = METHOD_REGISTRY[name]
     return spec.handler(ctx, spec.params_model.model_validate(params))

@@ -482,7 +482,8 @@ def _pending_lesson_check_los(connection: Any, vault: Any, now_iso: str) -> list
                                                                                config=vault.config)))
 
 
-def check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclude: Any = ()) -> dict[str, list[str]]:
+def check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclude: Any = (),
+                         *, now: datetime) -> dict[str, list[str]]:
     """RO5 §9 item 2's eligibility rule, per LO in id order: unseen (never attempted), unrevealed (no reveal row at
     all), unassisted so far (no help row), not exam-reserved, held out or protected, nor in any routine serving
     exclusion, and servable (the delayed checks' candidate rule)."""
@@ -500,7 +501,7 @@ def check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclud
             assisted = {str(r[0]) for r in connection.execute(
                 "SELECT DISTINCT practice_item_id FROM help_assists WHERE practice_item_id IS NOT NULL")}
     withheld = withheld_items(vault, repository)
-    excluded = set(routine_serving_exclusions(vault, repository).out_of_timing_item_ids) | assisted | set(exclude)
+    excluded = set(routine_serving_exclusions(vault, repository, now=now).out_of_timing_item_ids) | assisted | set(exclude)
     out: dict[str, list[str]] = {}
     for lo in los:
         items = D.candidates(vault, repository, lo, exclude=excluded, withheld=withheld, attempted=attempted,

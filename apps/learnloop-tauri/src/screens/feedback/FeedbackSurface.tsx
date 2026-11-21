@@ -23,7 +23,7 @@
 // exposure, charged to the reveal ledger for as long as it is on screen
 // (`useAnswerExposure`, Codex review F1, re-review F1, final verification F1).
 import { useRef, useEffect } from "react";
-import type { CriterionEvidenceRowDto, FeedbackBundle, PracticeItemDetail } from "../../api/dto";
+import type { CriterionEvidenceRowDto, FeedbackBundle, GuidedRedoDto, PracticeItemDetail } from "../../api/dto";
 import { criterionAssessed } from "../../api/dto";
 import type { DiagnosisCardState } from "../../components/DiagnosisCard";
 import { ItemPresentation } from "../../components/ItemPresentation";
@@ -125,6 +125,23 @@ export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDt
       ? { ...row, criterionDescription: criterion.description, pointsPossible: criterion.pointsPossible }
       : row;
   });
+}
+
+/** A rubric line the answer did not fully meet, as the feedback showed it (✗, or ◐ when it earned part). */
+export type MissedRubricLine = { text: string; partly: boolean };
+
+/** A guided redo as the practice screen shows it: the sidecar's context, and the rubric lines the answer missed, which
+ *  the screen that started the redo had on show. The context's `redoInstruction` is the repair suggestion's rationale,
+ *  written for the system, so it is never shown; these lines are what to fix. */
+export type RedoContext = GuidedRedoDto & { missedLines?: readonly MissedRubricLine[] };
+
+/** The lines the feedback marked ✗ or ◐, in its words; none where it showed no lines (a held grade, an unrecorded
+ *  version). */
+export function missedRubricLines(f: FeedbackBundle): MissedRubricLine[] {
+  if (f.heldForReview === true || gradedVersionUnrecorded(f)) return [];
+  return answeredCriterionRows(f)
+    .filter((row) => criterionAssessed(row) && row.pointsAwarded < row.pointsPossible && row.criterionDescription.trim())
+    .map((row) => ({ text: row.criterionDescription.trim(), partly: row.pointsAwarded > 0 }));
 }
 
 /** The maximum the grade is out of: the one the bundle sends (re-review F9);

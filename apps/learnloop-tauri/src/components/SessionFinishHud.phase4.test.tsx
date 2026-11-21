@@ -84,3 +84,17 @@ it("classic restores the full-screen HUD", () => {
   render(<SessionFinishHud summary={SUMMARY} onDismiss={vi.fn()} />);
   expect(screen.getByRole("dialog", { name: "Session complete" })).toBeTruthy();
 });
+
+it("a topic answered partly right on your own and finished with help says both, never only 'on your own' (UX-49)", () => {
+  const topics = [
+    { learningObjectId: "lo_diag", title: "Construct a diagonalization from an eigenvector basis", evidence: "on_your_own", finishedWithHelp: true },
+    { learningObjectId: "lo_cond", title: "Conditional probability", evidence: "on_your_own" },
+    { learningObjectId: "lo_mix", title: "Mixtures", evidence: "with_help" }
+  ];
+  render(<SessionFinishHud summary={{ ...SUMMARY, topics } as unknown as SessionEndSummary} onDismiss={vi.fn()} />);
+  const moved = screen.getByTestId("session-moved").textContent ?? "";
+  expect(moved).toContain("● Construct a diagonalization from an eigenvector basis (partly on your own, finished with help)");
+  expect(moved).not.toContain("Construct a diagonalization from an eigenvector basis (on your own)");
+  expect(moved).toContain("● Conditional probability (on your own)");
+  expect(moved).toContain("◌ Mixtures (with help)");
+});
