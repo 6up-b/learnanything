@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/reader.py](../../../../../../src/learnloop_sidecar/handlers/reader.py) |
-| Source lines | 2936 |
+| Source lines | 2961 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -159,41 +159,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class ReaderGetProgressInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2058)
 - `reader_get_progress(ctx: SidecarContext, params: ReaderGetProgressInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2063) — Durable per-section reading progress for one extraction (migration 106).
 - `class ReaderMarkSectionProgressInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2079)
-- `reader_mark_section_progress(ctx: SidecarContext, params: ReaderMarkSectionProgressInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2096) — Persist section progress; on first completion, trigger progressive practice generation for the section's provenance-linked Learning Objects.
-- `class ReaderAuthoredQuestionActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2235)
-- `reader_authored_question_action(ctx: SidecarContext, params: ReaderAuthoredQuestionActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2242)
-- `class ReaderEscalateAuthoredQuestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2281)
-- `class ReaderImportExerciseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2286)
-- `reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2297) — Queue the exact-exercise slice: the learner's selection (ordered per-block nodes) becomes one background authoring job that writes complete, schedulable PracticeItems around the verbatim exercise text.
-- `enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: ReaderImportExerciseInput) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2307) — Queue one exercise-import job and return its batch id (raises ``SidecarError`` when it cannot start).
-- `class ReaderExerciseImportStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2356)
-- `reader_exercise_import_status(ctx: SidecarContext, params: ReaderExerciseImportStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2361) — Poll one exercise-import batch.
-- `reader_escalate_authored_question(ctx: SidecarContext, params: ReaderEscalateAuthoredQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2392)
-- `class ReaderSearchSourcesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2423)
-- `reader_search_sources(ctx: SidecarContext, params: ReaderSearchSourcesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2433)
-- `class ReaderRetrievalOpenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2441)
-- `reader_retrieval_open(ctx: SidecarContext, params: ReaderRetrievalOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2448) — The learner opened a passage from a library search result (local contextual retrieval P1, spec §9.2, Codex review F11): an ``opened`` signal on the span that result's receipt delivered.
-- `class ReaderSpanLearningObjectsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2465)
-- `reader_span_learning_objects(ctx: SidecarContext, params: ReaderSpanLearningObjectsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2471) — Provenance-linked LOs for a span, else labelled nearest-LO suggestions (T6).
-- `class ReaderManualAnchorInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2481)
-- `reader_manual_anchor(ctx: SidecarContext, params: ReaderManualAnchorInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2489) — Repair a needs_reanchor annotation with a learner-chosen passage (§4.4).
-- `class ReaderSetInquiryStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2575)
-- `reader_set_inquiry_status(ctx: SidecarContext, params: ReaderSetInquiryStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2584) — Open, resolve, dismiss or reopen an inquiry (its root question's resolution).
-- `class ReaderReconnectAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2603)
-- `reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2611) — The reconnect line's answer: yes resolves the root; quick check queues the passage-scoped question (never on the request path: a durable job writes it).
-- `class ReaderInquiryQuestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2668)
-- `reader_inquiry_question(ctx: SidecarContext, params: ReaderInquiryQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2702) — The inquiry's passage-scoped quick check, once authored (a cheap local read), and the state of the job writing it when ``batchId`` names one.
-- `class ReaderInquiryQuestionActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2724)
-- `reader_inquiry_question_action(ctx: SidecarContext, params: ReaderInquiryQuestionActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2732) — Answer, self-check (matches · partly · no) or dismiss an inquiry check.
-- `class ReaderLogActivityInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2752)
-- `reader_log_activity(ctx: SidecarContext, params: ReaderLogActivityInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2757) — Record the Reader's funnel events (salience only; ids, kinds and timings, never learner text).
-- `check_me_proposal(vault: Any, repository: Any, extraction_id: str, cue: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2806) — "Check me" on a cue (spec §6.1): one short item on the cue's Learning Object, through ``find_practice`` under the Reader's caller (the question the learner answered left out).
-- `class ReaderCueActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2853)
-- `reader_cue_action(ctx: SidecarContext, params: ReaderCueActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2862) — A tap on a margin cue: open, check me, not relevant (and its undo).
-- `class ReaderCuePreferencesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2891)
-- `reader_cue_preferences(ctx: SidecarContext, params: ReaderCuePreferencesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2896) — The learner's cue preferences (Settings, the Guide's footer).
-- `class ReaderSetCuePreferencesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2904)
-- `reader_set_cue_preferences(ctx: SidecarContext, params: ReaderSetCuePreferencesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2913) — Change the margin-mark density, or switch cues off (or back on) for a book.
+- `reader_mark_section_progress(ctx: SidecarContext, params: ReaderMarkSectionProgressInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2097) — Persist section progress; on first completion, trigger progressive practice generation for the section's provenance-linked Learning Objects.
+- `class ReaderAuthoredQuestionActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2260)
+- `reader_authored_question_action(ctx: SidecarContext, params: ReaderAuthoredQuestionActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2267)
+- `class ReaderEscalateAuthoredQuestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2306)
+- `class ReaderImportExerciseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2311)
+- `reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2322) — Queue the exact-exercise slice: the learner's selection (ordered per-block nodes) becomes one background authoring job that writes complete, schedulable PracticeItems around the verbatim exercise text.
+- `enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: ReaderImportExerciseInput) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2332) — Queue one exercise-import job and return its batch id (raises ``SidecarError`` when it cannot start).
+- `class ReaderExerciseImportStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2381)
+- `reader_exercise_import_status(ctx: SidecarContext, params: ReaderExerciseImportStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2386) — Poll one exercise-import batch.
+- `reader_escalate_authored_question(ctx: SidecarContext, params: ReaderEscalateAuthoredQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2417)
+- `class ReaderSearchSourcesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2448)
+- `reader_search_sources(ctx: SidecarContext, params: ReaderSearchSourcesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2458)
+- `class ReaderRetrievalOpenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2466)
+- `reader_retrieval_open(ctx: SidecarContext, params: ReaderRetrievalOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2473) — The learner opened a passage from a library search result (local contextual retrieval P1, spec §9.2, Codex review F11): an ``opened`` signal on the span that result's receipt delivered.
+- `class ReaderSpanLearningObjectsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2490)
+- `reader_span_learning_objects(ctx: SidecarContext, params: ReaderSpanLearningObjectsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2496) — Provenance-linked LOs for a span, else labelled nearest-LO suggestions (T6).
+- `class ReaderManualAnchorInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2506)
+- `reader_manual_anchor(ctx: SidecarContext, params: ReaderManualAnchorInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2514) — Repair a needs_reanchor annotation with a learner-chosen passage (§4.4).
+- `class ReaderSetInquiryStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2600)
+- `reader_set_inquiry_status(ctx: SidecarContext, params: ReaderSetInquiryStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2609) — Open, resolve, dismiss or reopen an inquiry (its root question's resolution).
+- `class ReaderReconnectAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2628)
+- `reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2636) — The reconnect line's answer: yes resolves the root; quick check queues the passage-scoped question (never on the request path: a durable job writes it).
+- `class ReaderInquiryQuestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2693)
+- `reader_inquiry_question(ctx: SidecarContext, params: ReaderInquiryQuestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2727) — The inquiry's passage-scoped quick check, once authored (a cheap local read), and the state of the job writing it when ``batchId`` names one.
+- `class ReaderInquiryQuestionActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2749)
+- `reader_inquiry_question_action(ctx: SidecarContext, params: ReaderInquiryQuestionActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2757) — Answer, self-check (matches · partly · no) or dismiss an inquiry check.
+- `class ReaderLogActivityInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2777)
+- `reader_log_activity(ctx: SidecarContext, params: ReaderLogActivityInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2782) — Record the Reader's funnel events (salience only; ids, kinds and timings, never learner text).
+- `check_me_proposal(vault: Any, repository: Any, extraction_id: str, cue: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2831) — "Check me" on a cue (spec §6.1): one short item on the cue's Learning Object, through ``find_practice`` under the Reader's caller (the question the learner answered left out).
+- `class ReaderCueActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2878)
+- `reader_cue_action(ctx: SidecarContext, params: ReaderCueActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2887) — A tap on a margin cue: open, check me, not relevant (and its undo).
+- `class ReaderCuePreferencesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2916)
+- `reader_cue_preferences(ctx: SidecarContext, params: ReaderCuePreferencesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2921) — The learner's cue preferences (Settings, the Guide's footer).
+- `class ReaderSetCuePreferencesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2929)
+- `reader_set_cue_preferences(ctx: SidecarContext, params: ReaderSetCuePreferencesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2938) — Change the margin-mark density, or switch cues off (or back on) for a book.
 
 ### Module constants
 
@@ -217,11 +217,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_parse_time_locator(locator: str | None) -> tuple[float, float | None] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 1843)
 - `_authored_question_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 1952)
 - `_progress_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2046)
-- `_require_inquiry(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2545)
-- `_inquiry_question_payload(vault, repository, row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2555) — An inquiry check's wire shape, with the Learning Object "add to practice" would file it under (the anchor's provenance-linked LO, if any).
-- `_inquiry_check_job(repository, batch_id: str, root_event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2676) — The state of the quick-check job ``batch_id`` -- only when it is this inquiry's (any other batch reads as None).
-- `_require_cues(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2794)
-- `_check_me_clip(text: str, limit: int) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2801)
+- `_require_inquiry(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2570)
+- `_inquiry_question_payload(vault, repository, row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2580) — An inquiry check's wire shape, with the Learning Object "add to practice" would file it under (the anchor's provenance-linked LO, if any).
+- `_inquiry_check_job(repository, batch_id: str, root_event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2701) — The state of the quick-check job ``batch_id`` -- only when it is this inquiry's (any other batch reads as None).
+- `_require_cues(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2819)
+- `_check_me_clip(text: str, limit: int) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 2826)
 
 ## Who imports or calls it
 
@@ -273,7 +273,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `module`; calls `escalate`, `record_action`, `record_inquiry_action`
 - [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `module`; calls `cancel_request`, `drain_requests`, `enqueue_request`, `request_status`, `retry_request`
 - [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `module`; calls `restore`
-- [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `DEFERRED_TO_PRIMARY`, `WAITING_FOR_BUILD`
+- [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `DEFERRED_TO_PRIMARY`, `TOPIC_MANAGED`, `WAITING_FOR_BUILD`
 - [[Reference/Modules/learnloop/reader/seen_passages|learnloop.reader.seen_passages]] — imports `check_report`; calls `check_report`
 - [[Reference/Modules/learnloop/reader/source_macros|learnloop.reader.source_macros]] — imports `extraction_math_macros`; calls `extraction_math_macros`
 - [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] — imports `module`; calls `accept_mapping`, `link_relation`, `proposal_inbox`, `reject_mapping`, `review_source_object`, `source_objects_for_source`
@@ -299,6 +299,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `prompt_contract_fields`; calls `prompt_contract_fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `phone_reading_check`; calls `phone_reading_check`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `prompt_contract_fields`; calls `prompt_contract_fields`
+- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `_reload_applied_batches`; calls `_reload_applied_batches`
 - [[Reference/Modules/learnloop_sidecar/handlers/kept_comparisons|learnloop_sidecar.handlers.kept_comparisons]] — imports `prompt_contract_fields`; calls `prompt_contract_fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps|learnloop_sidecar.handlers.learner_gaps]] — imports `queue_tutor_question_gap`; calls `queue_tutor_question_gap`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `prompt_contract_fields`; calls `prompt_contract_fields`
@@ -314,7 +315,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `PHONE_READER_SURFACE`, `module`, `once_per_job`, `refuse_if_withheld`; calls `cold_check_open`, `destination_material`, `once_per_job`, `phone_withheld`, `redact_blocks`, `refuse_if_withheld`, `sendable_exchanges`
 - [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] — imports `notify`, `notify_offer`; calls `notify`, `notify_offer`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
-- [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]] — imports `drain_owed_section_questions`, `start_section_questions`; calls `drain_owed_section_questions`, `start_section_questions`
+- [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]] — imports `drain_owed_section_questions`, `reconcile_part_read`, `start_section_questions`; calls `drain_owed_section_questions`, `reconcile_part_read`, `start_section_questions`
 - [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] — imports `require_identity`; calls `require_identity`
 
 ### Platform and third-party dependencies

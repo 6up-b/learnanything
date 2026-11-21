@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `extraction_sections`, `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`; statically calls `extraction_sections`, `learning_objects_for_section_in_ir`, `learning_objects_for_span_in_ir`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; statically calls `learning_objects_for_section`, `learning_objects_for_span`
+- [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `ANCHOR_CURRENT`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `ANCHOR_CURRENT`, `ANCHOR_MOVED`, `SPAN_LOCATOR_RE`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`, `span_for_ref`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_by_section`, `learning_objects_for_section`, `learning_objects_for_span`, `section_id_for_span`; statically calls `section_id_for_span`
 - [[Reference/Modules/learnloop/reader/seen_passages|learnloop.reader.seen_passages]] — imports `extraction_sections`; statically calls `extraction_sections`
@@ -114,12 +115,13 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]], [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]], [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/part_read_helpers.py](../../../../../tests/part_read_helpers.py) — direct import
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
   - `test_the_raw_loading_wrappers_stay_for_callers_outside_ad`
 - [tests/test_rospeed2_section_map.py](../../../../../tests/test_rospeed2_section_map.py) — direct import

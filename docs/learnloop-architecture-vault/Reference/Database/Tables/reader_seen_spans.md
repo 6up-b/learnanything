@@ -77,7 +77,9 @@ Database triggers:
 
 ### Repository access surface
 
+- `Repository.reader_seen_readings()`
 - `Repository.reader_seen_spans_for()`
+- `Repository.reader_seen_spans_marker()`
 - `Repository.upsert_reader_section_progress()`
 
 ### Direct SQL readers

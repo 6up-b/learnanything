@@ -453,6 +453,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_owner_set_budget_is_never_exceeded_and_its_truncation_is_logged`
   - `test_inside_a_caller_budget_the_transport_leaves_the_retry_to_the_caller`
   - `test_the_route_effort_wins_over_a_profile_that_disables_thinking`
+- [tests/test_part_read_first_set.py](../../../../../../tests/test_part_read_first_set.py) — direct import
 - [tests/test_pf_verify_extraction_parity.py](../../../../../../tests/test_pf_verify_extraction_parity.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_admission_equals_wire_and_every_body_keeps_the_grammar`

@@ -143,10 +143,10 @@ None found by exact static reference scan.
 - `tests/test_data_capture_a2_measurement.py`
 - `tests/test_data_capture_a3_time_metric.py`
 - `tests/test_data_capture_codex_rereview.py`
+- `tests/test_epp_prediction_snapshots.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_mobile_v2_rereview_fixes.py`
-- `tests/test_reader_rw3a_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

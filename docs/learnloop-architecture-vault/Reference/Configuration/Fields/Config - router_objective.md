@@ -31,9 +31,9 @@ source_paths:
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
+  - "tests/epp_snapshot_helpers.py"
   - "tests/figure_build_golden_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
-  - "tests/figures_switch_off_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router-objective"
@@ -123,9 +123,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
+- `tests/epp_snapshot_helpers.py`
 - `tests/figure_build_golden_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
-- `tests/figures_switch_off_helpers.py`
 
 ## Extension and modification guidance
 

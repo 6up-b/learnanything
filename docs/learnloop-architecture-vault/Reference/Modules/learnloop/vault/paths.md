@@ -166,6 +166,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `VaultPaths`
+- [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -211,7 +212,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] and 93 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] and 94 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -331,6 +332,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolve_prefers_store_then_original_uri`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
+- [tests/test_part_read_first_set.py](../../../../../../tests/test_part_read_first_set.py) — direct import
 - [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
   - `test_gate_precision_reports_no_data_before_any_prediction`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import

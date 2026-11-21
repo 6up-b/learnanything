@@ -60,15 +60,15 @@ For system intent, use [[State and Persistence]].
 | [[Reference/Modules/learnloop/vault/facet_fingerprint|learnloop.vault.facet_fingerprint]] | [[Reference/Modules/learnloop/vault/facet_fingerprint#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] | [[Reference/Modules/learnloop/vault/hashes#^module-purpose|purpose]] | `ACTIVE` | 22 | 19 |
 | [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] | [[Reference/Modules/learnloop/vault/lifecycle#^module-purpose|purpose]] | `ACTIVE` | 16 | 3 |
-| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 99 | 902 |
-| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 303 | 85 |
-| [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 98 | 126 |
+| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 99 | 905 |
+| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 304 | 85 |
+| [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 99 | 127 |
 | [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] | [[Reference/Modules/learnloop/vault/repository#^module-purpose|purpose]] | `ACTIVE` | 48 | 31 |
 | [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] | [[Reference/Modules/learnloop/vault/required_method#^module-purpose|purpose]] | `ACTIVE` | 49 | 11 |
 | [[Reference/Modules/learnloop/vault/scope_seal|learnloop.vault.scope_seal]] | [[Reference/Modules/learnloop/vault/scope_seal#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/vault/working_vault|learnloop.vault.working_vault]] | [[Reference/Modules/learnloop/vault/working_vault#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] | [[Reference/Modules/learnloop/vault/writer#^module-purpose|purpose]] | `ACTIVE` | 23 | 166 |
-| [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] | [[Reference/Modules/learnloop/vault/yaml_io#^module-purpose|purpose]] | `ACTIVE` | 25 | 215 |
+| [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] | [[Reference/Modules/learnloop/vault/yaml_io#^module-purpose|purpose]] | `ACTIVE` | 25 | 216 |
 
 ## Cross-package dependencies
 
@@ -98,8 +98,8 @@ For system intent, use [[State and Persistence]].
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 19 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 17 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 17 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 16 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 15 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 14 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 13 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 12 static module edges

@@ -125,6 +125,7 @@ Indexes and uniqueness:
 
 - `tests/ad23_contract_helpers.py`
 - `tests/ad_fakes.py`
+- `tests/epp_snapshot_helpers.py`
 - `tests/identity_pins_helpers.py`
 - `tests/ih_numeric_seed_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
@@ -141,8 +142,7 @@ Indexes and uniqueness:
 - `tests/test_coordinated_migrations.py`
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_doctor.py`
-- `tests/test_evsi_router_composition.py`
-- `tests/test_evsi_staged_binding.py`
+- `tests/test_epp_prediction_snapshots.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

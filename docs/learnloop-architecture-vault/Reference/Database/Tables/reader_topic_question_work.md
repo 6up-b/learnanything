@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/stores/reader.py"
+  - "src/learnloop/reader/part_read.py"
   - "src/learnloop/reader/reader_progression.py"
   - "src/learnloop/reader/section_generation.py"
   - "src/learnloop/content/pipeline/add_source.py"
@@ -110,6 +111,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/reader/part_read.py`
 - `src/learnloop/reader/section_generation.py`
 
 > [!note] Static-reference boundary
@@ -117,6 +119,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/part_read_helpers.py`
 - `tests/reader_topic_question_work_migration_helpers.py`
 - `tests/section_question_parts_helpers.py`
 - `tests/test_reader_topic_question_work_migration.py`

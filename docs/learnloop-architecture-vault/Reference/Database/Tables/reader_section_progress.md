@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/reader/part_read.py`
 - `src/learnloop/reader/section_generation.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/source_retrieval/reading_paths.py`

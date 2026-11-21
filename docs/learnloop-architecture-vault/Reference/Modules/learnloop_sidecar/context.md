@@ -295,6 +295,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mobile_v2_plan_helpers.py](../../../../../tests/mobile_v2_plan_helpers.py) — direct import
 - [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/mobile_v4_reader_helpers.py](../../../../../tests/mobile_v4_reader_helpers.py) — direct import
+- [tests/part_read_helpers.py](../../../../../tests/part_read_helpers.py) — direct import
 - [tests/plan_determinism_helpers.py](../../../../../tests/plan_determinism_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/probe_router_authority_helpers.py](../../../../../tests/probe_router_authority_helpers.py) — direct import
@@ -509,6 +510,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v4_plan.py](../../../../../tests/test_mobile_v4_plan.py) — direct import
 - [tests/test_one_ai_ok.py](../../../../../tests/test_one_ai_ok.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import
+- [tests/test_part_read_first_set.py](../../../../../tests/test_part_read_first_set.py) — direct import
+  - `test_a_section_finished_on_the_phone_after_its_part_read_claims_only_the_rest_on_the_desktop`
+  - `test_reading_on_the_phone_is_saved_there_and_its_first_set_is_written_by_the_desktop`
+  - `test_the_desktop_claims_the_phones_reading_when_it_starts`
 - [tests/test_pinned_draws.py](../../../../../tests/test_pinned_draws.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked`

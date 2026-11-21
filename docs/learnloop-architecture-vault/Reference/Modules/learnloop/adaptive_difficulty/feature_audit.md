@@ -171,6 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_ad1_codex_review_fixes.py](../../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
   - `test_a_claim_held_by_another_process_is_skipped`
@@ -207,6 +208,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_feature_audit_ledgered_with_fallback`
   - `test_serve_inputs_frozen_against_later_audit_and_edit`
   - `test_the_decider_switch_off_audits_with_the_llm_only`
+- [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
+  - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
+  - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`
 
 ## Modification guidance
 

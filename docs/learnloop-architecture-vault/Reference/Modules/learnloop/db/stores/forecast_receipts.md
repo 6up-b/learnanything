@@ -114,6 +114,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/forecast_receipts_helpers.py](../../../../../../../tests/forecast_receipts_helpers.py) — direct import
 - [tests/test_cold_retry_reschedule.py](../../../../../../../tests/test_cold_retry_reschedule.py) — direct import
+- [tests/test_epp_prediction_snapshots.py](../../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
+  - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
 - [tests/test_forecast_receipts.py](../../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_a_failed_receipt_never_breaks_its_diagnosis`
 - [tests/test_forecast_receipts_landing.py](../../../../../../../tests/test_forecast_receipts_landing.py) — direct import

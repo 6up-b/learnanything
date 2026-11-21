@@ -146,7 +146,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`; statically calls `load_events`, `run`
 - [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `module`; statically calls `run`
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `module`; statically calls `load_events`
-- [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `module`; statically calls `days`, `lo_view_name`, `snapshot`
+- [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `module`; statically calls `days`, `lo_view_name`, `snapshot`, `surface_group`
 - [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] — imports `module`; statically calls `load_events`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild`; statically calls `rebuild`
 
@@ -192,6 +192,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
   - `test_goal_focus_follows_the_live_decision_view_with_promoted_predictor_off`
   - `test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change`

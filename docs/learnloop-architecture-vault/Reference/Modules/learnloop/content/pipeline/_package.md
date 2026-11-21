@@ -56,7 +56,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/pipeline/__init__|learnloop.content.pipeline]] | [[Reference/Modules/learnloop/content/pipeline/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 15 | 37 |
+| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 15 | 38 |
 | [[Reference/Modules/learnloop/content/pipeline/ai_contracts|learnloop.content.pipeline.ai_contracts]] | [[Reference/Modules/learnloop/content/pipeline/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
 | [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] | [[Reference/Modules/learnloop/content/pipeline/build_plan#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] | [[Reference/Modules/learnloop/content/pipeline/exam_marking#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -83,8 +83,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 8 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 8 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 6 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 2 static module edges
@@ -119,7 +119,7 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_ingest_extractors["learnloop.ingest.extractors"]
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
-    n_learnloop_source_retrieval["learnloop.source_retrieval"]
+    n_learnloop_reader["learnloop.reader"]
     center -->|27| n_learnloop_ai
     center -->|19| n_learnloop_ingest
     center -->|17| n_learnloop
@@ -129,7 +129,8 @@ flowchart LR
     center -->|10| n_learnloop_db
     center -->|10| n_learnloop_ingest_extractors
     center -->|9| n_learnloop_content_synthesis
-    center -->|9| n_learnloop_source_retrieval
+    n_learnloop_reader -->|1| center
+    center -->|8| n_learnloop_reader
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

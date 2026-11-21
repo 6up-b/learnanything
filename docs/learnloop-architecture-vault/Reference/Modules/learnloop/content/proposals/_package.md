@@ -54,7 +54,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/proposals/__init__|learnloop.content.proposals]] | [[Reference/Modules/learnloop/content/proposals/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] | [[Reference/Modules/learnloop/content/proposals/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 10 | 42 |
+| [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] | [[Reference/Modules/learnloop/content/proposals/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 10 | 43 |
 | [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] | [[Reference/Modules/learnloop/content/proposals/apply_protocol#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/content/proposals/conflict_resolution|learnloop.content.proposals.conflict_resolution]] | [[Reference/Modules/learnloop/content/proposals/conflict_resolution#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/content/proposals/create_ids|learnloop.content.proposals.create_ids]] | [[Reference/Modules/learnloop/content/proposals/create_ids#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |

@@ -360,6 +360,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/practice_index/query_vectors|learnloop.practice_index.query_vectors]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] — imports `LoadedVault`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/practice_index/tool|learnloop.practice_index.tool]] — imports `LoadedVault`
+- [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `LoadedVault`, `SourceRef`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `LoadedVault`, `SourceRef`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
@@ -461,7 +462,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 298 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 299 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

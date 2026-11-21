@@ -47,42 +47,43 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/proposals.py](../../../../../../src/learnloop_sidecar/handlers/proposals.py) |
-| Source lines | 382 |
+| Source lines | 399 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `get_proposals(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 200) — Codex authoring inbox: proposal batches + items + agent-run lineage.
-- `class ProposalDecisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 210)
-- `apply_intent_outstanding(exc: OutstandingApplyIntentError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 215) — An accept or undo refused because an earlier apply is pending or conflicted (K3.5, D-10): the client names the intent and points at Maintain, where the feed's action settles it.
-- `accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 224) — Accept (and apply) pending proposal items, then return the refreshed inbox.
-- `reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 244) — Reject proposal items (reverting any already-applied change), then refresh.
-- `class ResolveApplyIntentInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 262)
-- `resolve_apply_intent(ctx: SidecarContext, params: ResolveApplyIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 268) — The maintenance feed's action on an outstanding proposal apply (K3.5).
-- `reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 299) — Undo a rejection (never-applied items back to pending), then refresh.
-- `class EditProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 310)
-- `edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 317) — Replace a pending proposal item's payload with edited JSON, then refresh.
-- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 344)
-- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 350) — Re-run validation for the stored pending proposal payload, then refresh.
-- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 363)
-- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 369) — Permanently remove a proposal item (reverting it first if applied), then refresh.
+- `get_proposals(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 201) — Codex authoring inbox: proposal batches + items + agent-run lineage.
+- `class ProposalDecisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 211)
+- `apply_intent_outstanding(exc: OutstandingApplyIntentError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 216) — An accept or undo refused because an earlier apply is pending or conflicted (K3.5, D-10): the client names the intent and points at Maintain, where the feed's action settles it.
+- `accept_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 225) — Accept (and apply) pending proposal items, then return the refreshed inbox.
+- `reject_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 261) — Reject proposal items (reverting any already-applied change), then refresh.
+- `class ResolveApplyIntentInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 279)
+- `resolve_apply_intent(ctx: SidecarContext, params: ResolveApplyIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 285) — The maintenance feed's action on an outstanding proposal apply (K3.5).
+- `reset_proposal_items(ctx: SidecarContext, params: ProposalDecisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 316) — Undo a rejection (never-applied items back to pending), then refresh.
+- `class EditProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 327)
+- `edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 334) — Replace a pending proposal item's payload with edited JSON, then refresh.
+- `class RefreshProposalItemValidationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 361)
+- `refresh_proposal_item_validation(ctx: SidecarContext, params: RefreshProposalItemValidationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 367) — Re-run validation for the stored pending proposal payload, then refresh.
+- `class DeleteProposalItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 380)
+- `delete_proposal_item(ctx: SidecarContext, params: DeleteProposalItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 386) — Permanently remove a proposal item (reverting it first if applied), then refresh.
 
 ### Module constants
 
-- `_AUTO_APPLY_TYPES` ([src/learnloop_sidecar/handlers/proposals.py](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 29)
+- `_AUTO_APPLY_TYPES` ([src/learnloop_sidecar/handlers/proposals.py](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 30)
 
 ## Internal implementation anchors
 
-- `_duration_s(started_at: str | None, completed_at: str | None) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 32)
-- `_review_route(item: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 43) — Display route for an item: how the review policy would treat it.
-- `_render_value(value: Any) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 60)
-- `_payload_lines(payload: dict[str, Any]) -> list[list[str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 70) — Flatten a payload into ordered [key, rendered-value] rows for the preview.
-- `_source_refs(item: dict[str, Any], batch: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 80)
-- `_item_dto(item: dict[str, Any], batch: dict[str, Any], reword_confirms: dict[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 101)
-- `_count_decisions(items: list[dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 139)
-- `_proposals_payload(ctx: SidecarContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 147)
+- `_duration_s(started_at: str | None, completed_at: str | None) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 33)
+- `_review_route(item: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 44) — Display route for an item: how the review policy would treat it.
+- `_render_value(value: Any) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 61)
+- `_payload_lines(payload: dict[str, Any]) -> list[list[str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 71) — Flatten a payload into ordered [key, rendered-value] rows for the preview.
+- `_source_refs(item: dict[str, Any], batch: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 81)
+- `_item_dto(item: dict[str, Any], batch: dict[str, Any], reword_confirms: dict[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 102)
+- `_count_decisions(items: list[dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 140)
+- `_proposals_payload(ctx: SidecarContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 148)
+- `_claim_part_read_questions(ctx: SidecarContext) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/proposals.py), line 245) — A build's topics held for a look are applied now: those whose every cited passage the learner has seen get their first set of questions (``learnloop.reader.part_read``).
 
 ## Who imports or calls it
 
@@ -101,15 +102,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `ApplyIntentResolutionError`, `resolve_apply_intent`; calls `resolve_apply_intent`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `OutstandingApplyIntentError`, `PatchApplicationError`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `accept_items`, `delete_proposal_item`, `edit_proposal_item`, `refresh_proposal_item_validation`, `reject_items`, `reset_items`; calls `accept_items`, `delete_proposal_item`, `edit_proposal_item`, `refresh_proposal_item_validation`, `reject_items`, `reset_items`
+- [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `read_readings`; calls `read_readings`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `reconcile_accepted_question_promotion_patch`, `reconcile_rejected_question_promotion_patch`, `reconcile_reset_question_promotion_patch`; calls `reconcile_accepted_question_promotion_patch`, `reconcile_rejected_question_promotion_patch`, `reconcile_reset_question_promotion_patch`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
+- [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]] — imports `reconcile_part_read`; calls `reconcile_part_read`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `datetime`, `json`, `typing`
+- Standard library: `__future__`, `datetime`, `json`, `logging`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -131,6 +134,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/facet_reword_paths_helpers.py](../../../../../../tests/facet_reword_paths_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/part_read_helpers.py](../../../../../../tests/part_read_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/probe_router_authority_helpers.py](../../../../../../tests/probe_router_authority_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/reader_workbench_rw2a_helpers.py](../../../../../../tests/reader_workbench_rw2a_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
@@ -138,7 +142,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/router_offer_log_helpers.py](../../../../../../tests/router_offer_log_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 
 ## Modification guidance
 

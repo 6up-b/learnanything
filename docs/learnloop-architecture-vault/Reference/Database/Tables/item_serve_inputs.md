@@ -137,6 +137,7 @@ None found by exact static reference scan.
 - `tests/test_ad_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
+- `tests/test_epp_prediction_snapshots.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

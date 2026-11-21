@@ -270,6 +270,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
 - [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
+- [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
 - [tests/exam_pool_helpers.py](../../../../../../tests/exam_pool_helpers.py) — direct import
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/exam_seeding_helpers.py](../../../../../../tests/exam_seeding_helpers.py) — direct import
@@ -1217,6 +1218,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_embedding_route_isolation.py](../../../../../../tests/test_embedding_route_isolation.py) — direct import
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
   - `test_replay_preserves_paid_inputs_without_models`
+- [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
+  - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
+  - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
 - [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
@@ -1559,6 +1563,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
   - `test_the_build_estimate_charts_what_a_build_may_now_write`
 - [tests/test_first_questions_today.py](../../../../../../tests/test_first_questions_today.py) — direct import
+  - `test_a_section_read_before_its_build_settles_waits_for_it`
+  - `test_a_section_read_in_part_says_what_its_reading_can_give`
   - `test_answered_and_reserved_questions_are_named_as_not_askable_now`
   - `test_questions_come_back_into_the_askable_set_once_due`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
@@ -2219,6 +2225,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
 - [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
+- [tests/test_part_read_first_set.py](../../../../../../tests/test_part_read_first_set.py) — direct import
+  - `test_a_learner_who_left_while_the_build_ran_gets_the_first_set_when_it_finishes`
+  - `test_a_topic_with_no_citation_never_qualifies`
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_accept_cli_all_flag_applies_every_pending_item`
   - `test_accept_cli_applies_and_show_proposal_includes_items`

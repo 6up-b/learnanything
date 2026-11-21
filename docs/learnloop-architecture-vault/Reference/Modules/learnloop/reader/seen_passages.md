@@ -46,23 +46,25 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/seen_passages.py](../../../../../../src/learnloop/reader/seen_passages.py) |
-| Source lines | 130 |
+| Source lines | 144 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CheckedReport` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 33) — A report's passages, kept: those that are readable passages of its section, in reading order, once each; the section's end when its last passage is seen; and how many named ids were left out.
-- `check_report(repository: Any, *, extraction_id: str, section_id: str, seen_span_ids: list[str] | None, reached_end: bool) -> CheckedReport` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 42) — Keep the passages a report names that are readable passages of its section on its reading.
-- `class SeenPassage` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 78) — One passage of a reading with exact seen evidence: where it was observed (``observed_on``: the reading and span the report named), when first and by which device.
-- `seen_on(repository: Any, extraction_id: str) -> dict[str, SeenPassage]` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 88) — Every passage of ``extraction_id`` with exact seen evidence, by span id.
-- `class SectionEnd` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 116) — A section of a reading whose last readable passage (``span_id``) the learner's own reading reached.
-- `section_ends_on(repository: Any, extraction_id: str) -> list[SectionEnd]` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 125) — The sections of ``extraction_id`` whose end was reached, on that reading only (another reading's sections are other sections).
+- `class CheckedReport` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 34) — A report's passages, kept: those that are readable passages of its section, in reading order, once each; the section's end when its last passage is seen; and how many named ids were left out.
+- `check_report(repository: Any, *, extraction_id: str, section_id: str, seen_span_ids: list[str] | None, reached_end: bool) -> CheckedReport` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 43) — Keep the passages a report names that are readable passages of its section on its reading.
+- `class SeenPassage` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 79) — One passage of a reading with exact seen evidence: where it was observed (``observed_on``: the reading and span the report named), when first and by which device.
+- `seen_on(repository: Any, extraction_id: str) -> dict[str, SeenPassage]` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 89) — Every passage of ``extraction_id`` with exact seen evidence, by span id.
+- `seen_marker(repository: Any) -> tuple[int, int]` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 116) — A value that changes whenever a passage of any reading is recorded as seen (the rows are only ever added).
+- `seen_readings(repository: Any) -> list[str]` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 122) — The readings with any passage recorded as seen (each book's reread carries its evidence through :func:`seen_on`, so a reading listed here may be an earlier one of a book).
+- `class SectionEnd` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 130) — A section of a reading whose last readable passage (``span_id``) the learner's own reading reached.
+- `section_ends_on(repository: Any, extraction_id: str) -> list[SectionEnd]` ([source](../../../../../../src/learnloop/reader/seen_passages.py), line 139) — The sections of ``extraction_id`` whose end was reached, on that reading only (another reading's sections are other sections).
 
 ### Module constants
 
-- `ORIGINS` ([src/learnloop/reader/seen_passages.py](../../../../../../src/learnloop/reader/seen_passages.py), line 26)
+- `ORIGINS` ([src/learnloop/reader/seen_passages.py](../../../../../../src/learnloop/reader/seen_passages.py), line 27)
 
 ## Internal implementation anchors
 
@@ -73,6 +75,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `seen_marker`, `seen_on`, `seen_readings`; statically calls `seen_marker`, `seen_on`, `seen_readings`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `check_report`; statically calls `check_report`
 
 ## Dependencies
@@ -93,7 +96,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
+Static participation evidence comes from [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

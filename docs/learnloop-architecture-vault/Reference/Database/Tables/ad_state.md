@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
+  - "src/learnloop/adaptive_difficulty/snapshot_parts.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
@@ -101,6 +102,7 @@ None found by exact static reference scan.
 - `tests/test_ad2_model.py`
 - `tests/test_ad_guard_offer_receipts.py`
 - `tests/test_architecture.py`
+- `tests/test_epp_prediction_snapshots.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_te3a_lesson_opportunity.py`
 

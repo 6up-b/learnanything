@@ -487,6 +487,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/daily_plan_build_helpers.py](../../../../../../tests/daily_plan_build_helpers.py) — direct import
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/data_capture_a2_measurement_helpers.py](../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
+- [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
 - [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
 - [tests/mobile_v2_rereview_fixes_helpers.py](../../../../../../tests/mobile_v2_rereview_fixes_helpers.py) — direct import

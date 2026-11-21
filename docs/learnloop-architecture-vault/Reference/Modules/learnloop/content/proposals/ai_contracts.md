@@ -170,6 +170,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/part_read_helpers.py](../../../../../../../tests/part_read_helpers.py) — direct import
 - [tests/proposal_persistence_helpers.py](../../../../../../../tests/proposal_persistence_helpers.py) — direct import
 - [tests/required_method_authority_helpers.py](../../../../../../../tests/required_method_authority_helpers.py) — direct import
 - [tests/section_question_parts_helpers.py](../../../../../../../tests/section_question_parts_helpers.py) — direct import

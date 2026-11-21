@@ -50,23 +50,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/section_questions.py](../../../../../src/learnloop_sidecar/section_questions.py) |
-| Source lines | 77 |
+| Source lines | 116 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `start_section_questions(ctx: Any, vault: Any, repository: Any, extraction_id: str, section_id: str, *, from_stamp: str | None=None, completed_at: str | None=None) -> str | None` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 19) — A finished section's question writing, queued on this app's queue, once; the batch id, or None.
-- `drain_owed_section_questions(ctx: Any, vault: Any, repository: Any, *, extraction_id: str | None=None) -> int` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 53) — Start the writing every finished section still owes: one the phone finished, one that waited for its book's build, one an older version settled as needing nothing before its topics were in.
+- `start_section_questions(ctx: Any, vault: Any, repository: Any, extraction_id: str, section_id: str, *, from_stamp: str | None=None, completed_at: str | None=None) -> str | None` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 43) — A finished section's question writing, queued on this app's queue, once; the batch id, or None.
+- `reconcile_part_read(ctx: Any, vault: Any, repository: Any, *, extraction_id: str) -> list[str]` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 62) — Claim and start the first sets of the topics of one reading that newly qualify from the part read (:func:`learnloop.reader.part_read.reconcile_part_read`); the batches queued.
+- `drain_owed_section_questions(ctx: Any, vault: Any, repository: Any, *, extraction_id: str | None=None) -> int` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 80) — Start the writing every finished section still owes: one the phone finished, one that waited for its book's build, one an older version settled as needing nothing before its topics were in.
 
 ### Module constants
 
-- `_LOGGER` ([src/learnloop_sidecar/section_questions.py](../../../../../src/learnloop_sidecar/section_questions.py), line 16)
+- `_LOGGER` ([src/learnloop_sidecar/section_questions.py](../../../../../src/learnloop_sidecar/section_questions.py), line 18)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_enqueue(ctx: Any)` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 21)
+- `_claim_repository(ctx: Any, repository: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 34)
 
 ## Who imports or calls it
 
@@ -75,7 +77,8 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `drain_owed_section_questions`; statically calls `drain_owed_section_questions`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `drain_owed_section_questions`; statically calls `drain_owed_section_questions`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `drain_owed_section_questions`, `start_section_questions`; statically calls `drain_owed_section_questions`, `start_section_questions`
+- [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] — imports `reconcile_part_read`; statically calls `reconcile_part_read`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `drain_owed_section_questions`, `reconcile_part_read`, `start_section_questions`; statically calls `drain_owed_section_questions`, `reconcile_part_read`, `start_section_questions`
 
 ## Dependencies
 
@@ -83,6 +86,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `quiet`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `section_topics_settled`; calls `section_topics_settled`
+- [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `read_readings`, `reconcile_part_read`; calls `read_readings`, `reconcile_part_read`
 - [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `OWED`, `module`; calls `start_section_questions`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 
@@ -101,12 +105,14 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]], [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_part_read_first_set.py](../../../../../tests/test_part_read_first_set.py) — direct import
+  - `test_the_desktop_claims_the_phones_reading_when_it_starts`
 - [tests/test_reader_seen_passages.py](../../../../../tests/test_reader_seen_passages.py) — direct import
   - `test_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing`
 
