@@ -10,7 +10,8 @@ The intended behaviour: a check happens only on a simulated return; it is charge
 each commitment draws its own outcome (each asserted on both paths: today's on the rollouts, the intended on the
 unserved check-credit path); and an offer whose topic has no eligible question credits no check (a strict expected
 failure until the activation attaches the offer's sensors: it fails on an assertion about the named defect, and a
-broken setup raises something else and fails the test).
+broken setup raises something else and fails the test). Last, the owner-copy finding: removing the phantom check can
+raise a lesson's value, and the two mechanisms that do it.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from learnloop.delayed_checks import attempted_items
 from learnloop.learner_protection import withheld_items
 from learnloop.router import lesson_suggestions as LS
 from learnloop.router_objective import check_value as CV
+from learnloop.router_objective import memory as M
 from learnloop.router_objective import rollouts as ROL
 from learnloop.router_objective import types as OT
 from learnloop.teacher import te2 as T2
@@ -57,6 +59,7 @@ from tests.check_credit_helpers import (
 )
 from tests.daily_plan_fakes import record_attempt
 from tests.router_mixture_helpers import mixture_env
+from tests.ro4_value_helpers import W
 from tests.router_model_fakes import fake_runtime
 
 LESSON_END = LESSON_MINUTES / ROL.MINUTES_PER_DAY
@@ -233,3 +236,81 @@ def test_intended_an_offer_with_no_eligible_question_credits_no_check(tmp_path, 
     out = _branches(inputs, action, alone)
     assert out[action.ref].extra["branches"]["accepted"] == pytest.approx(
         out["alone"].extra["branches"]["accepted"], abs=1e-12)
+
+
+# --- the owner-copy finding: the phantom check can lower a lesson's value ----------------------------------------
+# On the owner's copy the report's paired scenario rated lessons higher once the phantom check was gone. The two
+# mechanisms below, each on one topic with no return in the window, reproduce that direction; the record
+# (docs/reviews/algorithm-mvp-0.62.md) gives their numbers. The combiner here is linear at fixed coefficients
+# (a0, aA, aR) = (0, 1, 0.5), so a practised topic's performance is σ(0.5·η + 0.5·logit R) and an unpractised one's
+# σ(η), with no forgetting.
+
+PHANTOM_COMBINER = M.Combiner(mean=(0.0, 1.0, 0.5), variance=(0.0, 0.0, 0.0), source="test")
+FINDING_SEED = "s"
+
+
+def _finding_inputs(topic: OT.Topic) -> OT.Inputs:
+    return OT.Inputs(topics=(topic,), dated=(), session_minutes=10.0,
+                     price=OT.Price(kappa0=0.0, remembered=10.0, remembered_source="test"),
+                     tail_block_minutes=10.0, tail_block_items=1, horizon_days=30.0, fsrs_weights=W,
+                     return_gaps_days=(100.0,), combiner=PHANTOM_COMBINER,
+                     learning=OT.Learning(gamma=(0.2, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
+
+
+def _paired_ledgers(topic: OT.Topic, **options):
+    """The accepted branch (the lesson with its check, no acceptance mixing) under the rollouts' old credit and under
+    the check-credit path with the topic's check never delivered (no question, 19 failures)."""
+
+    inputs = _finding_inputs(topic)
+    old = OT.Action(ref="o", kind=OT.LESSON, item_los=(topic.lo,), minutes=LESSON_MINUTES, mass=0.5,
+                    commitments=((topic.lo, CHECK_DAYS),))
+    new = replace(old, commitments=(), checks=(typed(lo=topic.lo, delivery=(0.0, 20.0)),))
+    before, _effect, _minutes = ROL._Model(inputs, DRAWS, FINDING_SEED, **options)._do(old)
+    after, _state, _answered = CV.simulate(inputs, new, draws=DRAWS, seed=FINDING_SEED, **options)
+    return before, after
+
+
+TERMS = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward", "terminal_cost")
+
+
+@pytest.mark.parametrize("consistent", [False, True], ids=["mvp-0.49-draw", "served-draw"])
+def test_finding_a_first_graded_attempt_switches_an_unpractised_topic_onto_forgetting(consistent):
+    """An unpractised topic with AD's ``η = 2``: the phantom check is its first graded attempt. It adds ``γ`` to ``η``
+    but sets ``practiced`` and a first-review stability (2.31 days on a success), so from then the topic reads
+    ``σ(0.5·η + 0.5·logit R)`` with ``R`` decaying, below the unpractised ``σ(η)`` that never forgets. Removing the
+    phantom raises the accepted branch by 3.917, all of it in the undated uses after the action (``tail_reward``
+    +1.179, ``terminal_reward`` +2.738), under either review draw (a first attempt reads AD's predictive both ways)."""
+
+    topic = OT.Topic(lo=LO, eta_mean=2.0, eta_var=0.0, undated_density=1.0)
+    before, after = _paired_ledgers(topic, consistent_review_draw=consistent)
+    moved = {name: float(getattr(after, name).mean() - getattr(before, name).mean()) for name in TERMS}
+    assert moved["tail_reward"] == pytest.approx(1.178857, abs=1e-6)
+    assert moved["terminal_reward"] == pytest.approx(2.738082, abs=1e-6)
+    assert all(moved[name] == 0.0 for name in ("crossed", "undated_action", "kappa_action", "tail_cost",
+                                               "terminal_cost"))
+    assert float(after.q.mean() - before.q.mean()) == pytest.approx(3.916939, abs=1e-6)
+    # The mechanism at state level: the phantom leaves the topic practised with a decaying memory.
+    state, _ledger = old_tail_state(_finding_inputs(topic), [(LO, LESSON_END + CHECK_DAYS)], after=LESSON_END)
+    assert np.all(state.practiced[:, 0]) and np.all(state.last[:, 0] == 4.0)
+    _ledger, unchecked, _answered = CV.simulate(_finding_inputs(topic), replace(
+        lesson("l", accept=None), checks=(typed(delivery=(0.0, 20.0)),)), draws=DRAWS, seed=FINDING_SEED)
+    assert not np.any(unchecked.practiced[:, 0])
+
+
+def test_finding_under_the_mvp_0_49_draw_a_phantom_lapse_collapses_a_practised_topics_memory():
+    """A practised topic (stability 30, two days since its review) with AD's ``η = −2``. Under the pre-mvp-0.50 review
+    draw, which the step-5 report's paired scenario used (it passed no rollout options), the phantom check's outcome
+    is drawn from AD's ``σ(η)`` ≈ 0.12, whatever FSRS's ``R`` ≈ 0.99 says: mostly a lapse, and FSRS's lapse update
+    cuts the stability, so the topic's long-run ``R`` and performance fall. Removing the phantom raises the accepted
+    branch by 8.163. Under the draw decisions have served since mvp-0.50 (the memory model's own ``P(perform)``) the
+    check is mostly a success and the phantom inflates the branch instead (removing it lowers it by 0.164): the
+    sign the report saw depends on the options it ran with."""
+
+    topic = OT.Topic(lo=LO, eta_mean=-2.0, eta_var=0.0, practiced=True, stability=30.0, elapsed_days=2.0,
+                     undated_density=1.0)
+    before, after = _paired_ledgers(topic)
+    assert float(after.tail_reward.mean() - before.tail_reward.mean()) == pytest.approx(3.913109, abs=1e-6)
+    assert float(after.terminal_reward.mean() - before.terminal_reward.mean()) == pytest.approx(4.250329, abs=1e-6)
+    assert float(after.q.mean() - before.q.mean()) == pytest.approx(8.163438, abs=1e-6)
+    served_before, served_after = _paired_ledgers(topic, consistent_review_draw=True)
+    assert float(served_after.q.mean() - served_before.q.mean()) == pytest.approx(-0.164126, abs=1e-6)

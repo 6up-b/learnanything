@@ -509,6 +509,7 @@ def build_report(path, *, as_of=None, draws=8):
         }
         comparisons["exact_historical"]["coverage_reasons"] = dict(exact_reasons)
         comparisons["current_copy"]["coverage_reasons"] = dict(current_reasons)
+        comparisons["current_copy"]["rollout_options"] = current[0]["options"] if current else None
         comparisons["current_copy"]["scope"] = (
             "present-day inputs; recorded offer contract and plan price; lesson versus stop only; "
             "not a historical correction or historical mixing comparison")
@@ -561,8 +562,13 @@ def _current_pair(vault, repository, offer, candidate, at, draws):
                         "duration_basis": duration.basis})
     proposed = replace(old, commitments=(), checks=tuple(checks))
     stop = OT.Action(ref=OT.STOP_FOR_TODAY, kind=OT.STOP)
-    return {**paired_scenario(inputs, [old, stop], [proposed, stop], draws=draws, seed="check-credit-current-copy-v1"),
-            "delivery_posteriors": sensors}
+    from learnloop.daily_plan.objective_chooser import rollout_options
+
+    # The rollouts' options the copy's tag serves (the review draw, merged sessions, the held link): without them the
+    # scenario would run the pre-mvp-0.50 review draw, which can flip the sign of a check's effect.
+    return {**paired_scenario(inputs, [old, stop], [proposed, stop], draws=draws, seed="check-credit-current-copy-v1",
+                              options=rollout_options(vault.config)),
+            "delivery_posteriors": sensors, "options": rollout_options(vault.config)}
 
 
 def render(report):

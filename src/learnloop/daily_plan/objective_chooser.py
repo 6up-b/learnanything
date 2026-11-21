@@ -231,6 +231,11 @@ def _rollout_options(config: Any) -> dict[str, bool]:
             "held_ad_link": _held_link(config)}
 
 
+#: The rollouts' serving options for a config, for a reader outside the chooser (the check-credit report runs its
+#: scenarios under the options the decision's tag serves).
+rollout_options = _rollout_options
+
+
 def _frontier(inputs: OT.Inputs, *, draws: int, seed: str, **rollout: bool
               ) -> tuple[dict[float, float], dict[str, Any]]:
     mbar = float(inputs.price.remembered)
