@@ -1,6 +1,6 @@
 # Teacher v2: lessons on the current LearnLoop
 
-**Status:** draft, 2026-11-20, for the owner's review. Not queued. Replaces `spec_teacher_v1.md` as the plan; v1 stays as the record of what TE0, TE1, TE1b, TE2-log, TE2, TE3a and TE3b built (its §20 "As built" notes and the review files they cite). Read at main `1f9c8de1b3` (migration head 255).
+**Status:** draft, 2026-11-20, for the owner's review. Queued by the owner after the notebook activities track (§14); its open decisions are §17. Replaces `spec_teacher_v1.md` as the plan; v1 stays as the record of what TE0, TE1, TE1b, TE2-log, TE2, TE3a and TE3b built (its §20 "As built" notes and the review files they cite). Read at main `1f9c8de1b3` (migration head 255).
 
 **Why a rewrite and not revision 6.** v1 is 1,791 lines, written across five revisions before most of what the teacher now sits on existed: the router objective (RO0-RO6), follow-up generation (FG1), the instruct hand-off (IH), slip-or-gap (SG), the refactor's arc D (switches removed), the evidence-packets and AD-memory drafts, MCP v2 and notebook activities. Everything v1 planned is either built, carried here, moved to the spec that now owns it, or named as superseded: §15 is the parity table.
 
@@ -31,6 +31,7 @@
 - **Sensor rendering belongs to the evidence-packets spec;** the teacher spec holds teacher-specific extensions of it (§5). Done: EP Part F (§7a).
 - **Chat lessons are kept, inside the MCP v2 draft** (§13).
 - **`S_eff` / liquid stability is AD memory's** (`spec_ad_memory_v1.md`).
+- **Placement (2026-11-20, to the orchestrator):** "Please queue teacher v2 after marimo notebooks." Teacher v2's stages come after the notebook activities track (§14). The check-credit defect (§7.4) is fixed ahead of it as its own successor.
 - **Multi-session lessons through the deliverable curriculum** ("extremely valuable"), and the router's lesson action revised to match, after review by three independent models (§8).
 - **Delayed checks are generated** (§7).
 - **Lesson checks inform the diagnoser**, although they are not independent, and the after-a-miss learner input applies to them (§6.3).
@@ -141,7 +142,7 @@ TE2's `serve_probe`: FG1-generated, single use, served cold with tools refused, 
 ## 7. Delayed checks, generated (TE6; owner 2026-11-20)
 
 ### 7.1 Why
-The vault-item picker found nothing for any of arxiv_v2's 24 delayed checks: the LOs the teacher lands are often new or prerequisite LOs with few or no items, and the lesson's own exposure and lineage exclusions remove the rest. v1 §1.5's census had already found 20 of 73 LOs with no unseen item. The owner's Nov 3 rule ("for probes generation is superior") applies here too.
+The vault-item picker found nothing for any of arxiv_v2's 24 delayed checks (19 retention, 5 transfer): the LOs the teacher lands are often new or prerequisite LOs with few or no items, and the lesson's own exposure and lineage exclusions remove the rest. v1 §1.5's census had already found 20 of 73 LOs with no unseen item. The owner's Nov 3 rule ("for probes generation is superior") applies here too.
 
 ### 7.2 The lifecycle (the three reviews' conditions, adopted)
 A delayed check gets its own origin, not the placement probe's lifecycle unchanged: today generated probes are excluded from delayed candidates (`delayed_checks.py:70`) and the lesson generator refuses closed lessons (`followup_run/lesson_probe.py:126`).
@@ -164,10 +165,20 @@ A delayed check gets its own origin, not the placement probe's lifecycle unchang
 - **RO5 is starved by the same scarcity, and lesson checks cannot fill it.** RO5's eligibility reuses `delayed_checks.candidates` (`objective_inputs.py:485-508`), so LOs with no unseen vault item get no randomized check (Opus). A lesson's generated check is never eligible for RO5: its administration depends on an accepted lesson, and RO5's draw may read only the date and the eligible set (`router_objective/checks.py:3-8`; Fable); `lesson_delayed` items stay withheld from RO5. Whether RO5 gets **its own** generated items, authored for an LO that RO5's draw has already picked and independent of any lesson, is owner question Q2a (Opus recommends it; Fable notes that until then lesson LOs stay at `r_L = 0` in RO5).
 - It feeds AD as an ordinary cold attempt on the LO; its generation provenance is an attempt fact.
 
-### 7.4 The router credits checks that never happen (a defect today; fixed first, in TE5)
-Each committed check in a rollout applies a full practice dose at mass 1.0, with no minutes charged and regardless of whether the learner returns (`router_objective/rollouts.py:844-849`), and the offer always commits one retention check on the offered LO (`daily_plan/lesson_offer.py:331-332`) whether or not any question exists. On arxiv_v2 that check happened 0 of 24 times, so every lesson offer has been valued with free practice it never got (Opus, Astra). The `commit_u` streams also wrap at 8 slots (`slot % 8`), which per-node commitments would hit.
+### 7.4 The router credited checks that never happen (fixed ahead of this spec: mvp-0.62, ledger TV2-1)
+**The defect.** Each committed check in a rollout applied a full practice dose at mass 1.0, with no minutes charged and regardless of whether the learner returns (`router_objective/rollouts.py:844-849`), and the offer always committed one retention check on the offered LO (`daily_plan/lesson_offer.py:331-332`) whether or not any question existed. On the arxiv_v2 copy, the 5 closed lessons planned 19 retention and 5 transfer checks and **all were recorded `missing`**: the offer's check (a retention check) was answered 0 of 19 times, so every lesson offer was valued with free practice it never got (Opus, Astra, Fable). The `commit_u` streams also wrapped at 8 slots (`slot % 8`).
 
-**Fix (TE5, a router successor, before anything multiplies commitments):** a rollout commits a check only with the probability it is actually served, learned from receipts (seed: whether `delayed_check_words` finds a question today, then the realized share of commitments answered cold, Beta-binomial, basis `legacy` at the current all-or-nothing rule); its minutes are charged on the objective's clock at the Check once block's duration; its answer happens only on a simulated return; one `commit_u` stream per commitment. Ledger row to open with the fix.
+**Placement.** A live serving defect, so the orchestrator fixes it now as its own algorithm successor, **`mvp-0.62`**, ahead of the teacher track (ledger row **TV2-1**, section "From the teacher v2 reviews (2026-11-20)"); it is not part of TE5. **Status at this writing: not landed.** Its first four steps change nothing served (characterization tests, the receipt statistics, the availability and minutes adapters, the new rollout path unreachable from live decisions); then a stored-row report, the activation at `mvp-0.62`, and the record with a comparison on copies of the owner's vaults.
+
+**The design** (the orchestrator's build sheet, 2026-11-20):
+- **What is learned: `cold_completion_probability`.** One trial per planned receipt entry (keyed by lesson, purpose and node). Success: that commitment's own item answered cold with a usable grade by the decision time (right or wrong). Failure: recorded `missing`, or irreversibly stopped or superseded without such an answer. Pending, not yet due, paused and ungraded entries are **censored**, not failures, so "the learner has not returned" is not counted against delivery and then again by the return model. Retention and transfer are pooled separately; TE6's generated regime (§7.2) is a separate pool, never mixed silently with the vault-item regime.
+- **The seed: one hypothetical trial.** `α = e + S`, `β = (1 − e) + F`, where `e` is 1 if a question exists at decision time and 0 otherwise, `S` and `F` the counts above; at an endpoint the limiting point value is used (exactly 0 or 1, no epsilon). A named, versioned design prior, basis `legacy`. The availability bit is a seed, not a permanent multiplier, so later evidence (TE6) can raise the probability on topics with no vault question today.
+- **Availability at decision time.** A Boolean helper factored beneath `delayed_check_words` (`teacher/te2.py:119`), so the offer builder and the brief use the identical candidate rule and nothing compares strings. It is read-only (no reservation, selection, write or model call) but not protection-free: it gets the normal withholding view and fails closed when protection cannot be established. It is called at the outer decision-input boundary, never through the full daily-plan policy builder (which can run due-offer sweeps), and never inside the rollout: the rollout receives the Boolean and the numeric posterior only.
+- **Minutes.** The plan's shared item estimator (`daily_plan/estimates.py`, which Check once items already use: authored `expected_minutes` as its prior, item and mode attempt latencies and feedback dwell shrinking toward it). When a candidate question exists, the offer builder takes a dry, deterministic candidate by the delayed picker's own rule (no receipt, no reservation) and estimates that item; its id is provenance of the estimate only and does not bind the later real check. When none exists but the probability is positive, the estimator's unknown-item estimate, with its basis recorded. Evidence is filtered to the decision cutoff; the duration is a point estimate (log-sd 0). No Check-once-specific duration model is added.
+- **Execution in the rollout.** A check happens only on a simulated return on or after its date and inside the simulated window, is charged its minutes on the session's clock like other practice, and each commitment has its own outcome and delivery streams.
+- **Record.** Computed on read from receipts (no derived table). The counts, `α`, `β`, the mean, an evidence digest and the duration with its basis are frozen into the offer record and the objective trace at the tag.
+
+**What this spec still owns:** TE6 (§7.2) feeds the generated pool; TE8b (§8.3 B1) commits per node, each commitment with its own streams under this rule.
 
 ---
 
@@ -290,7 +301,7 @@ NA §9.12 lists `cold_failing` among the suggestion reasons; the owner removed t
 
 ## 11. AD and the router (carried, with TE6/TE8's changes)
 - AD reads lessons read-only: TE3a's `lesson` opportunity per landed/taught node, its curve, its report row and auto-flag; SG2's cause-split slopes. A graded lesson check is never an AD attempt.
-- The objective values lessons through RO4's lesson interface plus TE3a's curve; TE5 stops crediting checks that never happen (§7.4); TE8 makes an accepted lesson a sequence of per-node steps with learned landing probabilities and per-node minutes, and lets the objective value several lesson candidates (§8.3).
+- The objective values lessons through RO4's lesson interface plus TE3a's curve; `mvp-0.62` stops crediting checks that never happen (§7.4, ahead of this spec); TE8 makes an accepted lesson a sequence of per-node steps with learned landing probabilities and per-node minutes, and lets the objective value several lesson candidates (§8.3).
 - The difficulty scalar's retirement: the delayed-check picker still pitches vault items by `b` (`teacher/checks.py:129,153`). With generated checks (§7) the picker serves only when vault items are preferred; the refactor's replacement for `b` covers it there.
 - AD memory (`spec_ad_memory_v1.md`) owns `S_eff`; its report compares plain `S` and `S_eff` on the lesson's delayed checks. TE1's `stability_inputs` log is its input.
 
@@ -321,19 +332,21 @@ Tags and migration numbers are claimed at landing. Every stage: fakes only (`Str
 
 | Stage | What | Persisted meaning | Depends on |
 |---|---|---|---|
-| **TE5: consolidation and the check-credit fix** | §7.4 the rollouts credit a committed check only with its probability of being served, charge its minutes, one stream per commitment (first: a defect today); §4.2 one turn schema with capability sets; §4.3 compaction; the TE2 leftovers (the teacher's `create_goal_lo` action, the library lookup before a new topic); L4-2 | Router successor for §7.4; pure move (AST/golden) for the schema; L4-2 a tag on `lesson_weight` | none |
+| **TE5: consolidation** | §4.2 one turn schema with capability sets; §4.3 compaction; the TE2 leftovers (the teacher's `create_goal_lo` action, the library lookup before a new topic); L4-2 | Pure move (AST/golden) for the schema; L4-2 a tag on `lesson_weight` | none |
 | **TE6: generated retention checks** | §7.2-§7.3: commitment at landing with its states, generation from landing, screening at close, overlap + manipulation audit + Decider reveal judgment, the vault-or-generated logged draw and `δ_gen`, serve, retire, honest failure; the FG1 §4.2 and `delayed.py` amendments | Teacher successor; migration for the origin CHECKs and commitment states | FG1 (built); the reveal-adjudication step (else its lexical stand-in, recorded as such) |
 | **TE6b: generated transfer checks** | §7.2 step 1's transfer commitment, with criterion targets | Teacher successor | TE6 has run |
 | **TE7: lesson checks to the diagnoser** | §6.3: diagnosis on lesson checks with the teaching transcript, `taught_then_checked`, `ω`, the after-a-miss box in lessons | Successor (diagnosis inputs and a DERIVED family) | after-a-miss spec (built, D1-D4), EP0 facts for the label |
 | **TE8a: open lessons** | §8.3 D: partial receipts at session end, checks committed for landed nodes, resume candidates | Teacher successor (AD reads partial receipts) + router successor | TE6 |
-| **TE8b: the lesson as a sequence** | §8.3 B1, B2: per-node `LESSON` steps under one acceptance, landing probabilities, per-node minutes with a learned spread, RO6 once per action, closure LOs without their own use density, several lesson candidates valued by the objective, acceptance size and continuation terms, the real minutes on the card; §8.4's regressions | Router successor (a change point); no migration | TE5's §7.4 fix; TE8a |
+| **TE8b: the lesson as a sequence** | §8.3 B1, B2: per-node `LESSON` steps under one acceptance, landing probabilities, per-node minutes with a learned spread, RO6 once per action, closure LOs without their own use density, several lesson candidates valued by the objective, acceptance size and continuation terms, the real minutes on the card; §8.4's regressions | Router successor (a change point); no migration | `mvp-0.62` (§7.4); TE8a |
 | **TE8c: arcs and deliverables** | §8.3 A, C, E, F: arcs by LO overlap, deliverable and revision binding, path-step candidates, the brief's arc lines and the logged next-session proposal, the reading-before-lesson record, "make this a goal?" | Brief version; one migration (binding columns) | TE8b; the owner's deliverable in arxiv_v2 |
 | **TE9: notebook verbs** | §10 = NA4's teacher half: the `notebooks` capability, verbs, shared read API, commit points in lessons | With NA4 | NA2, NA3; TE5 |
 | **TE10: chat** | §13 = MCP v2 M6's teacher half | With M6 | MCP v2 M1-M3; TE5 |
 | **Reveal call site** | §6.2 | With the reveal-adjudication step | that step |
 | **Teacher sensor lines** | §5's extensions | With EPf2 | EP |
 
-**Order:** TE5 → TE6 → TE8a → TE8b → TE8c, with TE6b after TE6 has run and TE7 beside TE8 once the after-a-miss build lands; TE9 and TE10 with NA4 and M6. TE5's §7.4 fix is the most urgent item in this spec: every lesson offer is valued today with practice that never happens.
+**Placement (owner, 2026-11-20):** "Please queue teacher v2 after marimo notebooks." The queue: the refactor's remaining steps and the UX stages; then evidence packets, AD memory, reveal adjudication, implementation teach-back and projects as a goal subset; then the notebook activities track; then teacher v2. No teacher v2 stage runs beside the queue, TE5's pure move included. The one exception is the check-credit defect (§7.4), fixed now as `mvp-0.62` because it is live.
+
+**Order inside the slot:** TE5 → TE6 → TE8a → TE8b → TE8c, with TE6b after TE6 has run and TE7 beside TE8 once the after-a-miss build has landed; TE9 is built with NA4 and TE10 with MCP v2 M6, wherever those fall.
 
 ---
 
