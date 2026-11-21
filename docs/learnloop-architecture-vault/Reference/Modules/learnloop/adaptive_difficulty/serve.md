@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py) |
-| Source lines | 165 |
+| Source lines | 166 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -73,8 +73,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_serve_unrecorded(arguments: Any) -> 'ServeRecord'` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 68)
-- `_recorded(connection: Any, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 149)
-- `_with_version(receipt: Any, algorithm_version: str, epoch: str | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 157)
+- `_recorded(connection: Any, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 150)
+- `_with_version(receipt: Any, algorithm_version: str, epoch: str | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 158)
 
 ## Who imports or calls it
 
@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `freeze_presentation_inputs`; calls `freeze_presentation_inputs`
 - [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `sweep`; calls `sweep`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]] — imports `build_row`, `never_attempted`; calls `build_row`, `never_attempted`
-- [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `frozen_loadings`, `threshold_receipts`; calls `frozen_loadings`, `threshold_receipts`
+- [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `frozen_loadings`, `served_item`, `threshold_receipts`; calls `frozen_loadings`, `served_item`, `threshold_receipts`
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `receipts_enabled`; calls `receipts_enabled`
 - [[Reference/Modules/learnloop/db/stores/ad_receipts|learnloop.db.stores.ad_receipts]] — imports `module`; calls `has_table`, `insert_serve_inputs`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `record_receipts`; calls `record_receipts`

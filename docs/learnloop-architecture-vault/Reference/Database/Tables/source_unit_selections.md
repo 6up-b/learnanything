@@ -135,6 +135,7 @@ Indexes and uniqueness:
 - `tests/test_ingest_m3.py`
 - `tests/test_mobile_v4_codex_review.py`
 - `tests/test_mobile_v4_reader.py`
+- `tests/test_part_read_first_set.py`
 - `tests/test_reread_safety.py`
 - `tests/test_ux11_html_extraction.py`
 

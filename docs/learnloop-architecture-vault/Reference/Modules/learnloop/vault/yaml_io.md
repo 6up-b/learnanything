@@ -390,6 +390,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_method_phrasing_report.py](../../../../../../tests/test_method_phrasing_report.py) — direct import
 - [tests/test_minimal_repair_selection_a1.py](../../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
+- [tests/test_part_read_first_set.py](../../../../../../tests/test_part_read_first_set.py) — direct import
 - [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
 - [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
   - `test_a_published_variant_of_a_textbook_exercise_keeps_its_own_verification`

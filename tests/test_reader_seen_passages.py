@@ -282,18 +282,21 @@ def _mentions(pattern: str) -> set[str]:
 
 
 def test_nothing_in_src_reads_the_passages_but_their_store_and_the_one_reading():
-    """These rows are generation evidence for a later step, not evidence of understanding: no mastery, exposure,
-    scheduling, reading-credit or generation reader may read them yet. The tables are named only by their store and
-    the registries that classify them; the store's reads are called only by ``reader.seen_passages``; and the reads it
-    offers (``seen_on``, ``section_ends_on``) are called by nothing in ``src``. A new reader fails here on purpose:
-    it belongs to the step that makes the rows mean something."""
+    """These rows are generation evidence, not evidence of understanding: no mastery, exposure, scheduling or
+    reading-credit reader may read them. The tables are named only by their store and the registries that classify
+    them; the store's reads are called only by ``reader.seen_passages``; and of the reads it offers, only the first
+    set from the part read (``reader.part_read``) calls ``seen_on``, ``seen_marker`` and ``seen_readings``, and
+    nothing calls ``section_ends_on``. A new reader fails here on purpose."""
 
-    assert _mentions(r"reader_seen_spans|reader_section_ends") == {
+    assert _mentions(r"reader_seen_spans|reader_section_ends|reader_seen_readings") == {
         "learnloop/db/stores/reader.py",
         "learnloop/db/table_roles.py",
         "learnloop/adaptive_difficulty/protected_tables.py",
         "learnloop/adaptive_difficulty/column_classes.py",
         "learnloop/reader/seen_passages.py",
     }
-    assert _mentions(r"\.reader_seen_spans_for\(|\.reader_section_ends_for\(") == {"learnloop/reader/seen_passages.py"}
-    assert _mentions(r"\bseen_on\b|\bsection_ends_on\b") == {"learnloop/reader/seen_passages.py"}
+    assert _mentions(r"\.reader_seen_spans_for\(|\.reader_section_ends_for\(|\.reader_seen_spans_marker\(|"
+                     r"\.reader_seen_readings\(") == {"learnloop/reader/seen_passages.py"}
+    assert _mentions(r"\bseen_on\b|\bseen_marker\b|\bseen_readings\b") == {
+        "learnloop/reader/seen_passages.py", "learnloop/reader/part_read.py"}
+    assert _mentions(r"\bsection_ends_on\b") == {"learnloop/reader/seen_passages.py"}

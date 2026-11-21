@@ -271,6 +271,65 @@ def test_a_finished_sections_questions_are_named_while_written_and_once_written(
     assert questions["to_look_at"] == 1
 
 
+def _read_part(repo, item, section_id, *span_ids):
+    """The learner's own reading observed these passages of a section (the Reader's progress report records them)."""
+
+    repo.upsert_reader_section_progress(extraction_id=resolve_extraction_id(repo, item["source_id"]), section_id=section_id,
+                                        spans_seen=len(span_ids), span_count=2, seen_span_ids=list(span_ids),
+                                        observed_by="desktop", clock=CLOCK)
+
+
+def test_a_section_read_in_part_says_what_its_reading_can_give(tmp_path):
+    """The house book's topic cites the first passage of "1 Probability and counting" (s2). Reading only the section's
+    second passage qualifies nothing ("read further"); reading s2 qualifies the topic, owed until the desktop's next
+    read claims it (this read only reports); a claimed first set is that section's questions, named as from the part
+    read. None of it says the section is finished."""
+
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    section_id, label = next((unit, label) for unit, label in _section_ids(repo, item) if unit == "u2")
+
+    _read_part(repo, item, section_id, "s3")
+    questions = _line(root, repo, item)["questions"]
+    assert questions["read_further"] == [label]
+    assert questions["count"] == 0 and questions["sections"] == [] and questions["none_needed"] == []
+    assert "owed" not in questions and "part_read" not in questions
+
+    _read_part(repo, item, section_id, "s2")
+    questions = _line(root, repo, item)["questions"]
+    assert questions["owed"] == [label]
+    assert "read_further" not in questions
+
+    from learnloop.reader.part_read import reconcile_part_read
+    from learnloop.content.pipeline.add_source import section_topics_settled
+
+    extraction_id = resolve_extraction_id(repo, item["source_id"])
+    batches = reconcile_part_read(
+        load_vault(root), repo, extraction_id=extraction_id,
+        enqueue=lambda lo_ids, reason, refs, keys: _jobs_.enqueue_practice_expansion(
+            learning_object_ids=lo_ids, reason=reason, source_refs=refs, topic_keys=keys, start=False),
+        topics_settled=lambda section: section_topics_settled(repo, extraction_id, section))
+    assert len(batches) == 1
+    questions = _line(root, repo, item)["questions"]
+    assert questions["part_read"] == [label]
+    assert questions["writing"] == [label]
+    assert "owed" not in questions and "read_further" not in questions
+    assert repo.reader_section_progress_row(extraction_id, section_id)["completed_at"] is None
+
+
+def test_a_section_read_before_its_build_settles_waits_for_it(tmp_path):
+    root, repo, _jobs_, item, batch_id = _book(tmp_path)
+    _as_running(repo, batch_id, synthesis_window=1)  # the build has not settled
+    section_id, label = next((unit, label) for unit, label in _section_ids(repo, item) if unit == "u2")
+
+    _read_part(repo, item, section_id, "s2", "s3")
+
+    from learnloop.content.pipeline.add_source import reading_questions
+
+    questions = reading_questions(repo, load_vault(root), item["source_id"])
+    assert questions["before_build"] == [label]
+    assert "owed" not in questions and "read_further" not in questions
+
+
 def test_a_section_whose_writing_stopped_names_the_batch_to_resume(tmp_path):
     root, repo, _jobs_, item, _batch = _book(tmp_path)
     (section_id, label), *_ = [(unit, label) for unit, label in _section_ids(repo, item) if label]

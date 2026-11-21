@@ -345,14 +345,16 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                                    "locator": "span@extraction_id"},
         values="id entity_type source_id revision_id locator_scheme relation asset_hash span_hash patch_id "
                "status stale_at superseded_by_link_id created_at"),
+    # A prediction snapshot (``versions_json.snapshot.target``) names the members it predicted: an item at a
+    # revision, facets. Judged by its own rule, so a snapshot never shows a revision or facet the view withholds.
     "forecast_receipts": _table({
         "source_attempt_id": "attempt", "practice_item_id": "item", "item_content_hash": "revision",
-        "plan_presentation_id": "presentation", "facet_id": "facet",
+        "plan_presentation_id": "presentation", "facet_id": "facet", "versions_json": "self",
     },
         values="id receipt_key kind forecaster forecaster_version scope decision_kind decision_ref "
                "learning_object_id hypothesis_ref binding_kind probe_presentation_id followup_task_id "
                "scheduler_candidate_id censor_reason event p forecast_json inputs_json inputs_hash inputs_as_of "
-               "parameters_json versions_json status algorithm_version created_at received_at"),
+               "parameters_json status algorithm_version created_at received_at"),
     "interaction_events": _table({
         "administration_id": "administration", "surface_id": "surface", "attempt_id": "attempt",
         "subject_id": "entity@subject_type", "payload_json": "reading_payload", "locator_json": "reading_payload",

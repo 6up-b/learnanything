@@ -912,7 +912,9 @@ export function TodayPlace({
       case "section_writing":
       case "section_waiting":
       case "finish_section":
-      case "none_up": {
+      case "none_up":
+      case "read_further":
+      case "reading_saved": {
         const card = shown.card;
         return card && onOpenBook ? () => onOpenBook(card) : null;
       }

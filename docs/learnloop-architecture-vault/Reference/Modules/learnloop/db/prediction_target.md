@@ -95,7 +95,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-No live LearnLoop module directly imports this module in the static graph.
+- [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]] — imports `MEMBER_FACET`, `MEMBER_ITEM`, `MEMBER_LEARNING_OBJECT`, `MEMBER_SURFACE_GROUP`, `PredictionTarget`, `TargetMember`; statically calls `PredictionTarget`, `TargetMember`
+- [[Reference/Modules/learnloop/scheduling/prediction_snapshots|learnloop.scheduling.prediction_snapshots]] — imports `MEMBER_FACET`, `MEMBER_ITEM`, `MEMBER_LEARNING_OBJECT`, `PredictionTarget`, `TargetMember`; statically calls `PredictionTarget`, `TargetMember`
 
 ## Dependencies
 
@@ -115,13 +116,18 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-No live LearnLoop module imports it directly; its current reach is tests, repository tooling, dynamic registration, or explicit manual invocation where documented above.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]], [[Reference/Modules/learnloop/scheduling/prediction_snapshots|learnloop.scheduling.prediction_snapshots]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
+  - `test_a_receipt_round_trips_its_cutoff_target_distribution_and_provenance`
+  - `test_the_writer_derives_a_target_from_the_receipt_and_names_what_it_could_not_version`
+  - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`
+  - `test_voi_forecasts_carry_the_snapshot_in_their_own_versions`
 - [tests/test_prediction_target.py](../../../../../../tests/test_prediction_target.py) — direct import
   - `test_a_missing_revision_differs_from_an_empty_one`
   - `test_every_typed_field_moves_the_hash`

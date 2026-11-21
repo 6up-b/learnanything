@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/part_read_helpers.py](../../../../../../../tests/part_read_helpers.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/test_empty_first_build.py](../../../../../../../tests/test_empty_first_build.py) — direct import
   - `test_try_again_after_an_empty_build_writes_the_owed_sections_questions`
@@ -158,6 +159,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
   - `test_the_build_estimate_charts_what_a_build_may_now_write`
 - [tests/test_first_questions_today.py](../../../../../../../tests/test_first_questions_today.py) — direct import
+  - `test_a_section_read_in_part_says_what_its_reading_can_give`
 - [tests/test_followups_batch7_note_titles.py](../../../../../../../tests/test_followups_batch7_note_titles.py) — direct import
   - `test_a_local_uri_reads_as_its_file_name_in_words`
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/serving.py](../../../../../../src/learnloop/adaptive_difficulty/serving.py) |
-| Source lines | 461 |
+| Source lines | 489 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,6 +66,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `why_for_presentation(connection: Any, presentation_id: str, *, view: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 347) — "Why this item" for a served plan item (§12): the one line of the draw that chose it, or None when no AD draw chose it (below the tag, ``selection`` off, a predecessor serve) or its item is withheld now (``view``, the material view).
 - `frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: str, served_at: str, *, view: Any) -> tuple[dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 371) — The item revision's loadings in force at the serve and the coupling version (AD2/AD3).
 - `threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str, served_at: str, view: Any) -> list[Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 396) — The in-process ``ad_threshold@*`` forecasts of one presentation (AD2/AD3).
+- `served_item(vault: Any, item: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 449) — The served revision's identity for the prediction snapshots (``snapshot_parts.ServedItem``), or None when it cannot be read: metadata only, so the receipts are written without it.
 
 ### Module constants
 
@@ -94,6 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `commission_draw`
 - `decide_slot`
 - `frozen_loadings`
+- `served_item`
 - `slot_applies`
 - `threshold_receipts`
 - `view_for`
@@ -106,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_spec(vault: Any, connection: Any, snapshot: RP.Snapshot, item: Any, now: str, view: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 163)
 - `_versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 171)
 - `_maybe_commission(vault: Any, repository: Any, snapshot: RP.Snapshot, view: Any, view_name: str, request: SlotRequest, constants: S.SelectionConstants, *, cell: str | None, capability_name: str | None, warmth: float, material: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 281) — §6.1: a commission draw when the cell pool has no item with ``P_band >= calibrate_below``.
-- `_no_loadings(spec: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 438)
+- `_no_loadings(spec: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serving.py), line 465)
 
 ## Who imports or calls it
 
@@ -114,7 +116,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `commission_draw`, `view_for`; statically calls `commission_draw`, `view_for`
-- [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] — imports `frozen_loadings`, `threshold_receipts`; statically calls `frozen_loadings`, `threshold_receipts`
+- [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] — imports `frozen_loadings`, `served_item`, `threshold_receipts`; statically calls `frozen_loadings`, `served_item`, `threshold_receipts`
 - [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `SlotCandidate`, `SlotRequest`, `decide_slot`; statically calls `SlotCandidate`, `SlotRequest`, `decide_slot`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `slot_applies`; statically calls `slot_applies`
 - [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] — imports `why_for_presentation`; statically calls `why_for_presentation`
@@ -128,12 +130,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/logs|learnloop.adaptive_difficulty.logs]] — imports `warn_failure`; calls `warn_failure`
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `current_view`, `material_view`; calls `current_view`, `material_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `GuardDenied`, `entry`, `is_denial`; calls `GuardDenied`, `entry`, `is_denial`
-- [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `module`; calls `capability`, `current_spec`, `facet_weights`, `mixture_weights`, `point_spec`, `predict`, `score`
+- [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `module`; calls `capability`, `category_mixture`, `current_spec`, `facet_weights`, `mixture_weights`, `point_spec`, `predict`, `score`
 - [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] — imports `module`; calls `versions`
 - [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `sweep`; calls `sweep`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`; calls `live_judgments`
-- [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `days`, `lo_view_name`, `snapshot`
+- [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `days`, `lo_view_name`, `snapshot`, `surface_group`
 - [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] — imports `module`; calls `commission_candidates`, `constants_from_config`, `draw`, `recompute`, `seed_for`
+- [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]] — imports `ServedItem`, `surface_source`, `threshold_snapshot`; calls `ServedItem`, `surface_source`, `threshold_snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `coupling_on`, `selection_on`, `subject_view_live`, `successor_active`; calls `coupling_on`, `selection_on`, `subject_view_live`, `successor_active`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `module`; calls `has_table`, `insert_selection`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS`; calls `ForecastReceipt`

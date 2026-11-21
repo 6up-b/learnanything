@@ -150,36 +150,40 @@ def source_refs_for_section(
             [index_by_span[span_id] for span_id in selected_anchors], len(ordered_spans)
         )
         for start, end in intervals:
-            bundle_blocks = blocks[start : end + 1]
-            bundle_span_ids = [block.span_id for block in bundle_blocks]
-            quote = "\n".join(block.text for block in bundle_blocks)
-            quote_hash = "sha256:" + hashlib.sha256(quote.encode("utf-8")).hexdigest()
-            span_hash_material = "\n".join(block.content_hash for block in bundle_blocks)
-            span_hash = "sha256:" + hashlib.sha256(
-                span_hash_material.encode("utf-8")
-            ).hexdigest()
-            first_span, last_span = bundle_span_ids[0], bundle_span_ids[-1]
-            source_refs.append(
-                {
-                    "ref_type": "canonical_source",
-                    "ref_id": (
-                        f"reader_citation:{extraction_id}:{learning_object_id}:"
-                        f"{first_span}-{last_span}"
-                    ),
-                    "path": relative_raw_path,
-                    "locator": f"span:{extraction_id}/{first_span}",
-                    "quote": quote,
-                    "quote_hash": quote_hash,
-                    "source_id": source_id,
-                    "revision_id": str(revision["id"]),
-                    "extraction_id": extraction_id,
-                    "span_ids": bundle_span_ids,
-                    "span_hash": span_hash,
-                    "section_id": section_id,
-                    "learning_object_ids": [learning_object_id],
-                }
-            )
+            source_refs.append(citation_bundle(
+                blocks[start : end + 1], extraction_id=extraction_id, learning_object_id=learning_object_id,
+                path=relative_raw_path, source_id=source_id, revision_id=str(revision["id"]), section_id=section_id,
+            ))
     return source_refs
+
+
+def citation_bundle(
+    bundle_blocks: list[Any], *, extraction_id: str, learning_object_id: str, path: str | None, source_id: str,
+    revision_id: str, section_id: str,
+) -> dict[str, Any]:
+    """One canonical citation bundle: consecutive blocks of a reading, quoted whole, assigned to one topic."""
+
+    bundle_span_ids = [block.span_id for block in bundle_blocks]
+    quote = "\n".join(block.text for block in bundle_blocks)
+    quote_hash = "sha256:" + hashlib.sha256(quote.encode("utf-8")).hexdigest()
+    span_hash_material = "\n".join(block.content_hash for block in bundle_blocks)
+    span_hash = "sha256:" + hashlib.sha256(span_hash_material.encode("utf-8")).hexdigest()
+    first_span, last_span = bundle_span_ids[0], bundle_span_ids[-1]
+    return {
+        "ref_type": "canonical_source",
+        "ref_id": f"reader_citation:{extraction_id}:{learning_object_id}:{first_span}-{last_span}",
+        "path": path,
+        "locator": f"span:{extraction_id}/{first_span}",
+        "quote": quote,
+        "quote_hash": quote_hash,
+        "source_id": source_id,
+        "revision_id": revision_id,
+        "extraction_id": extraction_id,
+        "span_ids": bundle_span_ids,
+        "span_hash": span_hash,
+        "section_id": section_id,
+        "learning_object_ids": [learning_object_id],
+    }
 
 
 def _merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]:

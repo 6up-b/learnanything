@@ -53,6 +53,8 @@ from typing import Any, Mapping, Sequence
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import forecast_receipts as store
+from learnloop.scheduling import prediction_snapshots
+from learnloop.scheduling.prediction_snapshots import SnapshotParts
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +142,9 @@ class ForecastReceipt:
     inputs_as_of: str | None = None
     p: float | None = None
     columns: Mapping[str, Any] = field(default_factory=dict)
+    #: What the producer states for its prediction snapshot (EP spec §7.7): evaluation-only, written into
+    #: ``versions_json.snapshot`` and ``forecast_json.distribution``, never into ``inputs`` or the digest.
+    snapshot: SnapshotParts | None = None
 
 
 def valid_for_serve(receipt: Mapping[str, Any], served_at: str | None) -> bool:
@@ -266,6 +271,10 @@ def record_receipts(
                 columns.setdefault("algorithm_version", algorithm_version)
                 if receipt.p is not None:
                     columns["p"] = float(receipt.p)
+                inputs_as_of = clamped_as_of(receipt.inputs_as_of, issued)
+                # The snapshot rides in the bodies the receipt already has; it mints no id and touches
+                # neither the inputs nor their digest, so the id stream and every reuse key stay as they were.
+                forecast, versions = prediction_snapshots.receipt_bodies(receipt, issued, inputs_as_of)
                 receipt_id = store.insert_receipt(
                     connection,
                     receipt_key=receipt.receipt_key,
@@ -276,12 +285,12 @@ def record_receipts(
                     decision_kind=receipt.decision_kind,
                     binding_kind=receipt.binding_kind,
                     event=receipt.event,
-                    forecast=receipt.forecast,
+                    forecast=forecast,
                     inputs=receipt.inputs,
                     inputs_hash=inputs_digest(receipt.inputs),
-                    inputs_as_of=clamped_as_of(receipt.inputs_as_of, issued),
+                    inputs_as_of=inputs_as_of,
                     parameters=[dict(entry) for entry in receipt.parameters],
-                    versions={"receipt_shape_version": RECEIPT_SHAPE_VERSION, **dict(receipt.versions)},
+                    versions={"receipt_shape_version": RECEIPT_SHAPE_VERSION, **versions},
                     created_at=issued,
                     **columns,
                 )
@@ -318,6 +327,7 @@ __all__ = [
     "RECEIPT_SHAPE_VERSION",
     "REPAIR_COLD_OUTCOME",
     "SCOPES",
+    "SnapshotParts",
     "categorical_body",
     "clamped_as_of",
     "inputs_digest",

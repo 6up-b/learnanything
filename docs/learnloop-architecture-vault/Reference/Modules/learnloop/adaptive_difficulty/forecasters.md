@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/forecasters.py](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py) |
-| Source lines | 160 |
+| Source lines | 168 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -54,7 +54,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `receipt_key(presentation_kind: str, presentation_id: str, forecaster: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 47)
-- `in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str, served_at: str, view: Any) -> list[ForecastReceipt]` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 118) — The two in-process forecasts of one presentation (each skipped alone on failure).
+- `in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str, served_at: str, view: Any, served: Any=None) -> list[ForecastReceipt]` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 118) — The two in-process forecasts of one presentation (each skipped alone on failure).
 
 ### Module constants
 
@@ -98,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/logs|learnloop.adaptive_difficulty.logs]] — imports `warn_failure`; calls `warn_failure`
+- [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]] — imports `in_process_snapshot`; calls `in_process_snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `IN_PROCESS_FORECASTERS`
 - [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `create_predictor`; calls `create_predictor`
 - [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `ItemFeatures`; calls `ItemFeatures`

@@ -1234,6 +1234,23 @@ class ReaderStoreMixin:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def reader_seen_spans_marker(self) -> tuple[int, int]:
+        """How many passages are recorded as seen in every reading, and the newest row: it changes whenever one is
+        added (the table is append-only). Read only through ``learnloop.reader.seen_passages``."""
+
+        with self.connection() as connection:
+            row = connection.execute("SELECT COUNT(*) AS n, COALESCE(MAX(rowid), 0) AS last FROM reader_seen_spans"
+                                     ).fetchone()
+        return int(row["n"]), int(row["last"])
+
+    def reader_seen_readings(self) -> list[str]:
+        """The readings with any passage recorded as seen. Read only through ``learnloop.reader.seen_passages``."""
+
+        with self.connection() as connection:
+            rows = connection.execute("SELECT DISTINCT extraction_id FROM reader_seen_spans ORDER BY extraction_id"
+                                      ).fetchall()
+        return [str(row["extraction_id"]) for row in rows]
+
     def reader_section_ends_for(self, extraction_id: str) -> list[dict[str, Any]]:
         """The sections of one reading whose last passage was recorded as seen (migration 256).
         Read only through ``learnloop.reader.seen_passages``."""

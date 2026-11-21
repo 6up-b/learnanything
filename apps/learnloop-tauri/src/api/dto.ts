@@ -3740,6 +3740,18 @@ export interface ReadingQuestionsDto {
   /** Of `itemIds`, those that cannot be asked now: answered and not due again yet, or kept for a later check on your
    *  own. Present only when there are some (absent from an older sidecar too). */
   laterItemIds?: string[];
+  /** Sections the learner has not finished whose topics got their first questions from the passages they saw (a topic
+   *  qualifies once every passage it cites is seen): counted in `count`, `sections`, `writing` and `failed` like a
+   *  finished section's. The fields below name the other unfinished sections the learner has read part of. Each is
+   *  present only when there are some (absent from an older sidecar too). */
+  partRead?: string[];
+  /** Read in part; the book's topics for them are not in yet. */
+  beforeBuild?: string[];
+  /** Read in part, with a topic whose passages are all seen and whose questions are not started yet: the desktop starts
+   *  them on its next read of the books; the phone leaves them to the desktop. */
+  owed?: string[];
+  /** Read in part, with no questions of their own yet: their topics need questions, and none has every passage seen. */
+  readFurther?: string[];
 }
 
 /** A link an Add is still fetching: it has no library card yet. */

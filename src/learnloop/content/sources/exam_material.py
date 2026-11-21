@@ -1284,7 +1284,7 @@ SURFACE_SETS: Mapping[str, str] = MappingProxyType({
     "teaching": ALL_EXAM,                # corpus.teaching_exclusions (and model_reader_withheld on it)
     "reader_ask": HELD_OUT,              # reader_dialogue.ask, tutor_qa.ask_question, reader_tutor's second guard
     "reader_presets": HELD_OUT,          # reader_requests.model_synthesis
-    "reader_checks": HELD_OUT,           # jobs: the Reader's section, inquiry and selection checks
+    "reader_checks": HELD_OUT,           # jobs: the Reader's section, inquiry and selection checks; reader.part_read
     "reader_guidance": HELD_OUT,         # reader_guidance.held_out_sections, reading_protection
     "reader_import": HELD_OUT,           # jobs.handle_reader_exercise_import and its author's context
     "canonical_import": ALL_EXAM,        # source_exercise_import.import_source_exercise and its author's context
