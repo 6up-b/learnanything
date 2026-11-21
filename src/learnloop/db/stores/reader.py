@@ -68,6 +68,33 @@ def _topic_work_row(row: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+def settle_reviewed_topic_work(connection: sqlite3.Connection, patch_id: str, *, updated_at: str) -> None:
+    """A decision on ``patch_id``'s questions (an OK, a refusal, an undone refusal) moves the topic work that wrote
+    them between ``held`` and ``written`` by the rule the writing job used: held while any question of its proposals
+    waits for a decision. Called on the decision's own connection, inside its transaction, so the two never
+    disagree. Work in any other state (queued, running, failed, not needed) is the job's to move and is left."""
+
+    rows = connection.execute(
+        "SELECT id, state, proposal_ids_json FROM reader_topic_question_work WHERE owner = 'topic'"
+        " AND state IN ('held', 'written')"
+        " AND EXISTS (SELECT 1 FROM json_each(proposal_ids_json) WHERE value = ?)",
+        (patch_id,),
+    ).fetchall()
+    for row in rows:
+        patches = json.loads(row["proposal_ids_json"] or "[]")
+        waiting = connection.execute(
+            "SELECT 1 FROM proposed_patch_items WHERE decision = 'pending'"
+            f" AND proposed_patch_id IN ({', '.join('?' for _ in patches)}) LIMIT 1",
+            patches,
+        ).fetchone()
+        state = "held" if waiting is not None else "written"
+        if state != row["state"]:
+            connection.execute(
+                "UPDATE reader_topic_question_work SET state = ?, updated_at = ? WHERE id = ?",
+                (state, updated_at, row["id"]),
+            )
+
+
 class ReaderStoreMixin:
 
     def insert_source_exposure_event(

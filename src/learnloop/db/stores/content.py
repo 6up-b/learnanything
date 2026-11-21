@@ -12,6 +12,7 @@ from learnloop.ai.usage import TokenUsage
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.records import _decode_proposal_batch, _decode_proposal_item
 from learnloop.db.row_serialization import _json, _loads
+from learnloop.db.stores.reader import settle_reviewed_topic_work
 from learnloop.ids import new_ulid
 
 
@@ -1423,6 +1424,9 @@ class ContentStoreMixin:
             "UPDATE proposed_patches SET status_cache = ?, updated_at = ? WHERE id = ?",
             (status, updated_at, patch_id),
         )
+        # Every decision on a proposal's items passes here, in its transaction: a reader topic whose questions waited
+        # for a look stops counting as held once they are decided, and counts again when a refusal is undone.
+        settle_reviewed_topic_work(connection, patch_id, updated_at=updated_at)
 
     def insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str:
         """Persist an immutable synthesis manifest (§8.4). Idempotent on
