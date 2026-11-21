@@ -67,15 +67,16 @@ describe("the phone Reader (mobile v2 §3)", () => {
 
   it("a held-out passage arrives with no text and says so; its page is never asked for", async () => {
     await openBook();
-    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read the next section" }));
     expect(await screen.findByText("A passage held out for your exam. It isn't shown here.")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "View the page" })).toHaveLength(1); // the heading's, not the held one's
   });
 
-  it("the end of a section is the desktop's progress write, through the outbox, then the dose arm's draw", async () => {
+  it("the learner's word finishes a section: the desktop's progress write, through the outbox, then the dose arm's draw; it moves nowhere", async () => {
     await openBook();
-    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
-    await screen.findByText(/held out for your exam/);
+    fireEvent.click(screen.getByRole("button", { name: "I’ve read this section" }));
+    expect(await screen.findByText("Section finished")).toBeTruthy();
+    expect(screen.getByText("Every space has a zero.")).toBeTruthy(); // still the same section: navigation has its own button
     await waitFor(() => expect(called("reader.mark_section_progress")).toHaveLength(1));
     const [progress] = called("reader.mark_section_progress");
     expect(progress.params).toEqual({ extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, completed: true });
@@ -94,7 +95,8 @@ describe("the phone Reader (mobile v2 §3)", () => {
     // The next section is on the phone before the signal goes.
     await waitFor(async () => expect(await getSection({ extractionId: "ext1", revision: "rv1", sectionId: "u2" })).not.toBeNull());
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("airplane mode"); }));
-    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    fireEvent.click(screen.getByRole("button", { name: "I’ve read this section" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Read the next section" }));
     expect(await screen.findByText(/held out for your exam/)).toBeTruthy();
     expect(screen.getByText("· the copy on this phone")).toBeTruthy();
     await waitFor(async () => {
@@ -115,7 +117,7 @@ describe("the phone Reader (mobile v2 §3)", () => {
     };
     answers["reader.dose_offer_event"] = { recorded: true };
     await openBook();
-    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    fireEvent.click(screen.getByRole("button", { name: "I’ve read this section" }));
     expect(await screen.findByText("One more worked example on this?")).toBeTruthy();
     expect(screen.getByText("Offered at random, to learn how much of this helps you")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show me" }));
@@ -159,7 +161,7 @@ describe("the Codex review of V4 (docs/reviews/phone-v4-codex-review.md)", () =>
     answers["reader.dose_offer"] = extraQuestion;
     answers["reader.dose_offer_event"] = { recorded: true };
     await openBook();
-    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    fireEvent.click(screen.getByRole("button", { name: "I’ve read this section" }));
     expect(await screen.findByText("One quick question on this?")).toBeTruthy();
     expect(screen.queryByText("What does addition do with order?")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
@@ -173,7 +175,7 @@ describe("the Codex review of V4 (docs/reviews/phone-v4-codex-review.md)", () =>
     answers["reader.dose_offer_event"] = { recorded: true };
     answers["reader.authored_question_action"] = { question: { questionId: "aq_1", status: "answered" } };
     await openBook();
-    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    fireEvent.click(screen.getByRole("button", { name: "I’ve read this section" }));
     fireEvent.click(await screen.findByRole("button", { name: "Try it" }));
     expect(await screen.findByText("What does addition do with order?")).toBeTruthy();
     expect(screen.queryByText("It commutes.")).toBeNull();

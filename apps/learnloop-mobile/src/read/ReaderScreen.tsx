@@ -11,7 +11,9 @@ import { WAITING_COPY } from "@desktop/copy/waiting";
 import { Waiting } from "../components/Waiting";
 import { MathMacrosProvider } from "@desktop/render/mathMacros";
 import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
-import { sectionWords } from "@desktop/screens/reader/readerShared";
+import {
+  BACK_TO_TODAY, CHECK_DONE, READ_NEXT_SECTION, SECTION_DONE, SECTION_DONE_LINE, sectionWords,
+} from "@desktop/screens/reader/readerShared";
 import { selectionQuote } from "@desktop/render/mathSnippet";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
 import { addReaderIntent, flushOutbox } from "../store/outbox";
@@ -68,8 +70,8 @@ export function ReaderScreen({
   const visitId = useMemo(() => newUlid(), [extractionId]);
   const seen = useRef<Set<string>>(new Set());
   const reported = useRef<Record<string, number>>({});
-  // WHICH passages were read, beside the count (whose observer is rooted at the section's own box, so it counts
-  // what was loaded, not what was on screen): the passages on screen now (in the viewport, through the scroller's
+  // WHICH passages were read, beside the count (which counts what came on screen, whoever moved the page): the
+  // passages on screen now (in the viewport, through the scroller's
   // clip), those on screen once the learner has moved the page themselves in this visit to the section, and per
   // section the passages and the end already handed to the outbox. Opening a section (from the list, Continue
   // reading, Next) moves nothing by the learner's hand, so it observes nothing until they scroll.
@@ -79,6 +81,9 @@ export function ReaderScreen({
   const inputAt = useRef(0);
   const queuedPassages = useRef<Record<string, Set<string>>>({});
   const queuedEnds = useRef<Set<string>>(new Set());
+  // The sections whose reading-dose offer was drawn in this visit: drawn once a section is finished (by the learner's
+  // word, or by its end once the host has it), never a second time for the same section.
+  const doseDrawn = useRef<Set<string>>(new Set());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const body = useRef<HTMLDivElement>(null);
 
@@ -216,6 +221,8 @@ export function ReaderScreen({
   }, [extractionId, loadedId, following]);
 
   const readable = useMemo(() => new Set(current?.spanIds ?? []), [current]);
+  // Finished as far as this phone knows: the learner's word, queued durably, or the host's progress.
+  const finished = Boolean(current && progress?.sections.find((one) => one.sectionId === current.id)?.completedAt);
 
   /** §3.4: progress as the desktop reports it: how many of the section's spans were seen, debounced, monotonic; and
    *  which passages the learner's own reading had on screen and whether the section's last one was among them, each
@@ -232,14 +239,19 @@ export function ReaderScreen({
     reported.current[current.id] = Math.max(before, spansSeen);
     for (const span of passages) queued.add(span);
     if (end) queuedEnds.current.add(current.id);
+    const sectionId = current.id;
     void addReaderIntent({
-      id: newUlid(), method: "reader.mark_section_progress", coalesce: `${extractionId}:${current.id}`,
+      id: newUlid(), method: "reader.mark_section_progress", coalesce: `${extractionId}:${sectionId}`,
       params: {
-        extractionId, sectionId: current.id, spansSeen, spanCount: current.spanIds.length,
+        extractionId, sectionId, spansSeen, spanCount: current.spanIds.length,
         ...(passages.length > 0 ? { seenSpanIds: passages } : {}), ...(end ? { reachedEnd: true } : {}),
         ...(completed ? { completed: true } : {})
       }
-    }).then(() => flushOutbox()).catch(() => undefined);
+    }).then(() => flushOutbox()).then((stop) => {
+      // The end waits in the outbox until the host has it; only then can the host's progress say whether it finished
+      // the section (from algorithm tag mvp-0.63 it does). Nothing is shown finished before that.
+      if (end && !completed && stop.reason === "drained") endDelivered.current(sectionId);
+    }).catch(() => undefined);
     setProgress((list) => {
       const rows = list?.sections ?? [];
       const row = rows.find((one) => one.sectionId === current.id);
@@ -250,7 +262,23 @@ export function ReaderScreen({
     });
   }, [current, extractionId]);
 
-  // A span is seen when it scrolls into view.
+  // A delivered end: read the host's progress back; a section it finished shows finished and draws its dose once.
+  const endDelivered = useRef<(sectionId: string) => void>(() => undefined);
+  endDelivered.current = (sectionId: string) => {
+    void loadProgress(extractionId).then((loaded) => {
+      const row = loaded?.sections.find((one) => one.sectionId === sectionId);
+      if (!row?.completedAt) return;
+      setProgress((list) => {
+        const rows = list?.sections ?? [];
+        const before = rows.find((one) => one.sectionId === sectionId);
+        return { extractionId, sections: [...rows.filter((one) => one.sectionId !== sectionId), { ...(before ?? row), completedAt: row.completedAt }] };
+      });
+      if (sectionId === current?.id) void offerDose(sectionId);
+    });
+  };
+
+  // A span is seen when it scrolls into view. The observer has no root: what is on screen in the viewport, through
+  // the app frame's clip (a root at the section's own box, which never scrolls, would count every laid-out passage).
   useEffect(() => {
     const root = body.current;
     if (!root || !section || typeof IntersectionObserver === "undefined") return undefined;
@@ -288,8 +316,7 @@ export function ReaderScreen({
     timer.current = setTimeout(() => reportRef.current(false), PROGRESS_DEBOUNCE_MS);
   }, []);
 
-  // On screen is the viewport, through the scroller's clip: an observer with no root (the count's, rooted at the
-  // section's own box, which never scrolls, has every loaded passage intersecting).
+  // On screen is the viewport, through the scroller's clip: an observer with no root, as the count's.
   useEffect(() => {
     const root = body.current;
     if (!root || !section || typeof IntersectionObserver === "undefined") return undefined;
@@ -337,22 +364,28 @@ export function ReaderScreen({
     };
   }, [noteObserved, schedule]);
 
-  /** The foot of a section: it is finished, the dose arm draws (the server's, before anything shows), then on. */
+  /** "I've read this section": the learner's word finishes it (through the outbox, durably), then the dose arm draws
+   *  once (the server's, before anything shows). It moves nowhere: navigation has its own button. */
   async function finishSection() {
     if (!current) return;
     report(true);
+    await offerDose(current.id);
+  }
+
+  /** The reading dose, drawn once per finished section in a visit, by the learner's word or by the section's end. */
+  async function offerDose(sectionId: string) {
+    if (doseDrawn.current.has(sectionId)) return;
+    doseDrawn.current.add(sectionId);
     let offer: ReaderDoseOfferDto["offer"] | null = null;
     try {
-      offer = (await phone.doseOffer(extractionId, current.id, visitId)).offer ?? null;
+      offer = (await phone.doseOffer(extractionId, sectionId, visitId)).offer ?? null;
     } catch {
       offer = null; // Offline: no dose is drawn (§3.4); the section's progress waits in the outbox.
     }
     if (offer) {
       setDose(offer);
       doseEvent(offer.drawId, "delivered");
-      return;
     }
-    goOn();
   }
 
   function doseEvent(drawId: string, event: "delivered" | "taken" | "dismissed" | "not_delivered") {
@@ -360,14 +393,15 @@ export function ReaderScreen({
       .then(() => flushOutbox()).catch(() => undefined);
   }
 
+  /** Navigation only (finishing has its own event): the next section, or back to Today at the book's end; under the
+   *  plan, back to the plan (its reading ended with the section: the host records `section_completed`). */
   function goOn() {
     setDose(null);
-    if (target.plan) {
-      // The plan's reading ended with the section (the host records `section_completed` from the progress).
+    if (target.plan || !following) {
       onPlanBack();
       return;
     }
-    if (following) setSectionId(following);
+    setSectionId(following);
   }
 
   /** The desktop's banner (`left_reader`) and its skip (`skipped`): the block ends, its estimate counts as used. */
@@ -392,7 +426,6 @@ export function ReaderScreen({
     const holder = span ? sections.find((one) => one.spanIds.includes(span)) : null;
     setDose(null);
     if (holder && holder.id !== sectionId) setSectionId(holder.id);
-    else if (!holder) goOn();
   }
 
   function onSelectEnd() {
@@ -433,14 +466,22 @@ export function ReaderScreen({
           ))}
         </div>
       ) : null}
+      {section && current && finished ? (
+        <p className="dim" role="status" data-testid="section-finished">{SECTION_DONE_LINE}</p>
+      ) : null}
       {dose ? (
-        <DoseOffer offer={dose} onTake={() => takeDose(dose)} onDismiss={() => { doseEvent(dose.drawId, "dismissed"); goOn(); }}
-          onDone={goOn} onError={onError} />
-      ) : section ? (
+        <DoseOffer offer={dose} onTake={() => takeDose(dose)} onDismiss={() => { doseEvent(dose.drawId, "dismissed"); setDose(null); }}
+          onDone={() => setDose(null)} onError={onError} />
+      ) : section && current ? (
         <div className="actions">
-          <button className="primary block" type="button" onClick={() => void finishSection()}>
-            {target.plan ? "Done with this section" : following ? "Next section" : "Finish the book's last section"}
-          </button>
+          {finished ? null : (
+            <button className="primary block" type="button" onClick={() => void finishSection()}>{SECTION_DONE}</button>
+          )}
+          {target.plan && !finished ? null : (
+            <button className={finished ? "primary block" : "plain block"} type="button" onClick={goOn}>
+              {target.plan ? "Back to today's plan" : following ? READ_NEXT_SECTION : BACK_TO_TODAY}
+            </button>
+          )}
         </div>
       ) : null}
       {listOpen && guide ? (
@@ -532,7 +573,7 @@ function ExtraQuestion({ question, onDone, onError }: {
           <p className="learner-words">{response.trim()}</p>
           <p className="dim">◇ the intended answer · compare, don't grade</p>
           <div className="markdown"><PhoneMarkdown value={question.expectedAnswer} /></div>
-          <div className="actions"><button className="primary block" type="button" onClick={onDone}>Done for now</button></div>
+          <div className="actions"><button className="primary block" type="button" onClick={onDone}>{CHECK_DONE}</button></div>
         </>
       )}
     </div>
