@@ -32,8 +32,9 @@ import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
 import { citationWords, sectionWords } from "../screens/reader/readerShared";
 import { sessionTopicLine } from "../components/SessionFinishHud";
 import { nextPracticeLines, nextPracticeRowWhy } from "../app/nextPractice";
+import { WAIT_DETAILS_LABEL, buildWaitWords, writingWaitWords } from "../app/waitDetail";
 import { INTENT_COPY } from "../screens/reader/intentPalette";
-import type { CalibrationSessionProgressDto, GoalDto, NextPracticeDto, QuickCheckResultDto } from "../api/dto";
+import type { BuildDetailDto, CalibrationSessionProgressDto, GoalDto, NextPracticeDto, QuickCheckResultDto, WaitDeliveryDto, WritingDetailDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
   api: {
@@ -206,6 +207,39 @@ const STAGE3_CAUSES: TodayCause[] = [
   { kind: "read_further", title: "Probability", card: BOOK },
   { kind: "reading_saved", title: "Probability", card: BOOK }
 ];
+// The first evening, step 6: an honest wait's lines and details, in every state a build or the writing can show.
+const WAIT_AS_OF = "2026-11-21T18:10:00Z";
+const waitDelivery = (overrides: Partial<WaitDeliveryDto> = {}): WaitDeliveryDto =>
+  ({ requestSentAt: null, replyReceivedAt: null, outputPieces: 0, lastOutputAt: null, ...overrides });
+const WAIT_BUILDS: BuildDetailDto[] = [
+  { stage: "queued" },
+  { stage: "reading", inventory: { done: 1, total: 3, reused: 2 }, retry: true },
+  { stage: "planning", synthesis: { part: 1, parts: 2, pass: "evidence" }, delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z" }) },
+  { stage: "planning", synthesis: { part: 1, parts: 2, pass: "plan_reused" },
+    delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z", outputPieces: 4, lastOutputAt: "2026-11-21T18:09:50Z" }) },
+  { stage: "organizing", delivery: waitDelivery({ replyReceivedAt: "2026-11-21T18:09:58Z" }) },
+  { stage: "checking", draftedTopics: 8, measured: { minutes: 4, samples: 3 } },
+  { stage: "saving" }
+].map((detail) => ({ asOf: WAIT_AS_OF, startedAt: "2026-11-21T18:07:00Z", retry: false, delivery: null, measured: null, ...detail }) as BuildDetailDto);
+const WAIT_WRITINGS: WritingDetailDto[] = [
+  { queued: true, topic: null },
+  { topic: { title: "Bayes' rule", index: 1, total: 4 }, delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z" }) },
+  { topic: { title: null, index: 2, total: 4 }, retry: true, measured: { minutes: 2, samples: 5 },
+    delivery: waitDelivery({ requestSentAt: "2026-11-21T18:09:00Z", outputPieces: 9, lastOutputAt: "2026-11-21T18:09:59Z" }) }
+].map((detail) => ({ asOf: WAIT_AS_OF, startedAt: "2026-11-21T18:05:00Z", queued: false, retry: false,
+  topicStartedAt: "2026-11-21T18:08:30Z", delivery: null, measured: null, ...detail }) as WritingDetailDto);
+const WAIT_SENTENCES = [...new Set([
+  WAIT_DETAILS_LABEL,
+  ...WAIT_BUILDS.flatMap((detail) => [true, false].flatMap((grew) => (["ago", "at"] as const).flatMap((clock) => {
+    const words = buildWaitWords(detail, { clock, grew });
+    return [...words.lines, ...words.details];
+  }))),
+  ...WAIT_WRITINGS.flatMap((detail) => [true, false].flatMap((grew) => (["ago", "at"] as const).flatMap((clock) => {
+    const words = writingWaitWords(detail, { clock, grew });
+    return [...words.lines, ...words.details];
+  })))
+])];
+
 const STAGE3_SENTENCES = [
   ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "", causeSecondActionLabel(cause) ?? "",
     causeWait(cause)?.line ?? "", causeWait(cause)?.after ?? "", causeWait(cause)?.later ?? "", causeTopicsFailed(cause) ?? ""]),
@@ -395,6 +429,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   // UX fix stage 3: Today's causes, the goal's, the clocks' and the refusals' fixed words.
   it.each(STAGE3_SENTENCES)("the stage 3 sentence: %s", (sentence) => {
     expectPlain(sentence);
+  });
+
+  it.each(WAIT_SENTENCES)("the honest wait's line: %s", (sentence) => {
+    expectPlain(sentence);
+    expect(sentence).not.toMatch(/%|percent|remaining|stall|estimat/i);
   });
 
   it.each(ROUND_2A_SENTENCES)("the broken controls 2 sentence: %s", (sentence) => {

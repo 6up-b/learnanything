@@ -7,7 +7,7 @@
 // the captures line; the first-run, done, loading and error states.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AiConnectionDto, DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, SourceLibraryCard, SourceStatusLineDto, WorkbenchOpenProblemDto } from "../../api/dto";
+import type { AiConnectionDto, BuildDetailDto, DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, SourceLibraryCard, SourceStatusLineDto, WaitDeliveryDto, WorkbenchOpenProblemDto, WritingDetailDto } from "../../api/dto";
 import { clear, invalidateAll } from "../../api/queryCache";
 import { setAlgoConfig, setRenderedShell } from "../../app/algoConfig";
 import { findJargon } from "../../copy/denyList";
@@ -2655,5 +2655,121 @@ describe("The first evening, step 7: Today says what comes next, dated", () => {
     await screen.findByTestId("today-next");
     const reads = f.getDailyPlan.mock.calls.length;
     await waitFor(() => expect(f.getDailyPlan.mock.calls.length).toBeGreaterThan(reads), { timeout: 3000 });
+  });
+});
+
+describe("An honest wait (the first evening, step 6): what is happening now, in a few lines, read with the existing reads", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const AS_OF = "2026-11-21T18:10:00Z";
+  const ago = (seconds: number, asOf = AS_OF) => new Date(Date.parse(asOf) - seconds * 1000).toISOString().replace(".000Z", "Z");
+  const delivery = (overrides: Partial<WaitDeliveryDto> = {}): WaitDeliveryDto =>
+    ({ requestSentAt: null, replyReceivedAt: null, outputPieces: 0, lastOutputAt: null, ...overrides });
+  const buildLine = (detail: Partial<BuildDetailDto> = {}): SourceStatusLineDto => ({
+    text: "Getting Ch. 1 ready for questions", tone: "working", action: null, details: null, progress: { done: 1, total: 2 },
+    buildDetail: { asOf: AS_OF, startedAt: ago(130), stage: "planning", retry: false, delivery: delivery({ requestSentAt: ago(40) }),
+      measured: null, synthesis: { part: 1, parts: 1, pass: "plan" }, ...detail }
+  });
+  const writingLine = (detail: Partial<WritingDetailDto> = {}): SourceStatusLineDto => ({
+    ...LINE.built,
+    questions: { count: 0, itemIds: [], sections: [], writing: ["Document"], waiting: [], failed: [], toLookAt: 0, sectionCount: 1,
+      progress: { done: 0, total: 4 }, partRead: ["Document"],
+      writingDetail: { asOf: AS_OF, startedAt: ago(200), queued: false, retry: false, topic: { title: "Spectral theorem", index: 1, total: 4 },
+        topicStartedAt: ago(75), delivery: delivery({ requestSentAt: ago(75) }), measured: null, ...detail } }
+  });
+
+  async function reread(expected: string) {
+    act(() => notifyQueueChanged());
+    await waitFor(() => expect(screen.getByTestId("today-cause-detail").textContent).toContain(expected), { timeout: 2000 });
+  }
+
+  it("a book being got ready: its step and part, how long, the request; details collapsed; no time where none was measured", async () => {
+    emptyToday([libraryCard(buildLine())]);
+    show(causeProps({ aiConnection: ready() }));
+    const detail = await screen.findByTestId("today-cause-detail");
+    // The existing line stays as it was; the new lines sit under it.
+    expect(await within(screen.getByTestId("today-cause")).findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done")).toBeTruthy();
+    expect(within(detail).getByText("Planning questions · part 1 of 1")).toBeTruthy();
+    expect(within(detail).getByText("Started 2 minutes ago · asked 40 seconds ago, no reply yet")).toBeTruthy();
+    const more = screen.getByTestId("today-cause-detail-more") as HTMLDetailsElement;
+    expect(more.open).toBe(false);
+    expect(more.textContent).toContain("No book has finished getting ready in this library yet, so no time is given.");
+    expect(screen.getByTestId("today-cause").textContent).not.toMatch(/%|still writing|stall|left/);
+    expect(findJargon(screen.getByTestId("today-cause").textContent ?? "")).toEqual([]);
+  });
+
+  it("the reply as reads come: when its last part came on a first read, still writing once it grew, then a long silence by its time", async () => {
+    const lines = [buildLine({ delivery: delivery({ requestSentAt: ago(40), outputPieces: 3, lastOutputAt: ago(5) }) })];
+    emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+    show(causeProps({ aiConnection: ready() }));
+    expect(await within(await screen.findByTestId("today-cause-detail")).findByText("Started 2 minutes ago · reply arriving, last part 5 seconds ago")).toBeTruthy();
+    const later = "2026-11-21T18:10:05Z";
+    lines[0] = buildLine({ asOf: later, delivery: delivery({ requestSentAt: ago(40), outputPieces: 9, lastOutputAt: ago(1, later) }) });
+    await reread("Started 2 minutes ago · still writing");
+    // Nothing new on the next read (a silence): no "still writing", the time of its last part instead.
+    const silent = "2026-11-21T18:12:05Z";
+    lines[0] = buildLine({ asOf: silent, delivery: delivery({ requestSentAt: ago(40), outputPieces: 9, lastOutputAt: ago(1, later) }) });
+    await reread("reply arriving, last part 2 minutes ago");
+    expect(screen.getByTestId("today-cause-detail").textContent).not.toContain("still writing");
+  });
+
+  it("a retry says it is one; a connection that does not stream never says still writing", async () => {
+    const quiet = delivery({ requestSentAt: ago(100) });
+    const lines = [buildLine({ retry: true, stage: "reading", synthesis: undefined, inventory: { done: 0, total: 1, reused: null }, delivery: quiet })];
+    emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+    show(causeProps({ aiConnection: ready() }));
+    const detail = await screen.findByTestId("today-cause-detail");
+    expect(within(detail).getByText("Trying again · Reading the text · 0 of 1 part read")).toBeTruthy();
+    lines[0] = buildLine({ retry: true, stage: "reading", synthesis: undefined, inventory: { done: 0, total: 1, reused: null }, asOf: "2026-11-21T18:11:00Z", delivery: quiet });
+    await reread("asked 2 minutes ago, no reply yet");
+    expect(screen.getByTestId("today-cause-detail").textContent).not.toContain("still writing");
+  });
+
+  it("when the wait ends the lines give way to the ready state as before", async () => {
+    const lines = [writingLine()];
+    const listed: ScheduledItemDto[] = [];
+    emptyToday([], {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue(listed))
+    });
+    show(causeProps({ aiConnection: ready() }));
+    await screen.findByTestId("today-cause-detail");
+    lines[0] = { ...LINE.built, questions: { count: 1, itemIds: ["pi_1"], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, partRead: ["Document"] } };
+    listed.push(scheduled(1));
+    act(() => notifyQueueChanged());
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("1 question from what you’ve read in “Symmetric Matrices and Variance” is ready."), { timeout: 2000 });
+    expect(screen.queryByTestId("today-cause-detail")).toBeNull();
+  });
+
+  it("question writing at 0 of 4: which topic, since when, and the first can take a few minutes; output advancing then says still writing", async () => {
+    const lines = [writingLine()];
+    emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Writing questions from what you’ve read in “Symmetric Matrices and Variance” · 0 of 4 topics done")).toBeTruthy();
+    const detail = screen.getByTestId("today-cause-detail");
+    expect(within(detail).getByText("Writing topic 1 of 4: “Spectral theorem”")).toBeTruthy();
+    expect(within(detail).getByText("Started 1 minute ago · asked 1 minute ago, no reply yet")).toBeTruthy();
+    expect(within(detail).getByText("The first questions can take a few minutes.")).toBeTruthy();
+    lines[0] = writingLine({ asOf: "2026-11-21T18:10:05Z", delivery: delivery({ requestSentAt: ago(75), outputPieces: 5, lastOutputAt: "2026-11-21T18:10:04Z" }) });
+    // The reply's first parts came since the previous read: it grew.
+    await reread("Started 1 minute ago · still writing");
+    lines[0] = writingLine({ asOf: "2026-11-21T18:10:10Z", delivery: delivery({ requestSentAt: ago(75), outputPieces: 5, lastOutputAt: "2026-11-21T18:10:04Z" }) });
+    await reread("reply arriving, last part 6 seconds ago");
+  });
+
+  it("question writing with this library's measured time per topic, and the number it rests on in the details", async () => {
+    emptyToday([libraryCard(writingLine({ measured: { minutes: 2.3, samples: 3 } }))]);
+    show(causeProps({ aiConnection: ready() }));
+    const detail = await screen.findByTestId("today-cause-detail");
+    expect(within(detail).getByText("Here a topic's questions have taken about 2 minutes to write.")).toBeTruthy();
+    expect(screen.getByTestId("today-cause-detail-more").textContent).toContain("Measured on the last 3 topics written in this library.");
+    expect(detail.textContent).not.toContain("The first questions can take a few minutes.");
+  });
+
+  it("an older sidecar's line (no detail) shows the line as before and nothing more", async () => {
+    emptyToday([libraryCard({ ...buildLine(), buildDetail: undefined })]);
+    show(causeProps({ aiConnection: ready() }));
+    await screen.findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done");
+    expect(screen.queryByTestId("today-cause-detail")).toBeNull();
   });
 });

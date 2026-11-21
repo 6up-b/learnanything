@@ -34,7 +34,7 @@
 // Pure: the phone imports it (`@desktop/app/todayCause`), so it reaches no
 // Tauri binding (apps/learnloop-mobile/src/desktopImports.test.ts).
 
-import type { AiConnectionDto, PendingAddDto, QueueSnapshot, ReadingQuestionsDto, ScheduledItemDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
+import type { AiConnectionDto, BuildDetailDto, PendingAddDto, QueueSnapshot, ReadingQuestionsDto, ScheduledItemDto, SourceLibraryCard, SourceStatusLineDto, WritingDetailDto } from "../api/dto";
 import { WAITING_COPY } from "../copy/waiting";
 
 /** The card's action that asks for the one-time OK to write questions (UX
@@ -111,13 +111,17 @@ export type TodayCause =
       /** Its getting ready waits its turn behind this book's work. */
       behind?: string | null;
       /** Books whose getting ready waits its turn behind this one's. */
-      queued?: readonly string[] }
+      queued?: readonly string[];
+      /** What the build is doing now, in recorded facts (`app/waitDetail`); absent where the line carries none. */
+      detail?: BuildDetailDto | null }
   /** The questions of a section the learner finished are being written; `progress`: how many of its topics are done,
    *  where the fact says it for that section. `failedTopics`: some of its topics' questions could not be written while
    *  the rest still are; said beside the writing, with no Try again (a resume requeues nothing while the job runs). */
   | { kind: "section_writing"; title: string; part: string | null; card: SourceLibraryCard; progress?: Progress | null; failedTopics?: boolean;
       /** The writing is of sections the learner has not finished: questions from what they've read. */
-      fromReading?: boolean }
+      fromReading?: boolean;
+      /** What the writing is doing now, in recorded facts (`app/waitDetail`); absent where the fact carries none. */
+      detail?: WritingDetailDto | null }
   /** A section the learner finished waits for its book to be ready: its questions are written then. `fromReading`: it is
    *  a section they read part of. */
   | { kind: "section_waiting"; title: string; part: string | null; card: SourceLibraryCard; fromReading?: boolean }
@@ -355,7 +359,7 @@ export function todayCause(input: {
         const behind = (first.line ?? line)?.waitingBehind ?? null;
         const queued = hits.slice(1).filter((hit) => (hit.line ?? hit.card?.statusLine)?.waitingBehind === first.title).map((hit) => hit.title);
         return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting, firstBuild,
-          ...(behind ? { behind } : {}), ...(queued.length ? { queued } : {}) };
+          ...(behind ? { behind } : {}), ...(queued.length ? { queued } : {}), ...(!behind && line?.buildDetail ? { detail: line.buildDetail } : {}) };
       }
       case "section_writing": {
         // Where the list is not read (the phone), questions already written are said with the writing.
@@ -371,7 +375,8 @@ export function todayCause(input: {
           card: first.card as SourceLibraryCard,
           progress: questions ? writingProgress(questions) : null,
           failedTopics: (questions?.failed.length ?? 0) > 0,
-          ...(questions && fromReading(questions, labels) ? { fromReading: true } : {})
+          ...(questions && fromReading(questions, labels) ? { fromReading: true } : {}),
+          ...(questions?.writing.length && questions.writingDetail ? { detail: questions.writingDetail } : {})
         };
       }
       case "section_waiting": {

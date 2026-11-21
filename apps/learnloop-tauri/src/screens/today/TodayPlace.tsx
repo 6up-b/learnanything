@@ -45,6 +45,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { GoalCard } from "../../components/GoalCard";
 import { GoalWizard } from "../../components/GoalWizard";
 import { Waiting } from "../../components/Waiting";
+import { WAIT_DETAILS_LABEL, useWaitWords, waitDetailOf } from "../../app/waitDetail";
 import { WAITING_COPY } from "../../copy/waiting";
 import { InboxStrip } from "../../components/InboxStrip";
 import { targetForDialogue } from "../../components/QuestionQueue";
@@ -1293,6 +1294,8 @@ function CauseLine({
   const label = causeActionLabel(cause);
   const second = causeSecondActionLabel(cause);
   const wait = sentence === undefined ? causeWait(cause) : null;
+  // What the wait is doing now, under its line (app/waitDetail): read again with the cause, by the reads already here.
+  const detail = useWaitWords(wait ? waitDetailOf(cause) : null, "ago");
   if (wait) {
     // A wait (a book being got ready, a finished section's questions being written): the shared waiting
     // indicator says what is happening and how far, the action beside it from the first moment; the line under it
@@ -1312,6 +1315,17 @@ function CauseLine({
             </>
           ) : null}
         </Waiting>
+        {detail ? (
+          <div data-testid={`${testId}-detail`} style={{ color: COLOR.textDim, fontSize: 12, lineHeight: 1.6, paddingLeft: "1.6em" }}>
+            {detail.lines.map((line) => <div key={line}>{line}</div>)}
+            {detail.details.length ? (
+              <details data-testid={`${testId}-detail-more`}>
+                <summary style={{ cursor: "pointer" }}>{WAIT_DETAILS_LABEL}</summary>
+                {detail.details.map((line) => <div key={line}>{line}</div>)}
+              </details>
+            ) : null}
+          </div>
+        ) : null}
         {failed ? <div data-testid={`${testId}-failed`}>{failed}</div> : null}
         <div>{wait.after}</div>
       </div>

@@ -850,3 +850,62 @@ describe("the first evening, step 7: what comes next, dated, on the phone", () =
     await waitFor(() => expect(called("get_daily_plan").length).toBeGreaterThan(reads), { timeout: 3000 });
   });
 });
+
+describe("an honest wait (the first evening, step 6): the phone says what is happening now under the sentence", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const AS_OF = "2026-11-21T18:10:00Z";
+  const ago = (seconds: number) => new Date(Date.parse(AS_OF) - seconds * 1000).toISOString().replace(".000Z", "Z");
+  const book = (statusLine: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1", statusLine }]
+  });
+  const writing = (detail: Record<string, unknown> = {}) => ({
+    text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null,
+    questions: { count: 0, itemIds: [], sections: [], writing: ["Document"], waiting: [], failed: [], toLookAt: 0, sectionCount: 1,
+      progress: { done: 0, total: 4 }, partRead: ["Document"],
+      writingDetail: { asOf: AS_OF, startedAt: ago(200), queued: false, retry: false, topic: { title: "Spectral theorem", index: 1, total: 4 },
+        topicStartedAt: ago(75), delivery: { requestSentAt: ago(75), replyReceivedAt: null, outputPieces: 0, lastOutputAt: null }, measured: null, ...detail } }
+  });
+
+  async function detailFor(statusLine: Record<string, unknown>): Promise<HTMLElement> {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(statusLine);
+    render(<App />);
+    return screen.findByTestId("today-cause-detail");
+  }
+
+  it("question writing at 0 of 4: the topic, clock times (never ages that would go stale), and the first can take a few minutes", async () => {
+    const detail = await detailFor(writing());
+    expect(screen.getByTestId("today-cause").textContent).toBe(
+      "Writing questions from what you’ve read in “Symmetric Matrices and Variance” · 0 of 4 topics done. Keep reading meanwhile.");
+    const text = detail.textContent ?? "";
+    expect(text).toContain("Writing topic 1 of 4: “Spectral theorem”");
+    expect(text).toMatch(/Started at \d{1,2}:\d{2}(\s?[AP]M)? · asked at \d{1,2}:\d{2}(\s?[AP]M)?, no reply yet/);
+    expect(text).toContain("The first questions can take a few minutes.");
+    expect(text).not.toMatch(/ago|%|still writing|stall/);
+    expect(findJargon(text)).toEqual([]);
+    // The one action stays the plan's.
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+  });
+
+  it("with this library's measured time per topic, the count it rests on in the collapsed details", async () => {
+    const detail = await detailFor(writing({ measured: { minutes: 2.3, samples: 3 } }));
+    expect(detail.textContent).toContain("Here a topic's questions have taken about 2 minutes to write.");
+    const more = detail.querySelector("details") as HTMLDetailsElement;
+    expect(more.open).toBe(false);
+    expect(more.textContent).toContain("Measured on the last 3 topics written in this library.");
+  });
+
+  it("a book being got ready: its step, a retry said as one, and no measured time claimed", async () => {
+    const detail = await detailFor({
+      text: "Getting Ch. 1 ready for questions", tone: "working", action: null, details: null, progress: { done: 1, total: 2 },
+      buildDetail: { asOf: AS_OF, startedAt: ago(130), stage: "checking", retry: true, measured: null, draftedTopics: 8,
+        delivery: { requestSentAt: null, replyReceivedAt: ago(12), outputPieces: 0, lastOutputAt: null } }
+    });
+    const text = detail.textContent ?? "";
+    expect(text).toContain("Trying again · 8 topics drafted · checking them");
+    expect(text).toMatch(/Started at \d{1,2}:\d{2}(\s?[AP]M)? · reply received at \d{1,2}:\d{2}/);
+    expect(text).toContain("No book has finished getting ready in this library yet, so no time is given.");
+    expect(findJargon(text)).toEqual([]);
+  });
+});
