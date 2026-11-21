@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+from learnloop.ai import model_use
 
 
 APPLICATION_ERROR_CODE = -32001
@@ -54,3 +57,17 @@ def _stable_code_for_json_rpc(code: int) -> str:
         -32603: "internal",
     }.get(code, "internal")
 
+
+
+def waiting_for_ok_error() -> SidecarError:
+    """No OK to use AI yet: nothing was sent. The desktop shows the one sheet and, once the
+    learner says OK, sends the same request again (once); the phone says where to say it."""
+
+    return SidecarError(model_use.WAITING_CODE, model_use.WAITING_MESSAGE, details={"waiting_for_ok": True})
+
+
+def require_ai_ok(vault_root: Path | str | None, client: Any | None = None) -> None:
+    """Before an RPC starts model work: refuse it, and store nothing, while the OK is missing."""
+
+    if model_use.waiting(vault_root, client):
+        raise waiting_for_ok_error()

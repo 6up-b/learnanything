@@ -67,6 +67,7 @@ from typing import Any
 
 from pydantic import Field
 
+from learnloop.ai import model_use
 from learnloop.ai.execution import call_labels, content_key, gate_model_requests
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
@@ -173,7 +174,8 @@ class RouteUnavailable(Exception):
 
 
 #: The refusals checked before any call; they last only while their condition does.
-ADMISSION_REASONS: frozenset[str] = frozenset({"models_off", "unrouted", "unpriced", "capped"})
+ADMISSION_REASONS: frozenset[str] = frozenset({"models_off", "unrouted", "unpriced", "capped",
+                                               model_use.WAITING_CODE})
 
 
 def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = None) -> SharedDailyEnvelope:
@@ -256,6 +258,8 @@ class ChatRoute:
         plan_only = self.plan_only_problem()
         if plan_only is not None:
             return plan_only
+        if model_use.waiting(self.vault.root, self.injected):
+            return RouteUnavailable(model_use.WAITING_CODE, model_use.WAITING_MESSAGE)
         if self.injected is None and models_off():
             return RouteUnavailable("models_off", f"{MODELS_ENV}=off: no curriculum model is reached.")
         if self.injected is None and not self.route.available:
@@ -310,6 +314,8 @@ class ChatRoute:
             raise
         except SpendLimitExceeded as exc:
             raise RouteUnavailable("capped", capped_message(self.vault)) from exc
+        except model_use.ModelUseNotAccepted as exc:
+            raise RouteUnavailable(model_use.WAITING_CODE, exc.message) from exc
         except Exception as exc:  # noqa: BLE001 - a failed call is the learner's "try again"
             from learnloop.ai.errors import AIInterrupted
 

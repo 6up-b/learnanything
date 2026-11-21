@@ -515,13 +515,17 @@ class AuthoringRoute:
     subscription: bool = True
     consent_key: str = "codex"
     #: Served through the learner's "Use OpenRouter instead" for this action
-    #: (T1 redesign D): that yes is their consent for it (round 5, Medium 4).
+    #: (T1 redesign D). That yes picks the provider for one action; it is not
+    #: the learner's OK to use AI.
     granted: bool = False
 
-    def consented(self, config) -> bool:
-        """The learner's OK to send this build to the provider: recorded, or the yes on its offer."""
+    def consented(self, vault_root: Path) -> bool:
+        """The learner's one OK to use AI (:mod:`learnloop.ai.model_use`), whichever provider
+        serves: a route or provider that changes never asks again."""
 
-        return self.consent_key in config.ai.consent or self.granted
+        from learnloop.ai import model_use
+
+        return model_use.accepted(vault_root)
 
 
 def consent_key(config, provider_name: str) -> str:
@@ -1573,7 +1577,7 @@ def preview_auto_build(vault_root: Path, repo, source_id: str, *, whole_book: bo
     status = "would_build"
     if not route.ready:
         status = "needs_ai"
-    elif not route.consented(config):
+    elif not route.consented(vault.root):
         status = "needs_ok"
     elif cost.pause == "budget_used":
         status = "would_stop_budget_used"
@@ -1644,7 +1648,7 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
     if not route.ready:
         return {"outcome": "waiting", "reason": "no_ai", "provider": route.provider,
                 "message": route.message, **plan_info, **base}
-    if not route.consented(config):
+    if not route.consented(ctx.vault_root):
         return {"outcome": "waiting", "reason": "needs_consent", "provider": route.provider,
                 "consent_key": route.consent_key, **plan_info, **base}
 

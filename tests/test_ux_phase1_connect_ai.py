@@ -1,9 +1,12 @@
-"""UX Phase 1: connect an AI once, consent once (docs/specs/ux_learnloop_v1.md §6.6, Q4).
+"""The one sheet: connect an AI, and say OK once before LearnLoop uses AI at all (ux_learnloop_v1 §6.6, Q4; UX-10).
 
-Consent is recorded once per provider in the library's config (with the date),
-travels to libraries created later on the same machine, and releases any book
-whose questions were waiting for it. "Continue with ChatGPT" routes every use
-case to the plan, where signing in used to route nothing.
+The OK covers every use of AI and every provider (``learnloop.ai.model_use``): it is recorded once in the
+library's config (with the date and the version of the words it was given under), travels to libraries created
+later on the same machine, and releases any book whose questions were waiting for it. An OK given on this sheet
+before it covered every use is honoured. Connecting is not the OK, nor is a ChatGPT sign-in, an upload's own OK or
+a "Use OpenRouter instead" choice. "Continue with ChatGPT" routes every use case to the plan.
+
+Every test here starts on a machine with no OK (``no_ai_ok``).
 """
 
 from __future__ import annotations
@@ -22,7 +25,9 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import first_run
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
-from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, route, write_book
+from tests.ux_phase1_support import CLOCK, fake_services, fresh_library, grant_consent, route, set_config, write_book
+
+pytestmark = pytest.mark.no_ai_ok
 
 
 @pytest.fixture(autouse=True)
@@ -60,23 +65,33 @@ def test_one_ok_records_consent_for_the_connected_provider(tmp_path, monkeypatch
     # The AI this library is set up with, named as the learner knows it
     # (usability round 2: a Codex user's OK said only "ChatGPT").
     assert before["providerLabel"] == "Codex (your ChatGPT account)"
+    # The one sheet's words: every use, and what goes where behind "What's sent".
+    assert before["title"] == "Before LearnLoop uses AI"
+    assert before["whatLeaves"] == (
+        "LearnLoop uses AI for questions, replies, feedback and other learning help. It can send your books, "
+        "files you choose, your questions and your answers to the services you connect."
+    )
+    sent = before["whatsSent"]
+    assert sent[0].startswith("To Codex (your ChatGPT account): passages of your books")
     # Tier 1 (mvp-0.22, the Decider landing): the one OK also names what the
     # Decider's small judgments send to Perplexity, as Settings discloses it
     # (tests/test_decider_landing.py).
-    assert before["whatLeaves"] == (
-        "LearnLoop sends passages of the books you add, and your answers, to Codex (your ChatGPT account) "
-        "to write questions and give feedback. " + before["deciderNote"]
-    )
-    assert "Perplexity, through OpenRouter" in before["deciderNote"]
+    assert before["deciderNote"] in sent and "Perplexity, through OpenRouter" in before["deciderNote"]
+    assert sent[-1] == "You say OK once, and it covers every use. Your library stays on this computer."
 
     after = call(ctx, "connect_ai", {"provider": "current"})
 
     assert after["consented"] is True and after["needs"] is None
     consent = _consent(root)
-    assert set(consent) == {"codex"}
-    assert consent["codex"]["granted_at"]
-    assert consent["codex"]["data_flow"] == "passages_and_answers"
-    assert load_vault(root).config.ai.consent["codex"].granted_at == consent["codex"]["granted_at"]
+    assert set(consent) == {"model_use"}
+    assert consent["model_use"]["granted_at"]
+    assert consent["model_use"]["data_flow"] == "all_model_use"
+    assert consent["model_use"]["disclosure_version"] == 1
+    assert load_vault(root).config.ai.consent["model_use"].granted_at == consent["model_use"]["granted_at"]
+    assert after["consentedAt"] == consent["model_use"]["granted_at"]
+    # Mirrored to this computer, so a library opened or made here later is covered too.
+    raw_defaults = tomllib.loads(global_ai_defaults_path().read_text(encoding="utf-8"))
+    assert raw_defaults["ai"]["consent"]["model_use"]["data_flow"] == "all_model_use"
 
 
 def test_connecting_releases_books_that_were_waiting(tmp_path, monkeypatch):
@@ -98,10 +113,11 @@ def test_without_a_ready_route_the_sheet_asks_to_connect(tmp_path, monkeypatch):
     monkeypatch.setattr(first_run, "authoring_route_for", lambda vault: route(ready=False, message="no codex"))
     payload = call(ctx, "get_ai_connection", {})
     assert payload["canAuthor"] is False
-    assert payload["needs"] == "connect"
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "connect_ai", {"provider": "current"})
-    assert caught.value.code == "ai_not_connected"
+    assert payload["needs"] == "connect" and payload["consented"] is False
+    # The OK comes first and needs nothing connected (owner, 2026-11-20); connecting is still asked for.
+    out = call(ctx, "connect_ai", {"provider": "current"})
+    assert out["consented"] is True and out["needs"] == "connect"
+    assert set(_consent(root)) == {"model_use"}
 
 
 def test_continue_with_chatgpt_routes_every_use_case_to_the_plan(tmp_path, monkeypatch):
@@ -127,15 +143,17 @@ def test_continue_with_chatgpt_routes_every_use_case_to_the_plan(tmp_path, monke
         assert getattr(routing, task) == DEFAULT_SERVING_TASK_ROUTES.get(task, "chatgpt"), task
         served = config.ai.providers[getattr(routing, task)]
         assert (served.type, served.model) == ("chatgpt_plan", "gpt-test-fast"), task
-    assert set(_consent(root)) == {"chatgpt"}
-    assert out["consented"] is True
+    # Signing in and connecting is not the OK: the sheet asks for it next.
+    assert _consent(root) == {}
+    assert out["consented"] is False and out["needs"] == "consent"
+    call(ctx, "connect_ai", {"provider": "current"})
     # A library made later on this machine inherits both the routes and the OK.
     raw_defaults = tomllib.loads(global_ai_defaults_path().read_text(encoding="utf-8"))
-    assert raw_defaults["ai"]["consent"]["chatgpt"]["granted_at"]
+    assert raw_defaults["ai"]["consent"]["model_use"]["granted_at"]
     later = create_vault(tmp_path / "Later").root
     later_config = load_vault(later).config
     assert later_config.ai.routing.canonical_ingest == "chatgpt_medium"
-    assert "chatgpt" in later_config.ai.consent
+    assert "model_use" in later_config.ai.consent
 
 
 def test_continue_with_chatgpt_needs_a_sign_in_first(tmp_path, monkeypatch):
@@ -158,7 +176,7 @@ def test_an_openrouter_key_connects_every_use_case(tmp_path, monkeypatch):
     config = load_vault(root).config
     assert config.ai.active_provider == "openrouter"
     assert config.ai.routing.canonical_ingest == "openrouter"
-    assert set(_consent(root)) == {"openrouter"}
+    assert _consent(root) == {}  # a connection is not the OK
 
 
 def test_openrouter_needs_its_key(tmp_path, monkeypatch):
@@ -178,7 +196,7 @@ def test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build(tmp_path):
     from learnloop.content.pipeline.quick_add import plan_quick_add
     from learnloop.content.pipeline.jobs import DurableIngestJobs
     from learnloop.content.pipeline.add_source import AddSourceOptions, add_source
-    from tests.ux_phase1_support import grant_consent, repository, set_config
+    from tests.ux_phase1_support import repository
 
     root = fresh_library(tmp_path)
     set_config(root, {("ingest", "auto_build"): False})
@@ -200,3 +218,67 @@ def test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build(tmp_path):
     after = synthesis_consent()
     assert after["granted"] is True
     assert after["granted_at"] == "2026-10-13T09:00:00Z"
+
+
+def test_an_earlier_ok_is_honoured_whichever_provider_serves_now(tmp_path, monkeypatch):
+    """An OK this sheet recorded before it covered every use (for one provider) is the learner's OK:
+    they are not asked again, and a route that moves to another provider does not ask either."""
+
+    root = fresh_library(tmp_path)
+    ctx = _ctx(root)
+    grant_consent(root, "codex")
+    monkeypatch.setattr(first_run, "authoring_route_for", lambda vault: route())
+    assert call(ctx, "get_ai_connection", {})["needs"] is None
+    monkeypatch.setattr(first_run, "authoring_route_for",
+                        lambda vault: route(provider="openrouter", subscription=False, consent_key="openrouter"))
+    payload = call(ctx, "get_ai_connection", {})
+    assert payload["needs"] is None and payload["consentedAt"] == "2026-10-13T09:00:00Z"
+
+
+def test_a_sign_in_an_upload_ok_or_a_fallback_choice_is_not_the_ok(tmp_path, monkeypatch):
+    root = fresh_library(tmp_path)
+    ctx = _ctx(root)
+    # The separate OKs for sending whole files.
+    set_config(root, {("ai", "consent", "whole_files", "granted_at"): "2026-10-13T09:00:00Z",
+                      ("ai", "consent", "whole_files", "data_flow"): "whole_files",
+                      ("ai", "consent", "whole_files_zai", "granted_at"): "2026-10-13T09:00:00Z",
+                      ("ai", "consent", "whole_files_zai", "data_flow"): "whole_files"})
+    ctx.reload(maintenance=False)
+    # "Use OpenRouter instead" for one action (T1 redesign D) picks the provider; it was the build's consent before.
+    granted = route(provider="openrouter", subscription=False, consent_key="openrouter")
+    monkeypatch.setattr(first_run, "authoring_route_for",
+                        lambda vault: type(granted)(**{**granted.__dict__, "granted": True}))
+    assert call(ctx, "get_ai_connection", {})["needs"] == "consent"
+    # A ChatGPT sign-in, and connecting it.
+    monkeypatch.setattr(first_run, "chatgpt_plan_ready", lambda: True)
+    monkeypatch.setattr(first_run, "chatgpt_plan_models", lambda: ["gpt-test-fast"])
+    monkeypatch.setattr(first_run, "authoring_route_for", lambda vault: route(provider="chatgpt", consent_key="chatgpt"))
+    out = call(ctx, "connect_ai", {"provider": "chatgpt"})
+    assert out["consented"] is False and out["needs"] == "consent" and out["released"] == []
+
+
+def test_closing_the_sheet_leaves_the_book_readable_and_its_questions_waiting(tmp_path, monkeypatch):
+    from learnloop.content.pipeline.add_source import _completed_extraction, source_status_line
+    from tests.ux_phase1_support import Calls
+
+    root = fresh_library(tmp_path)
+    calls = Calls()
+    ctx = SidecarContext()
+    ctx.load(root)
+    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services(calls=calls))
+    monkeypatch.setattr(first_run, "authoring_route_for", lambda vault: route())
+    added = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})
+    source_id = added["items"][0]["sourceId"]
+    assert added["waitingForOk"] is True
+    # "Not now" sends nothing: reading is local and there; the questions wait, nothing is lost or failed.
+    for _ in range(2):
+        assert call(ctx, "get_ai_connection", {})["needs"] == "consent"
+    assert _completed_extraction(ctx.repository, source_id) is not None
+    assert latest_auto_outcome(ctx.repository, source_id)["reason"] == "needs_consent"
+    line = source_status_line(ctx.repository, load_vault(root), source_id)
+    assert line["text"] == "Questions wait for your OK" and line["action"]["kind"] == "connect_ai"
+    assert calls.inventory_calls == 0 and calls.synthesis_calls == 0
+    # The OK, given later, resumes the waiting build once; a second OK resumes nothing.
+    assert call(ctx, "connect_ai", {"provider": "current"})["released"] == [source_id]
+    assert calls.inventory_calls > 0
+    assert call(ctx, "connect_ai", {"provider": "current"})["released"] == []

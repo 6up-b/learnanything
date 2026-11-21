@@ -38,7 +38,7 @@ from learnloop.vault.required_method import fit_presented_prompt
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.source_identity import require_identity
 from learnloop_sidecar.dto import ParamsModel, versioned
-from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.errors import SidecarError, require_ai_ok
 from learnloop_sidecar.handlers.ai_providers import (
     provider_label,
     ready_canonical_ingest_provider,
@@ -154,6 +154,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
                           [params.span_id, *(params.selection_span_ids or [])])
     if ctx.request_origin is not None and PR.cold_check_open(ctx, vault, repository):
         raise SidecarError(PR.COLD_CHECK_CODE, PR.COLD_CHECK_MESSAGE)
+    require_ai_ok(vault.root)  # the desktop's and the phone's Ask: nothing is sent or stored before the OK
     provider_name, runtime, client = ready_tutor_qa_provider(vault)
     if not runtime.ready or client is None:
         raise SidecarError(
@@ -2025,6 +2026,7 @@ def reader_author_section_question(
     if existing is not None:
         return versioned({"status": "exists", "question": _authored_question_payload(existing)})
 
+    require_ai_ok(vault.root)
     # Gate on the same canonical_ingest route the reader_quick_check job resolves
     # (RunnerServices.quick_check_client), so readiness matches the provider that
     # will actually author the question.

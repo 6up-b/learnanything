@@ -54,6 +54,7 @@ from typing import Any
 
 from pydantic import Field
 
+from learnloop.ai import model_use
 from learnloop.ai.execution import call_labels, content_key
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded, spend_envelopes
@@ -671,8 +672,10 @@ class JudgeRoute:
         return self.route.billing == "subscription"
 
     def problem(self) -> JudgeUnavailable | None:
-        """Checked before any call: the switch's env, the route, the price and the day's cap."""
+        """Checked before any call: the learner's OK, the switch's env, the route, the price and the day's cap."""
 
+        if model_use.waiting(self.vault.root, self.injected):
+            return JudgeUnavailable(model_use.WAITING_CODE, model_use.WAITING_MESSAGE)
         if self.injected is None and models_off():
             return JudgeUnavailable("models_off", f"{MODELS_ENV}=off: no reading-path model is reached.")
         if self.injected is None and not self.route.available:
@@ -716,7 +719,8 @@ class JudgeRoute:
 #: only while their condition does (the switch's env, the route, the price,
 #: the day's cap), so a caller re-asks :func:`admission_problem` instead of
 #: keeping them (Codex review F4).
-ADMISSION_REASONS: frozenset[str] = frozenset({"models_off", "unrouted", "unpriced", "capped"})
+ADMISSION_REASONS: frozenset[str] = frozenset({"models_off", "unrouted", "unpriced", "capped",
+                                               model_use.WAITING_CODE})
 
 
 def admission_problem(vault: Any, repository: Repository, *, client: Any | None = None,
@@ -874,6 +878,8 @@ def _judge_claimed(vault: Any, repository: Repository, extraction_id: str, depth
         return JudgeResult("unavailable", state_key=key, reason=exc.reason, message=exc.message)
     except SpendLimitExceeded:
         return JudgeResult("unavailable", state_key=key, reason="capped", message=capped_message(vault))
+    except model_use.ModelUseNotAccepted as exc:
+        return JudgeResult("unavailable", state_key=key, reason=model_use.WAITING_CODE, message=exc.message)
     except Exception as exc:  # noqa: BLE001 - a failed judgment shows today's Guide
         from learnloop.ai.errors import AIInterrupted
 

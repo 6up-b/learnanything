@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
-from learnloop.ai import plan_fallback
+from learnloop.ai import model_use, plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.checkpoint import checkpoint_wal
@@ -131,6 +131,21 @@ KNOWN_JOB_TYPES = frozenset(
 # high-water mark only after the ingest row itself is completed, so a Today
 # poll cannot observe the revision before the sidecar is able to reload the
 # newly written vault state.
+#: The jobs whose whole purpose is model work: without the learner's one OK to
+#: use AI they wait for it before they start, instead of failing and being
+#: tried again (a job of another type that reaches a model call waits the same
+#: way, from the refusal itself).
+WAITS_FOR_AI_OK_JOB_TYPES = frozenset(
+    {
+        "legacy_ingest", "exam_ingest", "inventory", "bootstrap_synthesis", "append_synthesis",
+        "reader_quick_check", "reader_exercise_import", "source_exercise_import", "practice_expansion",
+        "goal_population", "question_promotion", "rung_variant", "concept_animation", "figure_rich",
+        "source_embedding_backfill",
+    }
+)
+#: The waiting job's payload (``result.waiting_for_input``): what saying OK resumes.
+WAITING_FOR_OK_PAYLOAD = {"code": model_use.WAITING_CODE}
+
 _QUEUE_AFFECTING_JOB_TYPES = frozenset(
     {
         "practice_expansion",
@@ -977,6 +992,22 @@ class IngestRunner:
         # what it got at creation or from its answered offer; a stop kills it
         # through the epoch). A batch with no token asks through its own offer.
 
+    def resume_waiting_for_ok(self) -> list[str]:
+        """Once the learner said OK: every job that waited for it is queued again, once (a job
+        already queued again, or one that waits for something else, is left as it is)."""
+
+        resumed: list[str] = []
+        batches: set[str] = set()
+        for job in self.repo.active_ingest_jobs():
+            if job.get("status") != "waiting_for_input" or not is_waiting_for_ok(job):
+                continue
+            self.repo.requeue_ingest_job(job["id"], clock=self.clock)
+            resumed.append(str(job["id"]))
+            batches.add(str(job["batch_id"]))
+        for batch_id in sorted(batches):
+            self._refresh_batch(batch_id)
+        return resumed
+
     def requeue_failed_unless_cancelled(self, batch_id: str, *, error_code: str) -> bool:
         """Requeue the batch's jobs that failed with ``error_code``, only while the batch is
         not cancelled. An automatic retry, never a resume: it never clears a cancellation,
@@ -1046,6 +1077,8 @@ class IngestRunner:
         try:
             if handler is None:
                 raise IngestRunnerError(f"unknown job_type '{job['job_type']}'.")
+            if job["job_type"] in WAITS_FOR_AI_OK_JOB_TYPES:
+                model_use.require(self.vault_root)
             heartbeat_stop = threading.Event()
             heartbeat_thread = threading.Thread(
                 target=self._heartbeat_while_running,
@@ -1121,7 +1154,20 @@ class IngestRunner:
             )
             self._propagate_blocks(batch_id)
         except Exception as exc:  # noqa: BLE001 — a failed job must never crash the drain
-            if ctx.cancelled():
+            if waiting_for_ok(exc) and not ctx.cancelled():
+                # Nothing was sent: the job waits for the OK, never a failure to retry.
+                finish(
+                    job["id"],
+                    status="waiting_for_input",
+                    phase="waiting_for_input",
+                    message=model_use.WAITING_MESSAGE,
+                    result={"waiting_for_input": dict(WAITING_FOR_OK_PAYLOAD)},
+                    usage=ctx._usage or None,
+                    release_lease=True,
+                    clear_finished=True,
+                    clock=self.clock,
+                )
+            elif ctx.cancelled():
                 finish(
                     job["id"],
                     status="cancelled",
@@ -1341,6 +1387,27 @@ def retries_on_its_own(job: Mapping[str, Any]) -> bool:
     )
 
 
+def waiting_for_ok(exc: BaseException) -> bool:
+    """Whether ``exc`` is, or was raised from, the refusal to send anything before the learner's OK."""
+
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        if isinstance(current, model_use.ModelUseNotAccepted):
+            return True
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def is_waiting_for_ok(job: Mapping[str, Any]) -> bool:
+    """A job row that waits for the learner's OK to use AI."""
+
+    result = job.get("result") if isinstance(job.get("result"), Mapping) else {}
+    payload = result.get("waiting_for_input") if isinstance(result, Mapping) else None
+    return isinstance(payload, Mapping) and payload.get("code") == model_use.WAITING_CODE
+
+
 def a_retry_may_cure(exc: BaseException) -> bool:
     """A failure a fresh try may cure: a model answer that was cut off, over
     its ceiling, invalid, late or not given. Not a cancellation, a spend
@@ -1349,6 +1416,8 @@ def a_retry_may_cure(exc: BaseException) -> bool:
     from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable, AITurnTimeout
     from learnloop.content.synthesis.source_unit_inventory import InventoryValidationError
 
+    if waiting_for_ok(exc):
+        return False
     if isinstance(exc, IngestRunnerError):
         return exc.code in _CURABLE_CODES
     if isinstance(exc, AIInterrupted):

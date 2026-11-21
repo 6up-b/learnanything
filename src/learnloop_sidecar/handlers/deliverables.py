@@ -54,7 +54,7 @@ from learnloop.source_retrieval import section_coverage as SC
 from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
-from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.errors import SidecarError, require_ai_ok
 from learnloop_sidecar.registry import method
 
 LOG = logging.getLogger(__name__)
@@ -563,6 +563,8 @@ def curriculum_create_deliverable(ctx: SidecarContext, params: CreateDeliverable
     """A new deliverable from the learner's sentence, resolved at once (pressed)."""
 
     vault, repository = _require(ctx)
+    # Before the goal is created: the learner's sentence stays theirs to send again after the OK.
+    require_ai_ok(vault.root, getattr(ctx, "deliverable_scope_client", None))
     try:
         created = DL.create_deliverable(vault, repository, params.sentence, due_at=params.due_at, exam=params.exam)
     except DL.DeliverableError as exc:
@@ -591,6 +593,7 @@ def curriculum_set_scope(ctx: SidecarContext, params: SetScopeInput) -> dict[str
     vault, repository = _require(ctx)
     if params.kind not in DL.SCOPE_KINDS:
         raise SidecarError("validation_error", f"Unknown scope input {params.kind!r}.")
+    require_ai_ok(vault.root, getattr(ctx, "deliverable_scope_client", None))
     extraction_id = params.extraction_id
     if extraction_id:
         from learnloop.content.sources.source_outline import resolve_extraction_id

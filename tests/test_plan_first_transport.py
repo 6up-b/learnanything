@@ -1222,9 +1222,10 @@ def test_rr_f1_the_connection_status_never_offers_and_shows_a_granted_build(tmp_
 
     status = rpc("get_ai_connection")["result"]
     assert status["canAuthor"] is False and "fallbackAvailable" not in status
-    # Nothing was offered, so nothing can be granted from it.
-    refused = rpc("connect_ai", {"provider": "current"})["error"]["data"]
-    assert refused["code"] == "ai_not_connected" and "fallback_available" not in refused.get("details", {})
+    # Nothing was offered, so nothing can be granted from it. (The one OK needs nothing connected:
+    # it is recorded, and the sheet still asks to connect.)
+    answered = rpc("connect_ai", {"provider": "current"})["result"]
+    assert answered["needs"] == "connect" and "fallbackAvailable" not in answered
     # The build itself still asks.
     with plan_fallback.collecting() as offers:
         assert not authoring_route_for(vault, ctx.vault.config).ready
