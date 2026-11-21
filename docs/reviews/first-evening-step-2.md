@@ -30,11 +30,19 @@ tag, no config key, no kill switch, no prompt change. No new non-test TypeScript
 The origin is the host's, never a parameter: `phone` when the phone host runs the call (`ctx.request_origin`, set
 from the paired token), `desktop` otherwise.
 
-**Checked before anything is written** (`learnloop.reader.seen_passages.check_report`): every id must be one of the
-section's readable passages on that reading (`section_map.extraction_sections`, the one section definition the guide,
-the phone and the quick checks share); an unknown reading, an unknown section or a passage of another section refuses
-the whole report (`validation_error`), its count included, so a client's mistake never lands half a report. An end
-needs the section's last readable passage seen, in this report or an earlier one on the same reading.
+**Kept, never refused** (`learnloop.reader.seen_passages.check_report`; revised after review, below): only ids that
+are readable passages of the section on that reading (`section_map.extraction_sections`, the one section definition
+the guide, the phone and the quick checks share) are recorded, in reading order. Any other id (an unknown passage,
+another section's, every id on an unknown section or reading) is **left out**: never recorded, never turned into
+anything, and counted in one warning per report (counts only: how many of how many, whether the end was left out,
+whether the reading and the section are known; never an id or text). The report's count, reveal and completion land
+exactly as they do without passages, and the reply keeps its keys. An end is recorded only when the section's last
+readable passage is among this report's kept passages or recorded earlier on the same reading; otherwise it is left
+out, not refused. **What main does on an unknown section or reading** (no passages involved, pinned unchanged by
+`test_on_an_unknown_section_or_reading_no_passage_is_recorded_and_the_report_is_mains`): it checks nothing and writes
+`reader_section_progress` for the section and reading ids as named (an unknown reading id resolves to itself), and
+answers with that row; the same report with passages does exactly that and records no passage and no end.
+`seenSpanIds` has no length bound for the same reason (the phone host's 256 KB body limit bounds it).
 
 **Nothing acts on either.** A section is finished exactly as before (only `completed: true` stamps `completed_at`); the
 generation trigger, the plan's reading block (`note_reading_progress` is told `completed=False` for an end) and the
@@ -94,8 +102,8 @@ passage counts four, observes one); the count's "left after 60 %" rule (a sectio
 the "Done with this section" and quick-check completion (the completion alone, as before); a guide answered for
 another reading. A section's **end** is its last passage observed that way, sent with it.
 
-Passages the backend refuses as not the section's (`validation_error`) are dropped and never sent again, so the counts
-beside them still save.
+An answered report acknowledges every passage it carried, including any the backend left out, so none is sent again;
+nothing on the backend refuses a report for its passages any more, so the desktop has no refusal path for them.
 
 ## What the phone sends, and when it sends nothing
 
@@ -143,8 +151,7 @@ tests, and the two "nothing invented" guards that hold on main too: a count or a
 readers guard):
 
 - `test_a_report_records_each_observed_passage_once_with_its_section_time_and_origin`
-- `test_a_report_naming_a_passage_not_in_its_reading_and_section_is_refused_whole` (unknown passage, another section's, unknown section)
-- `test_a_report_on_a_reading_that_does_not_exist_is_refused`
+- (first version) `test_a_report_naming_a_passage_not_in_its_reading_and_section_is_refused_whole`, `test_a_report_on_a_reading_that_does_not_exist_is_refused`: replaced in the revision below
 - `test_reports_union_and_a_smaller_report_removes_nothing_or_changes_a_first_observation` (desktop then phone)
 - `test_a_duplicate_report_and_an_outbox_replay_write_nothing_new`
 - `test_the_passages_survive_a_restart_and_later_reports_union_with_them` (and `get_progress` keeps its keys)
@@ -168,7 +175,7 @@ reading observes nothing):
 - `a jump observes nothing, not even the passage the reading left; reading on after it observes again`
 - `reaching a section's last passage by reading is its end, sent with that passage; the count's leave-after-60% rule is neither`
 - `a passage is sent until acknowledged (a failed save sends it again), and never after`
-- `passages the backend refuses as not the section's are dropped, so the counts beside them still save`
+- (first version) `passages the backend refuses as not the section's are dropped, …`: replaced in the revision below
 - `observedPassages: …` (the page-only rule, unit)
 
 Phone: `src/read/seenPassages.test.tsx` (new; the real App on the fake host with a driven `IntersectionObserver`) and
@@ -201,6 +208,48 @@ Every Python and CLI run through the scratch wrapper (empty home, config and Cod
 
 No identity pin, golden or snapshot moved; no structure ratchet number rose.
 
+## Revision: a report is never refused for its passages
+
+The first version refused a whole report (`validation_error`, its count and completion included) when one id was not
+a readable passage of the section. The phone's outbox coalesces a section's queued reports, so a queued passages
+report merges with a later completion ("Next section"); one refused id would have kept that record with a problem (a
+422 is not retried) and the completion would never have landed: a section finished on the phone with no questions
+written. Before this step no optional field could stop a count or a completion, nobody has run a real phone or
+browser on this, and the phone renders elements the host may not count as the section's passages. So:
+
+- `check_report` never refuses (above): it keeps the section's own passages, leaves the rest out with one counted
+  warning, and keeps an end only when its last passage is seen. The migration's comment says so.
+- `seenSpanIds` lost its `max_length` (a too-long list would have been a validation error too).
+- The reply keeps its keys (no "left out" count): the desktop already treats every id of an answered report as
+  acknowledged, so a left-out id is sent once and never again; its drop-on-`validation_error` path is removed. The
+  phone's outbox removes a record on its answer, so a left-out id goes once.
+
+Tests, fail first against the first version's module and handler: **6 failed, 10 passed** (16 in the file):
+- `test_an_id_that_is_not_a_passage_of_the_section_is_left_out_and_the_rest_of_the_report_lands` (an unknown passage;
+  another section's): the good id, the count and a completion land; one warning with counts and no id;
+- `test_on_an_unknown_section_or_reading_no_passage_is_recorded_and_the_report_is_mains` (both): the progress row and
+  the reply equal those of the same report without passages; no passage, no end;
+- `test_a_phone_completion_coalesced_with_passages_and_a_stranger_lands_whole`: through the phone host, one report
+  with a completion, two good ids, one stranger and `reachedEnd`: the completion lands (deferred to the desktop, as
+  before), the good ids are recorded as `phone`, the stranger is not, and the end is left out (its last passage was not
+  kept);
+- `test_an_end_is_recorded_only_when_its_last_passage_is_seen` now asserts the end left out, the passage and the count
+  recorded.
+
+Desktop: `an answered report acknowledges every passage it carried, those the backend left out too: none is sent
+again` replaces the refusal case. Phone: `a queued passages report and a later completion go as one record, which the
+host's answer delivers` (`outbox.test.ts`: one send with the merged params, the record removed on the answer).
+
+Run for the revision (same wrapper, scopes and limits):
+
+| Command | Result |
+|---|---|
+| `test_reader_seen_passages`, `test_reader_seen_spans_migration`, `test_mobile_allowlist` | 352 passed |
+| `test_identity_pins`, `test_sidecar_reader`, `test_mobile_v4_reader` | 378 passed |
+| `ruff check`; `lint-imports --no-cache` | All checks passed; 44 kept, 0 broken |
+| Desktop typecheck; whole vitest; frontend:build | clean; 320 files, 3,352 tests passed; built |
+| Phone typecheck; whole vitest; build | clean; 43 files, 436 tests passed; built |
+
 ## What a walk must check
 
 With the patient first-day persona and a learner who stops at 60 % (the design's §7, row 2), on the real desktop window
@@ -223,7 +272,9 @@ With the patient first-day persona and a learner who stops at 60 % (the design's
    momentum after the finger lifts keeps counting, since the movement holds for the visit); a held-out passage is never
    recorded; a section ending in one never records an end.
 7. Nothing else changes: "Done with this section", Today, the quick checks and question writing behave exactly as on
-   main.
+   main; a section finished on the phone gets its questions written on the desktop as before.
+8. The sidecar's and the phone host's logs: a "seen passages left out of a progress report" warning means a client and
+   the host disagree on a section's passages (its counts say how many); there should be none.
 
 ## What was not verified
 
