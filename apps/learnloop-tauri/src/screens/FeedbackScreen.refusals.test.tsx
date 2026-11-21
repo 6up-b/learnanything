@@ -175,9 +175,12 @@ it("a question filed under no subject: the note panel says why the note can't be
   const callbacks = props();
   render(<FeedbackScreen {...callbacks} />);
   await screen.findByText(/You used the unconditional probability/);
-  await press("j");
-  // The note panel loads on first use; under a loaded machine that takes longer than the default second.
-  const body = await screen.findByPlaceholderText(/write your note/, {}, { timeout: 5000 });
+  // The screen takes its keys only once the feedback itself has loaded, which the text above does not prove
+  // (a key pressed before that is dropped): press until the note panel is there. Opening it twice is harmless.
+  const body = await waitFor(() => {
+    fireEvent.keyDown(window, { key: "j" });
+    return screen.getByPlaceholderText(/write your note/);
+  }, { timeout: 5000 });
   fireEvent.change(body, { target: { value: "Restrict to the condition first." } });
   await act(async () => {
     fireEvent.keyDown(body, { key: "Enter", ctrlKey: true });
