@@ -52,7 +52,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | J1 | List candidate tables and correct their roles | landed | `f930ecb2cf` | [refactor-j1.md](refactor-j1.md) | — |
-| J2 | Drop the first approved family of tables | not started | — | — | Owner decided on 2026-11-20: drop the dead groups (a drop refuses a table that holds rows); `hypothesis_sets` becomes RAW_LEDGER |
+| J2 | Drop the first approved family of tables | not started | — | — | Owner decided on 2026-11-20: drop the dead groups (a drop refuses a table that holds rows); `hypothesis_sets` is RAW_LEDGER (landed Nov 20, [owner-decisions-small-1.md](owner-decisions-small-1.md)) |
 | J3 | Drop the next approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: retired-but-read tables are dropped once the steps that own their readers have removed them |
 | J4 | Drop the final approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: as J3 |
 
