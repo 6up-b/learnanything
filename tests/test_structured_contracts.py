@@ -13,6 +13,7 @@ import pytest
 
 from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, AIProviderUnavailable
 from learnloop.ai.execution import ModelCheckpoint, content_key, generation_limit, observe_model_calls
+from learnloop.ai.providers.openrouter import OpenRouterProviderClient
 from learnloop.ai.structured_contracts import (
     MAX_STRUCTURED_RECOVERIES,
     RECOVERY_NOTE,
@@ -31,6 +32,7 @@ from learnloop.ai.structured_contracts import (
     recovery_remaining_seconds,
 )
 from learnloop.ai.transport import execute_structured_operation
+from learnloop.config import AIProviderConfig
 from learnloop.diagnosis.ai_contracts import (
     FollowupProbeAuthored,
     FollowupProbeContext,
@@ -42,6 +44,7 @@ from learnloop.followup_run.authoring import (
     CONTRACT_REASK_REQUIREMENTS,
     request_authored_probe,
 )
+from tests.openai_fakes import install_fake_openai
 from tests.structured_ai import RecordingStructuredClientFake
 from tests.structured_contracts_helpers import Admit, Recorder, Refused, operation_send, refused, root_receipts
 
@@ -487,3 +490,35 @@ def test_a_correction_is_refused_over_a_legacy_endpoint_that_cannot_carry_it():
                           legacy_capability="legacy_followup", legacy_context=CONTEXT)
     assert _call(client, send=send).answer == GOOD
 
+
+def _chat_client(monkeypatch, *responses):
+    monkeypatch.setenv("TEST_ROUTER_KEY", "fake")
+    monkeypatch.setattr("learnloop.ai.providers.openai_chat._sleep", lambda _: None)
+    fake = install_fake_openai(monkeypatch, *responses)
+    return fake, OpenRouterProviderClient("router", AIProviderConfig(
+        type="openrouter", model="vendor/model", api_key_env="TEST_ROUTER_KEY"))
+
+
+def test_the_chat_providers_repair_shares_the_one_recovery(monkeypatch):
+    empty, good = EMPTY.model_dump_json(), GOOD.model_dump_json()
+    # Contract-failing, then a malformed correction: no repair after it.
+    fake, client = _chat_client(monkeypatch, empty, "not json", good)
+    with pytest.raises(Refused) as raised:
+        _call(client)
+    assert len(fake.instances[0].requests) == 2 and raised.value.info.reason == "schema_failed"
+    # Malformed, repaired, then contract-failing: no correction after it.
+    fake, client = _chat_client(monkeypatch, "not json", empty, good)
+    with pytest.raises(Refused) as raised:
+        _call(client, allowance=RecoveryAllowance(admit=Admit(slots=5)))
+    assert len(fake.instances[0].requests) == 2
+    assert (raised.value.info.reason, raised.value.info.predicate) == ("contract_failed", "empty_question_or_key")
+    # Malformed with no admitted recovery: no repair is sent.
+    fake, client = _chat_client(monkeypatch, "not json", good)
+    with pytest.raises(Refused) as raised:
+        _call(client, allowance=RecoveryAllowance())
+    assert len(fake.instances[0].requests) == 1 and raised.value.info.reason == "recovery_refused"
+    # Outside a checked call the same provider still repairs once, as before.
+    fake, client = _chat_client(monkeypatch, "not json", good)
+    assert execute_structured_operation(client, purpose=AUTHORING_PURPOSE, prompt=FIRST,
+                                        result_model=FollowupProbeAuthored) == GOOD
+    assert len(fake.instances[0].requests) == 2
