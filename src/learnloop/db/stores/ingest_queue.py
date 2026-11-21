@@ -730,6 +730,19 @@ class IngestQueueStoreMixin:
             )
             connection.commit()
 
+    def ingest_job_payloads(self, job_type: str, statuses: Sequence[str]) -> list[str]:
+        """The raw payloads of every ``job_type`` job in one of ``statuses``, oldest first: a read for
+        summaries that only need what the jobs were asked to do (nothing is decoded or claimed)."""
+
+        placeholders = ",".join("?" for _ in statuses)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT payload_json FROM ingest_jobs WHERE job_type = ? AND status IN ({placeholders}) "
+                "ORDER BY created_at, id",
+                [job_type, *statuses],
+            ).fetchall()
+        return [row[0] for row in rows]
+
     def ingest_jobs_by_types(
         self, job_types: Sequence[str], *, limit: int | None = None
     ) -> list[dict[str, Any]]:

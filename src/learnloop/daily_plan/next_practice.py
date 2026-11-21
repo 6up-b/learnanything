@@ -204,15 +204,11 @@ def _question_work(reader: Any) -> dict[str, Any]:
         SECTION_WAITING_FOR_BUILD,
     )
 
-    statuses = ", ".join("?" for _ in _WRITING_JOB_STATUSES)
     waiting_stamps = (SECTION_WAITING_FOR_BUILD, SECTION_DEFERRED_TO_PRIMARY, SECTION_ENQUEUING)
     stamps = ", ".join("?" for _ in waiting_stamps)
+    # The ingest queue's rows are read through its own store (its one persistence owner).
+    jobs = [(payload,) for payload in reader.ingest_job_payloads("practice_expansion", _WRITING_JOB_STATUSES)]
     with reader.connection() as connection:
-        jobs = connection.execute(
-            f"SELECT payload_json FROM ingest_jobs WHERE job_type = 'practice_expansion' AND status IN ({statuses})"
-            " ORDER BY created_at, id",
-            _WRITING_JOB_STATUSES,
-        ).fetchall()
         waiting = connection.execute(
             f"SELECT COUNT(*) FROM reader_section_progress WHERE completed_at IS NOT NULL"
             f" AND generation_batch_id IN ({stamps})",
