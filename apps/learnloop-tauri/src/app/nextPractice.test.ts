@@ -107,6 +107,17 @@ describe("the lines", () => {
     expect(nextPracticeLines(writingOnly, { writing: false })).toEqual([]);
   });
 
+  it("finished sections waiting to be written get their words too, with no day, and Today can leave them to its own line", () => {
+    const waitingOnly = { ...EVENING, reviews: [], checks: [], nextReviewDate: null, writing: { topicCount: 0, learningObjectIds: [] }, waiting: { sectionCount: 2 } };
+    expect(nextPracticeLines(waitingOnly)).toEqual(["Nothing is due tomorrow.", "Questions from 2 finished sections are waiting to be written."]);
+    expect(nextPracticeLines({ ...waitingOnly, waiting: { sectionCount: 1 } }, { finish: true })).toEqual([
+      "Nothing is due tomorrow.", "Questions from 1 finished section are waiting to be written."
+    ]);
+    expect(nextPracticeLines(waitingOnly, { writing: false })).toEqual([]);
+    // Held questions get no words here: Today's own line counts those an OK would apply, from the books' facts.
+    expect(nextPracticeLines({ ...waitingOnly, waiting: { sectionCount: 0 }, held: { topicCount: 2, learningObjectIds: ["lo_a", "lo_b"] } })).toEqual([]);
+  });
+
   it("says nothing with nothing dated and nothing under way, or with no summary", () => {
     const empty = { ...EVENING, reviews: [], checks: [], nextReviewDate: null, writing: { topicCount: 0, learningObjectIds: [] }, held: { topicCount: 0, learningObjectIds: [] } };
     expect(nextPracticeLines(empty)).toEqual([]);

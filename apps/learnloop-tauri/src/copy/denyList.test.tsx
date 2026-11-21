@@ -26,6 +26,7 @@ import {
 } from "../app/todayCause";
 import { NOTE_NO_SUBJECT, NO_ASK_NOT_YET, NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK, NO_HINTS_ON_YOUR_OWN, NO_HINTS_SHORT_CHECK, quickCheckNothingToAsk } from "./refusals";
 import { LESSON_KEPT, PLAN_STOPPED_WITH_MORE, continueLessonLine } from "../app/todayCause";
+import { MORE_AS_YOU_READ, NO_QUESTIONS_YET, QUESTIONS_FROM_READING, heldLine } from "../app/todayCause";
 import { emptyGoalSentence } from "../components/GoalBanner";
 import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
@@ -103,7 +104,7 @@ const ROUND2_SENTENCES = [
 const LINES: SourceStatusLineDto[] = [
   { text: "Getting this book ready", tone: "working", action: null, details: null },
   { text: "Getting Ch. 1–2 ready for questions in about 5 min", tone: "working", action: null, details: null },
-  { text: "Questions for Ch. 1–2 are written as you finish sections", tone: "quiet", action: null, details: null },
+  { text: "Questions for Ch. 1–2 are written from the parts you read", tone: "quiet", action: null, details: null },
   { text: "Questions need an AI connection", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: null },
   { text: "Building questions for Ch. 1–2 would cost about $3.10", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
@@ -140,11 +141,11 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Getting Ch. 1–2 ready for questions in under a minute", tone: "working", action: null, details: null },
   { text: "Getting this paper ready for questions in about 2 min", tone: "working", action: null, details: null },
   { text: "No questions for this book yet", tone: "quiet", action: { kind: "retry", label: "Build them as you read" }, details: null },
-  { text: "Questions for Ch. 1–2 are written as you finish sections once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
+  { text: "Questions for Ch. 1–2 are written from the parts you read once an AI is connected", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" },
   // Finishing pass (#6): a PDF is a PDF until its text says book or paper.
   { text: "Getting this PDF ready", tone: "working", action: null, details: null },
-  { text: "Questions for this PDF are written as you finish sections", tone: "quiet", action: null, details: null },
+  { text: "Questions for this PDF are written from the parts you read", tone: "quiet", action: null, details: null },
   // UX-43: a build that found no topic to practise (docs/reviews/ux43-empty-build.md).
   {
     text: "LearnLoop found no topics to practise in this article", tone: "problem", action: { kind: "retry", label: "Try again" },
@@ -219,7 +220,7 @@ const STAGE3_SENTENCES = [
   NO_ASK_TEACH_BACK,
   NO_ASK_NOT_YET,
   NOTE_NO_SUBJECT,
-  // UX-43: what "Get the whole article ready for questions at once" says on a book whose build found no topic (add_source.py).
+  // UX-43: what "Get the whole article ready for questions" says on a book whose build found no topic (add_source.py).
   "LearnLoop found no topics to practise in this article, so there are no questions to write from it yet. Try again on its card to look once more."
 ].filter(Boolean);
 
@@ -313,6 +314,39 @@ const STEP7_SENTENCES = [
   ...nextPracticeLines({ ...STEP7_NEXT, reviews: [{ ...STEP7_NEXT.reviews[2], date: "2026-11-03" }], nextReviewDate: "2026-11-03" }),
   ...["pi_a", "pi_nine", "pi_e", "pi_c"].map((id) => nextPracticeRowWhy(STEP7_NEXT, { practiceItemId: id }) ?? ""),
   "comes back Wednesday", "comes back on 9 November"
+];
+
+// The first evening, step 8: where questions come from, where to read to, held questions, no contradictory "nothing".
+const STEP8_CARD = (questions: Partial<NonNullable<SourceStatusLineDto["questions"]>>) => card({
+  text: "Questions for Ch. 1–2 are written from the parts you read · 2 written so far", tone: "quiet", action: null, details: null,
+  questions: { count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...questions }
+});
+const STEP8_CAUSES: TodayCause[] = [
+  { kind: "held", title: "Probability", card: STEP8_CARD({}), count: 2 },
+  { kind: "held", title: "Probability", card: STEP8_CARD({}), count: 1 },
+  ...[{ heading: "Variance and its additivity", words: null, sectionEnd: false },
+      { heading: null, words: "Suppose we have a dataset of…", sectionEnd: false },
+      { heading: null, words: null, sectionEnd: true }].map((place) => ({
+    kind: "read_further" as const, title: "Probability", card: STEP8_CARD({}), place: { part: "Conditional probability", ...place }
+  })),
+  { kind: "read_further", title: "Probability", card: STEP8_CARD({}), place: { part: null, heading: null, words: null, sectionEnd: true } },
+  { kind: "finish_section", card: STEP8_CARD({}) },
+  { kind: "none_up", title: "Probability", card: STEP8_CARD({}) },
+  { kind: "on_the_way", title: "Probability", card: null, progress: { done: 1, total: 2 }, minutes: null }
+];
+const STEP8_SENTENCES = [
+  QUESTIONS_FROM_READING, MORE_AS_YOU_READ, NO_QUESTIONS_YET,
+  ...STEP8_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? ""]).filter(Boolean),
+  heldLine([STEP8_CARD({ count: 1, itemIds: ["pi_1"], sections: ["x"], awaitingOk: 2, toLookAt: 2 })]) ?? "",
+  heldLine([STEP8_CARD({ awaitingOk: 1, toLookAt: 1 })]) ?? "",
+  "4 days in a row · best 9", "1 day in a row",
+  "Questions for Ch. 1–2 are written from the parts you read · 2 written so far",
+  "Questions for Ch. 1–2 are written from the parts you read once an AI is connected",
+  "All of this article is ready for questions. Questions are written from the parts you read.",
+  "Get the whole article ready for questions",
+  // An error hunt's work, shown before the learner answers (the sidecar's presentation label).
+  "The work to check",
+  ...nextPracticeLines({ ...STEP7_NEXT, reviews: [], checks: [], nextReviewDate: null, writing: { topicCount: 0, learningObjectIds: [] }, waiting: { sectionCount: 2 } })
 ];
 
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).
@@ -418,6 +452,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(STEP7_SENTENCES)("what comes next, dated: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(STEP8_SENTENCES)("where questions come from, where to read to, held questions: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
   });

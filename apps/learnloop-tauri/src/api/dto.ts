@@ -3783,6 +3783,11 @@ export interface ReadingQuestionsDto {
   owed?: string[];
   /** Read in part, with no questions of their own yet: their topics need questions, and none has every passage seen. */
   readFurther?: string[];
+  /** For the first `readFurther` section that can say it: where reading on must reach for its nearest topic, named by
+   *  the inner heading it lies under, else the opening words of that passage, else the section's end. */
+  readTo?: { section: string; heading: string | null; words: string | null; sectionEnd: boolean };
+  /** Of `toLookAt`, the questions an OK would apply (valid, not blocked). Present only when there are some. */
+  awaitingOk?: number;
 }
 
 /** A link an Add is still fetching: it has no library card yet. */
