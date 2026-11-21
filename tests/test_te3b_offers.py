@@ -123,7 +123,11 @@ def test_a_drawn_offer_is_a_block_answered_on_its_own_decision(tmp_path, offerab
     assert offer["sensors"]["p_accept"]["priors_version"] == LS.PRIORS_VERSION
     assert offer["terms"]["q_accepted"] is not None and offer["terms"]["q_declined"] is not None
     assert offer["terms"]["kappa_integral_accepted"] > 0 and offer["sensors"]["duration"]["source"] == "seed"
-    assert offer["action"]["commitments"] == [["lo_diag", 3.0]]
+    # From mvp-0.62 the offer's check is typed (its sensors priced it) and the trace holds the decision's replay payload.
+    assert offer["action"]["commitments"] == []
+    assert [(c["lo"], c["days"], c["key"]) for c in offer["action"]["checks"]] == [("lo_diag", 3.0,
+                                                                                    "lo_diag:retention:0")]
+    assert trace["check_credit_replay"]["version"] == "check_credit_replay_v1"
     # Start: one response on the plan_block decision, the lesson id reserved, the block ended.
     answer = SG.respond(env.vault, env.repository, decision_id=decision_id, response="accepted",
                         clock=env.clock)
