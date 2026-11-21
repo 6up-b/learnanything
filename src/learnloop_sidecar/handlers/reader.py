@@ -2081,6 +2081,11 @@ class ReaderMarkSectionProgressInput(ParamsModel):
     span_count: int | None = None
     revealed: bool = False
     completed: bool = False
+    # The first evening, step 2: the passages the Reader observed during the learner's own reading (never a
+    # restore, a jump or a completion), and whether the section's last readable passage was among them.
+    # Recorded only (``learnloop.reader.seen_passages``): nothing reads them yet, and an end finishes nothing.
+    seen_span_ids: list[str] | None = Field(default=None, max_length=5000)
+    reached_end: bool = False
 
 
 @method("reader.mark_section_progress", ReaderMarkSectionProgressInput)
@@ -2097,10 +2102,18 @@ def reader_mark_section_progress(
 
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop.reader.section_generation import DEFERRED_TO_PRIMARY, WAITING_FOR_BUILD
+    from learnloop.reader.seen_passages import SeenReportRefused, check_report
     from learnloop_sidecar.section_questions import start_section_questions
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
+    # Checked before anything is written: a report naming a passage that is not the section's records nothing,
+    # its count included, so a client's mistake never lands half a report.
+    try:
+        seen = check_report(repository, extraction_id=resolved, section_id=params.section_id,
+                            seen_span_ids=params.seen_span_ids, reached_end=params.reached_end)
+    except SeenReportRefused as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
     before = repository.reader_section_progress_row(resolved, params.section_id)
     # UX Phase 1 (§6.4, Q6): reaching a section keeps an Add's questions one
     # chapter ahead. The Reader reports how far into each section the learner
@@ -2129,6 +2142,10 @@ def reader_mark_section_progress(
         revealed=params.revealed,
         completed=params.completed,
         keep_ahead_request=keep_ahead,
+        seen_span_ids=seen.seen_span_ids,
+        end_span_id=seen.end_span_id,
+        # Who observed them: the phone host sets the origin from the paired token, never a parameter.
+        observed_by="phone" if ctx.request_origin is not None else "desktop",
     )
 
     enqueued = False
