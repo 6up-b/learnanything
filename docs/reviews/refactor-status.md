@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of the UX audit's third part and the third round of broken controls (group A) on main `91ca1ea28d` (Nov 20), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of the notebook track's first step (H1) on main `9658a9ce2f` (Nov 20), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -331,3 +331,13 @@ The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 1
 | S3 | Reorder open lanes around cuts and reviews | landed | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Applied as a reordering: L1 and L2 ran ahead of the interior splits. L4's review has no slot yet. |
 | S4 | Name the next features and their prerequisites | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval of the strategy edits |
 | P1 | Record what evidence each model call saw | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's call on packet records before the evidence packet build |
+
+## Notebook activities (queued by the owner on Nov 20; track H and NA0 run beside the queue)
+
+The spec is `docs/specs/spec_notebook_activities_v1.md` (an untracked draft in the owner's checkout on Nov 20). Track H is an owner-side authoring harness outside every serving path; NA0 is six disposable spikes whose short result records land here.
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| H1 | `learnloop notebook check PATH --scope structure --out DIR`: a marimo notebook parsed without being run; cells, what each defines and reads, duplicate definitions, cycles; the `notebook` extra (marimo 0.25.2, wigglystuff 0.6.0); an import contract keeps serving code from importing the harness | landed | this commit | [notebook-h1.md](notebook-h1.md) | — |
+| H2 to H12 | The cell writer, cards and the example index, the contract and manifest checks, the sandboxed runtime, layout and theme checks, review routes, acceptance and promotion, the author loop, retrieval, the evaluation set, the review console | not started | — | — | H5 waits on spike NA0.2; H7's real calls and H8 wait on the owner's image route and cap |
+| NA0.1 to NA0.6 | Packaging and the content-security policy; the server under the sandbox; runtime budgets; authoring yield; non-computable activities; the power calculation | not started | — | — | The owner: a scratch root outside the repository, real material, a session with the packaged app and the phone |
