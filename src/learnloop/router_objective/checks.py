@@ -317,11 +317,17 @@ def place(vault: Any, repository: Any, *, local_date: str, session_id: str | Non
         topic = str(row["variant"])
         candidates = [item for item in still.get(topic, []) if item in by_id]
         chosen, how = None, "drawn"
+        redraw = {}
         if str(slot.get("item_id")) in candidates:
             chosen = str(slot["item_id"])
         elif candidates:
             u = mx.uniform(str(row["seed"]), f"redraw:{slot.get('slot')}:{len(done)}")
             chosen, how = candidates[min(int(u * len(candidates)), len(candidates) - 1)], "redrawn_in_pool"
+            # Conditional on this administration's pool, separate from the original assignment's
+            # item_propensity. Preserve draw order and the already consumed uniform for replay.
+            redraw = {"redraw": {"candidate_ids": list(candidates), "u": u,
+                                  "conditional_propensity": 1.0 / len(candidates),
+                                  "original_item_id": slot.get("item_id"), "replacement_item_id": chosen}}
         if chosen is None:
             continue
         item = by_id[chosen]
@@ -344,7 +350,8 @@ def place(vault: Any, repository: Any, *, local_date: str, session_id: str | Non
         placements.append(Placement(assignment_id=str(row["id"]), slot=slot, item=item, replaced=replaced,
                                     detail={"assignment_id": str(row["id"]), "slot": slot.get("slot"),
                                             "topic": topic, "r": slot.get("r"), "item_how": how,
-                                            "replaced": replaced, "collision": collision, "version": VERSION}))
+                                            "replaced": replaced, "collision": collision, "version": VERSION,
+                                            **redraw}))
         still[topic] = [item_id for item_id in still.get(topic, []) if item_id != chosen]
     return placements
 

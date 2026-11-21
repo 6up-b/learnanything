@@ -20,7 +20,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-VERSION = "slot_facts_v1"
+# v2 permits null router_propensity (unknown). v1 required a finite number;
+# decode preserves that number and version, including historical 1.0 records.
+# Neither version infers determinism from a missing router decision.
+VERSION = "slot_facts_v2"
 
 #: The staged frame's constraint keys (``scheduling.constraint_engine``'s registered constraints and
 #: the frame's own fail-closed keys); ``tests/test_ad23_inversion.py`` checks it against the code.
@@ -96,7 +99,7 @@ class SlotFacts:
     planned_counts: Mapping[str, int] = field(default_factory=dict)
     budget: Mapping[str, Any] = field(default_factory=dict)
     router_decision_id: str | None = None
-    router_propensity: float = 1.0
+    router_propensity: float | None = None
     version: str = VERSION
 
 
@@ -170,7 +173,7 @@ def decode(wire: str, *, visible: Iterable[str], learning_objects: Iterable[str]
         raise SlotFactsError("not a facts record")
     if set(body) != set(_KEYS):
         raise SlotFactsError("unknown or missing keys")
-    if body["version"] != VERSION or body["kind"] not in ("slot", "deferrals"):
+    if body["version"] not in ("slot_facts_v1", VERSION) or body["kind"] not in ("slot", "deferrals"):
         raise SlotFactsError("version or kind")
     now = body["now"]
     if not isinstance(now, str) or len(now) > 40:
@@ -242,7 +245,9 @@ def decode(wire: str, *, visible: Iterable[str], learning_objects: Iterable[str]
         planned_counts=planned,
         budget=budget,
         router_decision_id=_optional_id(body["router_decision_id"], "router_decision_id"),
-        router_propensity=_number(body["router_propensity"], "router_propensity"),
+        router_propensity=(None if body["version"] == VERSION and body["router_propensity"] is None
+                           else _number(body["router_propensity"], "router_propensity")),
+        version=body["version"],
     )
 
 

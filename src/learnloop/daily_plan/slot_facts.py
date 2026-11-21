@@ -126,7 +126,7 @@ def for_slot(env: Any, record: Any, block: Any, slot: Any, built: Any, day: Sequ
         slot_learning_object_id=str(slot.learning_object_id), slot_est_minutes=float(slot.est_minutes),
         planned_counts=planned_counts, budget=budget,
         router_decision_id=None if block.decision_ref is None else str(block.decision_ref),
-        router_propensity=float(propensity) if propensity is not None else 1.0,
+        router_propensity=float(propensity) if propensity is not None else None,
     )
 
 
