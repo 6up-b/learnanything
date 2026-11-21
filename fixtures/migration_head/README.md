@@ -1,11 +1,23 @@
 # Migration-head fixture
 
-**Holds migration 255 (`255_apply_intents_conflicted.sql`), the head.** The directory's name carries no number (since
+**Holds migration 256 (`256_reader_seen_spans.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## The first evening, step 2 (migration 256), `ux/first-evening-seen-spans`, 2026-11-20
+
+Upgraded in place (no rename; base: main at `4e824350ba`, head 255) by the B1 procedure below:
+`256_reader_seen_spans.sql` (two new tables, `reader_seen_spans` and `reader_section_ends`, WORKFLOW, append-only by
+two triggers each, one index on the first, empty here) applied through `learnloop.db.migrate.apply_migrations` on a
+backup-API copy outside the checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[256]` only;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 255 file: nine objects added (the two tables, their autoindexes, the index and the
+four triggers), no existing object's definition changed, and the only table whose rows changed is `schema_migrations`
+(gains 256): no passage is backfilled from `reader_section_progress`'s counts. The head holds 229 through 256.
 
 ## Refactor K3.5 (migration 255), `refactor/k3.5-apply-recovery`, 2026-11-12
 

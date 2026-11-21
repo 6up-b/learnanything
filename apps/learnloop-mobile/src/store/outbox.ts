@@ -126,17 +126,21 @@ export function listReaderIntents(): Promise<ReaderIntentRecord[]> {
   return txRequest<ReaderIntentRecord[]>(INTENT_STORE, "readonly", (objects) => objects.getAll());
 }
 
-/** Progress is monotonic (§3.4): two reports of one section are their larger counts, and a completion or a reveal
- *  either of them carried (Codex review F6: a later, smaller report never erases a queued completion). */
+/** Progress is monotonic (§3.4): two reports of one section are their larger counts, the union of the passages
+ *  either observed, and a completion, a reveal or a section's end either of them carried (Codex review F6: a later,
+ *  smaller report never erases a queued completion; nor does it drop a passage or an end: the host unions them). */
 function mergeProgress(older: Record<string, unknown>, newer: Record<string, unknown>): Record<string, unknown> {
   const merged: Record<string, unknown> = { ...older, ...newer };
   for (const count of ["spansSeen", "spanCount"]) {
     const values = [older[count], newer[count]].filter((value): value is number => typeof value === "number");
     if (values.length) merged[count] = Math.max(...values);
   }
-  for (const flag of ["completed", "revealed"]) {
+  for (const flag of ["completed", "revealed", "reachedEnd"]) {
     if (older[flag] === true || newer[flag] === true) merged[flag] = true;
   }
+  const passages = [older.seenSpanIds, newer.seenSpanIds]
+    .flatMap((value) => (Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []));
+  if (passages.length) merged.seenSpanIds = [...new Set(passages)];
   return merged;
 }
 

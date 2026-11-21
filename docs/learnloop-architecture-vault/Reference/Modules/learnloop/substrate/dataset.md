@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/dataset.py](../../../../../../src/learnloop/substrate/dataset.py) |
-| Source lines | 748 |
+| Source lines | 752 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `split_assignments(attempts: list[dict[str, Any]], contracts: list[dict[str, Any]], source_links: Iterable[dict[str, Any]]=(), *, policy: str=DEFAULT_SPLIT_POLICY, embargo: timedelta=DEFAULT_EMBARGO) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 387) — Assign attempts to train, validation and test under a named policy.
 - `split_counts(assignments: Iterable[dict[str, Any]], policy: str, embargo: timedelta=DEFAULT_EMBARGO) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 412) — Rows per split label, named by the policy that produced them.
 - `outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 523)
-- `export_dataset(sqlite_path: Path, output: Path, *, split_policy: str=DEFAULT_SPLIT_POLICY, embargo: timedelta=DEFAULT_EMBARGO) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 692) — Back up `sqlite_path` into a new `output` directory and export from the copy.
+- `export_dataset(sqlite_path: Path, output: Path, *, split_policy: str=DEFAULT_SPLIT_POLICY, embargo: timedelta=DEFAULT_EMBARGO) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 696) — Back up `sqlite_path` into a new `output` directory and export from the copy.
 
 ### Module constants
 
@@ -108,7 +108,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `_ordered_table_rows(connection: sqlite3.Connection, table: str) -> Iterable[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 645) — Stream a table in a stable order rather than loading it whole.
 - `_split_source_links(connection: sqlite3.Connection, tables: set[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 653)
 - `_export_snapshot(snapshot: Path, output: Path, *, split_policy: str, embargo: timedelta) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 661)
-- `_export_into(sqlite_path: Path, output: Path, *, split_policy: str, embargo: timedelta) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 715)
+- `_export_into(sqlite_path: Path, output: Path, *, split_policy: str, embargo: timedelta) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/dataset.py), line 719)
 
 ## Who imports or calls it
 
@@ -124,7 +124,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `backup_database`; calls `backup_database`
-- [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `TABLE_ROLES`, `TableRole`
+- [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `CAPTURE_EXCLUDED_TABLES`, `TABLE_ROLES`, `TableRole`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`; calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `COLLECTION_VERSION`, `GRADE_HELD_FOR_REVIEW`, `LABEL_VERSION`, `retention_exclusions`; calls `retention_exclusions`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `pfc_assessments`; calls `pfc_assessments`

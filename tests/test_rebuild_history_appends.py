@@ -126,7 +126,14 @@ def _channel_counts(repository, attempt_id: str) -> dict[str, int]:
 
 def test_a_second_rebuild_appends_no_history_row(tmp_path):
     vault, repository = _history(tmp_path)
+    learning_object_id = next(iter(vault.learning_objects))
+    locked_set = repository.insert_hypothesis_set(
+        learning_object_id=learning_object_id, probe_phase_id=None, hypotheses=[{"id": "h1"}],
+        prior={"h1": 1.0}, algorithm_version=vault.config.algorithms.algorithm_version, clock=CLOCK,
+    )
+    saved = repository.fetch_hypothesis_set(locked_set)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert repository.fetch_hypothesis_set(locked_set) == saved
     once = _raw_ledgers(repository)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert _grown(once, _raw_ledgers(repository)) == {}

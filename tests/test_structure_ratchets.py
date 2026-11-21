@@ -1,4 +1,4 @@
-"""Structure ceilings for import cycles, first-level names, function and file sizes, and history comments.
+"""Structure ceilings for imports, names, sizes, history comments, and test coupling.
 
 ``scripts/refactor_measures.py`` counts them from the tracked source (the test reads files and imports nothing from
 ``learnloop``); ``tests/goldens/structure.toml`` holds the numbers the tree is held to, with the members behind them so
@@ -53,6 +53,7 @@ def current() -> dict[str, Any]:
             "functions_over_200_lines": len(swept["functions_over_200_lines"]),
             "comment_lines_naming_a_stage_artifact": swept["stage_comments"]["naming_a_stage_artifact"],
             "test_files_named_for_a_stage": swept["stage_test_files"]["count"],
+            **swept["test_coupling"],
             **swept["file_lines"],
             "golden_json_lines": swept["golden_json_lines"],
         },
@@ -93,6 +94,8 @@ EXPLAIN = {
                                               "landing, an F- or R-number)", None, ""),
     "test_files_named_for_a_stage": ("test files named for a stage or a fix round", "stage_test_files",
                                      "new stage-named test files"),
+    "private_patch_sites": ("test sites patching private learnloop module attributes", None, ""),
+    "source_text_assertions": ("test assertions depending on inspect.getsource", None, ""),
     "golden_json_lines": ("the line count for test golden JSON files", None, ""),
 }
 

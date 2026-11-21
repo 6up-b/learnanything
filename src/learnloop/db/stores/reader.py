@@ -1119,6 +1119,9 @@ class ReaderStoreMixin:
         revealed: bool = False,
         completed: bool = False,
         keep_ahead_request: bool = False,
+        seen_span_ids: Sequence[str] = (),
+        end_span_id: str | None = None,
+        observed_by: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Monotone upsert: spans_seen/span_count only grow; revealed_at /
@@ -1127,12 +1130,34 @@ class ReaderStoreMixin:
         ``keep_ahead_request`` also records this section as the book's reading
         request (``record_reading_request``) in the same transaction, so a
         saved report never loses the "keep one chapter ahead" it asked for
-        (UX Phase 1 finishing pass, F8)."""
+        (UX Phase 1 finishing pass, F8).
+
+        ``seen_span_ids`` (passages of this section observed by the learner's
+        own reading) and ``end_span_id`` (its last readable passage, so
+        observed) are appended in the same transaction, by ``observed_by``
+        (``desktop`` or ``phone``): a passage or an end already recorded keeps
+        its first time and origin, so reports union and a smaller one removes
+        nothing. The caller checks them against the reading
+        (``learnloop.reader.seen_passages``)."""
 
         now = utc_now_iso(clock)
         with self.connection() as connection:
             if keep_ahead_request:
                 self._record_reading_request_for_extraction(connection, extraction_id, section_id, now)
+            if seen_span_ids or end_span_id is not None:
+                if observed_by not in ("desktop", "phone"):
+                    raise ValueError(f"a seen passage needs its origin, not {observed_by!r}")
+                connection.executemany(
+                    "INSERT INTO reader_seen_spans(extraction_id, span_id, section_id, first_seen_at, origin) "
+                    "VALUES (?, ?, ?, ?, ?) ON CONFLICT(extraction_id, span_id) DO NOTHING",
+                    [(extraction_id, str(span_id), section_id, now, observed_by) for span_id in dict.fromkeys(seen_span_ids)],
+                )
+                if end_span_id is not None:
+                    connection.execute(
+                        "INSERT INTO reader_section_ends(extraction_id, section_id, span_id, first_seen_at, origin) "
+                        "VALUES (?, ?, ?, ?, ?) ON CONFLICT(extraction_id, section_id) DO NOTHING",
+                        (extraction_id, section_id, end_span_id, now, observed_by),
+                    )
             connection.execute(
                 """
                 INSERT INTO reader_section_progress(
@@ -1176,6 +1201,28 @@ class ReaderStoreMixin:
         with self.connection() as connection:
             rows = connection.execute(
                 "SELECT * FROM reader_section_progress WHERE extraction_id = ? ORDER BY section_id",
+                (extraction_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def reader_seen_spans_for(self, extraction_id: str) -> list[dict[str, Any]]:
+        """The passages of one reading recorded as seen (migration 256), oldest first.
+        Read only through ``learnloop.reader.seen_passages``."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reader_seen_spans WHERE extraction_id = ? ORDER BY first_seen_at, span_id",
+                (extraction_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def reader_section_ends_for(self, extraction_id: str) -> list[dict[str, Any]]:
+        """The sections of one reading whose last passage was recorded as seen (migration 256).
+        Read only through ``learnloop.reader.seen_passages``."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM reader_section_ends WHERE extraction_id = ? ORDER BY section_id",
                 (extraction_id,),
             ).fetchall()
         return [dict(r) for r in rows]

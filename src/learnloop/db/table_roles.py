@@ -36,6 +36,11 @@ class TableRole(str, Enum):
     COMPAT = "compat"
 
 
+# Rebuild roles do not expand the collection contract. Keep locked hypothesis
+# sets out of the dataset's JSONL inventory and adjudication evidence.
+CAPTURE_EXCLUDED_TABLES = frozenset({"hypothesis_sets"})
+
+
 # Keep this list alphabetical so schema diffs and review are mechanical.  An
 # item list (rather than a dict literal) lets us reject an accidental duplicate
 # instead of silently keeping the last declaration.
@@ -333,7 +338,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("hypothesis_recurrence_groups", TableRole.DERIVED),
     ("hypothesis_recurrence_review", TableRole.DERIVED),
     ("hypothesis_recurrence_state", TableRole.DERIVED),
-    ("hypothesis_sets", TableRole.COMPAT),
+    ("hypothesis_sets", TableRole.RAW_LEDGER),
     ("ingest_batches", TableRole.WORKFLOW),
     ("ingest_job_dependencies", TableRole.WORKFLOW),
     ("ingest_jobs", TableRole.WORKFLOW),
@@ -546,7 +551,14 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # replay never reads them; append-only by trigger.
     ("reader_path_depths", TableRole.WORKFLOW),
     ("reader_path_sections", TableRole.WORKFLOW),
+    # Seen passages (migration 256): which passages the learner's own
+    # reading observed, and the first time a section's last readable passage was
+    # among them (append-only by trigger). The Reader's progress, as the counts
+    # beside them: never cleared by a rebuild, never evidence of understanding, and
+    # kept out of the dataset export and adjudication evidence (RAW_LEDGER/RECEIPT).
+    ("reader_section_ends", TableRole.WORKFLOW),
     ("reader_section_progress", TableRole.WORKFLOW),
+    ("reader_seen_spans", TableRole.WORKFLOW),
     # Reader workbench RW6b (migration 227; spec §9.4): one row per reader
     # session follow-ups were planned for: the typed summary, the commitments
     # created and the valuation receipt (a paid relevance step behind it, so

@@ -8,7 +8,7 @@ aliases:
   - "state.sqlite hypothesis_sets"
   - "table hypothesis_sets"
 table_name: "hypothesis_sets"
-table_role: "compat"
+table_role: "raw_ledger"
 functionality_status: "active"
 domain_family: "learner-state"
 introduced_in: "001_initial.sql"
@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/diagnosis/probe_episodes.py"
 tags:
   - "learnloop/database/table"
-  - "learnloop/database/role/compat"
+  - "learnloop/database/role/raw-ledger"
   - "learnloop/status/active"
   - "learnloop/domain/learner-state"
 ---
@@ -35,17 +35,17 @@ tags:
 # `hypothesis_sets`
 
 > [!info] Active
-> Live despite its COMPAT role: the probe paths write locked hypothesis sets and read them back. The role is on the owner's J1 table list.
+> The probe paths write locked hypothesis sets and read them back. Rebuild preserves these raw records. The collection dataset and adjudication evidence keep their existing scope.
 
 ## Why it exists
 
-Gives hypothesis set a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `probe_phase_id`, `algorithm_version`, making the operational relationship explicit. ^table-purpose
+Gives hypothesis set a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `learning_object_id`, `probe_phase_id`, `algorithm_version`, making the operational relationship explicit. ^table-purpose
 
-It belongs to the **learner state** navigation family. The family context lives in [[Database Catalog#Learner State]]. Its persistence behavior follows [[Table Roles#Compat]].
+It belongs to the **learner state** navigation family. The family context lives in [[Database Catalog#Learner State]]. Its persistence behavior follows [[Table Roles#Raw Ledger]].
 
 ## Persistence and lifecycle contract
 
-- **Role:** `compat` — Frozen compatibility state retained for old vaults or an incomplete replacement seam.
+- **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
 - **Schema touched by:** `001_initial.sql`, `121_causal_probe_coherence.sql`, `123_causal_prior_basis.sql`.
@@ -110,8 +110,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_collection_dataset.py`
 - `tests/test_migrations.py`
 - `tests/test_probe_router_report.py`
+- `tests/test_table_roles.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_causal_attribution_p2.py`
@@ -123,6 +125,7 @@ Indexes and uniqueness:
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_exam_protection.py`
 - `tests/test_probe_entry.py`
+- `tests/test_rebuild_history_appends.py`
 - `tests/test_self_attributed_misconceptions.py`
 - `tests/test_show.py`
 - `tests/test_source_first_needs.py`
@@ -136,7 +139,6 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 2. Update `src/learnloop/db/table_roles.py` in the same change. A new table without a role fails the migration-head registry test.
 3. Keep SQL access at the repository/store boundary; put policy in the domain callers listed above.
 4. Preserve append-only triggers and historical rows. Do not infer that an empty fixture table is safe to drop.
-5. Compatibility retirement requires production-vault telemetry and an explicit owner decision; code detachment and schema changes are separate gates.
 
 ## Live schema DDL
 
@@ -158,7 +160,7 @@ CREATE TABLE hypothesis_sets (
 ## Related notes
 
 - [[Database Catalog#Learner State|Sibling tables in this family]]
-- [[Table Roles#Compat|compat policy]]
+- [[Table Roles#Raw Ledger|raw_ledger policy]]
 - [[Rebuild Ownership]]
 - [[State and Persistence]]
 - [[Vault Lifecycle]]
