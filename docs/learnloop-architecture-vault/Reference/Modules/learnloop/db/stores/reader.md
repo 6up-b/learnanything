@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/reader.py](../../../../../../../src/learnloop/db/stores/reader.py) |
-| Source lines | 1803 |
+| Source lines | 1828 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -100,37 +100,37 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `inquiry_reader_authored_question(self, *, inquiry_root_event_id: str, prompt_version: str) -> dict[str, Any] | None` (line 1089; public) — RW1a: the newest inquiry-scoped question for one root exchange and prompt version, any status -- its reuse key (a dismissed row suppresses re-authoring for its own key).
   - `selection_reader_authored_question(self, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], question_style: str, prompt_version: str) -> dict[str, Any] | None` (line 1105; public) — RW1b: the selection-scoped question for one reuse key (extraction, anchor spans in reading order, style, prompt version), any status -- a dismissed row suppresses re-authoring for its own key.
   - `get_reader_authored_question(self, question_id: str) -> dict[str, Any] | None` (line 1121; public)
-  - `upsert_reader_section_progress(self, *, extraction_id: str, section_id: str, spans_seen: int | None=None, span_count: int | None=None, revealed: bool=False, completed: bool=False, keep_ahead_request: bool=False, seen_span_ids: Sequence[str]=(), end_span_id: str | None=None, observed_by: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 1130; public) — Monotone upsert: spans_seen/span_count only grow; revealed_at / completed_at stamp once and never clear; generation_batch_id untouched.
-  - `reader_section_progress_row(self, extraction_id: str, section_id: str) -> dict[str, Any] | None` (line 1210; public)
-  - `reader_section_progress_for(self, extraction_id: str) -> list[dict[str, Any]]` (line 1218; public)
-  - `reader_seen_spans_for(self, extraction_id: str) -> list[dict[str, Any]]` (line 1226; public) — The passages of one reading recorded as seen (migration 256), oldest first.
-  - `reader_seen_spans_marker(self) -> tuple[int, int]` (line 1237; public) — How many passages are recorded as seen in every reading, and the newest row: it changes whenever one is added (the table is append-only).
-  - `reader_seen_readings(self) -> list[str]` (line 1246; public) — The readings with any passage recorded as seen.
-  - `reader_section_ends_for(self, extraction_id: str) -> list[dict[str, Any]]` (line 1254; public) — The sections of one reading whose last passage was recorded as seen (migration 256).
-  - `carry_reader_section_progress(self, extraction_id: str, rows: Iterable[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 1265; public) — Carry section progress onto a new reading of the same book (re-read safety, 2026-10-14).
-  - `mark_section_generation(self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None=None) -> bool` (line 1308; public) — Stamp the generation batch id exactly once.
-  - `swap_section_generation(self, *, extraction_id: str, section_id: str, from_batch_id: str, batch_id: str, clock: Clock | None=None) -> bool` (line 1326; public) — Mobile v2 D6: move a section's generation stamp from ``from_batch_id`` to ``batch_id``, once: False when the stamp is no longer ``from_batch_id`` (another process took it).
-  - `deferred_section_generations(self, stamp: str, *, extraction_id: str | None=None) -> list[dict[str, Any]]` (line 1347; public) — The completed sections whose generation stamp is ``stamp`` (one left for the primary by the phone host, one waiting for its book's build, ...), oldest first, with when each was finished.
-  - `topic_question_work_for(self, learning_object_ids: Iterable[str], *, purpose: str=READER_FIRST_SET) -> dict[str, dict[str, Any]]` (line 1363; public) — The claims of these topics (topic work and section jobs' topics alike), by topic.
-  - `topic_question_work_rows(self, *, extraction_id: str | None=None, section_id: str | None=None, source_id: str | None=None, batch_id: str | None=None, owner: str | None=None) -> list[dict[str, Any]]` (line 1379; public) — Claims filtered by origin, batch or owner, in the order they were made.
-  - `insert_topic_question_work(self, rows: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 1398; public) — Claim topics: one row each, owner ``topic``.
-  - `index_section_job_topics(self, rows: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 1426; public) — Record topics a section job named before topic work existed as that job's (owner ``section_job``, state ``legacy``): a topic nobody owns gains a row; a row the same job already owns has its proposal references brought up to date; a topic anyone else owns is left as it is.
-  - `update_topic_question_work(self, work_id: str, *, state: str | None=None, error: str | None=None, clear_error: bool=False, proposal_ids: Sequence[str] | None=None, model_settings: Mapping[str, Any] | None=None, requested_count: int | None=None, clock: Clock | None=None) -> None` (line 1459; public) — Move one topic's work along.
-  - `reader_authored_questions_for_extraction(self, extraction_id: str) -> list[dict[str, Any]]` (line 1490; public) — All authored questions for an extraction, newest first per section.
-  - `latest_reader_authored_question(self, *, extraction_id: str, section_id: str) -> dict[str, Any] | None` (line 1506; public) — The newest authored question for one section, any status — the idempotency anchor: a dismissed row suppresses re-authoring.
-  - `transition_reader_authored_question(self, *, question_id: str, status: str, response_md: str | None=None, practice_item_id: str | None=None, self_check: str | None=None, clock: Clock | None=None) -> bool` (line 1523; public) — Row-status transition (proposed -> answered | dismissed | escalated).
-  - `create_source_object(self, *, source_id: str, clock: Clock | None=None) -> str` (line 1566; public)
-  - `append_source_object_version(self, *, source_object_id: str, version: Mapping[str, Any], citations: list[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 1576; public)
-  - `source_object_head(self, source_object_id: str) -> dict[str, Any] | None` (line 1630; public)
-  - `source_objects_for_source(self, source_id: str) -> list[dict[str, Any]]` (line 1658; public)
-  - `create_source_object_relation(self, *, source_object_id: str, related_object_id: str | None, relation_type: str, learner_text: str | None=None, authorship: str='learner', review_status: str='proposed', clock: Clock | None=None, version_ordinal: int=1) -> str` (line 1666; public)
-  - `source_object_relation(self, relation_id: str) -> dict[str, Any] | None` (line 1686; public)
-  - `create_mapping_proposal(self, *, source_object_id: str | None=None, annotation_id: str | None=None, target_kind: str, target_ref: str | None=None, confidence: float | None=None, rationale: str | None=None, provenance: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 1693; public)
-  - `mapping_proposals(self, *, status: str | None=None, source_object_id: str | None=None) -> list[dict[str, Any]]` (line 1714; public)
-  - `decide_mapping_proposal(self, *, proposal_id: str, status: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 1733; public)
-  - `repoint_mapping_proposal(self, proposal_id: str, *, target_ref: str) -> bool` (line 1749; public) — Point an undecided mapping proposal at another target: a completed synthesis request rebound to the capture that still holds it moves its commitment mapping to that capture's commitment (Codex verify of RW1b fix round 3, F16).
-  - `set_source_object_status(self, *, source_object_id: str, status: str, clock: Clock | None=None) -> dict[str, Any]` (line 1763; public) — Append a status-only successor version carrying the head content forward.
-  - `_set_source_object_status(self, *, source_object_id: str, status: str, clock: Clock | None=None) -> dict[str, Any]` (line 1776; internal)
+  - `upsert_reader_section_progress(self, *, extraction_id: str, section_id: str, spans_seen: int | None=None, span_count: int | None=None, revealed: bool=False, completed: bool=False, keep_ahead_request: bool=False, seen_span_ids: Sequence[str]=(), end_span_id: str | None=None, observed_by: str | None=None, completion_cause: str | None=None, completion_version: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 1130; public) — Monotone upsert: spans_seen/span_count only grow; revealed_at / completed_at stamp once and never clear; generation_batch_id untouched.
+  - `reader_section_progress_row(self, extraction_id: str, section_id: str) -> dict[str, Any] | None` (line 1226; public)
+  - `reader_section_progress_for(self, extraction_id: str) -> list[dict[str, Any]]` (line 1234; public)
+  - `reader_seen_spans_for(self, extraction_id: str) -> list[dict[str, Any]]` (line 1242; public) — The passages of one reading recorded as seen (migration 256), oldest first.
+  - `reader_seen_spans_marker(self) -> tuple[int, int]` (line 1253; public) — How many passages are recorded as seen in every reading, and the newest row: it changes whenever one is added (the table is append-only).
+  - `reader_seen_readings(self) -> list[str]` (line 1262; public) — The readings with any passage recorded as seen.
+  - `reader_section_ends_for(self, extraction_id: str) -> list[dict[str, Any]]` (line 1270; public) — The sections of one reading whose last passage was recorded as seen (migration 256).
+  - `carry_reader_section_progress(self, extraction_id: str, rows: Iterable[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 1281; public) — Carry section progress onto a new reading of the same book (re-read safety, 2026-10-14).
+  - `mark_section_generation(self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None=None) -> bool` (line 1333; public) — Stamp the generation batch id exactly once.
+  - `swap_section_generation(self, *, extraction_id: str, section_id: str, from_batch_id: str, batch_id: str, clock: Clock | None=None) -> bool` (line 1351; public) — Mobile v2 D6: move a section's generation stamp from ``from_batch_id`` to ``batch_id``, once: False when the stamp is no longer ``from_batch_id`` (another process took it).
+  - `deferred_section_generations(self, stamp: str, *, extraction_id: str | None=None) -> list[dict[str, Any]]` (line 1372; public) — The completed sections whose generation stamp is ``stamp`` (one left for the primary by the phone host, one waiting for its book's build, ...), oldest first, with when each was finished.
+  - `topic_question_work_for(self, learning_object_ids: Iterable[str], *, purpose: str=READER_FIRST_SET) -> dict[str, dict[str, Any]]` (line 1388; public) — The claims of these topics (topic work and section jobs' topics alike), by topic.
+  - `topic_question_work_rows(self, *, extraction_id: str | None=None, section_id: str | None=None, source_id: str | None=None, batch_id: str | None=None, owner: str | None=None) -> list[dict[str, Any]]` (line 1404; public) — Claims filtered by origin, batch or owner, in the order they were made.
+  - `insert_topic_question_work(self, rows: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 1423; public) — Claim topics: one row each, owner ``topic``.
+  - `index_section_job_topics(self, rows: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 1451; public) — Record topics a section job named before topic work existed as that job's (owner ``section_job``, state ``legacy``): a topic nobody owns gains a row; a row the same job already owns has its proposal references brought up to date; a topic anyone else owns is left as it is.
+  - `update_topic_question_work(self, work_id: str, *, state: str | None=None, error: str | None=None, clear_error: bool=False, proposal_ids: Sequence[str] | None=None, model_settings: Mapping[str, Any] | None=None, requested_count: int | None=None, clock: Clock | None=None) -> None` (line 1484; public) — Move one topic's work along.
+  - `reader_authored_questions_for_extraction(self, extraction_id: str) -> list[dict[str, Any]]` (line 1515; public) — All authored questions for an extraction, newest first per section.
+  - `latest_reader_authored_question(self, *, extraction_id: str, section_id: str) -> dict[str, Any] | None` (line 1531; public) — The newest authored question for one section, any status — the idempotency anchor: a dismissed row suppresses re-authoring.
+  - `transition_reader_authored_question(self, *, question_id: str, status: str, response_md: str | None=None, practice_item_id: str | None=None, self_check: str | None=None, clock: Clock | None=None) -> bool` (line 1548; public) — Row-status transition (proposed -> answered | dismissed | escalated).
+  - `create_source_object(self, *, source_id: str, clock: Clock | None=None) -> str` (line 1591; public)
+  - `append_source_object_version(self, *, source_object_id: str, version: Mapping[str, Any], citations: list[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 1601; public)
+  - `source_object_head(self, source_object_id: str) -> dict[str, Any] | None` (line 1655; public)
+  - `source_objects_for_source(self, source_id: str) -> list[dict[str, Any]]` (line 1683; public)
+  - `create_source_object_relation(self, *, source_object_id: str, related_object_id: str | None, relation_type: str, learner_text: str | None=None, authorship: str='learner', review_status: str='proposed', clock: Clock | None=None, version_ordinal: int=1) -> str` (line 1691; public)
+  - `source_object_relation(self, relation_id: str) -> dict[str, Any] | None` (line 1711; public)
+  - `create_mapping_proposal(self, *, source_object_id: str | None=None, annotation_id: str | None=None, target_kind: str, target_ref: str | None=None, confidence: float | None=None, rationale: str | None=None, provenance: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 1718; public)
+  - `mapping_proposals(self, *, status: str | None=None, source_object_id: str | None=None) -> list[dict[str, Any]]` (line 1739; public)
+  - `decide_mapping_proposal(self, *, proposal_id: str, status: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 1758; public)
+  - `repoint_mapping_proposal(self, proposal_id: str, *, target_ref: str) -> bool` (line 1774; public) — Point an undecided mapping proposal at another target: a completed synthesis request rebound to the capture that still holds it moves its commitment mapping to that capture's commitment (Codex verify of RW1b fix round 3, F16).
+  - `set_source_object_status(self, *, source_object_id: str, status: str, clock: Clock | None=None) -> dict[str, Any]` (line 1788; public) — Append a status-only successor version carrying the head content forward.
+  - `_set_source_object_status(self, *, source_object_id: str, status: str, clock: Clock | None=None) -> dict[str, Any]` (line 1801; internal)
 
 ### Module constants
 

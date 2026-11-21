@@ -99,6 +99,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export: `scrollIntoViewWithin`; references `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `scrollIntoViewWithin`; references `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `scrollIntoViewWithin`; references `scrollIntoViewWithin`
+- [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `scrollIntoViewWithin`; references `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export: `scrollIntoViewWithin`; references `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `scrollIntoViewWithin`; references `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|src/screens/reader/useReadingProgress.ts]] — import-or-re-export: `scrollIntoViewWithin`; references `scrollIntoViewWithin`

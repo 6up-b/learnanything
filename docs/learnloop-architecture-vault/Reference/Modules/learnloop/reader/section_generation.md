@@ -133,6 +133,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_part_read_request.py](../../../../../../tests/test_part_read_request.py) — direct import
 - [tests/test_section_done_before_build.py](../../../../../../tests/test_section_done_before_build.py) — direct import
   - `test_a_section_finished_before_the_build_and_another_citing_its_topic_claim_it_once`
+- [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
+  - `test_reaching_the_end_before_the_build_waits_for_it_then_writes`
+  - `test_the_phones_end_finishes_the_section_once_for_the_desktop_to_write`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
   - `test_topic_order_follows_first_cited_span`
   - `test_two_claims_at_once_give_each_topic_one_owner`

@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1302 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **666 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **70 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1303 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **668 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **70 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1281 | Live ownership after the refactor. |
+| `ACTIVE` | 1282 | Live ownership after the refactor. |
 | `COMPAT` | 2 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 18 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -89,7 +89,7 @@ tags:
 | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] | `domain` | `ACTIVE` | 9 | Placement for new material through the LearnerPredictor contract; writes only its own receipts, never evidence. |
 | [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] | `domain` | `ACTIVE` | 14 | The practice index: facet dossiers and find_practice (recall by search, an LLM decides, the scheduler admits). |
 | [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] | `domain` | `ACTIVE` | 10 | Project understanding: captured agent-written diffs and delayed comprehension probes on them. |
-| [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] | `domain` | `ACTIVE` | 33 | Reader-mode source exploration, annotations, quick checks, and authoring handoffs. |
+| [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] | `domain` | `ACTIVE` | 34 | Reader-mode source exploration, annotations, quick checks, and authoring handoffs. |
 | [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] | `domain` | `ACTIVE` | 4 | Recognition and effort RE0: the derived cue label of an attempt and the report section that splits results by it; capture only, read by reports and nothing else. |
 | [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] | `domain` | `ACTIVE` | 7 | Application services for frontends outside the desktop (the MCP chat adapter's only door); no learning policy of its own. |
 | [[Reference/Modules/learnloop/router/_package|learnloop.router]] | `domain` | `ACTIVE` | 12 | The action router: decisions logged on today's serving paths and their derived outcomes; a leaf that chooses nothing yet. |
@@ -112,7 +112,7 @@ tags:
 
 ## Desktop client modules
 
-The Tauri desktop application has **666 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
+The Tauri desktop application has **668 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
 
 > [!tip] Choose the catalog by source tree
 > Use this catalog for Python under `src/`; use [[Desktop Module Catalog]] for TypeScript, TSX, and Rust under `apps/learnloop-tauri/`. Both link back to the same concepts and end-to-end workflows.
@@ -164,6 +164,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1984 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1986 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

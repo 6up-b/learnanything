@@ -627,6 +627,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_secondary_refusals_for_unbuilt_modes`
   - `test_secondary_refuses_a_schema_it_would_have_to_migrate`
 - [tests/test_section_done_before_build.py](../../../../../tests/test_section_done_before_build.py) — direct import
+- [tests/test_section_end.py](../../../../../tests/test_section_end.py) — direct import
 - [tests/test_section_question_parts.py](../../../../../tests/test_section_question_parts.py) — direct import
   - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`
 - [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import

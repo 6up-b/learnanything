@@ -114,7 +114,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_part_read_first_set.py](../../../../../tests/test_part_read_first_set.py) — direct import
   - `test_the_desktop_claims_the_phones_reading_when_it_starts`
 - [tests/test_reader_seen_passages.py](../../../../../tests/test_reader_seen_passages.py) — direct import
-  - `test_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing`
+  - `test_below_the_tag_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing`
+- [tests/test_section_end.py](../../../../../tests/test_section_end.py) — direct import
 
 ## Modification guidance
 

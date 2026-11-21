@@ -2260,6 +2260,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_load_secondary_writes_nothing_where_load_writes`
   - `test_second_process_attaches_beside_a_writing_primary_on_wal`
   - `test_secondary_handlers_still_write`
+- [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
+  - `test_an_end_on_a_section_already_finished_below_the_tag_changes_nothing`
+  - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
   - `test_two_claims_at_once_give_each_topic_one_owner`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import

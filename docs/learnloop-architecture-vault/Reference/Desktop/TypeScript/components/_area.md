@@ -113,7 +113,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/pdfDocumentCache|pdfDocumentCache.ts]] | `ACTIVE` | Provides shared `pdfDocumentCache` state or utility behavior for desktop components. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/components/pdfPages|pdfPages.ts]] | `ACTIVE` | Provides shared `pdfPages` state or utility behavior for desktop components. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/components/quickAddConsent|quickAddConsent.ts]] | `ACTIVE` | Provides shared `quickAddConsent` state or utility behavior for desktop components. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/components/scrollWithin|scrollWithin.ts]] | `ACTIVE` | Provides shared `scrollWithin` state or utility behavior for desktop components. | 0 | 7 |
+| [[Reference/Desktop/TypeScript/components/scrollWithin|scrollWithin.ts]] | `ACTIVE` | Provides shared `scrollWithin` state or utility behavior for desktop components. | 0 | 8 |
 | [[Reference/Desktop/TypeScript/components/sourceTail|sourceTail.ts]] | `ACTIVE` | Provides shared `sourceTail` state or utility behavior for desktop components. | 0 | 3 |
 | [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 167 |
 | [[Reference/Desktop/TypeScript/components/ui|ui.tsx]] | `ACTIVE` | Provides the reusable `ui` interaction surface used by one or more desktop workflows. | 3 | 23 |
