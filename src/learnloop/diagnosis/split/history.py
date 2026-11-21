@@ -26,6 +26,8 @@ causal hypothesis is shown in its latest version written before the cutoff.
 The status of mutable rows (factors, misconceptions, candidates) is read as
 of now (their status history is not versioned; the receipt discloses
 ``lagged_attempts``), and their ``last_updated`` never shows a later time.
+That rule is the ``history_v1`` preset of ``learnloop.db.evidence_cutoff``
+(``VaultHistoryStore.cutoff``); the static store's is ``corrected_before``.
 
 Teacher TE0 (spec_teacher_v1 §15.2): an attempt also carries the learner's
 confidence tap (``answer_confidence``, the learner's own mark) and, as one

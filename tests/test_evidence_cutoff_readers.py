@@ -373,3 +373,39 @@ def test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of(tmp_path):
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
         events = RP.load_events(connection, vault, repository, as_of="2026-10-12T09:00:00Z")
     assert sorted(event.attempt_id for event in events.attempts) == sorted(ids[:2])
+
+
+# -- historical help visibility ------------------------------------------------------------------------------------
+
+
+def test_a_hint_shown_then_attached_after_the_cutoff_is_partly_reconstructable(tmp_path):
+    """One assist requested, shown, then attached to an attempt after a cutoff between the two: its display is
+    dated by ``shown_at`` (exact as of the cutoff), but the attachment writes no time of its own (the attempt's own
+    time only bounds it, and ``submitted_at`` is whatever the attach was handed), so a read as of the cutoff lists
+    both as approximate rather than showing today's values."""
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import help_assists as H
+
+    paths = _history(tmp_path)
+    with closing(connect(paths.sqlite_path)) as connection:
+        H.insert_assist(connection, {"id": "ha_1", "surface": "practice", "assist_kind": "hint",
+                                     "practice_item_id": "pi_svd_compute_001", "submission_id": "sub_1",
+                                     "level": 2, "chooser": "none", "shown": 0, "counted_by": "server",
+                                     "requested_at": iso(5.5)})
+        assert H.mark_shown(connection, "ha_1", shown_at=iso(6))
+        connection.commit()
+        shown = H.assist(connection, "ha_1")
+        assert H.attach_submission(connection, submission_id="sub_1", practice_item_id="pi_svd_compute_001",
+                                   attempt_id="att_07_svd_future", submitted_at=iso(10)) == 1
+        connection.commit()
+        attached = H.assist(connection, "ha_1")
+    changed = {name for name in H.COLUMNS if shown[name] != attached[name]}
+    assert changed == {"attempt_id", "submitted_at"}  # no column records when the attach happened
+    cutoff_time = iso(8)
+    assert shown["shown_at"] <= cutoff_time < attached["submitted_at"]
+    asked = ("help_assists.requested_at", "help_assists.shown", "help_assists.shown_at", "help_assists.attempt_id",
+             "help_assists.submitted_at")
+    cutoff = Cutoff.as_known_at(cutoff_time, fields=asked)
+    assert [(entry.field, entry.status) for entry in cutoff.approximate] == [
+        ("help_assists.attempt_id", "partial"), ("help_assists.submitted_at", "partial")]
