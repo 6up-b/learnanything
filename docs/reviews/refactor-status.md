@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of evidence packets' EP0t and the shared contract check's step 0 on main `5508b1a9bb` (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of evidence packets' EP0, the first evening's step 3 and the protection fix G6-P8 (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -361,8 +361,8 @@ A first set of questions from the part read; a section's end finishes it; an hon
 |---|---|---|---|---|---|
 | Step 1 | One OK before every model route (UX-10): one acceptance record, no call before it, one sheet | not started | — | — | — |
 | Step 2 | Which passages were seen (migration 256, two append-only tables) and the section's end as an observation; nothing reads them yet | landed | this commit | [first-evening-step-2.md](first-evening-step-2.md) | — |
-| Step 3 | Topic-work ownership and checkpoints, still triggered only by today's completion | not started | — | — | — |
-| Step 4 | A topic gets its questions once every passage it cites has been seen; Today says what is and is not ready | waiting on | — | — | Steps 2 and 3 |
+| Step 3 | Question work owned per topic (migration 257, one claim per topic, the `topic_managed` stamp, topic-scoped checkpoints); old section jobs indexed and resumed unchanged; still triggered only by a section's finish | landed | this commit | [first-evening-step-3.md](first-evening-step-3.md) | — |
+| Step 4 | A topic gets its questions once every passage it cites has been seen; Today says what is and is not ready | not started | — | — | — |
 | Step 5 | A section's end finishes it; the quick-check controls split (a successor tag); the phone's count observer (ledger UX-59) | waiting on | — | — | Step 4 |
 | Step 6 | Typed build stages and a several-line wait | not started | — | — | — |
 | Step 7 | A dated next-practice line at the session's end and on Today | not started | — | — | — |
@@ -378,7 +378,7 @@ The owner decided on 2026-11-20 that five slices are built beside the refactor a
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | EP0t | The evidence-time rules readers already use, named: one serializable cutoff value with seven presets, a census of 60 callers, an inventory of what can be reconstructed historically, and the pinned identity of a prediction target | landed | this commit | [ep0t-time-policies.md](ep0t-time-policies.md) | 25 availability-SQL readers fit no preset and are left as they are: the record's question 1 |
-| EP0 | Attempt facts in one typed value and the named predicates over them, every caller's result unchanged | running | — | — | — |
+| EP0 | Attempt facts in one typed value and the named predicates over them, every caller's result unchanged | landed | this commit | [ep0-attempt-facts.md](ep0-attempt-facts.md) | Two discrepancies between readers are the owner's call (ledger EP0-1, EP0-2); 41 readers are named in the census but not moved (import contracts, the adaptive-difficulty guard, a frozen package cycle) |
 | EPp | Prediction snapshots and receipt repairs | waiting on | — | — | EP0t (landed) and a free worker |
 | ADM0 | Pre-registered simulation and descriptive baseline | not started | — | — | — |
 | ADM1 | The predecessor's update and eligibility interface, and an unused memory fold | not started | — | — | — |
