@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/ingest_queue.py`
 - `src/learnloop/figures/build.py`
 - `src/learnloop/figures/rich.py`
+- `src/learnloop/reader/section_generation.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop/source_retrieval/source_vectors.py`
 - `src/learnloop_sidecar/handlers/figures.py`

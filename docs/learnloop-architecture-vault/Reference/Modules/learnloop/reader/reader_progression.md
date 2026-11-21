@@ -46,24 +46,24 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py) |
-| Source lines | 197 |
+| Source lines | 199 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `source_refs_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 37) — Canonical, path-backed grounding bundles for a selected reader target.
-- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 61) — Build bounded, proposal-local citation bundles for reader seeding.
+- `source_refs_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 39) — Canonical, path-backed grounding bundles for a selected reader target.
+- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 63) — Build bounded, proposal-local citation bundles for reader seeding.
 
 ### Module constants
 
-- `_SOURCE_BUNDLE_RADIUS` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 33)
-- `_MAX_SOURCE_BUNDLES_PER_LO` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 34)
+- `_SOURCE_BUNDLE_RADIUS` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 35)
+- `_MAX_SOURCE_BUNDLES_PER_LO` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 36)
 
 ## Internal implementation anchors
 
-- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 183)
+- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 185)
 
 ## Who imports or calls it
 
@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_once`
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import
+  - `test_a_sections_bundles_are_each_topics_own_so_a_claimed_topic_keeps_its_grounding_in_any_wave`
   - `test_reader_source_refs_preserve_bounded_span_context`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import
   - `test_a_mapped_lo_does_not_suppress_the_attribution`

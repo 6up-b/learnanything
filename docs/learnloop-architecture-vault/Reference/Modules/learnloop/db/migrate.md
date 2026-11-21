@@ -342,6 +342,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_session_digests_migration.py](../../../../../../tests/test_reader_session_digests_migration.py) — direct import
   - `test_227_is_the_reader_session_digests_migration_and_the_table_is_workflow`
   - `test_head_226_upgrades_by_adding_only_227s_objects`
+- [tests/test_reader_topic_question_work_migration.py](../../../../../../tests/test_reader_topic_question_work_migration.py) — direct import
+  - `test_it_adds_the_table_and_changes_nothing_else`
+  - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_220_adds_three_tables_and_alters_nothing`
   - `test_220_on_the_durability_lane`

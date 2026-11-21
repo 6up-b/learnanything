@@ -320,6 +320,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_raw_section_membership_in_the_dose_arm`
 - [tests/test_ad_protected_tables.py](../../../../../../tests/test_ad_protected_tables.py) — direct import
   - `test_every_derived_column_has_a_treatment`
+- [tests/test_attempt_facts.py](../../../../../../tests/test_attempt_facts.py) — direct import
+  - `test_a_withheld_item_behind_the_material_view_reads_as_if_it_were_never_stored`
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
   - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
   - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`

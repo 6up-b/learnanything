@@ -13,6 +13,7 @@ from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.usage import TokenUsage
 from learnloop.ai.execution import background_model_work_active, generation_ceiling, model_call, output_limit, reasoning_effort_request
+from learnloop.ai.structured_contracts import correction_in_flight
 
 WireResult = TypeVar("WireResult", bound=WireModel)
 
@@ -174,6 +175,7 @@ def execute_structured_operation(
     workspace: Path | None = None,
     isolated: bool = False,
     images: tuple[tuple[str, bytes], ...] = (),
+    check: Callable[[WireResult], WireResult] | None = None,
 ) -> WireResult:
     """Execute one feature-owned structured operation.
 
@@ -192,6 +194,11 @@ def execute_structured_operation(
     operations use its generic ``complete_legacy`` adapter method, guarded by
     their declared capability. No provider-specific branching belongs in a
     feature.
+
+    ``check`` is a checked call's contract (``learnloop.ai.structured_contracts``),
+    run on the parsed answer inside this operation's receipt: a rejected answer
+    finishes the receipt as failed, with the answer kept on it. Without one,
+    nothing changes.
     """
 
     if workspace is not None and not transport.supports(READ_ONLY_WORKSPACE):
@@ -236,6 +243,8 @@ def execute_structured_operation(
         result = _execute_request(transport, request, legacy_context, legacy_capability)
         if isinstance(result, BaseModel):
             metadata["output_text"] = result.model_dump_json()
+        if check is not None:
+            result = check(result)
         return result
 
 
@@ -252,6 +261,14 @@ def _execute_request(transport, request, legacy_context, legacy_capability):
         and not request.isolated
         and transport.supports(legacy_capability)
     ):
+        if correction_in_flight():
+            # The adapter builds its request from the legacy context, so the
+            # correction's requirement would never reach the model.
+            provider = getattr(transport, "provider_name", type(transport).__name__)
+            raise AIProviderUnavailable(
+                f"AI provider {provider!r} cannot carry a correction of structured operation {purpose!r} "
+                "over its legacy endpoint"
+            )
         return cast(LegacyOperationTransport, transport).complete_legacy(
             request,
             context=legacy_context,

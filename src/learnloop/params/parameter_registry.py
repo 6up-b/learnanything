@@ -256,6 +256,8 @@ MODULE_INVENTORY: dict[str, str] = {
     "router_objective_decision_state": "src/learnloop/router_objective/decision_state.py",
     "router_objective_question_state": "src/learnloop/router_objective/question_state.py",
     "followup_run_jobs": "src/learnloop/followup_run/jobs.py",
+    # The shared contract check for structured answers: its one recovery bound.
+    "structured_contracts": "src/learnloop/ai/structured_contracts.py",
     "delayed_checks": "src/learnloop/delayed_checks.py",
     # Router objective RO2 (spec_router_objective_v1 §6): the full-history forecaster, its card, its
     # resolver, its audit and its report (receipts and reports only; nothing serving reads them).
@@ -475,6 +477,10 @@ _reg_const("followup_run_jobs:RETRY_BACKOFF_SECONDS", "numerical", kind="structu
            rationale="the pause before the one retry after a transient provider failure; short against the learner's wait.")
 _reg_const("followup_run_jobs:NEED_RETRY_DELAY_SECONDS", "numerical", kind="structural", owner="followup_run_jobs",
            rationale="a failed lane's background retry: what just failed would fail again if tried at once.")
+_reg_const("structured_contracts:MAX_STRUCTURED_RECOVERIES", "constraint", kind="structural",
+           owner="structured_contracts",
+           rationale="keep: 2026-11-20 owner decision: one corrective recovery, shared by schema repair and "
+                     "parsed-contract re-ask; further admission remains caller-owned.")
 _reg_const("data_capture_prefilter:_ROUND_DIGITS", "numerical", kind="structural", owner="data_capture_prefilter",
            rationale="decimal places of a priority or minutes in a prefilter receipt's inputs, so float "
            "noise does not defeat the content-addressed dedupe; receipt size only, never a decision.")

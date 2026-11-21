@@ -138,6 +138,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/attempts/fact_predicates|learnloop.attempts.fact_predicates]] — imports `_unassisted`; statically calls `_unassisted`
 - [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `evaluate_final_coldness`, `record_final_receipt`; statically calls `evaluate_final_coldness`, `record_final_receipt`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `LANE_REPAIR_COLD_RETRY`, `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`, `repair_surface_hard_contamination`; statically calls `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`, `repair_surface_hard_contamination`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `LANE_CERTIFICATION_COLD_PROBE`, `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`; statically calls `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`
@@ -165,12 +166,14 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]], [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]], [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]], [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/fact_predicates|learnloop.attempts.fact_predicates]], [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]], [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]], [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]], [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
+  - `test_the_coldness_dimension_keeps_its_status_evidence_and_scan_flag`
 - [tests/test_certification_cold_probe.py](../../../../../../tests/test_certification_cold_probe.py) — direct import
   - `test_probe_records_a_durable_versioned_label`
 - [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import

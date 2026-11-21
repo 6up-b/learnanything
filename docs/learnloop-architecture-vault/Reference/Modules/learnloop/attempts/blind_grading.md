@@ -174,6 +174,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grading_reads_the_contract_the_answer_was_graded_under`
 - [tests/test_approach_map_boundaries.py](../../../../../../tests/test_approach_map_boundaries.py) — direct import
   - `test_grading_prompts_never_carry_or_read_a_stored_map`
+- [tests/test_attempt_fact_predicates.py](../../../../../../tests/test_attempt_fact_predicates.py) — direct import
+  - `test_the_grading_contexts_have_no_field_for_the_facts`
 - [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
   - `test_a_joint_context_with_history_gives_a_blind_context_and_prompt_without_it`
   - `test_blind_context_has_no_history_capable_field`

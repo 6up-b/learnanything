@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/content/authoring/item_authoring.py"

@@ -24,6 +24,7 @@ from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.attempts.stuck import stuck_answer_summary
 from learnloop.clock import parse_utc
+from learnloop.db.evidence_cutoff import completed_by_excludes
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.daily_plans import plan_served_origins
 from learnloop.db.stores.facet_identity import settled_merge_rows
@@ -475,7 +476,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
                     else connection.execute("SELECT * FROM practice_attempts ORDER BY created_at,id"))
     for raw_attempt in raw_attempts:
         attempt = dict(raw_attempt)
-        if as_of is not None and attempt["created_at"] > as_of:
+        if as_of is not None and completed_by_excludes(attempt["created_at"], as_of):
             continue
         source = ledger[attempt["id"]]
         evidence = source["evidence"]

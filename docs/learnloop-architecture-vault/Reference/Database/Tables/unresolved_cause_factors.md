@@ -19,10 +19,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_card.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
@@ -146,6 +146,7 @@ Indexes and uniqueness:
 - `tests/test_canonical_projection_fold_skip.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_evidence_cutoff_readers.py`
 - `tests/test_followup_journey.py`
 - `tests/test_followup_live_shape.py`
 - `tests/test_followup_rival_factor.py`
@@ -161,7 +162,6 @@ Indexes and uniqueness:
 - `tests/causal_factor_deferral_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
 - `tests/causal_p2_acceptance_helpers.py`
-- `tests/causal_shadow_selection_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

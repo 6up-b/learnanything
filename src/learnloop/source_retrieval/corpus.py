@@ -174,6 +174,21 @@ class Exclusions:
     spans: frozenset[tuple[str, str]] = frozenset()
 
 
+#: Lead roles withheld from item-bound grounding, whatever the block's hint
+#: says (Codex re-review F7).
+ITEM_BOUND_LEAD_ROLES = frozenset({"exercise", "solution"})
+
+
+def has_item_bound_lead(text: str, *, allow_exercise: bool = False) -> bool:
+    """Whether a block's first words say it is an exercise or a solution: the one lead test every exit asks
+    while an item is being practised (references and the linked fallback, the Reader tutor, the pinned tutor,
+    compare, the tutor's retrieved pool). ``allow_exercise`` is the Reader's exception for a passage the learner
+    selected: an exercise lead may be shown there, a solution lead never."""
+
+    role = lead_role(text)
+    return role == "solution" or (not allow_exercise and role in ITEM_BOUND_LEAD_ROLES)
+
+
 def _teaches(role: str | None) -> bool:
     """A role whose sources may ground teaching: ``semantic_contract`` authority.
 
@@ -739,6 +754,7 @@ __all__ = [
     "Eligibility",
     "Exclusions",
     "ITEM_BOUND_EXCLUDED_ROLE_HINTS",
+    "ITEM_BOUND_LEAD_ROLES",
     "Scope",
     "SourceExtraction",
     "MODEL_WITHHELD_ROLES",
@@ -748,6 +764,7 @@ __all__ = [
     "effective_eligibility",
     "effective_hint",
     "extraction_scope",
+    "has_item_bound_lead",
     "item_exclusions",
     "library_scope",
     "exam_exclusions",

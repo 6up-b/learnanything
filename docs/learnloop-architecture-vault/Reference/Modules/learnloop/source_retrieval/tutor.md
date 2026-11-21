@@ -53,31 +53,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Public API
 
-- `step_timings(search_timings: dict[str, int], *, verification_ms: int, total_ms: int) -> dict[str, int]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 83) — Per-step wall times: retrieval is the search minus its paid steps.
-- `over_soft_deadline(timings: dict[str, int], seconds: float) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 96) — The steps (``total`` included) whose wall time exceeded the soft deadline.
-- `span_context(hit: SpanHit, *, complete: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 107) — A verified span in the tutor's ``source_spans`` shape: the complete canonical block (``tutor_qa.context_token_budget`` is the only bound), or with ``complete`` false (``tutor_qa.expanded_delivery``, the kill switch) the predecessor's ``SPAN_TEXT_CAP`` characters of its collapsed…
-- `reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *, item: PracticeItem | None) -> BlockFilter` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 130) — The rules a cited numbered block passes to join a retrieved, pinned or linked span: inside the span's scope (an item-bound scope already leaves out the item's passages and the exercise and solution blocks its role hints name), never exam material, and with an ``item`` (practice,…
-- `linked_reference_filter(vault: LoadedVault, repository: Repository, *, context: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> BlockFilter` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 162) — The rules a numbered block cited by a learning object's linked span passes (the tutor's fallback when retrieval keeps the linked spans; injected by the adapter as ``ask_question(linked_reference_filter=...)``).
-- `with_references(vault: LoadedVault, repository: Repository, spans: list[dict[str, Any]], scope: Scope, *, item: PracticeItem | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 193) — ``spans`` and the numbered blocks they cite (``referenced``), with what was followed for the manifest (None when nothing was cited or the ``tutor_qa.resolve_references`` kill switch is off).
-- `class TutorPool` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 216) — The candidates the tutor's verification judges, and how they were found.
-- `tutor_scope(vault: LoadedVault, repository: Repository, *, context: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 228) — The scope the tutor's pool searches for one question: the teaching scope of its LOs, with the item's exclusions in a practice or feedback context.
-- `tutor_pool(vault: LoadedVault, repository: Repository, *, context: str, question_md: str, learning_object_ids: Sequence[str], item: PracticeItem | None, embedder: Any | None=None, rewrite_client: Any | None=None, owner_id: str='', deadline: float | None=None, query_vectors: Mapping[str, Any] | None=None, rewrite: bool | None=None, rewritten: Rewrite | None=None, pool: str | None=None, pool_extras: int | None=None, extra_lists: Mapping[str, Sequence[SpanKey]] | None=None, scope: Scope | None=None) -> TutorPool` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 240) — The tutor's candidate pool for one question (steps 1 and its withholding).
-- `class TutorSpanProvider` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 320) — ``(vault, repository, *, context, question_md, learning_object_ids, item)`` -> ``(spans or None, manifest or None)``.
-  - `__init__(self, *, embedder: Any | None=None, rewrite_client: Any | None=None, rerank_client: Any | None=None, clock: Clock | None=None, intent_for: Any | None=None) -> None` (line 325; internal)
-  - `__call__(self, vault: LoadedVault, repository: Repository, *, context: str, question_md: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]` (line 337; internal)
-  - `_remediate(self, vault: LoadedVault, repository: Repository, *, question_md: str, pool: list[SpanHit], intent: dict[str, Any], item: PracticeItem | None, search: SpanSearch, withheld: list[str], owner_id: str, ready: Any, deadline: float | None, started: float, scope: Scope) -> tuple[Any, dict[str, Any]]` (line 416; internal) — The remediate intent: same retrieval, the intent's verification prompt (no extra call).
-- `class PinnedSpanProvider` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 479) — "Explain this with my work" (canonical sources S4, §10.3): the tutor is grounded in the passages the learner chose, through the same filters any retrieved span passes (an item-bound question never receives an exercise, a solution, a span linked to its item or one that reproduces…
-  - `__init__(self, span_keys: Sequence[Any], *, cold: bool=False) -> None` (line 487; internal)
-  - `__call__(self, vault: LoadedVault, repository: Repository, *, context: str, question_md: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]` (line 491; internal)
+- `step_timings(search_timings: dict[str, int], *, verification_ms: int, total_ms: int) -> dict[str, int]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 84) — Per-step wall times: retrieval is the search minus its paid steps.
+- `over_soft_deadline(timings: dict[str, int], seconds: float) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 97) — The steps (``total`` included) whose wall time exceeded the soft deadline.
+- `span_context(hit: SpanHit, *, complete: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 108) — A verified span in the tutor's ``source_spans`` shape: the complete canonical block (``tutor_qa.context_token_budget`` is the only bound), or with ``complete`` false (``tutor_qa.expanded_delivery``, the kill switch) the predecessor's ``SPAN_TEXT_CAP`` characters of its collapsed…
+- `reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *, item: PracticeItem | None) -> BlockFilter` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 126) — The rules a cited numbered block passes to join a retrieved, pinned or linked span: inside the span's scope (an item-bound scope already leaves out the item's passages and the exercise and solution blocks its role hints name), never exam material, and with an ``item`` (practice,…
+- `linked_reference_filter(vault: LoadedVault, repository: Repository, *, context: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> BlockFilter` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 158) — The rules a numbered block cited by a learning object's linked span passes (the tutor's fallback when retrieval keeps the linked spans; injected by the adapter as ``ask_question(linked_reference_filter=...)``).
+- `with_references(vault: LoadedVault, repository: Repository, spans: list[dict[str, Any]], scope: Scope, *, item: PracticeItem | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 189) — ``spans`` and the numbered blocks they cite (``referenced``), with what was followed for the manifest (None when nothing was cited or the ``tutor_qa.resolve_references`` kill switch is off).
+- `class TutorPool` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 212) — The candidates the tutor's verification judges, and how they were found.
+- `tutor_scope(vault: LoadedVault, repository: Repository, *, context: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 224) — The scope the tutor's pool searches for one question: the teaching scope of its LOs, with the item's exclusions in a practice or feedback context.
+- `tutor_pool(vault: LoadedVault, repository: Repository, *, context: str, question_md: str, learning_object_ids: Sequence[str], item: PracticeItem | None, embedder: Any | None=None, rewrite_client: Any | None=None, owner_id: str='', deadline: float | None=None, query_vectors: Mapping[str, Any] | None=None, rewrite: bool | None=None, rewritten: Rewrite | None=None, pool: str | None=None, pool_extras: int | None=None, extra_lists: Mapping[str, Sequence[SpanKey]] | None=None, scope: Scope | None=None) -> TutorPool` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 236) — The tutor's candidate pool for one question (steps 1 and its withholding).
+- `class TutorSpanProvider` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 317) — ``(vault, repository, *, context, question_md, learning_object_ids, item)`` -> ``(spans or None, manifest or None)``.
+  - `__init__(self, *, embedder: Any | None=None, rewrite_client: Any | None=None, rerank_client: Any | None=None, clock: Clock | None=None, intent_for: Any | None=None) -> None` (line 322; internal)
+  - `__call__(self, vault: LoadedVault, repository: Repository, *, context: str, question_md: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]` (line 334; internal)
+  - `_remediate(self, vault: LoadedVault, repository: Repository, *, question_md: str, pool: list[SpanHit], intent: dict[str, Any], item: PracticeItem | None, search: SpanSearch, withheld: list[str], owner_id: str, ready: Any, deadline: float | None, started: float, scope: Scope) -> tuple[Any, dict[str, Any]]` (line 413; internal) — The remediate intent: same retrieval, the intent's verification prompt (no extra call).
+- `class PinnedSpanProvider` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 476) — "Explain this with my work" (canonical sources S4, §10.3): the tutor is grounded in the passages the learner chose, through the same filters any retrieved span passes (an item-bound question never receives an exercise, a solution, a span linked to its item or one that reproduces…
+  - `__init__(self, span_keys: Sequence[Any], *, cold: bool=False) -> None` (line 484; internal)
+  - `__call__(self, vault: LoadedVault, repository: Repository, *, context: str, question_md: str, learning_object_ids: Sequence[str], item: PracticeItem | None) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]` (line 488; internal)
 
 ### Module constants
 
-- `PROVENANCE_SPANS_PER_LO` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 73)
-- `ITEM_BOUND_CONTEXTS` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 75)
-- `WITHHOLD_SPARE` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 78)
-- `TIMED_STEPS` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 80)
-- `SPAN_TEXT_CAP` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 104)
-- `ITEM_BOUND_LEAD_ROLES` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 127)
+- `PROVENANCE_SPANS_PER_LO` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 74)
+- `ITEM_BOUND_CONTEXTS` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 76)
+- `WITHHOLD_SPARE` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 79)
+- `TIMED_STEPS` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 81)
+- `SPAN_TEXT_CAP` ([src/learnloop/source_retrieval/tutor.py](../../../../../../src/learnloop/source_retrieval/tutor.py), line 105)
 
 ### Explicit exports
 
@@ -92,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `TutorPool`
 - `TutorSpanProvider`
 - `WITHHOLD_SPARE`
+- `has_item_bound_lead`
 - `linked_reference_filter`
 - `over_soft_deadline`
 - `reference_filter`
@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_delivered(vault: LoadedVault, repository: Repository, search: SpanSearch, picks: list[SpanHit]) -> list[SpanHit]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 469) — The verified spans the tutor is given, recorded as this consumer's delivery in their final order (local contextual retrieval P1, Codex review F9; nothing is logged while no new embedding space is on).
+- `_delivered(vault: LoadedVault, repository: Repository, search: SpanSearch, picks: list[SpanHit]) -> list[SpanHit]` ([source](../../../../../../src/learnloop/source_retrieval/tutor.py), line 466) — The verified spans the tutor is given, recorded as this consumer's delivery in their final order (local contextual retrieval P1, Codex review F9; nothing is logged while no new embedding space is on).
 
 ## Who imports or calls it
 
@@ -112,7 +112,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `tutor_pool`; statically calls `tutor_pool`
 - [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] — imports `ITEM_BOUND_CONTEXTS`, `TutorPool`, `tutor_pool`, `tutor_scope`; statically calls `tutor_pool`, `tutor_scope`
-- [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] — imports `ITEM_BOUND_LEAD_ROLES`
 - [[Reference/Modules/learnloop/source_retrieval/timing|learnloop.source_retrieval.timing]] — imports `TIMED_STEPS`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `TutorSpanProvider`; statically calls `TutorSpanProvider`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `PinnedSpanProvider`; statically calls `PinnedSpanProvider`
@@ -129,8 +128,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `blocks_by_key`; calls `blocks_by_key`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
-- [[Reference/Modules/learnloop/ingest/block_roles|learnloop.ingest.block_roles]] — imports `lead_role`; calls `lead_role`
-- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `Scope`, `exam_withheld`, `teaching_scope`; calls `exam_withheld`, `teaching_scope`
+- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `ITEM_BOUND_LEAD_ROLES`, `Scope`, `exam_withheld`, `has_item_bound_lead`, `teaching_scope`; calls `exam_withheld`, `has_item_bound_lead`, `teaching_scope`
 - [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] — imports `deliver`; calls `deliver`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `_verify`, `correction_lists`, `scope_for`, `span_keys`; calls `_verify`, `correction_lists`, `scope_for`, `span_keys`
 - [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] — imports `Rewrite`
@@ -151,7 +149,7 @@ Use this module in context through:
 
 - [[Tutor and Teach-Back Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]], [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]], [[Reference/Modules/learnloop/source_retrieval/timing|learnloop.source_retrieval.timing]], [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]], [[Reference/Modules/learnloop/source_retrieval/timing|learnloop.source_retrieval.timing]], [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]], [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -165,6 +163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_bridge_is_a_normal_tutor_question_with_the_draft`
 - [tests/test_prescription_passages.py](../../../../../../tests/test_prescription_passages.py) — direct import
   - `test_the_tutor_provider_verifies_with_the_remediate_prompt`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_g6_p8_practice_leads`
 - [tests/test_reader_find_sources_callers.py](../../../../../../tests/test_reader_find_sources_callers.py) — direct import
   - `test_a_workbench_session_asks_as_its_items_practice`
 - [tests/test_sidecar_source_retrieval.py](../../../../../../tests/test_sidecar_source_retrieval.py) — direct import

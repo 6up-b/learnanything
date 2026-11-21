@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/compare.py](../../../../../../src/learnloop/source_retrieval/compare.py) |
-| Source lines | 909 |
+| Source lines | 912 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -98,13 +98,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_pin_reason(scope: Scope, key: tuple[str, str], *, policy: str, item: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 228)
 - `_debit_shown_own_passages(vault: LoadedVault, repository: Repository, caller: CallerContext, result: Comparison, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 280) — K6-8: a ``post_attempt`` comparison that returns the item's own passage is a full reveal of it, whichever way it returned: a fresh comparison, a reused stored one, one book only (``too_few_sources``), or a route skipped or down with the passages listed.
 - `_compare_sources(vault: LoadedVault, repository: Repository, query: str, *, caller: CallerContext, facet_ids: Sequence[str], requested_perspectives: Sequence[str], pinned_span_ids: Sequence[Any], pinned_span_keys: Sequence[Any], anchor_span_keys: Sequence[Any]=(), source_ids: Sequence[str]=(), by_point: bool=False, policy: str | None=None, deadline: float | None=None, client: Any | None, verify_client: Any | None, embedder: Any | None, clock: Clock | None, withhold: Callable[[Sequence[Any]], Mapping[tuple[str, str], str]] | None=None) -> Comparison` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 305)
-- `_cell_holders(repository: Repository, refs: Mapping[str, SpanHit], anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]) -> dict[str, list[tuple[str, str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 726) — Per ref, the blocks of its passage as ``(extraction, span, text)`` (an anchor of several blocks is all of them, in order), so a quoted cell names the block that holds its quote.
-- `_verified_points(answer: SourceComparisonV2, refs: Mapping[str, SpanHit], passages: Mapping[str, str], holders: Mapping[str, list[tuple[str, str, str]]], requested: list[str], dropped: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 742) — The v2 output as it may be shown (K13): every quoted cell's quote is in its own source's passage (else ``not_addressed``, listed as dropped); every compared source has a cell on every point; a relation stands only between two quoted cells of its point with both quotes verified (…
-- `_ordered_keys(values: Sequence[Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 832) — ``_span_keys`` in the given order (an anchor's first block names it).
-- `_anchor_hit(repository: Repository, scope: Scope, keys: Sequence[tuple[str, str]]) -> tuple[SpanHit, list[tuple[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 841) — The anchor as one passage: its blocks of the first block's extraction, in the learner's order, joined (cut to the prompt bound as any passage), and those blocks (the first names the passage).
-- `_also_in(vault: LoadedVault, repository: Repository, query: str, scope: Scope, others: Mapping[str, list[str]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 861) — The other books with a keyword passage on the question (CA3, Q13): one unchecked hit each, exam material withheld, never sent to a model.
-- `_entry(hit: SpanHit, ref: str, anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 880)
-- `_source_entry(hit: SpanHit, ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 892)
+- `_cell_holders(repository: Repository, refs: Mapping[str, SpanHit], anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]) -> dict[str, list[tuple[str, str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 729) — Per ref, the blocks of its passage as ``(extraction, span, text)`` (an anchor of several blocks is all of them, in order), so a quoted cell names the block that holds its quote.
+- `_verified_points(answer: SourceComparisonV2, refs: Mapping[str, SpanHit], passages: Mapping[str, str], holders: Mapping[str, list[tuple[str, str, str]]], requested: list[str], dropped: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 745) — The v2 output as it may be shown (K13): every quoted cell's quote is in its own source's passage (else ``not_addressed``, listed as dropped); every compared source has a cell on every point; a relation stands only between two quoted cells of its point with both quotes verified (…
+- `_ordered_keys(values: Sequence[Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 835) — ``_span_keys`` in the given order (an anchor's first block names it).
+- `_anchor_hit(repository: Repository, scope: Scope, keys: Sequence[tuple[str, str]]) -> tuple[SpanHit, list[tuple[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 844) — The anchor as one passage: its blocks of the first block's extraction, in the learner's order, joined (cut to the prompt bound as any passage), and those blocks (the first names the passage).
+- `_also_in(vault: LoadedVault, repository: Repository, query: str, scope: Scope, others: Mapping[str, list[str]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 864) — The other books with a keyword passage on the question (CA3, Q13): one unchecked hit each, exam material withheld, never sent to a model.
+- `_entry(hit: SpanHit, ref: str, anchor: SpanHit | None, anchor_blocks: Sequence[tuple[str, str]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 883)
+- `_source_entry(hit: SpanHit, ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/compare.py), line 895)
 
 ## Who imports or calls it
 
@@ -134,7 +134,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `route_skip`; calls `route_skip`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `PaidCalls`, `plan_route`, `resolve_client`, `transport_problem`; calls `PaidCalls`, `plan_route`, `resolve_client`, `transport_problem`
-- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `Scope`, `exam_withheld`, `item_exclusions`; calls `Scope`, `exam_withheld`, `item_exclusions`
+- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`; calls `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] — imports `deliver`; calls `deliver`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `_span_keys`, `_verify`, `facet_lists`, `scope_for`; calls `_span_keys`, `_verify`, `facet_lists`, `scope_for`
 - [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] — imports `CallerContext`, `PolicyRefused`, `derive_policy`; calls `PolicyRefused`, `derive_policy`
@@ -178,6 +178,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_table_carries_unchecked_sources_and_why`
 - [tests/test_p4_tutor_tool_withhold.py](../../../../../../tests/test_p4_tutor_tool_withhold.py) — direct import
   - `test_the_compare_sources_tool_never_sends_an_assessment_lane_passage_to_verification`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_g6_p8_practice_leads`
 - [tests/test_reader_ca3_codex_review.py](../../../../../../tests/test_reader_ca3_codex_review.py) — direct import
   - `test_f3_a_pin_from_a_book_not_named_is_dropped_before_verification`
   - `test_f3_the_anchor_stays_the_one_exception`

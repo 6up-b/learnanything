@@ -45,6 +45,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.adf_numeric import sigmoid
+from learnloop.attempts.fact_predicates import teacher_attempt_kind, unhelped_cold_type
+from learnloop.attempts.facts import AttemptFacts, submitted_facts
 from learnloop.attempts.grading_admission import estimated_prompt_tokens
 from learnloop.learner.lesson_weight import predicted_success
 from learnloop.teacher.diagnosed_sources import OVER_BUDGET, TOPIC_FILLS_BUDGET
@@ -361,11 +363,12 @@ def _attempt_rows(repository: Any, learning_object_ids: Sequence[str]) -> list[d
         return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
 
-_COLD_TYPES = frozenset({"independent_attempt", "open_text", "diagnostic_probe", "exam_attempt"})
+def _submitted(row: Mapping[str, Any]) -> AttemptFacts:
+    return submitted_facts(attempt_type=row["attempt_type"], hints_used=row["hints_used"], primed=row["primed"])
 
 
 def _cold(row: Mapping[str, Any]) -> bool:
-    return row["attempt_type"] in _COLD_TYPES and not row["primed"] and not row["hints_used"]
+    return unhelped_cold_type(_submitted(row))
 
 
 def _result_words(row: Mapping[str, Any]) -> str:
@@ -387,9 +390,7 @@ def _history(vault: Any, repository: Any, learning_object_ids: Sequence[str], wi
     for row in _attempt_rows(repository, learning_object_ids):
         protected = attempt_protection(withheld, {"item": row["practice_item_id"], "type": row["attempt_type"],
                                                   "probe": row.get("probe_presentation_id")})
-        kind = "cold" if _cold(row) else ("assisted" if row["attempt_type"] in (
-            "hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough") or row["hints_used"] else (
-            "primed" if row["primed"] else row["attempt_type"]))
+        kind = teacher_attempt_kind(_submitted(row))
         tap = row.get("answer_confidence")
         hedge = hedges.get(str(row["id"]))
         header = {
@@ -634,7 +635,7 @@ def _delayed_result(connection: Any, entry: Mapping[str, Any]) -> dict[str, Any]
     if row is None:
         return {"result": "not answered yet"}
     words = _result_words({"correctness": row[0]})
-    cold = row[3] in _COLD_TYPES and not row[4] and not row[5]
+    cold = unhelped_cold_type(submitted_facts(attempt_type=row[3], hints_used=row[4], primed=row[5]))
     tap = f", marked {row[1]}/5 sure" if row[1] else ""
     return {"result": f"answered {'cold' if cold else 'with help'}: {words}{tap}", "answered_at": row[2]}
 

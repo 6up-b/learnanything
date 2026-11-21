@@ -77,6 +77,8 @@ from typing import Any
 
 from learnloop import confidence_events
 from learnloop import learner_protection as protection
+from learnloop.attempts.fact_predicates import hinted_or_primed, primed_only
+from learnloop.attempts.facts import submitted_facts
 from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import BlockCandidate, PlanState
 from learnloop.db.stores.write_provenance import read_snapshot
@@ -489,7 +491,8 @@ class CardGatherer:
             elif result != "not_graded":
                 counts["graded"] += 1
                 counts[result] += 1
-            if int(row.get("hints_used") or 0) > 0 or bool(row.get("primed")):
+            if hinted_or_primed(submitted_facts(attempt_type=row.get("attempt_type"), hints_used=row.get("hints_used"),
+                                                primed=row.get("primed"))):
                 counts["assisted"] += 1
             last.setdefault(lo, str(row["created_at"]))
         classes = self._classes(los, now_iso, unknowns)
@@ -816,7 +819,8 @@ class CardGatherer:
                 "kind": row.get("practice_mode"),
                 "result": attempt_result(row["correctness"], row["id"] in held),
                 "hints_used": int(row.get("hints_used") or 0),
-                "assisted": bool(row.get("primed")),
+                "assisted": primed_only(submitted_facts(attempt_type=row.get("attempt_type"),
+                                                        primed=row.get("primed"))),
                 "key_status": status if status in ("verified", "unverified") else None,
                 "withheld": shown.withheld,
                 "stem": shown.stem,

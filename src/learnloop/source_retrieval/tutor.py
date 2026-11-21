@@ -60,8 +60,9 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import blocks_by_key
 from learnloop.ids import new_ulid
-from learnloop.ingest.block_roles import lead_role
-from learnloop.source_retrieval.corpus import Scope, exam_withheld, teaching_scope
+from learnloop.source_retrieval.corpus import (
+    ITEM_BOUND_LEAD_ROLES, Scope, exam_withheld, has_item_bound_lead, teaching_scope,
+)
 from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
 from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, search_spans
@@ -122,11 +123,6 @@ def span_context(hit: SpanHit, *, complete: bool = True) -> dict[str, Any]:
     }
 
 
-#: Lead roles a cited block (or a block continuing it) never has while an item
-#: is being practised, whatever its role hint says (Codex re-review F7).
-ITEM_BOUND_LEAD_ROLES = frozenset({"exercise", "solution"})
-
-
 def reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *,
                      item: PracticeItem | None) -> BlockFilter:
     """The rules a cited numbered block passes to join a retrieved, pinned or
@@ -150,7 +146,7 @@ def reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *
             return "exam material"
         if item is None:
             return None
-        if lead_role(block.text) in ITEM_BOUND_LEAD_ROLES:
+        if has_item_bound_lead(block.text):
             return "an exercise or solution, while the item is being practised"
         if span_leaks_expected(block.text, item.expected_answer):
             return "it reproduces the answer to the item being practised"
@@ -250,8 +246,9 @@ def tutor_pool(
     The teaching scope of the question's LOs (assessment spans excluded; in a
     practice or feedback context also the item's own passages and every
     exercise and solution block), the LOs' linked spans as the
-    ``provenance`` list, the learner's question alone as the query, answer
-    overlap withheld, then the pool by ``pool`` (None: ``source_retrieval.pool``).
+    ``provenance`` list, the learner's question alone as the query, exercise
+    and solution leads and answer overlap withheld for item-bound questions,
+    then the pool by ``pool`` (None: ``source_retrieval.pool``).
     The T6 report calls this with ``query_vectors`` (and a ``rewritten``
     query) it already paid for, and ``pool`` / ``pool_extras`` for the pool it
     measures, so it verifies exactly what the tutor would (review F5).
@@ -292,7 +289,7 @@ def tutor_pool(
         for hit in hits:
             if span_leaks_expected(hit.text, item.expected_answer):
                 withheld.append(hit.record_id)
-            else:
+            elif not has_item_bound_lead(hit.text):
                 kept.append(hit)
         hits = kept
     if any(hit.pool_role for hit in hits):
@@ -519,6 +516,8 @@ class PinnedSpanProvider:
                 why = "not available while you're practising this item" if item_bound else "not in your sources"
             elif item_bound and span_leaks_expected(block.text, item.expected_answer):
                 why = "it reproduces the answer to the item you are practising"
+            elif item_bound and has_item_bound_lead(block.text):
+                why = "not available while you're practising this item"
             if why is not None:
                 dropped.append({"extraction_id": key[0], "span_id": key[1], "reason": why})
                 continue
@@ -545,6 +544,7 @@ __all__ = [
     "TutorPool",
     "TutorSpanProvider",
     "WITHHOLD_SPARE",
+    "has_item_bound_lead",
     "linked_reference_filter",
     "over_soft_deadline",
     "reference_filter",

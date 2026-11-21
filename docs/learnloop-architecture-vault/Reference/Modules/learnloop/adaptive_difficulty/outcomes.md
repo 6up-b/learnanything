@@ -132,11 +132,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/attempt_facts_helpers.py](../../../../../../tests/attempt_facts_helpers.py) — direct import
 - [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
   - `test_a_stuck_answer_is_forced_to_fail_only_when_empty`
   - `test_an_i_dont_know_answer_still_fails_whatever_its_grade`
 - [tests/test_ad2_model.py](../../../../../../tests/test_ad2_model.py) — direct import
   - `test_unknown_hint_timing_never_read_as_after_work`
+- [tests/test_attempt_facts.py](../../../../../../tests/test_attempt_facts.py) — direct import
+  - `test_adaptive_difficultys_categories_over_the_facts_match_its_own_on_the_full_matrix`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
 
 ## Modification guidance

@@ -349,6 +349,7 @@ Indexes and uniqueness:
 - `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/assumed_known_helpers.py`
+- `tests/attempt_facts_helpers.py`
 - `tests/check_credit_report_helpers.py`
 - `tests/daily_plan_fakes.py`
 - `tests/data_capture_a2_measurement_helpers.py`
@@ -360,7 +361,6 @@ Indexes and uniqueness:
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_h2a_review_round2_helpers.py`
 - `tests/hint_h2b_review_helpers.py`
-- `tests/ih2_lessons_compete_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

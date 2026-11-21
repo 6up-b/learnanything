@@ -197,6 +197,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("reader_section_ends", DENIED),
     ("reader_section_progress", PROTECTED),
     ("reader_seen_spans", DENIED),
+    # Which topics' first questions are being written and with what (migration 257): question-writing
+    # workflow, never read inside an operation.
+    ("reader_topic_question_work", DENIED),
     # Router objective RO2 (§6.3, rung H2 "digests"): a Reader session's digest names its reading.
     ("reader_session_digests", PROTECTED),
     ("reveal_events", PROTECTED),

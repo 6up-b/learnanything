@@ -177,6 +177,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_delivery_refuses_a_protected_quote_even_from_an_unfrozen_selection`
 - [tests/test_e0_review_round4.py](../../../../../../tests/test_e0_review_round4.py) — direct import
   - `test_h7_a_quote_without_complete_canonical_coverage_is_dropped`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_g6_p8_practice_leads`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
   - `test_a_retrieved_spans_reference_to_an_exercise_caption_is_refused_while_practising`
   - `test_an_exercise_continuing_a_cited_theorem_is_cut_while_practising`

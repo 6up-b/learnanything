@@ -403,6 +403,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import
   - `test_an_alternative_embedding_model_takes_an_explicit_price`
 - [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
+  - `test_a_metered_contract_correction_is_admitted_and_charged_as_a_retry`
+  - `test_a_rejected_answer_stays_on_a_failed_receipt_and_only_the_correction_is_recoverable`
+  - `test_with_no_retry_left_a_metered_contract_failure_sends_nothing_more`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
   - `test_decider_end_to_end_through_the_fake_endpoint`
   - `test_dry_run_and_caps_refuse_before_any_client_call_or_write`

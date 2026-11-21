@@ -36,10 +36,10 @@ source_paths:
   - "tests/ad_ingest_fakes.py"
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/attempt_predicate_helpers.py"
   - "tests/causal_orchestrator_helpers.py"
   - "tests/causal_p2_acceptance_helpers.py"
   - "tests/chatgpt_plan_fakes.py"
-  - "tests/check_credit_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/embedding"
@@ -100,10 +100,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_ingest_fakes.py`
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/attempt_predicate_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/chatgpt_plan_fakes.py`
-- `tests/check_credit_helpers.py`
 
 ## Extension and modification guidance
 

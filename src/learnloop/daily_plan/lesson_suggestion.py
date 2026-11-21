@@ -49,6 +49,8 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
+from learnloop.attempts.fact_predicates import graded_cold_check
+from learnloop.attempts.facts import submitted_facts
 from learnloop.clock import Clock, parse_utc
 from learnloop.daily_plan.engine import PlanEnv, latest_today
 from learnloop.db.stores import router_suggestions as store
@@ -148,8 +150,9 @@ def _goal_learning_objects(vault: Any) -> set[str]:
 
 
 def _cold(row: Mapping[str, Any]) -> bool:
-    return (row["attempt_type"] in COLD_ATTEMPT_TYPES and not row["primed"] and not row["hints_used"]
-            and row["correctness"] is not None)
+    return graded_cold_check(submitted_facts(attempt_type=row["attempt_type"], hints_used=row["hints_used"],
+                                             primed=row["primed"], correctness=row["correctness"]),
+                             COLD_ATTEMPT_TYPES)
 
 
 def missed_since(cold: Sequence[Mapping[str, Any]], last_lesson: str | None) -> str | None:

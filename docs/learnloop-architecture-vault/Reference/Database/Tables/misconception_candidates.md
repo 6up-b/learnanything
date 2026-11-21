@@ -17,12 +17,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/047_compositional_misconceptions.sql"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/error_hunt.py"
   - "src/learnloop/diagnosis/split/embeddings.py"
-  - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:

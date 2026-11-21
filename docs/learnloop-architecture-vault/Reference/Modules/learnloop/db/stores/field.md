@@ -107,7 +107,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_answer_signal_arms.py](../../../../../../../tests/test_answer_signal_arms.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 - [tests/test_daily_plan_composition.py](../../../../../../../tests/test_daily_plan_composition.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../../tests/test_daily_plan_owner_decisions.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
-- [tests/test_facet_outcome_view.py](../../../../../../../tests/test_facet_outcome_view.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
+- [tests/test_evidence_cutoff_readers.py](../../../../../../../tests/test_evidence_cutoff_readers.py) — imports consumer [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]]
 
 ## Modification guidance
 

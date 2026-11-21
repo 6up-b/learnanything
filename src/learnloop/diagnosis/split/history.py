@@ -26,6 +26,8 @@ causal hypothesis is shown in its latest version written before the cutoff.
 The status of mutable rows (factors, misconceptions, candidates) is read as
 of now (their status history is not versioned; the receipt discloses
 ``lagged_attempts``), and their ``last_updated`` never shows a later time.
+That rule is the ``history_v1`` preset of ``learnloop.db.evidence_cutoff``
+(``VaultHistoryStore.cutoff``); the static store's is ``corrected_before``.
 
 Teacher TE0 (spec_teacher_v1 §15.2): an attempt also carries the learner's
 confidence tap (``answer_confidence``, the learner's own mark) and, as one
@@ -45,10 +47,13 @@ from datetime import datetime
 from typing import Any, Iterable, Mapping, Protocol, Sequence
 
 from learnloop import confidence_events
+from learnloop.attempts.fact_predicates import DIAGNOSER_ASSISTED_TYPES, diagnoser_assisted
+from learnloop.attempts.facts import submitted_facts
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.db.attempt_availability import attempt_time_sql, known_at, validated_resolution_ids
+from learnloop.db.evidence_cutoff import Cutoff, history_v1_known_by, history_v1_written_before
 from learnloop.substrate.canonical_projection import (
     UNVERIFIED_CRITERION_BLOCK,
     held_for_review_attempts,
@@ -61,9 +66,8 @@ from learnloop.vault.required_method import answered_prompt
 
 #: Attempt types that measure nothing and never appear as history.
 NON_MEASURING_ATTEMPT_TYPES = frozenset({"skip", "self_report", "guided_walkthrough"})
-ASSISTED_ATTEMPT_TYPES = frozenset(
-    {"hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough"}
-)
+#: The attempt types this history calls assisted (``fact_predicates.diagnoser_assisted``'s own).
+ASSISTED_ATTEMPT_TYPES = DIAGNOSER_ASSISTED_TYPES
 #: Joint ``cause_scope`` values that are validity judgements; any other value
 #: (a causal class or ``unknown``) means the joint grader did NOT flag the
 #: measurement, i.e. it treated it as valid.
@@ -636,7 +640,7 @@ def history_attempt_from_blind_record(
             vault.canonical_facet_id(str(facet)) for facet in (item.evidence_facets if item else [])
         ),
         failed_criterion_facets=_failed_facets(vault, item, failed),
-        assisted=bool(hints_used) or attempt_type in ASSISTED_ATTEMPT_TYPES,
+        assisted=diagnoser_assisted(submitted_facts(attempt_type=attempt_type, hints_used=hints_used)),
         primed=bool(primed),
         grader_mode="blind",
         local_analysis_md=str(record.get("local_analysis_md") or "") or None,
@@ -1064,8 +1068,7 @@ class VaultHistoryStore:
         closed rather than leak a record that may postdate the cutoff.
         """
 
-        cutoff = _instant(before.completed_at)
-        return written is not None and cutoff is not None and written < cutoff
+        return history_v1_written_before(written, _instant(before.completed_at))
 
     def _visible(self, entry: _Written, before: AttemptRef) -> bool:
         if entry.anchored_by_write and entry.record.source_attempt_id is None:
@@ -1210,7 +1213,7 @@ class VaultHistoryStore:
                 vault.canonical_facet_id(str(facet)) for facet in (item.evidence_facets if item else [])
             ),
             failed_criterion_facets=_failed_facets(vault, item, failed),
-            assisted=bool(row.get("hints_used")) or attempt_type in ASSISTED_ATTEMPT_TYPES,
+            assisted=diagnoser_assisted(submitted_facts(attempt_type=attempt_type, hints_used=row.get("hints_used"))),
             primed=bool(row.get("primed")),
             grader_mode="joint",
             attribution_facets=alignment[0],
@@ -1253,8 +1256,18 @@ class VaultHistoryStore:
         """RO1 §5.3: True unless the attempt became known after the cutoff (always True with the
         gate off or below the tag, where nothing is held in ``_known``)."""
 
-        known = self._known.get(attempt_id)
-        return known is None or cutoff is None or known <= cutoff
+        return history_v1_known_by(self._known.get(attempt_id), cutoff)
+
+    def cutoff(self, before: AttemptRef) -> Cutoff:
+        """The evidence cutoff this store reads ``before`` under: the ``history_v1`` preset (attempts by
+        ``(created_at, id)`` and, with ``available_at_reads`` on, known by the target's known time; records written
+        strictly before its completion; corrections now except a causal hypothesis's version)."""
+
+        self._load()
+        known = self._known.get(before.attempt_id)
+        return Cutoff.history_v1(
+            before.attempt_id, before.completed_at, known_at=known.isoformat() if known is not None else None,
+            available_at_reads=attempt_time_sql(self.vault.config) != "created_at")
 
     def attempts_before(
         self, before: AttemptRef, learning_object_ids: Sequence[str] | None = None
@@ -1400,6 +1413,12 @@ class StaticHistoryStore:
 
     def lagged_attempts(self, before: AttemptRef) -> int:
         return sum(1 for attempt in self.attempts if attempt.key() > before.key())
+
+    def cutoff(self, before: AttemptRef) -> Cutoff:
+        """The ``corrected_before`` preset: attempts strictly before ``before`` in ``(created_at, id)`` order, no
+        known-time gate, records by their source attempt's order."""
+
+        return Cutoff.corrected_before(before.attempt_id, before.completed_at)
 
 
 __all__ = [

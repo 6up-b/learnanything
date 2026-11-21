@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/attempts/facts.py"
   - "src/learnloop/attempts/reveal_ledger.py"
-  - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/scheduling/scheduler.py"
@@ -140,6 +140,8 @@ Database triggers:
 
 - `tests/ad23_contract_helpers.py`
 - `tests/ad23_fakes.py`
+- `tests/attempt_facts_helpers.py`
+- `tests/attempt_predicate_helpers.py`
 - `tests/figure_build_golden_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/ro2_history_protection_helpers.py`
@@ -156,8 +158,6 @@ Database triggers:
 - `tests/test_exam_protection_review.py`
 - `tests/test_find_sources_intents.py`
 - `tests/test_hint_authored_reveal_ruling.py`
-- `tests/test_hint_discriminating.py`
-- `tests/test_hint_evidence.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

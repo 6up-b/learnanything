@@ -21,6 +21,7 @@ source_paths:
   - "tests/ad3_reading_helpers.py"
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/attempt_predicate_helpers.py"
   - "tests/canonical_facet_helpers.py"
   - "tests/causal_cold_outcomes_helpers.py"
   - "tests/causal_factor_deferral_helpers.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/causal_p2_acceptance_helpers.py"
   - "tests/causal_shadow_selection_helpers.py"
   - "tests/certification_cold_probe_helpers.py"
-  - "tests/conftest.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/error-impacts"
@@ -49,11 +49,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `error_impacts.recall_failure.families.recall` | `-0.25` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a recall failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1786`; `src/learnloop/params/parameter_registry.py:2979` |
+| `error_impacts.recall_failure.families.recall` | `-0.25` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a recall failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1786`; `src/learnloop/params/parameter_registry.py:2985` |
 | `error_impacts.recall_failure.local_severity_gain` | `0.8` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as recall failure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1787` |
-| `error_impacts.scaffold_failure.families.recall` | `-0.35` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a scaffold failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1786`; `src/learnloop/params/parameter_registry.py:2979` |
+| `error_impacts.scaffold_failure.families.recall` | `-0.35` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a scaffold failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1786`; `src/learnloop/params/parameter_registry.py:2985` |
 | `error_impacts.scaffold_failure.local_severity_gain` | `1.5` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as scaffold failure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1787` |
-| `error_impacts.arithmetic_slip.families.numeric` | `-0.05` | number | modeled default or validator seed | Sets the legacy numeric-family impact recorded for a arithmetic slip classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1786`; `src/learnloop/params/parameter_registry.py:2979` |
+| `error_impacts.arithmetic_slip.families.numeric` | `-0.05` | number | modeled default or validator seed | Sets the legacy numeric-family impact recorded for a arithmetic slip classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1786`; `src/learnloop/params/parameter_registry.py:2985` |
 | `error_impacts.arithmetic_slip.local_severity_gain` | `0.35` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as arithmetic slip. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1787` |
 
 ## Compatibility-only inputs
@@ -76,6 +76,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad3_reading_helpers.py`
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/attempt_predicate_helpers.py`
 - `tests/canonical_facet_helpers.py`
 - `tests/causal_cold_outcomes_helpers.py`
 - `tests/causal_factor_deferral_helpers.py`
@@ -83,7 +84,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/causal_shadow_selection_helpers.py`
 - `tests/certification_cold_probe_helpers.py`
-- `tests/conftest.py`
 
 ## Extension and modification guidance
 

@@ -48,10 +48,9 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ingest.block_roles import lead_role
 from learnloop.figure_admission import offerable_blocks
-from learnloop.source_retrieval.corpus import block_roles, item_exclusions
+from learnloop.source_retrieval.corpus import ITEM_BOUND_LEAD_ROLES, block_roles, has_item_bound_lead, item_exclusions
 from learnloop.source_retrieval.find_sources import QUESTION_CHARS
 from learnloop.source_retrieval.queries import MAX_QUERY_CHARS
-from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES
 from learnloop.source_retrieval.verify import verification_route
 from learnloop.text_canon import canonical
 from learnloop.tutor import reader_modes
@@ -298,9 +297,8 @@ class ItemBoundGuard:
             selection = span.get("relation") in SELECTION_RELATIONS
             if key[0] in exclusions.extractions or key in exclusions.spans:
                 why = "linked_to_item"
-            elif role == "solution" or lead_role(text) == "solution":
-                why = "exercise_or_solution"
-            elif not selection and (role in ITEM_BOUND_LEAD_ROLES or lead_role(text) in ITEM_BOUND_LEAD_ROLES):
+            elif (role == "solution" or (not selection and role in ITEM_BOUND_LEAD_ROLES)
+                  or has_item_bound_lead(text, allow_exercise=selection)):
                 why = "exercise_or_solution"
             elif span_leaks_expected(text, self.item.expected_answer):
                 why = "answer_overlap"

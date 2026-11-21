@@ -11,15 +11,29 @@ import json
 
 import pytest
 
+from learnloop.ai.execution import record_model_calls, single_request
 from learnloop.ai.providers.openrouter import OpenRouterProviderClient
-from learnloop.ai.spend import SpendCaps
+from learnloop.ai.schemas import WireModel
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate
+from learnloop.ai.structured_contracts import (
+    Predicate,
+    RecoveryAllowance,
+    checked_structured_answer,
+    contract_of,
+    correction_prompt,
+    recover_from_receipts,
+    recovery_note,
+)
+from learnloop.ai.transport import execute_structured_operation
 from learnloop.config import AIProviderConfig
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.practice_index import completed_root_receipts
 from learnloop.practice_index.dossiers import generate_dossiers
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 from tests.openai_fakes import FakeAPIConnectionError, install_fake_openai
 from tests.practice_index_fakes import build_practice_vault, enable_practice_index
+from tests.structured_contracts_helpers import Refused, refused
 
 DOSSIER = json.dumps({
     "covers": ["eigenvalues"], "excludes": [], "moves": ["solve det(A - tI) = 0"],
@@ -114,3 +128,83 @@ def test_a_metered_transport_that_cannot_bound_requests_fails_closed(practice):
     assert report["status"] == "unavailable", report
     assert "physical requests" in report["reason"]
     assert Unbounded.calls == 0
+
+
+# -- the shared contract step on a metered route (learnloop.ai.structured_contracts) -----------------------------
+
+class _Covers(WireModel):
+    covers: list[str]
+
+
+_COVERED = contract_of(Predicate("no_covers", lambda answer: bool(answer.covers), "Name at least one covered idea."))
+_KEY = "practice_index:checked"
+_PROMPT = "Name the ideas this facet covers."
+
+
+def _metered_checked(paths, client, budget):
+    """A checked call whose every attempt is admitted and charged by ``budget``; the correction as a retry."""
+
+    repository = Repository(paths.sqlite_path)
+
+    def send(attempt, check):
+        estimate = SpendEstimate(calls=1, retries=1 if attempt.ordinal else 0, total_tokens=100, estimated_usd=0.0001)
+        with record_model_calls(repository, owner_kind="contract_check", owner_id="run"), \
+                budget.request(estimate), single_request():
+            return execute_structured_operation(client, purpose="cover_check", prompt=attempt.prompt,
+                                                result_model=_Covers, check=check)
+
+    def admit():
+        used, caps = budget.used, budget.caps
+        return used.retries < caps.max_retries and used.calls < caps.max_calls
+
+    return checked_structured_answer(first_prompt=_PROMPT, contract=_COVERED, send=send,
+                                     recovery=RecoveryAllowance(admit=admit), checkpoint=None,
+                                     failure=refused, request_key=_KEY)
+
+
+def _roots(paths):
+    with Repository(paths.sqlite_path).connection() as connection:
+        rows = connection.execute(
+            "SELECT status, error_type, prompt_hash, output_text, budget_json FROM model_call_receipts "
+            "WHERE purpose='cover_check' AND parent_call_id IS NULL ORDER BY started_at DESC, id DESC").fetchall()
+    columns = ("status", "error_type", "prompt_hash", "output_text", "budget_json")
+    return [dict(zip(columns, row, strict=True)) for row in rows]
+
+
+def test_a_metered_contract_correction_is_admitted_and_charged_as_a_retry(practice, monkeypatch):
+    fake, client = _router(monkeypatch, '{"covers": []}', '{"covers": ["eigenvalues"]}')
+    budget = SpendBudget(_caps(calls=2, retries=1))
+    result = _metered_checked(practice, client, budget)
+    assert result.answer.covers == ["eigenvalues"]
+    assert len(fake.instances[0].requests) == 2
+    assert (budget.used.calls, budget.used.retries) == (2, 1)
+    assert fake.instances[0].requests[1]["messages"][-1]["content"] == correction_prompt(_PROMPT, _COVERED[0])
+
+
+def test_with_no_retry_left_a_metered_contract_failure_sends_nothing_more(practice, monkeypatch):
+    fake, client = _router(monkeypatch, '{"covers": []}', '{"covers": ["eigenvalues"]}')
+    budget = SpendBudget(_caps(calls=2, retries=0))
+    with pytest.raises(Refused) as raised:
+        _metered_checked(practice, client, budget)
+    assert len(fake.instances[0].requests) == 1
+    assert (budget.used.calls, budget.used.retries) == (1, 0)
+    assert raised.value.info.reason == "recovery_refused"
+
+
+def test_a_rejected_answer_stays_on_a_failed_receipt_and_only_the_correction_is_recoverable(practice, monkeypatch):
+    _fake, client = _router(monkeypatch, '{"covers": []}', '{"covers": ["eigenvalues"]}')
+    _metered_checked(practice, client, SpendBudget(_caps(calls=2, retries=1)))
+    correction, rejected = _roots(practice)
+    assert (rejected["status"], rejected["error_type"], rejected["output_text"]) == (
+        "failed", "ContractRejected", '{"covers":[]}')
+    assert recovery_note(rejected["budget_json"]) is None
+    assert recovery_note(correction["budget_json"]) == {"request_key": _KEY, "failed": "no_covers", "ordinal": 1}
+    with Repository(practice.sqlite_path).connection() as connection:
+        completed = completed_root_receipts(connection, purpose="cover_check")
+    assert [receipt["output_text"] for receipt in completed] == ['{"covers":["eigenvalues"]}']
+    recovered = recover_from_receipts(_roots(practice), first_prompt=_PROMPT, request_key=_KEY,
+                                      contract=_COVERED, read=_Covers.model_validate_json)
+    assert recovered is not None and recovered[0].covers == ["eigenvalues"]
+    # Under any other original key the correction is not this call's answer.
+    assert recover_from_receipts(_roots(practice), first_prompt=_PROMPT, request_key="practice_index:other",
+                                 contract=_COVERED, read=_Covers.model_validate_json) is None

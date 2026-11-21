@@ -159,3 +159,24 @@ def test_practice_expansion_queue_preserves_reader_source_refs(tmp_path):
     queued = repository.ingest_jobs_for_batch(batch_id)
     assert len(queued) == 1
     assert queued[0]["payload"]["source_refs"] == [source_ref]
+
+
+def test_a_sections_bundles_are_each_topics_own_so_a_claimed_topic_keeps_its_grounding_in_any_wave(tmp_path):
+    """A wave's request carries the bundles of the topics it claims; each topic's claim keeps only its own. That is
+    a slice of the section's bundles only because each topic's are built from its own citations alone."""
+
+    vault, repository = _setup(tmp_path)
+    template = vault.learning_objects["lo_svd_definition"]
+    for lo, span in [("lo_first", "s0"), ("lo_second", "s2")]:
+        topic = template.model_copy(deep=True, update={"id": lo})
+        topic.provenance.source_refs = [SourceRef(ref_type="canonical_source", ref_id="src1",
+                                                  locator=f"span:ext1/{span}", source_id="src1", extraction_id="ext1")]
+        vault.learning_objects[lo] = topic
+
+    def bundles(topics):
+        return source_refs_for_section(vault, repository, extraction_id="ext1", section_id="u1",
+                                       learning_object_ids=topics)
+
+    wave = bundles(["lo_first", "lo_second"])
+    assert wave == bundles(["lo_first"]) + bundles(["lo_second"])
+    assert [ref["learning_object_ids"] for ref in wave] == [["lo_first"], ["lo_second"]]

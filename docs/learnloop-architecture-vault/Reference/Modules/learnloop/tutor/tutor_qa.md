@@ -287,6 +287,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reader_thread_keeps_an_answer_whose_passages_stay_admissible`
   - `test_a_reader_thread_leaves_out_an_answer_grounded_in_held_out_material`
   - `test_an_earlier_reader_answer_with_no_recorded_passages_is_left_out`
+  - `test_g6_p8_practice_leads`
 - [tests/test_question_context.py](../../../../../../tests/test_question_context.py) — direct import
   - `test_classifier_channel_is_persisted`
   - `test_direct_explanation_request_forces_preference_channel`

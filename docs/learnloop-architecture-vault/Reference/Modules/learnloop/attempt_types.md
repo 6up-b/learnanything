@@ -106,6 +106,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/attempt_predicate_helpers.py](../../../../../tests/attempt_predicate_helpers.py) — direct import
 - [tests/test_intent_fix_round4.py](../../../../../tests/test_intent_fix_round4.py) — direct import
   - `test_f13_on_your_own_is_the_activity_policys_classification`
 - [tests/test_migrations.py](../../../../../tests/test_migrations.py) — direct import

@@ -667,6 +667,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_graded_before_an_editing_sync_keeps_the_edited_hash`
   - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
+- [tests/test_attempt_facts.py](../../../../../../tests/test_attempt_facts.py) — direct import
+  - `test_a_withheld_item_behind_the_material_view_reads_as_if_it_were_never_stored`
+- [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -1215,6 +1218,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
+- [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_a_delayed_read_equals_the_live_one_at_fixed_corrections`
+  - `test_a_hold_and_its_release_are_read_now`
+  - `test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
   - `test_g3_1_an_exposed_answer_recorded_below_the_tag_updates_no_belief_after_the_upgrade`
   - `test_k5_8_a_quarantined_answer_kept_its_review_live_and_keeps_it_on_replay`
@@ -3023,6 +3030,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_cover_source_judges_and_caps_a_metered_run`
   - `test_cover_source_refuses_a_withheld_reading`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_a_failed_topic_resumes_its_own_batch_and_frozen_request_and_no_other_section_takes_it`
   - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
   - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`

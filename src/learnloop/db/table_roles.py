@@ -559,6 +559,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reader_section_ends", TableRole.WORKFLOW),
     ("reader_section_progress", TableRole.WORKFLOW),
     ("reader_seen_spans", TableRole.WORKFLOW),
+    # One durable claim per topic for the first questions a learner's reading
+    # commissions (migration 257): its frozen grounding, checkpoint scope, batch
+    # and state. Workflow, as the section stamp that points at it: never cleared
+    # by a rebuild, never evidence, outside the dataset export.
+    ("reader_topic_question_work", TableRole.WORKFLOW),
     # Reader workbench RW6b (migration 227; spec §9.4): one row per reader
     # session follow-ups were planned for: the typed summary, the commitments
     # created and the valuation receipt (a paid relevance step behind it, so

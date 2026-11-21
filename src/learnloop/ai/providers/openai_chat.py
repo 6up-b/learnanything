@@ -35,6 +35,7 @@ from learnloop.ai.multimodal import (
     strip_markdown_fences,
 )
 from learnloop.ai.strict_schema import strict_output_schema
+from learnloop.ai.structured_contracts import claim_schema_repair
 from learnloop.ai.transport import (
     BOUNDED_STRUCTURED_COMPLETION,
     IMAGE_INPUT,
@@ -427,6 +428,9 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError, json.JSONDecodeError) as first_exc:
             if single_request_active():
+                raise AIInvalidOutput(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from first_exc
+            if not claim_schema_repair():
+                # A checked call's one recovery is spent or not admitted.
                 raise AIInvalidOutput(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from first_exc
             repaired = self._chat(_repair_prompt(text, model_type), model_type)
             try:

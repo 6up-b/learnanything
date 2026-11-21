@@ -341,7 +341,10 @@ def test_try_again_after_an_empty_build_writes_the_owed_sections_questions(tmp_p
     assert _synthesis_job(ctx, source_id)["result"]["item_counts"].get("learning_object")
     batches = _section_batches(ctx, CITED)
     assert len(batches) == 1
-    assert _stamp(ctx, source_id, CITED) == batches[0]["id"]
+    # The section's work is its topics' claims, each naming that batch.
+    assert _stamp(ctx, source_id, CITED) == "topic_managed"
+    claims = ctx.repository.topic_question_work_rows(owner="topic")
+    assert claims and {(row["batch_id"], row["section_id"]) for row in claims} == {(batches[0]["id"], CITED)}
     line = _card(ctx, source_id)["statusLine"]
     assert "noTopics" not in line
     # Read again, everywhere: never a second writing.

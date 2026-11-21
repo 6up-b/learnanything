@@ -1,0 +1,568 @@
+# The evidence-cutoff census (evidence packets EP0t): every read-model caller that cuts learner evidence by time,
+# the cutoff preset it follows (learnloop.db.evidence_cutoff), and the evidence it reads. Checked by
+# tests/test_evidence_cutoff_census.py: each caller exists and makes the call named, each "adapted" reader names the
+# cutoff module, each proof test exists, and every function that asks the availability predicate or builds a
+# closure is a row here.
+#
+# Bounded on purpose: a clock for scheduling or expiry (a due date, a lease, a retention sweep) is not an evidence
+# cutoff, and a parameter named now/before/as_of is not one by its name; reads that keep occurrence time for outcomes,
+# FSRS, mastery and reports are tests/test_ro1_availability_reads.py's OCCURRENCE_TIME_READS.
+#
+# status:
+#   adapted      the reader states its preset through the cutoff type (its comparison is the preset's kernel)
+#   named        the reader follows the preset through a census row above it (a caller of an adapted reader)
+#   no_preset    no preset reproduces it without a changed result; not adapted (the reason is in `differs`)
+#   not_a_cutoff named because it looks like one: what it is instead is in `evidence`
+
+# -- the router objective's closure ------------------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/router_objective/checks.py::Closure.through"
+calls = "closure_through_limit"
+preset = "closure"
+mode = "through"
+status = "adapted"
+evidence = "every event a check's completion, rate or score counts, to the end of a local date: exclusive at the next local midnight (the far future inclusive); both an answer's occurrence and received time; grades, holds, quarantine and the current epoch now"
+proof = "tests/test_evidence_cutoff.py::test_closure_through_is_the_next_local_midnight_across_a_transition"
+
+[[reader]]
+caller = "src/learnloop/router_objective/checks.py::Closure.at"
+calls = "closure_at_limit"
+preset = "closure"
+mode = "at"
+status = "adapted"
+evidence = "the same events to a stamp (a window's closing moment), inclusive"
+proof = "tests/test_evidence_cutoff.py::test_closure_at_the_same_instant_is_inclusive"
+
+[[reader]]
+caller = "src/learnloop/router_objective/checks.py::Closure.admits"
+calls = "closure_admits"
+preset = "closure"
+mode = "through, at"
+status = "adapted"
+evidence = "the one test every counted event passes (assignment rows, sessions, administrations, skips, displacements, help shown, answers)"
+proof = "tests/test_evidence_cutoff.py::test_closure_admits_matrix_equals_the_predecessor"
+
+[[reader]]
+caller = "src/learnloop/router_objective/checks.py::_closure"
+calls = "through"
+preset = "closure"
+mode = "through"
+status = "named"
+evidence = "resolve and completion with through= a local date"
+proof = "tests/test_ro5_landing.py"
+
+[[reader]]
+caller = "src/learnloop/router_objective/checks.py::r_for"
+calls = "through"
+preset = "closure"
+mode = "through"
+status = "named"
+evidence = "a day's r_L, closed at the end of that day unless a closure is passed"
+proof = "tests/test_ro5_checks.py"
+
+[[reader]]
+caller = "src/learnloop/router_objective/checks.py::support_at"
+calls = "at"
+preset = "closure"
+mode = "at"
+status = "named"
+evidence = "the latest drawn day's r_L as of a stamp (the stop coin's support)"
+proof = "tests/test_ro5_checks.py"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/objective_inputs.py::_combiner_read"
+calls = "at"
+preset = "closure"
+mode = "at"
+status = "named"
+evidence = "the memory model's combiner fit on resolved randomized checks as of the decision's now_iso"
+proof = "tests/test_ro5_calibration.py"
+
+[[reader]]
+caller = "src/learnloop/router_objective/scores.py::_context.as_of"
+calls = "at"
+preset = "closure"
+mode = "at"
+status = "named"
+evidence = "a closed window's score reads (resolved checks, completion, r_L, prices, exam results) as of its closing moment"
+proof = "tests/test_ro5_landing.py"
+
+[[reader]]
+caller = "src/learnloop/router_objective/tail_data.py::_exam_result_known"
+calls = "at"
+preset = "closure"
+mode = "at"
+status = "named"
+evidence = "an imported exam result as known at a stamp (the learned tail's dated reward)"
+proof = "tests/test_ro6_landing.py"
+
+[[reader]]
+caller = "src/learnloop/router_objective/tail_data.py::transitions"
+calls = "at"
+preset = "closure"
+mode = "at"
+status = "named"
+evidence = "the learned tail's transition rewards: the checks as they stood at the read's stamp"
+proof = "tests/test_ro6_landing.py"
+
+[[reader]]
+caller = "src/learnloop/router_objective/tail_data.py::transitions.as_of_end"
+calls = "at"
+preset = "closure"
+mode = "at"
+status = "named"
+evidence = "each transition's end as of its own stamp"
+proof = "tests/test_ro6_landing.py"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/objective_inputs.py::decision_reads"
+calls = "job_scope"
+preset = ""
+mode = ""
+status = "not_a_cutoff"
+evidence = "a cache scope, not a cutoff: one decision's builds share a read while the database's commit version (PRAGMA data_version) is unchanged; any commit invalidates it; the reads inside are closure(at now_iso) (_combiner_read). No historical snapshot API"
+proof = "tests/test_rospeed_watcher.py"
+
+# -- the diagnoser's history ---------------------------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore._load"
+calls = "attempt_time_sql"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "the loader: received_at is selected (and a non-empty, readable one becomes the known time) only with available_at_reads on; grading evidence current (superseded_at IS NULL), holds now, factor, misconception and candidate status now, every causal hypothesis version kept"
+proof = "tests/test_evidence_cutoff_readers.py::test_history_admits_by_the_preset_with_an_imported_exam_and_an_equal_second"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore.cutoff"
+calls = "history_v1"
+preset = "history_v1"
+mode = ""
+status = "adapted"
+evidence = "the preset the store states for a target"
+proof = "tests/test_evidence_cutoff_readers.py::test_history_admits_by_the_preset_with_an_imported_exam_and_an_equal_second"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore._known_by"
+calls = "history_v1_known_by"
+preset = "history_v1"
+mode = ""
+status = "adapted"
+evidence = "attempts: known (a non-empty received_at) by the target's known time, else its completion, inclusive, parsed instants"
+proof = "tests/test_evidence_cutoff_readers.py::test_missing_malformed_and_empty_receipts"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore._written_before"
+calls = "history_v1_written_before"
+preset = "history_v1"
+mode = ""
+status = "adapted"
+evidence = "records (hypotheses, factors, registry rows, cold verifications): written strictly before the target's completion instant; an unknown time is never before"
+proof = "tests/test_evidence_cutoff_readers.py::test_a_record_written_at_exactly_the_targets_completion_is_not_shown"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore.attempts_before"
+calls = "_known_by"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "prior attempts: (created_at, id) text order strictly before the target's, and known by its known time; learner marks by created_at text strictly before the target's completion text (_marks_as_of)"
+proof = "tests/test_evidence_cutoff_readers.py::test_history_admits_by_the_preset_with_an_imported_exam_and_an_equal_second"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore.lagged_attempts"
+calls = "_known_by"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "the receipt's count of attempts the cutoff does not show (later, or earlier but not yet known): grows with later attempts, so a delayed diagnosis's receipt differs from a live one's"
+proof = "tests/test_evidence_cutoff_readers.py::test_a_delayed_read_equals_the_live_one_at_fixed_corrections"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore._hypotheses_as_of"
+calls = "_visible"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "hypotheses as of the target: source attempt before it and written before it; a causal hypothesis in its latest version written before the cutoff (corrections then); a mutable row's last_updated falls back to its creation when the update postdates the cutoff, its status now"
+proof = "tests/test_evidence_cutoff_readers.py::test_a_mutable_status_is_read_now"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore._observed_before"
+calls = "_written_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "cold verifications: written before the target and, when the cold attempt is known to the store, ordered before it (no known-time gate on that attempt)"
+proof = "tests/test_diagnosis_history_modes.py::test_as_of_history_needs_each_record_written_before_the_cutoff"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::StaticHistoryStore.cutoff"
+calls = "corrected_before"
+preset = "corrected_before"
+mode = ""
+status = "adapted"
+evidence = "a planted learner's constructed past: attempts and records by (created_at, id) of the attempt or source attempt, strictly before the target, no known-time gate"
+proof = "tests/test_evidence_cutoff_readers.py::test_the_planted_history_store_is_corrected_before"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/context.py::assemble_diagnosis_context"
+calls = "attempts_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "the diagnoser's context: prior attempts, hypotheses, registry, repairs and the receipt's lagged count at the diagnosed attempt"
+proof = "tests/test_diagnosis_history_modes.py"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/context.py::_registry_shortlist"
+calls = "registry_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "the registry universe a retriever shortlists"
+proof = "tests/test_diagnosis_history_modes.py"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/snapshot.py::export_snapshot"
+calls = "attempts_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "the snapshot history mode's export of everything before the target"
+proof = "tests/test_diagnosis_history_modes.py"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/jobs.py::_diagnose"
+calls = "attempts_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "hybrid retrieval's earlier non-passes"
+proof = "tests/test_diagnosis_journey_golden.py"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/jobs.py::_estimated_retrieval"
+calls = "registry_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "the retrieval estimate's registry and failures"
+proof = "tests/test_diagnosis_journey_golden.py"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/offline_review/runner.py::ReviewRun.stage_grades"
+calls = "attempts_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "an offline review's prior attempts per staged attempt"
+proof = "tests/test_diagnose_review.py"
+
+[[reader]]
+caller = "src/learnloop/field/probability_states.py::StateRenderer._card"
+calls = "attempts_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "a prediction point's prior attempts (AttemptRef at the observation)"
+proof = "tests/test_probability_prep.py"
+
+[[reader]]
+caller = "src/learnloop/field/probability_states.py::StateRenderer._hypotheses"
+calls = "hypotheses_before"
+preset = "history_v1"
+mode = ""
+status = "named"
+evidence = "a prediction point's hypotheses and repairs"
+proof = "tests/test_probability_prep.py"
+
+# -- adaptive difficulty and the learner field ------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/replay.py::load_events"
+calls = "ad_replay_excludes"
+preset = "ad_replay"
+mode = ""
+status = "adapted"
+evidence = "attempts, reading opportunities and claims at or before as_of in float days (unreadable times skipped; no as_of: every readable one); through the material view, whose protection is today's; grades, quarantine, holds and claims' supersession (superseded_by IS NULL) now; exposures for warmth unbounded by as_of but read strictly before each serve"
+proof = "tests/test_evidence_cutoff_readers.py::test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of"
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/replay.py::snapshot"
+calls = "load_events"
+preset = "ad_replay"
+mode = ""
+status = "named"
+evidence = "the cached state; every production caller passes no as_of (ad_replay(None)); the cache key keeps the scalar as_of (Cutoff.identity_scalar), the loaded events are fingerprinted separately"
+proof = "tests/test_ad2_model.py"
+
+[[reader]]
+caller = "src/learnloop/field/outcomes.py::_load"
+calls = "completed_by_excludes"
+preset = "completed_by"
+mode = ""
+status = "adapted"
+evidence = "attempt rows whose created_at text is at or before as_of text (None raises, empty is admitted); the latest surviving grading epoch and the field's revision policy now"
+proof = "tests/test_evidence_cutoff_readers.py::test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of"
+
+[[reader]]
+caller = "src/learnloop/field/outcomes.py::load_attempt_rows"
+calls = "_load"
+preset = "completed_by"
+mode = ""
+status = "named"
+evidence = "the field's immutable attempt rows"
+proof = "tests/test_evidence_cutoff.py::test_completed_by_matrix_equals_the_field_predecessor"
+
+[[reader]]
+caller = "src/learnloop/field/outcomes.py::load_facet_rows"
+calls = "_load"
+preset = "completed_by"
+mode = ""
+status = "named"
+evidence = "the field's facet rows"
+proof = "tests/test_evidence_cutoff.py::test_completed_by_matrix_equals_the_field_predecessor"
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/forecasters.py::_challenger"
+calls = "field_rows"
+preset = "completed_by"
+mode = ""
+status = "named"
+evidence = "the challenger forecaster's field rows as of the serve (as_of=served_at), through the material view"
+proof = "tests/test_evidence_cutoff_readers.py::test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of"
+
+# -- the availability predicate's SQL and loaded-row readers -----------------------------------------------------
+# Each compares the availability time (COALESCE(received_at, created_at) with available_at_reads on, else
+# created_at) with a caller's stamp. None is reproduced by a preset: the SQL form compares stored text and keeps an
+# empty receipt as '' (tests/test_evidence_cutoff_readers.py::test_the_sql_form_reads_an_empty_receipt_as_text);
+# closure parses instants and tests occurrence and receipt separately; history_v1 orders by (created_at, id) and
+# parses its known time. Naming them needs a preset of their own (an owner question), so they are not adapted.
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/history_card.py::_Reads.attempts"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "RO2's full-history card: its scope's and the other topics' attempts at the serve"
+differs = "text: created_at <= ? AND {known} <= ? AND {available} <= ? (served_at), inclusive; nearest closure(at), which parses"
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/outside.py::history_card"
+calls = "known_at"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the frozen history card for an outside forecaster"
+differs = "parsed instants, strict: occurred < served and known < served, a missing time excluded; closure(at) is inclusive"
+
+[[reader]]
+caller = "src/learnloop/confidence_events.py::taps_before"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "every confidence tap known before a cutoff"
+differs = "text: {known} < ?, strict, no occurrence test"
+
+[[reader]]
+caller = "src/learnloop/confidence_events.py::learner_events"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the confidence events of attempts known before a cutoff"
+differs = "text: {known} < ?, strict"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/check_inputs.py::_evidence_as_of"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the duration estimator's attempt latencies known by as_of"
+differs = "text: {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/objective_inputs.py::_combiner_with_traces"
+calls = "known_at"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "hands the loaded-row predicate to combiner_data.rows"
+differs = "see router_objective/combiner_data.py::rows"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/router_card.py::CardGatherer.inputs"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the router card's latest known attempt"
+differs = "text: {known} < ?, strict, ordered by {known}"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/router_card.py::CardGatherer._attempts"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the router card's attempts per topic"
+differs = "text: {known} < ?, strict"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/router_card.py::CardGatherer._interaction"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the router card's interaction rows"
+differs = "text: {known} < ?, strict"
+
+[[reader]]
+caller = "src/learnloop/db/stores/lessons.py::pending_delayed_checks"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "a lesson's delayed checks not yet answered by a stamp"
+differs = "text: created_at > lesson close AND {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/learner_context.py::_traces"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the learner context's traces known at now_iso"
+differs = "text: {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/reader_learner_state.py::_build"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the Reader tutor's learner state: attempts known at now_iso"
+differs = "text: {known} < ?, strict"
+
+[[reader]]
+caller = "src/learnloop/router_objective/combiner_data.py::rows"
+calls = "known_at"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "trace outcomes joined to resolved cold outcomes, known by now"
+differs = "loaded-row known time parsed, inclusive against now; a missing known excluded, an unreadable one raises"
+
+[[reader]]
+caller = "src/learnloop/router_objective/miss_cause.py::latest_misses"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the latest misses per topic"
+differs = "text: created_at <= ? AND {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/router_objective/miss_cause.py::surprise_reference"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "fully-right attempts known at now_iso (the surprise reference)"
+differs = "text: {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/router_objective/miss_cause.py::_between"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "whether another attempt happened strictly between two (text (created_at, id) order) and is known at now_iso"
+differs = "text key order like history_v1's, but the known time is SQL text against now_iso, not a parsed instant against the target's"
+
+[[reader]]
+caller = "src/learnloop/router_objective/miss_cause.py::beta_rows"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the slip-or-gap fit's rows"
+differs = "text: created_at <= ? AND {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/router_objective/miss_cause.py::_offer_rows"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "a lesson outcome's attempt known at now_iso"
+differs = "SQL {known} read back, then text: str(known) > now_iso excluded"
+
+[[reader]]
+caller = "src/learnloop/router_objective/preferences.py::features_at"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the preference features of attempts known at a stamp"
+differs = "text: {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/router_objective/scores.py::exam_result_known"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "an exam's result on a date as known at a closure (also admitted through Closure.admits on its created time)"
+differs = "text: substr(created_at, 1, 10) = date AND {known} <= ?"
+
+[[reader]]
+caller = "src/learnloop/router_objective/tail_data.py::_receipt"
+calls = "known_at"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "a decision state receipt as known at a stamp (the row has created_at only)"
+differs = "text: known > at excluded, inclusive"
+
+[[reader]]
+caller = "src/learnloop/router_objective/tail_data.py::logged"
+calls = "known_at"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "the learned tail's logged traces as known at a stamp"
+differs = "text: known > at excluded, inclusive"
+
+[[reader]]
+caller = "src/learnloop/teacher/check_delivery.py::classify"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "a lesson check's answer by as_of (passed on to _answer)"
+differs = "text: {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/teacher/diagnosed_sources.py::_miss"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "a diagnosed miss's attempts"
+differs = "text: created_at <= ? AND {known} <= ?, inclusive"
+
+[[reader]]
+caller = "src/learnloop/teacher/diagnosed_sources.py::_asked_miss"
+calls = "attempt_time_sql"
+preset = ""
+mode = ""
+status = "no_preset"
+evidence = "an asked miss's attempts"
+differs = "text: created_at <= ? AND {known} <= ?, inclusive"

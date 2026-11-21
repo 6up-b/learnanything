@@ -117,6 +117,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/confidence_events.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
+- `src/learnloop/db/evidence_cutoff.py`
 - `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/facet_identity.py`

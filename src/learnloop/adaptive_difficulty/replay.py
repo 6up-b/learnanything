@@ -58,6 +58,7 @@ import numpy as np
 
 from learnloop.attempts.salience_firewall import learning_opportunity_events
 from learnloop.clock import parse_utc
+from learnloop.db.evidence_cutoff import ad_replay_excludes
 from learnloop.db.stores import ad_receipts as receipt_store
 from learnloop.db.stores import ad_serving as serving_store
 
@@ -395,7 +396,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 at = days(record["source_written_at"])
             except ValueError:
                 continue
-            if at > limit:
+            if ad_replay_excludes(at, limit):
                 continue
             lo = record["learning_object_id"]
             opportunities.append(OpportunityEvent(
@@ -416,7 +417,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             at = days(attempt["created_at"])
         except ValueError:
             continue
-        if at > limit:
+        if ad_replay_excludes(at, limit):
             continue
         summary["attempts"] += 1
         row = rows.get(attempt_id)
@@ -563,7 +564,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 at = days(created_at)
             except ValueError:
                 continue
-            if at > limit:
+            if ad_replay_excludes(at, limit):
                 continue
             if source == "init_wizard" and scope_type == "global":
                 claims.append(ClaimEvent(str(claim_id), str(created_at), at, "global", (), float(level)))

@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
+  - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/cli/ingest_batches.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/content/pipeline/add_source.py"

@@ -398,6 +398,28 @@ forbidden_modules = ["learnloop.confidence_events"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "graders-never-read-attempt-facts"
+name = "The grader never reads an attempt's help, reveal and timing facts or the predicates over them (blind-split S1)"
+type = "forbidden"
+# The facts of an attempt (which help, when, what was revealed, how long it took) and the readers' predicates over
+# them are history-aware reads for the diagnoser, the router and the packets, never for a grader. The grading
+# contexts and prompt builders below never import them; learnloop.attempts.attempts (which applies the FSRS cap
+# after grading) is not one of them.
+source_modules = [
+    "learnloop.attempts.ai_contracts",
+    "learnloop.attempts.blind_grading",
+    "learnloop.attempts.grading",
+    "learnloop.attempts.grading_support",
+    "learnloop.attempts.grading_admission",
+    "learnloop.attempts.grade_resolution",
+    "learnloop.attempts.grader_calibration",
+    "learnloop.attempts.regrade",
+    "learnloop.attempts.stuck",
+]
+forbidden_modules = ["learnloop.attempts.facts", "learnloop.attempts.fact_predicates"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "graders-never-read-hypothesis-marks"
 name = "The grader never reads the learner's marks on possible causes (FG1c, spec §7, §8)"
 type = "forbidden"
@@ -1159,6 +1181,10 @@ ignore_imports = [
     # same leaf's canonical assistance classification (attempt_counts_as_assisted),
     # so a check is answered only by what the activity policy calls unassisted.
     "learnloop.scheduling.intent.serving -> learnloop.diagnosis.causal_activity_policy",
+    # The attempt-facts predicates express the canonical assistance test over attempt facts by calling it, from
+    # the same leaf (it imports only dataclasses, typing and the top-level learnloop.causal_activity_policy), so
+    # this edge cannot cycle at import time.
+    "learnloop.attempts.fact_predicates -> learnloop.diagnosis.causal_activity_policy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
     "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",
     "learnloop.attempts.attempts -> learnloop.diagnosis.discrimination_profiles",

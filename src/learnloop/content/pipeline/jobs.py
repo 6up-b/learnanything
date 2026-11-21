@@ -3471,14 +3471,21 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
 
 
 def practice_expansion_payload(learning_object_ids: Sequence[str], reason: str,
-                               source_refs: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
-    """A practice_expansion job's payload, whoever queues it (the sidecar, or a build that just applied)."""
+                               source_refs: Sequence[Mapping[str, Any]] | None = None,
+                               topic_keys: Mapping[str, str] | None = None) -> dict[str, Any]:
+    """A practice_expansion job's payload, whoever queues it (the sidecar, or a build that just applied).
 
-    return {
+    ``topic_keys`` marks topic work (``reader_topic_question_work``): each topic's checkpoint scope. A payload
+    without it is a section job's, keyed by its whole topic list, as every one queued before topic work."""
+
+    payload = {
         "learning_object_ids": list(learning_object_ids),
         "reason": reason,
         "source_refs": [dict(ref) for ref in source_refs or []],
     }
+    if topic_keys is not None:
+        payload["topic_keys"] = {str(lo): str(key) for lo, key in topic_keys.items()}
+    return payload
 
 
 def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
@@ -3516,6 +3523,13 @@ def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
         if not rows:
             return 0
         vault = load_vault(ctx.vault_root)  # the topics this build just applied
+
+        def enqueue(lo_ids, reason, refs, topic_keys):
+            return ctx.enqueue_batch(
+                "practice_expansion",
+                [JobSpec("practice_expansion", practice_expansion_payload(lo_ids, reason, refs, topic_keys))],
+            )
+
         for stamp, row in rows:
             section_id = str(row["section_id"])
             lo_ids = SG.section_generation_candidates(vault, ctx.repo, extraction_id=extraction_id,
@@ -3524,19 +3538,17 @@ def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
                 continue
             refs = RPROG.source_refs_for_section(vault, ctx.repo, extraction_id=extraction_id, section_id=section_id,
                                                  learning_object_ids=lo_ids)
-            # Reading progress is not a press: the writing asks nothing and carries no grant.
-            with plan_fallback.quiet(), ctx.repo.atomic():
-                if not ctx.repo.swap_section_generation(extraction_id=extraction_id, section_id=section_id,
-                                                        from_batch_id=stamp, batch_id=SG.ENQUEUING):
-                    continue  # started elsewhere meanwhile
-                batch_id = ctx.enqueue_batch(
-                    "practice_expansion",
-                    [JobSpec("practice_expansion",
-                             practice_expansion_payload(lo_ids, SG.section_reason(section_id), refs))],
+            # Reading progress is not a press: the writing asks nothing and carries no grant. The stamp's move,
+            # the topics' claims and the batch are one transaction (a section started elsewhere meanwhile is
+            # left to it).
+            with plan_fallback.quiet():
+                batch_id = SG.claim_section_topics(
+                    ctx.repo, extraction_id=extraction_id, section_id=section_id, lo_ids=lo_ids, refs=refs,
+                    enqueue=enqueue, from_stamp=stamp, source_id=source_id,
+                    requested=SG.section_topic_requests(vault, ctx.repo, lo_ids),
                 )
-                ctx.repo.set_section_generation_batch(extraction_id=extraction_id, section_id=section_id,
-                                                      batch_id=batch_id)
-            queued += 1
+            if batch_id is not None:
+                queued += 1
     except JobCancelled:
         pass  # this build was cancelled meanwhile: the sections keep waiting, nothing was queued
     except Exception:  # noqa: BLE001 - starting a section's writing must never fail the build that applied
@@ -3570,7 +3582,8 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     ctx.report("generation", message=f"Generating practice for {len(lo_ids)} learning object(s)")
     client = ctx.services.synthesis_client(ctx)
     saved = None
-    if str(payload.get("reason") or "").startswith("reader_section_completed:"):
+    topics = _TopicWork.of(ctx, payload, client)
+    if topics is None and str(payload.get("reason") or "").startswith("reader_section_completed:"):
         key = section_questions_key(client, lo_ids, source_refs, payload["reason"])
         saved = ModelCheckpoint(ctx.repo, key, "section_questions", dict)
         completed = saved.load()
@@ -3583,11 +3596,19 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     def part_status(states: list[dict[str, Any]]) -> None:
         parts[:] = states
         ctx.repo.update_ingest_job_payload(ctx.job_id, {**payload, "question_parts": states})
+        if topics is not None:
+            topics.record(states)
 
     def progress(done: int, total: int) -> None:
         ctx.report("generation", message=f"Writing questions: {done} of {total} topics finished",
                    current_window=done, total_windows=total)
 
+    by_parts: dict[str, Any] = {}
+    if saved is not None:
+        by_parts = {"checkpoint_scope": saved.key, "progress": progress, "part_status": part_status}
+    elif topics is not None:
+        by_parts = {"topic_scopes": topics.scopes, "applied_patch_ids": topics.earlier_waves(),
+                    "progress": progress, "part_status": part_status}
     try:
         result = generate_post_probe_practice_proposal(
             ctx.vault_root,
@@ -3597,7 +3618,7 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
             target_items_per_lo=3,
             max_new_per_lo=3,
             source_refs=source_refs,
-            **({"checkpoint_scope": saved.key, "progress": progress, "part_status": part_status} if saved is not None else {}),
+            **by_parts,
             extra_instructions=(
                 "These items seed practice for material the learner just finished reading "
                 f"({payload.get('reason') or 'reader_section_completed'}). Ground every item in the "
@@ -3608,16 +3629,72 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
         )
     except PracticeExpansionError as exc:
         # All targeted LOs already supplied — a legitimate no-op for a trigger.
+        if topics is not None:
+            topics.nothing_needed()
         return {"generated": 0, "skipped_reason": str(exc)}
     outcome = {
         "patch_id": result.patch_id,
         "generated": result.plan.requested_new_items,
         "rung_violations": result.rung_violations,
     }
-    if saved is not None:
+    if saved is not None or topics is not None:
         outcome["patch_ids"] = [part["patch_id"] for part in parts if part.get("patch_id")]
+    if saved is not None:
         saved.save(outcome)
     return outcome
+
+
+class _TopicWork:
+    """The topic-work rows a practice_expansion job writes for (``topic_keys`` in its payload): their checkpoint
+    scopes, the proposals earlier waves of their sections applied, and their state as the parts land."""
+
+    def __init__(self, ctx: JobContext, rows: dict[str, dict[str, Any]], scopes: dict[str, str]) -> None:
+        self.ctx, self.rows, self.scopes = ctx, rows, scopes
+
+    @classmethod
+    def of(cls, ctx: JobContext, payload: Mapping[str, Any], client: Any) -> "_TopicWork | None":
+        keys = payload.get("topic_keys")
+        if not isinstance(keys, Mapping) or not keys:
+            return None
+        from learnloop.ai.execution import model_settings
+
+        batch_id = str(ctx.job.get("batch_id") or "")
+        rows = {row["learning_object_id"]: row for row in ctx.repo.topic_question_work_rows(batch_id=batch_id)
+                if row["owner"] == "topic"}
+        for row in rows.values():
+            ctx.repo.update_topic_question_work(row["id"], state="running", model_settings=model_settings(client))
+        return cls(ctx, rows, {str(lo): str(key) for lo, key in keys.items()})
+
+    def earlier_waves(self) -> list[str]:
+        """Proposals of the same sections' topic work queued in other batches: their applied rows are judged with
+        this job's parts, so a later wave never repeats or contradicts what an earlier one applied."""
+
+        batch_id = str(self.ctx.job.get("batch_id") or "")
+        sections = {(row["extraction_id"], row["section_id"]) for row in self.rows.values()}
+        return [patch for extraction_id, section_id in sorted(sections, key=str)
+                for row in self.ctx.repo.topic_question_work_rows(extraction_id=extraction_id, section_id=section_id,
+                                                                  owner="topic")
+                if row["batch_id"] != batch_id for patch in row["proposal_ids"]]
+
+    def record(self, states: list[dict[str, Any]]) -> None:
+        for part in states:
+            row = self.rows.get(str(part.get("topic_id")))
+            if row is None:
+                continue
+            patch = part.get("patch_id")
+            if part.get("error"):
+                state = "failed"
+            elif not patch:
+                continue  # not written yet
+            else:
+                state = "held" if self.ctx.repo.pending_proposal_items(patch) else "written"
+            self.ctx.repo.update_topic_question_work(
+                row["id"], state=state, error=part.get("error"), clear_error=not part.get("error"),
+                proposal_ids=[patch] if patch else None)
+
+    def nothing_needed(self) -> None:
+        for row in self.rows.values():
+            self.ctx.repo.update_topic_question_work(row["id"], state="not_needed")
 
 
 def handle_goal_population(ctx: JobContext) -> dict[str, Any]:
@@ -5043,8 +5120,14 @@ class DurableIngestJobs:
         reason: str | None = None,
         source_refs: list[dict[str, Any]] | None = None,
         ad_commission_id: str | None = None,
+        topic_keys: Mapping[str, str] | None = None,
+        start: bool = True,
     ) -> str:
         """Enqueue per-LO practice generation (reader-first progressive seeding).
+
+        ``topic_keys`` queues topic work (each topic's checkpoint scope). ``start=False`` records the batch and
+        starts nothing, for a caller inside a transaction (a topic claim): it calls :meth:`run_queued_work` once
+        that has committed.
 
         Background priority (default band): generation after a section completes
         must never starve reader quick-checks or interactive quick-add builds.
@@ -5076,7 +5159,7 @@ class DurableIngestJobs:
                 return existing
         payload = practice_expansion_payload(
             learning_object_ids, reason or ("ad_commission" if ad_commission_id else "reader_section_completed"),
-            source_refs,
+            source_refs, topic_keys,
         )
         if ad_commission_id:
             payload["ad_commission_id"] = str(ad_commission_id)
@@ -5086,8 +5169,16 @@ class DurableIngestJobs:
             subject_id=subject_id,
             batch_id=ad_commission_batch_id(ad_commission_id) if ad_commission_id else None,
         )
-        self._ensure_worker()
+        if start:
+            self._ensure_worker()
         return batch_id
+
+    def run_queued_work(self) -> None:
+        """Start the worker on what is queued (a foreground host drains it now): after a transaction that queued
+        work with ``start=False`` has committed."""
+
+        if self._runner is not None:
+            self._ensure_worker()
 
     def enqueue_goal_population(self, *, goal_id: str) -> str:
         """Enqueue durable goal-scoped practice authoring from the wizard."""
