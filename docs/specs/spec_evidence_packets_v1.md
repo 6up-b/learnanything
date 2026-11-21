@@ -404,7 +404,7 @@ Goal forecasts, the grader's class posterior and attempt surprise (computed with
 | **`teacher.sensors.min_track_n`** (default 8): below it the line says "too few past cases" | §7a.3 | **Replaced.** No threshold (no made-up constants, owner 2026-10-24): every track record shows its count ("7 of 12", "1 of 2"), and the model weighs it |
 | **`learner_surprise`** `= −log p_L(outcome)`, `p_L` from the tap, hedge read as fallback, logged in `attempt_surprise` with its source (`tap`, `hedge`, `absent`) | §7a.2 | Not built. `p_L` now comes from LP-min's learned tap/hedge recalibration (built with TE1 in `learner/lesson_weight.py`, `tap_probability`), not revision 1's starting constants 0.4 / 0.85 |
 | **`learner_surprise` not folded into the EKF likelihood** unless the confidence arms win prequentially | §7a.2 | Carried unchanged; the fold is deferred with that trigger (§7a.6) |
-| **`tap_shown`** on every attempt: the tap is an intervention as well as a measurement | §7a.2 | Not built. Becomes an attempt fact. `spec_learned_parameters_v1.md` §3.0b item 6's tap-reactivity check (omit the tap at random on a fraction of probes) is carried as Q11 |
+| **`tap_shown`** on every attempt: the tap is an intervention as well as a measurement | §7a.2 | Not built. Becomes an attempt fact. `spec_learned_parameters_v1.md` §3.0b item 6's tap-reactivity check (omit the tap at random on a fraction of probes) was put to the owner as Q11 and **declined** (2026-11-20): no omission arm; `tap_shown` is still recorded |
 | **Sensors must earn their place**: raw history vs raw history plus rendered sensors, scored on committed forecasts by prequential log-loss; a family that does not help is dropped | §7a.5 | Not built. Now for every consumer of the view, not only the teacher |
 | **`sensors_seen` on the lesson receipt**, so the ablation can be reconstructed | §7a.5 | Replaced by EP2's manifest of what each model was shown, which covers every consumer |
 | **Router sensor mode** with arms H0/H1/S-EKF/S-Decider/S-LLM/C-Decider/C-LLM (rev 1 §15.1) | — | **Superseded** by the router objective (`spec_router_objective_v1.md` §8.3-§8.4): the LLM policy already returns calibrated per-option forecasts beside its proposal, the forecasts are scored on their own, and sensors enter `P(perform | path)` through a learned logistic combination. The probability scoreboard rev 1 wanted is EP6 plus RO's report T7 |
@@ -448,7 +448,7 @@ A model is never handed a unitless scalar. Each signal in the view (the confiden
 ### 7a.5 Sensors must earn their place
 
 The bitter-lesson criterion, applied to data instead of argued.
-- **Two arms per consumer:** (a) the facts and events only; (b) facts plus §7a.3's frames and track records. Assigned per model call with a logged probability (`experiment_assignments`, RO5's machinery), at a seeded 50/50 that the owner may change (Q10).
+- **Two arms per consumer:** (a) the facts and events only; (b) facts plus §7a.3's frames and track records. Assigned per model call with a logged probability (`experiment_assignments`, RO5's machinery), at 50/50 (owner, Q10, 2026-11-20).
 - **The score:** each consumer's committed forecasts (the action model's per-option forecasts, the Decider's probabilities, the teacher's `lesson_check_correct` and `lesson_step_retained`, the diagnoser's next-observation forecast) by prequential log-loss against their resolved outcomes, read from EPp's snapshots, with the arm on each manifest (EP2).
 - **The decision:** a family whose arm (b) does not improve forecasts is reported as such in the evidence report; the owner removes it from the rendering. Nothing turns itself off.
 - **Time to signal** (revision 4's estimate, still the best one): about 255 resolved paired forecasts for a 0.1-nat difference at 80% power. The router's two daily-plus models give the fastest consumer; the teacher alone would take years.
@@ -521,6 +521,10 @@ The bitter-lesson criterion, applied to data instead of argued.
 - The shared read model this spec starts, and Part E's time rule with named reads (owner, Nov 16 2026).
 - Revise this spec from the two reviews (owner, Nov 17 2026).
 - Build prediction snapshots as part of this spec, to evaluate model quality later (owner, Nov 17 2026): §7.7, step EPp.
+- **Placement** (owner, Nov 20 2026): EP0, EP0t, EPp, and AD memory's ADM0 and ADM1, run beside the refactor; the behaviour steps stay at the end of the queue. The audit's P1 (a record of what a model was shown) is approved as EP2, before EP3.
+- **Q10** (owner, Nov 20 2026): yes, Part F's ablation at 50/50 per model call, logged. The owner asked for a later follow-up on this together with the other items awaiting gating (adaptive difficulty's, `experiments/`, and offline policy exploration and optimization).
+- **Q11** (owner, Nov 20 2026): no. There is no tap-omission arm; `tap_shown` (§7a.2) is still recorded on every attempt.
+- The owner's decisions page also records EP-DATA-RULES, EP-ROUTER-VIEW and EP-DECIDER-LABELS as decided "as recommended" (Nov 20 2026); which of Q1-Q9 below each covers is recorded on that page, and the rows below are updated when this spec is next revised.
 
 **Open:**
 
@@ -535,8 +539,6 @@ The bitter-lesson criterion, applied to data instead of argued.
 | Q7 | Retention of router payloads and decision facts (`router.payload_retention_days`, default 365), now that manifests point at them? | Keep 365 days; manifests, ids and hashes stay for good and `as_recorded` says `pruned`. Lengthen only if an evaluation needs the bytes. |
 | Q8 | Status history (§7.4)? | Yes, the narrower form. |
 | Q9 | The judge-reliability sample rate (§6.5)? | Yours to set, as the dose floor was; I'd start at one pair in twenty, a few calls a day under the Decider's cap. |
-| Q10 | Part F's ablation split (§7a.5)? | 50/50 per model call, logged; it costs nothing but half the calls reading a shorter packet. |
-| Q11 | Tap reactivity (`spec_learned_parameters_v1.md` §3.0b item 6, carried from teacher rev 1): omit the tap at random on a fraction of ordinary practice answers, to learn whether asking changes the answer? | Yes, at a rate you set (a declared price, like RO5's checks); never on cold checks, probes or exam answers, where the tap is part of the measurement. `tap_shown` (§7a.2) records it either way. |
 
 ## 13. Checked, and not checked
 
