@@ -222,12 +222,14 @@ def build(book: Book) -> None:
 class SeenWriter:
     """The questions' writer: for each topic asked, one grounded, audited question citing that topic's bundles from
     the request. Records each request's prompt (the bytes a model would receive) and the topics asked, in order.
-    ``before`` runs inside each call, before its answer (a test reads on, or finishes the section, there)."""
+    ``before`` runs inside each call, before its answer (a test reads on, or finishes the section, there).
+    ``held``: every question is marked for review anyway (the live route's held questions), so none applies."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, held: bool = False) -> None:
         self.calls: list[list[str]] = []
         self.prompts: list[str] = []
         self.before = lambda: None
+        self.held = held
 
     def complete(self, request):
         import ast
@@ -256,6 +258,9 @@ class SeenWriter:
             row = data["items"][0]
             row.update(client_item_id=topic, proposed_entity_id=f"pi_{topic}",
                        source_ref_ids=[str(ref["ref_id"]) for ref in own])
+            if self.held:
+                row.update(review_route="review_required",
+                           rationale="Grounded in the passages read; the audit passed. Marked for review.")
             items.append(row)
         return AuthoringProposal.model_validate({"summary": "Questions from what was read", "source_refs": refs,
                                                  "items": items})
