@@ -17,7 +17,7 @@ from learnloop.content.proposals import proposals
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.helpers import NOW
-from tests.plan_deadline_fakes import Session
+from tests.plan_deadline_fakes import Session, completed, install_stream
 from tests.section_question_parts_helpers import TOPICS, answer, enqueue, jobs_for, section
 
 
@@ -28,15 +28,12 @@ def unnamed_answer():
     return data
 
 
-def plan_writer(monkeypatch, data):
-    client = ChatGPTPlanProviderClient("plan", ChatGPTPlanProviderConfig(model="fake"), session=Session())
-    requests = []
-
-    def respond(instructions, prompt, model, **kwargs):
-        requests.append((instructions, prompt, kwargs))
-        return json.dumps(data)
-
-    monkeypatch.setattr(client, "_respond", respond)
+def plan_writer(monkeypatch, *answers):
+    client = ChatGPTPlanProviderClient("plan", ChatGPTPlanProviderConfig(
+        model="fake", base_url="http://127.0.0.1"), session=Session())
+    _, requests, _ = install_stream(monkeypatch, lambda n: [
+        (1, completed(json.dumps(answers[min(n, len(answers)) - 1]))),
+    ])
     return client, requests
 
 
@@ -112,6 +109,26 @@ def test_reserved_named_id_wins_even_when_it_occurs_after_the_unnamed_item():
     assert ids(proposal)[2] == candidate
     assert ids(proposal)[0] == candidate + "_2"
     assert len(set(ids(proposal))) == 3
+
+
+def test_fresh_and_checkpointed_authoring_keep_the_same_minted_and_named_ids(tmp_path, monkeypatch):
+    paths, repo = section(tmp_path, 1)
+    raw = unnamed_answer()
+    reserved = ids(AuthoringProposal.model_validate(raw))[0]
+    raw["items"][2]["payload"]["id"] = reserved
+    client, requests = plan_writer(monkeypatch, raw)
+    context = proposals.build_authoring_context(load_vault(paths.root))
+
+    fresh = proposals.dispatch_authoring_request(client, context)
+    assert len(requests) == 1
+    saved = proposals.dispatch_authoring_request(client, context, checkpoints=repo)
+    assert len(requests) == 2 and requests[0] == requests[1]
+    replayed = proposals.dispatch_authoring_request(client, context, checkpoints=repo)
+    assert len(requests) == 2
+
+    assert ids(fresh) == ids(saved) == ids(replayed)
+    assert ids(replayed)[0] == reserved + "_2"
+    assert ids(replayed)[2] == reserved
 
 
 def test_vault_collision_uses_first_free_suffix_and_checkpoint_keeps_it(tmp_path, monkeypatch):
@@ -197,19 +214,12 @@ class PositiveAnswer(WireModel):
 
 
 def test_plan_repair_tells_the_model_the_python_validation_error(monkeypatch):
-    client, requests = plan_writer(monkeypatch, {"value": -1})
-    original = client._respond
-
-    def respond(*args, **kwargs):
-        text = original(*args, **kwargs)
-        return '{"value": 1}' if len(requests) == 2 else text
-
-    monkeypatch.setattr(client, "_respond", respond)
+    client, requests = plan_writer(monkeypatch, {"value": -1}, {"value": 1})
     result = execute_structured_operation(client, purpose="test", prompt="original", result_model=PositiveAnswer)
     assert result.value == 1
-    assert len(requests) == 2
-    assert "value must be positive" in requests[1][1]
-    assert "value must be positive" not in requests[0][1]
+    first, repair = requests
+    assert "value must be positive" in repair["input"][0]["content"]
+    assert first["input"][0]["content"] == "original"
 
 
 @pytest.mark.parametrize("entry", ["canonical_ingest", "file_import"])
