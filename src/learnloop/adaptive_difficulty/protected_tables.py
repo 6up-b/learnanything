@@ -191,7 +191,12 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("reader_cue_impressions", PROTECTED),
     ("reader_path_depths", NEUTRAL),
     ("reader_path_sections", PROTECTED),
+    # The first evening, step 2 (migration 256): which passages were seen and where a section's end was
+    # reached. Generation evidence for a later step, never evidence of understanding: never read inside an
+    # operation (a reader inside one would need the table reclassified and a version decision first).
+    ("reader_section_ends", DENIED),
     ("reader_section_progress", PROTECTED),
+    ("reader_seen_spans", DENIED),
     # Router objective RO2 (§6.3, rung H2 "digests"): a Reader session's digest names its reading.
     ("reader_session_digests", PROTECTED),
     ("reveal_events", PROTECTED),

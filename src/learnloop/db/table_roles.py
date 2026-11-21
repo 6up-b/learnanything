@@ -546,7 +546,14 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # replay never reads them; append-only by trigger.
     ("reader_path_depths", TableRole.WORKFLOW),
     ("reader_path_sections", TableRole.WORKFLOW),
+    # The first evening, step 2 (migration 256): which passages the learner's own
+    # reading observed, and the first time a section's last readable passage was
+    # among them (append-only by trigger). The Reader's progress, as the counts
+    # beside them: never cleared by a rebuild, never evidence of understanding, and
+    # kept out of the dataset export and adjudication evidence (RAW_LEDGER/RECEIPT).
+    ("reader_section_ends", TableRole.WORKFLOW),
     ("reader_section_progress", TableRole.WORKFLOW),
+    ("reader_seen_spans", TableRole.WORKFLOW),
     # Reader workbench RW6b (migration 227; spec §9.4): one row per reader
     # session follow-ups were planned for: the typed summary, the commitments
     # created and the valuation receipt (a paid relevance step behind it, so
