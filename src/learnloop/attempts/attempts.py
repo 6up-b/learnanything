@@ -42,6 +42,7 @@ from learnloop.scheduling.fsrs import (
     rating_from_score,
 )
 from learnloop.attempts.ability_transition import estimate_ability_transition
+from learnloop.attempts.fact_predicates import fsrs_cap_value
 from learnloop.attempts.hint_fold import ServerHintFold, attach_held, attach_keyed, attach_keyless, refolded_draft
 from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
 from learnloop.attempts.grading import (
@@ -5740,29 +5741,11 @@ def fsrs_rating_for_attempt(item: PracticeItem, rubric_score: int, max_points: i
 
 
 def _capped_rating(rating: Rating, item: PracticeItem, hints_used: int) -> Rating:
-    cap_value = _hint_policy_value(item.hint_policy.fsrs_rating_cap_by_hint, hints_used)
+    cap_value = fsrs_cap_value(item.hint_policy.fsrs_rating_cap_by_hint, hints_used)
     if cap_value is None:
         return rating
     cap = _rating_from_cap(cap_value)
     return Rating(min(int(rating), int(cap)))
-
-
-def _hint_policy_value(mapping: dict[int | str, object], hints_used: int) -> object | None:
-    if hints_used in mapping:
-        return mapping[hints_used]
-    string_key = str(hints_used)
-    if string_key in mapping:
-        return mapping[string_key]
-    numeric_keys: list[int] = []
-    for key in mapping:
-        try:
-            numeric_keys.append(int(key))
-        except (TypeError, ValueError):
-            continue
-    eligible = [key for key in numeric_keys if key <= hints_used]
-    if not eligible:
-        return None
-    return mapping.get(max(eligible)) or mapping.get(str(max(eligible)))
 
 
 def _rating_from_cap(value: object) -> Rating:

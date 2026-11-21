@@ -47,6 +47,8 @@ from datetime import datetime
 from typing import Any, Iterable, Mapping, Protocol, Sequence
 
 from learnloop import confidence_events
+from learnloop.attempts.fact_predicates import DIAGNOSER_ASSISTED_TYPES, diagnoser_assisted
+from learnloop.attempts.facts import submitted_facts
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
@@ -64,9 +66,8 @@ from learnloop.vault.required_method import answered_prompt
 
 #: Attempt types that measure nothing and never appear as history.
 NON_MEASURING_ATTEMPT_TYPES = frozenset({"skip", "self_report", "guided_walkthrough"})
-ASSISTED_ATTEMPT_TYPES = frozenset(
-    {"hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough"}
-)
+#: The attempt types this history calls assisted (``fact_predicates.diagnoser_assisted``'s own).
+ASSISTED_ATTEMPT_TYPES = DIAGNOSER_ASSISTED_TYPES
 #: Joint ``cause_scope`` values that are validity judgements; any other value
 #: (a causal class or ``unknown``) means the joint grader did NOT flag the
 #: measurement, i.e. it treated it as valid.
@@ -639,7 +640,7 @@ def history_attempt_from_blind_record(
             vault.canonical_facet_id(str(facet)) for facet in (item.evidence_facets if item else [])
         ),
         failed_criterion_facets=_failed_facets(vault, item, failed),
-        assisted=bool(hints_used) or attempt_type in ASSISTED_ATTEMPT_TYPES,
+        assisted=diagnoser_assisted(submitted_facts(attempt_type=attempt_type, hints_used=hints_used)),
         primed=bool(primed),
         grader_mode="blind",
         local_analysis_md=str(record.get("local_analysis_md") or "") or None,
@@ -1212,7 +1213,7 @@ class VaultHistoryStore:
                 vault.canonical_facet_id(str(facet)) for facet in (item.evidence_facets if item else [])
             ),
             failed_criterion_facets=_failed_facets(vault, item, failed),
-            assisted=bool(row.get("hints_used")) or attempt_type in ASSISTED_ATTEMPT_TYPES,
+            assisted=diagnoser_assisted(submitted_facts(attempt_type=attempt_type, hints_used=row.get("hints_used"))),
             primed=bool(row.get("primed")),
             grader_mode="joint",
             attribution_facets=alignment[0],

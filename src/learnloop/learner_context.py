@@ -111,6 +111,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from learnloop.attempts.fact_predicates import primed_only
+from learnloop.attempts.facts import submitted_facts
 from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.learner_protection import (
     ANSWER_UNRECORDED,
@@ -1386,7 +1388,8 @@ def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimi
             "kind": row.get("practice_mode"), "attempt_type": row.get("attempt_type"),
             "result": attempt_result(row["correctness"], attempt_id in held),
             "graded_by": "blind_grader" if attempt_id in blind else "recorded",
-            "hints_used": int(row.get("hints_used") or 0), "assisted": bool(row.get("primed")),
+            "hints_used": int(row.get("hints_used") or 0), "assisted": primed_only(
+                submitted_facts(attempt_type=row.get("attempt_type"), primed=row.get("primed"))),
             "revealed_before": reveals.get(attempt_id, 0) > 0,
             "declared_stuck": bool(row.get("declared_stuck")), "said_dont_know": bool(row.get("declared_dont_know")),
             "cold_check": cold.get(attempt_id),
