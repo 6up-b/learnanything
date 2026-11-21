@@ -5,6 +5,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { SessionEndSummary } from "../api/dto";
+import { clear, setQueryData } from "../api/queryCache";
 import { setAlgoConfig } from "../app/algoConfig";
 import { SessionFinishHud } from "./SessionFinishHud";
 
@@ -117,7 +118,7 @@ const NEXT = {
 it("says what comes next, dated: tomorrow's questions, the check's first day, what is still being written", () => {
   render(<SessionFinishHud summary={{ ...SUMMARY, nextPractice: NEXT } as unknown as SessionEndSummary} onDismiss={vi.fn()} />);
   const next = screen.getByTestId("session-next").textContent ?? "";
-  expect(next).toContain("Tomorrow: 2 questions due · about 3 minutes.");
+  expect(next).toContain("Tomorrow: 2 questions you answered come back · about 3 minutes.");
   expect(next).toContain("A check on your own is available from 14 November.");
   expect(next).toContain("Questions on 3 more topics are still being written.");
 });
@@ -132,8 +133,21 @@ it("with nothing due tomorrow names the next day, and says what is still due tod
   };
   render(<SessionFinishHud summary={{ ...SUMMARY, nextPractice: next } as unknown as SessionEndSummary} onDismiss={vi.fn()} />);
   expect(screen.getByTestId("session-next").textContent).toBe(
-    "Still due today: 1 question.Nothing more is due tomorrow. Your next question is due on 9 November."
+    "Still due today: 1 question.1 more question you answered comes back on 9 November."
   );
+});
+
+// UX-69 (the live walk partread-3): a question Today offered from the reading, kept after an answer for a check on the
+// learner's own, is named as that question where the books are known (Today and feedback read them before the finish).
+it("names a question from the reading kept for a check, with its day, in place of the bare check line", () => {
+  setQueryData(["get_source_library"], { version: 1, pending: [], sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readerEnabled: true,
+    statusLine: { text: "", tone: "quiet", action: null, details: null,
+      questions: { count: 2, itemIds: ["pi_checked", "pi_dst"], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1 } } }] });
+  render(<SessionFinishHud summary={{ ...SUMMARY, nextPractice: NEXT } as unknown as SessionEndSummary} onDismiss={vi.fn()} />);
+  const next = screen.getByTestId("session-next").textContent ?? "";
+  expect(next).toContain("1 question from your reading is kept for a check on your own, available from 14 November.");
+  expect(next).not.toContain("A check on your own is available from 14 November.");
+  clear();
 });
 
 it("says nothing of what comes next when the summary is missing or holds nothing", () => {

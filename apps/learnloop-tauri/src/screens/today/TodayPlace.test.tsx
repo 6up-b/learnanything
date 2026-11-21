@@ -2583,7 +2583,7 @@ describe("The first evening, step 7: Today says what comes next, dated", () => {
     show({ session: SESSION });
     const next = await screen.findByTestId("today-next");
     expect(next.textContent).toBe(
-      "Tomorrow: 2 questions due · about 3 minutes.A check on your own is available from 14 November.Questions on 3 more topics are still being written."
+      "Tomorrow: 2 questions you answered come back · about 3 minutes.A check on your own is available from 14 November.Questions on 3 more topics are still being written."
     );
     expect(next.getAttribute("role")).toBe("status");
     expect(findJargon(next.textContent ?? "")).toEqual([]);
@@ -2593,7 +2593,7 @@ describe("The first evening, step 7: Today says what comes next, dated", () => {
     const quiet = { ...NEXT, reviews: NEXT.reviews.slice(1), nextReviewDate: "2026-11-04", checks: [], writing: { topicCount: 0, learningObjectIds: [] } };
     apis(dto(finished(), { nextPractice: quiet }));
     show({ session: SESSION });
-    expect((await screen.findByTestId("today-next")).textContent).toBe("Nothing is due tomorrow. Your next question is due Wednesday.");
+    expect((await screen.findByTestId("today-next")).textContent).toBe("1 question you answered comes back Wednesday.");
   });
 
   it("an open plan with questions in it says nothing of tomorrow: the plan is what comes next", async () => {
@@ -2611,7 +2611,7 @@ describe("The first evening, step 7: Today says what comes next, dated", () => {
     show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }), session: SESSION }));
     await screen.findByTestId("today-cause");
     const next = await screen.findByTestId("today-next");
-    expect(next.textContent).toContain("Tomorrow: 2 questions due · about 3 minutes.");
+    expect(next.textContent).toContain("Tomorrow: 2 questions you answered come back · about 3 minutes.");
     expect(next.textContent).not.toContain("still being written");
   });
 
@@ -2913,5 +2913,74 @@ describe("An honest wait (the first evening, step 6): what is happening now, in 
     show(causeProps({ aiConnection: ready() }));
     await screen.findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done");
     expect(screen.queryByTestId("today-cause-detail")).toBeNull();
+  });
+});
+
+// The live walk partread-3 (2026-11-21): a student reads half a one-section chapter, never presses "done", answers the
+// questions Today offers and reads on. Each state below is one the walk saw.
+describe("The live walk partread-3: a kept question, one topic count, questions ready beside later days", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const BOOK = "Symmetric Matrices and Variance";
+  const NEXT = {
+    asOf: "2026-11-21T19:05:00Z",
+    calendar: { zone: "EST", today: "2026-11-21", tomorrow: "2026-11-22", nextDayStartsAt: "2099-11-22T05:00:00Z" },
+    reviews: [{ date: "2026-11-30", count: 2, itemIds: ["pi_1", "pi_2"], learningObjectIds: ["lo_1"], minutes: null }],
+    checks: [{ date: "2026-12-05", count: 1, itemIds: ["pi_3"], learningObjectIds: ["lo_1"], kinds: ["certification_cold_probe"] }],
+    nextReviewDate: "2026-11-30",
+    writing: { topicCount: 1, learningObjectIds: ["lo_b"] },
+    waiting: { sectionCount: 0 },
+    held: { topicCount: 0, learningObjectIds: [] }
+  };
+  const later = "2099-11-30T15:00:00Z";
+  const facts = (overrides: Record<string, unknown>) => ({
+    count: 3, itemIds: ["pi_1", "pi_2", "pi_3"], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1,
+    partRead: ["Document"], ...overrides
+  });
+  const finished = () => body({ status: "complete", stopReason: "A good place to stop for today.", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+
+  it("UX-69: after two answers the third was kept for a check: Today says so with its day, under the writing line", async () => {
+    // Two answered (waiting to come back), the third kept for the check, the next topic being written.
+    const card = libraryCard({ ...LINE.built, questions: facts({ writing: ["Document"], laterItemIds: ["pi_1", "pi_2", "pi_3"],
+      progress: { done: 1, total: 4 }, topics: { written: 1, writing: 3 } }) });
+    apis(dto(finished(), { nextPractice: NEXT }), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [card], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1, { dueStatus: "later", dueAt: later }), scheduled(2, { dueStatus: "later", dueAt: later }),
+        scheduled(3, { dueStatus: "later", dueAt: null })]))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    const next = await screen.findByTestId("today-next");
+    await waitFor(() => expect(next.textContent).toContain("1 question from your reading is kept for a check on your own, available from 5 December."));
+    expect(next.textContent).not.toContain("A check on your own is available from 5 December.");
+    for (const line of Array.from(next.children).map((child) => child.textContent ?? "")) expect(findJargon(line), line).toEqual([]);
+  });
+
+  it("UX-75: reading on after two topics were written: one count across the waves, and the detail placed in it", async () => {
+    const writingDetail = { asOf: "2026-11-21T19:04:00Z", startedAt: "2026-11-21T19:03:00Z", queued: false, retry: false,
+      topic: { title: "Spectral theorem", index: 1, total: 3 }, topicStartedAt: "2026-11-21T19:03:00Z", delivery: null, measured: null };
+    emptyToday([libraryCard({ ...LINE.built, questions: facts({ count: 0, itemIds: [], sections: [], writing: ["Document"],
+      progress: { done: 0, total: 3 }, topics: { written: 2, writing: 3 }, writingDetail }) })]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText(`Writing questions from what you’ve read in “${BOOK}” · 2 topics written · 3 more being written`)).toBeTruthy();
+    expect(cause.textContent).not.toContain("0 of 3 topics done");
+    const detail = screen.getByTestId("today-cause-detail");
+    expect(within(detail).getByText("Writing topic 3 of 5: “Spectral theorem”")).toBeTruthy();
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("UX-77: five ready beside later days: the dated lines speak of the answered questions coming back, never 'nothing is due'", async () => {
+    const ids = ["pi_4", "pi_5", "pi_6", "pi_7", "pi_8"];
+    const f = emptyToday([libraryCard({ ...LINE.built, questions: facts({ count: 8, itemIds: ["pi_1", "pi_2", "pi_3", ...ids], writing: ["Document"],
+      laterItemIds: ["pi_1", "pi_2", "pi_3"], progress: { done: 0, total: 3 }, topics: { written: 3, writing: 3 } }) })],
+    { getTodayQueue: vi.fn(async () => queue(ids.map((id, index) => scheduled(index + 4)))) });
+    f.getDailyPlan.mockImplementation(async () => dto(emptyPlan(), { nextPractice: { ...NEXT, writing: { topicCount: 3, learningObjectIds: ["lo_b", "lo_c", "lo_d"] } } }));
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain(`5 questions from what you’ve read in “${BOOK}” are ready. 3 topics written · 3 more being written.`));
+    const next = await screen.findByTestId("today-next");
+    await waitFor(() => expect(next.textContent).toBe(
+      "2 questions you answered come back on 30 November.1 question from your reading is kept for a check on your own, available from 5 December."
+    ));
+    expect(surface()).not.toMatch(/Nothing is due|next questions are due/);
   });
 });

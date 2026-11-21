@@ -22,6 +22,7 @@ import {
   causeTopicsFailed,
   causeWait,
   goalCauseSentence,
+  todayCause,
   type TodayCause
 } from "../app/todayCause";
 import { NOTE_NO_SUBJECT, NO_ASK_NOT_YET, NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK, NO_HINTS_ON_YOUR_OWN, NO_HINTS_SHORT_CHECK, quickCheckNothingToAsk } from "./refusals";
@@ -32,7 +33,7 @@ import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
 import { citationWords, sectionWords } from "../screens/reader/readerShared";
 import { sessionTopicLine } from "../components/SessionFinishHud";
-import { nextPracticeLines, nextPracticeRowWhy } from "../app/nextPractice";
+import { keptForCheckLine, nextPracticeLines, nextPracticeRowWhy } from "../app/nextPractice";
 import { WAIT_DETAILS_LABEL, buildWaitWords, writingWaitWords } from "../app/waitDetail";
 import { INTENT_COPY } from "../screens/reader/intentPalette";
 import type { BuildDetailDto, CalibrationSessionProgressDto, GoalDto, NextPracticeDto, QuickCheckResultDto, WaitDeliveryDto, WritingDetailDto } from "../api/dto";
@@ -383,6 +384,32 @@ const STEP8_SENTENCES = [
   ...nextPracticeLines({ ...STEP7_NEXT, reviews: [], checks: [], nextReviewDate: null, writing: { topicCount: 0, learningObjectIds: [] }, waiting: { sectionCount: 2 } })
 ];
 
+// The live walk partread-3 (docs/reviews/ux-walk3-round.md): a question kept for a check (UX-69), one topic count across
+// waves (UX-75), the dated lines beside questions ready (UX-77). Every sentence the round adds.
+const WALK3_CARD = STEP8_CARD({ count: 5, itemIds: ["pi_4", "pi_5", "pi_6", "pi_7", "pi_8"], sections: ["Document"], writing: ["Document"],
+  sectionCount: 1, partRead: ["Document"], topics: { written: 3, writing: 3 } });
+const WALK3_CAUSES = [
+  todayCause({ cards: [WALK3_CARD], ai: null, listItems: 5, listItemIds: ["pi_4", "pi_5", "pi_6", "pi_7", "pi_8"] }),
+  todayCause({ cards: [STEP8_CARD({ writing: ["Document"], sectionCount: 1, partRead: ["Document"], topics: { written: 2, writing: 3 } })], ai: null, listItems: 0 }),
+  todayCause({ cards: [STEP8_CARD({ writing: ["Document"], sectionCount: 1, partRead: ["Document"], topics: { written: 0, writing: 1 } })], ai: null, listItems: 0 }),
+  todayCause({ cards: [STEP8_CARD({ writing: ["Document"], sectionCount: 1, topics: { written: 1, writing: 4 } })], ai: null, listItems: 0 })
+].filter((cause): cause is TodayCause => cause !== null);
+const WALK3_NEXT: NextPracticeDto = {
+  ...STEP7_NEXT,
+  calendar: { zone: "EST", today: "2026-11-21", tomorrow: "2026-11-22", nextDayStartsAt: "2026-11-22T05:00:00Z" },
+  reviews: [{ date: "2026-11-30", count: 3, itemIds: ["pi_1", "pi_2", "pi_4"], learningObjectIds: ["lo_1"], minutes: null }],
+  checks: [{ date: "2026-12-05", count: 3, itemIds: ["pi_3", "pi_5", "pi_x"], learningObjectIds: ["lo_1"], kinds: ["certification_cold_probe"] }],
+  nextReviewDate: "2026-11-30"
+};
+const WALK3_SENTENCES = [
+  ...WALK3_CAUSES.map(causeSentence),
+  ...nextPracticeLines(WALK3_NEXT, { keptItemIds: ["pi_3"], finish: true }),
+  ...nextPracticeLines(WALK3_NEXT, { keptItemIds: ["pi_3", "pi_5"] }),
+  ...nextPracticeLines({ ...WALK3_NEXT, reviews: [{ ...WALK3_NEXT.reviews[0], date: "2026-11-22", count: 1 }], nextReviewDate: "2026-11-22" }),
+  keptForCheckLine(WALK3_NEXT, ["pi_3"]) ?? "",
+  "Writing topic 3 of 5: “Spectral theorem”"
+];
+
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).
 const UX11_SENTENCES = [
   "Read “Symmetric matrices and variance” again with its equations?",
@@ -496,6 +523,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(STEP8_SENTENCES)("where questions come from, where to read to, held questions: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(WALK3_SENTENCES)("the live walk partread-3's round: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
   });

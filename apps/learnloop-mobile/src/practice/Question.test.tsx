@@ -129,3 +129,32 @@ describe("a question", () => {
   });
 });
 
+// UX-76 (the live walk partread-3): an error hunt whose prompt already holds the work showed it twice.
+describe("an error hunt's work, on the phone", () => {
+  const WORK = "Since A(1,0) = (3,0) = 3(1,0),\nthe vector (1,0) is an eigenvector with eigenvalue 3.";
+  const hunt = (prompt: string) => ({
+    ...item(), prompt,
+    presentation: { practiceItemId: "i1", blocks: [
+      { kind: "prompt", markdown: prompt, label: null },
+      { kind: "error_hunt_worked_solution", markdown: WORK, label: "The work to check" }
+    ] }
+  });
+
+  it("is shown once when the prompt already holds it", async () => {
+    answers.get_practice_item = hunt(`Check this justification. Submitted work: ${WORK.replace("\n", "   ")}`);
+    await beginSession();
+    fireEvent.click(screen.getByRole("button", { name: /^Next: Topic i1/ }));
+    await screen.findByText(/Check this justification/);
+    expect(screen.getAllByText(/is an eigenvector with eigenvalue 3/)).toHaveLength(1);
+    expect(screen.queryByText("The work to check")).toBeNull();
+  });
+
+  it("keeps its label and its block when the prompt does not hold it", async () => {
+    answers.get_practice_item = hunt("Check the work below.");
+    await beginSession();
+    fireEvent.click(screen.getByRole("button", { name: /^Next: Topic i1/ }));
+    await screen.findByText("Check the work below.");
+    expect(screen.getByText("The work to check")).toBeTruthy();
+    expect(screen.getAllByText(/is an eigenvector with eigenvalue 3/)).toHaveLength(1);
+  });
+});

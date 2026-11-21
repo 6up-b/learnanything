@@ -3,7 +3,7 @@
 // York, the night daylight saving ends.
 import { describe, expect, it } from "vitest";
 import type { NextPracticeDto } from "../api/dto";
-import { dayName, daysFrom, nextPracticeLines, nextPracticeRowWhy } from "./nextPractice";
+import { dayName, daysFrom, keptForCheckLine, nextPracticeLines, nextPracticeRowWhy } from "./nextPractice";
 import { findJargon } from "../copy/denyList";
 
 const EVENING: NextPracticeDto = {
@@ -49,7 +49,7 @@ describe("days, in the plan's calendar", () => {
 describe("the lines", () => {
   it("the evening: tomorrow's questions and minutes, the check's first day, what is being written", () => {
     expect(nextPracticeLines(EVENING)).toEqual([
-      "Tomorrow: 2 questions due · about 3 minutes.",
+      "Tomorrow: 2 questions you answered come back · about 3 minutes.",
       "A check on your own is available from 14 November.",
       "Questions on 3 more topics are still being written."
     ]);
@@ -57,22 +57,22 @@ describe("the lines", () => {
 
   it("nothing due tomorrow names the nearest later day, by weekday within the week and by date after it", () => {
     expect(nextPracticeLines(NOTHING_TOMORROW, { writing: false })).toEqual([
-      "Nothing is due tomorrow. Your next question is due Wednesday.",
+      "1 question you answered comes back Wednesday.",
       "A check on your own is available from 14 November."
     ]);
     const nine = { ...EVENING, reviews: EVENING.reviews.slice(3), nextReviewDate: "2026-11-09", checks: [], writing: { topicCount: 0, learningObjectIds: [] } };
-    expect(nextPracticeLines(nine)).toEqual(["Nothing is due tomorrow. Your next question is due on 9 November."]);
+    expect(nextPracticeLines(nine)).toEqual(["1 question you answered comes back on 9 November."]);
     const two = { ...nine, reviews: [{ ...nine.reviews[0], count: 2, itemIds: ["a", "b"] }], nextReviewDate: "2026-11-02" };
     expect(nextPracticeLines({ ...two, reviews: [{ ...two.reviews[0], date: "2026-11-02" }] })).toEqual([
-      "Nothing is due tomorrow. Your next questions are due Monday."
+      "2 questions you answered come back Monday."
     ]);
   });
 
   it("names no minutes where no estimate supports them, and one question in the singular", () => {
     const one = { ...EVENING, reviews: [{ ...EVENING.reviews[0], count: 1, itemIds: ["pi_tomorrow"], minutes: null }] };
-    expect(nextPracticeLines(one, { writing: false })[0]).toBe("Tomorrow: 1 question due.");
+    expect(nextPracticeLines(one, { writing: false })[0]).toBe("Tomorrow: 1 question you answered comes back.");
     const short = { ...EVENING, reviews: [{ ...EVENING.reviews[0], minutes: 0.4 }] };
-    expect(nextPracticeLines(short, { writing: false })[0]).toBe("Tomorrow: 2 questions due · about 1 minute.");
+    expect(nextPracticeLines(short, { writing: false })[0]).toBe("Tomorrow: 2 questions you answered come back · about 1 minute.");
   });
 
   it("a check available tomorrow, and several checks on one day", () => {
@@ -90,28 +90,28 @@ describe("the lines", () => {
     };
     expect(nextPracticeLines(today, { finish: true })).toEqual([
       "Still due today: 2 questions · about 4 minutes.",
-      "Tomorrow: 2 more questions due · about 3 minutes.",
+      "Tomorrow: 2 more questions you answered come back · about 3 minutes.",
       "A check on your own is available now.",
       "A check on your own is available from 14 November.",
       "Questions on 3 more topics are still being written."
     ]);
     // Today's own plan and list say what is due today: Today's lines start at tomorrow.
-    expect(nextPracticeLines(today)[0]).toBe("Tomorrow: 2 more questions due · about 3 minutes.");
+    expect(nextPracticeLines(today)[0]).toBe("Tomorrow: 2 more questions you answered come back · about 3 minutes.");
     const onlyToday = { ...today, reviews: today.reviews.slice(0, 1), nextReviewDate: null, checks: [], writing: { topicCount: 0, learningObjectIds: [] } };
-    expect(nextPracticeLines(onlyToday, { finish: true })).toEqual(["Still due today: 2 questions · about 4 minutes.", "Nothing more is due tomorrow."]);
+    expect(nextPracticeLines(onlyToday, { finish: true })).toEqual(["Still due today: 2 questions · about 4 minutes."]);
   });
 
   it("questions still being written get no day, and Today can leave them to its own line", () => {
     const writingOnly = { ...EVENING, reviews: [], checks: [], nextReviewDate: null, writing: { topicCount: 1, learningObjectIds: ["lo_b"] } };
-    expect(nextPracticeLines(writingOnly)).toEqual(["Nothing is due tomorrow.", "Questions on 1 more topic are still being written."]);
+    expect(nextPracticeLines(writingOnly)).toEqual(["Questions on 1 more topic are still being written."]);
     expect(nextPracticeLines(writingOnly, { writing: false })).toEqual([]);
   });
 
   it("finished sections waiting to be written get their words too, with no day, and Today can leave them to its own line", () => {
     const waitingOnly = { ...EVENING, reviews: [], checks: [], nextReviewDate: null, writing: { topicCount: 0, learningObjectIds: [] }, waiting: { sectionCount: 2 } };
-    expect(nextPracticeLines(waitingOnly)).toEqual(["Nothing is due tomorrow.", "Questions from 2 finished sections are waiting to be written."]);
+    expect(nextPracticeLines(waitingOnly)).toEqual(["Questions from 2 finished sections are waiting to be written."]);
     expect(nextPracticeLines({ ...waitingOnly, waiting: { sectionCount: 1 } }, { finish: true })).toEqual([
-      "Nothing is due tomorrow.", "Questions from 1 finished section are waiting to be written."
+      "Questions from 1 finished section are waiting to be written."
     ]);
     expect(nextPracticeLines(waitingOnly, { writing: false })).toEqual([]);
     // Held questions get no words here: Today's own line counts those an OK would apply, from the books' facts.
@@ -135,6 +135,56 @@ describe("the lines", () => {
       const why = nextPracticeRowWhy(EVENING, { practiceItemId: id })!;
       expect(findJargon(why), why).toEqual([]);
     }
+  });
+});
+
+// The live walk partread-3 (2026-11-21): Today said "5 questions … are ready" beside "Nothing is due tomorrow. Your next
+// questions are due on 30 November. A check on your own is available from 5 December.", and the learner could not
+// relate them (UX-77); the third of three questions offered had been kept for that check after the second answer,
+// and nothing said so (UX-69).
+describe("the walk's evening: questions ready now beside later days (UX-77) and a question kept for a check (UX-69)", () => {
+  const WALK: NextPracticeDto = {
+    asOf: "2026-11-21T19:05:00Z",
+    calendar: { zone: "EST", today: "2026-11-21", tomorrow: "2026-11-22", nextDayStartsAt: "2026-11-22T05:00:00Z" },
+    reviews: [{ date: "2026-11-30", count: 3, itemIds: ["pi_1", "pi_2", "pi_4"], learningObjectIds: ["lo_eigen"], minutes: null }],
+    checks: [{ date: "2026-12-05", count: 1, itemIds: ["pi_3"], learningObjectIds: ["lo_eigen"], kinds: ["certification_cold_probe"] }],
+    nextReviewDate: "2026-11-30",
+    writing: { topicCount: 3, learningObjectIds: ["lo_b", "lo_c", "lo_d"] },
+    waiting: { sectionCount: 0 },
+    held: { topicCount: 0, learningObjectIds: [] }
+  };
+
+  it("the dated lines speak of the questions answered coming back, and never say that nothing is due", () => {
+    const lines = nextPracticeLines(WALK, { writing: false });
+    expect(lines).toEqual([
+      "3 questions you answered come back on 30 November.",
+      "A check on your own is available from 5 December."
+    ]);
+    for (const line of lines) expect(line).not.toMatch(/nothing|next questions are due/i);
+  });
+
+  it("the question kept for the check is named as one from the reading, with its day, in place of the bare check line", () => {
+    expect(nextPracticeLines(WALK, { writing: false, keptItemIds: ["pi_1", "pi_2", "pi_3", "pi_4"] })).toEqual([
+      "3 questions you answered come back on 30 November.",
+      "1 question from your reading is kept for a check on your own, available from 5 December."
+    ]);
+    expect(keptForCheckLine(WALK, ["pi_3"])).toBe("1 question from your reading is kept for a check on your own, available from 5 December.");
+    // Not one of the reading's questions (another check): the bare line, and no kept line.
+    expect(keptForCheckLine(WALK, ["pi_9"])).toBeNull();
+    expect(keptForCheckLine(null, ["pi_3"])).toBeNull();
+    // Two kept on one day, and another check beside them.
+    const more = { ...WALK, checks: [{ ...WALK.checks[0], count: 3, itemIds: ["pi_3", "pi_5", "pi_x"] }] };
+    expect(nextPracticeLines(more, { writing: false, keptItemIds: ["pi_3", "pi_5"] }).slice(1)).toEqual([
+      "2 questions from your reading are kept for checks on your own, available from 5 December.",
+      "Another check on your own is available from 5 December."
+    ]);
+    // A later check keeping a question from the reading is the one named, before an earlier one that keeps none.
+    const two = { ...WALK, checks: [{ ...WALK.checks[0], date: "2026-11-25", itemIds: ["pi_x"] }, WALK.checks[0]] };
+    expect(keptForCheckLine(two, ["pi_3"])).toBe("1 question from your reading is kept for a check on your own, available from 5 December.");
+  });
+
+  it("every line is in plain words", () => {
+    for (const line of nextPracticeLines(WALK, { keptItemIds: ["pi_3"], finish: true })) expect(findJargon(line), line).toEqual([]);
   });
 });
 

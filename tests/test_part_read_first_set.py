@@ -501,3 +501,36 @@ def test_a_part_read_request_on_a_note_backed_book_sends_no_unread_note_text(boo
     book.finish("P1")
     for prompt in writer.prompts[2:]:
         assert notes["seen"] in prompt and notes["unseen"] in prompt
+
+
+# -- one count of topics across the waves of a book's writing --------------------------------------------------
+
+
+def _library_questions(book) -> dict:
+    """Today's facts for the book from one read of the library, with nothing run after it."""
+
+    card = next(card for card in call(book.ctx, "get_source_library", {})["sources"] if card["sourceId"] == book.source_id)
+    return card["statusLine"]["questions"]
+
+
+def test_the_topic_count_runs_on_across_waves_of_writing(book, writer):
+    """The walk's count restarted with each wave ("2 of 4 topics done", then "0 of 3"): the book's own count goes on,
+    topics written so far beside those still being written."""
+
+    book.read(*STOP)
+    assert "topics" not in _library_questions(book)  # nothing being written: no count
+
+    during: list[dict] = []
+    writer.before = lambda: during.append(_library_questions(book))
+    book.read("P5", run=False)  # reading on qualifies lo_straddle: a second wave, queued
+
+    queued = _library_questions(book)
+    assert queued["topics"] == {"written": 2, "writing": 1}
+    # The wave's own count, as before, beside it.
+    assert queued["progress"] == {"done": 0, "total": 1}
+
+    build(book)
+    assert [fact["topics"] for fact in during] == [{"written": 2, "writing": 1}]
+    after = _library_questions(book)
+    assert "topics" not in after
+    assert after["count"] == 3

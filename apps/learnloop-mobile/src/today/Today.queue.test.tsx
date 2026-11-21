@@ -67,7 +67,7 @@ describe("the first evening, step 7: the finish says what comes next, dated, wit
     };
     await beginSession();
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
-    expect((await screen.findByTestId("session-next")).textContent).toBe("Nothing is due tomorrow. Your next questions are due Monday.");
+    expect((await screen.findByTestId("session-next")).textContent).toBe("2 questions you answered come back Monday.");
     expect(screen.getByText("Session finished: 2 answers.")).toBeTruthy();
   });
 });

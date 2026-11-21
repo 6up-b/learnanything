@@ -809,7 +809,7 @@ describe("the first evening, step 7: what comes next, dated, on the phone", () =
     render(<App />);
     const next = await screen.findByTestId("today-next");
     expect(next.textContent).toBe(
-      "Tomorrow: 2 questions due · about 3 minutes.A check on your own is available from Tuesday.Questions on 3 more topics are still being written."
+      "Tomorrow: 2 questions you answered come back · about 3 minutes.A check on your own is available from Tuesday.Questions on 3 more topics are still being written."
     );
     expect(findJargon(next.textContent ?? "")).toEqual([]);
   });
@@ -817,7 +817,7 @@ describe("the first evening, step 7: what comes next, dated, on the phone", () =
   it("nothing due tomorrow names the nearest later day", async () => {
     answers.get_daily_plan = done({ ...NEXT, reviews: NEXT.reviews.slice(1), nextReviewDate: "2026-11-15", checks: [], writing: { topicCount: 0, learningObjectIds: [] } });
     render(<App />);
-    expect((await screen.findByTestId("today-next")).textContent).toBe("Nothing is due tomorrow. Your next question is due on 15 November.");
+    expect((await screen.findByTestId("today-next")).textContent).toBe("1 question you answered comes back on 15 November.");
   });
 
   it("an open plan with a question in it says nothing of tomorrow", async () => {
@@ -838,7 +838,7 @@ describe("the first evening, step 7: what comes next, dated, on the phone", () =
     fireEvent.click(await screen.findByRole("button", { name: "Done for today" }));
     const next = await screen.findByTestId("session-next");
     expect(next.textContent).toBe(
-      "Still due today: 1 question.Tomorrow: 2 more questions due · about 3 minutes.A check on your own is available from Tuesday.Questions on 3 more topics are still being written."
+      "Still due today: 1 question.Tomorrow: 2 more questions you answered come back · about 3 minutes.A check on your own is available from Tuesday.Questions on 3 more topics are still being written."
     );
     expect(screen.queryByTestId("today-next")).toBeNull();
   });
@@ -975,5 +975,48 @@ describe("an honest wait (the first evening, step 6): the phone says what is hap
     expect(text).toMatch(/Started at \d{1,2}:\d{2}(\s?[AP]M)? · reply received at \d{1,2}:\d{2}/);
     expect(text).toContain("No book has finished getting ready in this library yet, so no time is given.");
     expect(findJargon(text)).toEqual([]);
+  });
+});
+
+// The live walk partread-3 (2026-11-21), on the phone: the question kept for a check (UX-69), one topic count across the
+// waves (UX-75), the dated lines beside questions ready (UX-77).
+describe("the live walk partread-3 on the phone: a kept question, one topic count, the answered questions' day", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const NEXT = {
+    asOf: "2026-11-21T19:05:00Z",
+    calendar: { zone: "EST", today: "2026-11-21", tomorrow: "2026-11-22", nextDayStartsAt: "2099-11-22T05:00:00Z" },
+    reviews: [{ date: "2026-11-30", count: 2, itemIds: ["i1", "i2"], learningObjectIds: ["lo"], minutes: null }],
+    checks: [{ date: "2026-12-05", count: 1, itemIds: ["i3"], learningObjectIds: ["lo"], kinds: ["certification_cold_probe"] }],
+    nextReviewDate: "2026-11-30",
+    writing: { topicCount: 0, learningObjectIds: [] },
+    waiting: { sectionCount: 0 },
+    held: { topicCount: 0, learningObjectIds: [] }
+  };
+  const book = (questions: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1",
+      statusLine: { text: "Questions for this article are written from the parts you read", tone: "quiet", action: null, details: null,
+        questions: { count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0,
+          sectionCount: 1, partRead: ["Document"], laterItemIds: ["i1", "i2", "i3"], ...questions } } }]
+  });
+
+  it("a done day after two answers, the third kept for a check: the line names it, with its day", async () => {
+    answers.get_daily_plan = reply({ status: "complete" }, { nextPractice: NEXT });
+    answers.get_source_library = book({});
+    render(<App />);
+    const next = await screen.findByTestId("today-next");
+    await waitFor(() => expect(next.textContent).toBe(
+      "2 questions you answered come back on 30 November.1 question from your reading is kept for a check on your own, available from 5 December."
+    ));
+    expect(findJargon(next.textContent ?? "")).toEqual([]);
+  });
+
+  it("reading on after two topics were written: one count across the waves", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book({ count: 0, itemIds: [], sections: [], laterItemIds: undefined, writing: ["Document"],
+      progress: { done: 0, total: 3 }, topics: { written: 2, writing: 3 } });
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "Writing questions from what you’ve read in “Symmetric Matrices and Variance” · 2 topics written · 3 more being written. Keep reading meanwhile.");
   });
 });

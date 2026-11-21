@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ReadingQuestionsDto, SourceLibraryCard } from "../api/dto";
 import {
   causeActionLabel, causeSentence, causeUnderway, goalCauseSentence, heldLine, MORE_AS_YOU_READ, NO_QUESTIONS_YET, notAskableOnList,
-  QUESTIONS_FROM_READING, READING_SAVED, todayCause, type TodayCause
+  QUESTIONS_FROM_READING, READING_SAVED, readingItemIds, todayCause, type TodayCause
 } from "./todayCause";
 
 describe("the goal's cause line joins the day's cause after a colon", () => {
@@ -171,5 +171,65 @@ describe("the first evening, step 8: one explanation of where questions come fro
     const books = [card(facts({ count: 2, itemIds: ["pi_1", "pi_2"], sections: [PART], laterItemIds: ["pi_2"] }))];
     expect(notAskableOnList(books, ["pi_1", "pi_2", "pi_3"], ["pi_3"]).sort()).toEqual(["pi_2", "pi_3"]);
     expect(notAskableOnList(null, ["pi_1"], [])).toEqual([]);
+  });
+});
+
+// The live walk partread-3 (2026-11-21): the count restarted with each wave of question writing ("2 of 4 topics done",
+// then, after reading on, "0 of 3 topics done"). UX-75: one count for the book, across its waves.
+describe("one topic count across the waves of a book's writing (UX-75)", () => {
+  const TITLE = "Probability";
+  const one = (overrides: Partial<ReadingQuestionsDto>) => card(facts({ sectionCount: 1, ...overrides }));
+
+  it("while the second wave is written: topics written so far and still being written, never a count that restarts", () => {
+    const books = [one({ writing: ["Document"], partRead: ["Document"], progress: { done: 0, total: 3 }, topics: { written: 2, writing: 3 } })];
+    const cause = todayCause({ cards: books, ai: null, listItems: 0 });
+    expect(cause).toMatchObject({ kind: "section_writing", topics: { written: 2, writing: 3 } });
+    expect(causeSentence(cause!)).toBe(`Writing questions from what you’ve read in “${TITLE}” · 2 topics written · 3 more being written. Keep reading meanwhile.`);
+    expect(causeSentence(cause!)).not.toMatch(/0 of 3|topics done/);
+  });
+
+  it("questions ready while the second wave is written: the same count beside the offer", () => {
+    const ids = ["pi_4", "pi_5", "pi_6", "pi_7", "pi_8"];
+    const books = [one({ count: 5, itemIds: ids, sections: ["Document"], writing: ["Document"], partRead: ["Document"],
+      progress: { done: 0, total: 3 }, topics: { written: 3, writing: 3 } })];
+    const cause = todayCause({ cards: books, ai: null, listItems: 5, listItemIds: ids });
+    expect(causeSentence(cause!)).toBe(`5 questions from what you’ve read in “${TITLE}” are ready. 3 topics written · 3 more being written.`);
+  });
+
+  it("before any topic is written, the count says how many are being written", () => {
+    const cause = todayCause({ cards: [one({ writing: ["Document"], partRead: ["Document"], progress: { done: 0, total: 4 }, topics: { written: 0, writing: 4 } })], ai: null, listItems: 0 });
+    expect(causeSentence(cause!)).toBe(`Writing questions from what you’ve read in “${TITLE}” · 4 topics being written. Keep reading meanwhile.`);
+    const single = todayCause({ cards: [one({ writing: ["Document"], partRead: ["Document"], topics: { written: 1, writing: 1 } })], ai: null, listItems: 0 });
+    expect(causeSentence(single!)).toContain("· 1 topic written · 1 more being written.");
+  });
+
+  it("the detail's topic is placed in the same count: topic 3 of 5, not 1 of 3", () => {
+    const writingDetail = { asOf: null, startedAt: null, queued: false, retry: false, topic: { title: "Spectral theorem", index: 1, total: 3 },
+      topicStartedAt: null, delivery: null, measured: null };
+    const cause = todayCause({ cards: [one({ writing: ["Document"], partRead: ["Document"], topics: { written: 2, writing: 3 }, writingDetail })], ai: null, listItems: 0 });
+    expect(cause).toMatchObject({ kind: "section_writing", detail: { topic: { title: "Spectral theorem", index: 3, total: 5 } } });
+    // With another job writing beside it (no place), the detail keeps naming the topic alone.
+    const unplaced = { ...writingDetail, topic: { title: "Spectral theorem", index: null, total: null } };
+    const other = todayCause({ cards: [one({ writing: ["Document"], topics: { written: 2, writing: 3 }, writingDetail: unplaced })], ai: null, listItems: 0 });
+    expect(other).toMatchObject({ detail: { topic: { index: null, total: null } } });
+  });
+
+  it("a count over several sections is said only where the line names the book, never beside one section's name", () => {
+    const books = [card(facts({ sections: ["Bayes' rule"], count: 1, itemIds: ["pi_1"], laterItemIds: ["pi_1"], writing: [PART],
+      progress: { done: 0, total: 3 }, topics: { written: 2, writing: 3 } }))];
+    const cause = todayCause({ cards: books, ai: null, listItems: 0 });
+    expect(cause).toMatchObject({ kind: "section_writing", part: PART });
+    expect(causeSentence(cause!)).not.toContain("topics written");
+  });
+
+  it("an older sidecar's fact (no count across waves) keeps the wave's own words", () => {
+    const cause = todayCause({ cards: [one({ writing: ["Document"], partRead: ["Document"], progress: { done: 0, total: 4 } })], ai: null, listItems: 0 });
+    expect(causeSentence(cause!)).toBe(`Writing questions from what you’ve read in “${TITLE}” · 0 of 4 topics done. Keep reading meanwhile.`);
+  });
+
+  it("the questions written from the reading, across the books, for a check that keeps one (UX-69)", () => {
+    expect(readingItemIds([card(facts({ count: 2, itemIds: ["pi_1", "pi_2"] })), { ...card(facts({ count: 1, itemIds: ["pi_3"] })), sourceId: "src_2" }]))
+      .toEqual(["pi_1", "pi_2", "pi_3"]);
+    expect(readingItemIds(null)).toEqual([]);
   });
 });

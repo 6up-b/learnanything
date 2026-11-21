@@ -179,6 +179,6 @@ it("the session finish", async () => {
   await act(async () => {
     render(<SessionFinishHud summary={summary} onDismiss={vi.fn()} />);
   });
-  expect(screen.getByTestId("session-next").textContent).toContain("Tomorrow: 2 more questions due");
+  expect(screen.getByTestId("session-next").textContent).toContain("Tomorrow: 2 more questions you answered come back");
   expectPlain();
 });

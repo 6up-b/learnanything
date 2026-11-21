@@ -215,6 +215,37 @@ describe("Next when the plan is done: the book's next question that can be asked
     expect(picks).toEqual([]);
   });
 
+  // UX-69 (the live walk partread-3): Today offered three; after the second answer the third was kept for a later check
+  // on the learner's own and "today's plan is done" said nothing of it.
+  it("the third question offered kept for a check after the second answer: the line under Next says so, with its day", async () => {
+    const check = { date: "2026-12-05", count: 1, itemIds: ["pi_3"], learningObjectIds: ["lo_eigen"], kinds: ["certification_cold_probe"] };
+    const nextPractice = {
+      asOf: "2026-11-21T18:40:00Z", calendar: { zone: "EST", today: "2026-11-21", tomorrow: "2026-11-22", nextDayStartsAt: "2099-11-22T05:00:00Z" },
+      reviews: [{ date: "2026-11-30", count: 2, itemIds: ["pi_1", "pi_2"], learningObjectIds: ["lo_eigen"], minutes: null }],
+      checks: [check], nextReviewDate: "2026-11-30", writing: { topicCount: 3, learningObjectIds: ["lo_b"] }, waiting: { sectionCount: 0 },
+      held: { topicCount: 0, learningObjectIds: [] }
+    };
+    const base = invoke.getMockImplementation() as (command: string, args: { input?: Record<string, unknown> }) => Promise<unknown>;
+    invoke.mockImplementation(async (command: string, args: { input?: Record<string, unknown> }) =>
+      command === "get_daily_plan" ? { version: 1, enabled: true, plan: null, nextPractice } : base(command, args));
+    show();
+    expect(await screen.findByText("today's plan is done")).toBeTruthy();
+    expect((await screen.findByTestId("feedback-next-note")).textContent).toBe(
+      "1 question from your reading is kept for a check on your own, available from 5 December."
+    );
+  });
+
+  it("with the plan done and nothing kept for a check, no line is added under Next", async () => {
+    library = book({ count: 3, itemIds: ["pi_1", "pi_2", "pi_3"], writing: ["Document"], laterItemIds: ["pi_1", "pi_2", "pi_3"] });
+    const base = invoke.getMockImplementation() as (command: string, args: { input?: Record<string, unknown> }) => Promise<unknown>;
+    invoke.mockImplementation(async (command: string, args: { input?: Record<string, unknown> }) =>
+      command === "get_daily_plan" ? { version: 1, enabled: true, plan: null, nextPractice: null } : base(command, args));
+    show();
+    expect(await screen.findByText("today's plan is done")).toBeTruthy();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(screen.queryByTestId("feedback-next-note")).toBeNull();
+  });
+
   it("a step the plan has next is followed as before, and the books are not read", async () => {
     peekStep = NEXT;
     const callbacks = show();
