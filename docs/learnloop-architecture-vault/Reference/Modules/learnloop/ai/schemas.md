@@ -202,6 +202,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
+- [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import

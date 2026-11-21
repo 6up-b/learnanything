@@ -157,6 +157,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
   - `test_diagnostic_fire_uses_the_structured_completion_path`
+- [tests/test_structured_contracts.py](../../../../../../tests/test_structured_contracts.py) — direct import
+  - `test_a_correction_is_refused_over_a_legacy_endpoint_that_cannot_carry_it`
+  - `test_a_crash_before_the_checkpoint_save_recovers_the_correction_from_its_receipt_under_the_original_key`
+  - `test_a_send_that_skips_the_check_still_cannot_get_a_bad_answer_accepted`
+  - `test_checked_structured_call_returns_the_accepted_answer`
+  - `test_receipt_recovery_reruns_the_contract_and_checks_the_correction_linkage`
+  - `test_the_chat_providers_repair_shares_the_one_recovery`
+  - `test_the_correction_names_only_the_first_failing_predicate`
+  - `test_without_a_contract_an_operation_and_its_receipt_are_as_before`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`

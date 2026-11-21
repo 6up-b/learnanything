@@ -18,6 +18,7 @@ source_paths:
   - "migrations/058_remediation_episodes.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/learner_context.py"
   - "src/learnloop_sidecar/handlers/remediation.py"

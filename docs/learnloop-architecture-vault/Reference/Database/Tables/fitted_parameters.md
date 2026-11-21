@@ -20,10 +20,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/fit.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/practice_state.py"
-  - "src/learnloop/params/fitted_params.py"
   - "src/learnloop/diagnosis/gate_score.py"
+  - "src/learnloop/params/fitted_params.py"
   - "src/learnloop/substrate/replay.py"
 tags:
   - "learnloop/database/table"

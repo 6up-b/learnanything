@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/ai/schemas.py"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/ai/strict_schema.py"
+  - "src/learnloop/ai/structured_contracts.py"
   - "src/learnloop/ai/tool_requests.py"
   - "src/learnloop/ai/transport.py"
   - "src/learnloop/ai/usage.py"
@@ -72,8 +73,8 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/decisions|learnloop.ai.decisions]] | [[Reference/Modules/learnloop/ai/decisions#^module-purpose|purpose]] | `ACTIVE` | 22 | 17 |
 | [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]] | [[Reference/Modules/learnloop/ai/disclosures#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/ai/embedding|learnloop.ai.embedding]] | [[Reference/Modules/learnloop/ai/embedding#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
-| [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 109 | 99 |
-| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 133 | 112 |
+| [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 110 | 100 |
+| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 134 | 114 |
 | [[Reference/Modules/learnloop/ai/isolation|learnloop.ai.isolation]] | [[Reference/Modules/learnloop/ai/isolation#^module-purpose|purpose]] | `ACTIVE` | 3 | 20 |
 | [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] | [[Reference/Modules/learnloop/ai/multimodal#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] | [[Reference/Modules/learnloop/ai/native_media#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
@@ -83,11 +84,12 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 61 | 40 |
 | [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] | [[Reference/Modules/learnloop/ai/runs#^module-purpose|purpose]] | `ACTIVE` | 9 | 2 |
 | [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] | [[Reference/Modules/learnloop/ai/runtime#^module-purpose|purpose]] | `ACTIVE` | 9 | 19 |
-| [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 70 | 19 |
+| [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 70 | 20 |
 | [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] | [[Reference/Modules/learnloop/ai/spend#^module-purpose|purpose]] | `ACTIVE` | 122 | 96 |
 | [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] | [[Reference/Modules/learnloop/ai/strict_schema#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
+| [[Reference/Modules/learnloop/ai/structured_contracts|learnloop.ai.structured_contracts]] | [[Reference/Modules/learnloop/ai/structured_contracts#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/ai/tool_requests|learnloop.ai.tool_requests]] | [[Reference/Modules/learnloop/ai/tool_requests#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] | [[Reference/Modules/learnloop/ai/transport#^module-purpose|purpose]] | `ACTIVE` | 112 | 68 |
+| [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] | [[Reference/Modules/learnloop/ai/transport#^module-purpose|purpose]] | `ACTIVE` | 112 | 71 |
 | [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] | [[Reference/Modules/learnloop/ai/usage#^module-purpose|purpose]] | `ACTIVE` | 11 | 11 |
 
 ## Child package maps
@@ -112,7 +114,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 41 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 37 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 32 static module edges
-- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 30 static module edges
+- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 32 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 30 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 24 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 24 static module edges
@@ -174,7 +176,7 @@ flowchart LR
     n_learnloop_source_retrieval -->|84| center
     n_learnloop_cli -->|55| center
     n_learnloop_ops -->|41| center
-    n_learnloop_ai_providers -->|30| center
+    n_learnloop_ai_providers -->|32| center
     center -->|8| n_learnloop_ai_providers
     n_learnloop_sidecar_handlers -->|37| center
     n_learnloop_adaptive_difficulty -->|32| center

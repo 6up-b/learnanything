@@ -179,6 +179,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `FrozenClock`; statically calls `FrozenClock`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/db/evidence_cutoff|learnloop.db.evidence_cutoff]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/activity|learnloop.db.stores.activity]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -522,7 +523,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 421 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 422 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1049,6 +1050,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gate_section_counts_manual_false_negatives`
   - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
+- [tests/test_evidence_cutoff.py](../../../../../tests/test_evidence_cutoff.py) — direct import
+  - `test_closure_admits_matrix_equals_the_predecessor`
+  - `test_closure_at_the_same_instant_is_inclusive`
+  - `test_closure_through_is_the_next_local_midnight_across_a_transition`
+  - `test_history_kernels_equal_the_predecessor`
+- [tests/test_evidence_cutoff_readers.py](../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_a_hold_and_its_release_are_read_now`
+  - `test_a_regrade_is_read_now_by_an_earlier_target`
 - [tests/test_evidence_reading_successor.py](../../../../../tests/test_evidence_reading_successor.py) — direct import
   - `test_r1_a_stored_answer_reads_the_same_at_any_reading_time`
   - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`

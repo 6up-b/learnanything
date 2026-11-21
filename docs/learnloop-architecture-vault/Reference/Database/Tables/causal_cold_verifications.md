@@ -115,6 +115,7 @@ None found by exact static reference scan.
 
 - `tests/test_certification_cold_probe.py`
 - `tests/test_diagnosis_history_modes.py`
+- `tests/test_evidence_cutoff_readers.py`
 - `tests/test_guided_redo.py`
 - `tests/test_voi_forecasts.py`
 - `tests/diagnosis_journey_helpers.py`

@@ -107,6 +107,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/providers/voyage_contextual|learnloop.ai.providers.voyage_contextual]] — imports `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `AIInterrupted`
+- [[Reference/Modules/learnloop/ai/structured_contracts|learnloop.ai.structured_contracts]] — imports `AIInvalidOutput`, `AIOutputTruncated`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CodexUnavailable`; statically calls `CodexUnavailable`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `CodexUnavailable`
@@ -216,7 +217,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 104 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 105 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -259,10 +260,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import
   - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
+  - `test_a_background_request_gets_no_fresh_ceiling_past_the_checked_calls_deadline`
   - `test_a_deadline_that_passes_while_waiting_for_the_refresh_lock_sends_nothing`
   - `test_an_expired_deadline_is_never_extended_into_a_send`
   - `test_an_interrupt_during_the_token_refresh_keeps_the_new_tokens_and_sends_nothing`
   - `test_an_interrupt_while_waiting_for_the_refresh_lock_sends_nothing`
+  - `test_contract_failing_then_a_malformed_correction_gets_no_repair`
   - `test_incomplete_truncated_and_broken_streams`
   - `test_single_request_never_repairs_or_retries`
   - `test_the_deadline_shuts_a_stalled_stream`
@@ -432,6 +435,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evidence_pass_retry_reuses_first_paid_pass`
 - [tests/test_source_space_resolver.py](../../../../../../tests/test_source_space_resolver.py) — direct import
 - [tests/test_source_vector_backfill.py](../../../../../../tests/test_source_vector_backfill.py) — direct import
+- [tests/test_structured_contracts.py](../../../../../../tests/test_structured_contracts.py) — direct import
+  - `test_a_correction_is_refused_over_a_legacy_endpoint_that_cannot_carry_it`
+  - `test_other_failures_of_the_send_are_the_callers_own`
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
   - `test_paid_calls_fail_a_truncation_at_the_profile_maximum_without_another_request`

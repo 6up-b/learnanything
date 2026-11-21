@@ -21,9 +21,9 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/cli/sim.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/attempts.py"
-  - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/cli/app.py"
 tags:

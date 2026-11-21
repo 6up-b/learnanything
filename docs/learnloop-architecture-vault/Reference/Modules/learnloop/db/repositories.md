@@ -1340,6 +1340,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
   - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
+- [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_a_delayed_read_equals_the_live_one_at_fixed_corrections`
+  - `test_a_hold_and_its_release_are_read_now`
+  - `test_a_regrade_is_read_now_by_an_earlier_target`
+  - `test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
   - `test_k5_8_a_quarantined_answer_kept_its_review_live_and_keeps_it_on_replay`
   - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
@@ -1811,6 +1816,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import
   - `test_an_alternative_embedding_model_takes_an_explicit_price`
 - [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
+  - `test_a_rejected_answer_stays_on_a_failed_receipt_and_only_the_correction_is_recoverable`
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_predictive_eig.py](../../../../../../tests/test_predictive_eig.py) — direct import
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`

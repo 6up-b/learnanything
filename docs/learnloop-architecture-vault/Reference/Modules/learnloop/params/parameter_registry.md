@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py) |
-| Source lines | 3468 |
+| Source lines | 3474 |
 | Owning package | [[Reference/Modules/learnloop/params/_package|learnloop.params]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,23 +56,23 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 
 - `class ParameterSpec` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 75)
 - `register(spec: ParameterSpec) -> ParameterSpec` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 97)
-- `classify_config_path(path: str) -> _ConfigRule | None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2856)
-- `config_numeric_leaves(config: LearnLoopConfig | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2871) — Every numeric leaf of the ``LearnLoopConfig`` pydantic tree, keyed by dotted path.
-- `module_numeric_constants() -> list[str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2921) — Module-level UPPERCASE numeric constants across the §2.1 module inventory, as ``module:CONSTANT`` paths.
-- `tagged_decision_constants() -> list[str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2945) — Module constants carrying the ``# decision parameter`` breadcrumb comment, as ``module:CONSTANT`` paths (the drift cross-check surface of §2.3).
-- `class ResolutionContext` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2969)
-- `resolve_effective(spec: ParameterSpec, ctx: ResolutionContext) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3012) — Return (effective_value, source).
-- `decision_specs() -> list[ParameterSpec]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3130)
-- `refresh(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3134) — Rebuild the per-vault ``parameter_registry`` projection from the code definition + resolved effective values.
-- `set_promotion_evidence_id(repository: Repository, path: str, evidence_id: str | None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3213) — Persist the ``promotion_evidence_id`` column for a registry row.
-- `freeze_manifest(vault: LoadedVault, repository: Repository, *, algorithm_version: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3238) — Freeze the immutable per-algorithm-version manifest of all decision parameters' effective value-hash/status/lifecycle/source.
-- `record_bind(repository: Repository, path: str, context: dict[str, Any], *, observation_ref: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3287) — Log that a dormant guardrail actually fired (§6).
-- `class AuditReport` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3308)
-  - `failures(self) -> list[str]` (line 3323; public) — The failure categories (name) that are non-empty.
-  - `clean(self) -> bool` (line 3342; public) — Ordinary audit cleanliness: no failures.
-  - `release_clean(self) -> bool` (line 3349; public) — Strict release-gate cleanliness: clean AND zero pending coverage certificates.
-  - `as_dict(self) -> dict[str, Any]` (line 3355; public)
-- `audit(vault: LoadedVault | None=None, repository: Repository | None=None) -> AuditReport` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3370) — Run the decision-parameter audit.
+- `classify_config_path(path: str) -> _ConfigRule | None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2862)
+- `config_numeric_leaves(config: LearnLoopConfig | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2877) — Every numeric leaf of the ``LearnLoopConfig`` pydantic tree, keyed by dotted path.
+- `module_numeric_constants() -> list[str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2927) — Module-level UPPERCASE numeric constants across the §2.1 module inventory, as ``module:CONSTANT`` paths.
+- `tagged_decision_constants() -> list[str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2951) — Module constants carrying the ``# decision parameter`` breadcrumb comment, as ``module:CONSTANT`` paths (the drift cross-check surface of §2.3).
+- `class ResolutionContext` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2975)
+- `resolve_effective(spec: ParameterSpec, ctx: ResolutionContext) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3018) — Return (effective_value, source).
+- `decision_specs() -> list[ParameterSpec]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3136)
+- `refresh(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3140) — Rebuild the per-vault ``parameter_registry`` projection from the code definition + resolved effective values.
+- `set_promotion_evidence_id(repository: Repository, path: str, evidence_id: str | None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3219) — Persist the ``promotion_evidence_id`` column for a registry row.
+- `freeze_manifest(vault: LoadedVault, repository: Repository, *, algorithm_version: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3244) — Freeze the immutable per-algorithm-version manifest of all decision parameters' effective value-hash/status/lifecycle/source.
+- `record_bind(repository: Repository, path: str, context: dict[str, Any], *, observation_ref: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3293) — Log that a dormant guardrail actually fired (§6).
+- `class AuditReport` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3314)
+  - `failures(self) -> list[str]` (line 3329; public) — The failure categories (name) that are non-empty.
+  - `clean(self) -> bool` (line 3348; public) — Ordinary audit cleanliness: no failures.
+  - `release_clean(self) -> bool` (line 3355; public) — Strict release-gate cleanliness: clean AND zero pending coverage certificates.
+  - `as_dict(self) -> dict[str, Any]` (line 3361; public)
+- `audit(vault: LoadedVault | None=None, repository: Repository | None=None) -> AuditReport` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3376) — Run the decision-parameter audit.
 
 ### Module constants
 
@@ -80,30 +80,30 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - `PLANTED_MISGRADE_GATE` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 71)
 - `REGISTRY` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 94)
 - `MODULE_INVENTORY` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 106)
-- `MODULE_IMPORTS` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 298)
-- `_CONFIG_RULES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 1554)
-- `_CATCHALL_RULE` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 2853)
-- `_MODULE_ATTR_CACHE` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 2989)
-- `CATCHALL_SNAPSHOT` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3052)
-- `BOOLEAN_DECISION_LEAVES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3086)
-- `BOOLEAN_STRUCTURAL_LEAVES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3091)
-- `ENUM_DECISION_LEAVES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3098)
+- `MODULE_IMPORTS` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 300)
+- `_CONFIG_RULES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 1560)
+- `_CATCHALL_RULE` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 2859)
+- `_MODULE_ATTR_CACHE` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 2995)
+- `CATCHALL_SNAPSHOT` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3058)
+- `BOOLEAN_DECISION_LEAVES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3092)
+- `BOOLEAN_STRUCTURAL_LEAVES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3097)
+- `ENUM_DECISION_LEAVES` ([src/learnloop/params/parameter_registry.py](../../../../../../src/learnloop/params/parameter_registry.py), line 3104)
 
 ## Internal implementation anchors
 
-- `_reg_const(path: str, param_class: ParamClass, *, kind: Kind='decision', owner: str, rationale: str, lifecycle: Lifecycle='active', status: Status='heuristic', bind_site: str | None=None, gate: str | None=PLANTED_LEARNER_GATE) -> None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 307)
-- `class _ConfigRule` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1529)
-- `_exact(*paths: str) -> Callable[[str], bool]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1540)
-- `_prefix(*prefixes: str) -> Callable[[str], bool]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1545)
-- `_suffix(*suffixes: str) -> Callable[[str], bool]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1549)
-- `_is_number(value: Any) -> bool` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2867)
-- `_module_path(rel: str) -> Path` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2905)
-- `_numeric_ast(node: ast.AST) -> bool` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2909)
-- `_resolve_config_value(path: str, config: LearnLoopConfig) -> Any` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2975)
-- `_resolve_module_constant(path: str) -> Any` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2992)
-- `_freeze_catchall_rule() -> frozenset[str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3032) — Snapshot the config leaves the broad decision-namespace catch-all currently owns, then rebind the rule to match only that explicit set (F6).
-- `_register_config_path(path: str) -> bool` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3055) — Register one config leaf from its classification rule.
-- `_build_config_specs() -> None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3103)
+- `_reg_const(path: str, param_class: ParamClass, *, kind: Kind='decision', owner: str, rationale: str, lifecycle: Lifecycle='active', status: Status='heuristic', bind_site: str | None=None, gate: str | None=PLANTED_LEARNER_GATE) -> None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 309)
+- `class _ConfigRule` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1535)
+- `_exact(*paths: str) -> Callable[[str], bool]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1546)
+- `_prefix(*prefixes: str) -> Callable[[str], bool]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1551)
+- `_suffix(*suffixes: str) -> Callable[[str], bool]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 1555)
+- `_is_number(value: Any) -> bool` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2873)
+- `_module_path(rel: str) -> Path` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2911)
+- `_numeric_ast(node: ast.AST) -> bool` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2915)
+- `_resolve_config_value(path: str, config: LearnLoopConfig) -> Any` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2981)
+- `_resolve_module_constant(path: str) -> Any` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 2998)
+- `_freeze_catchall_rule() -> frozenset[str]` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3038) — Snapshot the config leaves the broad decision-namespace catch-all currently owns, then rebind the rule to match only that explicit set (F6).
+- `_register_config_path(path: str) -> bool` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3061) — Register one config leaf from its classification rule.
+- `_build_config_specs() -> None` ([source](../../../../../../src/learnloop/params/parameter_registry.py), line 3109)
 
 ## Who imports or calls it
 

@@ -48,58 +48,58 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py) |
-| Source lines | 734 |
+| Source lines | 738 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class TotalDeadlineExceeded(TimeoutError)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 100) — A physical request reached its total transport deadline and was cancelled.
-- `enforced_total_seconds(timeout_seconds: float) -> float` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 252) — The total time one physical request may take, from the caller's side, when it is sent with ``timeout_seconds`` (the attempt's floor included).
-- `class OpenAIChatProviderClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 259)
-  - `__init__(self, provider_name: str, profile: AIProviderConfig)` (line 266; internal)
-  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 327; public) — Execute one validated structured request with one bounded repair.
-  - `supports(self, capability: str) -> bool` (line 358; public)
-  - `run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript` (line 381; public) — Native-multimodal audio → timestamped transcript ([ingest.native]).
-  - `run_media_markdown(self, context: PdfExtractionContextNative) -> str` (line 400; public) — Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine "native").
-  - `_run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any` (line 424; internal)
-  - `_chat(self, prompt: str, model_type: type[BaseModel] | None=None) -> str` (line 437; internal)
-  - `_system_prompt(self, model_type: type[BaseModel]) -> str` (line 446; internal) — The system turn for a first structured attempt.
-  - `_chat_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel] | None=None, *, use_response_format: bool=True) -> str` (line 469; internal)
-  - `_truncation_retry_tokens(self, sent: Any) -> int | None` (line 516; internal) — The doubled ``max_tokens`` for this transport's own truncation retry, or None.
-  - `_create_with_retry(self, kwargs: dict[str, Any]) -> Any` (line 538; internal)
-  - `_send_once(self, kwargs: dict[str, Any]) -> Any` (line 564; internal) — One physical request under its own receipt.
-  - `_create_within_deadline(self, kwargs: dict[str, Any]) -> Any` (line 589; internal) — The SDK request under its total deadline (``kwargs["timeout"]``), in this thread: every network operation is bounded by the deadline's remaining time (the deadline backend, above), so when this returns or raises the request's transport work is over.
-  - `_meter_response(self, response: Any) -> None` (line 612; internal) — Record usage on the receipt and the run, and spend the request budget.
-  - `_retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None` (line 624; internal) — Seconds to wait before the next attempt, or None to give up.
-  - `_is_retryable(self, error: Exception) -> bool` (line 645; internal)
-  - `_response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None` (line 653; internal)
-  - `_reasoning_kwargs(self) -> dict[str, Any]` (line 673; internal)
-  - `_default_headers(self) -> dict[str, str] | None` (line 686; internal)
+- `class TotalDeadlineExceeded(TimeoutError)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 101) — A physical request reached its total transport deadline and was cancelled.
+- `enforced_total_seconds(timeout_seconds: float) -> float` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 253) — The total time one physical request may take, from the caller's side, when it is sent with ``timeout_seconds`` (the attempt's floor included).
+- `class OpenAIChatProviderClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 260)
+  - `__init__(self, provider_name: str, profile: AIProviderConfig)` (line 267; internal)
+  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 328; public) — Execute one validated structured request with one bounded repair.
+  - `supports(self, capability: str) -> bool` (line 359; public)
+  - `run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript` (line 382; public) — Native-multimodal audio → timestamped transcript ([ingest.native]).
+  - `run_media_markdown(self, context: PdfExtractionContextNative) -> str` (line 401; public) — Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine "native").
+  - `_run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any` (line 425; internal)
+  - `_chat(self, prompt: str, model_type: type[BaseModel] | None=None) -> str` (line 441; internal)
+  - `_system_prompt(self, model_type: type[BaseModel]) -> str` (line 450; internal) — The system turn for a first structured attempt.
+  - `_chat_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel] | None=None, *, use_response_format: bool=True) -> str` (line 473; internal)
+  - `_truncation_retry_tokens(self, sent: Any) -> int | None` (line 520; internal) — The doubled ``max_tokens`` for this transport's own truncation retry, or None.
+  - `_create_with_retry(self, kwargs: dict[str, Any]) -> Any` (line 542; internal)
+  - `_send_once(self, kwargs: dict[str, Any]) -> Any` (line 568; internal) — One physical request under its own receipt.
+  - `_create_within_deadline(self, kwargs: dict[str, Any]) -> Any` (line 593; internal) — The SDK request under its total deadline (``kwargs["timeout"]``), in this thread: every network operation is bounded by the deadline's remaining time (the deadline backend, above), so when this returns or raises the request's transport work is over.
+  - `_meter_response(self, response: Any) -> None` (line 616; internal) — Record usage on the receipt and the run, and spend the request budget.
+  - `_retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None` (line 628; internal) — Seconds to wait before the next attempt, or None to give up.
+  - `_is_retryable(self, error: Exception) -> bool` (line 649; internal)
+  - `_response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None` (line 657; internal)
+  - `_reasoning_kwargs(self) -> dict[str, Any]` (line 677; internal)
+  - `_default_headers(self) -> dict[str, str] | None` (line 690; internal)
 
 ### Module constants
 
-- `_MAX_ATTEMPTS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 56)
-- `_BACKOFF_BASE_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 57)
-- `_BACKOFF_CAP_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 58)
-- `_RETRY_AFTER_CAP_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 60)
-- `_MIN_ATTEMPT_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 62)
-- `_RETRYABLE_STATUS_CODES` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 64)
-- `_JSON_ONLY_SYSTEM_PROMPT` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 70)
-- `_WRITE_PIECE_BYTES` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 145)
+- `_MAX_ATTEMPTS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 57)
+- `_BACKOFF_BASE_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 58)
+- `_BACKOFF_CAP_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 59)
+- `_RETRY_AFTER_CAP_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 61)
+- `_MIN_ATTEMPT_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 63)
+- `_RETRYABLE_STATUS_CODES` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 65)
+- `_JSON_ONLY_SYSTEM_PROMPT` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 71)
+- `_WRITE_PIECE_BYTES` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 146)
 
 ## Internal implementation anchors
 
-- `class _RequestDeadline` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 104) — One physical request's total deadline.
-- `_bounded(timeout: float | None, error: type[Exception]) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 122) — One network operation's timeout under the active request's deadline: its own timeout or the deadline's remaining time, whichever is shorter; ``error`` (httpcore's timeout for the operation) once nothing remains.
-- `class _DeadlineNetworkStream(httpcore.NetworkStream)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 148) — A connection whose every operation is bounded by the deadline of the request using it (read at the operation: a pooled connection serves requests with different deadlines).
-- `class _DeadlineNetworkBackend(httpcore.NetworkBackend)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 203) — httpcore's network backend with every connection under the deadline.
-- `_arm_http_client(http_client: Any) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 233) — Put every connection pool of an httpx client (its transport and any proxy mounts) behind the deadline backend.
-- `class _RequestFailed(Exception)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 690) — The provider request itself failed; ``error`` is what it raised.
-- `_retry_after_seconds(error: Exception) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 698) — The server's requested pause from ``retry-after-ms`` or ``Retry-After``.
-- `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 719)
-- `_repair_prompt(text: str, model_type: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 729)
+- `class _RequestDeadline` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 105) — One physical request's total deadline.
+- `_bounded(timeout: float | None, error: type[Exception]) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 123) — One network operation's timeout under the active request's deadline: its own timeout or the deadline's remaining time, whichever is shorter; ``error`` (httpcore's timeout for the operation) once nothing remains.
+- `class _DeadlineNetworkStream(httpcore.NetworkStream)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 149) — A connection whose every operation is bounded by the deadline of the request using it (read at the operation: a pooled connection serves requests with different deadlines).
+- `class _DeadlineNetworkBackend(httpcore.NetworkBackend)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 204) — httpcore's network backend with every connection under the deadline.
+- `_arm_http_client(http_client: Any) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 234) — Put every connection pool of an httpx client (its transport and any proxy mounts) behind the deadline backend.
+- `class _RequestFailed(Exception)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 694) — The provider request itself failed; ``error`` is what it raised.
+- `_retry_after_seconds(error: Exception) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 702) — The server's requested pause from ``retry-after-ms`` or ``Retry-After``.
+- `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 723)
+- `_repair_prompt(text: str, model_type: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 733)
 
 ## Who imports or calls it
 
@@ -120,6 +120,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] — imports `MediaTranscript`, `MediaTranscriptionContext`, `PdfExtractionContextNative`, `audio_content_parts`, `media_transcription_prompt`, `pdf_content_parts`, `pdf_markdown_prompt`, `strip_markdown_fences`; calls `audio_content_parts`, `media_transcription_prompt`, `pdf_content_parts`, `pdf_markdown_prompt`, `strip_markdown_fences`
 - [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] — imports `TRUNCATION_RETRY_FACTOR`, `record_truncation`; calls `record_truncation`
 - [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] — imports `strict_output_schema`; calls `strict_output_schema`
+- [[Reference/Modules/learnloop/ai/structured_contracts|learnloop.ai.structured_contracts]] — imports `claim_schema_repair`; calls `claim_schema_repair`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `IMAGE_INPUT`, `ISOLATED_TURN`, `MEDIA_MARKDOWN`, `MEDIA_TRANSCRIPTION`, `STRUCTURED_COMPLETION`, `StructuredRequest`
 - [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsageAccounting`, `receipt_fields_from_chat_response`, `usage_from_chat_response`; calls `receipt_fields_from_chat_response`, `usage_from_chat_response`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`

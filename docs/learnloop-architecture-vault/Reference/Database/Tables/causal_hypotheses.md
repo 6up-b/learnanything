@@ -19,11 +19,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_card.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/db/stores/hypothesis_marks.py"
-  - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/db/stores/learner_model.py"
@@ -191,6 +191,7 @@ Database triggers:
 - `tests/test_diagnosis_history_modes.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_evidence_cutoff_readers.py`
 - `tests/test_evidence_reading_successor.py`
 - `tests/test_followup_fg1c_codex_review.py`
 - `tests/test_followup_reserved_only.py`
@@ -199,7 +200,6 @@ Database triggers:
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
-- `tests/test_mvp017_route_check_replay.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
