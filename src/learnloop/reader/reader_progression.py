@@ -9,7 +9,9 @@ rung + difficulty calibrated from the learner claim / mastery by the standard
 generation path.
 
 Idempotence lives on ``reader_section_progress.generation_batch_id``: a section
-triggers at most one generation, stamped atomically before the job runs.
+triggers at most one generation, stamped atomically before the job runs; each
+topic is written for once (``reader_topic_question_work``, claimed in the same
+transaction: ``learnloop.reader.section_generation``).
 """
 
 from __future__ import annotations

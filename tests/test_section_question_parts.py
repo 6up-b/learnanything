@@ -8,7 +8,8 @@ import pytest
 from learnloop.content.authoring.practice_generation import generate_post_probe_practice_proposal
 from learnloop.content.proposals import proposals
 from tests.section_question_parts_helpers import (
-    TOPICS, Writer, comparable_rows, enqueue, held_writer, jobs_for, live_questions, request_digest, section,
+    EXTRACTION, SOURCE, TOPICS, Writer, claim, comparable_rows, enqueue, held_writer, jobs_for, live_questions,
+    queue, request_digest, section, stamp, topic_ref, work_rows,
 )
 
 
@@ -322,3 +323,322 @@ def test_queue_revision_reload_sees_each_part_before_the_job_finishes(tmp_path, 
     batch = enqueue(jobs)
     assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "completed"
     assert reloads == list(range(1, 8))
+
+
+# -- question work owned per topic -----------------------------------------------------------------
+
+
+def _payload(repo, batch):
+    return repo.ingest_jobs_for_batch(batch)[0]["payload"]
+
+
+def _owned(repo):
+    return [(row["learning_object_id"], row["owner"], row["state"], row["batch_id"], row["section_id"])
+            for row in work_rows(repo)]
+
+
+def test_a_finished_sections_topics_are_claimed_once_each_and_written_with_the_section_jobs_bytes(tmp_path):
+    paths, repo = section(tmp_path / "topics", 3)
+    writer = Writer()
+    jobs = jobs_for(paths, repo, writer)
+
+    batch = claim(repo, jobs, "section_one", TOPICS[:3])
+
+    job = repo.ingest_jobs_for_batch(batch)[0]
+    assert job["status"] == "completed", job["error"]
+    assert writer.calls == [[lo] for lo in TOPICS[:3]]
+    assert stamp(repo, "section_one") == "topic_managed"
+    rows = work_rows(repo)
+    assert [(row["learning_object_id"], row["owner"], row["state"], row["trigger_event"], row["batch_id"],
+             row["job_id"], row["source_id"], row["extraction_id"], row["section_id"]) for row in rows] == [
+        (lo, "topic", "written", "section_finished", batch, job["id"], SOURCE, EXTRACTION, "section_one")
+        for lo in TOPICS[:3]]
+    assert [row["proposal_ids"] for row in rows] == [[part["patch_id"]] for part in job["payload"]["question_parts"]]
+    assert all(row["work_key"] and row["model_settings"] for row in rows)
+    assert len({row["work_key"] for row in rows}) == 3
+    # The section job of before, on an identical vault, asks the same requests byte for byte.
+    old_paths, old_repo = section(tmp_path / "section_job", 3)
+    old = Writer()
+    enqueue(jobs_for(old_paths, old_repo, old), 3)
+    assert [request_digest(request) for request in writer.requests] == [request_digest(request) for request in old.requests]
+    assert live_questions(paths) == live_questions(old_paths)
+
+
+def test_a_topics_key_and_grounding_are_its_own_in_whatever_wave_claims_it(tmp_path):
+    refs = [topic_ref(TOPICS[0], ["s1", "s2"]), topic_ref(TOPICS[1], ["s4"])]
+    sent = []
+
+    def record(lo_ids, reason, refs, topic_keys):
+        sent.append((lo_ids, reason, refs, topic_keys))
+        return f"batch_wave_{len(sent)}"
+
+    paths, repo = section(tmp_path / "wave", 2)
+    claim(repo, None, "section_one", TOPICS[:2], refs=refs, enqueue=record, start=False)
+    alone_paths, alone_repo = section(tmp_path / "alone", 1)
+    claim(alone_repo, None, "section_one", TOPICS[:1], refs=refs[:1], enqueue=record, start=False)
+
+    (lo_ids, reason, wave_refs, keys), (_, _, alone_refs, alone_keys) = sent
+    # The request carries the wave's bundles, as the section's job did; each topic's row keeps its own.
+    assert (lo_ids, reason, wave_refs, alone_refs) == (TOPICS[:2], "reader_section_completed:section_one", refs, refs[:1])
+    rows = work_rows(repo)
+    assert [(row["source_refs"], row["passage_ids"]) for row in rows] == [([refs[0]], ["s1", "s2"]), ([refs[1]], ["s4"])]
+    assert keys == {row["learning_object_id"]: row["work_key"] for row in rows}
+    assert alone_keys == {TOPICS[0]: keys[TOPICS[0]]}
+
+
+def test_a_queue_that_fails_takes_the_claims_and_the_stamp_back(tmp_path):
+    paths, repo = section(tmp_path, 2)
+    writer = Writer()
+    jobs = jobs_for(paths, repo, writer)
+    batches = repo.list_ingest_batches()
+
+    def unavailable(lo_ids, reason, refs, topic_keys):
+        raise RuntimeError("the queue is unavailable")
+
+    def lost(lo_ids, reason, refs, topic_keys):
+        queue(jobs)(lo_ids, reason, refs, topic_keys)
+        raise RuntimeError("lost after queueing, before the claims were written")
+
+    for broken in (unavailable, lost):
+        with pytest.raises(RuntimeError):
+            claim(repo, jobs, "section_one", TOPICS[:2], enqueue=broken)
+        assert work_rows(repo) == [] and stamp(repo, "section_one") is None
+        assert repo.list_ingest_batches() == batches  # no batch outlives its claims
+    batch = claim(repo, jobs, "section_one", TOPICS[:2])
+    assert _owned(repo) == [(lo, "topic", "written", batch, "section_one") for lo in TOPICS[:2]]
+    assert writer.calls == [[lo] for lo in TOPICS[:2]]
+
+
+def test_work_claimed_before_a_crash_runs_once_when_the_queue_runs_again(tmp_path):
+    paths, repo = section(tmp_path, 2)
+    writer = Writer()
+
+    batch = claim(repo, jobs_for(paths, repo, writer), "section_one", TOPICS[:2], start=False)
+
+    assert _owned(repo) == [(lo, "topic", "queued", batch, "section_one") for lo in TOPICS[:2]]
+    assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "queued" and writer.calls == []
+    jobs = jobs_for(paths, repo, writer)  # the next start
+    assert claim(repo, jobs, "section_one", TOPICS[:2], from_stamp="topic_managed") is None
+    assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "completed"
+    assert writer.calls == [[lo] for lo in TOPICS[:2]]
+    assert [row["state"] for row in work_rows(repo)] == ["written", "written"]
+
+
+def test_a_crash_after_a_topics_apply_resumes_its_proposal_and_asks_nothing_twice(tmp_path, monkeypatch):
+    paths, repo = section(tmp_path, 3)
+    writer = Writer()
+    jobs = jobs_for(paths, repo, writer)
+    original = proposals.auto_apply_rows
+    seen = []
+
+    def crash(root, patch, rows):
+        original(root, patch, rows)
+        seen.append(patch)
+        raise RuntimeError("crash after apply before recording progress")
+
+    monkeypatch.setattr(proposals, "auto_apply_rows", crash)
+    batch = claim(repo, jobs, "section_one", TOPICS[:3])
+    assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "failed"
+    assert live_questions(paths) == {f"pi_{TOPICS[0]}"} and len(writer.calls) == 1
+    retried = []
+    monkeypatch.setattr(proposals, "auto_apply_rows", lambda root, patch, rows: retried.append(patch) or original(root, patch, rows))
+
+    jobs.resume_batch(batch)
+
+    assert seen[0] not in retried and len(retried) == 2
+    assert writer.calls == [[lo] for lo in TOPICS[:3]]
+    assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "completed"
+    assert len(repo.proposal_batches()) == 3
+    assert [row["proposal_ids"] for row in work_rows(repo)][0] == [seen[0]]
+    assert all(row["decision"] == "accepted" for row in repo.proposal_items(seen[0]))
+
+
+def test_two_claims_at_once_give_each_topic_one_owner(tmp_path):
+    import threading
+    import time
+
+    from learnloop.db.repositories import Repository
+    from learnloop.reader.section_generation import claim_section_topics
+
+    paths, repo = section(tmp_path, 4)
+    writer = Writer()
+    hosts = [jobs_for(paths, Repository(paths.sqlite_path), writer) for _ in range(2)]
+    for name in ("section_one", "section_two"):
+        repo.upsert_reader_section_progress(extraction_id=EXTRACTION, section_id=name, completed=True)
+    inside = threading.Event()
+    results, errors = {}, []
+
+    def first_enqueue(lo_ids, reason, refs, topic_keys):
+        batch = queue(hosts[0])(lo_ids, reason, refs, topic_keys)
+        inside.set()
+        time.sleep(0.3)  # the other claim arrives while this one's transaction is open
+        return batch
+
+    def run(index, name, topics, enqueue_):
+        try:
+            if index:
+                inside.wait(5)
+            results[name] = claim_section_topics(hosts[index].repository, extraction_id=EXTRACTION, section_id=name,
+                                                 source_id=SOURCE, lo_ids=topics, refs=[], from_stamp=None,
+                                                 enqueue=enqueue_)
+        except Exception as exc:  # noqa: BLE001 - reported below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=run, args=(0, "section_one", TOPICS[:3], first_enqueue)),
+               threading.Thread(target=run, args=(1, "section_two", TOPICS[1:4], queue(hosts[1])))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)
+    assert errors == []
+    assert _payload(repo, results["section_one"])["learning_object_ids"] == TOPICS[:3]
+    assert _payload(repo, results["section_two"])["learning_object_ids"] == TOPICS[3:4]
+    assert sorted(row["learning_object_id"] for row in work_rows(repo)) == sorted(TOPICS[:4])
+    hosts[0].run_queued_work()
+    assert sorted(writer.calls) == sorted([lo] for lo in TOPICS[:4])
+
+
+def test_a_topic_held_for_review_stays_held_and_is_not_written_again_for_another_section(tmp_path):
+    paths, repo = section(tmp_path, 2)
+    writer = held_writer(per_topic=1, held=(0,))
+    jobs = jobs_for(paths, repo, writer)
+
+    batch = claim(repo, jobs, "section_one", TOPICS[:1])
+    again = claim(repo, jobs, "section_two", TOPICS[:2])
+
+    assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "completed"
+    assert writer.calls == [[TOPICS[0]], [TOPICS[1]]]
+    assert _owned(repo) == [(TOPICS[0], "topic", "held", batch, "section_one"),
+                            (TOPICS[1], "topic", "held", again, "section_two")]
+    assert _payload(repo, again)["learning_object_ids"] == [TOPICS[1]]
+
+
+def test_a_failed_topic_resumes_its_own_batch_and_frozen_request_and_no_other_section_takes_it(tmp_path):
+    from learnloop.clock import FrozenClock
+    from learnloop.vault.loader import add_note
+    from tests.helpers import NOW
+
+    paths, repo = section(tmp_path, 3)
+    writer = Writer(bad_topics={TOPICS[1]})
+    jobs = jobs_for(paths, repo, writer)
+
+    batch = claim(repo, jobs, "section_one", TOPICS[:3])
+
+    assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "failed"
+    assert writer.calls == [[TOPICS[0]], [TOPICS[1]], [TOPICS[2]], [TOPICS[1]]]
+    rows = work_rows(repo)
+    assert [row["state"] for row in rows] == ["written", "failed", "written"]
+    assert "invalid JSON" in rows[1]["error"]
+    written = [row["proposal_ids"] for row in rows]
+    assert claim(repo, jobs, "section_two", TOPICS[1:2]) is None
+    assert stamp(repo, "section_two") == "topic_managed" and len(writer.calls) == 4
+    add_note(paths.root, "linear-algebra", "unrelated", "Unrelated", "New context during retry.", clock=FrozenClock(NOW))
+    writer.bad_topics.clear()
+
+    jobs.resume_batch(batch)
+
+    assert writer.calls[4:] == [[TOPICS[1]]]
+    assert request_digest(writer.requests[1]) == request_digest(writer.requests[4])
+    assert repo.ingest_jobs_for_batch(batch)[0]["status"] == "completed"
+    rows = work_rows(repo)
+    assert [row["state"] for row in rows] == ["written"] * 3 and rows[1]["error"] is None
+    assert [rows[0]["proposal_ids"], rows[2]["proposal_ids"]] == [written[0], written[2]]
+    assert len(live_questions(paths)) == 3
+
+
+def test_two_sections_and_two_sources_citing_a_topic_write_it_once(tmp_path):
+    paths, repo = section(tmp_path, 4)
+    writer = Writer()
+    jobs = jobs_for(paths, repo, writer)
+
+    one = claim(repo, jobs, "section_one", TOPICS[:2])
+    two = claim(repo, jobs, "section_two", TOPICS[1:3])
+    other = claim(repo, jobs, "u1", [TOPICS[0], TOPICS[3]], extraction_id="ext_other", source_id="src_other")
+
+    assert [_payload(repo, batch)["learning_object_ids"] for batch in (one, two, other)] == [
+        TOPICS[:2], TOPICS[2:3], TOPICS[3:4]]
+    assert writer.calls == [[lo] for lo in TOPICS[:4]]
+    assert [(row["learning_object_id"], row["source_id"], row["extraction_id"], row["section_id"])
+            for row in work_rows(repo)] == [
+        (TOPICS[0], SOURCE, EXTRACTION, "section_one"), (TOPICS[1], SOURCE, EXTRACTION, "section_one"),
+        (TOPICS[2], SOURCE, EXTRACTION, "section_two"), (TOPICS[3], "src_other", "ext_other", "u1")]
+    assert {stamp(repo, "section_one"), stamp(repo, "section_two"), stamp(repo, "u1", "ext_other")} == {"topic_managed"}
+
+
+def test_a_later_wave_of_a_section_is_judged_with_the_questions_its_earlier_wave_applied(tmp_path):
+    paths, repo = section(tmp_path, 2)
+    writer = Writer(repeated={0})
+    jobs = jobs_for(paths, repo, writer)
+    first = claim(repo, jobs, "section_one", TOPICS[:1])
+    applied = repo.proposal_items(work_rows(repo)[0]["proposal_ids"][0])
+    assert [row["decision"] for row in applied] == ["accepted"]
+
+    second = claim(repo, jobs, "section_one", TOPICS[1:2], from_stamp="topic_managed")
+
+    assert first != second and live_questions(paths) == {f"pi_{TOPICS[0]}"}
+    assert repo.proposal_items(work_rows(repo)[0]["proposal_ids"][0]) == applied  # the applied row wins
+    job = repo.ingest_jobs_for_batch(second)[0]
+    assert job["status"] == "failed"
+    assert "duplicate_prompt" in job["payload"]["question_parts"][0]["error"]
+    assert [row["state"] for row in work_rows(repo)] == ["written", "failed"]
+
+
+def test_section_jobs_from_before_topic_work_keep_their_keys_and_proposals_and_own_their_topics(tmp_path):
+    from learnloop.ai.execution import ModelCheckpoint
+    from learnloop.content.authoring.practice_generation import section_questions_key
+
+    paths, repo = section(tmp_path, 6)
+    writer = Writer(bad_topics={TOPICS[1]})
+    jobs = jobs_for(paths, repo, writer)
+
+    def section_job(name, topics, *, start=True):
+        repo.upsert_reader_section_progress(extraction_id=EXTRACTION, section_id=name, completed=True)
+        batch = jobs.enqueue_practice_expansion(learning_object_ids=topics, reason=f"reader_section_completed:{name}",
+                                                source_refs=[], **({} if start else {"start": False}))
+        assert repo.mark_section_generation(extraction_id=EXTRACTION, section_id=name, batch_id=batch)
+        return batch
+
+    failed = section_job("section_one", TOPICS[:3])  # topic 1 invalid: 0 and 2 applied
+    writer.held = {0}
+    held = section_job("section_two", TOPICS[3:4])
+    writer.held = set()
+    queued = section_job("section_three", TOPICS[4:5], start=False)
+    assert [repo.ingest_jobs_for_batch(batch)[0]["status"] for batch in (failed, held, queued)] == [
+        "failed", "completed", "queued"]
+    calls, first_request = list(writer.calls), request_digest(writer.requests[1])
+    parts = {part["topic_id"]: part.get("patch_id") for part in _payload(repo, failed)["question_parts"]}
+
+    new = claim(repo, jobs, "section_four", [TOPICS[0], TOPICS[3], TOPICS[4], TOPICS[5]], start=False)
+
+    rows = {row["learning_object_id"]: row for row in work_rows(repo)}
+    assert [(lo, rows[lo]["owner"], rows[lo]["state"], rows[lo]["batch_id"], rows[lo]["section_id"])
+            for lo in TOPICS[:6]] == [
+        (TOPICS[0], "section_job", "legacy", failed, "section_one"),
+        (TOPICS[1], "section_job", "legacy", failed, "section_one"),
+        (TOPICS[2], "section_job", "legacy", failed, "section_one"),
+        (TOPICS[3], "section_job", "legacy", held, "section_two"),
+        (TOPICS[4], "section_job", "legacy", queued, "section_three"),
+        (TOPICS[5], "topic", "queued", new, "section_four")]
+    assert [rows[lo]["proposal_ids"] for lo in TOPICS[:3]] == [[parts[TOPICS[0]]], [], [parts[TOPICS[2]]]]
+    assert _payload(repo, new)["learning_object_ids"] == [TOPICS[5]]
+    # The section jobs' stamps and payloads are as they were.
+    assert [stamp(repo, name) for name in ("section_one", "section_two", "section_three")] == [failed, held, queued]
+    assert "topic_keys" not in _payload(repo, queued)
+
+    jobs.run_queued_work()  # the old queued job, as it was, and the new topic's
+
+    assert sorted(writer.calls[len(calls):]) == sorted([[TOPICS[4]], [TOPICS[5]]])
+    assert ModelCheckpoint(repo, section_questions_key(writer, [TOPICS[4]], [], "reader_section_completed:section_three"),
+                           "section_questions", dict).load() is not None
+    writer.bad_topics.clear()
+    jobs.resume_batch(failed)
+    assert writer.calls[len(calls) + 2:] == [[TOPICS[1]]]
+    assert request_digest(writer.requests[-1]) == first_request
+    resumed = {part["topic_id"]: part.get("patch_id") for part in _payload(repo, failed)["question_parts"]}
+    assert (resumed[TOPICS[0]], resumed[TOPICS[2]]) == (parts[TOPICS[0]], parts[TOPICS[2]])
+    assert repo.ingest_jobs_for_batch(failed)[0]["status"] == "completed"
+    # Indexed again before the next claim: the section jobs' rows name what they wrote since.
+    assert claim(repo, jobs, "section_five", TOPICS[1:2] + TOPICS[4:5]) is None
+    rows = {row["learning_object_id"]: row for row in work_rows(repo)}
+    assert rows[TOPICS[1]]["proposal_ids"] == [resumed[TOPICS[1]]]
+    assert rows[TOPICS[4]]["proposal_ids"] == repo.ingest_jobs_for_batch(queued)[0]["result"]["patch_ids"]

@@ -899,6 +899,16 @@ def section_questions_key(client: AIProviderClient, lo_ids: list[str], source_re
                         "reason": reason, "settings": model_settings(client)})
 
 
+def topic_questions_key(learning_object_id: str, source_refs: list[dict[str, Any]]) -> str:
+    """The checkpoint scope of one topic's first set of questions: its frozen request and its prepared part.
+
+    Only the topic and its own grounding: the other topics claimed with it, the section that claimed it and the
+    settings a run asks under never move it, so a topic resumed in any company finds what it already paid for.
+    (A section job's key, :func:`section_questions_key`, hashes its whole topic list instead.)"""
+
+    return content_key({"purpose": "reader_first_set", "topic": learning_object_id, "source_refs": source_refs})
+
+
 def _reject_duplicate_practice_prompts(rows: list[dict[str, Any]], *,
                                       applied_rows: Sequence[dict[str, Any]] = ()) -> None:
     # Applied prompts are reserved: only the new duplicate can be refused.
@@ -937,7 +947,14 @@ def generate_post_probe_practice_proposal(
     checkpoint_scope: str | None = None,
     progress: Callable[[int, int], None] | None = None,
     part_status: Callable[[list[dict[str, Any]]], None] | None = None,
+    topic_scopes: Mapping[str, str] | None = None,
+    applied_patch_ids: Sequence[str] = (),
 ) -> PracticeExpansionResult:
+    """``checkpoint_scope`` writes one part per topic under that scope (a section job's); ``topic_scopes`` does
+    the same with each topic's part under its own scope (topic work's), judged also against the applied rows of
+    ``applied_patch_ids``."""
+
+    by_parts = checkpoint_scope is not None or topic_scopes is not None
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
     sync_vault_state(vault, repository)
@@ -980,7 +997,7 @@ def generate_post_probe_practice_proposal(
     def judge(rows: list[dict[str, Any]], *, applied_rows: Sequence[dict[str, Any]] = ()) -> None:
         gates(rows, applied_rows=applied_rows)
         _reject_duplicate_practice_prompts(rows, applied_rows=applied_rows)
-        if checkpoint_scope is not None:
+        if by_parts:
             # Refusing a member can change another group's persona verdict.
             # Only remove candidates, until both joint gates admit the apply set.
             previous = -1
@@ -998,11 +1015,11 @@ def generate_post_probe_practice_proposal(
             part_status(states)
 
     parts = None
-    if checkpoint_scope is not None:
+    if by_parts:
         targets = {target.learning_object_id: target for target in plan.targets}
         parts = []
         for lo_id in dict.fromkeys(learning_object_ids or list(targets)):
-            if lo_id not in targets:
+            if lo_id not in targets or (topic_scopes is not None and lo_id not in topic_scopes):
                 continue
             part = replace(plan, targets=[targets[lo_id]])
             parts.append({
@@ -1030,6 +1047,9 @@ def generate_post_probe_practice_proposal(
         row_transform=judge,
         **({"part_requests": parts, "checkpoint_scope": checkpoint_scope, "progress": progress, "part_status": report_parts}
            if checkpoint_scope is not None else {}),
+        **({"part_requests": parts, "part_scopes": [topic_scopes[part["topic_id"]] for part in parts or []],
+            "applied_patch_ids": applied_patch_ids, "progress": progress, "part_status": report_parts}
+           if topic_scopes is not None else {}),
         **_ad_request_options(plan),
     )
     violations: list[str] = []

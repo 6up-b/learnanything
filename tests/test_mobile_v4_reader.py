@@ -405,8 +405,9 @@ def test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_onc
     from learnloop.content.pipeline.jobs import IngestJobManager
 
     enqueued: list[dict] = []
+    # Each section cites a topic of its own: a topic another section claimed is never queued again.
     monkeypatch.setattr(generation, "section_generation_candidates",
-                        lambda vault, repository, *, extraction_id, section_id: ["lo_svd_definition"])
+                        lambda vault, repository, *, extraction_id, section_id: [f"lo_svd_definition_{section_id}"])
     monkeypatch.setattr(progression, "source_refs_for_section", lambda *args, **kwargs: [])
     monkeypatch.setattr(IngestJobManager, "enqueue_practice_expansion",
                         lambda self, **kwargs: enqueued.append(kwargs) or f"batch_{len(enqueued)}")
@@ -420,7 +421,10 @@ def test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_onc
     assert len(enqueued) == 1 and enqueued[0]["reason"] == "reader_section_completed:u1"
     call(ctx, "reader.get_progress", {"extractionId": EXTRACTION})
     assert len(enqueued) == 1
-    assert world["repo"].reader_section_progress_row(EXTRACTION, "u1")["generation_batch_id"] == "batch_1"
+    # The section's work is its topic's claim, naming the batch queued with it.
+    assert world["repo"].reader_section_progress_row(EXTRACTION, "u1")["generation_batch_id"] == "topic_managed"
+    assert [(row["learning_object_id"], row["batch_id"], row["section_id"])
+            for row in world["repo"].topic_question_work_rows(owner="topic")] == [("lo_svd_definition_u1", "batch_1", "u1")]
     # A completion on the desktop is as before.
     call(ctx, "reader.mark_section_progress", {"extractionId": EXTRACTION, "sectionId": "u2", "completed": True})
     assert len(enqueued) == 2

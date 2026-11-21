@@ -22,6 +22,7 @@ from tests.teacher_te2log_migration_helpers import TE2LOG_ADDED_OBJECTS
 from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
 from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS
 from tests.reader_seen_spans_migration_helpers import SEEN_SPANS_ADDED_OBJECTS
+from tests.reader_topic_question_work_migration_helpers import TOPIC_WORK_ADDED_OBJECTS
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
@@ -72,7 +73,7 @@ def test_240_adds_exactly_its_objects_and_changes_nothing_else(tmp_path):
         after = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-    assert set(after) - set(before) - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS == set(DATA_CAPTURE_ADDED_OBJECTS)
+    assert set(after) - set(before) - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS == set(DATA_CAPTURE_ADDED_OBJECTS)
     assert all(after[name] == sql for name, sql in before.items())
 
 

@@ -5,7 +5,7 @@ import hashlib
 import json
 from math import ceil
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from pydantic import ValidationError
 
@@ -531,6 +531,8 @@ def generate_authoring_proposal(
     checkpoint_scope: str | None = None,
     progress: Callable[[int, int], None] | None = None,
     part_status: Callable[[list[dict[str, Any]]], None] | None = None,
+    part_scopes: list[str] | None = None,
+    applied_patch_ids: Sequence[str] = (),
 ) -> str:
     """Run authoring generation through a AIProviderClient and persist the result.
 
@@ -552,6 +554,12 @@ def generate_authoring_proposal(
     each answer, including repair, before use. Each part is validated, judged
     against applied rows, and applied before the next call. ``progress`` counts
     finished parts; ``part_status`` exposes their proposals and failures.
+
+    ``part_scopes`` (one per part, in place of ``checkpoint_scope``) gives each
+    part a scope of its own: its frozen request is ``<scope>:requests`` and its
+    prepared proposal ``<scope>:part:0``, so neither depends on which other parts
+    were asked with it. ``applied_patch_ids`` names earlier proposals whose
+    applied rows every part is judged against, as it is against its own call's.
     """
 
     vault = load_vault(root)
@@ -571,8 +579,18 @@ def generate_authoring_proposal(
         focus_concepts=focus_concepts, focus_facets=focus_facets,
         **{key: value for key, value in part.items() if key != "topic_id"},
     ) for part in part_requests] if part_requests is not None else [context]
-    checkpoints = repository if checkpoint_scope is not None else None
-    if checkpoint_scope is not None:
+    checkpoints = repository if checkpoint_scope is not None or part_scopes is not None else None
+    if part_scopes is not None:
+        if part_requests is None or len(part_scopes) != len(contexts):
+            raise ValueError("part_scopes needs one scope per part request")
+        # Each part's request is frozen under its own scope, so a part asked
+        # again in another company is the same request, already paid for.
+        frozen = [ModelCheckpoint(repository, scope + ":requests", "authoring_requests", dict).answer(
+            lambda part=part: {"context": asdict(context), "parts": [asdict(part)]})[0]
+            for scope, part in zip(part_scopes, contexts, strict=True)]
+        context = AuthoringContext(**frozen[0]["context"]) if frozen else context
+        contexts = [AuthoringContext(**prepared["parts"][0]) for prepared in frozen]
+    elif checkpoint_scope is not None:
         # Freeze the requests before paying: unrelated vault edits during a
         # retry must not turn already-saved topic answers into new requests.
         snapshot = ModelCheckpoint(repository, checkpoint_scope + ":requests", "authoring_requests", dict)
@@ -600,11 +618,14 @@ def generate_authoring_proposal(
         }
     )
     try:
-        if part_requests is not None and checkpoint_scope is not None:
+        if part_requests is not None and checkpoints is not None:
+            receipts = ([f"{scope}:part:0" for scope in part_scopes] if part_scopes is not None
+                        else [f"{checkpoint_scope}:part:{index}" for index in range(len(contexts))])
             return _apply_authoring_parts(
-                root, codex_client, repository, contexts, part_requests, checkpoint_scope,
+                root, codex_client, repository, contexts, part_requests, receipts,
                 agent_run_id, provider_fields["provider"] or "codex", now,
                 merge_context_source_refs, row_transform, progress, part_status, clock, request_guard,
+                applied_patch_ids,
             )
         proposal = dispatch_authoring_request(
             codex_client, context, request_guard=request_guard,
@@ -670,10 +691,10 @@ def _prepare_authoring_part(root, codex_client, repository, context, proposal, a
         }, "rows": rows}
 
 
-def _apply_authoring_parts(root, client, repository, contexts, parts, scope, agent_run_id,
-                           provider, now, merge_refs, judge, progress, part_status, clock, request_guard):
-    receipts = [ModelCheckpoint(repository, f"{scope}:part:{index}", "authoring_part", dict)
-                for index in range(len(contexts))]
+def _apply_authoring_parts(root, client, repository, contexts, parts, receipt_keys, agent_run_id,
+                           provider, now, merge_refs, judge, progress, part_status, clock, request_guard,
+                           applied_patch_ids=()):
+    receipts = [ModelCheckpoint(repository, key, "authoring_part", dict) for key in receipt_keys]
     prepared = [receipt.load() for receipt in receipts]
     states = [{"topic_id": part["topic_id"], **({"patch_id": saved["batch"]["id"]} if saved else {})}
               for part, saved in zip(parts, prepared, strict=True)]
@@ -716,9 +737,10 @@ def _apply_authoring_parts(root, client, repository, contexts, parts, scope, age
                     client, context, checkpoints=repository, request_guard=request_guard,
                     commissioned=request_guard is not None,
                 )
+                earlier = [*applied_patch_ids, *(state["patch_id"] for state in states if state.get("patch_id"))]
                 applied = [{**row, "payload": row.get("edited_payload") or row["payload"]}
-                           for state in states if state.get("patch_id")
-                           for row in repository.proposal_items(state["patch_id"])
+                           for patch_id in dict.fromkeys(earlier)
+                           for row in repository.proposal_items(patch_id)
                            if row.get("decision") == "accepted" and row.get("applied_change_batch_id")]
                 saved = _prepare_authoring_part(
                     root, client, repository, context, proposal, agent_run_id, provider, now,

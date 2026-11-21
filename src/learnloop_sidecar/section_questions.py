@@ -25,18 +25,29 @@ def start_section_questions(ctx: Any, vault: Any, repository: Any, extraction_id
     from learnloop.reader import section_generation
     from learnloop.vault.loader import load_vault
 
-    def enqueue(lo_ids: list[str], reason: str, refs: list[dict[str, Any]]) -> str:
-        # Reading progress is not a press: the expansion asks nothing and carries no grant.
+    def enqueue(lo_ids: list[str], reason: str, refs: list[dict[str, Any]], topic_keys: dict[str, str]) -> str:
+        # Reading progress is not a press: the expansion asks nothing and carries no grant. Recorded inside the
+        # claim's transaction and started after it: a foreground queue started inside would write with the
+        # claim's write lock held.
         with plan_fallback.quiet():
             return ctx.ingest_jobs.enqueue_practice_expansion(learning_object_ids=lo_ids, reason=reason,
-                                                              source_refs=refs)
+                                                              source_refs=refs, topic_keys=topic_keys, start=False)
 
-    return section_generation.start_section_questions(
+    try:
+        # The queue's own repository: after a reload of the same vault the context holds another instance, and the
+        # queue's insert, on that other connection, would wait for the claim's own write lock.
+        claim_repository = ctx.ingest_jobs.repository
+    except RuntimeError:
+        claim_repository = repository  # no queue bound: the claim's enqueue fails and rolls it back
+    batch_id = section_generation.start_section_questions(
         vault, repository, extraction_id=extraction_id, section_id=section_id, enqueue=enqueue,
         fresh_vault=lambda: load_vault(ctx.vault_root),
         topics_settled=lambda: section_topics_settled(repository, extraction_id, section_id),
-        from_stamp=from_stamp, completed_at=completed_at,
+        from_stamp=from_stamp, completed_at=completed_at, claim_repository=claim_repository,
     )
+    if batch_id is not None:
+        ctx.ingest_jobs.run_queued_work()
+    return batch_id
 
 
 def drain_owed_section_questions(ctx: Any, vault: Any, repository: Any, *, extraction_id: str | None = None) -> int:

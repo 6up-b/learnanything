@@ -2592,7 +2592,13 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     when there are some: those of ``item_ids`` that cannot be asked now, an
     answered one not due again yet or one kept for a later check on your own
     (an open cold follow-up's chosen question before its day). ``None`` when
-    the book has no reading."""
+    the book has no reading.
+
+    A section's work is the job its stamp names (a section job), or, stamped
+    ``topic_managed``, the jobs its own topic claims name: the same facts, one
+    job or several. A section whose every topic was claimed through another is
+    ``none_needed`` (that section reports them). Claims made on an earlier
+    reading of the book follow the current reading's sections."""
 
     from learnloop.content.pipeline.runner import effective_ingest_job_status
     from learnloop.db.stores.reader import (
@@ -2600,6 +2606,7 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
         SECTION_ENQUEUING as ENQUEUING,
         SECTION_NONE_NEEDED as NONE_NEEDED,
         SECTION_NONE_NEEDED_BEFORE as NONE_NEEDED_BEFORE,
+        SECTION_TOPIC_MANAGED as TOPIC_MANAGED,
         SECTION_WAITING_FOR_BUILD as WAITING_FOR_BUILD,
     )
 
@@ -2617,29 +2624,12 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     live = getattr(vault, "practice_items", None) or {}
     fact: dict[str, Any] = {"count": 0, "item_ids": [], "sections": [], "writing": [], "waiting": [],
                             "failed": [], "to_look_at": 0, "section_count": len(units), "none_needed": []}
-    finished = [row for row in repo.reader_section_progress_for(extraction_id) if row.get("completed_at")]
-    for row in sorted(finished, key=lambda row: order.get(str(row["section_id"]), len(order))):
-        label = labels.get(str(row["section_id"])) or ""
-        stamp = row.get("generation_batch_id")
-        if stamp in {NONE_NEEDED, NONE_NEEDED_BEFORE}:
-            # Finished, with nothing to write: a finished section still, never one to finish.
-            fact["none_needed"].append(label)
-            continue
-        if not stamp:
-            continue
-        if stamp == WAITING_FOR_BUILD:
-            fact["waiting"].append(label)
-            continue
-        if stamp in {ENQUEUING, DEFERRED_TO_PRIMARY}:
-            fact["writing"].append(label)
-            continue
-        job = next((job for job in repo.ingest_jobs_for_batch(str(stamp))
-                    if job.get("job_type") == "practice_expansion"), None)
-        if job is None:
-            continue
+    def add_job(label: str, job: Mapping[str, Any], resume_id: str) -> tuple[int, bool]:
+        """One writing job's questions, progress and stops into the fact: (questions it applied, whether active)."""
+
         parts = (job.get("payload") or {}).get("question_parts") or []
-        if _active(job):
-            fact["writing"].append(label)
+        active = _active(job)
+        if active:
             total = job.get("total_windows")
             if total is None:
                 total = len((job.get("payload") or {}).get("learning_object_ids") or [])
@@ -2650,9 +2640,9 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
         failed_topics = [str(part["topic_id"]) for part in parts if part.get("error")]
         if failed_topics:
             names = [getattr(vault.learning_objects.get(topic), "title", topic) for topic in failed_topics]
-            fact["failed"].append({"label": f"{label}: {', '.join(names)}", "resume_id": str(stamp)})
+            fact["failed"].append({"label": f"{label}: {', '.join(names)}", "resume_id": resume_id})
         elif effective_ingest_job_status(job) in {"failed", "blocked", "cancelled"}:
-            fact["failed"].append({"label": label, "resume_id": str(stamp)})
+            fact["failed"].append({"label": label, "resume_id": resume_id})
         result = job.get("result") or {}
         patches = list(dict.fromkeys([part["patch_id"] for part in parts if part.get("patch_id")]
                                     + result.get("patch_ids", []) + ([result["patch_id"]] if result.get("patch_id") else [])))
@@ -2672,8 +2662,70 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
                 continue
             fact["item_ids"].append(item_id)
             written += 1
+        return written, active
+
+    def add_section(label: str, jobs: list[tuple[str, Mapping[str, Any]]]) -> None:
+        written = active = 0
+        for resume_id, job in jobs:
+            count, running = add_job(label, job, resume_id)
+            written, active = written + count, active or running
+        if active:
+            fact["writing"].append(label)
         if written:
             fact["sections"].append(label)
+
+    def topic_jobs(rows: list[dict[str, Any]]) -> list[tuple[str, Mapping[str, Any]]]:
+        """The writing jobs of a section's own topic work: one per batch its claims name, in claim order."""
+
+        batches = list(dict.fromkeys(str(row["batch_id"]) for row in rows if row.get("batch_id")))
+        return [(batch_id, job) for batch_id in batches for job in repo.ingest_jobs_for_batch(batch_id)
+                if job.get("job_type") == "practice_expansion"]
+
+    finished = [row for row in repo.reader_section_progress_for(extraction_id) if row.get("completed_at")]
+    claims = repo.topic_question_work_rows(source_id=source_id, owner="topic")
+    for row in sorted(finished, key=lambda row: order.get(str(row["section_id"]), len(order))):
+        label = labels.get(str(row["section_id"])) or ""
+        stamp = row.get("generation_batch_id")
+        if stamp in {NONE_NEEDED, NONE_NEEDED_BEFORE}:
+            # Finished, with nothing to write: a finished section still, never one to finish.
+            fact["none_needed"].append(label)
+            continue
+        if not stamp:
+            continue
+        if stamp == WAITING_FOR_BUILD:
+            fact["waiting"].append(label)
+            continue
+        if stamp in {ENQUEUING, DEFERRED_TO_PRIMARY}:
+            fact["writing"].append(label)
+            continue
+        if stamp == TOPIC_MANAGED:
+            # Its topics' claims name its work (a stamp, never a batch). With no claim of its own, every topic
+            # citing it was claimed through another section, which reports them: nothing is left to write here.
+            own = [claim for claim in claims if claim["extraction_id"] == extraction_id
+                   and claim["section_id"] == str(row["section_id"])]
+            if own:
+                add_section(label, topic_jobs(own))
+            else:
+                fact["none_needed"].append(label)
+            continue
+        job = next((job for job in repo.ingest_jobs_for_batch(str(stamp))
+                    if job.get("job_type") == "practice_expansion"), None)
+        if job is None:
+            continue
+        add_section(label, [(str(stamp), job)])
+    # Claims made on an earlier reading of this book (a reread carries the stamp, not the claims): reported under
+    # the section they were made in, after the current reading's.
+    earlier: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for claim in claims:
+        if claim["extraction_id"] != extraction_id:
+            earlier.setdefault((str(claim["extraction_id"]), str(claim["section_id"])), []).append(claim)
+    for (old_extraction, section_id), rows in earlier.items():
+        with repo.connection() as connection:
+            unit = connection.execute(
+                "SELECT label FROM source_document_units WHERE extraction_id = ? AND unit_id = ?",
+                (old_extraction, section_id),
+            ).fetchone()
+        add_section(str((unit["label"] if unit else "") or "").strip(), topic_jobs(rows))
     fact["count"] = len(fact["item_ids"])
     later = _not_askable_now(repo, fact["item_ids"], utc_now_iso(clock))
     if later:
