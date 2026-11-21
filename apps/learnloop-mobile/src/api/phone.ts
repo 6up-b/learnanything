@@ -67,6 +67,9 @@ export interface ProgressInput {
   readonly spansSeen?: number;
   readonly spanCount?: number;
   readonly completed?: boolean;
+  /** The passages the learner's own reading had on screen, and whether the section's last one was among them. */
+  readonly seenSpanIds?: readonly string[];
+  readonly reachedEnd?: boolean;
 }
 
 /** Mobile v2 §2.2: everything open waits for the desktop. The phone's Next crosses a boundary past it;
