@@ -336,6 +336,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import
 - [tests/test_reader_rw7a_migration.py](../../../../../../tests/test_reader_rw7a_migration.py) — direct import
   - `test_the_head_fixture_is_at_217_in_rollback_mode_with_empty_rw7a_tables`
+- [tests/test_reader_seen_spans_migration.py](../../../../../../tests/test_reader_seen_spans_migration.py) — direct import
+  - `test_it_adds_the_two_tables_and_changes_nothing_else`
+  - `test_the_head_fixture_holds_both_empty_in_rollback_mode`
 - [tests/test_reader_session_digests_migration.py](../../../../../../tests/test_reader_session_digests_migration.py) — direct import
   - `test_227_is_the_reader_session_digests_migration_and_the_table_is_workflow`
   - `test_head_226_upgrades_by_adding_only_227s_objects`

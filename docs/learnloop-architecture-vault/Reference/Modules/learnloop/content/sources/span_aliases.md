@@ -117,6 +117,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `SpanTranslator`; statically calls `SpanTranslator`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `SpanTranslator`; statically calls `SpanTranslator`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `SpanTranslator`; statically calls `SpanTranslator`
+- [[Reference/Modules/learnloop/reader/seen_passages|learnloop.reader.seen_passages]] — imports `SpanTranslator`, `other_readings`; statically calls `SpanTranslator`, `other_readings`
 - [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] — imports `CitationResolver`; statically calls `CitationResolver`
 - [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] — imports `CITATION_MADE_AT_SQL`, `CitationResolver`; statically calls `CitationResolver`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `SpanTranslator`; statically calls `SpanTranslator`
@@ -147,7 +148,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

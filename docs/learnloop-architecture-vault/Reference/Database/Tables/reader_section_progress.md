@@ -54,7 +54,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/106_reader_section_progress.sql`.
-- **Schema touched by:** `106_reader_section_progress.sql`.
+- **Schema touched by:** `106_reader_section_progress.sql`, `256_reader_seen_spans.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -142,11 +142,11 @@ Indexes and uniqueness:
 - `tests/test_data_capture_landing_review.py`
 - `tests/test_followups_batch6_prefetch_decided_once.py`
 - `tests/test_reader_ca5_also_in_books.py`
+- `tests/test_reader_seen_spans_migration.py`
 - `tests/test_ro4_codex_review.py`
 - `tests/test_rospeed2_section_map.py`
 - `tests/test_router_reader_activity.py`
 - `tests/test_salience_firewall.py`
-- `tests/test_section_done_before_build.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

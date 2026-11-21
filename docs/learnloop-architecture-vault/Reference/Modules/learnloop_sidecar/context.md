@@ -562,6 +562,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f10_inquiry_off_refuses_every_recap_rpc_and_names_no_switch`
 - [tests/test_reader_rw4b_admission_idempotency.py](../../../../../tests/test_reader_rw4b_admission_idempotency.py) — direct import
 - [tests/test_reader_rw4b_fix6.py](../../../../../tests/test_reader_rw4b_fix6.py) — direct import
+- [tests/test_reader_seen_passages.py](../../../../../tests/test_reader_seen_passages.py) — direct import
+  - `test_an_exact_alias_carries_a_seen_passage_to_a_reread_and_a_changed_one_does_not`
+  - `test_the_passages_survive_a_restart_and_later_reports_union_with_them`
 - [tests/test_reader_wrap_up.py](../../../../../tests/test_reader_wrap_up.py) — direct import
   - `test_the_card_off_leaves_wrap_up_on_its_own_switch`
 - [tests/test_refusal_records.py](../../../../../tests/test_refusal_records.py) — direct import

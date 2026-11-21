@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 255
-table_count: 397
+schema_head: 256
+table_count: 399
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -19,13 +19,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-255"
+  - "learnloop/database/schema-head-256"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 397 user tables at migration head 255. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 399 user tables at migration head 256. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -39,14 +39,14 @@ This is the exhaustive map of the 397 user tables at migration head 255. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 167 |
 | [[Table Roles#Derived|`derived`]] | 27 |
 | [[Table Roles#Receipt|`receipt`]] | 96 |
-| [[Table Roles#Workflow|`workflow`]] | 100 |
+| [[Table Roles#Workflow|`workflow`]] | 102 |
 | [[Table Roles#Compat|`compat`]] | 7 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 386 |
+| `active` | 388 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -349,7 +349,9 @@ Reader rendering, annotations, capture, progress, and source-object interaction.
 - [[Reference/Database/Tables/reader_cue_impressions|reader_cue_impressions]] — `receipt` · `active` · Gives reader cue impression a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `cue_id`, `link_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_path_depths|reader_path_depths]] — `workflow` · `active` · Gives reader path depth a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `depth`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_path_sections|reader_path_sections]] — `workflow` · `active` · Gives reader path section a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `exercise_span_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/reader_section_ends|reader_section_ends]] — `workflow` · `active` · Gives reader section end a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `span_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_section_progress|reader_section_progress]] — `workflow` · `active` · Gives reader section progress a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `generation_batch_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/reader_seen_spans|reader_seen_spans]] — `workflow` · `active` · Gives reader seen span a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `span_id`, `section_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_session_digests|reader_session_digests]] — `workflow` · `active` · Gives reader session digest a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `prompt_version`, `session_key`, making the operational relationship explicit.
 
 ## Tutor And Remediation
