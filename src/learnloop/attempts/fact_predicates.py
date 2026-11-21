@@ -1,9 +1,8 @@
 """The yes-or-no questions readers ask of an attempt's facts, each under its owner's name.
 
 Every reader that decides whether an attempt was "assisted", "cold", "primed" or "eligible" asks its own question
-for its own purpose, and several of those questions differ on purpose (see the discrepancy ledger in
-``docs/reviews/ep0-attempt-facts.md``): certification's cold probe and the canonical projection count a hinted
-attempt type as assisted, intervention outcomes also count an open-text answer, the coldness receipt also counts any
+for its own purpose, and several of those questions differ on purpose: certification's cold probe and the
+canonical projection count a hinted attempt type as assisted, intervention outcomes also count an open-text answer, the coldness receipt also counts any
 recorded reveal, the router card and the chat packet call only a primed attempt "assisted". None of them is the
 right one; each is right for its reader. So there is no single ``assisted`` here: each function below reproduces
 one reader's question over :class:`~learnloop.attempts.facts.AttemptFacts`, with the arguments that reader needs,
