@@ -158,12 +158,13 @@ class _Library:
         return self._by_source[source_id]
 
     def source_of(self, ref: SourceRef) -> str | None:
-        """The book a reference cites: its source, or for a note the library book the note stands for."""
+        """The book a reference cites: its source, or the library book its id names (an artifact, or a note that
+        stands for one, as the section map matches them)."""
 
         if ref.source_id:
             return str(ref.source_id)
-        if ref.ref_type == "canonical_source":
-            return str(ref.ref_id) if self.repository.get_source_artifact(str(ref.ref_id)) else None
+        if ref.ref_type == "canonical_source" and self.repository.get_source_artifact(str(ref.ref_id)):
+            return str(ref.ref_id)
         if self._note_sources is None:
             self._note_sources = {}
             for artifact in self.repository.all_source_artifacts():
