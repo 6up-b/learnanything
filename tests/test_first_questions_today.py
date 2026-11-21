@@ -31,7 +31,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.ux_phase1_review_fixes_helpers import _add, _jobs
-from tests.ux_phase1_support import CLOCK, FakeBookSynthesisClient, fake_services, fresh_library, grant_consent, write_book
+from tests.ux_phase1_support import BOOK_MARKDOWN, CLOCK, FakeBookSynthesisClient, fake_services, fresh_library, grant_consent, write_book
 
 
 @pytest.fixture(autouse=True)
@@ -40,12 +40,12 @@ def isolated_config(tmp_path, monkeypatch):
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
 
 
-def _book(tmp_path, *, synthesis=None, name="probability_book.md", root=None, services=None):
+def _book(tmp_path, *, synthesis=None, name="probability_book.md", root=None, services=None, text=BOOK_MARKDOWN):
     root = root or fresh_library(tmp_path)
     grant_consent(root)
     overrides = {"synthesis_client_factory": synthesis} if synthesis else {}
     repo, jobs = _jobs(root, services or fake_services(**overrides))
-    item = _add(root, jobs, write_book(tmp_path, name))
+    item = _add(root, jobs, write_book(tmp_path, name, text))
     outcome = latest_auto_outcome(repo, item["source_id"])
     assert outcome["outcome"] == "building", outcome
     return root, repo, jobs, item, outcome["build_batch_id"]
@@ -125,7 +125,9 @@ def test_a_building_books_line_says_how_far_along_it_is(tmp_path):
 
 def test_the_duration_is_this_librarys_own_measured_one(tmp_path):
     root, repo, jobs, _first, _first_batch = _book(tmp_path)
-    root, repo, _jobs_, item, batch_id = _book(tmp_path, name="second_book.md", root=root)
+    # Another book: the same bytes under another name are the first book again (UX-57).
+    root, repo, _jobs_, item, batch_id = _book(tmp_path, name="second_book.md", root=root,
+                                               text=BOOK_MARKDOWN + "\nA second book's own closing line.\n")
     _as_running(repo, batch_id)
 
     line = _line(root, repo, item)
