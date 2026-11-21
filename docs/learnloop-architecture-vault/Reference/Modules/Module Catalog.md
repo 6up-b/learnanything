@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1278 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **654 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **69 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1282 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **654 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **70 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1259 | Live ownership after the refactor. |
+| `ACTIVE` | 1263 | Live ownership after the refactor. |
 | `COMPAT` | 2 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 16 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -46,7 +46,7 @@ tags:
 | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] | `infrastructure` | `ACTIVE` | 10 | Concrete AI transport adapters behind the provider-neutral contract. |
 | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] | `domain` | `ACTIVE` | 32 | Attempt acceptance, grading, interaction evidence, feedback, and post-attempt processing. |
 | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] | `domain` | `ACTIVE` | 8 | The shared capture domain (the capture inbox); importing it never attaches or migrates. |
-| [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] | `adapter` | `ACTIVE` | 57 | Typer command adapters, rendering, argument contracts, and command registration. |
+| [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] | `adapter` | `ACTIVE` | 58 | Typer command adapters, rendering, argument contracts, and command registration. |
 | [[Reference/Modules/learnloop/config/_package|learnloop.config]] | `infrastructure` | `ACTIVE` | 8 | Typed configuration schema, compatibility normalization, loading, and template emission. |
 | [[Reference/Modules/learnloop/content/_package|learnloop.content]] | `domain` | `ACTIVE` | 0 | Source-derived content, authoring, synthesis, proposal, and canonical pipeline ownership. |
 | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] | `domain` | `ACTIVE` | 19 | Practice-content authoring gates, generation contracts, and authored artifacts. |
@@ -82,6 +82,7 @@ tags:
 | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] | `domain` | `ACTIVE` | 27 | Mastery, recall, evidence, claims, ability transitions, and learner-state views. |
 | [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] | `domain` | `ACTIVE` | 13 | Local contextual source retrieval: the local document space's pins, capped batch worker, GPU meter, locks and owner-run commands. |
 | [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] | `domain` | `ACTIVE` | 5 | The one 'same or different?' step: registered match kinds, embedding shortlists and LLM judges, recorded in the judgment ledger. |
+| [[Reference/Modules/learnloop/notebook_authoring/_package|learnloop.notebook_authoring]] | `domain` | `ACTIVE` | 3 | The owner-side notebook harness, imported by no serving package: a parser adapter over marimo's non-executing loader and the structural check behind `learnloop notebook check`. |
 | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] | `domain` | `ACTIVE` | 23 | Vault diagnostics, locks, settings, startup, upgrades, and operator-facing maintenance. |
 | [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] | `domain` | `ACTIVE` | 7 | Contamination detectors as shadow flags, run offline on the owner's command beside the live lexical floor. |
 | [[Reference/Modules/learnloop/params/_package|learnloop.params]] | `domain` | `ACTIVE` | 4 | Algorithm parameter registry, fitted values, and sensitivity certificates. |
@@ -163,6 +164,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1930 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1934 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

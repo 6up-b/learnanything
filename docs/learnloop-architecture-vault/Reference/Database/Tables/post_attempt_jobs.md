@@ -154,6 +154,7 @@ Indexes and uniqueness:
 - `tests/test_field_split_outcomes.py`
 - `tests/test_held_grade_composition.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
+- `tests/test_mobile_v2_plan.py`
 - `tests/test_placement_diagnosis_decides.py`
 - `tests/test_placement_split_grades.py`
 - `tests/test_post_attempt_worker.py`
@@ -162,7 +163,6 @@ Indexes and uniqueness:
 - `tests/held_grade_evidence_helpers.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_reserved_only.py`
-- `tests/test_goal_series.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

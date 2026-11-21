@@ -554,6 +554,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_pdf_selection.py](../../../../../tests/test_reader_pdf_selection.py) — direct import
   - `test_a_reading_held_back_by_rule_4_is_withheld_whole`
   - `test_the_reader_is_told_which_passages_are_held_out`
+- [tests/test_reader_quick_check_failed.py](../../../../../tests/test_reader_quick_check_failed.py) — direct import
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_kill_switches_default_on_and_the_config_dto_names_them`
