@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 257
-table_count: 400
+schema_head: 258
+table_count: 401
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -19,13 +19,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-257"
+  - "learnloop/database/schema-head-258"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 400 user tables at migration head 257. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 401 user tables at migration head 258. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -39,14 +39,14 @@ This is the exhaustive map of the 400 user tables at migration head 257. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 167 |
 | [[Table Roles#Derived|`derived`]] | 27 |
 | [[Table Roles#Receipt|`receipt`]] | 96 |
-| [[Table Roles#Workflow|`workflow`]] | 103 |
+| [[Table Roles#Workflow|`workflow`]] | 104 |
 | [[Table Roles#Compat|`compat`]] | 7 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 389 |
+| `active` | 390 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -296,6 +296,7 @@ Source acquisition, normalized source ir, synthesis, and durable ingest work. Th
 - [[Reference/Database/Tables/entity_source_links|entity_source_links]] — `raw_ledger` · `active` · Preserves explicit relationship edges for entity source so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `entity_id`, `source_id`, `revision_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ingest_batches|ingest_batches]] — `workflow` · `active` · Tracks a user-visible durable batch of source-pipeline work. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `source_set_id`, `workflow_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ingest_job_dependencies|ingest_job_dependencies]] — `workflow` · `active` · Records prerequisite edges between durable ingest jobs. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `job_id`, `depends_on_job_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/ingest_job_progress|ingest_job_progress]] — `workflow` · `active` · Gives ingest job progress a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `job_id`, `output_call_id`, `attempt_count`, making the operational relationship explicit.
 - [[Reference/Database/Tables/ingest_jobs|ingest_jobs]] — `workflow` · `active` · Tracks individual leased, retryable jobs within an ingest batch. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `batch_id`, `worker_id`, `job_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/notation_mappings|notation_mappings]] — `raw_ledger` · `active` · Maps external or historical identities into notation so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `subject_id`, `entity_id`, `source_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_annotation_anchor_segments|source_annotation_anchor_segments]] — `raw_ledger` · `active` · Gives source annotation anchor segment a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `anchor_version_id`, `span_id`, `block_content_hash`, making the operational relationship explicit.

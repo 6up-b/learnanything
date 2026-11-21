@@ -180,6 +180,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/source_inventory_helpers.py](../../../../../../../tests/source_inventory_helpers.py) — direct import
 - [tests/source_set_synthesis_helpers.py](../../../../../../../tests/source_set_synthesis_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
+- [tests/test_build_wait_detail.py](../../../../../../../tests/test_build_wait_detail.py) — direct import
+  - `test_an_extra_evidence_pass_is_named_as_one`
 - [tests/test_chatgpt_plan_runaway.py](../../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
   - `test_built_synthesis_prompt_agrees_with_required_nullable_integration`
   - `test_null_integration_is_accepted_on_the_first_synthesis_request`

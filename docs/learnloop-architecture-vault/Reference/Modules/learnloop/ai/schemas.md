@@ -185,6 +185,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/recurrence_fakes.py](../../../../../../tests/recurrence_fakes.py) — direct import
 - [tests/test_ai_single_request.py](../../../../../../tests/test_ai_single_request.py) — direct import
 - [tests/test_authoring_create_ids.py](../../../../../../tests/test_authoring_create_ids.py) — direct import
+- [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
 - [tests/test_chat_total_transport_deadline.py](../../../../../../tests/test_chat_total_transport_deadline.py) — direct import
 - [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
 - [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import

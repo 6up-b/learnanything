@@ -130,6 +130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_once`
+- [tests/test_part_read_request.py](../../../../../../tests/test_part_read_request.py) — direct import
 - [tests/test_section_done_before_build.py](../../../../../../tests/test_section_done_before_build.py) — direct import
   - `test_a_section_finished_before_the_build_and_another_citing_its_topic_claim_it_once`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import

@@ -48,68 +48,70 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py) |
-| Source lines | 612 |
+| Source lines | 639 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `background_model_work()` ([source](../../../../../../src/learnloop/ai/execution.py), line 45) — The ingest host owns these calls; no learner request is waiting for them.
-- `background_model_work_active() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 55)
-- `withhold_receipt_input()` ([source](../../../../../../src/learnloop/ai/execution.py), line 66) — Calls started in this context keep no prompt text on their receipts.
-- `call_labels(**labels: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 85) — Label every model call started in this context on its receipt.
-- `single_request()` ([source](../../../../../../src/learnloop/ai/execution.py), line 107) — Disable hidden paid retries/repairs for a caller-budgeted transport call.
-- `single_request_active() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 123)
-- `annotate_calls(**notes: Any)` ([source](../../../../../../src/learnloop/ai/execution.py), line 128) — Add ``notes`` to the ``budget_json`` of every root receipt started here.
-- `requested_reasoning_effort(effort: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 144) — Ask every request started here for ``effort`` (None keeps the profile's).
-- `reasoning_effort_request() -> str | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 159)
-- `truncation_retry_allowed()` ([source](../../../../../../src/learnloop/ai/execution.py), line 164) — Let the transport retry a truncated answer once at double the budget.
-- `truncation_retry_permitted() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 181)
-- `report_call_usage(values: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 185)
-- `content_key(payload: Any) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 195)
-- `model_settings(client: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/execution.py), line 199) — The client settings that change what a request produces.
-- `class CheckpointStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 219) — Where paid answers are kept (``model_work_checkpoints``; a ``Repository``).
-  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 222; public)
-  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 225; public)
-  - `discard_model_checkpoint(self, cache_key: str, *, result: Any=None) -> None` (line 230; public)
-- `request_key(*, purpose: str, prompt: Any, schema: Any=None, settings: dict[str, Any] | None=None, identity_extra: dict[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 234) — Checkpoint identity of one paid structured request: what it sends.
-- `class ModelCheckpoint(Generic[T])` ([source](../../../../../../src/learnloop/ai/execution.py), line 259) — One paid answer's slot: load, validate, discard, save.
-  - `fetch(self) -> tuple[T, Any] | None` (line 274; public) — The saved answer and the stored result it was read from (what :meth:`discard` names).
-  - `load(self) -> T | None` (line 286; public)
-  - `save(self, result: Any, usage: dict[str, Any] | None=None) -> Any` (line 290; public) — Save ``result`` and return the stored form :meth:`discard` names (kept only if nothing was saved under the key first: checkpoints are write-once).
-  - `discard(self, stored: Any) -> None` (line 298; public) — Drop the saved answer ``stored`` (from :meth:`fetch` or :meth:`save`), and only it: dropped by key alone, a rejection could delete a fresh answer another run saved since.
-  - `answer(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool]` (line 304; public) — The saved answer, or ``call()``'s saved before it is returned, and whether it was reused.
-  - `answer_stored(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool, Any]` (line 315; public) — :meth:`answer`, with the stored form of the answer served (what :meth:`discard` names).
-- `checkpointed(store: CheckpointStore, *, purpose: str, prompt: Any, schema: Any, settings: dict[str, Any] | None, result_model: type[T], identity_extra: dict[str, Any] | None=None, validate: Callable[[T], Any] | None=None) -> ModelCheckpoint[T]` ([source](../../../../../../src/learnloop/ai/execution.py), line 327) — The checkpoint of one paid structured call keyed on what it sends (:func:`request_key`), reading its answer back as ``result_model`` and, when given, ``validate`` (which raises on an answer that no longer holds).
-- `observe_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 347)
-- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 356) — Also observe model calls with ``observer``, keeping the context's own observer.
-- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 381) — Admission for each physical model request made in a context.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 393; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 396; public)
-- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 401) — Admit every physical model request started in this context through ``gate``.
-- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 411) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
-- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 418)
-  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 419; public)
-- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 423) — Observe every model call in this context into ``store`` under one owner.
-- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 436) — Record the token budgets an operation runs under on its root receipts.
-- `generation_limit(output_tokens: int | None, *, ceiling: int | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 451) — Hold the calls in this context to ``output_tokens``, the size an answer is asked to aim for (a route that takes no output cap states it in the prompt).
-- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 480)
-- `generation_ceiling() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 484) — The most a complete answer in this context may be (at least :func:`output_limit`), or None when nothing holds it.
-- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 491)
-- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 502) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
+- `background_model_work()` ([source](../../../../../../src/learnloop/ai/execution.py), line 46) — The ingest host owns these calls; no learner request is waiting for them.
+- `background_model_work_active() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 56)
+- `withhold_receipt_input()` ([source](../../../../../../src/learnloop/ai/execution.py), line 67) — Calls started in this context keep no prompt text on their receipts.
+- `call_labels(**labels: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 86) — Label every model call started in this context on its receipt.
+- `single_request()` ([source](../../../../../../src/learnloop/ai/execution.py), line 108) — Disable hidden paid retries/repairs for a caller-budgeted transport call.
+- `single_request_active() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 124)
+- `annotate_calls(**notes: Any)` ([source](../../../../../../src/learnloop/ai/execution.py), line 129) — Add ``notes`` to the ``budget_json`` of every root receipt started here.
+- `requested_reasoning_effort(effort: str | None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 145) — Ask every request started here for ``effort`` (None keeps the profile's).
+- `reasoning_effort_request() -> str | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 160)
+- `truncation_retry_allowed()` ([source](../../../../../../src/learnloop/ai/execution.py), line 165) — Let the transport retry a truncated answer once at double the budget.
+- `truncation_retry_permitted() -> bool` ([source](../../../../../../src/learnloop/ai/execution.py), line 182)
+- `report_call_usage(values: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 186)
+- `observe_model_output(observer: Callable[[str | None, int], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 197) — Tell ``observer`` as a streamed model request in this context produces output: with the request's receipt id (None where no receipt is kept) and how many non-empty output pieces it has streamed so far.
+- `report_model_output(pieces: int) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 209) — The request in flight in this context has streamed ``pieces`` non-empty output pieces so far.
+- `content_key(payload: Any) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 222)
+- `model_settings(client: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/execution.py), line 226) — The client settings that change what a request produces.
+- `class CheckpointStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 246) — Where paid answers are kept (``model_work_checkpoints``; a ``Repository``).
+  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 249; public)
+  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 252; public)
+  - `discard_model_checkpoint(self, cache_key: str, *, result: Any=None) -> None` (line 257; public)
+- `request_key(*, purpose: str, prompt: Any, schema: Any=None, settings: dict[str, Any] | None=None, identity_extra: dict[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 261) — Checkpoint identity of one paid structured request: what it sends.
+- `class ModelCheckpoint(Generic[T])` ([source](../../../../../../src/learnloop/ai/execution.py), line 286) — One paid answer's slot: load, validate, discard, save.
+  - `fetch(self) -> tuple[T, Any] | None` (line 301; public) — The saved answer and the stored result it was read from (what :meth:`discard` names).
+  - `load(self) -> T | None` (line 313; public)
+  - `save(self, result: Any, usage: dict[str, Any] | None=None) -> Any` (line 317; public) — Save ``result`` and return the stored form :meth:`discard` names (kept only if nothing was saved under the key first: checkpoints are write-once).
+  - `discard(self, stored: Any) -> None` (line 325; public) — Drop the saved answer ``stored`` (from :meth:`fetch` or :meth:`save`), and only it: dropped by key alone, a rejection could delete a fresh answer another run saved since.
+  - `answer(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool]` (line 331; public) — The saved answer, or ``call()``'s saved before it is returned, and whether it was reused.
+  - `answer_stored(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool, Any]` (line 342; public) — :meth:`answer`, with the stored form of the answer served (what :meth:`discard` names).
+- `checkpointed(store: CheckpointStore, *, purpose: str, prompt: Any, schema: Any, settings: dict[str, Any] | None, result_model: type[T], identity_extra: dict[str, Any] | None=None, validate: Callable[[T], Any] | None=None) -> ModelCheckpoint[T]` ([source](../../../../../../src/learnloop/ai/execution.py), line 354) — The checkpoint of one paid structured call keyed on what it sends (:func:`request_key`), reading its answer back as ``result_model`` and, when given, ``validate`` (which raises on an answer that no longer holds).
+- `observe_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 374)
+- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 383) — Also observe model calls with ``observer``, keeping the context's own observer.
+- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 408) — Admission for each physical model request made in a context.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 420; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 423; public)
+- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 428) — Admit every physical model request started in this context through ``gate``.
+- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 438) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
+- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 445)
+  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 446; public)
+- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 450) — Observe every model call in this context into ``store`` under one owner.
+- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 463) — Record the token budgets an operation runs under on its root receipts.
+- `generation_limit(output_tokens: int | None, *, ceiling: int | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 478) — Hold the calls in this context to ``output_tokens``, the size an answer is asked to aim for (a route that takes no output cap states it in the prompt).
+- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 507)
+- `generation_ceiling() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 511) — The most a complete answer in this context may be (at least :func:`output_limit`), or None when nothing holds it.
+- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 518)
+- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 529) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
 
 ### Module constants
 
 - `T` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 26)
-- `CALL_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 61)
-- `JUDGE_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 62)
+- `CALL_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 62)
+- `JUDGE_LABELS` ([src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py), line 63)
 
 ## Internal implementation anchors
 
-- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 540)
-- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 593)
-- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 601) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
+- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 567)
+- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 620)
+- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 628) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
 
 ## Who imports or calls it
 
@@ -122,7 +124,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] — imports `active_request_gate`, `gate_model_requests`; statically calls `active_request_gate`, `gate_model_requests`
 - [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] — imports `annotate_calls`; statically calls `annotate_calls`
-- [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `model_call`, `report_call_usage`, `single_request_active`; statically calls `model_call`, `report_call_usage`, `single_request_active`
+- [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `model_call`, `report_call_usage`, `report_model_output`, `single_request_active`; statically calls `model_call`, `report_call_usage`, `report_model_output`, `single_request_active`
 - [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `model_call`, `report_call_usage`; statically calls `model_call`, `report_call_usage`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `model_call`, `report_call_usage`, `single_request_active`, `truncation_retry_permitted`; statically calls `model_call`, `report_call_usage`, `single_request_active`, `truncation_retry_permitted`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `model_call`, `report_call_usage`; statically calls `model_call`, `report_call_usage`
@@ -144,7 +146,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ModelCheckpoint`, `model_settings`, `observe_model_calls`; statically calls `ModelCheckpoint`, `model_settings`, `observe_model_calls`
-- [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `background_model_work`, `record_model_calls`; statically calls `background_model_work`, `record_model_calls`
+- [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `background_model_work`, `observe_model_output`, `record_model_calls`; statically calls `background_model_work`, `observe_model_output`, `record_model_calls`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `ModelCheckpoint`, `request_key`; statically calls `ModelCheckpoint`, `request_key`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `ModelCheckpoint`, `checkpointed`, `model_settings`; statically calls `ModelCheckpoint`, `checkpointed`, `model_settings`
@@ -327,6 +329,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
   - `test_single_request_is_nested_context_local_and_restored_after_failure`
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
+- [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
+  - `test_a_transport_that_does_not_stream_reports_no_output`
+  - `test_the_request_bytes_are_the_same_with_the_recording_on`
 - [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
   - `test_background_flag_is_explicit_scoped_and_inherited_by_inventory_workers`
   - `test_endless_background_stream_hits_ceiling_without_job_retry`

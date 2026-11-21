@@ -150,6 +150,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/part_read_helpers.py](../../../../../../../tests/part_read_helpers.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../../tests/section_coverage_fixtures.py) — direct import
+- [tests/test_build_wait_detail.py](../../../../../../../tests/test_build_wait_detail.py) — direct import
+  - `test_the_topic_keeps_its_place_only_while_one_job_writes`
 - [tests/test_empty_first_build.py](../../../../../../../tests/test_empty_first_build.py) — direct import
   - `test_try_again_after_an_empty_build_writes_the_owed_sections_questions`
 - [tests/test_exam_protection_landing.py](../../../../../../../tests/test_exam_protection_landing.py) — direct import

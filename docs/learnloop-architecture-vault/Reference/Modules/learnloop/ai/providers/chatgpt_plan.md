@@ -48,35 +48,35 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/chatgpt_plan.py](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py) |
-| Source lines | 721 |
+| Source lines | 736 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ChatGPTPlanRequestRejected(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 143) — The route refused this request's shape or this client; retrying the same body cannot help.
-- `class ChatGPTPlanTransient(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 147) — A network, server or availability failure; the credentials are kept.
-- `class ChatGPTPlanUnauthorized(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 151) — The access token was not accepted (401); the next request refreshes it first.
-- `class ChatGPTPlanProviderClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 162)
-  - `__init__(self, provider_name: str, profile: AIProviderConfig, *, session: PlanSession | None=None, idle_timeout_seconds: float | None=None) -> None` (line 165; internal)
-  - `supports(self, capability: str) -> bool` (line 203; public)
-  - `workspace_activity(self) -> list[str] | None` (line 211; public) — The paths (relative to the workspace root) the last workspace turn served.
-  - `workspace_record(self) -> dict[str, Any] | None` (line 222; public) — The last workspace turn's full record: every call and every served range.
-  - `interrupt(self) -> bool` (line 237; public)
-  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 246; public)
-  - `_instructions(self, model_type: type[BaseModel]) -> str` (line 300; internal)
-  - `_text_format(self, model_type: type[BaseModel]) -> dict[str, Any]` (line 307; internal)
-  - `_respond(self, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: _Deadline, effort: str | None=None, extra: dict[str, Any] | None=None, budget: int | None=None) -> str` (line 313; internal)
-  - `_workspace_turn(self, root: Path, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: _Deadline, effort: str | None, budget: int | None=None) -> str` (line 323; internal) — Serve ``root`` to the model (function calls or inline); returns the final text.
-  - `_tool_loop(self, workspace: ServedWorkspace, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: _Deadline, effort: str | None, budget: int | None=None) -> str` (line 364; internal) — Rounds of function calls over ``workspace``, then the final answer.
-  - `_send(self, body: dict[str, Any], *, deadline: _Deadline, extra: dict[str, Any] | None=None, budget: int | None=None) -> StreamResult` (line 427; internal) — One physical request, resent on a transient failure or after a token refresh.
-  - `_stop_if_due(self, deadline: _Deadline) -> None` (line 457; internal)
-  - `_send_once(self, body: dict[str, Any], *, deadline: _Deadline, observed_pause: dict[str, Any] | None, extra: dict[str, Any] | None=None, budget: int | None=None) -> StreamResult` (line 463; internal) — One physical request under its own receipt (the token step sends no model request).
-  - `_meter(self, response: dict[str, Any], request_id: str | None, *, text: str | None=None, extra: dict[str, Any] | None=None) -> None` (line 551; internal) — Record usage on the receipt and the run before anything inspects the body.
-  - `_classify(self, error: ResponsesError) -> Exception` (line 580; internal) — Map a ChatGPT-plan error to LearnLoop's taxonomy; records pause/eligibility state.
-  - `_classified(self, error: ResponsesError) -> tuple[Exception, str | None]` (line 596; internal)
-- `list_plan_models(base_url: str=CHATGPT_PLAN_API_BASE_URL, *, session: PlanSession | None=None, timeout: float=20.0) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 642) — The signed-in account's model picker: ``GET {base_url}/models``, ``visibility == "list"``.
+- `class ChatGPTPlanRequestRejected(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 157) — The route refused this request's shape or this client; retrying the same body cannot help.
+- `class ChatGPTPlanTransient(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 161) — A network, server or availability failure; the credentials are kept.
+- `class ChatGPTPlanUnauthorized(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 165) — The access token was not accepted (401); the next request refreshes it first.
+- `class ChatGPTPlanProviderClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 176)
+  - `__init__(self, provider_name: str, profile: AIProviderConfig, *, session: PlanSession | None=None, idle_timeout_seconds: float | None=None) -> None` (line 179; internal)
+  - `supports(self, capability: str) -> bool` (line 217; public)
+  - `workspace_activity(self) -> list[str] | None` (line 225; public) — The paths (relative to the workspace root) the last workspace turn served.
+  - `workspace_record(self) -> dict[str, Any] | None` (line 236; public) — The last workspace turn's full record: every call and every served range.
+  - `interrupt(self) -> bool` (line 251; public)
+  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 260; public)
+  - `_instructions(self, model_type: type[BaseModel]) -> str` (line 314; internal)
+  - `_text_format(self, model_type: type[BaseModel]) -> dict[str, Any]` (line 321; internal)
+  - `_respond(self, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: _Deadline, effort: str | None=None, extra: dict[str, Any] | None=None, budget: int | None=None) -> str` (line 327; internal)
+  - `_workspace_turn(self, root: Path, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: _Deadline, effort: str | None, budget: int | None=None) -> str` (line 337; internal) — Serve ``root`` to the model (function calls or inline); returns the final text.
+  - `_tool_loop(self, workspace: ServedWorkspace, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: _Deadline, effort: str | None, budget: int | None=None) -> str` (line 378; internal) — Rounds of function calls over ``workspace``, then the final answer.
+  - `_send(self, body: dict[str, Any], *, deadline: _Deadline, extra: dict[str, Any] | None=None, budget: int | None=None) -> StreamResult` (line 441; internal) — One physical request, resent on a transient failure or after a token refresh.
+  - `_stop_if_due(self, deadline: _Deadline) -> None` (line 471; internal)
+  - `_send_once(self, body: dict[str, Any], *, deadline: _Deadline, observed_pause: dict[str, Any] | None, extra: dict[str, Any] | None=None, budget: int | None=None) -> StreamResult` (line 477; internal) — One physical request under its own receipt (the token step sends no model request).
+  - `_meter(self, response: dict[str, Any], request_id: str | None, *, text: str | None=None, extra: dict[str, Any] | None=None) -> None` (line 566; internal) — Record usage on the receipt and the run before anything inspects the body.
+  - `_classify(self, error: ResponsesError) -> Exception` (line 595; internal) — Map a ChatGPT-plan error to LearnLoop's taxonomy; records pause/eligibility state.
+  - `_classified(self, error: ResponsesError) -> tuple[Exception, str | None]` (line 611; internal)
+- `list_plan_models(base_url: str=CHATGPT_PLAN_API_BASE_URL, *, session: PlanSession | None=None, timeout: float=20.0) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 657) — The signed-in account's model picker: ``GET {base_url}/models``, ``visibility == "list"``.
 
 ### Module constants
 
@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `_TRANSIENT_CODES` ([src/learnloop/ai/providers/chatgpt_plan.py](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 114)
 - `_TRANSIENT_STATUSES` ([src/learnloop/ai/providers/chatgpt_plan.py](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 118)
 - `_CONFIG_CODES` ([src/learnloop/ai/providers/chatgpt_plan.py](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 119)
-- `_PLAN_UNAVAILABLE` ([src/learnloop/ai/providers/chatgpt_plan.py](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 158)
+- `_PLAN_UNAVAILABLE` ([src/learnloop/ai/providers/chatgpt_plan.py](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 172)
 
 ### Explicit exports
 
@@ -107,10 +107,11 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ## Internal implementation anchors
 
 - `class _Deadline` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 131)
-- `_count(value: Any) -> int | None` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 686)
-- `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 692)
-- `_with_budget(prompt: str, budget: int | None) -> str` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 699) — ``prompt`` with the output budget stated once at its end (the route takes no ``max_output_tokens``).
-- `_repair_prompt(text: str, model_type: type[BaseModel], failure: Exception) -> str` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 707)
+- `class _OutputPieces` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 143) — Counts a stream's non-empty output pieces (text and reasoning deltas, the stream deadline's own rule: a lifecycle event or keepalive is not output) and reports the count as each arrives, for a waiting screen.
+- `_count(value: Any) -> int | None` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 701)
+- `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 707)
+- `_with_budget(prompt: str, budget: int | None) -> str` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 714) — ``prompt`` with the output budget stated once at its end (the route takes no ``max_output_tokens``).
+- `_repair_prompt(text: str, model_type: type[BaseModel], failure: Exception) -> str` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 722)
 
 ## Who imports or calls it
 
@@ -134,7 +135,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/session|learnloop.ai.chatgpt_plan.session]] — imports `ChatGPTPlanNotEligible`, `ChatGPTPlanNotEnabled`, `ChatGPTPlanUsageExhausted`, `ChatGPTSignInRequired`, `MANAGE_USAGE_URL`, `PlanSession`; calls `ChatGPTPlanNotEligible`, `ChatGPTPlanUsageExhausted`, `PlanSession`
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/workspace|learnloop.ai.chatgpt_plan.workspace]] — imports `INSTRUCTIONS_INLINE`, `INSTRUCTIONS_TOOLS`, `NAMESPACE`, `ServedWorkspace`, `WorkspaceTooLarge`; calls `ServedWorkspace`
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `AITurnTimeout`; calls `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `AITurnTimeout`
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `model_call`, `report_call_usage`, `single_request_active`; calls `model_call`, `report_call_usage`, `single_request_active`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `model_call`, `report_call_usage`, `report_model_output`, `single_request_active`; calls `model_call`, `report_call_usage`, `report_model_output`, `single_request_active`
 - [[Reference/Modules/learnloop/ai/isolation|learnloop.ai.isolation]] — imports `TOOL_FREE`
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `note_plan_failure`; calls `note_plan_failure`
 - [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] — imports `strict_output_schema`; calls `strict_output_schema`
@@ -165,6 +166,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followup_contract_baseline_helpers.py](../../../../../../../tests/followup_contract_baseline_helpers.py) — direct import
 - [tests/plan_deadline_fakes.py](../../../../../../../tests/plan_deadline_fakes.py) — direct import
 - [tests/test_authoring_create_ids.py](../../../../../../../tests/test_authoring_create_ids.py) — direct import
+- [tests/test_build_wait_detail.py](../../../../../../../tests/test_build_wait_detail.py) — direct import
 - [tests/test_chatgpt_plan_deadline.py](../../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
 - [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import
   - `test_background_blocked_read_wakes_on_idle_or_interrupt`
