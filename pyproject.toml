@@ -1133,6 +1133,12 @@ ignore_imports = [
     "learnloop.sim.ad_synthetic -> learnloop.curriculum.depth_rungs",
     "learnloop.sim.ad_synthetic -> learnloop.learner.mastery",
     "learnloop.sim.ad_synthetic -> learnloop.scheduling.randomization_layer",
+    # Synthetic memory study: leaf drivers of the same numerical model and the
+    # pure FSRS/mastery baselines. No production module imports these drivers.
+    "learnloop.sim.ad_memory_synthetic -> learnloop.adaptive_difficulty.*",
+    "learnloop.sim.ad_memory_synthetic -> learnloop.scheduling.fsrs",
+    "learnloop.sim.ad_memory_experiment -> learnloop.adaptive_difficulty.model",
+    "learnloop.sim.ad_memory_experiment -> learnloop.learner.mastery",
     # Router objective RO5 (spec §9 item 2): the randomized check is scored by §6.2's label, AD's own binary
     # event (adaptive_difficulty.outcomes, over AD's priors and model and delayed_completion), read
     # function-locally; AD never imports the objective's package.
