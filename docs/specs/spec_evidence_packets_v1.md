@@ -2,7 +2,7 @@
 
 Facts in place of "assisted", hypotheses as claims with their context, the Decider and the action model on the same evidence, the Decider as a helper that annotates the packet, one rule for time with its two axes named, and forecasts kept with what they were made from so model quality can be scored later.
 
-**Status:** draft, Nov 16 2026, for the owner's review. Revised on 2026-11-17 after two independent reviews against main `88b10fb90d`. Not queued. The owner agreed on Nov 16 to the shared read model this spec is the first slice of, and to Part E's time rule with named reads (§7). On Nov 17 the owner decided that prediction snapshots are built as part of this spec (§7.7). Evaluated in `docs/reviews/refactor-strategy-v3-audit-2026-11-16.md` §4.2-§4.4.
+**Status:** draft, Nov 16 2026, for the owner's review. Revised on 2026-11-17 after two independent reviews against main `88b10fb90d`. Not queued. The owner agreed on Nov 16 to the shared read model this spec is the first slice of, and to Part E's time rule with named reads (§7). On Nov 17 the owner decided that prediction snapshots are built as part of this spec (§7.7). On Nov 20 the owner moved sensor rendering here from the teacher spec (Part F, §7a), with every feature the teacher spec originally planned carried or named as superseded. Evaluated in `docs/reviews/refactor-strategy-v3-audit-2026-11-16.md` §4.2-§4.4.
 
 **Depends on:** the audit's P1 (a record of what a model was shown), which is EP2 here; E7b (`learner_signals` ahead of arc E) for EP4. EP2s edits status writes in `db/repositories.py` and comes after the refactor's L2 splits that file into stores. EP0, EP0t and EPp can run before any of these.
 
@@ -390,6 +390,76 @@ Goal forecasts, the grader's class posterior and attempt surprise (computed with
 
 **Waits:** a universal forecast table, scoring screens, whole-posterior dumps, per-candidate snapshots at every decision, model calls made only to forecast, the EVSI shadow.
 
+## 7a. Part F: sensors and how they are rendered
+
+*Moved here from `spec_teacher_v1.md` (owner, 2026-11-20): "sensor rendering should be in the evidence packet spec, and the teacher spec should have teacher-specific extensions of it". The source is the teacher spec's revision 1 (2026-10-23, §11 "Sensors and how they are rendered"; the owner draft of that date, not in the repository), which revision 4 deferred to its §22 on the review's advice. Every feature revision 1 planned is carried below or named as superseded, with the reason. Teacher-only additions stay in the teacher spec (its §8 "Teacher extensions of the evidence view").*
+
+### 7a.1 What revision 1 planned, and where each piece lands
+
+| Revision 1 (teacher §11, §15.1) | Here | Status |
+|---|---|---|
+| **The event behind each signal**: "You marked 5/5 sure; the answer was wrong; the model expected 0.82 correct" | §7a.3 point 1 | **Built in part** (TE0): taps and hedge reads go into the router card, the diagnoser, hint writer, tutor and teacher contexts as events, never to the grader (`spec_teacher_v1.md` §15.2). Here they become fields of `AttemptFacts` (§3) and are rendered in the facts line, so every packet carries them the same way |
+| **A personal reference frame**: "Bayesian surprise in the 94th percentile of your last 200 attempts" (`diagnosis/signal_quantiles.py`) | §7a.3 point 2 | Not built. The fixed "last 200" goes: the frame is every graded attempt before the read's cutoff, with its count shown |
+| **A track record**: "Of the last 12 attempts with surprise this high, 7 rechecks confirmed a real gap; 5 were slips", from resolved forecast receipts and diagnosis outcomes | §7a.3 point 3 | Not built. Needs resolved forecasts with their inputs, which EPp's prediction snapshots (§7.7) now keep |
+| **`teacher.sensors.min_track_n`** (default 8): below it the line says "too few past cases" | §7a.3 | **Replaced.** No threshold (no made-up constants, owner 2026-10-24): every track record shows its count ("7 of 12", "1 of 2"), and the model weighs it |
+| **`learner_surprise`** `= −log p_L(outcome)`, `p_L` from the tap, hedge read as fallback, logged in `attempt_surprise` with its source (`tap`, `hedge`, `absent`) | §7a.2 | Not built. `p_L` now comes from LP-min's learned tap/hedge recalibration (built with TE1 in `learner/lesson_weight.py`, `tap_probability`), not revision 1's starting constants 0.4 / 0.85 |
+| **`learner_surprise` not folded into the EKF likelihood** unless the confidence arms win prequentially | §7a.2 | Carried unchanged; the fold is deferred with that trigger (§7a.6) |
+| **`tap_shown`** on every attempt: the tap is an intervention as well as a measurement | §7a.2 | Not built. Becomes an attempt fact. `spec_learned_parameters_v1.md` §3.0b item 6's tap-reactivity check (omit the tap at random on a fraction of probes) is carried as Q11 |
+| **Sensors must earn their place**: raw history vs raw history plus rendered sensors, scored on committed forecasts by prequential log-loss; a family that does not help is dropped | §7a.5 | Not built. Now for every consumer of the view, not only the teacher |
+| **`sensors_seen` on the lesson receipt**, so the ablation can be reconstructed | §7a.5 | Replaced by EP2's manifest of what each model was shown, which covers every consumer |
+| **Router sensor mode** with arms H0/H1/S-EKF/S-Decider/S-LLM/C-Decider/C-LLM (rev 1 §15.1) | — | **Superseded** by the router objective (`spec_router_objective_v1.md` §8.3-§8.4): the LLM policy already returns calibrated per-option forecasts beside its proposal, the forecasts are scored on their own, and sensors enter `P(perform | path)` through a learned logistic combination. The probability scoreboard rev 1 wanted is EP6 plus RO's report T7 |
+| **The doctrine's "stop the plan when surprises pile up"** (`teacher.detour.surprise_run`, default 3) | — | **Superseded** in the teacher: detours are the teacher's judgment, logged as episodes (teacher §11.7); no count rule |
+
+### 7a.2 New facts on every attempt
+
+`AttemptFacts` (§3.2) gains a `confidence` group:
+
+| Field | Values |
+|---|---|
+| `tap` | the learner's 1-5 tap, or absent |
+| `tap_shown` | whether the tap control was on screen for this answer: `true`, `false`, or `unknown` for attempts before the column exists (nothing inferred backwards, §3.2) |
+| `hedge` | the grader's hedge read (`hedged`, `confident`), or absent |
+| `p_learner` | the learner's own probability of being right, from the tap through LP-min's recalibration as of the attempt, else from the hedge read, with `source` = `tap` / `hedge` / `absent` and the recalibration's version |
+| `learner_surprise` | `−log p_learner(outcome)` for a graded attempt (on a partial score, the Bernoulli log-loss at the score), with the same source |
+
+Storage:
+- **`tap_shown`** is a new column on `practice_attempts` (ROLES, PROTECTED): classified for AD in the same migration, written by the submission path from what the frontend says it rendered (desktop, phone, TUI and MCP each report it; a frontend that cannot is `unknown`).
+- **`learner_surprise` and its source** are two new columns on `attempt_surprise` (DERIVED), beside `predictive_surprise` and `bayesian_surprise`, filled by its existing replayer. The recalibration moves as taps accumulate, so the stored value is the one computed with the recalibration as of the attempt; replay recomputes with the recalibration's recorded state at that time, so live and rebuild agree.
+- **Never folded into the mastery likelihood** (§7a.6): it is a sensor. Merging it would hide whether the model or the learner was wrong.
+
+### 7a.3 Rendering: every signal arrives with three things
+
+A model is never handed a unitless scalar. Each signal in the view (the confidence group above; `predictive_surprise` and `bayesian_surprise`; answer time against the learner's own times on similar items) is rendered with:
+
+1. **The event behind it.** "You marked 5/5 sure; the answer was wrong; the model expected 0.82 correct." This is the facts line of §3.4 with the confidence group added; no number appears without its event.
+2. **A personal reference frame.** "Bayesian surprise higher than 47 of your 52 earlier graded answers." The population is every graded attempt before the read's cutoff (§7.2), computed through `diagnosis/signal_quantiles.py`'s quantile code; the count is always shown, so a frame over five attempts reads as weak on its face.
+3. **A track record, where resolved outcomes exist.** "Of the 12 earlier answers with surprise this high, 7 were followed by a cold miss on the same topic within 14 days and 5 by a cold success." Built from EPp's resolved prediction snapshots (§7.7) and the diagnosis outcomes they bind to. "This high" is the reference frame's own neighbourhood (the same quantile band as the attempt, one band either side), not a constant. The 14-day window is the resolving outcome's own horizon as its receipt states it. With no resolved cases the line says "no earlier cases to compare".
+
+**Rendering budget.** Frames and track records are per signal *kind*, not per attempt: a packet carries one legend block ("what your signals usually mean") with a line per kind and the facts line per attempt. They count under §5.3's one limit and drop as one section, counted in `left_out`.
+
+**Where it renders.** The Decider's and the action model's evidence view (§5.2), the diagnoser's packet (EP4, under S3's typed-records rule), the hint writer's and tutor's contexts, and the teacher's brief (teacher spec §8 extensions). **Never the grader** (blind split S1; the existing blindness test is extended to the new fields).
+
+### 7a.4 What is not changed
+
+- TE0's rendering stays as built until EP4 moves each consumer onto the view; EP4's per-prompt version bumps cover the switch.
+- The stated limit already built ("your taps so far are all 4-5" whenever taps have no spread) is kept as a legend line.
+- Confidence taps never move mastery through this part. LP-min's lesson-check weight and recalibration (teacher §12.1) are where taps enter a likelihood, and they stay there.
+
+### 7a.5 Sensors must earn their place
+
+The bitter-lesson criterion, applied to data instead of argued.
+- **Two arms per consumer:** (a) the facts and events only; (b) facts plus §7a.3's frames and track records. Assigned per model call with a logged probability (`experiment_assignments`, RO5's machinery), at a seeded 50/50 that the owner may change (Q10).
+- **The score:** each consumer's committed forecasts (the action model's per-option forecasts, the Decider's probabilities, the teacher's `lesson_check_correct` and `lesson_step_retained`, the diagnoser's next-observation forecast) by prequential log-loss against their resolved outcomes, read from EPp's snapshots, with the arm on each manifest (EP2).
+- **The decision:** a family whose arm (b) does not improve forecasts is reported as such in the evidence report; the owner removes it from the rendering. Nothing turns itself off.
+- **Time to signal** (revision 4's estimate, still the best one): about 255 resolved paired forecasts for a 0.1-nat difference at 80% power. The router's two daily-plus models give the fastest consumer; the teacher alone would take years.
+
+### 7a.6 Deferred, with triggers
+
+| Item | Trigger |
+|---|---|
+| Folding `learner_surprise` (or the recalibrated tap) into the mastery likelihood | Arm (b) wins on the diagnoser's and the action model's forecasts, and a planted-recovery simulation shows the fold does not double-count with LP-min's weight |
+| Frames and track records for signals not listed above (hint latency, revisits) | A consumer's forecasts name the gap (the report shows a family helping) |
+
 ## 8. Build order
 
 | Step | What | Track |
@@ -406,6 +476,11 @@ Goal forecasts, the grader's class posterior and attempt surprise (computed with
 | **EP5a** | Part D's judgment, job, work claims and storage; the reliability sample; labels in the Decider's rendering only. | behaviour, advice only |
 | **EP5b** | Labels in the action model's rendering and priority under the limit, after EP6's reliability report and evidence that the limit binds. | behaviour: a router successor |
 | **EP6** | Agreement on matching questions; the Decider against the diagnoser under a declared label mapping. | report |
+| **EPf1** | Part F's facts (§7a.2): `tap_shown` (migration, AD classification, every frontend reports it), `learner_surprise` and its source on `attempt_surprise` with its replayer; the `confidence` group on `AttemptFacts`. | structure with a migration; DERIVED columns, no tag unless the playbook review finds persisted meaning |
+| **EPf2** | Part F's rendering (§7a.3): frames and track records in the legend block, under §5.3's limit, in every rendering EP3/EP4 built. | behaviour: rides each consumer's prompt version (EP3a advice only; EP3b's router successor if after it, else its own) |
+| **EPf3** | Part F's ablation (§7a.5): arm assignment per model call, the arm on each manifest, the report. | behaviour: router successor (it changes what served models read) |
+
+**Part F's order:** EPf1 after EP0 (it extends `AttemptFacts`); EPf2 after EPp has resolved snapshots to count and EP3a/EP4 have built the renderings it extends; EPf3 after EP2's manifests.
 
 **Can start now:** EP0, EP0t, then EPp beside EP1. EP2 waits for Q7, EP2s for L2 and Q8, EP3a for EP2, EP3b for EP3a's measurement and the owner's Q1-Q3, EP5b for EP6. The first draft's EP2c (one cache) is dropped: §7.5.
 
@@ -460,6 +535,8 @@ Goal forecasts, the grader's class posterior and attempt surprise (computed with
 | Q7 | Retention of router payloads and decision facts (`router.payload_retention_days`, default 365), now that manifests point at them? | Keep 365 days; manifests, ids and hashes stay for good and `as_recorded` says `pruned`. Lengthen only if an evaluation needs the bytes. |
 | Q8 | Status history (§7.4)? | Yes, the narrower form. |
 | Q9 | The judge-reliability sample rate (§6.5)? | Yours to set, as the dose floor was; I'd start at one pair in twenty, a few calls a day under the Decider's cap. |
+| Q10 | Part F's ablation split (§7a.5)? | 50/50 per model call, logged; it costs nothing but half the calls reading a shorter packet. |
+| Q11 | Tap reactivity (`spec_learned_parameters_v1.md` §3.0b item 6, carried from teacher rev 1): omit the tap at random on a fraction of ordinary practice answers, to learn whether asking changes the answer? | Yes, at a rate you set (a declared price, like RO5's checks); never on cold checks, probes or exam answers, where the tap is part of the measurement. `tap_shown` (§7a.2) records it either way. |
 
 ## 13. Checked, and not checked
 
