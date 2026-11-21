@@ -775,7 +775,9 @@ class _Model:
     def run_tail(self, state: _State, ledger: _Ledger, *, today_minutes: np.ndarray | None, after: np.ndarray,
                  dated_done: np.ndarray, today_target: float | None = None,
                  recorder: dict[str, Any] | None = None,
-                 commitments: Sequence[tuple[int, np.ndarray]] = ()) -> None:
+                 commitments: Sequence[tuple[int, np.ndarray]] = (),
+                 on_return: Callable[[int, np.ndarray, Callable[[np.ndarray, np.ndarray], None]],
+                                     tuple[np.ndarray, np.ndarray]] | None = None) -> None:
         """The tail from the action's end ``after`` (per draw): today's session continues to ``m̄`` unless
         ``today_minutes`` is None (the session ended), then a session after each return gap until ``C + H``, a
         fresh gap from the learner's own distribution after every session's end (F4). Nothing before ``after`` is
@@ -784,7 +786,12 @@ class _Model:
 
         ``commitments`` (teacher TE3b): ``(topic index, due time per draw)`` of a lesson's delayed checks, each a
         graded attempt on its topic at the first day boundary at or past its due time, before that day's session
-        (none: the tail as before, draw for draw)."""
+        (none: the tail as before, draw for draw).
+
+        ``on_return(day, returning, before_block)`` (the check-credit path, :mod:`check_value`; None everywhere else):
+        on each day some draws return, what happens at the start of their session before the tail's blocks; it returns
+        the session minutes and the time (per draw) the blocks then start at. None: they start at minute 0 of the day,
+        as before."""
 
         k = self.k
         after = np.broadcast_to(np.asarray(after, dtype=np.float64), (k,)).copy()
@@ -850,7 +857,9 @@ class _Model:
             if day >= 1:
                 mask = (next_session <= day_start + 1e-9) & (after <= day_start + 1e-9)
                 if mask.any():
-                    self._session(state, ledger, np.full(k, day_start), mask, np.zeros(k), day,
+                    start, began = ((np.zeros(k), np.full(k, day_start)) if on_return is None
+                                    else on_return(day, mask, before_block))
+                    self._session(state, ledger, began, mask, start, day,
                                   past_cutoff=day_start >= self.cutoff - 1e-12, before_block=before_block,
                                   crosses=crosses)
                     ended = np.where(mask, np.minimum(ended + 1, gaps.shape[1] - 1), ended)
@@ -966,11 +975,19 @@ class _Model:
                                              minutes=self._durations(step, step_stream), dated_done=dated_done,
                                              stream=step_stream, correction=correction)
         effect_state = state.copy()
+        self._tail(state, ledger, action, at=at, spent=spent, dated_done=dated_done)
+        return ledger, effect_state, spent
+
+    def _tail(self, state: _State, ledger: _Ledger, action: Action, *, at: np.ndarray, spent: np.ndarray,
+              dated_done: np.ndarray) -> None:
+        """The tail after an action's last segment, with the action's committed checks."""
+
+        if action.checks:
+            raise ValueError(_TYPED_CHECKS)
         # TE3b: a lesson's delayed checks, each at its date after the action's end (none: the tail as before).
         commitments = [(self.index[lo], at + float(days)) for lo, days in action.commitments if lo in self.index]
         self.run_tail(state, ledger, today_minutes=float(self.inputs.session_minutes) + spent, after=at,
                       dated_done=dated_done, commitments=commitments)
-        return ledger, effect_state, spent
 
     def _stop_accepted(self) -> _Ledger:
         k = self.k
@@ -999,10 +1016,7 @@ class _Model:
     def value(self, action: Action) -> tuple[_Ledger, dict[str, Any]]:
         """``Q`` per draw for one action, with its branch record."""
 
-        if _carries_diagnostic(action):
-            # Priced here it would be a binary-ability probe with its hypotheses ignored, a value no caller can tell
-            # from the right one.
-            raise ValueError("a diagnostic payload is priced by diagnostic_value.evaluate_probe, not the rollouts")
+        self._screen(action)
         extra: dict[str, Any] = {}
         if action.kind == STOP:
             self.return_days_moved = False
@@ -1047,6 +1061,18 @@ class _Model:
             return self._probe(action)
         ledger, _state, _minutes = self._do(action)
         return ledger, extra
+
+    def _screen(self, action: Action) -> None:
+        """Refuse what this path does not price."""
+
+        if _carries_diagnostic(action):
+            # Priced here it would be a binary-ability probe with its hypotheses ignored, a value no caller can tell
+            # from the right one.
+            raise ValueError("a diagnostic payload is priced by diagnostic_value.evaluate_probe, not the rollouts")
+        if _carries(action, lambda part: bool(part.checks)):
+            # Priced here the checks would vanish (this path reads only the untyped commitments): a lesson worth less
+            # than its committed checks, silently.
+            raise ValueError(_TYPED_CHECKS)
 
     def _belief_model(self) -> "_Model":
         """The belief's own world for a probe's branch choice: the believed parameters (each posterior's mean, no
@@ -1156,6 +1182,18 @@ def _carries_diagnostic(action: Action | None) -> bool:
             or any(_carries_diagnostic(step) for step in action.steps))
 
 
+def _carries(action: Action | None, test: Callable[[Action], bool]) -> bool:
+    """Whether ``action``, its repair, its declined branch or any of its steps passes ``test``."""
+
+    if action is None:
+        return False
+    return (test(action) or _carries(action.repair, test) or _carries(action.declined, test)
+            or any(_carries(step, test) for step in action.steps))
+
+
+_TYPED_CHECKS = "typed committed checks are priced by check_value.evaluate, not the rollouts"
+
+
 # -- the public evaluation -----------------------------------------------------------------------------
 
 
@@ -1182,12 +1220,22 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
     speed, item 1; False: the landing's quadratures): R9's link values held per role, the same values per draw, faster,
     so a deadline admits more refinement batches."""
 
+    options = {"merged_sessions": merged_sessions, "consistent_review_draw": consistent_review_draw,
+               "held_ad_link": held_ad_link}
+    return _evaluate(lambda total: _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options),
+                     actions, draws=draws, seed=seed, max_draws=max_draws, keep_going=keep_going, deadline=deadline,
+                     clock=clock, on_complete=on_complete)
+
+
+def _evaluate(model_for: Callable[[int], _Model], actions: Sequence[Action], *, draws: int, seed: str,
+              max_draws: int | None, keep_going: Callable[[], bool] | None, deadline: float | None,
+              clock: Callable[[], float], on_complete: Callable[[Evaluation], None] | None) -> Evaluation:
+    """:func:`evaluate`'s loop over the model ``model_for(draws)`` builds (each refinement a fresh one)."""
+
     started = clock()
     total = int(draws)
     limit = int(max_draws or draws)
-    options = {"merged_sessions": merged_sessions, "consistent_review_draw": consistent_review_draw,
-               "held_ad_link": held_ad_link}
-    model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options)
+    model = model_for(total)
     latest: Evaluation | None = None
     while True:
         rows: list[Valued] = []
@@ -1211,7 +1259,7 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
         if not more or total >= limit or (deadline is not None and clock() > deadline):
             break
         total = min(total * 2, limit)
-        model = _Model(inputs, total, seed, cutoff=cutoff, unmeasured=unmeasured, **options)
+        model = model_for(total)
     if latest is not None:
         return replace(latest, elapsed_ms=int(round((clock() - started) * 1000)))
     return Evaluation(valued=(), draws=model.k, cutoff=model.cutoff, seed=seed,

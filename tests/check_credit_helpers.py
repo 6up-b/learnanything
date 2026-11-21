@@ -112,5 +112,16 @@ def nine_topics(**overrides: Any) -> OT.Inputs:
     """Nine identical unpractised topics (lo_0 .. lo_8), no valued use: what a commitment's outcome does shows only
     in each topic's FSRS state."""
 
-    topics = tuple(OT.Topic(lo=f"lo_{i}", eta_mean=0.0, eta_var=0.0) for i in range(9))
+    topics = overrides.pop("topics", tuple(OT.Topic(lo=f"lo_{i}", eta_mean=0.0, eta_var=0.0) for i in range(9)))
     return fixture_inputs(topics=topics, dated=(), **overrides)
+
+
+def typed(lo: str = LO, days: float = CHECK_DAYS, *, key: str = "c0", minutes: float = CHECK_MINUTES,
+          delivery: tuple[float, float] = (1.0, 0.0), group: str = "retention") -> OT.CheckCommitment:
+    """A typed committed check (certain delivery by default: the return and minutes rules alone)."""
+
+    return OT.CheckCommitment(lo=lo, days=days, minutes=minutes, delivery=delivery, key=key, group=group)
+
+
+def typed_offer(ref: str = "offer", *checks: OT.CheckCommitment, **fields: Any) -> OT.Action:
+    return lesson(ref, checks=checks or (typed(),), **fields)

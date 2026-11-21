@@ -1,5 +1,5 @@
 """The plain types the router's objective, its rollouts and its callers share: the action kinds, a candidate
-(:class:`Action`), and the frozen belief one decision values its candidates on (:class:`Inputs` with its
+(:class:`Action`, a lesson's typed checks :class:`CheckCommitment`), and the frozen belief one decision values its candidates on (:class:`Inputs` with its
 :class:`Topic`, :class:`DatedUse`, :class:`Learning`, :class:`CauseSplit`, :class:`EffectSlope` and :class:`Price`).
 
 ``daily_plan/objective_inputs.py`` builds them from the vault; :mod:`rollouts` simulates on them. They live here,
@@ -129,6 +129,36 @@ class Price:
 
 
 @dataclass(frozen=True)
+class CheckCommitment:
+    """One delayed check a lesson commits, as numbers only (spec_teacher_v2 §7.4): read by the check-credit rollout
+    path (:mod:`check_value`), which the live entry points never select; the rollouts refuse it.
+
+    ``delivery`` is the posterior over the chance the check is answered cold, ``(alpha, beta)`` of a Beta, an endpoint
+    allowed (``alpha = 0``: never; ``beta = 0``: always). ``minutes`` is its duration on the session's clock (a point
+    estimate). ``key`` names the commitment's own outcome and delivery streams (unique within the action, its ordinal
+    in it, so two checks on one topic stay apart); ``group`` the fitted posterior it shares one propensity draw
+    with."""
+
+    lo: str
+    #: days after the action's end that the check comes due
+    days: float
+    minutes: float
+    delivery: tuple[float, float]
+    key: str
+    purpose: str = "retention"
+    group: str = "retention"
+
+    def __post_init__(self) -> None:
+        alpha, beta = (float(value) for value in self.delivery)
+        if not self.key:
+            raise ValueError("a committed check needs a key")
+        if alpha < 0.0 or beta < 0.0 or alpha + beta <= 0.0:
+            raise ValueError("a check's delivery posterior needs non-negative shapes, not both zero")
+        if float(self.minutes) < 0.0 or float(self.days) < 0.0:
+            raise ValueError("a check's minutes and delay are non-negative")
+
+
+@dataclass(frozen=True)
 class Action:
     """One candidate as the value estimator sees it."""
 
@@ -161,6 +191,9 @@ class Action:
     #: G2: a probe's diagnostic payload (locked hypotheses, channel, repair per hypothesis), priced only by
     #: ``diagnostic_value.evaluate_probe``; the rollouts refuse it. None: the probe as before.
     diagnostic: DiagnosticProbe | None = None
+    #: A lesson's committed checks as numbers (:class:`CheckCommitment`), priced only by ``check_value.evaluate``; the
+    #: rollouts refuse them. Empty: ``commitments`` (or nothing) as before.
+    checks: tuple[CheckCommitment, ...] = ()
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -171,6 +204,13 @@ class Action:
             raise ValueError("a sequence (and only a sequence) has steps")
         if any(step.kind in (SEQUENCE, STOP) or step.accept is not None for step in self.steps):
             raise ValueError("a sequence's steps are plain actions")
+        if self.checks:
+            if self.kind != LESSON:
+                raise ValueError("only a lesson commits typed checks")
+            if self.commitments:
+                raise ValueError("a lesson's checks are typed or untyped, never both")
+            if len({check.key for check in self.checks}) != len(self.checks):
+                raise ValueError("each committed check needs its own key")
 
 
 @dataclass(frozen=True)
@@ -215,7 +255,7 @@ def cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float:
 
 
 __all__ = [
-    "Action", "CauseSplit", "DatedUse", "EffectSlope", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
-    "PRACTICE_KINDS", "PROBE", "Price", "READING", "REPAIR", "REVIEW", "SEQUENCE", "STOP", "TEACH_BACK", "Topic",
+    "Action", "CauseSplit", "CheckCommitment", "DatedUse", "EffectSlope", "Inputs", "KINDS", "LESSON", "Learning",
+    "NEW_PRACTICE", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REPAIR", "REVIEW", "SEQUENCE", "STOP", "TEACH_BACK", "Topic",
     "LESSON_OFFER_PREFIX", "LESSON_OFFER_SUBTYPE", "STOP_FOR_TODAY", "cutoff_for", "is_offer_subtype",
 ]

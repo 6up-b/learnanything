@@ -6,10 +6,11 @@ the offer builder attaches one retention check whether or not any question exist
 first one's outcome draw. The design's worked fixture (``tests/check_credit_helpers.py``) gives the accepted branch
 0.600000000 where it should give 0.500000000, and the mixed offer 0.524744871 where it should give 0.474744871.
 
-The intended behaviour (strict expected failures, each failing on an assertion about the named defect; a broken setup
-raises something else and fails the test): a check happens only on a simulated return; it is charged its minutes on
-the session's clock; each commitment draws its own outcome; an offer whose topic has no eligible question credits no
-check.
+The intended behaviour: a check happens only on a simulated return; it is charged its minutes on the session's clock;
+each commitment draws its own outcome (each asserted on both paths: today's on the rollouts, the intended on the
+unserved check-credit path); and an offer whose topic has no eligible question credits no check (a strict expected
+failure until the activation attaches the offer's sensors: it fails on an assertion about the named defect, and a
+broken setup raises something else and fails the test).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from learnloop.daily_plan import objective_inputs as OI
 from learnloop.delayed_checks import attempted_items
 from learnloop.learner_protection import withheld_items
 from learnloop.router import lesson_suggestions as LS
+from learnloop.router_objective import check_value as CV
 from learnloop.router_objective import rollouts as ROL
 from learnloop.router_objective import types as OT
 from learnloop.teacher import te2 as T2
@@ -50,6 +52,8 @@ from tests.check_credit_helpers import (
     nine_topics,
     offer_with_check,
     old_tail_state,
+    typed,
+    typed_offer,
 )
 from tests.daily_plan_fakes import record_attempt
 from tests.router_mixture_helpers import mixture_env
@@ -161,33 +165,57 @@ def test_today_an_offer_is_built_with_a_check_whether_or_not_a_question_exists(t
     assert action.commitments == (("lo_m2", 3.0),)
 
 
-# --- intended, strict expected failures -------------------------------------------------------------------------
+# --- the intended rule, on both paths ------------------------------------------------------------------------------
+# The check-credit path (``router_objective.check_value``, unserved until the activation) prices a typed check; the
+# rollouts every served decision uses keep today's pricing, pinned beside it.
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="defect: a committed check is credited without a simulated return (the learner's first "
-                          "return is day 100; the check is answered on day 4)")
-def test_intended_a_check_happens_only_on_a_simulated_return():
-    out = _branches(fixture_inputs(), offer_with_check())
-    assert out["offer"].extra["branches"]["accepted"] == pytest.approx(FIXED_ACCEPTED, abs=1e-9)
+def test_both_paths_a_check_happens_only_on_a_simulated_return():
+    """The worked fixture: today's path credits the check with no return (0.6); the new path, the same check certain
+    to be delivered, never answers it before the day-100 return (0.5): the lesson alone, draw for draw."""
+
+    old = _branches(fixture_inputs(), offer_with_check())["offer"].extra["branches"]
+    new = CV.evaluate(fixture_inputs(), [typed_offer("offer"), lesson("plain")], draws=DRAWS, seed=SEED).by_ref()
+    assert old["accepted"] == pytest.approx(TODAY_ACCEPTED, abs=1e-9)
+    assert new["offer"].extra["branches"]["accepted"] == pytest.approx(FIXED_ACCEPTED, abs=1e-9)
+    assert new["offer"].q_draws == new["plain"].q_draws
+    branches = new["offer"].extra["branches"]
+    assert 0.5 * branches["accepted"] + 0.5 * branches["declined"] == pytest.approx(FIXED_MIXED, abs=1e-9)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="defect: a committed check is charged no minutes on the session's clock")
-def test_intended_a_check_is_charged_its_minutes_on_the_session_clock():
+def test_both_paths_a_check_is_charged_its_minutes_on_the_session_clock():
+    """A return on day 6: today's path charges the check nothing; the new path charges its minutes from the start of
+    that session and the tail block it pushes later (``check_minutes_cost``)."""
+
     inputs = minutes_inputs()
-    out = _branches(inputs, offer_with_check(), lesson("plain"))
-    with_check = out["offer"].extra["branch_terms"]["accepted"]
-    without = out["plain"].extra["branch_terms"]["accepted"]
-    added = ((with_check["tail_reward"] - with_check["after"]) - (without["tail_reward"] - without["after"]))
-    assert added == pytest.approx(check_minutes_cost(inputs), abs=1e-12)
+
+    def added(evaluation, with_ref: str, without_ref: str) -> float:
+        rows = evaluation.by_ref()
+        with_check = rows[with_ref].extra["branch_terms"]["accepted"]
+        without = rows[without_ref].extra["branch_terms"]["accepted"]
+        return (with_check["tail_reward"] - with_check["after"]) - (without["tail_reward"] - without["after"])
+
+    old = ROL.evaluate(inputs, [offer_with_check(), lesson("plain")], draws=DRAWS, seed=SEED)
+    new = CV.evaluate(inputs, [typed_offer("offer"), lesson("plain")], draws=DRAWS, seed=SEED)
+    assert added(old, "offer", "plain") == pytest.approx(0.0, abs=1e-12)
+    assert added(new, "offer", "plain") == pytest.approx(check_minutes_cost(inputs), abs=1e-12)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="defect: eight outcome columns, so the ninth commitment reuses the first one's draw")
-def test_intended_the_ninth_commitment_draws_its_own_outcome():
-    state, _ledger = old_tail_state(nine_topics(), [(lo, CHECK_DAYS) for lo, _days in NINE], after=0.0, draws=64)
-    assert not np.array_equal(state.s[:, 0], state.s[:, 8])
+def test_both_paths_the_ninth_commitment_draws_its_own_outcome():
+    """Today's path: the ninth commitment's review is the first one's, draw for draw. The new path: its own stream,
+    on the same nine topics (each check half a minute, so all nine fit one return; the tail's blocks go to a tenth,
+    valued topic, so each of the nine moves only by its check)."""
+
+    old, _ledger = old_tail_state(nine_topics(), [(lo, CHECK_DAYS) for lo, _days in NINE], after=0.0, draws=64)
+    assert np.array_equal(old.s[:, 0], old.s[:, 8])
+    checks = tuple(typed(lo=lo, key=f"c{index}", minutes=0.5) for index, (lo, _days) in enumerate(NINE))
+    topics = (*nine_topics().topics, OT.Topic(lo="lo_tail", eta_mean=0.0, eta_var=0.0, undated_density=1.0))
+    _ledger, new, _answered = CV.simulate(nine_topics(topics=topics, return_gaps_days=(1.0,)),
+                                          lesson("l", accept=None, checks=checks), draws=64, seed=SEED)
+    assert not np.array_equal(new.s[:, 0], new.s[:, 8])
+
+
+# --- intended, a strict expected failure left for the activation ---------------------------------------------------
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,
