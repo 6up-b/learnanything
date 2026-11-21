@@ -97,6 +97,7 @@ import {
   goalCauseSentence,
   heldLine,
   notAskableOnList,
+  readingItemIds,
   readyWithWorkSentence,
   todayCause,
   waitingOnList,
@@ -1023,7 +1024,7 @@ export function TodayPlace({
   // Said once the day's plan is done or holds nothing (while it holds questions, the plan is what comes next), never
   // under the finish card that says the same; a cause line about a book's questions says what is being written.
   const nextLines = planOn && data && !list && !finishCardShown && (done || emptyDay)
-    ? nextPracticeLines(nextPractice, { writing: cause === null })
+    ? nextPracticeLines(nextPractice, { writing: cause === null, keptItemIds: readingItemIds(library.data?.sources) })
     : [];
 
   // ── States (§7.1) ───────────────────────────────────────────────────────

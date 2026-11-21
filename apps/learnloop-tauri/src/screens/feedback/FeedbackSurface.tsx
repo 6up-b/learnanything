@@ -213,6 +213,7 @@ export function FeedbackSurface({
   matchedCorrection,
   onBack,
   nextLabel,
+  nextNote = null,
   advancing,
   onNext,
   step,
@@ -235,6 +236,8 @@ export function FeedbackSurface({
   onBack: () => void;
   /** Where Next goes (the plan's next step, the next item, the book). */
   nextLabel: string;
+  /** A line under Next about what became of a question Today offered (kept for a later check), or null. */
+  nextNote?: string | null;
   advancing: boolean;
   onNext: () => void;
   step: FeedbackNextStep | null;
@@ -503,6 +506,11 @@ export function FeedbackSurface({
         <span style={{ flex: 1 }} />
         <DetailsToggle open={detailsOpen} onToggle={onToggleDetails} />
       </div>
+      {nextNote ? (
+        <div data-testid="feedback-next-note" role="status" style={{ ...quietLine, marginTop: 8 }}>
+          {nextNote}
+        </div>
+      ) : null}
       {/* Next until the next step opens (the plan's choice can take seconds): "Opening…" on the button alone
           was the only sign. */}
       {advancing ? <Waiting testId="next-wait" line={WAITING_COPY.choosingNext} style={{ marginTop: 8 }} /> : null}

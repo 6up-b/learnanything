@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SessionEndSummary, SessionTopicDto } from "../api/dto";
+import type { SessionEndSummary, SourceLibrarySnapshot, SessionTopicDto } from "../api/dto";
+import { peek } from "../api/queryCache";
 import { nextPracticeLines } from "../app/nextPractice";
+import { readingItemIds } from "../app/todayCause";
 import { simplePracticeFeedback } from "../app/practiceFeedback";
 import { PrimaryAction, quietLine } from "./PlainParts";
 import { COLOR } from "./term";
@@ -118,8 +120,10 @@ function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary;
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onDismiss]);
   const topics = summary.topics ?? [];
-  // What comes next, dated, as read at the session's end (a snapshot).
-  const nextLines = nextPracticeLines(summary.nextPractice, { finish: true });
+  // What comes next, dated, as read at the session's end (a snapshot). A question from the reading kept for a check is
+  // named as such from the books Today and feedback last read (a cached read only: the finish reads nothing itself).
+  const books = peek<SourceLibrarySnapshot>(["get_source_library"]).data?.sources;
+  const nextLines = nextPracticeLines(summary.nextPractice, { finish: true, keptItemIds: readingItemIds(books) });
   return (
     <div
       role="status"

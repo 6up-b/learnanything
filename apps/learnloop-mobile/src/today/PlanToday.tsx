@@ -13,7 +13,7 @@ import { WAITING_COPY } from "@desktop/copy/waiting";
 import { Waiting } from "../components/Waiting";
 import { RouterLine, WhyLink } from "../practice/RouterLine";
 import { currentWhy, doneLine, planSentence, stepOf, waitingForDesktop } from "./planWords";
-import { NO_QUESTIONS_YET, causeSentence, causeUnderway, heldLine, todayCause } from "@desktop/app/todayCause";
+import { NO_QUESTIONS_YET, causeSentence, causeUnderway, heldLine, readingItemIds, todayCause } from "@desktop/app/todayCause";
 import { nextPracticeLines, useLatestNextPractice, useNextDayRefresh } from "@desktop/app/nextPractice";
 import { WAIT_DETAILS_LABEL, useWaitWords, waitDetailOf } from "@desktop/app/waitDetail";
 
@@ -152,7 +152,9 @@ export function PlanToday({
   // the plan is done or holds nothing, leaving what is being written to a book's own line when one shows.
   const snapshot = finished && !session && finished.nextPractice
     && (!nextPractice || nextPractice.calendar.today === finished.nextPractice.calendar.today) ? finished.nextPractice : null;
-  const snapshotLines = nextPracticeLines(snapshot, { finish: true });
+  // A question from the reading kept for a check is named as such where the books were read (an empty or done day).
+  const keptItemIds = readingItemIds(library.data?.sources);
+  const snapshotLines = nextPracticeLines(snapshot, { finish: true, keptItemIds });
   const finishedLine = finished && !session ? (
     <>
       <p className="banner" role="status">
@@ -170,7 +172,7 @@ export function PlanToday({
       {lines.map((line) => <p key={line}>{line}</p>)}
     </div>
   ) : null);
-  const todayNext = nextLines(nextPracticeLines(nextPractice, { writing: cause === null }));
+  const todayNext = nextLines(nextPracticeLines(nextPractice, { writing: cause === null, keptItemIds }));
 
   async function chooseMinutes(minutes: number) {
     setMinutesBusy(true);

@@ -68,14 +68,51 @@ export interface NextPracticeWordsOptions {
   /** Say the question work under way: questions still being written, and finished sections whose questions wait to
    *  be written (Today leaves both to its own line about a book's questions). */
   writing?: boolean;
+  /** The questions written from the learner's reading (the books' `itemIds`: `todayCause.readingItemIds`). A check on
+   *  your own that keeps one of them is said as that question kept, so a learner who was offered it knows where it
+   *  went. */
+  keptItemIds?: readonly string[] | null;
 }
 
 function groupOn(groups: readonly NextPracticeGroupDto[], date: string): NextPracticeGroupDto | undefined {
   return groups.find((group) => group.date === date && group.count > 0);
 }
 
-/** The lines, in order: today (the finish only), tomorrow or the nearest later day, the next check on your own, the
- *  questions still being written. Empty when there is nothing dated and nothing under way. */
+function laterChecks(next: NextPracticeDto): NextPracticeGroupDto[] {
+  return next.checks.filter((group) => (daysFrom(next.calendar.today, group.date) ?? 0) > 0 && group.count > 0);
+}
+
+function keptIn(group: NextPracticeGroupDto, kept: ReadonlySet<string>): number {
+  return group.itemIds.filter((id) => kept.has(id)).length;
+}
+
+function keptWords(kept: number, from: string): string {
+  return kept === 1
+    ? `1 question from your reading is kept for a check on your own, ${from}.`
+    : `${kept} questions from your reading are kept for checks on your own, ${from}.`;
+}
+
+/** "1 question from your reading is kept for a check on your own, available from 5 December.": a question written
+ *  from the reading (one Today offered) set aside after an answer for a later check on the learner's own, so it can no
+ *  longer be asked now. The check chooses its question after an answer, so nothing can say so beforehand: this is
+ *  said once it is kept. Null when no later check keeps one of `keptItemIds`. */
+export function keptForCheckLine(next: NextPracticeDto | null | undefined, keptItemIds: readonly string[] | null | undefined): string | null {
+  if (!next) return null;
+  const kept = new Set(keptItemIds ?? []);
+  const group = laterChecks(next).find((check) => keptIn(check, kept) > 0);
+  return group ? keptWords(keptIn(group, kept), `available from ${dayName(group.date, next.calendar.today)}`) : null;
+}
+
+/** Questions answered that come back on a day. Only answered questions have a day (one never answered has none), and
+ *  saying so keeps the line from reading as "nothing to do until then" beside questions that can be asked now. */
+function comeBack(n: number, more: string): string {
+  return `${n} ${more}${n === 1 ? "question you answered comes" : "questions you answered come"} back`;
+}
+
+/** The lines, in order: today (the finish only), tomorrow or the nearest later day, the next check on your own (and
+ *  the one keeping a question from the reading), the questions still being written. Empty when there is nothing dated
+ *  and nothing under way. No line says that nothing is due: beside questions ready now, "Nothing is due tomorrow"
+ *  read as nothing to do until the date named. */
 export function nextPracticeLines(next: NextPracticeDto | null | undefined, options: NextPracticeWordsOptions = {}): string[] {
   if (!next) return [];
   const { today, tomorrow } = next.calendar;
@@ -84,10 +121,8 @@ export function nextPracticeLines(next: NextPracticeDto | null | undefined, opti
   const dueTomorrow = groupOn(next.reviews, tomorrow);
   const writing = options.writing !== false && next.writing.topicCount > 0;
   // Finished sections whose writing waits for their book or the desktop. The topics held for a look (`next.held`) get
-  // no words: their state is not moved when the learner later gives or refuses the OK, and Today's own line counts
-  // the held questions an OK would apply from the books' facts.
+  // no words: Today's own line counts the held questions an OK would apply, from the books' facts.
   const waiting = options.writing !== false ? next.waiting?.sectionCount ?? 0 : 0;
-  const laterCheck = next.checks.find((group) => (daysFrom(today, group.date) ?? 0) > 0 && group.count > 0);
   const checkNow = groupOn(next.checks, today);
   if (options.finish && dueToday) {
     lines.push(`Still due today: ${count(dueToday.count, "question", "questions")}${aboutMinutes(dueToday.minutes)}.`);
@@ -95,20 +130,25 @@ export function nextPracticeLines(next: NextPracticeDto | null | undefined, opti
   // With questions still due today, tomorrow's are those that come due then, on top of them.
   const more = dueToday ? "more " : "";
   if (dueTomorrow) {
-    lines.push(`Tomorrow: ${dueTomorrow.count} ${more}${dueTomorrow.count === 1 ? "question" : "questions"} due${aboutMinutes(dueTomorrow.minutes)}.`);
+    lines.push(`Tomorrow: ${comeBack(dueTomorrow.count, more)}${aboutMinutes(dueTomorrow.minutes)}.`);
   } else if (next.nextReviewDate) {
-    const group = groupOn(next.reviews, next.nextReviewDate);
-    const one = group?.count === 1;
-    lines.push(`Nothing ${more}is due tomorrow. Your next ${one ? "question is" : "questions are"} due ${onDay(next.nextReviewDate, today)}.`);
-  } else if (dueToday || laterCheck || checkNow || writing || waiting > 0) {
-    lines.push(`Nothing ${more}is due tomorrow.`);
+    lines.push(`${comeBack(groupOn(next.reviews, next.nextReviewDate)?.count ?? 1, more)} ${onDay(next.nextReviewDate, today)}.`);
   }
   if (options.finish && checkNow) {
     lines.push(checkNow.count === 1 ? "A check on your own is available now." : `${checkNow.count} checks on your own are available now.`);
   }
-  if (laterCheck) {
-    const from = `available from ${dayName(laterCheck.date, today)}`;
-    lines.push(laterCheck.count === 1 ? `A check on your own is ${from}.` : `${laterCheck.count} checks on your own are ${from}.`);
+  // The next check on your own; and the one that keeps a question from the reading, named as that question (with any
+  // other check of its day beside it).
+  const kept = new Set(options.keptItemIds ?? []);
+  const later = laterChecks(next);
+  const keeping = later.find((group) => keptIn(group, kept) > 0);
+  for (const group of later.filter((group, index) => index === 0 || group === keeping)) {
+    const from = `available from ${dayName(group.date, today)}`;
+    const own = group === keeping ? keptIn(group, kept) : 0;
+    const rest = group.count - own;
+    if (own > 0) lines.push(keptWords(own, from));
+    if (rest === 1) lines.push(`${own > 0 ? "Another" : "A"} check on your own is ${from}.`);
+    else if (rest > 1) lines.push(`${rest} ${own > 0 ? "other " : ""}checks on your own are ${from}.`);
   }
   if (writing) {
     lines.push(`Questions on ${next.writing.topicCount} more ${next.writing.topicCount === 1 ? "topic" : "topics"} are still being written.`);

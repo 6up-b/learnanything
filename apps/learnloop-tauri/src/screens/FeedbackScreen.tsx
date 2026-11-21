@@ -39,7 +39,12 @@ import { algoConfig, masteryTone } from "../app/algoConfig";
 import { CompareMethods } from "./feedback/CompareMethods";
 import { screenLeavesKey } from "../app/keymap";
 import { useNextQueueItem, useNextReadingQuestion } from "../app/autoAdvance";
-import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
+import { nextPlanKeyLabel, useDailyPlan, useNextPlanStep } from "../app/dailyPlan";
+import { keptForCheckLine } from "../app/nextPractice";
+import { readingItemIds } from "../app/todayCause";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
+import type { SourceLibrarySnapshot } from "../api/dto";
 import type { FollowupDto, FollowupNextDto, HypothesisMarksDto, PlanStepDto } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
 import {
@@ -1597,6 +1602,13 @@ export function FeedbackScreen({
   const planDone = planMode && nextPlanStep.step?.kind === "done";
   const nextReading = useNextReadingQuestion(planMode ? nextQueue : null, planDone, feedback?.practiceItemId ?? null);
   const readingLabel = !planDone ? null : nextReading.known ? nextReading.item : "unknown";
+  // The plan done and none of the books' questions left to go on to ("today's plan is done"): one offered from the
+  // reading may have been kept, at this answer, for a later check on the learner's own. Nothing could say so before the
+  // answer (the check chooses its question after it), so the line under Next says it now, with the check's day.
+  const nothingNext = planDone && readingLabel === null;
+  const planRead = useDailyPlan(nothingNext && nextPlan ? nextPlan.sessionId : null, nothingNext);
+  const books = useCachedQuery<SourceLibrarySnapshot>(nothingNext ? ["get_source_library"] : null, () => api.getSourceLibrary(), { tags: [TAG.sources] });
+  const keptNote = nothingNext ? keptForCheckLine(planRead.data?.nextPractice, readingItemIds(books.data?.sources)) : null;
   const [advancing, setAdvancing] = useState(false);
   const advanceGeneration = useRef(0);
   const advancingRef = useRef(false);
@@ -2523,6 +2535,7 @@ export function FeedbackScreen({
             matchedCorrection={matchedMisconception?.correctionStatement?.trim() || null}
             onBack={goBack}
             nextLabel={nextLabel}
+            nextNote={keptNote}
             advancing={advancing}
             onNext={() => void advance()}
             step={step}
