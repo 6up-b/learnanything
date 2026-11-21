@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/trace_assembly.py](../../../../../../src/learnloop/router_objective/trace_assembly.py) |
-| Source lines | 430 |
+| Source lines | 442 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,9 +58,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `option_label(kind: str | None, candidate: Any, titles: Mapping[str, str]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 54) — The option's plain label in the trace.
 - `candidate_row(ref: str, candidate: Any, *, titles: Mapping[str, str], valued: Any, action: Any, numeric: Any, topic_by_lo: Mapping[str, Any], miss_cause: Mapping[str, Any] | None, miss_topics: Mapping[str, Any], llm: Any, llm_parsed: Any, v: float | None, stop_q: float | None, top: Any, residual_applied: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 69) — One option's row: its label, the numeric policy's action and terms for it, the sensors those read, the LLM's forecast for it, and, for a lesson offer, the offer's own section (:func:`_offer_trace`).
 - `goal_dates(numeric: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 149) — RO5 §9 item 3's sensor input: each active dated goal's uses with the memory model's frozen forecast at the goal's date (``m⁰``, from the pre-action belief under the tail, the same number the policy comparison logs) and the goal's absolute ``due_at``, for every dated goal the rol…
-- `failure_rule_field(to_other: bool) -> dict[str, str]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 224) — IH5: the failure rule a decision was drawn under, logged only where it is not staged's (a record without the key was drawn before the tag, or with the switch off, and replays under staged's rule: ``mix.recompute``).
-- `decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible: Sequence[Any], titles: Mapping[str, str], numeric: Any, llm: Any, decider: Any, staged_ref: str, weight: tuple[float, Mapping[str, Any]], effective: Mapping[str, float], pi: Mapping[str, float], drawn: Any, seed: str, config: Any, now_iso: str, guard: Mapping[str, Any], stop_in_support: bool, card_version: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 231) — The trace's common part for one decision (a block boundary's or a mid-block one's): every option's row (:func:`candidate_row`), the numeric policy's evaluation, both policies, the mix and its draw, the evaluation's uses and window, and the versions it was valued under.
-- `objective_trace(choice: Any, *, support: Sequence[str], by_id: Mapping[str, Any], feasible: Sequence[Any], titles: Mapping[str, str], numeric: Any, llm: Any, decider: Any, staged_ref: str, weight: tuple[float, Mapping[str, Any]], seed: str, config: Any, now_iso: str, card_version: str | None, policy_card: Mapping[str, Any], contested: str | None, read_carried_for: Callable[[], Sequence[Mapping[str, Any]]] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 382) — A block boundary's trace, from its choice (``choose.Choice``) and what the chooser read for it: the numeric policy's answer, the two models' results, the weight, the mix's seed, the LLM's card (``policy_card``) and the IH2 contest's follow-up (``contested``).
+- `failure_rule_field(to_other: bool) -> dict[str, str]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 229) — IH5: the failure rule a decision was drawn under, logged only where it is not staged's (a record without the key was drawn before the tag, or with the switch off, and replays under staged's rule: ``mix.recompute``).
+- `decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible: Sequence[Any], titles: Mapping[str, str], numeric: Any, llm: Any, decider: Any, staged_ref: str, weight: tuple[float, Mapping[str, Any]], effective: Mapping[str, float], pi: Mapping[str, float], drawn: Any, seed: str, config: Any, now_iso: str, guard: Mapping[str, Any], stop_in_support: bool, card_version: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 236) — The trace's common part for one decision (a block boundary's or a mid-block one's): every option's row (:func:`candidate_row`), the numeric policy's evaluation, both policies, the mix and its draw, the evaluation's uses and window, and the versions it was valued under.
+- `objective_trace(choice: Any, *, support: Sequence[str], by_id: Mapping[str, Any], feasible: Sequence[Any], titles: Mapping[str, str], numeric: Any, llm: Any, decider: Any, staged_ref: str, weight: tuple[float, Mapping[str, Any]], seed: str, config: Any, now_iso: str, card_version: str | None, policy_card: Mapping[str, Any], contested: str | None, read_carried_for: Callable[[], Sequence[Mapping[str, Any]]] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/trace_assembly.py), line 394) — A block boundary's trace, from its choice (``choose.Choice``) and what the chooser read for it: the numeric policy's answer, the two models' results, the weight, the mix's seed, the LLM's card (``policy_card``) and the IH2 contest's follow-up (``contested``).
 
 ### Module constants
 
@@ -101,6 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] — imports `module`
 - [[Reference/Modules/learnloop/router_objective/ad_link|learnloop.router_objective.ad_link]] — imports `module`
+- [[Reference/Modules/learnloop/router_objective/check_replay|learnloop.router_objective.check_replay]] — imports `TRACE_KEY`
 - [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `ANSWERED`, `NOT_READY`
 - [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] — imports `module`
 - [[Reference/Modules/learnloop/router_objective/objective|learnloop.router_objective.objective]] — imports `module`; calls `paired_standard_error`
@@ -133,6 +134,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
   - `test_a_plan_candidates_trace_label_and_reversibility`
   - `test_stops_trace_label_and_support`
+- [tests/test_check_credit_activation.py](../../../../../../tests/test_check_credit_activation.py) — direct import
+  - `test_both_tags_the_decisions_numeric_answer_and_its_trace`
 - [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
   - `test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly`
 - [tests/test_objective_trace.py](../../../../../../tests/test_objective_trace.py) — direct import

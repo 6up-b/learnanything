@@ -126,7 +126,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]] | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] | [[Reference/Modules/learnloop/adaptive_difficulty/replay#^module-purpose|purpose]] | `ACTIVE` | 11 | 21 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] | [[Reference/Modules/learnloop/adaptive_difficulty/report#^module-purpose|purpose]] | `ACTIVE` | 2 | 14 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] | [[Reference/Modules/learnloop/adaptive_difficulty/scoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] | [[Reference/Modules/learnloop/adaptive_difficulty/scoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] | [[Reference/Modules/learnloop/adaptive_difficulty/selection#^module-purpose|purpose]] | `ACTIVE` | 8 | 7 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] | [[Reference/Modules/learnloop/adaptive_difficulty/sending#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] | [[Reference/Modules/learnloop/adaptive_difficulty/serve#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |

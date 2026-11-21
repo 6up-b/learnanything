@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/curriculum/commitments.py"
+  - "src/learnloop/daily_plan/check_delivery.py"
   - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/goals.py"
@@ -89,6 +90,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/check_delivery.py`
 - `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/goals.py`
@@ -96,7 +98,6 @@ Indexes and uniqueness:
 - `src/learnloop/intent/checks.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/recap.py`
-- `src/learnloop/teacher/check_delivery.py`
 
 ### Direct SQL writers
 

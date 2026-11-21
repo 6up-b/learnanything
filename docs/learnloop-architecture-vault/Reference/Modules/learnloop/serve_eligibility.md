@@ -185,6 +185,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `module`; statically calls `attempt_submission`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `log_decision`, `pending_writes`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `COLD_FOLLOWUP_TASK_KINDS`
+- [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]] — imports `check_once_at_attempt`; statically calls `check_once_at_attempt`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
 - [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `module`; statically calls `decide`, `gather`, `log_decision`
@@ -195,7 +196,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `module`; statically calls `check_once_at_attempt`, `decide`, `gather`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `module`; statically calls `decide`, `gather`, `log_decision`, `retime`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `FollowupTask`
-- [[Reference/Modules/learnloop/teacher/check_delivery|learnloop.teacher.check_delivery]] — imports `check_once_at_attempt`; statically calls `check_once_at_attempt`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`

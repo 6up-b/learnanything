@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/epp_receipt_repairs_helpers.py](../../../../../../tests/epp_receipt_repairs_helpers.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
 - [tests/test_choose.py](../../../../../../tests/test_choose.py) — direct import
@@ -156,6 +157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_draw_reproduces_from_its_logged_seed`
   - `test_the_floor_can_draw_another_option_than_the_rules`
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
+- [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
+  - `test_redraw_is_reconstructed_from_placement_alone_and_uses_one_uniform`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
   - `test_no_intervention_sits_in_the_mixture_with_its_floor`
 - [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import

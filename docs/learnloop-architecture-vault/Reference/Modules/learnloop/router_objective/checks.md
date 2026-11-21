@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py) |
-| Source lines | 741 |
+| Source lines | 748 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,25 +65,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `administered(connection: Any) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 257) — Each administered slot's ``item_planned`` receipt (its block, item and frozen sensors), by assignment id.
 - `class Placement` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 272)
 - `place(vault: Any, repository: Any, *, local_date: str, session_id: str | None, pool: Sequence[Any], planned: Iterable[str], chooser_items: Sequence[Any], lane: str | None, eligible_items: Eligible) -> list[Placement]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 280) — The slots this boundary administers (before its decision): the day's undelivered checks, in the day's first session only.
-- `class Resolved` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 356)
-  - `assessment_key(self) -> str` (line 368; public) — One completed check counts once however many decisions' windows hold it (§8.9).
-- `exclusion(connection: Any, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 423) — Why the check's answer carries no label as its grade stands NOW (Codex review F1), else None: the existing assessment rules, read as AD's slot reads them.
-- `class Closure` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 459) — THE cutoff (landing ruling R1, Codex final verify F10).
-  - `through(cls, local_date: str) -> 'Closure'` (line 485; public) — The end of ``local_date`` (local time): events before the next local midnight.
-  - `at(cls, stamp: str) -> 'Closure'` (line 493; public) — ``stamp`` itself (a window's ``window_closes_at``): events at or before it.
-  - `admits(self, occurred: Any, received: Any=None) -> bool` (line 500; public) — Whether an event that happened at ``occurred`` (and, for an answer, became known at ``received``, None where the two are one) is in the read: both at or before the closure.
-- `class Ledger` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 521) — Every event a check's resolution counts, read once with its times, so many closures (one per scored window) read one snapshot; each read filters it through :meth:`Closure.admits` alone.
-  - `__init__(self, connection: Any) -> None` (line 526; internal)
-  - `_graded(self, attempt: Mapping[str, Any], assisted: bool) -> tuple[str | None, float | None]` (line 571; internal) — The answer's exclusion and label, as its grade stands NOW (Codex review F1; :class:`Closure`).
-  - `sessions_by_day(self, closure: Closure) -> dict[str, list[str]]` (line 583; public)
-  - `drawn_days(self, closure: Closure) -> list[dict[str, Any]]` (line 592; public)
-  - `resolve(self, closure: Closure) -> list[Resolved]` (line 596; public) — Every slot assigned as of ``closure``, with its status (module docstring) as it stood then.
-  - `completion(self, closure: Closure) -> dict[str, Any]` (line 645; public)
-  - `r_for(self, local_date: str, closure: Closure) -> tuple[dict[str, float], str]` (line 675; public)
-- `resolve(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> list[Resolved]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 685) — Every assigned slot as of its closure (``through`` a local date, its end; or ``closure``), with its status (module docstring), every event read through :meth:`Closure.admits` (landing ruling R1): an assignment, administration, skip, displacement or answer after the closure is no…
-- `completion(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 695) — The running completion rate, pooled and never conditioned on an action: completed checks over the assigned ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap).
-- `r_for(connection: Any, *, local_date: str, closure: Closure | None=None, ledger: Ledger | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 705) — ``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the last earlier one's (labelled: its eligible set stands for a day with no session), every draw as of ``closure`` (by default the end of ``local_date``).
-- `support_at(connection: Any, at: str, *, days: Sequence[Mapping[str, Any]] | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 714) — RO6's landing ruling R7: each topic's check support for the days after ``at``, as known at ``at`` (a stop coin's draw): ``r_L`` of the latest day drawn as of ``Closure.at(at)``, every draw admitted through :meth:`Closure.admits` (RO1's availability predicate on its assignment ro…
+- `class Resolved` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 363)
+  - `assessment_key(self) -> str` (line 375; public) — One completed check counts once however many decisions' windows hold it (§8.9).
+- `exclusion(connection: Any, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 430) — Why the check's answer carries no label as its grade stands NOW (Codex review F1), else None: the existing assessment rules, read as AD's slot reads them.
+- `class Closure` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 466) — THE cutoff (landing ruling R1, Codex final verify F10).
+  - `through(cls, local_date: str) -> 'Closure'` (line 492; public) — The end of ``local_date`` (local time): events before the next local midnight.
+  - `at(cls, stamp: str) -> 'Closure'` (line 500; public) — ``stamp`` itself (a window's ``window_closes_at``): events at or before it.
+  - `admits(self, occurred: Any, received: Any=None) -> bool` (line 507; public) — Whether an event that happened at ``occurred`` (and, for an answer, became known at ``received``, None where the two are one) is in the read: both at or before the closure.
+- `class Ledger` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 528) — Every event a check's resolution counts, read once with its times, so many closures (one per scored window) read one snapshot; each read filters it through :meth:`Closure.admits` alone.
+  - `__init__(self, connection: Any) -> None` (line 533; internal)
+  - `_graded(self, attempt: Mapping[str, Any], assisted: bool) -> tuple[str | None, float | None]` (line 578; internal) — The answer's exclusion and label, as its grade stands NOW (Codex review F1; :class:`Closure`).
+  - `sessions_by_day(self, closure: Closure) -> dict[str, list[str]]` (line 590; public)
+  - `drawn_days(self, closure: Closure) -> list[dict[str, Any]]` (line 599; public)
+  - `resolve(self, closure: Closure) -> list[Resolved]` (line 603; public) — Every slot assigned as of ``closure``, with its status (module docstring) as it stood then.
+  - `completion(self, closure: Closure) -> dict[str, Any]` (line 652; public)
+  - `r_for(self, local_date: str, closure: Closure) -> tuple[dict[str, float], str]` (line 682; public)
+- `resolve(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> list[Resolved]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 692) — Every assigned slot as of its closure (``through`` a local date, its end; or ``closure``), with its status (module docstring), every event read through :meth:`Closure.admits` (landing ruling R1): an assignment, administration, skip, displacement or answer after the closure is no…
+- `completion(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 702) — The running completion rate, pooled and never conditioned on an action: completed checks over the assigned ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap).
+- `r_for(connection: Any, *, local_date: str, closure: Closure | None=None, ledger: Ledger | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 712) — ``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the last earlier one's (labelled: its eligible set stands for a day with no session), every draw as of ``closure`` (by default the end of ``local_date``).
+- `support_at(connection: Any, at: str, *, days: Sequence[Mapping[str, Any]] | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 721) — RO6's landing ruling R7: each topic's check support for the days after ``at``, as known at ``at`` (a stop coin's draw): ``r_L`` of the latest day drawn as of ``Closure.at(at)``, every draw admitted through :meth:`Closure.admits` (RO1's availability predicate on its assignment ro…
 
 ### Module constants
 
@@ -147,12 +147,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_raise_need(vault: Any, repository: Any, lo: str, now_iso: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 168) — A topic with no eligible item: one pending generation need through the existing path (deduplicated on the LO, intent and facets by ``upsert_intervention_need``).
 - `_first_session_today(connection: Any, local_date: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 246)
-- `_label(row: Mapping[str, Any], assisted: bool) -> float | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 374) — §6.2's label: AD's unassisted success (help of any kind makes it a non-success, as RO2's resolver reads it); None where AD excludes the attempt (no correctness): never read as a zero (Codex review F1).
-- `_current_epoch_unassessed(connection: Any, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 387) — PF-c over the attempt's current grading epoch (``grading_epochs.current_epoch``), AD's own rule (``adaptive_difficulty.replay._current_grade_unassessed``): every criterion's latest live row in that epoch recorded unverified, so the grade measures nothing whatever it schedules as.
-- `_quarantined(connection: Any, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 410) — The attempt's active grade interpretation (its newest observation's) is quarantined.
-- `_local_date(stamp: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 448)
-- `_closure(through: str | None, closure: Closure | None) -> Closure` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 507)
-- `_moment(stamp: Any) -> datetime` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 515)
+- `_label(row: Mapping[str, Any], assisted: bool) -> float | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 381) — §6.2's label: AD's unassisted success (help of any kind makes it a non-success, as RO2's resolver reads it); None where AD excludes the attempt (no correctness): never read as a zero (Codex review F1).
+- `_current_epoch_unassessed(connection: Any, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 394) — PF-c over the attempt's current grading epoch (``grading_epochs.current_epoch``), AD's own rule (``adaptive_difficulty.replay._current_grade_unassessed``): every criterion's latest live row in that epoch recorded unverified, so the grade measures nothing whatever it schedules as.
+- `_quarantined(connection: Any, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 417) — The attempt's active grade interpretation (its newest observation's) is quarantined.
+- `_local_date(stamp: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 455)
+- `_closure(through: str | None, closure: Closure | None) -> Closure` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 514)
+- `_moment(stamp: Any) -> datetime` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 522)
 
 ## Who imports or calls it
 
@@ -201,7 +201,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/epp_receipt_repairs_helpers.py](../../../../../../tests/epp_receipt_repairs_helpers.py) — direct import
 - [tests/ro5_checks_helpers.py](../../../../../../tests/ro5_checks_helpers.py) — direct import
+- [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
+  - `test_redraw_frozen_journey_keeps_served_items_ids_and_every_seed`
+  - `test_redraw_is_reconstructed_from_placement_alone_and_uses_one_uniform`
 - [tests/test_evidence_cutoff.py](../../../../../../tests/test_evidence_cutoff.py) — direct import
   - `test_closure_admits_matrix_equals_the_predecessor`
   - `test_closure_at_the_same_instant_is_inclusive`

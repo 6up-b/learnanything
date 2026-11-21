@@ -128,11 +128,11 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_dl2_rw4b_keyed_pick_check.py`
+- `tests/test_epp_receipt_repairs.py`
 - `tests/test_grade_application_core.py`
 - `tests/test_ih2_one_open_offer.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_ih6_workbench_open_item.py`
-- `tests/test_instruct_handoff_ih0.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -152,8 +152,8 @@ None found by exact static reference scan.
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_epp_prediction_snapshots.py`
+- `tests/test_epp_receipt_repairs.py`
 - `tests/test_figure_predictions.py`
-- `tests/test_forecast_receipts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

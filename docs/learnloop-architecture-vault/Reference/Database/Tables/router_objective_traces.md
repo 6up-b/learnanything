@@ -138,6 +138,7 @@ None found by exact static reference scan.
 
 - `tests/instruct_handoff_ih0_helpers.py`
 - `tests/ro4_traces_migration_helpers.py`
+- `tests/test_epp_receipt_repairs.py`
 - `tests/test_ih2_lessons_compete.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_probe_router_authority.py`

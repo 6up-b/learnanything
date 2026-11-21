@@ -18,12 +18,12 @@ source_paths:
   - "migrations/072_commitments.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/commitment_arcs.py"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
-  - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/daily_plan/engine.py"
@@ -90,13 +90,13 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/check_delivery.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/goals.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/scheduling/controller_store.py`
-- `src/learnloop/teacher/check_delivery.py`
 
 ### Direct SQL writers
 
@@ -131,9 +131,11 @@ Indexes and uniqueness:
 - `tests/check_credit_helpers.py`
 - `tests/check_credit_report_helpers.py`
 - `tests/daily_plan_fakes.py`
+- `tests/identity_pins_helpers.py`
 - `tests/test_ad23_intent_compose.py`
 - `tests/test_ad2_serving.py`
 - `tests/test_causal_attribution_p1.py`
+- `tests/test_check_credit_activation.py`
 - `tests/test_check_credit_characterization.py`
 - `tests/test_check_credit_report.py`
 - `tests/test_check_delivery.py`
@@ -145,8 +147,6 @@ Indexes and uniqueness:
 - `tests/test_controller_snapshot.py`
 - `tests/test_cross_seam_exposure.py`
 - `tests/test_curriculum_c0b_landing.py`
-- `tests/test_curriculum_c1_landing.py`
-- `tests/test_daily_loop_reader_authored_practice.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

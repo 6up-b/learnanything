@@ -116,13 +116,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Combiner`, `fit_combiner`, `monotone_prior`
 - [[Reference/Modules/learnloop/router_objective/ad_link|learnloop.router_objective.ad_link]] — imports `sigmoid`; statically calls `sigmoid`
+- [[Reference/Modules/learnloop/router_objective/check_replay|learnloop.router_objective.check_replay]] — imports `Combiner`
 - [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]] — imports `module`; statically calls `Combiner`, `fit_combiner`
 - [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]] — imports `Fsrs`, `logit`, `perform`, `sigmoid`; statically calls `Fsrs`, `logit`, `perform`, `sigmoid`
 - [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `Combiner`
-
-### Repository tooling consumers
-
-- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py)
 
 ## Dependencies
 
@@ -142,7 +139,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/router_objective/ad_link|learnloop.router_objective.ad_link]], [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]], [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]], [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/router_objective/ad_link|learnloop.router_objective.ad_link]], [[Reference/Modules/learnloop/router_objective/check_replay|learnloop.router_objective.check_replay]], [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]], [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -150,6 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ro4_value_helpers.py](../../../../../../tests/ro4_value_helpers.py) — direct import
 - [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
+- [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
 - [tests/test_ro4_value.py](../../../../../../tests/test_ro4_value.py) — direct import
   - `test_a_date_inside_a_long_action_is_scored_at_the_date_on_the_state_before_it`
   - `test_a_probe_is_scored_through_its_repair_branches`

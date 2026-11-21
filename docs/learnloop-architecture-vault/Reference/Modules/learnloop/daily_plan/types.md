@@ -179,6 +179,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_block_chooser_interface.py](../../../../../../tests/test_block_chooser_interface.py) — direct import
   - `test_stopping_is_only_allowed_when_offered`
   - `test_unknown_ids_and_continue_at_a_boundary_fall_back_and_are_flagged`
+- [tests/test_check_credit_activation.py](../../../../../../tests/test_check_credit_activation.py) — direct import
 - [tests/test_daily_plan_build.py](../../../../../../tests/test_daily_plan_build.py) — direct import
 - [tests/test_daily_plan_kill_switch.py](../../../../../../tests/test_daily_plan_kill_switch.py) — direct import
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import

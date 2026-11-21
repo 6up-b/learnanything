@@ -47,22 +47,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/check_inputs.py](../../../../../../src/learnloop/daily_plan/check_inputs.py) |
-| Source lines | 109 |
+| Source lines | 159 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CheckMinutes` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 30) — One check's planning minutes, and where they came from.
-  - `as_dict(self) -> dict[str, Any]` (line 39; public)
-- `eligible_now(vault: Any, repository: Any, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 44) — Whether a delayed check could be committed on the LO now (the shared candidate rule; fail closed).
-- `dry_check_minutes(vault: Any, repository: Any, learning_object_id: str, *, as_of: str) -> CheckMinutes` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 85) — One check's minutes on the LO from the plan's estimator over the evidence recorded by ``as_of``.
+- `class CheckMinutes` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 35) — One check's planning minutes, and where they came from.
+  - `as_dict(self) -> dict[str, Any]` (line 44; public)
+- `eligible_now(vault: Any, repository: Any, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 49) — Whether a delayed check could be committed on the LO now (the shared candidate rule; fail closed).
+- `dry_check_minutes(vault: Any, repository: Any, learning_object_id: str, *, as_of: str) -> CheckMinutes` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 90) — One check's minutes on the LO from the plan's estimator over the evidence recorded by ``as_of``.
+- `check_key(learning_object_id: str, purpose: str, ordinal: int) -> str` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 114) — A committed check's stable key within its offer: its topic, purpose and place, so two checks on one topic draw from streams of their own.
+- `delivery_group(purpose: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 121) — The fitted posterior a check shares one propensity draw with: its purpose within the legacy regime.
+- `check_sensors(vault: Any, repository: Any, learning_object_id: str, *, purpose: str, ordinal: int, now_iso: str, trials: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 129) — One committed check's record fields at a new decision: its key and group, the delivery posterior (the counts of ``purpose`` over ``trials``, classified as of ``now_iso``, seeded by the availability now) and its minutes, with the rollout path's versions.
 
 ### Module constants
 
-- `ITEM_ESTIMATE` ([src/learnloop/daily_plan/check_inputs.py](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 25)
-- `UNKNOWN_ITEM_ESTIMATE` ([src/learnloop/daily_plan/check_inputs.py](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 26)
+- `ITEM_ESTIMATE` ([src/learnloop/daily_plan/check_inputs.py](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 30)
+- `UNKNOWN_ITEM_ESTIMATE` ([src/learnloop/daily_plan/check_inputs.py](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 31)
 
 ### Explicit exports
 
@@ -71,19 +74,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `CheckMinutes`
 - `ITEM_ESTIMATE`
 - `UNKNOWN_ITEM_ESTIMATE`
+- `check_key`
+- `check_sensors`
+- `delivery_group`
 - `dry_check_minutes`
 - `eligible_now`
 
 ## Internal implementation anchors
 
-- `_evidence_as_of(vault: Any, repository: Any, as_of: str) -> Any` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 60) — The estimator's duration evidence recorded by ``as_of``: the attempts known by then (the attempt ledger's availability rule) and the plan events written by then, read through the estimator's own explicit inputs.
+- `_evidence_as_of(vault: Any, repository: Any, as_of: str) -> Any` ([source](../../../../../../src/learnloop/daily_plan/check_inputs.py), line 65) — The estimator's duration evidence recorded by ``as_of``: the attempts known by then (the attempt ledger's availability rule) and the plan events written by then, read through the estimator's own explicit inputs.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-No live LearnLoop module directly imports this module in the static graph.
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `check_sensors`; statically calls `check_sensors`
 
 ### Repository tooling consumers
 
@@ -93,10 +99,12 @@ No live LearnLoop module directly imports this module in the static graph.
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]] — imports `LEGACY_REGIME`, `module`; calls `counts`, `posterior`
 - [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] — imports `ESTIMATE_DECIMALS`, `Estimator`, `load_duration_evidence`; calls `Estimator`, `load_duration_evidence`
 - [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `attempted_items`, `candidates`, `check_available`, `pick_with_receipt`, `revealed_items`; calls `attempted_items`, `candidates`, `check_available`, `pick_with_receipt`, `revealed_items`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
+- [[Reference/Modules/learnloop/router_objective/check_value|learnloop.router_objective.check_value]] — imports `POLICY_VERSION`, `STREAM_LAYOUT_VERSION`
 
 ### Platform and third-party dependencies
 
@@ -110,7 +118,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-No live LearnLoop module imports it directly; its current reach is tests, repository tooling, dynamic registration, or explicit manual invocation where documented above.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/readingPosition.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/readingPosition.ts) |
-| Source lines | 122 |
+| Source lines | 165 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -59,8 +59,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function spanAtPosition(blocks: ReaderPdfBlockDto[], position: ReadingPosition): string | null` — function, line 41
 - `export function pagePositionAt(scroller: HTMLElement | null, fraction: number): ReadingPosition | null` — function, line 55
 - `export function spanOnPage( pageSpans: ReadonlyArray<` — function, line 75
-- `export interface SectionHistory` — interface, line 89
-- `export function resumeSpanFromHistory( sections: ReadonlyArray<` — function, line 104
+- `export function passagesInView( scroller: HTMLElement | null, pageSpans: ReadonlyArray<` — function, line 100
+- `export interface SectionHistory` — interface, line 132
+- `export function resumeSpanFromHistory( sections: ReadonlyArray<` — function, line 147
 
 ## Internal implementation anchors
 
@@ -83,14 +84,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const onPage = pageSpans.filter((entry)` — const, line 79
 - `const index = Math.min(onPage.length - 1, Math.floor(position.offset * onPage.length))` — const, line 81
 - `const before = pageSpans.filter((entry)` — const, line 84
-- `const byId = new Map(history.map((row)` — const, line 108
-- `let furthest = -1` — let, line 109
-- `const row = byId.get(section.id)` — const, line 111
-- `const section = sections[furthest]` — const, line 115
-- `const row = byId.get(section.id)!` — const, line 116
-- `const count = section.spanIds.length` — const, line 117
-- `const finished = Boolean(row.completedAt) || row.spansSeen >= count` — const, line 118
-- `const next = sections.slice(furthest + 1).find((entry)` — const, line 120
+- `const area = scroller.getBoundingClientRect()` — const, line 105
+- `const shown: string[] = []` — const, line 106
+- `const rect = pageEl.getBoundingClientRect()` — const, line 109
+- `const page = Number(pageEl.dataset.pdfPage)` — const, line 110
+- `const from = (Math.max(area.top, rect.top) - rect.top) / rect.height` — const, line 112
+- `const to = (Math.min(area.bottom, rect.bottom) - rect.top) / rect.height` — const, line 113
+- `const onPage = pageSpans.filter((entry)` — const, line 114
+- `const spanId = node.dataset.spanId` — const, line 122
+- `const rect = node.getBoundingClientRect()` — const, line 124
+- `const byId = new Map(history.map((row)` — const, line 151
+- `let furthest = -1` — let, line 152
+- `const row = byId.get(section.id)` — const, line 154
+- `const section = sections[furthest]` — const, line 158
+- `const row = byId.get(section.id)!` — const, line 159
+- `const count = section.spanIds.length` — const, line 160
+- `const finished = Boolean(row.completedAt) || row.spansSeen >= count` — const, line 161
+- `const next = sections.slice(furthest + 1).find((entry)` — const, line 163
 
 ## Who imports or calls it
 
@@ -99,7 +109,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ReadingPosition`; references `ReadingPosition`
 - [[Reference/Desktop/TypeScript/screens/reader/PreparingView|src/screens/reader/PreparingView.tsx]] — import-or-re-export: `ReadingPosition`, `readingPositionIn`; references `ReadingPosition`, `readingPositionIn`
-- [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|src/screens/reader/useReadingProgress.ts]] — import-or-re-export: `ReadingPosition`, `SectionHistory`, `pagePositionAt`, `resumeSpanFromHistory`, `spanAtPosition`, `spanOnPage`; references `ReadingPosition`, `SectionHistory`, `pagePositionAt`, `resumeSpanFromHistory`, `spanAtPosition`, `spanOnPage`
+- [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|src/screens/reader/useReadingProgress.ts]] — import-or-re-export: `ReadingPosition`, `SectionHistory`, `pagePositionAt`, `passagesInView`, `resumeSpanFromHistory`, `spanAtPosition`, `spanOnPage`; references `ReadingPosition`, `SectionHistory`, `pagePositionAt`, `passagesInView`, `resumeSpanFromHistory`, `spanAtPosition`, `spanOnPage`
 
 ## Dependencies
 
@@ -121,6 +131,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/seenViewport.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/seenViewport.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/readingPosition.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/readingPosition.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

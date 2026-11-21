@@ -129,6 +129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_property_a_buggy_deciders_pick_outside_the_facts_is_rolled_back`
 - [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — direct import
   - `test_support_respects_constraints_reversibility_and_admission`
+- [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
+  - `test_unknown_propensity_changes_only_logging_through_ad_slot`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_path_is_read_only_when_the_plan_is_built_and_ad_slot_facts_read_the_record`
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/ad_slot.py](../../../../../../src/learnloop/daily_plan/ad_slot.py) |
-| Source lines | 398 |
+| Source lines | 399 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,9 +60,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `take_guard_denials() -> tuple[dict[str, Any], ...]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 95) — What AD's guard refused in this context since the last call, as codes only (verb, table, reader, entry): the plan's record of an AD phase it found unavailable names them.
 - `open_slot(vault: Any, repository: Any, *, slot_item_id: str) -> SlotSession` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 154) — Phase 1 for a slot: the slot item and its never-attempted visible siblings at its capability.
 - `decide(vault: Any, repository: Any, wire: str, *, session: SlotSession) -> Any` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 182) — Phase 3 for a slot: the facts decoded against the schema (ids projected onto AD's view), the support's checks 0-4 from the facts and AD's own view, and the draw (``decide_slot``, which writes the ``ad_selections`` row).
-- `open_deferrals(vault: Any, repository: Any, deferral_ids: Iterable[str]) -> SlotSession` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 289) — Phase 1 for the boundary's AD deferrals: the deferred items AD's view shows.
-- `deferrals_cleared(vault: Any, repository: Any, wire: str, *, session: SlotSession) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 306) — Phase 3 for deferrals: the deferred members whose check 0 (pre-exposure aside) and the plan's verdicts all pass now.
-- `eligibility_failures(vault: Any, repository: Any, now_iso: str, item: Any, *, slot_facets: Iterable[str], capability: str, exclusions: Any, view: Any) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 344) — Check 0 for one candidate: why it is not in the cell pool now, or why it may not be served.
+- `open_deferrals(vault: Any, repository: Any, deferral_ids: Iterable[str]) -> SlotSession` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 290) — Phase 1 for the boundary's AD deferrals: the deferred items AD's view shows.
+- `deferrals_cleared(vault: Any, repository: Any, wire: str, *, session: SlotSession) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 307) — Phase 3 for deferrals: the deferred members whose check 0 (pre-exposure aside) and the plan's verdicts all pass now.
+- `eligibility_failures(vault: Any, repository: Any, now_iso: str, item: Any, *, slot_facets: Iterable[str], capability: str, exclusions: Any, view: Any) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/ad_slot.py), line 345) — Check 0 for one candidate: why it is not in the cell pool now, or why it may not be served.
 
 ### Module constants
 
@@ -138,6 +138,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ad_never_takes_the_plans_objects`
   - `test_high1_a_malformed_stored_context_quoting_held_out_text_never_reaches_ad_or_the_log`
   - `test_property_a_buggy_deciders_pick_outside_the_facts_is_rolled_back`
+- [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
+  - `test_unknown_propensity_changes_only_logging_through_ad_slot`
 - [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_guard_denial_is_recorded_beside_the_jsonl_log_the_report_still_reads`
 

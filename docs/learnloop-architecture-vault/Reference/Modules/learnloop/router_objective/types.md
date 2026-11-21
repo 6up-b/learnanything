@@ -61,7 +61,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class Learning` ([source](../../../../../../src/learnloop/router_objective/types.py), line 98) — AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder); from slip or gap SG2, the lesson's and the repair's slope by the miss's caus…
 - `class EffectSlope` ([source](../../../../../../src/learnloop/router_objective/types.py), line 112) — ``ΔG = α_v + β_v·f(a)`` (§8.4): each coefficient's posterior mean and variance.
 - `class Price` ([source](../../../../../../src/learnloop/router_objective/types.py), line 122) — The attention price at this decision (§8.6): ``κ(x) = κ0·x/m̄`` on session minutes.
-- `class CheckCommitment` ([source](../../../../../../src/learnloop/router_objective/types.py), line 132) — One delayed check a lesson commits, as numbers only (spec_teacher_v2 §7.4): read by the check-credit rollout path (:mod:`check_value`), which the live entry points never select; the rollouts refuse it.
+- `class CheckCommitment` ([source](../../../../../../src/learnloop/router_objective/types.py), line 132) — One delayed check a lesson commits, as numbers only (spec_teacher_v2 §7.4): read by the check-credit rollout path (:mod:`check_value`), which every rollout of a decision at ``mvp-0.62`` or later runs; the rollouts refuse it.
   - `__post_init__(self) -> None` (line 151; internal)
 - `class Action` ([source](../../../../../../src/learnloop/router_objective/types.py), line 162) — One candidate as the value estimator sees it.
   - `__post_init__(self) -> None` (line 198; internal)
@@ -122,9 +122,11 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `CheckCommitment`; statically calls `CheckCommitment`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `EffectSlope`, `is_offer_subtype`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Action`, `CauseSplit`, `DatedUse`, `Inputs`, `Learning`, `Price`, `Topic`, `is_offer_subtype`
 - [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]] — imports `module`
+- [[Reference/Modules/learnloop/router_objective/check_replay|learnloop.router_objective.check_replay]] — imports `Action`, `CauseSplit`, `CheckCommitment`, `DatedUse`, `EffectSlope`, `Inputs`, `Learning`, `Price`, `Topic`
 - [[Reference/Modules/learnloop/router_objective/check_value|learnloop.router_objective.check_value]] — imports `Action`, `CheckCommitment`, `Inputs`
 - [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]] — imports `Action`, `Inputs`, `PROBE`, `SEQUENCE`
 - [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`
@@ -158,7 +160,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]], [[Reference/Modules/learnloop/router_objective/check_value|learnloop.router_objective.check_value]], [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]], [[Reference/Modules/learnloop/router_objective/check_replay|learnloop.router_objective.check_replay]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -176,9 +178,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_kind_has_a_plan_case_or_is_valued_without_a_candidate`
   - `test_stop_ends_the_session_in_its_accepted_branch`
   - `test_stops_trace_label_and_support`
+- [tests/test_check_credit_activation.py](../../../../../../tests/test_check_credit_activation.py) — direct import
+  - `test_the_payload_is_lossless_and_refuses_what_it_cannot_hold`
 - [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
   - `test_both_paths_the_ninth_commitment_draws_its_own_outcome`
-  - `test_intended_an_offer_with_no_eligible_question_credits_no_check`
+  - `test_both_tags_an_offer_with_no_eligible_question`
+  - `test_finding_a_first_graded_attempt_switches_an_unpractised_topic_onto_forgetting`
+  - `test_finding_under_the_mvp_0_49_draw_a_phantom_lapse_collapses_a_practised_topics_memory`
 - [tests/test_check_credit_report.py](../../../../../../tests/test_check_credit_report.py) — direct import
   - `test_current_copy_from_real_builders_is_read_only`
   - `test_exact_rounded_and_missing_trace_coverage`

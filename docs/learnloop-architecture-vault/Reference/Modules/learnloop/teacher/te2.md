@@ -143,8 +143,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
-  - `test_intended_an_offer_with_no_eligible_question_credits_no_check`
-  - `test_today_an_offer_is_built_with_a_check_whether_or_not_a_question_exists`
+  - `test_below_the_tag_an_offer_is_built_with_a_check_whether_or_not_a_question_exists`
+  - `test_both_tags_an_offer_with_no_eligible_question`
 - [tests/test_check_inputs.py](../../../../../../tests/test_check_inputs.py) — direct import
   - `test_the_adapters_write_nothing_and_call_no_model`
   - `test_the_brief_says_the_same_words_and_the_offer_reads_the_same_rule`

@@ -21,8 +21,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/salience_firewall.py"
+  - "src/learnloop/daily_plan/check_delivery.py"
   - "src/learnloop/db/stores/lessons.py"
-  - "src/learnloop/router_objective/offer_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -84,9 +84,9 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/check_delivery.py`
 - `src/learnloop/db/stores/lessons.py`
 - `src/learnloop/router_objective/offer_report.py`
-- `src/learnloop/teacher/check_delivery.py`
 
 ### Direct SQL writers
 
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 - `tests/check_credit_report_helpers.py`
 - `tests/teacher_te1_migration_helpers.py`
 - `tests/teacher_te2log_receipt_helpers.py`
+- `tests/test_check_credit_activation.py`
 - `tests/test_check_credit_report.py`
 - `tests/test_check_delivery.py`
 - `tests/test_followups_batch5_lesson.py`
@@ -120,7 +121,6 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1b_suggestions.py`
 - `tests/test_teacher_te2_lessons.py`
 - `tests/test_teacher_te2_probes.py`
-- `tests/test_teacher_te2log_episodes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
