@@ -310,6 +310,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/source_exercise_import_helpers.py](../../../../../../../tests/source_exercise_import_helpers.py) — direct import
 - [tests/test_ad1_fix_round4.py](../../../../../../../tests/test_ad1_fix_round4.py) — direct import
   - `test_an_answer_after_a_vault_switch_writes_no_checkpoint_and_settles_its_spend`
+- [tests/test_coldness_receipt.py](../../../../../../../tests/test_coldness_receipt.py) — direct import
+  - `test_recent_retrieval_resets_the_cold_delay_anchor`
 - [tests/test_compare_methods.py](../../../../../../../tests/test_compare_methods.py) — direct import
   - `test_book_solution_reads_the_checked_span_ids_and_never_exam_material`
 - [tests/test_compare_sources_keep.py](../../../../../../../tests/test_compare_sources_keep.py) — direct import

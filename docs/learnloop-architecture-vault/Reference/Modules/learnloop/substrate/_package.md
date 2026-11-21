@@ -77,7 +77,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] | [[Reference/Modules/learnloop/substrate/families#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] | [[Reference/Modules/learnloop/substrate/family_memory#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] | [[Reference/Modules/learnloop/substrate/instrument_serving#^module-purpose|purpose]] | `ACTIVE` | 18 | 2 |
-| [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] | [[Reference/Modules/learnloop/substrate/intervention_outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
+| [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] | [[Reference/Modules/learnloop/substrate/intervention_outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/substrate/item_fingerprints|learnloop.substrate.item_fingerprints]] | [[Reference/Modules/learnloop/substrate/item_fingerprints#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] | [[Reference/Modules/learnloop/substrate/model_usage#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] | [[Reference/Modules/learnloop/substrate/p0_projection#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
