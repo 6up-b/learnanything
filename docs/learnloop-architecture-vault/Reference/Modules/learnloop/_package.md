@@ -83,7 +83,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/__main__|learnloop.__main__]] | [[Reference/Modules/learnloop/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
 | [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] | [[Reference/Modules/learnloop/adf_numeric#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 25 | 261 |
+| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 26 | 262 |
 | [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] | [[Reference/Modules/learnloop/app_launch#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
@@ -206,8 +206,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 34 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 33 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 31 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 29 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 28 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 28 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 25 static module edges

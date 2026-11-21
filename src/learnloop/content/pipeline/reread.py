@@ -301,6 +301,9 @@ def carry_progress(repository: Any, old_extraction_id: str, new_extraction_id: s
         # another stamp, or "topic_managed", whose claims stay with the reading they were made on (Today's
         # facts find those by book, ``add_source.reading_questions``).
         batches = [row["generation_batch_id"] for row in contributors if row.get("generation_batch_id")]
+        # The carried completion is the latest contributor's, with its cause and tag (NULL when written below mvp-0.63).
+        latest = max((row for row in contributors if row.get("completed_at")), key=lambda row: str(row["completed_at"]),
+                     default={})
         carried.append({
             "section_id": section_id,
             # Rounded down: a section partly read never shows as read through.
@@ -309,6 +312,8 @@ def carry_progress(repository: Any, old_extraction_id: str, new_extraction_id: s
             "revealed_at": revealed[0] if revealed else None,
             "completed_at": stamps[-1] if complete else None,
             "generation_batch_id": batches[0] if batches else None,
+            "completion_cause": latest.get("completion_cause") if complete else None,
+            "completion_algorithm_version": latest.get("completion_algorithm_version") if complete else None,
         })
     repository.carry_reader_section_progress(new_extraction_id, carried, clock=clock)
     return {"sections": len(rows), "carried": sum(len(group) for group in grouped.values()),

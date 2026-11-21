@@ -54,7 +54,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/106_reader_section_progress.sql`.
-- **Schema touched by:** `106_reader_section_progress.sql`, `256_reader_seen_spans.sql`, `257_reader_topic_question_work.sql`.
+- **Schema touched by:** `106_reader_section_progress.sql`, `256_reader_seen_spans.sql`, `257_reader_topic_question_work.sql`, `259_reader_section_completion_cause.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -71,6 +71,8 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `completed_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `generation_batch_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `completion_cause` | `TEXT` | no | — | — | Stored value |
+| `completion_algorithm_version` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -133,6 +135,7 @@ Indexes and uniqueness:
 - `tests/ad_ingest_fakes.py`
 - `tests/data_capture_codex_rereview_helpers.py`
 - `tests/next_practice_helpers.py`
+- `tests/reader_section_completion_migration_helpers.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad23_contract.py`
@@ -148,7 +151,6 @@ Indexes and uniqueness:
 - `tests/test_reader_seen_spans_migration.py`
 - `tests/test_reader_topic_question_work_migration.py`
 - `tests/test_ro4_codex_review.py`
-- `tests/test_rospeed2_section_map.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -173,7 +175,8 @@ CREATE TABLE reader_section_progress (
   revealed_at TEXT,
   completed_at TEXT,
   generation_batch_id TEXT,
-  updated_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, completion_cause TEXT
+  CHECK (completion_cause IS NULL OR completion_cause IN ('reached_end', 'learner_said')), completion_algorithm_version TEXT,
   PRIMARY KEY (extraction_id, section_id)
 );
 ```

@@ -2091,6 +2091,11 @@ class ReaderMarkSectionProgressInput(ParamsModel):
     # body limit bounds it).
     seen_span_ids: list[str] | None = None
     reached_end: bool = False
+    # What sent ``completed``: the learner's "I've read this section" (``learner``, the default: the phone and every
+    # older client), a quick check's "Done with this check" (``check_closed``) or the choice of what to do with its
+    # idea (``idea_chosen``). From mvp-0.63 only the learner's word and the section's end finish a section; below it
+    # every completion does, as it always has, so the Reader sends each and the tag decides.
+    completed_by: Literal["learner", "check_closed", "idea_chosen"] | None = None
 
 
 @method("reader.mark_section_progress", ReaderMarkSectionProgressInput)
@@ -2109,6 +2114,7 @@ def reader_mark_section_progress(
 
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop.reader.section_generation import DEFERRED_TO_PRIMARY, TOPIC_MANAGED, WAITING_FOR_BUILD
+    from learnloop.reader.section_end import section_finish
     from learnloop.reader.seen_passages import check_report
     from learnloop_sidecar.section_questions import reconcile_part_read, start_section_questions
 
@@ -2119,6 +2125,11 @@ def reader_mark_section_progress(
     seen = check_report(repository, extraction_id=resolved, section_id=params.section_id,
                         seen_span_ids=params.seen_span_ids, reached_end=params.reached_end)
     before = repository.reader_section_progress_row(resolved, params.section_id)
+    finish = section_finish(vault.config, params.completed, params.completed_by, seen.end_span_id)
+    completed = finish.completed
+    # The first completion of the section: what starts its questions and ends a plan's reading block. A repeated
+    # finish (an end reported again, the button after the end) returns the original completion and starts nothing.
+    first_finish = completed and not (before or {}).get("completed_at")
     # UX Phase 1 (§6.4, Q6): reaching a section keeps an Add's questions one
     # chapter ahead. The Reader reports how far into each section the learner
     # has read (``spans_seen``, usability round 1 U4): reaching a section is
@@ -2130,7 +2141,7 @@ def reader_mark_section_progress(
     # Both are read from the book's durable request, so they hold across a
     # restart (finishing pass, F8).
     first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0
-    keep_ahead = bool(params.revealed or params.completed or first_reach)
+    keep_ahead = bool(params.revealed or completed or first_reach)
     if not keep_ahead:
         try:
             keep_ahead = ctx.ingest_jobs.reading_advance_pending(resolved)
@@ -2144,7 +2155,9 @@ def reader_mark_section_progress(
         spans_seen=params.spans_seen,
         span_count=params.span_count,
         revealed=params.revealed,
-        completed=params.completed,
+        completed=completed,
+        completion_cause=finish.cause,
+        completion_version=finish.version,
         keep_ahead_request=keep_ahead,
         seen_span_ids=seen.seen_span_ids,
         end_span_id=seen.end_span_id,
@@ -2157,8 +2170,7 @@ def reader_mark_section_progress(
     stamp = row.get("generation_batch_id")
     # A section whose part read already claimed topics is ``topic_managed`` before it is finished: its first finish
     # claims what is left through the same claims (a claimed topic is never written again).
-    first_finish = params.completed and not (before or {}).get("completed_at")
-    if params.completed and (stamp is None or (first_finish and stamp == TOPIC_MANAGED)):
+    if completed and (stamp is None or (first_finish and stamp == TOPIC_MANAGED)):
         if getattr(ctx, "secondary", False):
             # Mobile v2 D6: the phone host runs only the phone's own work, so a section
             # finished there leaves its generation to the primary (the desktop app, or later
@@ -2239,7 +2251,8 @@ def reader_mark_section_progress(
             section_id=params.section_id,
             spans_seen=row.get("spans_seen"),
             span_count=row.get("span_count"),
-            completed=bool(params.completed),
+            # Below mvp-0.63 every completion report is passed on, as before; from it only the first ends the block.
+            completed=first_finish if finish.versioned else completed,
         )
     except Exception:  # pragma: no cover - telemetry boundary
         import logging
@@ -2251,7 +2264,7 @@ def reader_mark_section_progress(
             "progress": _progress_payload(row),
             "enqueued_generation": enqueued,
             # Finished before the book's topics for it were in: its questions are written once they are.
-            "waiting_for_build": bool(params.completed) and row.get("generation_batch_id") == WAITING_FOR_BUILD,
+            "waiting_for_build": completed and row.get("generation_batch_id") == WAITING_FOR_BUILD,
             "batch_id": batch_id,
         }
     )

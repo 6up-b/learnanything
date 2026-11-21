@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py) |
-| Source lines | 773 |
+| Source lines | 778 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,47 +64,47 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `unread_current_revisions(repository: Any) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 196)
 - `unit_map(old_ir: Any, new_ir: Any, aliases: Mapping[str, tuple[str, str, float | None]]) -> dict[str, str | None]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 212) — Each old unit's unit in the new reading (``None``: unresolved).
 - `carry_progress(repository: Any, old_extraction_id: str, new_extraction_id: str, old_ir: Any, new_ir: Any, units: Mapping[str, str | None], *, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 266) — Section progress onto the new reading's sections.
-- `carry_selection(repository: Any, old_extraction_id: str, new_extraction_id: str, units: Mapping[str, str | None], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 318) — The study-map unit selection onto the new reading: its chapters and boundary overrides (a unit that does not resolve is flagged ``needs_review``) and the paper's metadata.
-- `carry_annotations(repository: Any, source_id: str, new_extraction_id: str, *, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 370) — Re-anchor onto the new reading every annotation of the book anchored on an EARLIER reading of its revision.
-- `carry_over(repository: Any, new_extraction_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 400) — After a completed top-level reading on a revision that already had one: record the aliases from every earlier reading of the revision, then carry section progress, the unit selection and annotations onto it.
-- `owes_carry(repository: Any, revision_id: str, extraction_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 459) — Whether a reading of ``revision_id`` would owe a carry-over: the revision has another completed top-level reading.
-- `carry_owed(repository: Any, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 466) — The carry-over a book still owes its current reading, or None: ``{"job_id", "extraction_id"}`` of the import that did not finish it.
-- `mark_carried(repository: Any, job_id: str, extraction_id: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 482)
-- `finish_carry_over(repository: Any, source_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 489) — The card's "Finish moving them" and ``doctor --fix-state``: run the owed carry-over again (idempotent) and record it done.
-- `page_label(pages: Sequence[int]) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 509) — 0-based page indices as the learner counts them: "pages 14–39".
-- `cost_phrase(usd: float | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 523)
-- `study_state(repository: Any, source_id: str, extraction_id: str | None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 533) — What the learner has on this book that a re-read must carry.
-- `reread_reading(repository: Any, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 570) — The completed top-level reading the Reader opens for a book (the one a re-read replaces): never a page repair's child run, whose one page would become the whole next reading (Codex review F4).
-- `reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | None, upload_ok: bool, title: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 617) — What reading this book again will read, cost and carry, in plain words.
-- `web_reread_line(count: int) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 697)
-- `missing_equations(vault_root: Path, repository: Any, source_id: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 701) — How many display equations a web page's saved original has that its reading left out: the page read with the old web-page extraction, counted by reading the original with the current one (no model).
-- `web_reread_plan(vault: Any, repository: Any, source_id: str, *, title: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 747) — What reading a web page again from its saved copy reads, costs and carries, in plain words.
+- `carry_selection(repository: Any, old_extraction_id: str, new_extraction_id: str, units: Mapping[str, str | None], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 323) — The study-map unit selection onto the new reading: its chapters and boundary overrides (a unit that does not resolve is flagged ``needs_review``) and the paper's metadata.
+- `carry_annotations(repository: Any, source_id: str, new_extraction_id: str, *, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 375) — Re-anchor onto the new reading every annotation of the book anchored on an EARLIER reading of its revision.
+- `carry_over(repository: Any, new_extraction_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 405) — After a completed top-level reading on a revision that already had one: record the aliases from every earlier reading of the revision, then carry section progress, the unit selection and annotations onto it.
+- `owes_carry(repository: Any, revision_id: str, extraction_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 464) — Whether a reading of ``revision_id`` would owe a carry-over: the revision has another completed top-level reading.
+- `carry_owed(repository: Any, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 471) — The carry-over a book still owes its current reading, or None: ``{"job_id", "extraction_id"}`` of the import that did not finish it.
+- `mark_carried(repository: Any, job_id: str, extraction_id: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 487)
+- `finish_carry_over(repository: Any, source_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 494) — The card's "Finish moving them" and ``doctor --fix-state``: run the owed carry-over again (idempotent) and record it done.
+- `page_label(pages: Sequence[int]) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 514) — 0-based page indices as the learner counts them: "pages 14–39".
+- `cost_phrase(usd: float | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 528)
+- `study_state(repository: Any, source_id: str, extraction_id: str | None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 538) — What the learner has on this book that a re-read must carry.
+- `reread_reading(repository: Any, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 575) — The completed top-level reading the Reader opens for a book (the one a re-read replaces): never a page repair's child run, whose one page would become the whole next reading (Codex review F4).
+- `reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | None, upload_ok: bool, title: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 622) — What reading this book again will read, cost and carry, in plain words.
+- `web_reread_line(count: int) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 702)
+- `missing_equations(vault_root: Path, repository: Any, source_id: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 706) — How many display equations a web page's saved original has that its reading left out: the page read with the old web-page extraction, counted by reading the original with the current one (no model).
+- `web_reread_plan(vault: Any, repository: Any, source_id: str, *, title: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 752) — What reading a web page again from its saved copy reads, costs and carries, in plain words.
 
 ### Module constants
 
 - `ORIGINAL_CHANGED_CODE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 59)
 - `ORIGINAL_CHANGED_MESSAGE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 60)
-- `CARRY_OWED_KEY` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 449)
-- `CARRY_DONE_KEY` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 450)
-- `CARRY_INCOMPLETE_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 451)
-- `CARRY_INCOMPLETE_ACTION` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 452)
-- `CARRY_INCOMPLETE_DETAILS` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 453)
-- `HELD_BACK_PLAN_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 505)
-- `WEB_REREAD_ACTION` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 680)
-- `WEB_REREAD_LABEL` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 681)
-- `WEB_REREAD_DETAILS` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 682)
-- `WEB_REREAD_COST_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 686)
-- `_MISSING_CACHE_SIZE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 692)
+- `CARRY_OWED_KEY` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 454)
+- `CARRY_DONE_KEY` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 455)
+- `CARRY_INCOMPLETE_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 456)
+- `CARRY_INCOMPLETE_ACTION` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 457)
+- `CARRY_INCOMPLETE_DETAILS` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 458)
+- `HELD_BACK_PLAN_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 510)
+- `WEB_REREAD_ACTION` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 685)
+- `WEB_REREAD_LABEL` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 686)
+- `WEB_REREAD_DETAILS` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 687)
+- `WEB_REREAD_COST_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 691)
+- `_MISSING_CACHE_SIZE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 697)
 
 ## Internal implementation anchors
 
 - `_local_path(uri: str | None) -> Path | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 69)
 - `_label(value: Any) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 208)
-- `_newest_with(readings: Sequence[str], has: Any) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 394) — The newest of ``readings`` (newest first) that has the state, else the newest.
-- `_plural(count: int, noun: str, plural: str | None=None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 566)
-- `_engine_line(backend: str | None, settings: Mapping[str, Any], usd: float | None) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 582) — ``(engine, who reads it)`` for the confirmation: hosted GLM-OCR (z.ai), the owner's own GLM-OCR server (on this computer or another), or text recognition on this computer (Codex review F9).
-- `_carry_line(state: Mapping[str, int]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 598) — What of the learner's moves to a new reading, in one sentence; None when nothing does.
-- `_count_missing(vault_root: Path, repository: Any, extraction_id: str, digest: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 727)
+- `_newest_with(readings: Sequence[str], has: Any) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 399) — The newest of ``readings`` (newest first) that has the state, else the newest.
+- `_plural(count: int, noun: str, plural: str | None=None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 571)
+- `_engine_line(backend: str | None, settings: Mapping[str, Any], usd: float | None) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 587) — ``(engine, who reads it)`` for the confirmation: hosted GLM-OCR (z.ai), the owner's own GLM-OCR server (on this computer or another), or text recognition on this computer (Codex review F9).
+- `_carry_line(state: Mapping[str, int]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 603) — What of the learner's moves to a new reading, in one sentence; None when nothing does.
+- `_count_missing(vault_root: Path, repository: Any, extraction_id: str, digest: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 732)
 
 ## Who imports or calls it
 

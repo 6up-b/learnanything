@@ -36,6 +36,7 @@ from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
+    SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.clock import Clock
@@ -131,6 +132,9 @@ UPGRADES: tuple[Link, ...] = (
     Link(EVIDENCE_READING_FIX_ALGORITHM_VERSION, whole_vault_rebuild),
     # The committed-check credit changes how new decisions value a lesson offer; nothing already derived moves.
     Link(COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION, idempotent_projection),
+    # A section's end finishes it: only new reading events behave differently (no completion, end or exposure already
+    # recorded is reinterpreted, and no end recorded before the upgrade finishes anything).
+    Link(SECTION_END_ALGORITHM_VERSION, idempotent_projection),
 )
 
 

@@ -2425,11 +2425,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />;
     }
     if (tab === "maintain") {
       return renderMaintain();

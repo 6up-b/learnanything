@@ -123,7 +123,8 @@ describe("the phone Reader's seen passages", () => {
     fireEvent.scroll(document.querySelector(".book") as Element); // the page settling: no touch, wheel or key
     await waitFor(() => expect(progressSent()).toHaveLength(1), WAIT);
     expect(progressSent()[0].seenSpanIds).toBeUndefined();
-    fireEvent.click(screen.getByRole("button", { name: "Next section" }));
+    fireEvent.click(screen.getByRole("button", { name: "I’ve read this section" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Read the next section" }));
     await screen.findByText(/held out for your exam/);
     await waitFor(() => expect(progressSent().some((one) => one.completed)).toBe(true), WAIT);
     // Finishing sends the completion, never the passages it did not observe.

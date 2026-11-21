@@ -3056,6 +3056,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_section_coverage_rpcs.py](../../../../../../tests/test_section_coverage_rpcs.py) — direct import
   - `test_cover_source_judges_and_caps_a_metered_run`
   - `test_cover_source_refuses_a_withheld_reading`
+- [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
+  - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
   - `test_a_failed_topic_resumes_its_own_batch_and_frozen_request_and_no_other_section_takes_it`
   - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`

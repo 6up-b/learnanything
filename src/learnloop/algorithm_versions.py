@@ -958,6 +958,17 @@ EVIDENCE_READING_FIX_ALGORITHM_VERSION = "mvp-0.61"
 # migration. ONE constant.
 COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION = "mvp-0.62"
 
+# mvp-0.63 (a section's end finishes it; docs/reviews/algorithm-mvp-0.63.md), on top of the committed-check credit's
+# mvp-0.62. Which event writes a section's completion changes, and with it when a plan's reading block ends and when
+# the section's reading exposure is recorded. At this tag an acknowledged end observation (the section's last readable
+# passage shown during the learner's own reading, as the progress report records it) finishes the section once,
+# through the same operation as the learner's explicit "I've read this section"; closing a quick check and choosing
+# what to do with its idea no longer finish it. The completion stores its cause and the tag it was written under.
+# Completions, ends and exposures already recorded keep their meaning, and no end recorded before the upgrade finishes
+# anything; only new events move, so activation is the idempotent projection. No kill switch (owner rule 2026-11-16).
+# ONE constant.
+SECTION_END_ALGORITHM_VERSION = "mvp-0.63"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1018,6 +1029,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     EVIDENCE_READING_FIX_ALGORITHM_VERSION,
     COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION,
+    SECTION_END_ALGORITHM_VERSION,
 )
 
 
@@ -1095,6 +1107,19 @@ def committed_check_delivery_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in COMMITTED_CHECK_DELIVERY_VERSIONS
+
+# Versions where a section's end finishes it and a quick check's close does not. Every later successor keeps it; gates
+# must use this set, never equality, and read it through :func:`section_end_on`.
+SECTION_END_VERSIONS: frozenset[str] = successors_from(SECTION_END_ALGORITHM_VERSION)
+
+
+def section_end_on(config: object) -> bool:
+    """A section's end finishes it (mvp-0.63), gated by the vault's tag alone (no kill switch): below it a section is
+    finished exactly as at mvp-0.62 (any completion the Reader sends, its check's close included; an end finishes
+    nothing). ``config`` is a vault's config; the one predicate the progress report reads."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in SECTION_END_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

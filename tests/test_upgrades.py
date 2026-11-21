@@ -32,6 +32,7 @@ from learnloop.algorithm_versions import (
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     OLDEST_SUPPORTED,
+    SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -62,6 +63,7 @@ EXPECTED_ACTIVATIONS = {
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION: whole_vault_rebuild,
     EVIDENCE_READING_FIX_ALGORITHM_VERSION: whole_vault_rebuild,
     COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION: idempotent_projection,
+    SECTION_END_ALGORITHM_VERSION: idempotent_projection,
 }
 
 LINKS = pytest.mark.parametrize("link", UPGRADES, ids=lambda link: link.tag)

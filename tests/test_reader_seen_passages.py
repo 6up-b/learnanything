@@ -10,7 +10,8 @@ b3-b4, ``u3`` b5-b6), and through the phone host for the phone's origin:
 * reports union: a repeated, a smaller or a replayed report removes nothing and keeps each passage's first time and
   origin, across a restart;
 * a count, or a completion, never becomes a passage (the phone's count cannot say which were seen);
-* the end of a section is recorded with its origin and acted on by nothing: the section is finished exactly as before;
+* the end of a section is recorded with its origin; below algorithm tag mvp-0.63 it is acted on by nothing (from the tag
+  it finishes the section: ``tests/test_section_end.py``);
 * on a book read again, an exact alias carries a seen passage to the unchanged one; a changed or missing one does not
   (``content.sources.span_aliases``, the one alias authority);
 * nothing in ``src`` reads the rows but their store and the reading this module tests.
@@ -189,12 +190,17 @@ def test_a_count_or_a_completion_is_never_turned_into_passages(world):
     assert _seen(world["repo"]) == {} and _ends(world["repo"]) == {}
 
 
-# -- the end of a section: recorded, acted on by nothing -------------------------------------------------------------
+# -- the end of a section: recorded; below the tag acted on by nothing --------------------------------------------
 
 
-def test_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing(world, monkeypatch):
+def test_below_the_tag_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing(world, monkeypatch):
+    """At mvp-0.62. From mvp-0.63 the end finishes the section (``tests/test_section_end.py``)."""
+
     import learnloop.daily_plan.engine as engine
     import learnloop_sidecar.section_questions as section_questions
+    from tests.helpers import _set_algorithm_version_at
+
+    _set_algorithm_version_at(world["root"], "mvp-0.62")
 
     started: list[tuple] = []
     told: list[dict] = []

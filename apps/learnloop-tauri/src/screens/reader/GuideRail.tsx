@@ -1,7 +1,7 @@
 // The Reader rail's Guide tab (RW1a split of ReaderScreen; a move, not a
 // redesign): the reading guide, contents, "worth a second look", the section
 // quick checks, and the offline demo's fixture question.
-import { useCallback, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { api } from "../../api/client";
 import type {
   ReaderDisposition,
@@ -14,18 +14,18 @@ import { DispositionPicker, PrimaryButton, SecondaryButton } from "../../compone
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage } from "../../errors";
 import type { PassageAlign } from "../../components/PdfReaderPane";
-import { clip, sectionWords } from "./readerShared";
+import { BACK_TO_TODAY, CHECK_DONE, clip, READ_NEXT_SECTION, SECTION_DONE, SECTION_DONE_LINE, sectionWords } from "./readerShared";
+import { scrollIntoViewWithin } from "../../components/scrollWithin";
 import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 import { WaitMark } from "../../components/Waiting";
 import { QUESTIONS_FROM_READING, readableTitle } from "../../app/todayCause";
 
-/** The phone's words for finishing a section (apps/learnloop-mobile/src/read/ReaderScreen.tsx), which the desktop had
- *  no way to say: a section's questions are written when it is finished, and before this only the quick check's
- *  "done for now" finished one (UX-29). */
-export const SECTION_DONE = "Done with this section";
-/** Said once the press queued the section's questions: Today offers them when they are written. */
+// The section's controls and states (shared with the phone: readerShared.ts).
+export { BACK_TO_TODAY, CHECK_DONE, READ_NEXT_SECTION, SECTION_DONE, SECTION_DONE_LINE };
+/** Said once the section's finish queued its questions: Today offers them when they are written. */
 export const SECTION_DONE_WRITING = "Writing questions from this section. They'll be on Today.";
-export const SECTION_DONE_LINE = "✓ Done with this section.";
+/** Said when the learner's completion could not be saved: nothing is shown finished. */
+export const SECTION_DONE_FAILED = "Couldn't save that. Try again.";
 /** Said when the section was finished before the book's topics for it were in: its questions are written once they
  *  are, with no press (Today then says they are being written). */
 export function sectionDoneWaiting(bookTitle?: string | null): string {
@@ -82,9 +82,15 @@ export interface GuideRailProps {
    *  passage): a detour with a way back while reader_inquiry is on. */
   peekPassage?: (spanId: string) => void;
   revealSection: (sectionId: string) => void;
-  /** Finishes a section (its questions are then written); answers whether that queued them, or whether they wait
-   *  for the book to be ready, where it can tell. */
-  completeSection: (sectionId: string) => void | Promise<{ enqueuedGeneration?: boolean; waitingForBuild?: boolean } | null>;
+  /** Finishes a section (the learner's word, no `by`), or passes on a quick check's close or its idea's choice (which
+   *  finish it only where the backend says so); answers with the backend's progress, or null when it failed. */
+  completeSection: (sectionId: string, by?: "check_closed" | "idea_chosen") => void | Promise<{
+    progress?: { completedAt?: string | null } | null; enqueuedGeneration?: boolean; waitingForBuild?: boolean;
+  } | null>;
+  /** What finishing each section started, as the backend answered (an end reached by reading included). */
+  sectionFinishes?: Record<string, "writing" | "waiting" | "done">;
+  /** "Back to Today" at the end of the book's last section (absent: not offered). */
+  onOpenToday?: () => void;
   /** The book's title, for the line a section finished before the book was ready says. */
   bookTitle?: string | null;
   onError: (message: string) => void;
@@ -143,6 +149,8 @@ export function GuideRail({
   peekPassage,
   revealSection,
   completeSection,
+  sectionFinishes = {},
+  onOpenToday,
   bookTitle = null,
   onError,
   boundaryBlock,
@@ -165,13 +173,57 @@ export function GuideRail({
   alsoInBooks = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
-  // Sections finished here with "Done with this section", and whether that queued their questions (or they wait for
-  // the book to be ready).
+  // Sections finished here with "I've read this section", and whether that queued their questions (or they wait for
+  // the book to be ready); the hook's own record covers a section finished by its end.
   const [finishedHere, setFinishedHere] = useState<Record<string, SectionFinish>>({});
+  const sections = guidePlan?.sections ?? [];
+  const currentIndex = currentGuideSection ? sections.findIndex((section) => section.id === currentGuideSection.id) : -1;
+  const nextSection = currentIndex >= 0 ? sections[currentIndex + 1] ?? null : null;
+  const currentFinished = currentGuideSection ? completedSections.includes(currentGuideSection.id) : false;
+  // The active checks before any optional guide material: opening one brings its question and answer box into view.
+  const checks = boundaryChecksAvailable
+    ? openQuestionSections.map((section) => (
+        <div key={section.id} data-quick-check={section.id}>
+          {section.question?.placement === "auto_authored" ? (
+            <AuthoredQuestionCard
+              section={section}
+              autoStart={focusQuickCheck === section.id}
+              onJump={peek}
+              onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
+              onComplete={() => {
+                setDismissedSections((ids) => [...new Set([...ids, section.id])]);
+                void completeSection(section.id, "check_closed");
+              }}
+              onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
+              onError={onError}
+            />
+          ) : (
+            <SectionQuestionCard
+              section={section}
+              autoStart={focusQuickCheck === section.id}
+              extractionId={extractionId}
+              onReveal={() => revealSection(section.id)}
+              onJump={peek}
+              onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
+              onComplete={() => {
+                setDismissedSections((ids) => [...new Set([...ids, section.id])]);
+                void completeSection(section.id, "check_closed");
+              }}
+              onChosen={() => void completeSection(section.id, "idea_chosen")}
+              onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
+              onError={onError}
+            />
+          )}
+        </div>
+      ))
+    : [];
   // Without a read count (an older caller) the bar follows the reading marker.
   const sectionRead = currentSectionRead ?? currentSectionProgress;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
+      {/* Open quick checks come first, before any optional guide material (UX Phase 1 usability round 1, U5; the
+          first evening's controls above the fold). */}
+      {checks}
       {header}
       <SectionHeader style={{ marginTop: 0 }}>Reading guide</SectionHeader>
       {path ?? (guidePlan?.goalContext ? (
@@ -189,9 +241,11 @@ export function GuideRail({
             <Pill color="slate">section</Pill>
             <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{sectionWords(currentGuideSection.label)}</span>
           </div>
+          {/* One section-position value: how far through the section the learner's reading has come, not proof that every
+              passage was read (a finished section is not forced to 100 %). */}
           <div
             role="progressbar"
-            aria-label="Read of this section"
+            aria-label="Position through this section"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(sectionRead * 100)}
@@ -199,6 +253,7 @@ export function GuideRail({
           >
             <div style={{ height: "100%", width: `${sectionRead * 100}%`, background: COLOR.cyan }} />
           </div>
+          <Faint style={{ fontSize: 10 }}><span data-testid="section-position">{Math.round(sectionRead * 100)}% through this section</span></Faint>
           {alsoInBooks}
           <Faint style={{ fontSize: 10 }}>
             {boundaryChecksAvailable && currentGuideSection.question && currentQuestionOpen
@@ -226,7 +281,9 @@ export function GuideRail({
                       </button>
                     </>
                   )
-                : readingMoved && currentSectionProgress >= 0.7
+                : currentFinished
+                  ? null
+                  : readingMoved && currentSectionProgress >= 0.7
                   ? "You’re near the section break. Keep going, or revisit a useful passage."
                   : "Keep reading at your own pace."}
           </Faint>
@@ -235,19 +292,21 @@ export function GuideRail({
           {offline ? null : <Faint style={{ fontSize: 10 }}><span data-testid="guide-questions-from">{QUESTIONS_FROM_READING}</span></Faint>}
           <SectionDone
             section={currentGuideSection}
-            // The Contents' own "read" rule: every passage of the section seen, never a jump past it.
-            readThrough={(sectionSeen[currentGuideSection.id] ?? 0) >= currentGuideSection.spanIds.length}
-            completed={completedSections.includes(currentGuideSection.id)}
-            finishedHere={finishedHere[currentGuideSection.id] ?? null}
+            completed={currentFinished}
+            finishedHere={finishedHere[currentGuideSection.id] ?? sectionFinishes[currentGuideSection.id] ?? null}
             bookTitle={bookTitle}
             offline={offline}
+            next={nextSection}
+            onNext={(next) => jumpToSpan(next.startSpanId, "start")}
+            onOpenToday={onOpenToday}
             onDone={async (sectionId) => {
-              // The same completion the quick check's "done for now" sends. An open quick check is left as it is,
-              // still answerable (the phone dismisses nothing either); answering it later sends the same once-only
-              // completion, so nothing is written twice.
+              // The learner's word: the same backend operation as the section's end. An open quick check is left as
+              // it is, still answerable. Finished only when the backend's answer says so; a failed save says so.
               const result = await completeSection(sectionId);
-              const finish: SectionFinish = result && result.enqueuedGeneration ? "writing" : result && result.waitingForBuild ? "waiting" : "done";
+              if (!result?.progress?.completedAt) return false;
+              const finish: SectionFinish = result.enqueuedGeneration ? "writing" : result.waitingForBuild ? "waiting" : "done";
               setFinishedHere((done) => ({ ...done, [sectionId]: finish }));
+              return true;
             }}
           />
         </Card>
@@ -256,38 +315,6 @@ export function GuideRail({
       ) : guidePlan === null ? (
         <Faint style={{ fontSize: 12 }}>No personalized guide is available for this source yet.</Faint>
       ) : null}
-
-      {/* Open quick checks come first, right under the section they are about,
-          never below the whole Contents list (UX Phase 1 usability round 1, U5). */}
-      {boundaryChecksAvailable
-        ? openQuestionSections.map((section) => (
-            <div key={section.id} data-quick-check={section.id}>
-              {section.question?.placement === "auto_authored" ? (
-                <AuthoredQuestionCard
-                  section={section}
-                  autoStart={focusQuickCheck === section.id}
-                  onJump={peek}
-                  onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-                  onComplete={() => completeSection(section.id)}
-                  onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
-                  onError={onError}
-                />
-              ) : (
-                <SectionQuestionCard
-                  section={section}
-                  autoStart={focusQuickCheck === section.id}
-                  extractionId={extractionId}
-                  onReveal={() => revealSection(section.id)}
-                  onJump={peek}
-                  onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-                  onComplete={() => completeSection(section.id)}
-                  onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
-                  onError={onError}
-                />
-              )}
-            </div>
-          ))
-        : null}
 
       {(guidePlan?.sections.length ?? 0) > 1 ? (
         <>
@@ -465,54 +492,79 @@ export function SectionBoundaryOffer({
   );
 }
 
-/** "Done with this section" at a section's end, in the section's card where its other actions live; then what it
- *  started, in the Reader's posture (a still mark, never a moving one: G54). */
+/** The section's own controls, in the section's card where its other actions live: "I've read this section" until
+ *  the backend has the section finished, then "Section finished" (or what the finish started, in the Reader's posture:
+ *  a still mark, never a moving one: G54) and the way on: "Read the next section", or "Back to Today" at the end of
+ *  the book. */
 type SectionFinish = "writing" | "waiting" | "done";
 
 function SectionDone({
   section,
-  readThrough,
   completed,
   finishedHere,
   bookTitle,
   offline,
+  next,
+  onNext,
+  onOpenToday,
   onDone,
 }: {
   section: ReaderGuideSectionDto;
-  readThrough: boolean;
   completed: boolean;
   finishedHere: SectionFinish | null;
   bookTitle: string | null;
   offline: boolean;
-  onDone: (sectionId: string) => Promise<void>;
+  next: ReaderGuideSectionDto | null;
+  onNext: (next: ReaderGuideSectionDto) => void;
+  onOpenToday?: () => void;
+  onDone: (sectionId: string) => Promise<boolean>;
 }) {
   const [busy, setBusy] = useState(false);
-  if (finishedHere === "writing" || finishedHere === "waiting") {
+  const [failed, setFailed] = useState(false);
+  if (offline) return null;
+  const finished = completed || finishedHere !== null;
+  if (!finished) {
     return (
-      <div data-testid="section-done" role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-        <WaitMark still /> {finishedHere === "writing" ? SECTION_DONE_WRITING : sectionDoneWaiting(bookTitle)}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div>
+          <PrimaryButton
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setFailed(false);
+              void onDone(section.id)
+                .then((saved) => setFailed(!saved))
+                .catch(() => setFailed(true))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {SECTION_DONE}
+          </PrimaryButton>
+        </div>
+        {failed ? <span role="alert" style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.amber }}>{SECTION_DONE_FAILED}</span> : null}
       </div>
     );
   }
-  if (completed || finishedHere === "done") {
-    return (
-      <div data-testid="section-done" role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>
-        {SECTION_DONE_LINE}
-      </div>
-    );
-  }
-  if (!readThrough || offline) return null;
   return (
-    <div>
-      <PrimaryButton
-        disabled={busy}
-        onClick={() => {
-          setBusy(true);
-          void onDone(section.id).finally(() => setBusy(false));
-        }}
-      >
-        {SECTION_DONE}
-      </PrimaryButton>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {finishedHere === "writing" || finishedHere === "waiting" ? (
+        <div data-testid="section-done" role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+          <WaitMark still /> {finishedHere === "writing" ? SECTION_DONE_WRITING : sectionDoneWaiting(bookTitle)}
+        </div>
+      ) : (
+        <div data-testid="section-done" role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>
+          {SECTION_DONE_LINE}
+        </div>
+      )}
+      {next ? (
+        <div>
+          <SecondaryButton onClick={() => onNext(next)}>{READ_NEXT_SECTION}</SecondaryButton>
+        </div>
+      ) : onOpenToday ? (
+        <div>
+          <SecondaryButton onClick={onOpenToday}>{BACK_TO_TODAY}</SecondaryButton>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -622,12 +674,12 @@ export function AuthoredQuestionCard({
             }}
             style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 82, resize: "vertical" }}
           />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <CheckActions>
             {/* Enter is a new line (answers can need several); the button
                 names the key that really sends (usability round 1, U6). */}
             <PrimaryButton onClick={() => void submit()} disabled={busy || !response.trim()}>compare with the source · ctrl+↵</PrimaryButton>
             <SecondaryButton onClick={onDismiss} disabled={busy}>skip</SecondaryButton>
-          </div>
+          </CheckActions>
         </>
       ) : (
         <>
@@ -636,18 +688,20 @@ export function AuthoredQuestionCard({
           <LearnerVoice label="your answer">
             <div style={{ whiteSpace: "pre-wrap" }}>{response.trim()}</div>
           </LearnerVoice>
-          <ModelVoice note="the intended answer · compare, don’t grade">
-            <MarkdownMath value={question.expectedAnswer ?? ""} />
-          </ModelVoice>
-          {escalatedItemId ? (
-            <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Added to your practice collection.</Faint>
-          ) : null}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {/* The same action area the answer box had, right under the learner's words, so "Done with this check"
+              is in view without reading past the intended answer. */}
+          <CheckActions>
             {!escalatedItemId && question.escalationLearningObjectId ? (
               <PrimaryButton onClick={() => void escalate()} disabled={busy}>add to practice →</PrimaryButton>
             ) : null}
-            <SecondaryButton onClick={onComplete}>done for now</SecondaryButton>
-          </div>
+            <FocusedButton label={CHECK_DONE} onClick={onComplete} />
+          </CheckActions>
+          {escalatedItemId ? (
+            <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Added to your practice collection.</Faint>
+          ) : null}
+          <ModelVoice note="the intended answer · compare, don’t grade">
+            <MarkdownMath value={question.expectedAnswer ?? ""} />
+          </ModelVoice>
         </>
       )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 2 }}>
@@ -682,6 +736,7 @@ function SectionQuestionCard({
   onJump,
   onDismiss,
   onComplete,
+  onChosen,
   onAnswered,
   onError,
 }: {
@@ -693,6 +748,9 @@ function SectionQuestionCard({
   onJump: (spanId: string) => void;
   onDismiss: () => void;
   onComplete: () => void;
+  /** The learner chose what to do with the idea: passed on, never a close (it finishes the section only where the
+   *  backend says so, below algorithm tag mvp-0.63). */
+  onChosen?: () => void;
   /** The learner's answer was recorded (the guide stops calling it waiting). */
   onAnswered?: () => void;
   onError: (message: string) => void;
@@ -809,11 +867,11 @@ function SectionQuestionCard({
         subjectType: "learning_object",
         goalId: question.goalId,
       });
-      onComplete();
+      onChosen?.();
     } catch (error) {
       onError(errorMessage(error));
     }
-  }, [question, onComplete, onError]);
+  }, [question, onChosen, onError]);
 
   if (!question) {
     return section.suggestedPassages.length > 0 ? (
@@ -865,17 +923,19 @@ function SectionQuestionCard({
             }}
             style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 82, resize: "vertical" }}
           />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <CheckActions>
             <PrimaryButton onClick={() => void submit()} disabled={busy || !response.trim()}>record answer · ctrl+↵</PrimaryButton>
             <SecondaryButton onClick={() => void skip()} disabled={busy}>skip</SecondaryButton>
-          </div>
+          </CheckActions>
         </>
       ) : (
         <>
           <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Answer recorded. This was for understanding, not a grade.</Faint>
+          <CheckActions>
+            <FocusedButton label={CHECK_DONE} onClick={onComplete} />
+          </CheckActions>
           <Faint style={{ fontSize: 10 }}>What should LearnLoop do with this idea?</Faint>
           <DispositionPicker value={disposition} onChoose={(next) => void choose(next)} />
-          <SecondaryButton onClick={onComplete}>done for now</SecondaryButton>
         </>
       )}
       {!submitted ? (
@@ -895,5 +955,42 @@ function SectionQuestionCard({
       ) : null}
       {controlMessage ? <Faint style={{ fontSize: 10 }}>{controlMessage}</Faint> : null}
     </Card>
+  );
+}
+
+/** A check's action area: its buttons beside the answer box, and after the comparison "Done with this check" in the
+ *  same place. Opening a check brings this area into the guide's own view (never the chapter's): the guide scrolls
+ *  only itself, so the answer and the chapter stay where they are. */
+function CheckActions({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (element && typeof window.requestAnimationFrame === "function") {
+      const frame = window.requestAnimationFrame(() => scrollIntoViewWithin(element, { block: "nearest" }));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    return undefined;
+  }, []);
+  return (
+    <div ref={ref} data-check-actions="" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {children}
+    </div>
+  );
+}
+
+/** The control keyboard focus moves to when the answer box it replaces goes away (the comparison arrived): focus stays
+ *  in the check instead of falling to the page. */
+function FocusedButton({ label, onClick }: { label: string; onClick: () => void }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const active = document.activeElement;
+    // Only when focus has nowhere of the learner's to be (the box it was in is gone): never taken from another field.
+    if (active && active !== document.body && active.isConnected) return;
+    ref.current?.querySelector("button")?.focus();
+  }, []);
+  return (
+    <span ref={ref}>
+      <SecondaryButton onClick={onClick}>{label}</SecondaryButton>
+    </span>
   );
 }

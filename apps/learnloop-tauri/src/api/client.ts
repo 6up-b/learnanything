@@ -1396,6 +1396,9 @@ export const api = {
     spanCount?: number;
     revealed?: boolean;
     completed?: boolean;
+    /** What sent the completion: absent for the learner's "I've read this section"; a quick check's close or the
+     *  choice of what to do with its idea finish the section only below algorithm tag mvp-0.63 (the backend decides). */
+    completedBy?: "check_closed" | "idea_chosen";
   }) => mutatingReader(call<ReaderMarkProgressResultDto>("reader_mark_section_progress", { input })),
   /** How far into a section the learner has read (usability round 1, U3):
    *  only the progress read is stale afterwards, so following the learner

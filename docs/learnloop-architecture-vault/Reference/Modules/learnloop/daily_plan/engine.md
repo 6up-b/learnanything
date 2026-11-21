@@ -954,7 +954,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
   - `test_i_a_narrative_write_invalidates_c1s_memo_once_and_the_choice_is_the_same`
 - [tests/test_reader_seen_passages.py](../../../../../../tests/test_reader_seen_passages.py) — direct import
-  - `test_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing`
+  - `test_below_the_tag_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_new_vaults_read_on_from_the_furthest_section`
   - `test_replay_never_reads_the_switch`
@@ -1099,6 +1099,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_a_goal_change_invalidates_an_enrichment_judgment`
 - [tests/test_rw7b_fix_round2.py](../../../../../../tests/test_rw7b_fix_round2.py) — direct import
   - `test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection`
+- [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_the_12_9_reproduction_is_served_as_practice_and_its_check_withdrawn`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import

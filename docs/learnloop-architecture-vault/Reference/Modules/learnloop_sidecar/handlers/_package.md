@@ -118,7 +118,7 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] | [[Reference/Modules/learnloop_sidecar/handlers/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 169 |
+| [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] | [[Reference/Modules/learnloop_sidecar/handlers/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 170 |
 | [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] | [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]] | [[Reference/Modules/learnloop_sidecar/handlers/adjudication#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] | [[Reference/Modules/learnloop_sidecar/handlers/ai_providers#^module-purpose|purpose]] | `ACTIVE` | 12 | 18 |
@@ -198,7 +198,7 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 326 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 54 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 55 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 50 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 39 static module edges
@@ -272,7 +272,7 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_sidecar -->|5| center
     center -->|326| n_learnloop_sidecar
-    center -->|54| n_learnloop_reader
+    center -->|55| n_learnloop_reader
     center -->|50| n_learnloop
     center -->|41| n_learnloop_source_retrieval
     center -->|39| n_learnloop_ai

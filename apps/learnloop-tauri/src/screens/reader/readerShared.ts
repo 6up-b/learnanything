@@ -1,6 +1,19 @@
 // Shared helpers for the Reader screen and its rail components (RW1a split).
 import type { ReaderAnnotationPlacementDto, ReaderProtectionDto } from "../../api/dto";
 
+/** A section's controls and states, the same words on the desktop's guide and the phone's Reader (algorithm tag
+ *  mvp-0.63: a section's end finishes it; closing a quick check does not). */
+/** The learner's own way to finish a section, a short one that needs no scrolling included. */
+export const SECTION_DONE = "I’ve read this section";
+/** The finished state, shown only once the section's completion is the backend's (or, on the phone, durably queued). */
+export const SECTION_DONE_LINE = "Section finished";
+/** Navigation only: finishing has its own event. */
+export const READ_NEXT_SECTION = "Read the next section";
+/** At the end of the book's last section (a one-section book's only one): no next section to offer. */
+export const BACK_TO_TODAY = "Back to Today";
+/** Closes a quick check, keeping its answer and comparison; it finishes nothing. */
+export const CHECK_DONE = "Done with this check";
+
 export const ANSWER_MODE_OPTIONS = [
   { value: "answer_directly", label: "answer directly" },
   { value: "help_me_reason", label: "help me reason" },

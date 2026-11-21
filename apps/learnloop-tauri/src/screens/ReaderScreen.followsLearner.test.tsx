@@ -828,7 +828,7 @@ it("#7: the guide's section bar is empty on arriving at a section not read yet, 
   await settle(SETTLED_MS);
   expect(screen.getAllByText("Probability and counting").length).toBeGreaterThan(1);
   expect(sectionBarWidth()).toBe("0%");
-  expect(screen.getByRole("progressbar", { name: "Read of this section" }).getAttribute("aria-valuenow")).toBe("0");
+  expect(screen.getByRole("progressbar", { name: "Position through this section" }).getAttribute("aria-valuenow")).toBe("0");
 
   // Into section 1.1 (pages 2-3): nothing of it read on arrival, then a page
   // counts once the reading marker is past most of it.

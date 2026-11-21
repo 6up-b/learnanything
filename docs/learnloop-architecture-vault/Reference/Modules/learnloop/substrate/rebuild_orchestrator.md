@@ -374,6 +374,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_presentations_and_cards_survive_production_pragmas`
   - `test_router_outcomes_replay_twice_with_no_model_call`
+- [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
+  - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
   - `test_the_index_is_derived_with_one_owner_and_its_shadow_tables_are_not_tables`
   - `test_the_umbrella_rebuild_restores_the_index_without_any_model_or_embedding_call`

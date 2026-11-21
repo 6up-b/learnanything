@@ -99,6 +99,10 @@ function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSa
   return save;
 }
 
+/** What hears an acknowledged save: the book, the section and the backend's answer (whose progress says whether the
+ *  section is finished: from algorithm tag mvp-0.63 its end, carried by the save, finishes it). */
+type SeenSaved = (extractionId: string, sectionId: string, result: ReaderMarkProgressResultDto | null) => void;
+
 /** Send a book's counts that are neither acknowledged nor on their way. A
  * failed save is tried again a few times (a busy database, a restarting
  * sidecar) with whatever the book's newest counts are by then; after that it
@@ -106,7 +110,7 @@ function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSa
  * `onSaved` hears each count the backend acknowledged, a retry's included
  * (RW7a Codex re-review F3: what reads the progress back waits for it). */
 function sendSeenCounts(
-  saves: Map<string, SeenSave>, extractionId: string, onSaved?: (extractionId: string) => void,
+  saves: Map<string, SeenSave>, extractionId: string, onSaved?: SeenSaved,
 ): void {
   const save = saves.get(extractionId);
   if (!save) return;
@@ -128,12 +132,12 @@ function sendSeenCounts(
       ...(passages.length > 0 ? { seenSpanIds: passages } : {}),
       ...(end ? { reachedEnd: true } : {}),
     })
-      .then(() => {
+      .then((result) => {
         if (counts) save.acknowledged[sectionId] = Math.max(save.acknowledged[sectionId] ?? 0, counts.spansSeen);
         for (const spanId of passages) save.acknowledgedPassages.add(spanId);
         if (end) save.acknowledgedEnds.add(sectionId);
         save.attempts = 0;
-        onSaved?.(extractionId);
+        onSaved?.(extractionId, sectionId, result ?? null);
       })
       .catch(() => {
         if (save.timer !== null || save.attempts >= SEEN_RETRY_LIMIT) return;
@@ -233,6 +237,14 @@ export interface WatchSeekHandle {
   seekToSpan: (spanId: string) => boolean;
 }
 
+/** What finishing a section started, as the backend answered it. */
+export type SectionFinish = "writing" | "waiting" | "done";
+
+export function finishOf(result: ReaderMarkProgressResultDto | null): SectionFinish | null {
+  if (!result?.progress?.completedAt) return null;
+  return result.enqueuedGeneration ? "writing" : result.waitingForBuild ? "waiting" : "done";
+}
+
 export interface ReadingProgressInput {
   render: ReaderRenderViewDto | null;
   offline: boolean;
@@ -314,7 +326,13 @@ export interface ReadingProgress {
   retryQuickCheck: (sectionId: string) => void;
   openQuickCheck: (sectionId: string) => void;
   revealSection: (sectionId: string) => void;
-  completeSection: (sectionId: string) => Promise<ReaderMarkProgressResultDto | null>;
+  /** Finish a section: the learner's "I've read this section" (no `by`), or pass on a quick check's close or its
+   *  idea's choice, which finish it only where the backend says so (below algorithm tag mvp-0.63). The section shows
+   *  finished only once the backend's answer has it; a failed save answers null and finishes nothing. */
+  completeSection: (sectionId: string, by?: "check_closed" | "idea_chosen") => Promise<ReaderMarkProgressResultDto | null>;
+  /** What each section finished in this visit started, from the backend's answer: its questions being written, waiting
+   *  for the book, or nothing to say. */
+  sectionFinishes: Record<string, SectionFinish>;
   jumpToSpan: (spanId: string, align?: PassageAlign) => void;
   /** The view is about to move without a jump (focus brings a transcript's
    *  margin mark into view): a placement, like a jump -- the learner's
@@ -419,6 +437,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   const [revealedSections, setRevealedSections] = useState<string[]>([]);
   const [dismissedSections, setDismissedSections] = useState<string[]>([]);
   const [completedSections, setCompletedSections] = useState<string[]>([]);
+  const [sectionFinishes, setSectionFinishes] = useState<Record<string, SectionFinish>>({});
   const [sectionPromptsEnabled, setSectionPromptsEnabled] = useState(() => {
     try {
       return window.localStorage.getItem("learnloop.reader.section-prompts") !== "off";
@@ -472,9 +491,20 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // saves, so what reads progress back (the Guide's reading path) re-reads
   // after the save has landed, not on a timer raced against its debounce.
   const [progressSaves, setProgressSaves] = useState(0);
-  const noteProgressSaved = useCallback((extractionId: string) => {
-    if (extractionId === activeSeenRef.current) setProgressSaves((value) => value + 1);
+  // A section is finished here only by the backend's answer: a save carrying its end (from algorithm tag mvp-0.63),
+  // or a completion the learner sent. Nothing is marked finished before that answer, so a failed save never leaves a
+  // finished section the backend does not have.
+  const noteFinished = useCallback((sectionId: string, result: ReaderMarkProgressResultDto | null) => {
+    const finish = finishOf(result);
+    if (!finish) return;
+    setCompletedSections((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
+    setSectionFinishes((current) => (current[sectionId] ? current : { ...current, [sectionId]: finish }));
   }, []);
+  const noteProgressSaved = useCallback((extractionId: string, sectionId: string, result: ReaderMarkProgressResultDto | null) => {
+    if (extractionId !== activeSeenRef.current) return;
+    setProgressSaves((value) => value + 1);
+    noteFinished(sectionId, result);
+  }, [noteFinished]);
   const lastReadRef = useRef<{ id: string; index: number; progress: number } | null>(null);
   const pageModeRef = useRef(false);
   const pageSpansRef = useRef<Array<{ spanId: string; page: number }>>([]);
@@ -519,6 +549,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     setRevealedSections([]);
     setDismissedSections([]);
     setCompletedSections([]);
+    setSectionFinishes({});
     setAuthoringSections([]);
     setTimedOutSections([]);
     authorRequestedRef.current = new Set();
@@ -689,12 +720,13 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // How much of the current section the learner has read (not where the
   // marker stands): the guide's bar under the section's name (finishing pass,
   // re-test #7: the bar was full on arriving at an unread one-page section).
+  // A position, not proof that every passage was read: a finished section is not forced to 100 % (the learner may
+  // have said they read it, or skimmed to its end).
   const currentSectionRead = useMemo(() => {
     if (!currentGuideSection) return 0;
-    if (completedSections.includes(currentGuideSection.id)) return 1;
     const count = Math.max(1, currentGuideSection.spanIds.length);
     return Math.min(1, (sectionSeen[currentGuideSection.id] ?? 0) / count);
-  }, [currentGuideSection, completedSections, sectionSeen]);
+  }, [currentGuideSection, sectionSeen]);
   // The original PDF's section break is at the section's last page, reached
   // by the learner's own reading this visit (finishing pass, re-test #8: a
   // check came a page before "the table on the next page"; #2: a resume into
@@ -745,7 +777,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
         kind: "section",
         readingPhase: section.question?.readingPhase ?? null,
         available: boundaryChecksAvailable,
-        settled: dismissedSections.includes(section.id) || completedSections.includes(section.id),
+        // A finished section settles its check only before it is offered: a check already open stays open while the
+        // learner is answering it (the section's end can arrive mid-answer), and closes by its own control.
+        settled: dismissedSections.includes(section.id)
+          || (completedSections.includes(section.id) && !stickyQuestionSections.includes(section.id)),
         pinned: stickyQuestionSections.includes(section.id),
         position: index === currentIndex ? "current" : currentIndex >= 0 && index < currentIndex ? "behind" : "ahead",
         readingMoved,
@@ -1086,20 +1121,23 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     [render, offline]
   );
 
-  // Completion persists durably and — first time only — triggers progressive
-  // practice generation for the section's learning objects (items-off seeding).
-  // The answer says whether the completion queued the section's questions
-  // (`enqueuedGeneration`), so "Done with this section" can say they are being
-  // written only when they are; null offline or when the call failed.
+  // Completion persists durably and, the first time only, starts the section's questions. The answer says whether
+  // it finished the section (from algorithm tag mvp-0.63 a quick check's close and its idea's choice do not) and
+  // what it started; the section shows finished only then. Null offline or when the call failed: nothing is marked.
   const completeSection = useCallback(
-    (sectionId: string): Promise<ReaderMarkProgressResultDto | null> => {
-      setCompletedSections((ids) => [...new Set([...ids, sectionId])]);
+    (sectionId: string, by?: "check_closed" | "idea_chosen"): Promise<ReaderMarkProgressResultDto | null> => {
       if (!render || offline) return Promise.resolve(null);
       return api
-        .readerMarkSectionProgress({ extractionId: render.extractionId, sectionId, completed: true })
+        .readerMarkSectionProgress({
+          extractionId: render.extractionId, sectionId, completed: true, ...(by ? { completedBy: by } : {}),
+        })
+        .then((result) => {
+          noteFinished(sectionId, result ?? null);
+          return result ?? null;
+        })
         .catch(() => null);
     },
-    [render, offline]
+    [render, offline, noteFinished]
   );
 
   // A passage with boxes: the pane keeps it until the document is laid out
@@ -1302,7 +1340,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     boundaryChecksAvailable, authoringSections, timedOutSections: shownTimedOutSections, guideSectionBySpan, guideSectionByEnd,
     currentGuideSection, currentSectionProgress, currentSectionRead, pdfSurfaceActive, pageMode, checkSurface,
     offeredCheckSections, openQuestionSections, pendingQuickCheckCount, currentQuestionOpen, pdfOfferSection,
-    readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, jumpToSpan, notePlacement, revealSegment,
+    readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, sectionFinishes, jumpToSpan, notePlacement, revealSegment,
     onReadingScroll, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleUntilRef, handoffRef, jumpGuardRef,
     settleOpening, placeAtOpen, placeApproximate, noteFoundApproximate, hydrateProgress, resetProgress,
   };
