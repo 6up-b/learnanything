@@ -57,7 +57,7 @@ from learnloop.vault.paths import VaultPaths
 
 __all__ = [
     "BEFORE_BUILD", "NOTHING", "OWED", "READ_FURTHER", "PART_READ", "SectionPartRead", "TopicCoverage", "assess",
-    "read_readings", "reconcile_part_read", "seen_grounding", "topic_coverage",
+    "read_readings", "reconcile_part_read", "seen_grounding", "seen_text_filter", "topic_coverage",
 ]
 
 #: The trigger a part-read claim is recorded under (``reader_topic_question_work.trigger_event``).
@@ -320,6 +320,35 @@ def seen_grounding(vault: LoadedVault, repository: Any, extraction_id: str, cove
                     section_id=section_id,
                 ))
     return bundles
+
+
+def seen_text_filter(repository: Any, extraction_ids: list[str]) -> Callable[[str], bool]:
+    """Whether a text lies wholly within passages the learner has seen of these readings: inside one run of
+    consecutive seen passages, whitespace collapsed (a run's passages joined by a space). An empty text, or one
+    that reaches into a passage not seen, does not."""
+
+    runs: list[str] = []
+    for extraction_id in dict.fromkeys(extraction_ids):
+        ir = repository.load_document_ir(extraction_id)
+        if ir is None:
+            continue
+        rows, block_by_span, _ = extraction_sections(ir)
+        seen = frozenset(seen_on(repository, extraction_id))
+        run: list[str] = []
+        for span in (span for row in rows for span in row["span_ids"]):
+            if span in seen:
+                run.append(" ".join(block_by_span[span].text.split()))
+            elif run:
+                runs.append(" ".join(run))
+                run = []
+        if run:
+            runs.append(" ".join(run))
+
+    def within(text: str) -> bool:
+        collapsed = " ".join(text.split())
+        return bool(collapsed) and any(collapsed in run for run in runs)
+
+    return within
 
 
 @dataclass(frozen=True)

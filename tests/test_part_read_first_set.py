@@ -372,3 +372,70 @@ def test_a_topic_with_no_citation_never_qualifies(book, writer):
     coverage = topic_coverage(vault, book.repo, book.extraction_id, ["lo_late"])["lo_late"]
 
     assert (coverage.reason, coverage.qualifies) == ("no_citation", False)
+
+
+# -- the request a part read sends -----------------------------------------------------------------------------
+
+#: The words of a part-read request's own instruction line, and of the finish's.
+PART_READ_LINE = "the part of a section the learner has read so far"
+FINISH_LINE = "material the learner just finished reading"
+
+
+def _subject(book) -> str:
+    return load_vault(book.ctx.vault_root).learning_objects["lo_early"].subjects[0]
+
+
+def _with_notes(book) -> dict[str, str]:
+    """Two notes in the book's subject, as a book ingested the older way leaves one: one whose body is a paragraph
+    the learner will have read (P1), one whose body holds a paragraph they will not have (P5). Their note ids."""
+
+    from learnloop.vault.loader import add_note
+
+    subject = _subject(book)
+    seen = f"Paragraph P1 about the {PARAGRAPH_WORD['P1']} is part of the account of eigenvalues and the characteristic polynomial of a square matrix."
+    unseen = f"Paragraph P5 about the {PARAGRAPH_WORD['P5']} is part of the account of eigenvalues and the characteristic polynomial of a square matrix."
+    for note_id, body in (("read_part", seen), ("unread_part", unseen)):
+        path = add_note(book.ctx.vault_root, subject, note_id, note_id, body)
+        # The body alone, as a note that stands for a book's text holds it (add_note heads it with its title).
+        path.write_text(path.read_text(encoding="utf-8").replace(f"# {note_id}\n\n", ""), encoding="utf-8")
+    book.ctx.reload(maintenance=False)
+    return {"seen": "note_read_part", "unseen": "note_unread_part"}
+
+
+def test_a_part_read_request_says_the_learner_read_part_of_the_section(book, writer):
+    book.read(*STOP)
+
+    assert len(writer.prompts) == 2
+    for prompt in writer.prompts:
+        assert PART_READ_LINE in prompt
+        assert FINISH_LINE not in prompt
+
+
+def test_a_finish_request_keeps_the_finish_line(book, writer):
+    book.read(*STOP)
+    book.finish("P1")
+
+    finish = writer.prompts[2:]
+    assert len(finish) == 3  # lo_straddle, lo_late, lo_cross: the rest of the section, one topic a call
+    for prompt in finish:
+        assert FINISH_LINE in prompt and PART_READ_LINE not in prompt
+
+
+def test_a_part_read_request_on_a_note_backed_book_sends_no_unread_note_text(book, writer):
+    notes = _with_notes(book)
+
+    book.read(*STOP)
+
+    assert len(writer.prompts) == 2
+    for prompt in writer.prompts:
+        # The note wholly within passages read stays; the one holding an unread paragraph is left out.
+        assert notes["seen"] in prompt
+        assert notes["unseen"] not in prompt
+        assert not [word for word in _unseen_words(*STOP) if word in prompt]
+    for request in _frozen_requests(book).values():
+        assert notes["unseen"] not in repr(request)
+        assert not [word for word in _unseen_words(*STOP) if word in repr(request)]
+    # The section's finish sends what it sent before: both notes, read or not.
+    book.finish("P1")
+    for prompt in writer.prompts[2:]:
+        assert notes["seen"] in prompt and notes["unseen"] in prompt
