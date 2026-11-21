@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/BookCard.tsx](../../../../../../apps/learnloop-tauri/src/components/BookCard.tsx) |
-| Source lines | 201 |
+| Source lines | 204 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const PAST_EXAM_DETAILS = "A past exam or problem set, kept in your Library. It doesn't open in the Reader, and LearnLoop doesn't write questions from it."` — const, line 24
 - `export function StatusLine(` — function, line 56
 - `export function BookCard(` — function, line 78
-- `export function PendingCard(` — function, line 176
+- `export function PendingCard(` — function, line 179
 
 ## Internal implementation anchors
 
@@ -69,7 +69,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const readable = card.readerEnabled !== false` — const, line 97
 - `const line = (aiReady === false ? card.statusLine?.withoutAi : null) ?? card.statusLine ?? null` — const, line 98
 - `const noun = card.kindNoun ?? "book"` — const, line 99
-- `const failed = entry.statusLine?.tone === "problem"` — const, line 186
+- `const failed = entry.statusLine?.tone === "problem"` — const, line 189
 
 ## Who imports or calls it
 
@@ -84,7 +84,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `PendingAddDto`, `SourceActionKind`, `SourceLibraryCard`, `SourceStatusLineDto`
-- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `CONSENT_ACTION`, `SIDECAR_CONSENT_LABEL`, `readableTitle`
+- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `CONSENT_ACTION`, `QUESTIONS_FROM_READING`, `SIDECAR_CONSENT_LABEL`, `readableTitle`
 - [[Reference/Desktop/TypeScript/components/IntentControl|src/components/IntentControl.tsx]] — import-or-re-export; imports `IntentControl`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 

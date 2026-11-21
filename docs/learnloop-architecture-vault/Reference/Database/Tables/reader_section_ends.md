@@ -106,6 +106,7 @@ Database triggers:
 - `tests/reread_safety_helpers.py`
 - `tests/section_question_parts_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_build_wait_detail.py`
 - `tests/test_curriculum_c1_fix_round2.py`
 - `tests/test_curriculum_c1_fix_round3.py`
 - `tests/test_daily_plan_reading.py`
@@ -114,9 +115,8 @@ Database triggers:
 - `tests/test_first_questions_today.py`
 - `tests/test_followups_batch6_prefetch_decided_once.py`
 - `tests/test_followups_batch7_prefetch_capped_resume.py`
+- `tests/test_part_read_request.py`
 - `tests/test_plan_follows_path.py`
-- `tests/test_reading_paths.py`
-- `tests/test_reread_safety.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

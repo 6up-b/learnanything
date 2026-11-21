@@ -58,12 +58,13 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/app/sessionHandoff|sessionHandoff.ts]] | `ACTIVE` | Provides `ElsewhereChoice`, `ElsewhereQuestion`, `useElsewhereQuestion`, `adoptMovedSession` and related exports within the desktop's TypeScript/app ownership area. | 4 | 4 |
 | [[Reference/Desktop/TypeScript/app/sessionMoved|sessionMoved.ts]] | `ACTIVE` | Provides `SessionMoved`, `sessionMovedFrom`, `setSessionMoved`, `useSessionMoved` and related exports within the desktop's TypeScript/app ownership area. | 1 | 5 |
 | [[Reference/Desktop/TypeScript/app/shell|shell.ts]] | `ACTIVE` | Provides `ShellMode`, `shellMode`, `simpleShell`, `Place` and related exports within the desktop's TypeScript/app ownership area. | 2 | 11 |
-| [[Reference/Desktop/TypeScript/app/todayCause|todayCause.ts]] | `ACTIVE` | Provides `CONSENT_ACTION`, `SIDECAR_CONSENT_LABEL`, `readableTitle`, `TodayCause` and related exports within the desktop's TypeScript/app ownership area. | 2 | 5 |
+| [[Reference/Desktop/TypeScript/app/todayCause|todayCause.ts]] | `ACTIVE` | Provides `QUESTIONS_FROM_READING`, `MORE_AS_YOU_READ`, `NO_QUESTIONS_YET`, `CONSENT_ACTION` and related exports within the desktop's TypeScript/app ownership area. | 2 | 6 |
 | [[Reference/Desktop/TypeScript/app/todayPlan|todayPlan.ts]] | `ACTIVE` | Provides `dayPhrase`, `TodayRow`, `onYourOwnItem`, `todayRows` and related exports within the desktop's TypeScript/app ownership area. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/app/useCloseWithFlush|useCloseWithFlush.ts]] | `ACTIVE` | Provides `CLOSE_HELD_NOTE`, `useCloseWithFlush` within the desktop's TypeScript/app ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/app/useGlobalAdd|useGlobalAdd.ts]] | `ACTIVE` | Provides `looksLikeSource`, `useGlobalAdd` within the desktop's TypeScript/app ownership area. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/app/useQueueRevisionPoll|useQueueRevisionPoll.ts]] | `ACTIVE` | Provides `REVISION_POLL_MS`, `RevisionPollView`, `revisionPollHeld`, `QueueRevisionPollOptions` and related exports within the desktop's TypeScript/app ownership area. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/app/vaultTransition|vaultTransition.ts]] | `ACTIVE` | Provides `registerVaultDraft`, `selectWithDraftFlush` within the desktop's TypeScript/app ownership area. | 0 | 3 |
+| [[Reference/Desktop/TypeScript/app/waitDetail|waitDetail.ts]] | `ACTIVE` | Provides `WaitDetail`, `waitDetailOf`, `WaitDetailWords`, `WaitClock` and related exports within the desktop's TypeScript/app ownership area. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/app/wrapUpOffer|wrapUpOffer.ts]] | `ACTIVE` | Provides `WrapUpLanding`, `wrapUpOfferArmed` within the desktop's TypeScript/app ownership area. | 0 | 1 |
 
 ## Modification guidance

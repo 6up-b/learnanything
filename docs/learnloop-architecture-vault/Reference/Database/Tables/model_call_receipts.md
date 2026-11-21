@@ -20,10 +20,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/receipts.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/content/pipeline/wait_detail.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/db/stores/model_calls.py"
-  - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/ai/execution.py"
   - "src/learnloop/cli/probability_arms.py"
@@ -54,7 +54,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/160_model_call_receipts.sql`.
-- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`, `195_source_service_spend_accounting.sql`, `253_decision_records.sql`.
+- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`, `195_source_service_spend_accounting.sql`, `253_decision_records.sql`, `258_ingest_job_progress.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `Repository.ingest_batch_spend_rows()`
 - `Repository.model_call_roots_since()`
 - `Repository.model_call_spend_rows()`
+- `Repository.model_call_times()`
 - `Repository.model_route_receipts()`
 - `Repository.record_model_event()`
 
@@ -162,6 +163,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/wait_detail.py`
 - `src/learnloop/content/synthesis/graph_nomination.py`
 - `src/learnloop/daily_plan/router_runtime.py`
 - `src/learnloop/decider_judgments.py`
@@ -173,7 +175,6 @@ Indexes and uniqueness:
 - `src/learnloop/field/probability_prep.py`
 - `src/learnloop/hints/map_builder.py`
 - `src/learnloop/ops/contamination/decider.py`
-- `src/learnloop/ops/contamination/judge.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

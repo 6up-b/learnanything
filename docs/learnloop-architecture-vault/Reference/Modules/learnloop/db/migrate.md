@@ -225,6 +225,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_it_adds_the_table_its_indexes_and_triggers_and_nothing_else`
   - `test_it_applies_under_production_pragmas`
   - `test_the_head_fixture_holds_it_in_rollback_mode`
+- [tests/test_ingest_job_progress_migration.py](../../../../../../tests/test_ingest_job_progress_migration.py) — direct import
+  - `test_it_adds_the_table_and_changes_nothing_else`
+  - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_judgment_ledger_accepts_the_decider_with_provenance`
   - `test_migration_175_preserves_every_judgment_and_its_references`

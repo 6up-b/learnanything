@@ -703,6 +703,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
 - [tests/test_build_study_map_routing.py](../../../../../../tests/test_build_study_map_routing.py) — direct import
   - `test_omitted_ceilings_fall_back_to_the_vault_defaults`
+- [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
+  - `test_a_section_being_written_names_its_topic_and_this_librarys_time_per_topic`
+  - `test_the_topic_keeps_its_place_only_while_one_job_writes`
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — direct import
 - [tests/test_canonical_projection_fold_skip.py](../../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
@@ -2241,6 +2244,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_part_read_first_set.py](../../../../../../tests/test_part_read_first_set.py) — direct import
   - `test_a_learner_who_left_while_the_build_ran_gets_the_first_set_when_it_finishes`
   - `test_a_topic_with_no_citation_never_qualifies`
+  - `test_reading_that_completes_no_topic_says_read_further`
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_accept_cli_all_flag_applies_every_pending_item`
   - `test_accept_cli_applies_and_show_proposal_includes_items`

@@ -49,7 +49,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/033_durable_ingest_jobs.sql`.
-- **Schema touched by:** `033_durable_ingest_jobs.sql`, `078_surface_mint_jobs.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `033_durable_ingest_jobs.sql`, `078_surface_mint_jobs.sql`, `214_adaptive_difficulty_serving.sql`, `258_ingest_job_progress.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/runner.py`
+- `src/learnloop/content/pipeline/wait_detail.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/ingest_queue.py`
@@ -166,6 +167,7 @@ Indexes and uniqueness:
 - `tests/test_add_source_same_content.py`
 - `tests/test_apply_recovery.py`
 - `tests/test_build_study_map_routing.py`
+- `tests/test_build_wait_detail.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_collection_append_units.py`
@@ -173,7 +175,6 @@ Indexes and uniqueness:
 - `tests/test_exam_protection_review.py`
 - `tests/test_figure_build_golden.py`
 - `tests/test_figure_rich_failed_correction_durable.py`
-- `tests/test_figure_rich_job.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

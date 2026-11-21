@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/GuideRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/GuideRail.tsx) |
-| Source lines | 896 |
+| Source lines | 899 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -61,36 +61,36 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const QUESTION_CONTROLS: Array<` — const, line 36
 - `export interface GuideRailProps` — interface, line 44
 - `export function GuideRail(` — function, line 117
-- `export function SectionBoundaryOffer(` — function, line 428
-- `export function AuthoredQuestionCard(` — function, line 517
+- `export function SectionBoundaryOffer(` — function, line 431
+- `export function AuthoredQuestionCard(` — function, line 520
 
 ## Internal implementation anchors
 
 - `const book = bookTitle ? `“$` — const, line 32
 - `const peek = peekPassage ?? jumpToSpan` — const, line 167
 - `const sectionRead = currentSectionRead ?? currentSectionProgress` — const, line 172
-- `const result = await completeSection(sectionId)` — const, line 245
-- `const finish: SectionFinish = result && result.enqueuedGeneration ? "writing" : result && result.waitingForBuild ? "waiting" : "done"` — const, line 246
-- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 298
-- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 300
-- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 301
-- `type SectionFinish = "writing" | "waiting" | "done"` — type, line 467
-- `function SectionDone(` — function, line 469
-- `const question = section.question` — const, line 536
-- `const questionId = question?.authoredQuestionId ?? null` — const, line 543
-- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 544
-- `const submit = useCallback(async ()` — const, line 549
-- `const dismissForever = useCallback(async ()` — const, line 563
-- `const escalate = useCallback(async ()` — const, line 576
-- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 580
-- `function SectionQuestionCard(` — function, line 674
-- `const question = section.question` — const, line 697
-- `const begin = useCallback(async ()` — const, line 705
-- `const opened = await api.readerPresentQuestion(` — const, line 709
-- `const submit = useCallback(async ()` — const, line 729
-- `const skip = useCallback(async ()` — const, line 748
-- `const control = useCallback(async (value: string)` — const, line 766
-- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 799
+- `const result = await completeSection(sectionId)` — const, line 248
+- `const finish: SectionFinish = result && result.enqueuedGeneration ? "writing" : result && result.waitingForBuild ? "waiting" : "done"` — const, line 249
+- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 301
+- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 303
+- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 304
+- `type SectionFinish = "writing" | "waiting" | "done"` — type, line 470
+- `function SectionDone(` — function, line 472
+- `const question = section.question` — const, line 539
+- `const questionId = question?.authoredQuestionId ?? null` — const, line 546
+- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 547
+- `const submit = useCallback(async ()` — const, line 552
+- `const dismissForever = useCallback(async ()` — const, line 566
+- `const escalate = useCallback(async ()` — const, line 579
+- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 583
+- `function SectionQuestionCard(` — function, line 677
+- `const question = section.question` — const, line 700
+- `const begin = useCallback(async ()` — const, line 708
+- `const opened = await api.readerPresentQuestion(` — const, line 712
+- `const submit = useCallback(async ()` — const, line 732
+- `const skip = useCallback(async ()` — const, line 751
+- `const control = useCallback(async (value: string)` — const, line 769
+- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 802
 
 ## Who imports or calls it
 
@@ -106,7 +106,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderDisposition`, `ReaderGuidePlanDto`, `ReaderGuideSectionDto`, `ReaderRenderBlockDto`
-- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `readableTitle`
+- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `QUESTIONS_FROM_READING`, `readableTitle`
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export; imports `PassageAlign`
 - [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `WaitMark`
 - [[Reference/Desktop/TypeScript/components/goldenpath/shared|src/components/goldenpath/shared.tsx]] — import-or-re-export; imports `DispositionPicker`, `PrimaryButton`, `SecondaryButton`

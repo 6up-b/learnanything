@@ -245,6 +245,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
 - [tests/test_ai_tool_isolation.py](../../../../../../tests/test_ai_tool_isolation.py) — direct import
   - `test_an_unconfinable_agent_is_refused_before_any_request`
+- [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
+  - `test_a_part_kept_from_an_earlier_run_is_named_as_kept`
 - [tests/test_chat_total_transport_deadline.py](../../../../../../tests/test_chat_total_transport_deadline.py) — direct import
   - `test_f2_delayed_response_headers_are_cancelled_at_the_deadline_not_abandoned`
   - `test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_deadline`

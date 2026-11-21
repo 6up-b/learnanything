@@ -971,6 +971,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
 - [tests/test_build_study_map_routing.py](../../../../../../tests/test_build_study_map_routing.py) — direct import
+- [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
+  - `test_a_queued_section_job_says_it_waits_and_nothing_else`
+  - `test_a_transport_that_does_not_stream_reports_no_output`
+  - `test_before_any_topic_is_timed_nothing_is_measured`
+  - `test_the_reply_is_named_once_received_and_no_output_is_then_in_flight`
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — direct import
 - [tests/test_canonical_projection_fold_skip.py](../../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
