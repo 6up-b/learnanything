@@ -589,3 +589,25 @@ def world_in_state(world: World, state: str, root: Path) -> World:
         raise ValueError(state)
     return World(root=root, paths=paths, repository=Repository(paths.sqlite_path), targets=world.targets,
                  state=state, pdf_digest=world.pdf_digest, png_digest=world.png_digest, notes=world.notes)
+
+
+def seed_practice_leads(world: World) -> tuple[Target, Target]:
+    """G6-P8: two teaching blocks beside the item's own linked passage."""
+
+    source, revision, extraction = "src_g6p8", "rev_g6p8", "ext_g6p8"
+    solution = Target("solution", extraction, "s2", "GSIXSOLVELEAD", source_id=source)
+    prose = Target("prose", extraction, "s3", "GSIXPROSELEAD", source_id=source)
+    blocks = [
+        _block("s1", sentence("GSIXITEMPASSAGE")),
+        _block("s2", "Solution: " + sentence(solution.mark)),
+        _block("s3", sentence(prose.mark)),
+    ]
+    _register_revision(world.repository, source_id=source, revision_id=revision)
+    world.repository.set_source_current_revision(source, revision)
+    _persist(world.repository, _ir([("practice_leads", "Practice leads", blocks, "sha256:leads", 1)]),
+             revision_id=revision, extraction_id=extraction)
+    _save_members(world.root, [*_members(world.root),
+                               {"source_id": source, "revision_id": revision, "default_role": "primary_textbook"}])
+    write_item(world.paths, "pi_g6_leads", "GSIXLEADITEM",
+               provenance={"origin": "human", "source_refs": [ref(source, extraction, "s1")]})
+    return solution, prose

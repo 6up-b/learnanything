@@ -36,6 +36,7 @@ from tests.protection_matrix_helpers import (
     Target,
     World,
     build_world,
+    seed_practice_leads,
     sentence,
     store_png,
     world_in_state,
@@ -1832,3 +1833,76 @@ def test_an_earlier_reader_answer_with_no_recorded_passages_is_left_out() -> Non
                                      Nothing()) == READER_ANSWER_WITHHELD
     with pytest.raises(RuntimeError):
         sendable_reader_answer_md(recorded, Broken())
+
+
+@pytest.fixture(scope="module")
+def practice_leads(probe_world: Probe) -> tuple[World, Target, Target]:
+    from learnloop.source_retrieval.corpus import block_roles
+
+    world = probe_world.world(probe_world.base.targets["0.control"], own="practice-leads")
+    solution, prose = seed_practice_leads(world)
+    with world.repository.connection() as connection:
+        assert block_roles(connection, [_span(solution), _span(prose)]) == {
+            _span(solution): "ordinary_prose", _span(prose): "ordinary_prose",
+        }
+    return world, solution, prose
+
+
+@pytest.mark.parametrize("context", ["practice", "library"])
+@pytest.mark.parametrize("exit_name", ["references", "reader-tutor", "pinned-tutor", "compare", "retrieved-pool"])
+def test_g6_p8_practice_leads(practice_leads, context: str, exit_name: str) -> None:
+    from learnloop.source_retrieval.compare import compare_sources
+    from learnloop.source_retrieval.policy import CallerContext
+    from learnloop.source_retrieval.reader_tutor import ReaderLookup
+    from learnloop.source_retrieval.tutor import (
+        PinnedSpanProvider, linked_reference_filter, reference_filter, tutor_pool, tutor_scope,
+    )
+    from learnloop.tutor.context_delivery import BlockSource
+    from learnloop.tutor.tutor_qa import _admitted_linked
+    from tests.source_service_fakes import FakeServiceLLM
+
+    world, solution, prose = practice_leads
+    vault, repository = world.vault(), world.repository
+    item = vault.practice_items["pi_g6_leads"]
+    bound = context == "practice"
+
+    def admitted(target: Target) -> dict[str, bool]:
+        extraction, span_id = _span(target)
+        source = BlockSource(repository.sqlite_path)
+        block = source.block(extraction, span_id)
+        assert block is not None
+        span = {"extraction_id": extraction, "span_id": span_id, "text": block.text, "relation": "retrieved"}
+        if exit_name == "references":
+            scope = tutor_scope(vault, repository, context=context, learning_object_ids=[LO], item=item)
+            assert scope.allows(extraction, span_id)
+            allow = reference_filter(vault, repository, scope, item=item if bound else None)
+            linked_allow = linked_reference_filter(vault, repository, context=context,
+                                                   learning_object_ids=[LO], item=item)
+            linked, _ = _admitted_linked(source, [span], linked_allow)
+            return {"reference": allow(extraction, block) is None, "linked fallback": bool(linked)}
+        if exit_name == "reader-tutor":
+            lookup = ReaderLookup(vault, repository, find=pytest.fail, policy="assisted_practice" if bound else "reading",
+                                  question=target.mark, item=item)
+            kept, _ = lookup._admitted([span])
+            return {"reader tutor": bool(kept)}
+        if exit_name == "pinned-tutor":
+            kept, _ = PinnedSpanProvider([target.key])(
+                vault, repository, context=context, question_md=target.mark, learning_object_ids=[LO], item=item)
+            return {"pinned tutor": bool(kept)}
+        if exit_name == "compare":
+            caller = CallerContext(kind="tutor", context=context, item_id=item.id)
+            fake = FakeServiceLLM()
+            kwargs = {"caller": caller, "source_ids": [target.source_id], "client": fake, "verify_client": fake}
+            candidate = compare_sources(vault, repository, target.mark, **kwargs)
+            pinned = compare_sources(vault, repository, target.mark, pinned_span_keys=[target.key], **kwargs)
+            return {"compare candidate": any(s["span_id"] == span_id for s in candidate.sources),
+                    "compare pin": not pinned.dropped_pins}
+        assert exit_name == "retrieved-pool"
+        pool = tutor_pool(vault, repository, context=context, question_md=target.mark,
+                          learning_object_ids=[LO], item=item, rewrite=False)
+        assert any(hit.key == target.key for hit in pool.search.hits)
+        return {"retrieved pool": any(hit.key == target.key for hit in pool.pool)}
+
+    assert all(admitted(prose).values())
+    answers = admitted(solution)
+    assert answers == dict.fromkeys(answers, not bound)

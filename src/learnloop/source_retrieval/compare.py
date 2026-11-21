@@ -84,7 +84,7 @@ from learnloop.db.stores.source_service import add_comparison_reuse_provenance, 
 from learnloop.ids import new_ulid
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.listwise import route_skip
-from learnloop.source_retrieval.corpus import Scope, exam_withheld, item_exclusions
+from learnloop.source_retrieval.corpus import Scope, exam_withheld, has_item_bound_lead, item_exclusions
 from learnloop.source_retrieval.find_sources import _span_keys, _verify, facet_lists, scope_for
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import embed_query_texts
@@ -373,9 +373,11 @@ def _compare_sources(
             why = NO_SUCH_PASSAGE if block is None else "it is exam material" if key in exam_keys \
                 else "the caller may not read it" if key in caller_keys \
                 else _pin_reason(scope, key, policy=derived, item=item)
-            if why is None and derived == "assisted_practice" and item is not None and span_leaks_expected(
-                    block.text, item.expected_answer):
-                why = "it reproduces the answer to the item you are practising"
+            if why is None and derived == "assisted_practice" and item is not None:
+                if span_leaks_expected(block.text, item.expected_answer):
+                    why = "it reproduces the answer to the item you are practising"
+                elif has_item_bound_lead(block.text):
+                    why = "not available while you're practising this item"
             if why is not None:
                 result.dropped_pins.append({"extraction_id": key[0], "span_id": key[1], "reason": why})
             else:
@@ -448,7 +450,8 @@ def _compare_sources(
                               rewrite=False, extra_lists=extra, query_vectors=vectors or None, owner_id=owner_id,
                               deadline=deadline, consumer="compare")
         hits = [hit for hit in search.hits if not (derived == "assisted_practice" and item is not None
-                                                   and span_leaks_expected(hit.text, item.expected_answer))]
+                                                   and (span_leaks_expected(hit.text, item.expected_answer)
+                                                        or has_item_bound_lead(hit.text)))]
         searches[source_id] = search
         if hits:
             per_source[source_id] = hits[:KEYS_PER_SOURCE]
