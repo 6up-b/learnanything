@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of the first evening's step 1 (one OK before every model route) and the contract check's steps 1 to 4 (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of the contract check's step 5 and AD memory's ADM0 (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -380,7 +380,7 @@ The owner decided on 2026-11-20 that five slices are built beside the refactor a
 | EP0t | The evidence-time rules readers already use, named: one serializable cutoff value with seven presets, a census of 60 callers, an inventory of what can be reconstructed historically, and the pinned identity of a prediction target | landed | this commit | [ep0t-time-policies.md](ep0t-time-policies.md) | 25 availability-SQL readers fit no preset and are left as they are: the record's question 1 |
 | EP0 | Attempt facts in one typed value and the named predicates over them, every caller's result unchanged | landed | this commit | [ep0-attempt-facts.md](ep0-attempt-facts.md) | Two discrepancies between readers are the owner's call (ledger EP0-1, EP0-2); 41 readers are named in the census but not moved (import contracts, the adaptive-difficulty guard, a frozen package cycle) |
 | EPp | Prediction snapshots and receipt repairs | waiting on | — | — | EP0t (landed) and a free worker |
-| ADM0 | Pre-registered simulation and descriptive baseline | not started | — | — | — |
+| ADM0 | Pre-registered simulation and descriptive baseline | landed | this commit | [adm0-preregistration.md](adm0-preregistration.md), [adm0-simulation-report.md](adm0-simulation-report.md) | The simulation cannot select the decay's support or a warmth ladder, and slow-retention recovery is inadequate: questions for the owner before ADM2a; the count on the owner's backup copies is still owed |
 | ADM1 | The predecessor's update and eligibility interface, and an unused memory fold | not started | — | — | — |
 
 ## Structured model answers: one shared contract check and one re-ask
@@ -390,6 +390,6 @@ The owner decided on 2026-11-20 that every structured model call gets one shared
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | Step 0 | The shared module (`ai/structured_contracts.py`), its registered count of one recovery shared with the provider's schema repair, and inert hooks; no caller uses it | landed | this commit | [structured-contracts-step-0.md](structured-contracts-step-0.md) | — |
-| Steps 1 to 5 | The five local fixes of Nov 20: three stay local (pinned by tests), the empty-build predicate is extracted, the follow-up question's re-ask moves onto the shared step | landed (1 to 4) | this commit | [structured-contracts-steps-1-4.md](structured-contracts-steps-1-4.md) | Step 5 (the follow-up question's re-ask on the shared step) is running; it amends step 0: the one re-ask counts contract re-asks only, a provider's schema repair keeps its own rule |
+| Steps 1 to 5 | The five local fixes of Nov 20: three stay local (pinned by tests), the empty-build predicate is extracted, the follow-up question's re-ask moves onto the shared step | landed | this commit | [structured-contracts-steps-1-4.md](structured-contracts-steps-1-4.md), [structured-contracts-step-5.md](structured-contracts-step-5.md) | Step 5 amended step 0: the one re-ask counts contract re-asks only; a provider's schema repair keeps its own rule (one per attempt, admitted by the caller); transport retries are untouched |
 | Steps 6 to 22 | Adoption by call-site family, starting with blank replies in live dialogue (tutor, teach-back, teacher) | waiting on | — | — | Steps 1 to 5; two owner questions (a strict rule for a second empty build; versions for predicates that change what counts as evidence) |
 
