@@ -299,6 +299,29 @@ and the phone:
 10. The 60 % learner: no finish without reaching the end; part-read questions unchanged; finishing later writes only
     the remaining topics.
 
+## The owner-copy lane, as run (2026-11-21; aggregates only)
+
+Backup-API copies of the owner's three vaults in a gitignored directory, with this branch; the copies were
+deleted afterwards. The live databases' SHA-256 were equal before the copy, after it and at the end.
+
+| | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Tag before | mvp-0.61 | mvp-0.58 | mvp-0.58 |
+| `learnloop upgrade --to mvp-0.63` | upgraded | upgraded | upgraded |
+| Section progress rows; finished, before and after | 12; 5 and 5 | 13; 13 and 13 | 9; 8 and 8 |
+| Digest of the progress rows (section, counts, completion, stamp), before and after | equal | equal | equal |
+| Completions with a cause after the upgrade | 0 | 0 | 0 |
+| Recorded ends; ends without a completion | 0; 0 | 0; 0 | 0; 0 |
+| Shadow rebuild: mastery, facet and schedule VALUES that differ | 0 | 0 | 0 |
+| Rows that differ only in their `algorithm_version` stamp | 37 mastery, 12 facet | 21 mastery, 4 facet | 18 mastery, 1 facet |
+| A second shadow rebuild | identical | identical | identical |
+| `foreign_key_check`; `integrity_check` | 0 rows; ok | 0 rows; ok | 0 rows; ok |
+| Attempts and receipt counts before and after | equal | equal | equal |
+
+No section is newly finished by the upgrade, no completion gains a cause, and no end existed to be turned
+into one (the owner's vaults predate the seen-passage tables). Doctor's errors are the content findings that
+predate this tag (see `algorithm-mvp-0.62.md`).
+
 ## Remaining limitations
 
 - The phone learns an end's finish only after a delivered outbox flush and a progress read; an end delivered on a later
