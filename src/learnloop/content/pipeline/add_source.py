@@ -2622,6 +2622,29 @@ def _note_part_read_states(fact: dict[str, Any], states: Iterable[tuple[str, str
                                    "section_end": read_to.section_end}
 
 
+def _count_topics(fact: dict[str, Any], job: Mapping[str, Any], parts: Sequence[Mapping[str, Any]], active: bool) -> None:
+    """One writing job's topics into the fact. ``progress`` (while it writes): its topics done of its topics, added up
+    over the jobs writing now, so it starts again at 0 with each wave. ``topics``: the book's own count over every one
+    of its writing jobs, finished ones included, so it runs on across waves: ``written``, topics whose questions were
+    written (held for a look or not; a topic that failed is neither), and ``writing``, those of the jobs writing now
+    still to write. A job that records no parts counts its reported progress."""
+
+    total = job.get("total_windows")
+    if total is None:
+        total = len((job.get("payload") or {}).get("learning_object_ids") or [])
+    reported = min(total, max(0, job.get("current_window") or 0))
+    if active and total:
+        progress = fact.setdefault("progress", {"done": 0, "total": 0})
+        progress["total"] += total
+        progress["done"] += reported
+    written = sum(1 for part in parts if part.get("patch_id") and not part.get("error")) if parts else reported
+    failed = sum(1 for part in parts if part.get("error"))
+    topics = fact.setdefault("topics", {"written": 0, "writing": 0})
+    topics["written"] += written
+    if active:
+        topics["writing"] += max(0, total - written - failed)
+
+
 def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
     """The questions written from what the learner finished reading of this
     book: the only questions an as-you-read book gets. Its build writes topics
@@ -2664,7 +2687,9 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     label), ``heading``, ``words``, ``section_end``.
 
     ``awaiting_ok``, present only when some: of ``to_look_at``, the questions
-    an OK would apply (:func:`_awaiting_ok`)."""
+    an OK would apply (:func:`_awaiting_ok`). ``topics``, present only while
+    some are being written: the book's topics written so far and still being
+    written, across every wave of its writing (:func:`_count_topics`)."""
 
     from learnloop.content.pipeline import wait_detail
     from learnloop.content.pipeline.runner import effective_ingest_job_status
@@ -2704,14 +2729,7 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
             # Another job writes too: its topic's place among this job's topics is not its place among all the
             # topics the screen counts ("0 of 4 topics done" adds the jobs up), so only its name is kept.
             fact["writing_detail"]["topic"] = {**fact["writing_detail"]["topic"], "index": None, "total": None}
-        if active:
-            total = job.get("total_windows")
-            if total is None:
-                total = len((job.get("payload") or {}).get("learning_object_ids") or [])
-            if total:
-                progress = fact.setdefault("progress", {"done": 0, "total": 0})
-                progress["total"] += total
-                progress["done"] += min(total, max(0, job.get("current_window") or 0))
+        _count_topics(fact, job, parts, active)
         failed_topics = [str(part["topic_id"]) for part in parts if part.get("error")]
         if failed_topics:
             names = [getattr(vault.learning_objects.get(topic), "title", topic) for topic in failed_topics]
@@ -2818,6 +2836,8 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     fact["writing"] = list(dict.fromkeys(fact["writing"]))
     fact["sections"] = list(dict.fromkeys(fact["sections"]))
     fact["count"] = len(fact["item_ids"])
+    if not fact.get("topics", {}).get("writing"):
+        fact.pop("topics", None)
     later = _not_askable_now(repo, fact["item_ids"], utc_now_iso(clock))
     if later:
         fact["later_item_ids"] = later
