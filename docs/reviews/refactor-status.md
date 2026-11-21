@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of evidence packets' EP0, the first evening's step 3 and the protection fix G6-P8 (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of the first evening's step 1 (one OK before every model route) and the contract check's steps 1 to 4 (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -359,7 +359,7 @@ A first set of questions from the part read; a section's end finishes it; an hon
 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
-| Step 1 | One OK before every model route (UX-10): one acceptance record, no call before it, one sheet | not started | — | — | — |
+| Step 1 | One OK before every model route (UX-10): one acceptance record, no call before it, one sheet | landed | this commit | [first-evening-step-1.md](first-evening-step-1.md) | The phone cannot record the OK yet: it says to give it on the desktop and sends nothing |
 | Step 2 | Which passages were seen (migration 256, two append-only tables) and the section's end as an observation; nothing reads them yet | landed | this commit | [first-evening-step-2.md](first-evening-step-2.md) | — |
 | Step 3 | Question work owned per topic (migration 257, one claim per topic, the `topic_managed` stamp, topic-scoped checkpoints); old section jobs indexed and resumed unchanged; still triggered only by a section's finish | landed | this commit | [first-evening-step-3.md](first-evening-step-3.md) | — |
 | Step 4 | A topic gets its questions once every passage it cites has been seen; Today says what is and is not ready | not started | — | — | — |
@@ -390,6 +390,6 @@ The owner decided on 2026-11-20 that every structured model call gets one shared
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | Step 0 | The shared module (`ai/structured_contracts.py`), its registered count of one recovery shared with the provider's schema repair, and inert hooks; no caller uses it | landed | this commit | [structured-contracts-step-0.md](structured-contracts-step-0.md) | — |
-| Steps 1 to 5 | The five local fixes of Nov 20: three stay local (pinned by tests), the empty-build predicate is extracted, the follow-up question's re-ask moves onto the shared step | not started | — | — | — |
+| Steps 1 to 5 | The five local fixes of Nov 20: three stay local (pinned by tests), the empty-build predicate is extracted, the follow-up question's re-ask moves onto the shared step | landed (1 to 4) | this commit | [structured-contracts-steps-1-4.md](structured-contracts-steps-1-4.md) | Step 5 (the follow-up question's re-ask on the shared step) is running; it amends step 0: the one re-ask counts contract re-asks only, a provider's schema repair keeps its own rule |
 | Steps 6 to 22 | Adoption by call-site family, starting with blank replies in live dialogue (tutor, teach-back, teacher) | waiting on | — | — | Steps 1 to 5; two owner questions (a strict rule for a second empty build; versions for predicates that change what counts as evidence) |
 
