@@ -601,6 +601,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "reader_seen_spans": (
         "extraction_id span_id section_id first_seen_at origin",
         ""),
+    # Migration 257: DENIED; the frozen grounding (quotes) and an error are its only text.
+    "reader_topic_question_work": (
+        "id learning_object_id purpose owner source_id extraction_id section_id trigger_event passage_ids_json "
+        "requested_count model_settings_json work_key batch_id job_id proposal_ids_json state claimed_at updated_at",
+        "source_refs_json error"),
     "section_coverage": (
         "id extraction_id section_id learning_object_id treatment origin candidate_rank learner_override "
         "section_hash lo_hash state_key ledger_id model prompt_version created_at",

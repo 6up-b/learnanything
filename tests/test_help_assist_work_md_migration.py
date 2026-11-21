@@ -53,12 +53,13 @@ def _later():
     from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
     from tests.decision_records_migration_helpers import B1_ADDED_OBJECTS, B1_ALTERED_TABLES
     from tests.reader_seen_spans_migration_helpers import SEEN_SPANS_ADDED_OBJECTS
+    from tests.reader_topic_question_work_migration_helpers import TOPIC_WORK_ADDED_OBJECTS
     from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
     from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
     from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 
     # _schema reads objects with SQL only: TE1's (and RW5d P5's 237's) autoindexes are not among them.
-    te1_added = {name for name in TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS if not name.startswith("sqlite_autoindex")}
+    te1_added = {name for name in TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS | TOPIC_WORK_ADDED_OBJECTS if not name.startswith("sqlite_autoindex")}
     return P3_ADDED_OBJECTS | te1_added, P3_ALTERED_TABLES | TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | K35_ALTERED_TABLES) | TE3A_ALTERED_TABLES
 
 
