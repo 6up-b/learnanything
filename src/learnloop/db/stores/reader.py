@@ -1140,10 +1140,17 @@ class ReaderStoreMixin:
         seen_span_ids: Sequence[str] = (),
         end_span_id: str | None = None,
         observed_by: str | None = None,
+        completion_cause: str | None = None,
+        completion_version: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Monotone upsert: spans_seen/span_count only grow; revealed_at /
         completed_at stamp once and never clear; generation_batch_id untouched.
+
+        ``completion_cause`` and ``completion_version`` (migration 259) are
+        written with the completion that first stamps ``completed_at`` and never
+        after: a later report, whatever it carries, keeps the original
+        completion, its cause and its tag.
 
         ``keep_ahead_request`` also records this section as the book's reading
         request (``record_reading_request``) in the same transaction, so a
@@ -1180,14 +1187,21 @@ class ReaderStoreMixin:
                 """
                 INSERT INTO reader_section_progress(
                   extraction_id, section_id, spans_seen, span_count,
-                  revealed_at, completed_at, generation_batch_id, updated_at
+                  revealed_at, completed_at, generation_batch_id, updated_at,
+                  completion_cause, completion_algorithm_version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+                VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
                 ON CONFLICT(extraction_id, section_id) DO UPDATE SET
                   spans_seen = MAX(reader_section_progress.spans_seen, excluded.spans_seen),
                   span_count = MAX(reader_section_progress.span_count, excluded.span_count),
                   revealed_at = COALESCE(reader_section_progress.revealed_at, excluded.revealed_at),
                   completed_at = COALESCE(reader_section_progress.completed_at, excluded.completed_at),
+                  -- Read against the row as it was: only the completion that stamps completed_at names its cause.
+                  completion_cause = CASE WHEN reader_section_progress.completed_at IS NULL
+                    THEN excluded.completion_cause ELSE reader_section_progress.completion_cause END,
+                  completion_algorithm_version = CASE WHEN reader_section_progress.completed_at IS NULL
+                    THEN excluded.completion_algorithm_version
+                    ELSE reader_section_progress.completion_algorithm_version END,
                   updated_at = excluded.updated_at
                 """,
                 (
@@ -1198,6 +1212,8 @@ class ReaderStoreMixin:
                     now if revealed else None,
                     now if completed else None,
                     now,
+                    completion_cause if completed else None,
+                    completion_version if completed else None,
                 ),
             )
             connection.commit()
@@ -1268,7 +1284,8 @@ class ReaderStoreMixin:
         """Carry section progress onto a new reading of the same book (re-read
         safety, 2026-10-14). Each row names ``section_id``, ``spans_seen``,
         ``span_count``, ``revealed_at``, ``completed_at`` and
-        ``generation_batch_id``; the same monotone rules as
+        ``generation_batch_id`` (and, for a carried completion, its
+        ``completion_cause`` and ``completion_algorithm_version``); the same monotone rules as
         :meth:`upsert_reader_section_progress` apply, and a carried generation
         stamp keeps a section from building its questions twice."""
 
@@ -1278,6 +1295,8 @@ class ReaderStoreMixin:
                 extraction_id, str(row["section_id"]), int(row.get("spans_seen") or 0),
                 int(row.get("span_count") or 0), row.get("revealed_at"), row.get("completed_at"),
                 row.get("generation_batch_id"), now,
+                row.get("completion_cause") if row.get("completed_at") else None,
+                row.get("completion_algorithm_version") if row.get("completed_at") else None,
             )
             for row in rows
         ]
@@ -1288,14 +1307,20 @@ class ReaderStoreMixin:
                 """
                 INSERT INTO reader_section_progress(
                   extraction_id, section_id, spans_seen, span_count,
-                  revealed_at, completed_at, generation_batch_id, updated_at
+                  revealed_at, completed_at, generation_batch_id, updated_at,
+                  completion_cause, completion_algorithm_version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(extraction_id, section_id) DO UPDATE SET
                   spans_seen = MAX(reader_section_progress.spans_seen, excluded.spans_seen),
                   span_count = MAX(reader_section_progress.span_count, excluded.span_count),
                   revealed_at = COALESCE(reader_section_progress.revealed_at, excluded.revealed_at),
                   completed_at = COALESCE(reader_section_progress.completed_at, excluded.completed_at),
+                  completion_cause = CASE WHEN reader_section_progress.completed_at IS NULL
+                    THEN excluded.completion_cause ELSE reader_section_progress.completion_cause END,
+                  completion_algorithm_version = CASE WHEN reader_section_progress.completed_at IS NULL
+                    THEN excluded.completion_algorithm_version
+                    ELSE reader_section_progress.completion_algorithm_version END,
                   generation_batch_id = COALESCE(reader_section_progress.generation_batch_id,
                                                  excluded.generation_batch_id),
                   updated_at = excluded.updated_at

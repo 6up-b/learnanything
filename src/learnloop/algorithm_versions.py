@@ -961,7 +961,7 @@ COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION = "mvp-0.62"
 # mvp-0.63 (a section's end finishes it; docs/reviews/algorithm-mvp-0.63.md), on top of the committed-check credit's
 # mvp-0.62. Which event writes a section's completion changes, and with it when a plan's reading block ends and when
 # the section's reading exposure is recorded. At this tag an acknowledged end observation (the section's last readable
-# passage shown during the learner's own reading, recorded in ``reader_section_ends``) finishes the section once,
+# passage shown during the learner's own reading, as the progress report records it) finishes the section once,
 # through the same operation as the learner's explicit "I've read this section"; closing a quick check and choosing
 # what to do with its idea no longer finish it. The completion stores its cause and the tag it was written under.
 # Completions, ends and exposures already recorded keep their meaning, and no end recorded before the upgrade finishes
