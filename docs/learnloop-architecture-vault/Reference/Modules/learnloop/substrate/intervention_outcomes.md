@@ -106,6 +106,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/attempts/fact_predicates|learnloop.attempts.fact_predicates]] — imports `is_assisted`; statically calls `is_assisted`
 - [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] — imports `COLD_STATES`, `MEASURED_COLD_STATES`, `SUCCESS_CORRECTNESS`, `rebuild_intervention_outcomes`; statically calls `rebuild_intervention_outcomes`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `SUCCESS_CORRECTNESS`, `is_assisted`; statically calls `is_assisted`
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `SUCCESS_CORRECTNESS`, `is_assisted`; statically calls `is_assisted`
@@ -135,12 +136,14 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]], [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]], [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/fact_predicates|learnloop.attempts.fact_predicates]], [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]], [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
+  - `test_intervention_outcomes_counts_an_open_text_answer_as_assisted`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
   - `test_recent_retrieval_resets_the_cold_delay_anchor`
 - [tests/test_intervention_outcomes_replayer.py](../../../../../../tests/test_intervention_outcomes_replayer.py) — direct import

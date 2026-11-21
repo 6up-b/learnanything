@@ -109,6 +109,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/learner_blindness_relax_helpers.py](../../../../../../../tests/learner_blindness_relax_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
+- [tests/test_attempt_predicate_characterization.py](../../../../../../../tests/test_attempt_predicate_characterization.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_diagnosis_context.py](../../../../../../../tests/test_diagnosis_context.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_diagnosis_contract.py](../../../../../../../tests/test_diagnosis_contract.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
@@ -119,7 +120,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_hypothesis_marks.py](../../../../../../../tests/test_hypothesis_marks.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
-- [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]]
 
 ## Modification guidance
 

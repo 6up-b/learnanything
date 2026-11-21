@@ -16,6 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/167_learner_field_outcomes.sql"
+  - "src/learnloop/attempts/fact_predicates.py"
   - "src/learnloop/db/stores/field.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:

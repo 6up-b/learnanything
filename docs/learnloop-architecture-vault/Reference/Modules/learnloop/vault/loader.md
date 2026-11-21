@@ -667,6 +667,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_graded_before_an_editing_sync_keeps_the_edited_hash`
   - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
+- [tests/test_attempt_facts.py](../../../../../../tests/test_attempt_facts.py) — direct import
+  - `test_a_withheld_item_behind_the_material_view_reads_as_if_it_were_never_stored`
+- [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -3027,6 +3030,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_cover_source_judges_and_caps_a_metered_run`
   - `test_cover_source_refuses_a_withheld_reading`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_a_failed_topic_resumes_its_own_batch_and_frozen_request_and_no_other_section_takes_it`
   - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
   - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`

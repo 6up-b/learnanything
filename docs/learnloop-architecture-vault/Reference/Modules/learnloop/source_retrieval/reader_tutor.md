@@ -46,50 +46,50 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py) |
-| Source lines | 605 |
+| Source lines | 603 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `learner_query(question_md: str, *, ancestors: Sequence[Mapping[str, Any]]=()) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 87) — The learner's own part of the tutor's query: the question and its latest ancestors' questions, whitespace-normalized (never withheld; cut at the query's limit as before).
-- `reader_query(question_md: str, *, ancestors: Sequence[Mapping[str, Any]]=(), gaps: Sequence[Mapping[str, Any]]=()) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 100) — The tutor's own query: the question, its latest ancestors' questions and (personalized) the open-gap statements, within ``QUERY_CHARS``.
-- `another_way_label(hits: Sequence[Mapping[str, Any]], shown_sources: Sequence[str]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 130) — How "another way"'s passages differ from what the inquiry showed.
-- `class ReaderLookup` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 144) — One Reader question's retrieval, bound by the adapter (``ReaderTutorRequest.retrieve``).
-  - `query(self, gaps: Sequence[Mapping[str, Any]] | None=None) -> str` (line 176; public) — The tutor's own query, from these gap statements (default: as read).
-  - `learner_query(self) -> str` (line 182; public) — The learner's own part of the query (the plan fits the rest to it when bound).
-  - `__call__(self, inputs: Mapping[str, Any] | None=None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]` (line 187; internal)
-  - `_admitted(self, hits: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]` (line 245; internal) — The hits that may reach the tutor: never held-out material; item-bound, never an exercise or solution lead nor a passage reproducing the item's answer (``find_sources`` already applied the policy's scope; this is the second guard).
-- `class ItemBoundGuard` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 274) — T6's item-bound exclusions over every span the tutor would be given (Codex review F3): the passages linked to the item (``item_exclusions``: its own worked answer, whatever the relation), every exercise and solution block (by lead and by effective role) and every passage that re…
-  - `__call__(self, spans: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]` (line 286; internal)
-  - `text_leaks(self, text: str) -> bool` (line 313; public) — The guard's check for one model-written or source text that is not a block (fix round 5, R2: an earlier answer in the thread, a line of the learner-work context): it leads as a solution or reproduces the item's answer.
-  - `text_overlap(self, text: str) -> float` (line 329; public) — The same matcher's score for one text (fix round 6, R1): how much of the item's answer it exposes, a solution lead counting as all of it.
-- `inquiry_exchanges(exchanges: Sequence[Mapping[str, Any]], exchange_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 352) — Every exchange of the inquiry ``exchange_id`` belongs to (its root's tree), oldest first.
-- `shown_span_keys(exchanges: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 376) — Every passage an inquiry has shown: each exchange's selection, citations, excerpt and the passages its tutor retrieved.
-- `offer_shown_span_keys(repository: Repository, exchanges: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 403) — The passages the inquiry's offers showed (Codex review F7): the exposure rows a pressed passage or comparison offer wrote (``record_source_offer_shown``: entity ``source_tool_call``, a request the tutor made from one of these questions) and the excerpts' own rows (entity ``quest…
-- `shown_source_ids(repository: Repository, keys: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 432) — The sources the shown passages belong to (for "from a different book").
-- `named_gap_hypotheses(repository: Repository, exchanges: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 445) — The gaps learner-text gaps named from the inquiry's questions, as ``target_hypotheses`` (``named_gap`` refs the sources service resolves).
-- `passage_learning_objects(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_ids: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 466) — The passage's learning objects: its section's provenance-linked LOs (RW4a's anchor), else the LOs whose current source links name one of its blocks (``entity_source_links``, ``primary`` or ``support``).
-- `learner_work(vault: LoadedVault, repository: Repository, learning_object_ids: Sequence[str], *, gaps: Sequence[Mapping[str, Any]] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 490) — The learner's open questions (statements, labelled LearnLoop's reading) and most recent workbench steps (their own words) on these LOs: the same class of data the hint writer already sends (spec §5.8).
-- `next_step_buttons(repository: Repository, *, extraction_id: str, cited: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 541) — "Try the next step first" on each cited block of the open source that is a derivation or a worked example (RW1b's next-step question at that line).
-- `explorable_buttons(repository: Repository, *, extraction_id: str, explorable: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 560) — RW5b: "make this explorable" on each block of the open source the tutor judged explorable (the answer view's ``explorable``) that is an equation or a figure.
-- `citation_dicts(raw: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 573) — Citations as plain dicts whatever their stored shape.
+- `learner_query(question_md: str, *, ancestors: Sequence[Mapping[str, Any]]=()) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 86) — The learner's own part of the tutor's query: the question and its latest ancestors' questions, whitespace-normalized (never withheld; cut at the query's limit as before).
+- `reader_query(question_md: str, *, ancestors: Sequence[Mapping[str, Any]]=(), gaps: Sequence[Mapping[str, Any]]=()) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 99) — The tutor's own query: the question, its latest ancestors' questions and (personalized) the open-gap statements, within ``QUERY_CHARS``.
+- `another_way_label(hits: Sequence[Mapping[str, Any]], shown_sources: Sequence[str]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 129) — How "another way"'s passages differ from what the inquiry showed.
+- `class ReaderLookup` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 143) — One Reader question's retrieval, bound by the adapter (``ReaderTutorRequest.retrieve``).
+  - `query(self, gaps: Sequence[Mapping[str, Any]] | None=None) -> str` (line 175; public) — The tutor's own query, from these gap statements (default: as read).
+  - `learner_query(self) -> str` (line 181; public) — The learner's own part of the query (the plan fits the rest to it when bound).
+  - `__call__(self, inputs: Mapping[str, Any] | None=None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]` (line 186; internal)
+  - `_admitted(self, hits: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]` (line 244; internal) — The hits that may reach the tutor: never held-out material; item-bound, never an exercise or solution lead nor a passage reproducing the item's answer (``find_sources`` already applied the policy's scope; this is the second guard).
+- `class ItemBoundGuard` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 273) — T6's item-bound exclusions over every span the tutor would be given (Codex review F3): the passages linked to the item (``item_exclusions``: its own worked answer, whatever the relation), every exercise and solution block (by lead and by effective role) and every passage that re…
+  - `__call__(self, spans: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]` (line 285; internal)
+  - `text_leaks(self, text: str) -> bool` (line 311; public) — The guard's check for one model-written or source text that is not a block (fix round 5, R2: an earlier answer in the thread, a line of the learner-work context): it leads as a solution or reproduces the item's answer.
+  - `text_overlap(self, text: str) -> float` (line 327; public) — The same matcher's score for one text (fix round 6, R1): how much of the item's answer it exposes, a solution lead counting as all of it.
+- `inquiry_exchanges(exchanges: Sequence[Mapping[str, Any]], exchange_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 350) — Every exchange of the inquiry ``exchange_id`` belongs to (its root's tree), oldest first.
+- `shown_span_keys(exchanges: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 374) — Every passage an inquiry has shown: each exchange's selection, citations, excerpt and the passages its tutor retrieved.
+- `offer_shown_span_keys(repository: Repository, exchanges: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 401) — The passages the inquiry's offers showed (Codex review F7): the exposure rows a pressed passage or comparison offer wrote (``record_source_offer_shown``: entity ``source_tool_call``, a request the tutor made from one of these questions) and the excerpts' own rows (entity ``quest…
+- `shown_source_ids(repository: Repository, keys: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 430) — The sources the shown passages belong to (for "from a different book").
+- `named_gap_hypotheses(repository: Repository, exchanges: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 443) — The gaps learner-text gaps named from the inquiry's questions, as ``target_hypotheses`` (``named_gap`` refs the sources service resolves).
+- `passage_learning_objects(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_ids: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 464) — The passage's learning objects: its section's provenance-linked LOs (RW4a's anchor), else the LOs whose current source links name one of its blocks (``entity_source_links``, ``primary`` or ``support``).
+- `learner_work(vault: LoadedVault, repository: Repository, learning_object_ids: Sequence[str], *, gaps: Sequence[Mapping[str, Any]] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 488) — The learner's open questions (statements, labelled LearnLoop's reading) and most recent workbench steps (their own words) on these LOs: the same class of data the hint writer already sends (spec §5.8).
+- `next_step_buttons(repository: Repository, *, extraction_id: str, cited: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 539) — "Try the next step first" on each cited block of the open source that is a derivation or a worked example (RW1b's next-step question at that line).
+- `explorable_buttons(repository: Repository, *, extraction_id: str, explorable: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 558) — RW5b: "make this explorable" on each block of the open source the tutor judged explorable (the answer view's ``explorable``) that is an equation or a figure.
+- `citation_dicts(raw: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 571) — Citations as plain dicts whatever their stored shape.
 
 ### Module constants
 
-- `READER_INTENTS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 62)
-- `QUERY_ANCESTORS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 64)
-- `QUERY_GAPS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 67)
-- `QUERY_CHARS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 68)
-- `BOUND_QUERY_CHARS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 73)
-- `NEXT_STEP_ROLES` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 76)
-- `FROM_ANOTHER_BOOK` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 78)
-- `WORKED_EXAMPLE_INSTEAD` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 79)
-- `SAME_BOOK_OTHER_PASSAGE` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 80)
-- `VERIFIED` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 82)
-- `WORK_STEPS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 84)
-- `SELECTION_RELATIONS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 270)
+- `READER_INTENTS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 61)
+- `QUERY_ANCESTORS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 63)
+- `QUERY_GAPS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 66)
+- `QUERY_CHARS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 67)
+- `BOUND_QUERY_CHARS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 72)
+- `NEXT_STEP_ROLES` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 75)
+- `FROM_ANOTHER_BOOK` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 77)
+- `WORKED_EXAMPLE_INSTEAD` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 78)
+- `SAME_BOOK_OTHER_PASSAGE` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 79)
+- `VERIFIED` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 81)
+- `WORK_STEPS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 83)
+- `SELECTION_RELATIONS` ([src/learnloop/source_retrieval/reader_tutor.py](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 269)
 
 ### Explicit exports
 
@@ -118,9 +118,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_span(hit: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 119)
-- `_delivered(text: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 340) — ``text`` unchanged, after checking it is the canonical, delivered form.
-- `_latest_session(repository: Repository, item_ids: Sequence[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 516)
+- `_span(hit: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 118)
+- `_delivered(text: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 338) — ``text`` unchanged, after checking it is the canonical, delivered form.
+- `_latest_session(repository: Repository, item_ids: Sequence[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reader_tutor.py), line 514)
 
 ## Who imports or calls it
 
@@ -145,11 +145,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `format_block_span`; calls `format_block_span`
 - [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] — imports `named_gaps`; calls `named_gaps`
 - [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `live_steps`; calls `live_steps`
-- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `block_roles`, `item_exclusions`; calls `block_roles`, `item_exclusions`
+- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `ITEM_BOUND_LEAD_ROLES`, `block_roles`, `has_item_bound_lead`, `item_exclusions`; calls `block_roles`, `has_item_bound_lead`, `item_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `QUESTION_CHARS`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `anchor_learning_objects`, `open_questions`; calls `anchor_learning_objects`, `open_questions`
 - [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] — imports `MAX_QUERY_CHARS`
-- [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `ITEM_BOUND_LEAD_ROLES`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `verification_route`; calls `verification_route`
 - [[Reference/Modules/learnloop/text_canon|learnloop.text_canon]] — imports `canonical`; calls `canonical`
 - [[Reference/Modules/learnloop/tutor/reader_modes|learnloop.tutor.reader_modes]] — imports `module`; calls `open_question_work`
@@ -173,6 +172,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_g6_p8_practice_leads`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import
   - `test_a_placeholder_the_key_matches_is_replaced_by_nothing`
   - `test_every_sent_model_written_fragment_was_checked`

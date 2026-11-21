@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/add_source.py](../../../../../../../src/learnloop/content/pipeline/add_source.py) |
-| Source lines | 3256 |
+| Source lines | 3308 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -129,15 +129,15 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `build_progress(jobs: Iterable[Mapping[str, Any]]) -> dict[str, int] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2500) — How far a build is, in its own steps: each model window of its inventory and each pass of its synthesis, ``{"done": d, "total": t}``.
 - `section_topics_settled(repo, extraction_id: str, section_id: str) -> tuple[bool, str | None]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2553) — Whether the topics a finished section's questions are written from are in: the build of the section's chapter has settled (finished, nothing waiting for a look, not taken back out).
 - `reading_questions(repo, vault, source_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2576) — The questions written from what the learner finished reading of this book: the only questions an as-you-read book gets.
-- `source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2742) — The one quiet line a book card shows, or ``None`` when there is nothing to say.
-- `pending_adds(repo, *, limit: int=30) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3043) — Adds whose link is still being fetched (no library card yet): every unfinished Add, not a window over the queue (review F10).
-- `pending_title(source: str, category: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3070) — A readable name for a link still being fetched (usability round 1: the video's card was titled with its raw URL).
-- `latest_add_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3088)
-- `latest_planner(repo, source_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3093) — The planning job the card's line speaks for, and its outcome (a planner an Undo or a cancel stopped before it ran is skipped, and so is one that found every chapter already built or building: the build that covers them is what the line is about, and a skip has no line of its own…
-- `whole_book_state(vault, repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3109) — What building the whole book at once would do, by the planner's own rule (chapters not exam material, not front matter, not already built or building): ``"left"`` (some chapter is still to build), ``"building"`` (every chapter is built or being built, some of it now), ``"built"`…
-- `whole_book_notice(state: str, noun: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3139) — What the whole-book press says when there is nothing left to build.
-- `latest_build_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3153)
-- `retry_build(ingest_jobs, source_id: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3161) — The card's Retry for a failed automatic build (§6.7, review F11): the zero-model repair and revalidation of a preserved candidate first; a fresh model run only when there is none, or repairing it already failed, and then under a new admission (a new attempt of each paid job).
+- `source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2794) — The one quiet line a book card shows, or ``None`` when there is nothing to say.
+- `pending_adds(repo, *, limit: int=30) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3095) — Adds whose link is still being fetched (no library card yet): every unfinished Add, not a window over the queue (review F10).
+- `pending_title(source: str, category: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3122) — A readable name for a link still being fetched (usability round 1: the video's card was titled with its raw URL).
+- `latest_add_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3140)
+- `latest_planner(repo, source_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3145) — The planning job the card's line speaks for, and its outcome (a planner an Undo or a cancel stopped before it ran is skipped, and so is one that found every chapter already built or building: the build that covers them is what the line is about, and a skip has no line of its own…
+- `whole_book_state(vault, repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3161) — What building the whole book at once would do, by the planner's own rule (chapters not exam material, not front matter, not already built or building): ``"left"`` (some chapter is still to build), ``"building"`` (every chapter is built or being built, some of it now), ``"built"`…
+- `whole_book_notice(state: str, noun: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3191) — What the whole-book press says when there is nothing left to build.
+- `latest_build_batch(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3205)
+- `retry_build(ingest_jobs, source_id: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3213) — The card's Retry for a failed automatic build (§6.7, review F11): the zero-model repair and revalidation of a preserved candidate first; a fresh model run only when there is none, or repairing it already failed, and then under a new admission (a new attempt of each paid job).
 
 ### Module constants
 
@@ -285,14 +285,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_health_line(repo, source_id: str, *, config=None, vault_root=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2393)
 - `_scope_size(outcome: Mapping[str, Any]) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2440) — How many sections a build covers (its units, else its chapters).
 - `_settled_chapter_builds(repo, source_id: str) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2533) — Each chapter whose automatic build has settled, with that build's end: finished, nothing of it waiting for a look, not taken back out.
-- `_not_askable_now(repo, item_ids: Sequence[str], now_iso: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2684) — Of ``item_ids``, in their order, those Today cannot offer now.
-- `_waiting_turn_line(repo, import_job: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2709) — An import still queued while another book's work runs: the queue takes one job at a time, so it waits its turn (seconds of its own work behind minutes of another's), and "Getting this PDF ready" said nothing of why.
-- `_budget_used_line(details: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2737)
-- `_source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2766)
-- `_study_map_questions(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2968) — What study-map builds that read this book left (round-2 review F6): ``"applied"`` when a finished build's questions were applied and are still in, ``"pending"`` when a finished build's questions still wait for a look, else ``None``.
-- `_built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3000) — Every chapter the book's questions cover so far (``Ch.
-- `_unit_tree(repo, extraction_id: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3016) — Just the extraction's units (id, parent, label), enough for ``outline_chapters``' chapter list and labels: the card's line is read on every library poll and keeping a chapter ahead on every reading-progress report, and the full outline loads the book's text once per unit (usabil…
-- `_category_of(source: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3036)
+- `_not_askable_now(repo, item_ids: Sequence[str], now_iso: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2736) — Of ``item_ids``, in their order, those Today cannot offer now.
+- `_waiting_turn_line(repo, import_job: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2761) — An import still queued while another book's work runs: the queue takes one job at a time, so it waits its turn (seconds of its own work behind minutes of another's), and "Getting this PDF ready" said nothing of why.
+- `_budget_used_line(details: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2789)
+- `_source_status_line(repo, vault, source_id: str | None, *, batch_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 2818)
+- `_study_map_questions(repo, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3020) — What study-map builds that read this book left (round-2 review F6): ``"applied"`` when a finished build's questions were applied and are still in, ``"pending"`` when a finished build's questions still wait for a look, else ``None``.
+- `_built_phrase(repo, source_id: str, outcome: Mapping[str, Any], noun: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3052) — Every chapter the book's questions cover so far (``Ch.
+- `_unit_tree(repo, extraction_id: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3068) — Just the extraction's units (id, parent, label), enough for ``outline_chapters``' chapter list and labels: the card's line is read on every library poll and keeping a chapter ahead on every reading-progress report, and the full outline loads the book's text once per unit (usabil…
+- `_category_of(source: Any) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/add_source.py), line 3088)
 
 ## Who imports or calls it
 
@@ -341,7 +341,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `APPEND_INPUT_OVER_CEILING`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `JobOwnershipLost`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
-- [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `SECTION_DEFERRED_TO_PRIMARY`, `SECTION_ENQUEUING`, `SECTION_NONE_NEEDED`, `SECTION_NONE_NEEDED_BEFORE`, `SECTION_WAITING_FOR_BUILD`
+- [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `SECTION_DEFERRED_TO_PRIMARY`, `SECTION_ENQUEUING`, `SECTION_NONE_NEEDED`, `SECTION_NONE_NEEDED_BEFORE`, `SECTION_TOPIC_MANAGED`, `SECTION_WAITING_FOR_BUILD`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `extraction_units`; calls `extraction_units`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `kebab_case`; calls `kebab_case`
 - [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] — imports `datalab_api_key`, `marker_available`; calls `datalab_api_key`, `marker_available`
@@ -452,6 +452,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_section_done_before_build.py](../../../../../../../tests/test_section_done_before_build.py) — direct import
   - `test_a_planner_that_found_nothing_to_build_never_hides_the_books_line`
   - `test_a_section_finished_before_a_build_that_stops_gets_its_questions_when_a_retry_works`
+  - `test_a_section_finished_before_the_build_and_another_citing_its_topic_claim_it_once`
   - `test_a_section_no_topic_cites_settles_as_needing_none_once_the_build_applies`
   - `test_an_old_none_needed_row_with_topics_citing_it_now_is_picked_up_once`
 - [tests/test_status_line_waiting_turn.py](../../../../../../../tests/test_status_line_waiting_turn.py) — direct import

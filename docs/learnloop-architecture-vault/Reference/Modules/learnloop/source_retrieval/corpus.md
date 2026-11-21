@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py) |
-| Source lines | 762 |
+| Source lines | 779 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,23 +62,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `library_scope(repository: Repository) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 106) — Today's library search scope: every reader-enabled source, nothing excluded.
 - `extraction_scope(repository: Repository, extraction_id: str) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 114)
 - `class Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 170) — What a teaching context never reads: whole extractions and single spans.
-- `teaching_exclusions(vault: LoadedVault, repository: Repository, *, readable_roles: frozenset[str]=frozenset()) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 226) — Everything a teaching context never reads, vault-wide.
-- `exam_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 258) — Exam material only, by the one predicate (``content.sources.exam_material``): the narrow part of :func:`teaching_exclusions` the canonical-sources paths that read the whole library withhold (tutor pins, ``find_sources`` pools, comparisons); notes, problem sets and solutions keep…
-- `source_exam_exclusions(vault: LoadedVault, repository: Repository, *, source_id: str, revision_id: str | None) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 268) — The exam material a book's automatic build must leave out (UX Phase 1: a book's scope is planned before its first study map exists), by the one predicate (``content.sources.exam_material``), so there is exactly one exam and held-out test.
-- `exam_withheld(vault: LoadedVault, repository: Repository, keys: Iterable[tuple[str, str]]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 286) — The keys among ``keys`` that are exam material (the one predicate).
-- `assessment_spans(vault: LoadedVault, repository: Repository) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 293) — The span-level part of :func:`teaching_exclusions` (whole extractions aside).
-- `effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 313) — The block's role hint, unless only a heading substring gave it.
-- `role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 334) — Blocks whose EFFECTIVE role hint is one of ``roles`` (a positive filter).
-- `role_proposal_keys(vault: LoadedVault, repository: Repository, extraction_ids: Iterable[str], roles: Iterable[str]) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 356) — Spans a role proposal gives one of ``roles``: ``(confident, low)``.
-- `block_roles(connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str | None]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 412) — Each block's EFFECTIVE role (:func:`effective_hint`), a solution region's body included: the unhinted text after a "Solution:" lead is ``solution``.
-- `model_reader_withheld(vault: LoadedVault, repository: Repository, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 446) — The spans a result returned to a MODEL must drop, each with its reason.
-- `exercise_and_solution_spans(repository: Repository, extraction_ids: Iterable[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 491) — Every exercise and solution block of these readings (a solution with the body after its lead), by effective role hint: what an item-bound scope drops (the same rule; curriculum C0a's coverage candidates drop it too).
-- `item_exclusions(repository: Repository, item: PracticeItem) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 544) — Every passage the practice item is linked to, whatever the relation.
-- `teaching_scope(vault: LoadedVault, repository: Repository, learning_object_ids: Iterable[str], *, item_bound: bool=False, item: PracticeItem | None=None) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 609) — The tutor's grounding scope: the LOs' subjects' teaching sources.
-- `class Eligibility` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 681) — What one caller may be given: the one effective-eligibility rule.
-  - `__init__(self, vault: LoadedVault, repository: Repository, scope: Scope, *, excluded: Iterable[tuple[str, str]]=(), admits: Callable[[tuple[str, str]], bool] | None=None, withheld: SpanKeys | None=None) -> None` (line 702; internal)
-  - `__call__(self, keys: Iterable[tuple[str, str]]) -> list[tuple[str, str]]` (line 713; internal) — The eligible keys among ``keys``, in their order, deduplicated.
-- `effective_eligibility(vault: LoadedVault, repository: Repository, scope: Scope, *, excluded: Iterable[tuple[str, str]]=(), admits: Callable[[tuple[str, str]], bool] | None=None, withheld: SpanKeys | None=None) -> Eligibility` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 728) — The caller's :class:`Eligibility`: the one rule every "does a stronger candidate remain?" decision reads (fix round 3).
+- `has_item_bound_lead(text: str, *, allow_exercise: bool=False) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 182) — Whether a block's first words say it is an exercise or a solution: the one lead test every exit asks while an item is being practised (references and the linked fallback, the Reader tutor, the pinned tutor, compare, the tutor's retrieved pool).
+- `teaching_exclusions(vault: LoadedVault, repository: Repository, *, readable_roles: frozenset[str]=frozenset()) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 241) — Everything a teaching context never reads, vault-wide.
+- `exam_exclusions(vault: LoadedVault, repository: Repository) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 273) — Exam material only, by the one predicate (``content.sources.exam_material``): the narrow part of :func:`teaching_exclusions` the canonical-sources paths that read the whole library withhold (tutor pins, ``find_sources`` pools, comparisons); notes, problem sets and solutions keep…
+- `source_exam_exclusions(vault: LoadedVault, repository: Repository, *, source_id: str, revision_id: str | None) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 283) — The exam material a book's automatic build must leave out (UX Phase 1: a book's scope is planned before its first study map exists), by the one predicate (``content.sources.exam_material``), so there is exactly one exam and held-out test.
+- `exam_withheld(vault: LoadedVault, repository: Repository, keys: Iterable[tuple[str, str]]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 301) — The keys among ``keys`` that are exam material (the one predicate).
+- `assessment_spans(vault: LoadedVault, repository: Repository) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 308) — The span-level part of :func:`teaching_exclusions` (whole extractions aside).
+- `effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 328) — The block's role hint, unless only a heading substring gave it.
+- `role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 349) — Blocks whose EFFECTIVE role hint is one of ``roles`` (a positive filter).
+- `role_proposal_keys(vault: LoadedVault, repository: Repository, extraction_ids: Iterable[str], roles: Iterable[str]) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 371) — Spans a role proposal gives one of ``roles``: ``(confident, low)``.
+- `block_roles(connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str | None]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 427) — Each block's EFFECTIVE role (:func:`effective_hint`), a solution region's body included: the unhinted text after a "Solution:" lead is ``solution``.
+- `model_reader_withheld(vault: LoadedVault, repository: Repository, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 461) — The spans a result returned to a MODEL must drop, each with its reason.
+- `exercise_and_solution_spans(repository: Repository, extraction_ids: Iterable[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 506) — Every exercise and solution block of these readings (a solution with the body after its lead), by effective role hint: what an item-bound scope drops (the same rule; curriculum C0a's coverage candidates drop it too).
+- `item_exclusions(repository: Repository, item: PracticeItem) -> Exclusions` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 559) — Every passage the practice item is linked to, whatever the relation.
+- `teaching_scope(vault: LoadedVault, repository: Repository, learning_object_ids: Iterable[str], *, item_bound: bool=False, item: PracticeItem | None=None) -> Scope` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 624) — The tutor's grounding scope: the LOs' subjects' teaching sources.
+- `class Eligibility` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 696) — What one caller may be given: the one effective-eligibility rule.
+  - `__init__(self, vault: LoadedVault, repository: Repository, scope: Scope, *, excluded: Iterable[tuple[str, str]]=(), admits: Callable[[tuple[str, str]], bool] | None=None, withheld: SpanKeys | None=None) -> None` (line 717; internal)
+  - `__call__(self, keys: Iterable[tuple[str, str]]) -> list[tuple[str, str]]` (line 728; internal) — The eligible keys among ``keys``, in their order, deduplicated.
+- `effective_eligibility(vault: LoadedVault, repository: Repository, scope: Scope, *, excluded: Iterable[tuple[str, str]]=(), admits: Callable[[tuple[str, str]], bool] | None=None, withheld: SpanKeys | None=None) -> Eligibility` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 743) — The caller's :class:`Eligibility`: the one rule every "does a stronger candidate remain?" decision reads (fix round 3).
 
 ### Module constants
 
@@ -86,8 +87,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_REGION_ROLE_HINTS` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 161)
 - `_ITEM_LEAD_REGION_HINTS` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 163)
 - `_CUED_ROLES` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 166)
-- `HELD_OUT_EVALUATION` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 196)
-- `MODEL_WITHHELD_ROLES` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 442)
+- `ITEM_BOUND_LEAD_ROLES` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 179)
+- `HELD_OUT_EVALUATION` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 211)
+- `MODEL_WITHHELD_ROLES` ([src/learnloop/source_retrieval/corpus.py](../../../../../../src/learnloop/source_retrieval/corpus.py), line 457)
 
 ### Explicit exports
 
@@ -96,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `Eligibility`
 - `Exclusions`
 - `ITEM_BOUND_EXCLUDED_ROLE_HINTS`
+- `ITEM_BOUND_LEAD_ROLES`
 - `Scope`
 - `SourceExtraction`
 - `MODEL_WITHHELD_ROLES`
@@ -105,6 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `effective_eligibility`
 - `effective_hint`
 - `extraction_scope`
+- `has_item_bound_lead`
 - `item_exclusions`
 - `library_scope`
 - `exam_exclusions`
@@ -122,14 +126,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_title(artifact: Mapping[str, Any], revision: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 76) — The library's display title (the same order the reader search uses).
 - `_subjects(vault: LoadedVault, learning_object_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 124)
 - `_linked_extractions(vault: LoadedVault, repository: Repository, learning_object_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 133) — Extractions the LOs' (and their facets') teaching provenance cites.
-- `_teaches(role: str | None) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 177) — A role whose sources may ground teaching: ``semantic_contract`` authority.
-- `_withheld_besides_exams(role: str | None) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 188) — A role without teaching authority that is not ``exam``: problem sets, notes and unknown roles (exams are the shared predicate's).
-- `_link_exclusions(connection, link: AssessmentLink, whole: set[str], spans: set[tuple[str, str]]) -> None` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 199) — An ``exercise`` / ``assessment_alignment`` link's span, else its whole extraction.
-- `_heading(row: HintRow, titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 299) — The block's nearest heading, a Marker header ref resolved to its text.
-- `_role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 474) — Exercise and solution blocks (a solution with the body after its lead).
-- `_ref_spans(extraction_id: str | None, span_ids: Sequence[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 503) — A YAML source ref's ``span_ids``: plain (``s4``) or namespaced (``ext/s4``, ``ext:s4``).
-- `_same_text_elsewhere(connection, linked: set[tuple[str, str]]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 521) — The linked blocks' text in every other extraction of the same source.
-- `_teaching_standing(vault: LoadedVault, repository: Repository) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 589) — Sources (and extractions) with a role: a source-set member, or cited by a learning object's, facet's or concept's teaching-relation link.
+- `_teaches(role: str | None) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 192) — A role whose sources may ground teaching: ``semantic_contract`` authority.
+- `_withheld_besides_exams(role: str | None) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 203) — A role without teaching authority that is not ``exam``: problem sets, notes and unknown roles (exams are the shared predicate's).
+- `_link_exclusions(connection, link: AssessmentLink, whole: set[str], spans: set[tuple[str, str]]) -> None` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 214) — An ``exercise`` / ``assessment_alignment`` link's span, else its whole extraction.
+- `_heading(row: HintRow, titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 314) — The block's nearest heading, a Marker header ref resolved to its text.
+- `_role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 489) — Exercise and solution blocks (a solution with the body after its lead).
+- `_ref_spans(extraction_id: str | None, span_ids: Sequence[str]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 518) — A YAML source ref's ``span_ids``: plain (``s4``) or namespaced (``ext/s4``, ``ext:s4``).
+- `_same_text_elsewhere(connection, linked: set[tuple[str, str]]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 536) — The linked blocks' text in every other extraction of the same source.
+- `_teaching_standing(vault: LoadedVault, repository: Repository) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/source_retrieval/corpus.py), line 604) — Sources (and extractions) with a role: a source-set member, or cited by a learning object's, facet's or concept's teaching-relation link.
 
 ## Who imports or calls it
 
@@ -153,7 +157,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `MODEL_WITHHELD_ROLES`, `model_reader_withheld`; statically calls `model_reader_withheld`
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `MODEL_WITHHELD_ROLES`, `item_exclusions`, `model_reader_withheld`; statically calls `item_exclusions`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `current_extractions`; statically calls `current_extractions`
-- [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `Scope`, `exam_withheld`, `item_exclusions`; statically calls `Scope`, `exam_withheld`, `item_exclusions`
+- [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`; statically calls `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/dense|learnloop.source_retrieval.dense]] — imports `Scope`
 - [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] — imports `Scope`, `library_scope`; statically calls `library_scope`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `Eligibility`, `Scope`, `block_roles`, `effective_eligibility`, `exam_withheld`, `extraction_scope`, `item_exclusions`, `library_scope`, `teaching_scope`; statically calls `Scope`, `block_roles`, `effective_eligibility`, `exam_withheld`, `extraction_scope`, `item_exclusions`, `library_scope`, `teaching_scope`
@@ -162,7 +166,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/local_index|learnloop.source_retrieval.local_index]] — imports `current_extractions`; statically calls `current_extractions`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `Scope`, `block_roles`, `effective_eligibility`, `extraction_scope`, `model_reader_withheld`, `teaching_exclusions`; statically calls `Scope`, `block_roles`, `effective_eligibility`, `extraction_scope`, `model_reader_withheld`, `teaching_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/query_student|learnloop.source_retrieval.query_student]] — imports `current_extractions`; statically calls `current_extractions`
-- [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] — imports `block_roles`, `item_exclusions`; statically calls `block_roles`, `item_exclusions`
+- [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] — imports `ITEM_BOUND_LEAD_ROLES`, `block_roles`, `has_item_bound_lead`, `item_exclusions`; statically calls `block_roles`, `has_item_bound_lead`, `item_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/recipes|learnloop.source_retrieval.recipes]] — imports `current_extractions`; statically calls `current_extractions`
 - [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] — imports `block_roles`, `model_reader_withheld`; statically calls `block_roles`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/source_retrieval/search|learnloop.source_retrieval.search]] — imports `Eligibility`, `Scope`, `effective_eligibility`, `role_keys`, `role_proposal_keys`; statically calls `effective_eligibility`, `role_keys`, `role_proposal_keys`
@@ -170,7 +174,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `current_extractions`; statically calls `current_extractions`
 - [[Reference/Modules/learnloop/source_retrieval/spaces|learnloop.source_retrieval.spaces]] — imports `Scope`
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `current_extractions`; statically calls `current_extractions`
-- [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `Scope`, `exam_withheld`, `teaching_scope`; statically calls `exam_withheld`, `teaching_scope`
+- [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `ITEM_BOUND_LEAD_ROLES`, `Scope`, `exam_withheld`, `has_item_bound_lead`, `teaching_scope`; statically calls `exam_withheld`, `has_item_bound_lead`, `teaching_scope`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `current_extractions`; statically calls `current_extractions`
 - [[Reference/Modules/learnloop/source_retrieval/windows|learnloop.source_retrieval.windows]] — imports `exam_exclusions`, `model_reader_withheld`; statically calls `exam_exclusions`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `exam_withheld`; statically calls `exam_withheld`

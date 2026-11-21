@@ -20,10 +20,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/history_card.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/attempts/facts.py"
   - "src/learnloop/attempts/hint_fold.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/objective_inputs.py"
-  - "src/learnloop/db/evidence_cutoff.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -181,6 +181,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/attempt_facts_helpers.py`
 - `tests/figure_build_golden_helpers.py`
 - `tests/help_assist_figures_migration_helpers.py`
 - `tests/help_assist_work_md_migration_helpers.py`
@@ -194,13 +195,12 @@ None found by exact static reference scan.
 - `tests/test_approach_map_replay.py`
 - `tests/test_approach_maps.py`
 - `tests/test_architecture.py`
+- `tests/test_attempt_facts.py`
 - `tests/test_compare_methods.py`
 - `tests/test_evidence_cutoff.py`
 - `tests/test_evidence_cutoff_readers.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figure_predictions.py`
-- `tests/test_figures_help.py`
-- `tests/test_followups_nov2_help_fold.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

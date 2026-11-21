@@ -38,8 +38,8 @@ source_paths:
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/assumed_known_helpers.py"
+  - "tests/attempt_predicate_helpers.py"
   - "tests/background_owners.py"
-  - "tests/causal_cold_outcomes_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ai"
@@ -384,8 +384,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/assumed_known_helpers.py`
+- `tests/attempt_predicate_helpers.py`
 - `tests/background_owners.py`
-- `tests/causal_cold_outcomes_helpers.py`
 
 ## Extension and modification guidance
 

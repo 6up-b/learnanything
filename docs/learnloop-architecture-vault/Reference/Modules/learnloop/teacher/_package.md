@@ -63,7 +63,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/teacher/__init__|learnloop.teacher]] | [[Reference/Modules/learnloop/teacher/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] | [[Reference/Modules/learnloop/teacher/actions#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] | [[Reference/Modules/learnloop/teacher/brief#^module-purpose|purpose]] | `ACTIVE` | 7 | 8 |
+| [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] | [[Reference/Modules/learnloop/teacher/brief#^module-purpose|purpose]] | `ACTIVE` | 7 | 9 |
 | [[Reference/Modules/learnloop/teacher/check_delivery|learnloop.teacher.check_delivery]] | [[Reference/Modules/learnloop/teacher/check_delivery#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] | [[Reference/Modules/learnloop/teacher/checks#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] | [[Reference/Modules/learnloop/teacher/contracts#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
@@ -88,9 +88,9 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 17 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 11 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 9 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 5 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 4 static module edges
@@ -127,9 +127,9 @@ flowchart LR
     center["learnloop.teacher"]
     n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai["learnloop.ai"]
-    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_figures["learnloop.figures"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_vault["learnloop.vault"]
@@ -137,9 +137,9 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     center -->|32| n_learnloop
     center -->|17| n_learnloop_db_stores
+    center -->|11| n_learnloop_attempts
     center -->|11| n_learnloop_source_retrieval
     center -->|9| n_learnloop_ai
-    center -->|9| n_learnloop_attempts
     n_learnloop_figures -->|3| center
     center -->|4| n_learnloop_figures
     center -->|6| n_learnloop_learner

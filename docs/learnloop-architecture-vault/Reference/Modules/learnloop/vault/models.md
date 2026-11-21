@@ -497,6 +497,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_held_out_sentinel_never_reaches_ad_inputs`
 - [tests/test_attach_to_family.py](../../../../../../tests/test_attach_to_family.py) — direct import
+- [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
 - [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
   - `test_reporting_only_a_zero_weight_criterion_cannot_award_the_omitted_points`
 - [tests/test_blueprint_projection.py](../../../../../../tests/test_blueprint_projection.py) — direct import
@@ -614,6 +615,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_transcript_passage_carries_a_cue_like_any_source`
 - [tests/test_reader_formative_texts.py](../../../../../../tests/test_reader_formative_texts.py) — direct import
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import
+  - `test_a_sections_bundles_are_each_topics_own_so_a_claimed_topic_keeps_its_grounding_in_any_wave`
   - `test_reader_source_refs_preserve_bounded_span_context`
 - [tests/test_reader_rw3b_review_fixes.py](../../../../../../tests/test_reader_rw3b_review_fixes.py) — direct import
   - `test_a_claim_needing_an_independent_check_is_a_try_first_target`

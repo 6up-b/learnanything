@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/section_questions.py](../../../../../src/learnloop_sidecar/section_questions.py) |
-| Source lines | 66 |
+| Source lines | 77 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `start_section_questions(ctx: Any, vault: Any, repository: Any, extraction_id: str, section_id: str, *, from_stamp: str | None=None, completed_at: str | None=None) -> str | None` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 19) — A finished section's question writing, queued on this app's queue, once; the batch id, or None.
-- `drain_owed_section_questions(ctx: Any, vault: Any, repository: Any, *, extraction_id: str | None=None) -> int` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 42) — Start the writing every finished section still owes: one the phone finished, one that waited for its book's build, one an older version settled as needing nothing before its topics were in.
+- `drain_owed_section_questions(ctx: Any, vault: Any, repository: Any, *, extraction_id: str | None=None) -> int` ([source](../../../../../src/learnloop_sidecar/section_questions.py), line 53) — Start the writing every finished section still owes: one the phone finished, one that waited for its book's build, one an older version settled as needing nothing before its topics were in.
 
 ### Module constants
 

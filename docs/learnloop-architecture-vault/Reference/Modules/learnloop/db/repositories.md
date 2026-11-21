@@ -952,6 +952,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_probe_attempt_still_closes_its_single_use_surface`
   - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
+- [tests/test_attempt_facts.py](../../../../../../tests/test_attempt_facts.py) — direct import
+  - `test_a_withheld_item_behind_the_material_view_reads_as_if_it_were_never_stored`
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -2236,6 +2238,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_load_secondary_writes_nothing_where_load_writes`
   - `test_second_process_attaches_beside_a_writing_primary_on_wal`
   - `test_secondary_handlers_still_write`
+- [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_two_claims_at_once_give_each_topic_one_owner`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_no_promotion_below_threshold`

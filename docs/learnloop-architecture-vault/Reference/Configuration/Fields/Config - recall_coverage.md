@@ -32,12 +32,12 @@ source_paths:
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/assumed_known_helpers.py"
+  - "tests/attempt_facts_helpers.py"
+  - "tests/attempt_predicate_helpers.py"
   - "tests/capability_residual_helpers.py"
   - "tests/causal_cold_outcomes_helpers.py"
   - "tests/causal_factor_deferral_helpers.py"
   - "tests/causal_orchestrator_helpers.py"
-  - "tests/causal_p2_acceptance_helpers.py"
-  - "tests/causal_shadow_selection_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/recall-coverage"
@@ -58,7 +58,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `recall_coverage.familiarity_recent_attempt_window` | `8` | integer | modeled default or validator seed | Sets the rolling familiarity recent attempt window used by evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:486`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:4003` |
+| `recall_coverage.familiarity_recent_attempt_window` | `8` | integer | modeled default or validator seed | Sets the rolling familiarity recent attempt window used by evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:486`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:4004` |
 | `recall_coverage.same_item_evidence_discount` | `0.5` | number | modeled default or validator seed | Scales the contribution of same item evidence in evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:487`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/recall_coverage.py:359` |
 | `recall_coverage.same_surface_family_evidence_discount` | `0.7` | number | modeled default or validator seed | Scales the contribution of same surface family evidence in evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:488`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/recall_coverage.py:360` |
 | `recall_coverage.same_facet_surface_evidence_discount` | `0.85` | number | modeled default or validator seed | Scales the contribution of same facet surface evidence in evidence independence, facet coverage, and error-severity computation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:489`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/learner/recall_coverage.py:361` |
@@ -157,12 +157,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/assumed_known_helpers.py`
+- `tests/attempt_facts_helpers.py`
+- `tests/attempt_predicate_helpers.py`
 - `tests/capability_residual_helpers.py`
 - `tests/causal_cold_outcomes_helpers.py`
 - `tests/causal_factor_deferral_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
-- `tests/causal_p2_acceptance_helpers.py`
-- `tests/causal_shadow_selection_helpers.py`
 
 ## Extension and modification guidance
 

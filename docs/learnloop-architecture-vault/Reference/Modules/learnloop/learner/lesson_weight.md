@@ -223,6 +223,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/attempt_predicate_helpers.py](../../../../../../tests/attempt_predicate_helpers.py) — direct import
+- [tests/test_attempt_fact_predicates.py](../../../../../../tests/test_attempt_fact_predicates.py) — direct import
+  - `test_every_predicate_equals_its_readers_expression_on_the_matrix`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
   - `test_switch_off_literal_caller_values`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import

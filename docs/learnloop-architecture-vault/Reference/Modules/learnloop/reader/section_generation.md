@@ -46,20 +46,24 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/section_generation.py](../../../../../../src/learnloop/reader/section_generation.py) |
-| Source lines | 164 |
+| Source lines | 298 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 42) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
-- `section_reason(section_id: str) -> str` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 85) — The reason a finished section's writing is queued under.
-- `start_section_questions(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, enqueue: Enqueue, fresh_vault: Callable[[], LoadedVault], topics_settled: Callable[[], tuple[bool, str | None]], from_stamp: str | None=None, completed_at: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 91) — Start a finished section's question writing, once, or record why not yet.
+- `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 57) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
+- `section_reason(section_id: str) -> str` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 100) — The reason a finished section's writing is queued under.
+- `section_topic_requests(vault: LoadedVault, repository: Repository, lo_ids: list[str]) -> dict[str, int]` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 106) — How many questions the plan asks for each of ``lo_ids``, as the section's job plans them.
+- `index_section_jobs(repository: Repository) -> int` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 127) — Index every section job's topics as that job's work (owner ``section_job``), whatever its state: queued, running, failed, held for review or finished.
+- `claim_section_topics(repository: Repository, *, extraction_id: str, section_id: str, lo_ids: list[str], refs: list[dict[str, Any]], enqueue: TopicEnqueue, from_stamp: str | None, source_id: str | None=None, requested: Mapping[str, int] | None=None, trigger: str='section_finished') -> str | None` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 168) — Claim the section's topics nobody owns and queue their work, in one transaction.
+- `start_section_questions(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, enqueue: TopicEnqueue, fresh_vault: Callable[[], LoadedVault], topics_settled: Callable[[], tuple[bool, str | None]], from_stamp: str | None=None, completed_at: str | None=None, claim_repository: Repository | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 227) — Start a finished section's question writing, once, or record why not yet.
 
 ### Module constants
 
-- `OWED` ([src/learnloop/reader/section_generation.py](../../../../../../src/learnloop/reader/section_generation.py), line 36)
+- `OWED` ([src/learnloop/reader/section_generation.py](../../../../../../src/learnloop/reader/section_generation.py), line 46)
+- `_SECTION_REASON` ([src/learnloop/reader/section_generation.py](../../../../../../src/learnloop/reader/section_generation.py), line 49)
 
 ### Explicit exports
 
@@ -70,21 +74,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `NONE_NEEDED`
 - `NONE_NEEDED_BEFORE`
 - `OWED`
+- `TOPIC_MANAGED`
 - `WAITING_FOR_BUILD`
+- `claim_section_topics`
+- `index_section_jobs`
 - `section_generation_candidates`
 - `section_reason`
+- `section_topic_requests`
 - `start_section_questions`
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_reading_source(repository: Repository, extraction_id: str) -> str | None` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 121)
+- `_stamped_section(repository: Repository, batch_id: str) -> str | None` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 157) — The reading whose finished section is stamped with this batch (a section job's own), if any.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `section_generation_candidates`, `section_reason`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `claim_section_topics`, `section_generation_candidates`, `section_topic_requests`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `DEFERRED_TO_PRIMARY`, `WAITING_FOR_BUILD`
 - [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]] — imports `OWED`, `module`; statically calls `start_section_questions`
 
@@ -92,9 +101,9 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PracticeExpansionError`, `build_practice_expansion_plan`; calls `build_practice_expansion_plan`
+- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PracticeExpansionError`, `build_practice_expansion_plan`, `topic_questions_key`; calls `build_practice_expansion_plan`, `topic_questions_key`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `SECTION_DEFERRED_TO_PRIMARY`, `SECTION_ENQUEUING`, `SECTION_NONE_NEEDED`, `SECTION_NONE_NEEDED_BEFORE`, `SECTION_WAITING_FOR_BUILD`
+- [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `READER_FIRST_SET`, `SECTION_DEFERRED_TO_PRIMARY`, `SECTION_ENQUEUING`, `SECTION_NONE_NEEDED`, `SECTION_NONE_NEEDED_BEFORE`, `SECTION_TOPIC_MANAGED`, `SECTION_WAITING_FOR_BUILD`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_for_section`, `source_refs_for_section`; calls `learning_objects_for_section`, `source_refs_for_section`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -115,10 +124,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_once`
+- [tests/test_section_done_before_build.py](../../../../../../tests/test_section_done_before_build.py) — direct import
+  - `test_a_section_finished_before_the_build_and_another_citing_its_topic_claim_it_once`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
   - `test_topic_order_follows_first_cited_span`
+  - `test_two_claims_at_once_give_each_topic_one_owner`
 
 ## Modification guidance
 

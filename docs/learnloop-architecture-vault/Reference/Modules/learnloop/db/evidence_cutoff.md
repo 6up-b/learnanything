@@ -185,6 +185,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `ad_replay_excludes`; statically calls `ad_replay_excludes`
+- [[Reference/Modules/learnloop/attempts/facts|learnloop.attempts.facts]] — imports `CORRECTIONS_THEN`, `Cutoff`
 - [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] — imports `Cutoff`, `history_v1_known_by`, `history_v1_written_before`; statically calls `history_v1_known_by`, `history_v1_written_before`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `completed_by_excludes`; statically calls `completed_by_excludes`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `Cutoff`, `closure_admits`, `closure_at_limit`, `closure_through_limit`; statically calls `closure_admits`, `closure_at_limit`, `closure_through_limit`
@@ -207,12 +208,18 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/attempts/facts|learnloop.attempts.facts]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_attempt_facts.py](../../../../../../tests/test_attempt_facts.py) — direct import
+  - `test_a_withheld_item_behind_the_material_view_reads_as_if_it_were_never_stored`
+  - `test_as_known_at_a_cutoff_a_later_showing_reads_not_shown_and_the_attachment_partial`
+  - `test_the_collector_reads_a_fixed_handful_whatever_the_number_of_attempts`
+  - `test_the_cutoff_admits_attempts_by_its_own_rule`
+  - `test_without_the_help_table_the_source_is_absent_not_no_help`
 - [tests/test_evidence_cutoff.py](../../../../../../tests/test_evidence_cutoff.py) — direct import
   - `test_a_cutoff_refuses_an_unknown_schema_or_policy`
   - `test_ad_replay_matrix_equals_the_predecessor`

@@ -16,6 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/193_retrieval_interventions.sql"
+  - "src/learnloop/attempts/fact_predicates.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/interventions.py"
   - "src/learnloop/workbench/help_outcomes.py"

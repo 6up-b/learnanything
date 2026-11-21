@@ -143,7 +143,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ModelCheckpoint`, `observe_model_calls`; statically calls `ModelCheckpoint`, `observe_model_calls`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ModelCheckpoint`, `model_settings`, `observe_model_calls`; statically calls `ModelCheckpoint`, `model_settings`, `observe_model_calls`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `background_model_work`, `record_model_calls`; statically calls `background_model_work`, `record_model_calls`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `ModelCheckpoint`, `request_key`; statically calls `ModelCheckpoint`, `request_key`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `content_key`; statically calls `content_key`
@@ -473,6 +473,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_daily_guard_counts_todays_router_receipts`
 - [tests/test_rw1a_composition.py](../../../../../../tests/test_rw1a_composition.py) — direct import
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
+- [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_section_jobs_from_before_topic_work_keep_their_keys_and_proposals_and_own_their_topics`
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
   - `test_a_closed_contexts_job_has_its_next_physical_request_refused`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
