@@ -13,16 +13,21 @@ topics writes the questions owed to the sections finished meanwhile. Every model
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
+from hashlib import sha256
+
 import pytest
 
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.ai.errors import AITurnTimeout
 from learnloop.content.pipeline import add_source as core
+from learnloop.content.proposals.proposals import reject_items
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop_sidecar.context import SidecarContext
 
-from tests.source_set_synthesis_helpers import _CLOCK, FakeSynthesisClient, _default_payload, _setup
+from tests.source_set_synthesis_helpers import _CLOCK, FakeSynthesisClient, _default_payload, _setup, _setup_two_chapters
 from tests.ux_phase1_add_source_helpers import call
 from tests.ux_phase1_support import CLOCK, FakeBookSynthesisClient, fake_services, fresh_library, grant_consent, write_book
 
@@ -44,6 +49,17 @@ def no_topic(context):
     payload = _default_payload(context)
     return payload.model_copy(update={"learning_objects": [], "blueprints": [], "practice_items": [],
                                       "summary": NO_TOPIC_SUMMARY})
+
+
+class RecordingSynthesisClient(FakeSynthesisClient):
+    def __init__(self, *, builder):
+        super().__init__(builder=builder)
+        self.synthesis_requests = []
+
+    def complete(self, request):
+        if request.purpose == "source_set_synthesis":
+            self.synthesis_requests.append(request)
+        return super().complete(request)
 
 
 class Script:
@@ -145,14 +161,21 @@ def _synthesis_job(ctx, source_id):
 
 def test_an_empty_first_answer_is_asked_again_once_fresh_and_the_second_is_taken(tmp_path):
     root, repo = _setup(tmp_path, with_exam=False)
-    client = FakeSynthesisClient(builder=lambda context, n: no_topic(context) if n == 1 else _default_payload(context))
+    client = RecordingSynthesisClient(
+        builder=lambda context, n: no_topic(context) if n == 1 else _default_payload(context),
+    )
 
     result = create_study_map(root, "set_la", client=client, brief={"practice_items": "as_you_read"},
                               repository=repo, clock=_CLOCK)
 
-    assert len(client.calls) == 2
     # The same request both times: the answer is sampled, so asking again is what may cure it.
-    assert client.calls[0] == client.calls[1]
+    first, second = client.synthesis_requests
+    assert first == second
+    fields = {**asdict(first), "result_model": first.result_model.model_json_schema()}
+    assert sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest() == (
+        "2f9ebc40ad099f46b608d97e5a1ca328212f0f01cb4e26b947ce62408108a8c1"
+    )
+    assert repo.synthesis_run(result.synthesis_run_id)["actual_usage"]["calls"] == 1
     assert result.item_counts.get("learning_object") == 1 and result.item_counts.get("task_blueprint") == 1
     assert [d["gate"] for d in result.gate_diagnostics if d["gate"] == ASKED_AGAIN] == [ASKED_AGAIN]
     with repo.connection() as connection:
@@ -164,13 +187,17 @@ def test_an_empty_first_answer_is_asked_again_once_fresh_and_the_second_is_taken
 
 def test_two_empty_answers_take_the_second_and_ask_no_third(tmp_path):
     root, repo = _setup(tmp_path, with_exam=False)
-    client = FakeSynthesisClient(builder=lambda context, n: no_topic(context))
+    client = RecordingSynthesisClient(
+        builder=lambda context, n: no_topic(context).model_copy(update={"summary": f"Empty answer {n}"}),
+    )
 
     result = create_study_map(root, "set_la", client=client, brief={"practice_items": "as_you_read"},
                               repository=repo, clock=_CLOCK)
 
-    assert len(client.calls) == 2
+    first, second = client.synthesis_requests
+    assert first == second
     assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
+    assert repo.proposal_batch(result.proposal_id)["summary"] == "Empty answer 2"
     assert "learning_object" not in result.item_counts and result.item_counts.get("concept")
     # Asked again later (the subject still has no topic): the kept empty answer is replayed at no cost, judged empty
     # again and dropped, and one fresh request is made.
@@ -178,6 +205,55 @@ def test_two_empty_answers_take_the_second_and_ask_no_third(tmp_path):
                              repository=repo, clock=_CLOCK)
     assert len(client.calls) == 3
     assert "learning_object" not in again.item_counts
+
+
+@pytest.mark.parametrize("empty_first", [True, False], ids=["empty_then_rejected_match", "rejected_match_then_empty"])
+def test_empty_topic_and_rejected_match_share_the_same_two_passes(tmp_path, empty_first):
+    root, repo = _setup(tmp_path, with_exam=False)
+    options = {"brief": {"practice_items": "as_you_read"}, "repository": repo, "clock": _CLOCK}
+    original = create_study_map(root, "set_la", client=FakeSynthesisClient(), **options)
+    reject_items(root, original.proposal_id)
+
+    # In the second case the rejected proposal's paid checkpoint supplies the first answer.
+    # In the first case remove that answer to send a wire-empty first pass, then return the rejected rows.
+    if empty_first:
+        with repo.connection() as connection:
+            (key,) = connection.execute(
+                "SELECT cache_key FROM model_work_checkpoints WHERE purpose = 'synthesis_pass'"
+            ).fetchone()
+        repo.discard_synthesis_shard_result(key)
+        repo.discard_model_checkpoint(key)
+    client = RecordingSynthesisClient(
+        builder=lambda context, n: _default_payload(context) if n == 2 else no_topic(context),
+    )
+
+    result = create_study_map(root, "set_la", client=client, **options)
+
+    assert result.proposal_id != original.proposal_id and not result.reused
+    assert {row["decision"] for row in repo.proposal_items(original.proposal_id)} == {"rejected"}
+    assert len(client.synthesis_requests) == (2 if empty_first else 1)
+    assert bool(result.item_counts.get("learning_object")) is empty_first
+    assert any(d["gate"] == ASKED_AGAIN for d in result.gate_diagnostics) is empty_first
+
+
+@pytest.mark.parametrize("first_pass_owes_retry", [True, False], ids=["all_shards_empty", "one_shard_has_a_topic"])
+def test_empty_topic_check_uses_the_aggregate_and_discards_every_shard_on_retry(tmp_path, first_pass_owes_retry):
+    root, repo = _setup_two_chapters(tmp_path)
+
+    def build(context, n):
+        return _default_payload(context) if n == (4 if first_pass_owes_retry else 2) else no_topic(context)
+
+    client = RecordingSynthesisClient(builder=build)
+    result = create_study_map(root, "set_la", client=client, brief={"practice_items": "as_you_read"},
+                              budget_overrides={"synthesis_shard_input_tokens": 1}, repository=repo, clock=_CLOCK)
+
+    assert [context.shard_ordinal for context in client.calls] == [0, 1] * (2 if first_pass_owes_retry else 1)
+    if first_pass_owes_retry:
+        assert client.synthesis_requests[:2] == client.synthesis_requests[2:]
+    assert result.item_counts.get("learning_object") == 1
+    assert any(d["gate"] == ASKED_AGAIN for d in result.gate_diagnostics) is first_pass_owes_retry
+    usage = repo.synthesis_run(result.synthesis_run_id)["actual_usage"]
+    assert (usage["calls"], usage["shard_count"], usage["reused_shards"]) == (2, 2, 0)
 
 
 def test_a_narrow_adjunct_bootstrap_may_add_no_topic_with_one_request(tmp_path):

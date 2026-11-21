@@ -138,6 +138,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_opened_with_the_opt_in_on_queues_its_linked_notes`
   - `test_f3_revoking_consent_before_dispatch_sends_nothing`
   - `test_f3_switched_off_before_the_final_write_writes_nothing`
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_the_ok_is_read_live_from_the_library_and_from_this_computer`
 - [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_settings_sidecar.py](../../../../../../tests/test_settings_sidecar.py) — direct import
   - `test_detect_provider_capabilities_without_a_model_skips_the_network`

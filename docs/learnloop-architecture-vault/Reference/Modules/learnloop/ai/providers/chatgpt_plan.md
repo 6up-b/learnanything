@@ -177,6 +177,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rejected_structured_output_names_the_setting`
   - `test_single_request_never_repairs_or_retries`
 - [tests/test_chatgpt_plan_runaway.py](../../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_a_cut_stream_never_reaches_the_semantic_predicate`
   - `test_single_request_preserves_transient_code_and_does_not_retry`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode`

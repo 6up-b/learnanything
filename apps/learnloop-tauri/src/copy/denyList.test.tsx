@@ -301,7 +301,16 @@ const CONNECTION: AiConnectionDto = {
   consentedAt: null,
   needs: "connect",
   message: null,
-  whatLeaves: `LearnLoop sends passages of the books you add, and your answers, to ChatGPT to write questions and give feedback. ${DECIDER_NOTE}`,
+  title: "Before LearnLoop uses AI",
+  whatLeaves:
+    "LearnLoop uses AI for questions, replies, feedback and other learning help. It can send your books, files you choose, your questions and your answers to the services you connect.",
+  whatsSent: [
+    "To ChatGPT: passages of your books and of files you add, your questions to the tutor, and your answers, to write questions, reply and give feedback.",
+    DECIDER_NOTE,
+    "If ChatGPT is unavailable, LearnLoop asks before it uses OpenRouter instead.",
+    "Sending a whole file (a recording to transcribe, a scan to read) asks once more, for that file.",
+    "You say OK once, and it covers every use. Your library stays on this computer."
+  ],
   deciderNote: DECIDER_NOTE,
   chatgptSignedIn: false,
   openrouterKeyPresent: false
@@ -403,11 +412,16 @@ describe("Phase 1 learner surfaces use plain words", () => {
   it.each([
     ["connect", CONNECTION],
     ["consent", { ...CONNECTION, canAuthor: true, needs: "consent" as const }],
+    ["connect after the OK", { ...CONNECTION, consented: true }],
     ["connected", { ...CONNECTION, canAuthor: true, needs: null, consented: true }]
   ])("the connect sheet (%s)", async (_state, connection) => {
     api.getAiConnection.mockResolvedValue(connection);
-    const { container, findByText } = render(<ConnectAISheet onClose={vi.fn()} onConnected={vi.fn()} onOpenSettings={vi.fn()} />);
-    await findByText("Get questions on what you read");
+    const { container, findByText, queryByRole } = render(<ConnectAISheet onClose={vi.fn()} onConnected={vi.fn()} onOpenSettings={vi.fn()} />);
+    await findByText("Before LearnLoop uses AI");
+    await findByText(/Not now|Close/);
+    // "What's sent" opened too: every line the sheet can show is read.
+    const details = queryByRole("button", { name: /What's sent/ });
+    if (details) fireEvent.click(details);
     expectPlain(container.textContent ?? "");
   });
 
@@ -420,10 +434,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
       canAuthor: true,
       needs: "consent",
       providerLabel: label,
-      whatLeaves: `LearnLoop sends passages of the books you add, and your answers, to ${label} to write questions and give feedback.`
+      whatsSent: [`To ${label}: passages of your books and of files you add, your questions to the tutor, and your answers, to write questions, reply and give feedback.`]
     });
-    const { container, findByText } = render(<ConnectAISheet onClose={vi.fn()} onConnected={vi.fn()} onOpenSettings={vi.fn()} />);
-    await findByText(`LearnLoop is set up to use ${label}.`);
+    const { container, findByText, getByRole } = render(<ConnectAISheet onClose={vi.fn()} onConnected={vi.fn()} onOpenSettings={vi.fn()} />);
+    fireEvent.click(await findByText(/What's sent/));
+    expect(getByRole("list", { name: "What's sent" }).textContent).toContain(label);
     expect(findJargon(container.textContent ?? "", { codex: "names the AI this library is set up with, as Settings does" })).toEqual([]);
   });
 

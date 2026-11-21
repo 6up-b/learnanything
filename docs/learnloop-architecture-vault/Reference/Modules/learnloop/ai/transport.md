@@ -308,6 +308,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_capabilities_isolated_tool_free_and_bounded`
 - [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_an_omitted_required_key_still_gets_one_schema_repair`
   - `test_every_try_runs_away_then_job_stays_failed`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_the_plan_serves_a_workspace_and_takes_the_callers_deadline`
@@ -351,6 +352,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_a_fallback_provider_is_held_to_the_same_ok`
+  - `test_jobs_wait_for_the_ok_and_saying_it_resumes_each_once`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_extended_method_repairs_invalid_json_once`
   - `test_openai_chat_transport_runs_extended_requests`

@@ -14,6 +14,8 @@ export const READING_PATH_COPY = {
   judging: "◐ reading a path for this book…",
   updating: "◐ updating your path…",
   tryAgain: "try again ↵",
+  /** The path waits for the learner's one OK to use AI: opens the one sheet. */
+  giveOk: "Give your OK ▸",
   exercise: "one exercise worth trying:",
   tryIt: "Try it ▸",
   openInBook: "open in the book ▸",
@@ -25,6 +27,9 @@ export const READING_PATH_COPY = {
   readingAnyway: "you chose to read it",
   skipping: "you're skipping it · nothing is marked as known",
 } as const;
+
+/** A path that waits for the learner's one OK to use AI (the sidecar's admission refusal). */
+export const WAITING_FOR_OK = "waiting_for_ok";
 
 /** How often the Guide reads a path being judged again (the server never waits). */
 export const READING_PATH_POLL_MS = 1500;

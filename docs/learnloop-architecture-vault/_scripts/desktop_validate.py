@@ -197,8 +197,9 @@ def main() -> int:
     # Student-journey fixes (Nov 14): components/NewSubjectControl.tsx (create a subject where none exists).
     # Waiting you can see (Nov 19): components/Waiting.tsx and copy/waiting.ts (the shared waiting indicator; entry-reachable).
     # Broken controls, second round (Reader): components/scrollWithin.ts (a Reader scroll moves its own pane, never the shell).
-    if len(ts_sources) != 333:
-        errors.append(f"source inventory drift: expected 333 TypeScript/TSX files, found {len(ts_sources)}")
+    # The one OK to use AI: app/aiOk.ts (requests waiting for the sheet's answer; entry-reachable).
+    if len(ts_sources) != 334:
+        errors.append(f"source inventory drift: expected 334 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -297,7 +298,8 @@ def main() -> int:
         # Owner captures (Nov 8): screens/workbench/BookPassage.tsx. IH1, IH3: LessonOfferPage.tsx, SomethingElse.tsx.
         # IH6: QuestionInProgress.tsx. RE0: attemptClock.ts, useAttemptClock.ts. C5: the six Golden Path files left.
         # Waiting you can see: components/Waiting.tsx, copy/waiting.ts. Reader scrolls: components/scrollWithin.ts.
-        "entry-reachable build graph": 322,
+        # The one OK to use AI: app/aiOk.ts.
+        "entry-reachable build graph": 323,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -311,7 +313,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 339}:
+    if dict(status_counts) != {"ACTIVE": 340}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

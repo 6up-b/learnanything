@@ -42,6 +42,9 @@ function refusalLine(error: unknown): string {
       return "Ask isn't available right now. Try again in a moment.";
     case "desktop_offline":
       return "The desktop isn't reachable. Ask works when it is.";
+    case "waiting_for_ok":
+      // Your question stays here to send again once the OK is given on the desktop.
+      return WAITING_COPY.aiOkOnDesktop;
     default:
       return "That didn't work. Try again.";
   }

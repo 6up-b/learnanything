@@ -363,6 +363,11 @@ def _guard_file_upload(ctx: JobContext, flow: str, *, plain_message: str | None 
     answers only). z.ai's upload (GLM-OCR) always asks, for its own OK.
     ``plain_message`` replaces a plain import's words for this one file."""
 
+    # Every upload goes to a model: it waits for the learner's one OK to use
+    # AI first, whatever OK for the file itself it also needs.
+    from learnloop.ai import model_use
+
+    model_use.require(ctx.vault_root)
     # z.ai's upload always asks (not only an Add's), for its own OK naming
     # z.ai (second review F3). Under "auto" a plain import never gets here
     # without it (it reads locally); an explicit glm_ocr engine does.
@@ -5670,6 +5675,14 @@ class DurableIngestJobs:
             "job_type": selected["job_type"],
             "interrupted": True,
         }
+
+    def resume_waiting_for_ok(self) -> list[str]:
+        """The jobs that waited for the learner's OK to use AI, queued again once and started."""
+
+        resumed = self._require_runner().resume_waiting_for_ok()
+        if resumed:
+            self._ensure_worker()
+        return resumed
 
     def resume_batch(self, batch_id: str) -> dict[str, Any] | None:
         runner = self._require_runner()

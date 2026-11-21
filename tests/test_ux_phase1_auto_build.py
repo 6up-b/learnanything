@@ -212,6 +212,7 @@ def test_no_ai_waits_with_a_connect_line(tmp_path):
     _assert_plain(line)
 
 
+@pytest.mark.no_ai_ok
 def test_missing_consent_waits_for_one_ok(tmp_path):
     root = fresh_library(tmp_path)
     repo, jobs = _jobs(root, fake_services())

@@ -50,39 +50,43 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py) |
-| Source lines | 534 |
+| Source lines | 578 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `authoring_route_for(vault) -> core.AuthoringRoute` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 45)
-- `chatgpt_plan_ready() -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 65)
-- `chatgpt_plan_models() -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 74)
-- `class AddSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 85)
-- `add_source_rpc(ctx: SidecarContext, params: AddSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 94) — Add one or more sources; the first that can open is ``opened``.
-- `get_ai_connection(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 156) — Can an AI write questions in this library, and has the learner said OK?
-- `class ConnectAiInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 162)
-- `connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 195) — Connect an AI for every use case and record the learner's one OK.
-- `class SourceActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 282)
-- `source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 333) — Run the one action a book card's status line (or its details) offers.
+- `authoring_route_for(vault) -> core.AuthoringRoute` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 47)
+- `chatgpt_plan_ready() -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 67)
+- `chatgpt_plan_models() -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 76)
+- `class AddSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 87)
+- `add_source_rpc(ctx: SidecarContext, params: AddSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 96) — Add one or more sources; the first that can open is ``opened``.
+- `whats_sent(vault, label: str, decider_note: str | None) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 133) — The sheet's "What's sent": each service and what goes to it, in plain words.
+- `get_ai_connection(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 199) — Can an AI write questions in this library, and has the learner said OK to AI?
+- `class ConnectAiInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 205)
+- `connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 238) — Connect an AI for every use case (``chatgpt``, ``openrouter``), or record the learner's one OK to use AI (``current``) and resume what waited for it.
+- `class SourceActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 326)
+- `source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 377) — Run the one action a book card's status line (or its details) offers.
 
 ### Module constants
 
-- `_CONNECT_USE_CASES` ([src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 40)
-- `_DEFAULT_OPENROUTER_MODEL` ([src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 41)
+- `_CONNECT_USE_CASES` ([src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 42)
+- `_DEFAULT_OPENROUTER_MODEL` ([src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 43)
+- `OK_TITLE` ([src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 125)
+- `OK_SENTENCE` ([src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 126)
+- `OK_CLOSING` ([src/learnloop_sidecar/handlers/first_run.py](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 130)
 
 ## Internal implementation anchors
 
-- `_status_route(vault) -> core.AuthoringRoute` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 49) — The build's route for a status read: no "Use OpenRouter instead" offer (re-review F1).
-- `_connection_payload(ctx: SidecarContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 119)
-- `_route_every_use_case(updates: dict[tuple[str, ...], Any], target: str, tiers: dict[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 168)
-- `_written_plan_model(vault) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 178) — The slug written under ``[ai.providers.chatgpt] model`` in the vault's file ("" when unset).
-- `_allow_file_upload(ctx: SidecarContext, flow: str | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 306) — The separate OK for sending whole files out (spec §6.6, review F1), recorded once with its date like the connection's OK.
-- `_latest_import_pages(repository, source_id: str) -> list[int] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 487)
-- `_web_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 493) — What reading a web page again reads and carries; refuses a book whose reading is not a web page's old one, and one whose saved copy changed or went missing.
-- `_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 514) — What reading this book again reads, costs and carries; refuses at once when its original file changed or went missing (re-read safety E1).
+- `_status_route(vault) -> core.AuthoringRoute` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 51) — The build's route for a status read: no "Use OpenRouter instead" offer (re-review F1).
+- `_connection_payload(ctx: SidecarContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 160)
+- `_route_every_use_case(updates: dict[tuple[str, ...], Any], target: str, tiers: dict[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 211)
+- `_written_plan_model(vault) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 221) — The slug written under ``[ai.providers.chatgpt] model`` in the vault's file ("" when unset).
+- `_allow_file_upload(ctx: SidecarContext, flow: str | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 350) — The separate OK for sending whole files out (spec §6.6, review F1), recorded once with its date like the connection's OK.
+- `_latest_import_pages(repository, source_id: str) -> list[int] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 531)
+- `_web_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 537) — What reading a web page again reads and carries; refuses a book whose reading is not a web page's old one, and one whose saved copy changed or went missing.
+- `_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/first_run.py), line 558) — What reading this book again reads, costs and carries; refuses at once when its original file changed or went missing (re-read safety E1).
 
 ## Who imports or calls it
 
@@ -96,12 +100,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/session|learnloop.ai.chatgpt_plan.session]] — imports `PlanSession`; calls `PlanSession`
-- [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `status_as`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `accepted`, `record_updates`, `recorded_acceptance`
+- [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `offer_profile`, `status_as`
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `list_plan_models`; calls `list_plan_models`
+- [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`; calls `provider_for_task`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `global_ai_defaults_path`; calls `global_ai_defaults_path`
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `DEFAULT_CHATGPT_PLAN_MODEL`, `DEFAULT_SERVING_TASK_ROUTES`
-- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `module`; calls `AddSourceOptions`, `_completed_extraction`, `add_source`, `authoring_route_for`, `consent_label`, `file_upload_allowed`, `import_jobs`, `latest_add_batch`, `latest_planner`, `learner_title`, `outline_chapters`, `pending_upload_flow`, `release_waiting_builds`, `request_auto_build`, `retry_build`, `source_kind_noun`, `text_recognition_available`, `undo_source_questions`, `upload_consent_key`, `what_leaves`, `whole_book_notice`, `whole_book_state`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `module`; calls `AddSourceOptions`, `_completed_extraction`, `add_source`, `authoring_route_for`, `consent_key`, `consent_label`, `file_upload_allowed`, `import_jobs`, `latest_add_batch`, `latest_planner`, `learner_title`, `outline_chapters`, `pending_upload_flow`, `release_waiting_builds`, `request_auto_build`, `retry_build`, `source_kind_noun`, `text_recognition_available`, `undo_source_questions`, `upload_consent_key`, `whole_book_notice`, `whole_book_state`
 - [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `module`; calls `mark_exam_material`, `mark_plan`
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `module`, `restore_readable_revision`; calls `carry_owed`, `finish_carry_over`, `original_bytes`, `reread_plan`, `reread_reading`, `restore_readable_revision`, `web_reread_plan`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `IngestRunnerError`
@@ -143,8 +149,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_source_action_actions_are_all_of_them`
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_adding_a_book_reads_it_at_once_and_its_questions_wait_for_the_one_ok`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
+  - `test_a_sign_in_an_upload_ok_or_a_fallback_choice_is_not_the_ok`
+  - `test_an_earlier_ok_is_honoured_whichever_provider_serves_now`
   - `test_an_openrouter_key_connects_every_use_case`
+  - `test_closing_the_sheet_leaves_the_book_readable_and_its_questions_waiting`
   - `test_connecting_releases_books_that_were_waiting`
   - `test_continue_with_chatgpt_needs_a_sign_in_first`
   - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`

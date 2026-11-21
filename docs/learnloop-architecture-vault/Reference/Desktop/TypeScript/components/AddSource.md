@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AddSource.tsx](../../../../../../apps/learnloop-tauri/src/components/AddSource.tsx) |
-| Source lines | 328 |
+| Source lines | 331 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,38 +54,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type AddOptions =` — type, line 13
-- `export const KINDS_LINE = "PDF · image · web page · arXiv · YouTube · Markdown · text · subtitles"` — const, line 19
-- `export function AddSourceBox(` — function, line 44
-- `export type AddedDestination = "wait" | "kept" | "reader"` — type, line 196
-- `export function addedItemDestination(item: AddSourceItemDto, card: Pick<SourceLibraryCard, "readerEnabled"> | undefined): AddedDestination` — function, line 202
-- `export function pastExamKeptLine(title: string): string` — function, line 208
-- `export function useAddSource(` — function, line 213
-- `export function AddPopover(` — function, line 257
-- `export function DropOverlay()` — function, line 305
+- `export type AddOptions =` — type, line 14
+- `export const KINDS_LINE = "PDF · image · web page · arXiv · YouTube · Markdown · text · subtitles"` — const, line 20
+- `export function AddSourceBox(` — function, line 45
+- `export type AddedDestination = "wait" | "kept" | "reader"` — type, line 197
+- `export function addedItemDestination(item: AddSourceItemDto, card: Pick<SourceLibraryCard, "readerEnabled"> | undefined): AddedDestination` — function, line 203
+- `export function pastExamKeptLine(title: string): string` — function, line 209
+- `export function useAddSource(` — function, line 214
+- `export function AddPopover(` — function, line 260
+- `export function DropOverlay()` — function, line 308
 
 ## Internal implementation anchors
 
-- `const buttonStyle: CSSProperties =` — const, line 21
-- `const linkButtonStyle: CSSProperties =` — const, line 32
-- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 67
-- `const options = useCallback((): AddOptions` — const, line 73
-- `const chosen: AddOptions =` — const, line 74
-- `const submit = useCallback( (sources: string[])` — const, line 81
-- `const cleaned = sources.map((source)` — const, line 83
-- `const choose = async ()` — const, line 92
-- `const files = await pickSourceFiles()` — const, line 94
-- `const onKeyDown = (event: KeyboardEvent<HTMLInputElement>)` — const, line 101
-- `const hero = size === "hero"` — const, line 108
-- `const shown = pickerMessage ?? message` — const, line 109
-- `const openedRef = useRef(onOpened)` — const, line 226
-- `const keptRef = useRef(onKept)` — const, line 228
-- `const add = useCallback(async (sources: string[], options: AddOptions =` — const, line 231
-- `const result = await api.addSource(` — const, line 235
-- `const unsupported = result.items.find((item)` — const, line 236
-- `const existing = result.items.find((item)` — const, line 237
-- `const added = result.items.find((item)` — const, line 240
-- `const onKey = (event: globalThis.KeyboardEvent)` — const, line 269
+- `const buttonStyle: CSSProperties =` — const, line 22
+- `const linkButtonStyle: CSSProperties =` — const, line 33
+- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 68
+- `const options = useCallback((): AddOptions` — const, line 74
+- `const chosen: AddOptions =` — const, line 75
+- `const submit = useCallback( (sources: string[])` — const, line 82
+- `const cleaned = sources.map((source)` — const, line 84
+- `const choose = async ()` — const, line 93
+- `const files = await pickSourceFiles()` — const, line 95
+- `const onKeyDown = (event: KeyboardEvent<HTMLInputElement>)` — const, line 102
+- `const hero = size === "hero"` — const, line 109
+- `const shown = pickerMessage ?? message` — const, line 110
+- `const openedRef = useRef(onOpened)` — const, line 227
+- `const keptRef = useRef(onKept)` — const, line 229
+- `const add = useCallback(async (sources: string[], options: AddOptions =` — const, line 232
+- `const result = await api.addSource(` — const, line 236
+- `const unsupported = result.items.find((item)` — const, line 237
+- `const existing = result.items.find((item)` — const, line 238
+- `const added = result.items.find((item)` — const, line 241
+- `const onKey = (event: globalThis.KeyboardEvent)` — const, line 272
 
 ## Who imports or calls it
 
@@ -102,6 +102,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AddSourceItemDto`, `AddSourceResultDto`, `SourceLibraryCard`
+- [[Reference/Desktop/TypeScript/app/aiOk|src/app/aiOk.ts]] — import-or-re-export; imports `askForAiOk`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/components/useSourceFileDrop|src/components/useSourceFileDrop.ts]] — import-or-re-export; imports `pickSourceFiles`

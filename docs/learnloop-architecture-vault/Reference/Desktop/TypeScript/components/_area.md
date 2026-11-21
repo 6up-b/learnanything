@@ -37,7 +37,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/components/AddSource|AddSource.tsx]] | `ACTIVE` | Provides the reusable `AddSource` interaction surface used by one or more desktop workflows. | 6 | 3 |
+| [[Reference/Desktop/TypeScript/components/AddSource|AddSource.tsx]] | `ACTIVE` | Provides the reusable `AddSource` interaction surface used by one or more desktop workflows. | 7 | 3 |
 | [[Reference/Desktop/TypeScript/components/AddToCollection|AddToCollection.tsx]] | `ACTIVE` | Provides the reusable `AddToCollection` interaction surface used by one or more desktop workflows. | 4 | 2 |
 | [[Reference/Desktop/TypeScript/components/AdjudicationOverlay|AdjudicationOverlay.tsx]] | `ACTIVE` | Provides the reusable `AdjudicationOverlay` interaction surface used by one or more desktop workflows. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/components/AnimationPlayer|AnimationPlayer.tsx]] | `ACTIVE` | Provides the reusable `AnimationPlayer` interaction surface used by one or more desktop workflows. | 1 | 2 |

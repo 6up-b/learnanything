@@ -203,7 +203,10 @@ def _embedding_client(vault: LoadedVault, model: str, dims: int) -> Any:
     profile = vault.config.ai.providers.get(route or "")
     if profile is None or profile.type != "openai_embedding":
         raise PFUnavailable("ai.routing.embedding must name an openai_embedding profile")
-    return OpenAIEmbeddingProviderClient(route, profile.model_copy(update={"model": model, "dimensions": dims}))
+    from learnloop.ai import model_use
+
+    client = OpenAIEmbeddingProviderClient(route, profile.model_copy(update={"model": model, "dimensions": dims}))
+    return model_use.bind(client, vault.root)
 
 
 class VectorCache:

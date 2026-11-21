@@ -108,7 +108,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] | [[Reference/Modules/learnloop/source_retrieval/queries#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/query_student|learnloop.source_retrieval.query_student]] | [[Reference/Modules/learnloop/source_retrieval/query_student#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] | [[Reference/Modules/learnloop/source_retrieval/reader_tutor#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
-| [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] | [[Reference/Modules/learnloop/source_retrieval/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 7 | 7 |
+| [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] | [[Reference/Modules/learnloop/source_retrieval/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 7 | 8 |
 | [[Reference/Modules/learnloop/source_retrieval/recipes|learnloop.source_retrieval.recipes]] | [[Reference/Modules/learnloop/source_retrieval/recipes#^module-purpose|purpose]] | `ACTIVE` | 16 | 11 |
 | [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] | [[Reference/Modules/learnloop/source_retrieval/role_labeller#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/source_retrieval/search|learnloop.source_retrieval.search]] | [[Reference/Modules/learnloop/source_retrieval/search#^module-purpose|purpose]] | `ACTIVE` | 11 | 10 |
@@ -130,7 +130,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 84 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 86 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 65 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 54 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 43 static module edges
@@ -193,7 +193,7 @@ flowchart LR
     n_learnloop_local_embeddings["learnloop.local_embeddings"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    center -->|84| n_learnloop_ai
+    center -->|86| n_learnloop_ai
     center -->|65| n_learnloop_db
     center -->|54| n_learnloop_db_stores
     center -->|43| n_learnloop_vault

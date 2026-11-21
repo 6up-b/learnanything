@@ -13,6 +13,7 @@ import learnloop_sidecar.handlers  # noqa: F401
 from learnloop import provenance
 from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
+from learnloop.ai.model_use import ModelUseNotAccepted
 from learnloop.attempts.completion_lock import AttemptCompletionBusy
 from learnloop.activation_journal import InterruptedActivation
 from learnloop.ids import new_ulid
@@ -20,7 +21,7 @@ from learnloop.version_floor import BelowOldestSupported
 from learnloop_sidecar.context import SidecarContext, unservable_error
 from learnloop_sidecar.dto import to_camel
 from learnloop.content.sources.exam_material import SourceSetsUnreadable
-from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
+from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error, waiting_for_ok_error
 from learnloop_sidecar.handlers.practice import submission_key
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import METHOD_REGISTRY
@@ -148,6 +149,12 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         log_event("rpc.error", method=method_name, id=request_id, code=refusal.code,
                   duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(refusal)}
+    except ModelUseNotAccepted:
+        # Model work that no early check stopped: nothing was sent, and the learner is asked.
+        waiting = waiting_for_ok_error()
+        log_event("rpc.error", method=method_name, id=request_id, code=waiting.code,
+                  duration_ms=_elapsed_ms(started))
+        return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(waiting)}
     except (sqlite3.OperationalError, AttemptCompletionBusy) as exc:
         busy = _busy_error(exc)
         if busy is None:

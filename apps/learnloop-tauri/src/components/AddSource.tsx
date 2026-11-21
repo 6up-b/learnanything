@@ -9,6 +9,7 @@ import { plainError } from "../copy/ingestErrors";
 import { COLOR, FONT_MONO } from "./term";
 import { pickSourceFiles } from "./useSourceFileDrop";
 import { screenLeavesKey } from "../app/keymap";
+import { askForAiOk } from "../app/aiOk";
 
 export type AddOptions = {
   pages?: string;
@@ -241,6 +242,8 @@ export function useAddSource({
       setMessage(unsupported?.message ?? existing?.message ?? added?.message ?? null);
       if (result.opened && options.problemSet) keptRef.current?.(result.opened);
       else if (result.opened) openedRef.current(result.opened, result);
+      // Reading needs no AI; the book's questions do, so the one OK is asked before any is written.
+      if (result.waitingForOk) askForAiOk();
       return result;
     } catch (error) {
       setMessage(plainError(error, "LearnLoop couldn't add that.").line);

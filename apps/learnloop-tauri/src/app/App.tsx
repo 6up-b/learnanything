@@ -10,6 +10,7 @@ import { setNextReaderVisitInitiator } from "../screens/reader/activity";
 import { DockedAsk } from "../components/DockedAsk";
 import { AddPopover, DropOverlay, addedItemDestination, pastExamKeptLine, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
+import { answerAiOk, useAiOkAsked } from "./aiOk";
 import { PlanFallbackOffer } from "../components/PlanFallbackOffer";
 import { SessionElsewherePrompt } from "../components/SessionElsewherePrompt";
 import { SessionMovedBanner } from "../components/SessionMovedBanner";
@@ -184,6 +185,8 @@ export function App() {
   const [libraryView, setLibraryView] = useState<LibraryView>("books");
   const [addOpen, setAddOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
+  // A request the sidecar refused for want of the one OK to use AI opens the same sheet (app/aiOk.ts).
+  const aiOkAsked = useAiOkAsked();
   const [aiConnection, setAiConnection] = useState<AiConnectionDto | null>(null);
   // A link just added opens in the Reader once its text is ready.
   const [openWhenReady, setOpenWhenReady] = useState<string | null>(null);
@@ -1763,7 +1766,7 @@ export function App() {
     onDrop: (paths) => void addSources(paths)
   });
   useGlobalAdd({
-    enabled: snapshot !== null && !settingsOpen && !newVaultOpen && !quickAddOpen && !connectOpen,
+    enabled: snapshot !== null && !settingsOpen && !newVaultOpen && !quickAddOpen && !connectOpen && !aiOkAsked,
     onPickFiles: () => {
       pickSourceFiles()
         .then((files) => {
@@ -1810,6 +1813,7 @@ export function App() {
     setReaderSource(null);
     setAddOpen(false);
     setConnectOpen(false);
+    answerAiOk(false); // a request refused in the library being left is not sent into the next one
     setOpenWhenReady(null);
     setLibraryView("books");
     setTodayStage("queue");
@@ -2622,14 +2626,17 @@ export function App() {
           message={adder.message}
         />
       ) : null}
-      {connectOpen ? (
+      {connectOpen || aiOkAsked ? (
         <ConnectAISheet
-          onClose={() => {
+          onClose={(connection) => {
             setConnectOpen(false);
             refreshAiConnection();
+            // "Not now" leaves what waits for the OK waiting; given, a refused request is sent again once.
+            answerAiOk(connection?.consented === true);
           }}
           onConnected={(connection) => {
             setAiConnection(connection);
+            if (connection.consented && connection.needs === null) answerAiOk(true);
             invalidateAllQueries();
             // The settings dot reads the new connection at once, not after a
             // restart (usability round 1: it stayed red after "Connected").

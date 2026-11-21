@@ -49,7 +49,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/probability_arms.py](../../../../../../src/learnloop/cli/probability_arms.py) |
-| Source lines | 439 |
+| Source lines | 441 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -114,6 +114,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]] — imports `JUDGE_ROUTES`, `judge_route_disclosures`; calls `judge_route_disclosures`
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`; calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `call_labels`, `observe_model_calls`; calls `call_labels`, `observe_model_calls`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `bind`
 - [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] — imports `output_budget`; calls `output_budget`
 - [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `DeciderProviderClient`, `estimate_input_tokens`, `probe_decider_endpoint`, `resolved_decider_settings`; calls `DeciderProviderClient`, `estimate_input_tokens`, `probe_decider_endpoint`, `resolved_decider_settings`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`, `ready_client_for_task`, `route_profile_mismatch`, `runtime_for_provider`; calls `provider_for_task`, `ready_client_for_task`, `route_profile_mismatch`, `runtime_for_provider`

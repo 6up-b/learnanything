@@ -121,6 +121,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_deliverable_path.py](../../../../../../../tests/test_deliverable_path.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
 - [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
+- [tests/test_one_ai_ok.py](../../../../../../../tests/test_one_ai_ok.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../../tests/test_reader_rw6b_p2_landing.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]

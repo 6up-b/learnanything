@@ -3776,6 +3776,8 @@ export interface AddSourceResultDto {
   items: AddSourceItemDto[];
   /** The item the Reader opens: the first that could be added or found. */
   opened: AddSourceItemDto | null;
+  /** The book opens at once; its questions wait for the learner's one OK to use AI, asked now. */
+  waitingForOk?: boolean;
 }
 
 export interface AddSourceInput {
@@ -3796,7 +3798,12 @@ export interface AiConnectionDto {
   /** connect: no AI can write questions; consent: one OK is missing; null: ready. */
   needs: "connect" | "consent" | null;
   message: string | null;
+  /** The one sheet's title (absent from an older sidecar). */
+  title?: string;
+  /** The one sentence the OK is given to: every use of AI, what it can send, where. */
   whatLeaves: string;
+  /** "What's sent": each service and what goes to it, one line each. */
+  whatsSent?: string[];
   /** What the Decider's small judgments send to Perplexity (Tier 1), as
    *  Settings discloses it; null when none is on. Part of whatLeaves. */
   deciderNote?: string | null;
@@ -3804,6 +3811,8 @@ export interface AiConnectionDto {
   openrouterKeyPresent: boolean;
   /** connect_ai only: books whose questions were waiting and now start. */
   released?: string[];
+  /** connect_ai only: the queued work that waited for the OK and now runs (once). */
+  resumed?: string[];
 }
 
 export interface SourceActionResultDto {

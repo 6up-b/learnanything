@@ -66,7 +66,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 23 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 24 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 10 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 9 static module edges
@@ -104,7 +104,7 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
-    center -->|23| n_learnloop_ai
+    center -->|24| n_learnloop_ai
     n_learnloop_diagnosis_split -->|5| center
     center -->|8| n_learnloop_diagnosis_split
     center -->|11| n_learnloop_db

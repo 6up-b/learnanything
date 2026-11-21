@@ -51,6 +51,19 @@ describe("the selection sheet (§3.5)", () => {
     expect(await screen.findByText(/Ask is off while a check on your own is open/)).toBeTruthy();
   });
 
+  it("before the one OK to use AI, the Ask says the same request, that the OK is given on the desktop, and keeps the question", async () => {
+    answers["reader.ask"] = { status: 409, body: { ok: false, error: { code: "waiting_for_ok", message: "LearnLoop is waiting for your OK before it uses AI.", retryable: false } } };
+    open(["b1"]);
+    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Why is there one?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    expect(await screen.findByText(
+      "LearnLoop asks for your OK before it uses AI: it can send your books, files you choose, your questions and your " +
+      "answers to the services you connect. Say OK on your desktop. Nothing was sent."
+    )).toBeTruthy();
+    expect((screen.getByLabelText("Your question") as HTMLTextAreaElement).value).toBe("Why is there one?");
+    expect(called("reader.ask")).toHaveLength(1);
+  });
+
   it("Save is a highlight of the selection, with its own key", async () => {
     answers["reader.capture"] = { annotationId: "a1", receipt: "acknowledged" };
     open(["b1"]);

@@ -335,6 +335,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_multimodal_client.py](../../../../../../tests/test_multimodal_client.py) — direct import
   - `test_openrouter_inherits_media_methods_with_headers`
   - `test_supports_input_modality_and_audio_format_helpers`
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_a_fallback_provider_is_held_to_the_same_ok`
+  - `test_jobs_wait_for_the_ok_and_saying_it_resumes_each_once`
+  - `test_the_ok_is_read_live_from_the_library_and_from_this_computer`
+  - `test_the_video_adapter_asks_for_the_ok_too`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
 - [tests/test_openai_embedding_client.py](../../../../../../tests/test_openai_embedding_client.py) — direct import
   - `test_custom_key_and_endpoint`
@@ -483,6 +488,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
 - [tests/test_ux_phase1_connect_ai.py](../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
   - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`
+  - `test_one_ok_records_consent_for_the_connected_provider`
 - [tests/test_ux_phase1_review_fixes.py](../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
 - [tests/test_ux_walk_harness.py](../../../../../../tests/test_ux_walk_harness.py) — direct import
   - `test_the_perplexity_decider_is_written_and_its_routes_classified`

@@ -126,6 +126,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `claim_schema_repair`, `recovery_remaining_seconds`; statically calls `claim_schema_repair`, `recovery_remaining_seconds`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `claim_schema_repair`; statically calls `claim_schema_repair`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `correction_in_flight`; statically calls `correction_in_flight`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `Predicate`; statically calls `Predicate`
 
 ## Dependencies
 
@@ -146,7 +147,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -159,6 +160,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_checked_call_with_no_admitted_recovery_sends_no_plan_repair`
   - `test_contract_failing_then_a_malformed_correction_gets_no_repair`
   - `test_malformed_then_repaired_then_contract_failing_stops`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_a_cut_stream_never_reaches_the_semantic_predicate`
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
 - [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
   - `test_a_metered_contract_correction_is_admitted_and_charged_as_a_retry`

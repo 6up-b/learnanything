@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx) |
-| Source lines | 277 |
+| Source lines | 299 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,31 +54,35 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReadingPathCardProps` — interface, line 29
-- `export function ReadingPathCard(` — function, line 47
+- `export interface ReadingPathCardProps` — interface, line 31
+- `export function ReadingPathCard(` — function, line 52
 
 ## Internal implementation anchors
 
-- `const LINK =` — const, line 24
-- `const jump = (spanId: string, sectionId: string)` — const, line 48
-- `const shown = useRef(extractionId)` — const, line 53
-- `const cardRef = useRef<HTMLDivElement | null>(null)` — const, line 54
-- `const read = useCallback(async (params:` — const, line 56
-- `const asked = extractionId` — const, line 57
-- `const result = await api.readerReadingPath(` — const, line 59
-- `const timer = window.setTimeout(()` — const, line 77
-- `const refreshedFor = useRef(refreshKey)` — const, line 89
-- `const timer = window.setTimeout(()` — const, line 93
-- `const chooseDepth = async (depth: ReadingPathDepth)` — const, line 97
-- `const result = await api.readerReadingPathSetDepth(` — const, line 100
-- `const choose = async (section: ReadingPathSectionDto, choice: ReadingPathChoice)` — const, line 112
-- `const result = await api.readerReadingPathOverride(` — const, line 116
-- `const askDepth = path.status === "ask_depth" || choosing` — const, line 136
-- `const exercises = exercisesWorthTrying(path)` — const, line 137
-- `function nextLine(text: string, title: string | undefined): string` — function, line 223
-- `const words = sectionWords(title)` — const, line 225
-- `function SectionRow(` — function, line 229
-- `const offered = offeredChoice(section)` — const, line 239
+- `const LINK =` — const, line 26
+- `let askedOnReaderEntry = false` — let, line 50
+- `const jump = (spanId: string, sectionId: string)` — const, line 53
+- `const shown = useRef(extractionId)` — const, line 58
+- `const cardRef = useRef<HTMLDivElement | null>(null)` — const, line 59
+- `const read = useCallback(async (params:` — const, line 61
+- `const asked = extractionId` — const, line 62
+- `const result = await api.readerReadingPath(` — const, line 64
+- `const okAsked = useAiOkAsked()` — const, line 81
+- `const waitingForOk = path?.status === "failed" && path.reason === WAITING_FOR_OK` — const, line 82
+- `const wasAsked = useRef(okAsked)` — const, line 88
+- `const timer = window.setTimeout(()` — const, line 97
+- `const refreshedFor = useRef(refreshKey)` — const, line 109
+- `const timer = window.setTimeout(()` — const, line 113
+- `const chooseDepth = async (depth: ReadingPathDepth)` — const, line 117
+- `const result = await api.readerReadingPathSetDepth(` — const, line 120
+- `const choose = async (section: ReadingPathSectionDto, choice: ReadingPathChoice)` — const, line 132
+- `const result = await api.readerReadingPathOverride(` — const, line 136
+- `const askDepth = path.status === "ask_depth" || choosing` — const, line 156
+- `const exercises = exercisesWorthTrying(path)` — const, line 157
+- `function nextLine(text: string, title: string | undefined): string` — function, line 245
+- `const words = sectionWords(title)` — const, line 247
+- `function SectionRow(` — function, line 251
+- `const offered = offeredChoice(section)` — const, line 261
 
 ## Who imports or calls it
 
@@ -93,11 +97,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReadingPathChoice`, `ReadingPathDepth`, `ReadingPathDto`, `ReadingPathExerciseDto`, `ReadingPathSectionDto`
+- [[Reference/Desktop/TypeScript/app/aiOk|src/app/aiOk.ts]] — import-or-re-export; imports `askForAiOk`, `useAiOkAsked`
 - [[Reference/Desktop/TypeScript/components/scrollWithin|src/components/scrollWithin.ts]] — import-or-re-export; imports `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `sectionWords`
-- [[Reference/Desktop/TypeScript/screens/reader/readingPath|src/screens/reader/readingPath.ts]] — import-or-re-export; imports `COPY`, `READING_PATH_POLL_MS`, `READING_PATH_REFRESH_MS`, `depthSourceLine`, `exercisesWorthTrying`, `offeredChoice`, `pathHeading`, `reasonIsModels`, `shouldPoll`
+- [[Reference/Desktop/TypeScript/screens/reader/readingPath|src/screens/reader/readingPath.ts]] — import-or-re-export; imports `COPY`, `READING_PATH_POLL_MS`, `READING_PATH_REFRESH_MS`, `WAITING_FOR_OK`, `depthSourceLine`, `exercisesWorthTrying`, `offeredChoice`, `pathHeading`, `reasonIsModels`, `shouldPoll`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`
 
 ### Assets, platform, and third-party dependencies

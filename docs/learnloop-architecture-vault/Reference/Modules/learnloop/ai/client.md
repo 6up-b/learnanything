@@ -48,16 +48,16 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/client.py](../../../../../../src/learnloop/ai/client.py) |
-| Source lines | 110 |
+| Source lines | 114 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `make_ai_provider_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str | None=None, timeout_seconds: int | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 17)
-- `make_ai_provider_client_from_profile(provider_name: str, profile: AIProviderConfig, vault_root: Path, *, idle_timeout_seconds: float | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 41) — Build one client for ``profile``: the single AI client factory.
-- `make_video_generation_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str, http: Any=None) -> Any` ([source](../../../../../../src/learnloop/ai/client.py), line 85) — Build the text-to-video client for an OpenRouter profile.
+- `make_ai_provider_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str | None=None, timeout_seconds: int | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 18)
+- `make_ai_provider_client_from_profile(provider_name: str, profile: AIProviderConfig, vault_root: Path, *, idle_timeout_seconds: float | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 42) — Build one client for ``profile``: the single AI client factory.
+- `make_video_generation_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str, http: Any=None) -> Any` ([source](../../../../../../src/learnloop/ai/client.py), line 90) — Build the text-to-video client for an OpenRouter profile.
 
 ## Internal implementation anchors
 
@@ -83,6 +83,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/ai/agent_harness|learnloop.ai.agent_harness]] — imports `refuse_agent_harness`; calls `refuse_agent_harness`
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`; calls `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `bind`
 - [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `ChatGPTPlanProviderClient`; calls `ChatGPTPlanProviderClient`
 - [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `DeciderProviderClient`; calls `DeciderProviderClient`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `OpenAIChatProviderClient`; calls `OpenAIChatProviderClient`
@@ -132,6 +133,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_llm_judge_runs_on_the_subscription_route_by_default`
 - [tests/test_knowledge_map_text_neighbors.py](../../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
   - `test_render_never_calls_a_model_or_writes`
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_jobs_wait_for_the_ok_and_saying_it_resumes_each_once`
+  - `test_the_video_adapter_asks_for_the_ok_too`
 - [tests/test_openrouter_client.py](../../../../../../tests/test_openrouter_client.py) — direct import
   - `test_make_ai_provider_client_dispatches_openrouter`
 - [tests/test_openrouter_video_client.py](../../../../../../tests/test_openrouter_video_client.py) — direct import

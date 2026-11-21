@@ -1749,6 +1749,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_emitting_template_creates_attempt_through_attempt_service`
   - `test_register_rejects_invalid_template`
   - `test_valid_template_registers_and_loads`
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_jobs_wait_for_the_ok_and_saying_it_resumes_each_once`
 - [tests/test_open_world_gate.py](../../../../../../tests/test_open_world_gate.py) — direct import
 - [tests/test_openai_embedding_client.py](../../../../../../tests/test_openai_embedding_client.py) — direct import
   - `test_batched_openrouter_request_mrl_order_and_receipt`

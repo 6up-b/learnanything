@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/copy/waiting.ts](../../../../../../apps/learnloop-tauri/src/copy/waiting.ts) |
-| Source lines | 56 |
+| Source lines | 61 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/copy/_area|TypeScript/copy]] |
 | Refactor status | `ACTIVE` |

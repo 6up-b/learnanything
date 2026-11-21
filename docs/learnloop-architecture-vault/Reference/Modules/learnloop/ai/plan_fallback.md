@@ -218,7 +218,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop_sidecar/handlers/chatgpt_plan|learnloop_sidecar.handlers.chatgpt_plan]] — imports `module`; statically calls `answer_offer`, `granted_origins`, `granted_tasks`, `offer_profile`, `revoke`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `note_unit`, `relay_hint`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`; statically calls `unit_origin`, `unit_token`
-- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `module`; statically calls `status_as`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `module`; statically calls `offer_profile`, `status_as`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `module`; statically calls `note_unit`, `relay_job_offer`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `module`; statically calls `relay_batch_offer`, `relay_batch_offers`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `module`; statically calls `note_unit`, `relay_job_offer`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
@@ -280,6 +280,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_note_is_read_on_the_ordinary_routes_with_the_decider`
 - [tests/test_notes_linked.py](../../../../../../tests/test_notes_linked.py) — direct import
   - `test_a_metered_route_needs_its_price_and_a_route_down_waits_quietly`
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_a_fallback_provider_is_held_to_the_same_ok`
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_a_background_jobs_offer_reaches_the_read_that_finds_it_done`
   - `test_a_plan_call_that_fails_for_availability_offers_openrouter_for_that_route`
