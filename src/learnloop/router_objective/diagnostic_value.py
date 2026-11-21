@@ -43,7 +43,8 @@ import numpy as np
 
 from learnloop.router_objective import diagnostic_payload as DP
 from learnloop.router_objective.objective import _LEDGER_FIELDS, Evaluation, Valued, _Ledger, _terms, numeric_choice
-from learnloop.router_objective.rollouts import _beta_draw, _Model, _State
+from learnloop.router_objective.check_value import _CheckModel
+from learnloop.router_objective.rollouts import _beta_draw, _carries, _Model, _State
 from learnloop.router_objective.types import PROBE, SEQUENCE, Action, Inputs
 
 #: This policy's version (a scoped probe-policy version: the objective's own versions do not move for it).
@@ -211,8 +212,11 @@ def evaluate_probe(inputs: Inputs, action: Action, *, decisions: DP.OwnerDecisio
     cost only; no value depends on it."""
 
     started = clock()
-    model = _Model(inputs, int(draws), seed, merged_sessions=merged_sessions,
-                   consistent_review_draw=consistent_review_draw, held_ad_link=held_ad_link)
+    # An offer whose accepted lesson carries typed committed checks (mvp-0.62 or later) is priced by the check-credit
+    # path's model; without them that model is the rollouts' exactly, so every other payload keeps its values.
+    model_class: type[_Model] = _CheckModel if _carries(action, lambda part: bool(part.checks)) else _Model
+    model = model_class(inputs, int(draws), seed, merged_sessions=merged_sessions,
+                        consistent_review_draw=consistent_review_draw, held_ad_link=held_ad_link)
     place = _place(model, action, base_stream)
     payload: DP.DiagnosticProbe = place.probe.diagnostic
     exposed_by = None

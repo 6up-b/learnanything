@@ -217,7 +217,12 @@ def _offer_trace(candidate: Any, valued: Any, action: Any, inputs: Any,
         "alternatives": [entry.get("ref") for entry in list((record.get("card") or {}).get("candidates") or [])[1:]],
         "action": {"minutes": getattr(action, "minutes", None), "minutes_log_sd": getattr(action, "minutes_log_sd", None),
                    "mass": getattr(action, "mass", None), "accept": list(getattr(action, "accept", None) or ()),
-                   "commitments": [list(c) for c in getattr(action, "commitments", ()) or ()]},
+                   "commitments": [list(c) for c in getattr(action, "commitments", ()) or ()],
+                   # The committed-check credit (mvp-0.62): the typed checks the value priced (only when there are
+                   # any, so a trace below the tag keeps its bytes).
+                   **({"checks": [{"lo": c.lo, "days": c.days, "minutes": c.minutes, "delivery": list(c.delivery),
+                                   "key": c.key, "purpose": c.purpose, "group": c.group}
+                                  for c in action.checks]} if getattr(action, "checks", ()) else {})},
     }
 
 
@@ -313,6 +318,13 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
 
         extra["preference"] = (PF.with_values(preference_record, {ref: rows[ref].q for ref in rows})
                                if preference_record.get("status") == "applied" else dict(preference_record))
+    replay = getattr(numeric, "replay", None) if numeric is not None else None
+    if replay is not None:
+        # The committed-check credit (mvp-0.62): the answer's lossless numeric replay payload, a string the trace's
+        # rounding leaves exact (``router_objective.check_replay``).
+        from learnloop.router_objective.check_replay import TRACE_KEY
+
+        extra[TRACE_KEY] = dict(replay)
     return {
         **extra,
         "candidates": candidates,

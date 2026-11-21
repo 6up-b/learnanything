@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of the first evening's step 4 (a first set of questions from the part read) and evidence packets' prediction snapshots (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of `mvp-0.62` (the check-credit fix, switched on), evidence packets' repeat receipts and receipt repairs (SR-2, SR-3) and the seen-passage fix UX-62 (Nov 21), at `mvp-0.62`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -349,9 +349,9 @@ The router credits each lesson offer's committed delayed check as a full practic
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | Steps 1 to 4 | Today's pricing pinned by tests; the as-of statistics of planned checks with a one-trial seed; the availability predicate shared with `delayed_check_words` and the dry minutes; a new rollout path for typed checks that no live decision can reach | landed | this commit | [algorithm-check-credit-steps-1-4.md](algorithm-check-credit-steps-1-4.md) | — |
-| Step 5 | A read-only report over stored lesson offers and their delayed checks (`scripts/check_credit_report.py`) | not started | this commit | — | — |
-| Step 6 | Switch on at `mvp-0.62`: the offer builder attaches the sensors, the typed checks are priced, the inputs a later report needs are stored | not started | — | — | An explanation, from the value's components, of why the fix raises a lesson's value on the owner's present-day inputs (the report, 2026-11-20) |
-| Step 7 | The record, the comparison on copies of the owner's vaults, the G2 design renumbered to `mvp-0.63` | waiting on | — | — | Step 6 |
+| Step 5 | A read-only report over stored lesson offers and their delayed checks (`scripts/check_credit_report.py`) | landed | `52b9edc050` | [algorithm-check-credit-step-5.md](algorithm-check-credit-step-5.md) | — |
+| Step 6 | Switch on at `mvp-0.62`: the offer builder attaches the sensors, the typed checks are priced, the inputs a later report needs are stored | landed | this commit | [algorithm-mvp-0.62.md](algorithm-mvp-0.62.md) | Ledger TV2-2 is open: a topic's first graded attempt makes it start forgetting in the rollouts (the memory model's asymmetry between an unpractised and a practised topic); it needs a memory-model successor |
+| Step 7 | The record, the comparison on copies of the owner's vaults, the G2 design renumbered to `mvp-0.63` | landed | this commit | [algorithm-mvp-0.62.md](algorithm-mvp-0.62.md) | The owner upgrades their vaults (`learnloop upgrade --vault <path>`); the G2 design is renumbered to `mvp-0.63` |
 
 ## The first evening, finished (UX stage 2 of the journey audit's third part)
 
@@ -360,10 +360,10 @@ A first set of questions from the part read; a section's end finishes it; an hon
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | Step 1 | One OK before every model route (UX-10): one acceptance record, no call before it, one sheet | landed | this commit | [first-evening-step-1.md](first-evening-step-1.md) | The phone cannot record the OK yet: it says to give it on the desktop and sends nothing |
-| Step 2 | Which passages were seen (migration 256, two append-only tables) and the section's end as an observation; nothing reads them yet | landed | this commit | [first-evening-step-2.md](first-evening-step-2.md) | — |
+| Step 2 | Which passages were seen (migration 256, two append-only tables) and the section's end as an observation; nothing reads them yet | landed | this commit | [first-evening-step-2.md](first-evening-step-2.md), [ux62-seen-viewport.md](ux62-seen-viewport.md) | Fixed after a live walk (ledger UX-62): the desktop recorded only the passage under its reading marker; it now records every passage shown during the learner's own movement. The walk is to be rerun |
 | Step 3 | Question work owned per topic (migration 257, one claim per topic, the `topic_managed` stamp, topic-scoped checkpoints); old section jobs indexed and resumed unchanged; still triggered only by a section's finish | landed | this commit | [first-evening-step-3.md](first-evening-step-3.md) | — |
 | Step 4 | A topic gets its questions once every passage it cites has been seen; Today says what is and is not ready | landed | this commit | [first-evening-step-4.md](first-evening-step-4.md) | A live-route walk is owed (the first step a walk can see); ledger UX-60 and UX-61 (a note's excerpt and the request's wording on a part-read request) |
-| Step 5 | A section's end finishes it; the quick-check controls split (a successor tag); the phone's count observer (ledger UX-59) | waiting on | — | — | Step 4 |
+| Step 5 | A section's end finishes it; the quick-check controls split (a successor tag); the phone's count observer (ledger UX-59) | not started | — | — | A successor tag after `mvp-0.62` |
 | Step 6 | Typed build stages and a several-line wait | not started | — | — | — |
 | Step 7 | A dated next-practice line at the session's end and on Today | not started | — | — | — |
 | Step 8 | Wording and the held-question line | not started | — | — | — |
@@ -379,7 +379,7 @@ The owner decided on 2026-11-20 that five slices are built beside the refactor a
 |---|---|---|---|---|---|
 | EP0t | The evidence-time rules readers already use, named: one serializable cutoff value with seven presets, a census of 60 callers, an inventory of what can be reconstructed historically, and the pinned identity of a prediction target | landed | this commit | [ep0t-time-policies.md](ep0t-time-policies.md) | 25 availability-SQL readers fit no preset and are left as they are: the record's question 1 |
 | EP0 | Attempt facts in one typed value and the named predicates over them, every caller's result unchanged | landed | this commit | [ep0-attempt-facts.md](ep0-attempt-facts.md) | Two discrepancies between readers are the owner's call (ledger EP0-1, EP0-2); 41 readers are named in the census but not moved (import contracts, the adaptive-difficulty guard, a frozen package cycle) |
-| EPp | Prediction snapshots on new receipts (the cutoff honoured, the target's pinned identity, the outcome distribution with the threshold categories, parameter provenance); then repeat-presentation receipts and the receipt repairs | landed (part 1 of 3) | this commit | [epp-a-prediction-snapshots.md](epp-a-prediction-snapshots.md) | Part 2: receipts for repeat presentations. Part 3: the receipt repairs SR-2, SR-3 and EPp-1 |
+| EPp | Prediction snapshots on new receipts (the cutoff honoured, the target's pinned identity, the outcome distribution with the threshold categories, parameter provenance); then repeat-presentation receipts and the receipt repairs | landed | this commit | [epp-a-prediction-snapshots.md](epp-a-prediction-snapshots.md), [epp-b-repeat-receipts.md](epp-b-repeat-receipts.md), [epp-c-receipt-repairs.md](epp-c-receipt-repairs.md) | Open: ledger EPp-1 (the scorer must exclude a receipt with an unreadable time before the write path stops dropping the batch) and EPp-3 (the repeat capture's cost on the serve path) |
 | ADM0 | Pre-registered simulation and descriptive baseline | landed | this commit | [adm0-preregistration.md](adm0-preregistration.md), [adm0-simulation-report.md](adm0-simulation-report.md) | The simulation cannot select the decay's support or a warmth ladder, and slow-retention recovery is inadequate: questions for the owner before ADM2a; the count on the owner's backup copies is still owed |
 | ADM1 | The predecessor's update and eligibility interface, and an unused memory fold | not started | — | — | — |
 
@@ -389,7 +389,7 @@ The owner decided on 2026-11-20 that every structured model call gets one shared
 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
-| Step 0 | The shared module (`ai/structured_contracts.py`), its registered count of one recovery shared with the provider's schema repair, and inert hooks; no caller uses it | landed | this commit | [structured-contracts-step-0.md](structured-contracts-step-0.md) | — |
+| Step 0 | The shared module (`ai/structured_contracts.py`), its registered count of one contract re-ask (a provider's schema repair keeps its own rule: amended by step 5), and inert hooks | landed | `3f42da228a` | [structured-contracts-step-0.md](structured-contracts-step-0.md) | — |
 | Steps 1 to 5 | The five local fixes of Nov 20: three stay local (pinned by tests), the empty-build predicate is extracted, the follow-up question's re-ask moves onto the shared step | landed | this commit | [structured-contracts-steps-1-4.md](structured-contracts-steps-1-4.md), [structured-contracts-step-5.md](structured-contracts-step-5.md) | Step 5 amended step 0: the one re-ask counts contract re-asks only; a provider's schema repair keeps its own rule (one per attempt, admitted by the caller); transport retries are untouched |
 | Steps 6 to 22 | Adoption by call-site family, starting with blank replies in live dialogue (tutor, teach-back, teacher) | waiting on | — | — | Steps 1 to 5; two owner questions (a strict rule for a second empty build; versions for predicates that change what counts as evidence) |
 

@@ -179,6 +179,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te1b_landing_r2_helpers.py](../../../../../../tests/teacher_te1b_landing_r2_helpers.py) — direct import
 - [tests/teacher_te1b_suggestions_helpers.py](../../../../../../tests/teacher_te1b_suggestions_helpers.py) — direct import
 - [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
+- [tests/test_check_credit_activation.py](../../../../../../tests/test_check_credit_activation.py) — direct import
 - [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
   - `test_switch_off_literal_caller_values`

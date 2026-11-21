@@ -282,6 +282,7 @@ def _request(vault: Any, repository: Any, view: Any, facts: SlotFacts, session: 
                 cell_pool.append(str(item.id))
     return SlotRequest(facts.plan_id, facts.block_id, int(facts.position or 0), slot_id,
                        str(slot_item.learning_object_id), candidates, tuple(cell_pool),
+                       # Unknown stays unknown through the request into the pair-propensity receipt.
                        router_decision_id=facts.router_decision_id, router_propensity=facts.router_propensity,
                        now=facts.now)
 

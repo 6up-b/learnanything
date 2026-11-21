@@ -1,16 +1,13 @@
-"""The check-credit rollout path (``router_objective.check_value``), unserved: a lesson's typed committed check happens
-only on a simulated return, on or after its date and inside the window, is charged its minutes on the session's
-clock, and draws its delivery and outcome from streams of its own. Every action without typed checks is valued
-exactly as the rollouts value it; the live entry points cannot select this path. Pure numerics; no vault.
+"""The check-credit rollout path (``router_objective.check_value``; every decision's rollouts from mvp-0.62): a
+lesson's typed committed check happens only on a simulated return, on or after its date and inside the window, is
+charged its minutes on the session's clock, and draws its delivery and outcome from streams of its own. Every action
+without typed checks is valued exactly as the rollouts value it. Pure numerics; no vault.
 """
 
 from __future__ import annotations
 
-import ast
-import inspect
 import math
 from dataclasses import replace
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -290,7 +287,8 @@ def test_the_rollouts_refuse_typed_checks_and_this_path_refuses_untyped_ones():
                                         declined=offer)], draws=DRAWS, seed=SEED)
     with pytest.raises(ValueError, match="untyped commitments"):
         CV.evaluate(inputs, [lesson("old", commitments=((LO, 3.0),))], draws=DRAWS, seed=SEED)
-    # The G2 evaluator prices an offer's accepted branch through the rollouts' own model: refused there too.
+    # The G2 evaluator prices an offer's accepted branch with typed checks through this path's model (the
+    # activation's adapter): its accepted value is this path's, not a refusal and not the rollouts' old credit.
     payload = DP.DiagnosticProbe(
         topic=LO, hypotheses=(DP.Hypothesis("h1", 0.9, DP.GAP), DP.Hypothesis(DP.OPEN_HYPOTHESIS, 0.1, DP.UNKNOWN)),
         prior_basis="literal", channel=DP.Channel(results=("a", "b"), rows=(("h1", (0.9, 0.1)),
@@ -299,36 +297,9 @@ def test_the_rollouts_refuse_typed_checks_and_this_path_refuses_untyped_ones():
         repairs=(DP.RepairOption("r1", OT.Action(ref="r1", kind=OT.REPAIR, item_los=(LO,), minutes=5.0),
                                  frozenset({"h1"})),))
     probe = OT.Action(ref="probe", kind=OT.PROBE, item_los=(LO,), minutes=3.0, diagnostic=payload)
-    with pytest.raises(ValueError, match="typed committed checks"):
-        DV.evaluate_probe(inputs, replace(offer, declined=probe), decisions=DP.DESIGN_RECOMMENDATIONS, draws=DRAWS,
-                          seed=SEED)
-
-
-def test_the_live_entry_points_cannot_select_this_path():
-    """``rollouts.evaluate``, ``baselines`` and ``gain`` keep their parameters (none names a model or a path), and no
-    module under ``src`` imports this one (by name, from its package, or through importlib)."""
-
-    assert list(inspect.signature(ROL.evaluate).parameters) == [
-        "inputs", "actions", "draws", "seed", "max_draws", "keep_going", "deadline", "clock", "on_complete", "cutoff",
-        "unmeasured", "merged_sessions", "consistent_review_draw", "held_ad_link"]
-    for function in (ROL.baselines, ROL.gain):
-        assert not {"model", "model_for", "path", "checks"} & set(inspect.signature(function).parameters)
-    root = Path(__file__).resolve().parents[1]
-    hits = []
-    for path in sorted((root / "src").rglob("*.py")):
-        if path.name == "check_value.py":
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "check_value" not in text:
-            continue
-        for node in ast.walk(ast.parse(text)):
-            if isinstance(node, ast.ImportFrom) and ((node.module or "").endswith("check_value")
-                                                     or any(alias.name == "check_value" for alias in node.names)):
-                hits.append(str(path.relative_to(root)))
-            elif isinstance(node, ast.Import) and any(alias.name.endswith("check_value") for alias in node.names):
-                hits.append(str(path.relative_to(root)))
-            elif isinstance(node, ast.Call) and getattr(node.func, "attr", getattr(node.func, "id", "")) in {
-                    "import_module", "__import__"} and any(
-                    isinstance(arg, ast.Constant) and "check_value" in str(arg.value) for arg in node.args):
-                hits.append(str(path.relative_to(root)))
-    assert hits == []
+    valued = DV.evaluate_probe(inputs, replace(offer, declined=probe), decisions=DP.DESIGN_RECOMMENDATIONS,
+                               draws=DRAWS, seed=SEED)
+    own, _state, _times = CV.simulate(inputs, offer, draws=DRAWS, seed=SEED)
+    assert valued.record["offer"]["accepted"] == pytest.approx(float(own.q.mean()), abs=1e-12)
+    old_credit, _s, _t = CV.simulate(inputs, replace(offer, checks=()), draws=DRAWS, seed=SEED)
+    assert valued.record["offer"]["accepted"] == pytest.approx(float(old_credit.q.mean()), abs=1e-12)  # no return

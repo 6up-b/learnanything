@@ -352,6 +352,12 @@ def build(vault: Any, repository: Any, *, today: str, now_iso: str, local_hour: 
     delayed = vault.config.teacher.delayed
     checks = [{"lo": lo, "purpose": "retention", "days": float(delayed.fallback_retention_days),
                "basis": "teacher.delayed.fallback_retention_days (the lesson's own date is set at its close)"}]
+    from learnloop.algorithm_versions import committed_check_delivery_on
+
+    if committed_check_delivery_on(vault.config):
+        # The committed-check credit (mvp-0.62): each check carries what prices it, so it is credited only as often as
+        # checks like it are answered cold, on a return, at its minutes. Below the tag the record is mvp-0.61's.
+        checks = _with_sensors(vault, repository, checks, now_iso=now_iso)
     record = {
         **base, "status": "offered", "context": context.as_dict(), "priors_version": state.priors_version,
         "card": {"candidates": [top.as_dict(), *(entry.as_dict() for entry in alternatives)]},
@@ -624,6 +630,39 @@ def sweep_ignored(connection: Any, *, config: Any, today: str, now_iso: str) -> 
     return written
 
 
+def _with_sensors(vault: Any, repository: Any, checks: Sequence[Mapping[str, Any]], *,
+                  now_iso: str) -> list[dict[str, Any]]:
+    """Each check with its delivery sensors (``check_inputs.check_sensors``), the receipts read once for the offer;
+    receipts that cannot be read credit no check (the point mass at zero), never a guessed rate."""
+
+    from learnloop.daily_plan.check_inputs import check_sensors
+    from learnloop.daily_plan.check_delivery import classify
+
+    try:
+        trials = classify(repository, as_of=now_iso, config=vault.config)
+    except Exception:  # noqa: BLE001 - unread receipts establish no delivery: the check is credited nothing
+        LOG.warning("lesson offer: the delayed-check receipts were not read", exc_info=True)
+        trials = None
+    return [{**dict(check), **check_sensors(vault, repository, str(check["lo"]), purpose=str(check["purpose"]),
+                                            ordinal=ordinal, now_iso=now_iso, trials=trials)}
+            for ordinal, check in enumerate(checks)]
+
+
+def typed_checks(record: Mapping[str, Any], lo: str) -> tuple[Any, ...]:
+    """A record's checks as the rollouts' typed commitments, when the record carries their sensors (built at
+    ``mvp-0.62`` or later); empty for a record without them, whose checks stay ``(LO, days)`` pairs."""
+
+    from learnloop.router_objective.types import CheckCommitment
+
+    checks = [check for check in record.get("checks") or () if isinstance(check, Mapping) and "delivery" in check]
+    return tuple(CheckCommitment(lo=str(check.get("lo") or lo), days=float(check.get("days") or 0.0),
+                                 minutes=float((check.get("minutes") or {}).get("minutes") or 0.0),
+                                 delivery=(float(check["delivery"]["alpha"]), float(check["delivery"]["beta"])),
+                                 key=str(check["key"]), purpose=str(check.get("purpose") or "retention"),
+                                 group=str(check["group"]))
+                 for check in checks)
+
+
 def card(candidate: BlockCandidate) -> dict[str, Any]:
     """The offer card a drawn offer's block shows and its decision records (``lesson_offer`` on the block's detail
     and the decision row): its context and candidates (the acceptance model's replay inputs), the value's sensors."""
@@ -639,6 +678,13 @@ def action_inputs(candidate: BlockCandidate) -> dict[str, Any]:
     duration = record.get("duration") or {}
     p_accept = record.get("p_accept") or {}
     beta = p_accept.get("beta") or [1.0, 1.0]
+    typed = typed_checks(record, lo)
+    if typed:
+        # A record with its checks' sensors (mvp-0.62 or later): the checks are typed, and none is also untyped.
+        return {"lo": lo, "minutes": float(duration.get("median_minutes") or candidate.est_minutes),
+                "log_sd": float(duration.get("log_sd") or 0.0),
+                "mass": float((record.get("mass") or {}).get("mean") or 0.5), "accept": (float(beta[0]), float(beta[1])),
+                "checks": (), "typed_checks": typed}
     return {"lo": lo, "minutes": float(duration.get("median_minutes") or candidate.est_minutes),
             "log_sd": float(duration.get("log_sd") or 0.0), "mass": float((record.get("mass") or {}).get("mean") or 0.5),
             "accept": (float(beta[0]), float(beta[1])),
@@ -700,5 +746,6 @@ __all__ = [
     "SUPERSEDED", "SUPERSEDED_BY", "WITHDRAWN", "WITHDRAWN_FORCED", "WITHDRAWN_NEVER_SHOWN", "WITHDRAWN_OFF",
     "accept_moments", "action_inputs", "beta_from_moments", "build", "card", "check_mass", "duration_model", "is_offer",
     "lesson_active_minutes", "never_on_screen", "offer_ref", "offer_standing", "offers_on", "on_screen", "pending_start",
-    "record_shown", "release_never_shown", "shown_today", "supersede", "taken_back_record", "withdraw", "withdrawn",
+    "record_shown", "release_never_shown", "shown_today", "supersede", "taken_back_record", "typed_checks", "withdraw",
+    "withdrawn",
 ]

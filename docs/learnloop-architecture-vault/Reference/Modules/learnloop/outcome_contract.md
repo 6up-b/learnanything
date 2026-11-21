@@ -93,6 +93,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `GRADE_HELD_FOR_REVIEW`
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `GRADE_HELD_FOR_REVIEW`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `grade_held_for_review`; statically calls `grade_held_for_review`
+- [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]] — imports `grade_held_for_review`; statically calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `RETENTION_MIN_DELAY_SECONDS`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `COLLECTION_VERSION`
 - [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] — imports `LABEL_VERSION`
@@ -119,7 +120,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `COLLECTION_VERSION`, `LABEL_VERSION`, `retention_exclusions`; statically calls `retention_exclusions`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `COLLECTION_VERSION`, `GRADE_HELD_FOR_REVIEW`, `LABEL_VERSION`, `retention_exclusions`; statically calls `retention_exclusions`
 - [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] — imports `GRADE_HELD_FOR_REVIEW`, `HELD_ROW_KEY`
-- [[Reference/Modules/learnloop/teacher/check_delivery|learnloop.teacher.check_delivery]] — imports `grade_held_for_review`; statically calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/workbench/help_outcomes|learnloop.workbench.help_outcomes]] — imports `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`; statically calls `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `grade_held_for_review`, `unassessed_evidence_row`; statically calls `grade_held_for_review`
 

@@ -47,16 +47,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/rollouts.py](../../../../../../src/learnloop/router_objective/rollouts.py) |
-| Source lines | 1316 |
+| Source lines | 1318 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None=None, keep_going: Callable[[], bool] | None=None, deadline: float | None=None, clock: Callable[[], float]=time.monotonic, on_complete: Callable[[Evaluation], None] | None=None, cutoff: float | None=None, unmeasured: Collection[str] | None=None, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> Evaluation` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1200) — ``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s).
-- `baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1269) — §8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated use's at its date.
-- `gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[float, float]` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1291) — ``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from the start under the tail, then the tail; for the price's daily seed and the frontier.
+- `evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None=None, keep_going: Callable[[], bool] | None=None, deadline: float | None=None, clock: Callable[[], float]=time.monotonic, on_complete: Callable[[Evaluation], None] | None=None, cutoff: float | None=None, unmeasured: Collection[str] | None=None, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> Evaluation` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1202) — ``Q`` for every action (and the reference row) under ``draws`` θ draws, adding batches of ``draws`` more while ``keep_going()`` holds, up to ``max_draws``, and never past ``deadline`` (``clock``'s).
+- `baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1271) — §8.7's ``m⁰``: the memory forecast of each use in the evaluation window from the pre-action belief under the tail (the path the pre-action ``V`` values): per topic, the mean ``P(perform)`` on days ``1..B``, and each dated use's at its date.
+- `gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: str, merged_sessions: bool=False, consistent_review_draw: bool=False, held_ad_link: bool=False) -> dict[float, float]` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1293) — ``G(x)`` (§8.6): the forecast valued uses (no attention cost) when today's session runs ``x`` minutes from the start under the tail, then the tail; for the price's daily seed and the frontier.
 
 ### Module constants
 
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `MINUTES_PER_DAY` ([src/learnloop/router_objective/rollouts.py](../../../../../../src/learnloop/router_objective/rollouts.py), line 100)
 - `REVIEW_DRAW_VERSION` ([src/learnloop/router_objective/rollouts.py](../../../../../../src/learnloop/router_objective/rollouts.py), line 113)
 - `_STATE_FIELDS` ([src/learnloop/router_objective/rollouts.py](../../../../../../src/learnloop/router_objective/rollouts.py), line 240)
-- `_TYPED_CHECKS` ([src/learnloop/router_objective/rollouts.py](../../../../../../src/learnloop/router_objective/rollouts.py), line 1194)
+- `_TYPED_CHECKS` ([src/learnloop/router_objective/rollouts.py](../../../../../../src/learnloop/router_objective/rollouts.py), line 1196)
 
 ### Explicit exports
 
@@ -88,18 +88,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class _Theta` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 203)
 - `class _State` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 217)
 - `class _Model` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 243) — One decision's rollouts: the frozen inputs, the draws, and the streams.
-- `_carries_diagnostic(action: Action | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1178)
-- `_carries(action: Action | None, test: Callable[[Action], bool]) -> bool` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1185) — Whether ``action``, its repair, its declined branch or any of its steps passes ``test``.
-- `_evaluate(model_for: Callable[[int], _Model], actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None, keep_going: Callable[[], bool] | None, deadline: float | None, clock: Callable[[], float], on_complete: Callable[[Evaluation], None] | None) -> Evaluation` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1230) — :func:`evaluate`'s loop over the model ``model_for(draws)`` builds (each refinement a fresh one).
+- `_carries_diagnostic(action: Action | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1180)
+- `_carries(action: Action | None, test: Callable[[Action], bool]) -> bool` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1187) — Whether ``action``, its repair, its declined branch or any of its steps passes ``test``.
+- `_evaluate(model_for: Callable[[int], _Model], actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None, keep_going: Callable[[], bool] | None, deadline: float | None, clock: Callable[[], float], on_complete: Callable[[Evaluation], None] | None) -> Evaluation` ([source](../../../../../../src/learnloop/router_objective/rollouts.py), line 1232) — :func:`evaluate`'s loop over the model ``model_for(draws)`` builds (each refinement a fresh one).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `_Model`, `baselines`, `evaluate`, `gain`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `_Model`, `baselines`, `gain`
 - [[Reference/Modules/learnloop/router_objective/check_value|learnloop.router_objective.check_value]] — imports `MINUTES_PER_DAY`, `_Model`, `_State`, `_beta_draw`, `_carries`, `_evaluate`, `_seed_int`; statically calls `_beta_draw`, `_carries`, `_evaluate`, `_seed_int`
-- [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]] — imports `_Model`, `_State`, `_beta_draw`; statically calls `_Model`, `_beta_draw`
+- [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]] — imports `_Model`, `_State`, `_beta_draw`, `_carries`; statically calls `_beta_draw`, `_carries`
 - [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `module`
 
 ### Repository tooling consumers
@@ -137,8 +137,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/check_credit_helpers.py](../../../../../../tests/check_credit_helpers.py) — direct import
 - [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
+- [tests/test_check_credit_activation.py](../../../../../../tests/test_check_credit_activation.py) — direct import
+  - `test_the_report_reads_a_new_decision_exactly`
+  - `test_the_tag`
 - [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
   - `test_both_paths_a_check_is_charged_its_minutes_on_the_session_clock`
+  - `test_both_tags_an_offer_with_no_eligible_question`
 - [tests/test_check_value.py](../../../../../../tests/test_check_value.py) — direct import
   - `test_a_check_crossing_C_splits_its_cost_and_a_use_it_crosses_sees_the_state_before_it`
   - `test_a_check_ending_past_the_horizon_is_charged_its_in_window_minutes_and_answers_nothing`
@@ -147,7 +151,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_actions_without_typed_checks_are_valued_identically_on_both_paths`
   - `test_an_answered_check_is_a_graded_attempt_at_its_end_and_displaces_the_tail_block`
   - `test_an_undelivered_check_is_no_event`
-  - `test_the_live_entry_points_cannot_select_this_path`
   - `test_the_rollouts_refuse_typed_checks_and_this_path_refuses_untyped_ones`
   - `test_two_checks_on_one_topic_are_two_commitments`
   - `test_two_checks_that_do_not_fit_one_session_wait_for_the_next_return`
@@ -158,7 +161,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_probe_answer_is_not_also_a_binary_ability_observation`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_the_offers_declined_branch_is_the_followup_not_the_tail`
-- [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f8_a_reading_candidate_starts_from_ads_dose_position`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import

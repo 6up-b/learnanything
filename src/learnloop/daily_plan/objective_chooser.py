@@ -231,6 +231,58 @@ def _rollout_options(config: Any) -> dict[str, bool]:
             "held_ad_link": _held_link(config)}
 
 
+#: The rollouts' serving options for a config, for a reader outside the chooser (the check-credit report runs its
+#: scenarios under the options the decision's tag serves).
+rollout_options = _rollout_options
+
+
+def _evaluator(config: Any) -> Callable[..., OBJ.Evaluation]:
+    """Which evaluation values a decision's candidates: at the committed-check credit's tag (mvp-0.62) the check-credit
+    path, which prices a lesson's typed checks (delivered, on a return, at their minutes) and values every action
+    without typed checks exactly as the rollouts do; below it, the rollouts. One place, so the first evaluation, the
+    corrected one and both carried valuations of one decision cannot price a check two ways."""
+
+    from learnloop.algorithm_versions import committed_check_delivery_on
+
+    if config is not None and committed_check_delivery_on(config):
+        from learnloop.router_objective import check_value as CV
+
+        return CV.evaluate
+    return ROL.evaluate
+
+
+def _replay_payload(inputs: OT.Inputs, actions: Sequence[OT.Action], evaluation: OBJ.Evaluation, *, seed: str,
+                    first_draws: int, max_draws: int, now_iso: str, options: Mapping[str, Any],
+                    config: Any, candidates: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The lossless replay payload of an answer whose candidates carry typed committed checks (mvp-0.62 or later):
+    what a later report needs to recompute its values exactly under both pricings (``router_objective.check_replay``).
+    None for every other answer, so a trace below the tag, or with no lesson offer, keeps its bytes."""
+
+    from learnloop.router_objective import check_replay as CR
+
+    if not CR.carries_typed_checks(actions):
+        return None
+    from learnloop.router_objective import check_value as CV
+
+    from learnloop.daily_plan.lesson_offer import card
+
+    # Each typed check's sensors as its offer recorded them (counts, censoring, digest, availability, minutes basis).
+    sensors: dict[str, Any] = {}
+    for action in actions:
+        if action.checks and action.ref in candidates:
+            recorded = {str(check.get("key")): check for check in card(candidates[action.ref]).get("checks") or ()
+                        if isinstance(check, Mapping)}
+            for check in action.checks:
+                sensors[f"{action.ref}:{check.key}"] = recorded.get(check.key)
+    versions = {"algorithm": str(config.algorithms.algorithm_version), "objective": OBJ.OBJECTIVE_VERSION,
+                "terminal": OBJ.TERMINAL_VERSION, "tail": ROL.TAIL_VERSION, "rollout_policy": CV.POLICY_VERSION,
+                "streams": CV.STREAM_LAYOUT_VERSION}
+    # A set has no JSON form; its sorted list is the same argument to the evaluation.
+    plain = {key: sorted(value) if isinstance(value, (set, frozenset)) else value for key, value in options.items()}
+    return CR.record(inputs, actions, seed=seed, draws=evaluation.draws, first_draws=first_draws, max_draws=max_draws,
+                     as_of=now_iso, options=plain, versions=versions, sensors=sensors)
+
+
 def _frontier(inputs: OT.Inputs, *, draws: int, seed: str, **rollout: bool
               ) -> tuple[dict[float, float], dict[str, Any]]:
     mbar = float(inputs.price.remembered)
@@ -511,6 +563,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         from learnloop.router_objective_switches import followup_generator_switches
 
         frozen_switches = followup_generator_switches(config)
+        evaluate = _evaluator(config)
 
         def answered(evaluation: OBJ.Evaluation, used: OT.Inputs, acts: Sequence[OT.Action], corrected: bool) -> NumericPolicy:
             if residual_record is not None and residual_record.get("status") == "applied":
@@ -537,11 +590,14 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 # The pre-action belief under the tail: no action and no correction enters it.
                 cached["baselines"] = ROL.baselines(used, int(section.evaluation_window_days),
                                                     draws=min(evaluation.draws, 8), seed=seed, **rollout)
+            replay = _replay_payload(used, acts, evaluation, seed=seed, first_draws=draws, max_draws=ceiling,
+                                     now_iso=now_iso, options={**rollout, **measured}, config=config,
+                                     candidates=candidates)
             return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=used,
                                  actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
                                  baselines=cached["baselines"], corrected=corrected,
                                  latency_ms=int(round((clock() - started) * 1000)), residual=residual_record,
-                                 switches=frozen_switches, preference=preference_record)
+                                 switches=frozen_switches, preference=preference_record, replay=replay)
 
         def carried_compute(record: Mapping[str, Any], at_inputs: OT.Inputs, at_actions: Sequence[OT.Action],
                             at_cutoff: float) -> Callable[..., dict[str, Any]]:
@@ -560,7 +616,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 until = at_deadline if deadline is None else deadline
                 timed = clock if stop is None or until is None else (
                     lambda: max(clock(), math.nextafter(until, math.inf)) if stop.is_set() else clock())
-                at_previous = ROL.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed, deadline=until,
+                at_previous = evaluate(at_inputs, at_actions, draws=at_draws, seed=seed, deadline=until,
                                            clock=timed, cutoff=at_cutoff, **rollout)
                 return TS.with_carried_values(record, at_previous)
 
@@ -585,7 +641,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 publish(policy)
         # (``unmeasured`` only at RO6's tag with the learned tail on; None leaves the evaluation as mvp-0.48's)
         measured = {"unmeasured": unmeasured} if unmeasured is not None else {}
-        evaluation = ROL.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
+        evaluation = evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
                                   deadline=deadline, clock=clock, on_complete=on_complete, **rollout,
                                   **measured)
         corrected = False
@@ -600,7 +656,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                                                   float(section.effect_slope_prior_variance)))
                     with_llm = replace(inputs, effect=effect, reference_forecast=float(reference))
                     acts = [replace(action, forecast=by_ref.get(action.ref)) for action in actions]
-                    again = ROL.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
+                    again = evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
                                          **rollout, **measured)
                     if again.complete:
                         evaluation, inputs, actions, corrected = again, with_llm, acts, True
@@ -630,8 +686,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 # RO6 (Codex re-review F3): the candidates valued again with every rollout at the latest earlier
                 # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
                 # target, so the first batch's draws: its noise averages out in the fit, and no refinement is paid).
-                at_previous = ROL.evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
-                                           cutoff=carried, **rollout)
+                at_previous = evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
+                                       cutoff=carried, **rollout)
                 residual_record = tail_serve.with_carried_values(residual_record, at_previous)
         final = answered(evaluation, inputs, actions, corrected)
         return replace(final, carried=own_carry) if own_carry is not None else final

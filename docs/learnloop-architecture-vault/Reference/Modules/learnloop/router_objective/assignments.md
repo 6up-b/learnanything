@@ -126,6 +126,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/epp_receipt_repairs_helpers.py](../../../../../../tests/epp_receipt_repairs_helpers.py) — direct import
+- [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
+  - `test_redraw_is_reconstructed_from_placement_alone_and_uses_one_uniform`
 - [tests/test_mobile_v2_checks.py](../../../../../../tests/test_mobile_v2_checks.py) — direct import
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
 - [tests/test_ro5_codex_rereview.py](../../../../../../tests/test_ro5_codex_rereview.py) — direct import

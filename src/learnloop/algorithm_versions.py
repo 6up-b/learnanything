@@ -946,6 +946,18 @@ GRADE_CHANNEL_FIX_ALGORITHM_VERSION = "mvp-0.60"
 # activation is a whole-vault rebuild. No kill switch (owner rule 2026-11-16). No migration. ONE constant.
 EVIDENCE_READING_FIX_ALGORITHM_VERSION = "mvp-0.61"
 
+# mvp-0.62 (the committed-check credit; teacher v2 ledger TV2-1, spec_teacher_v2 §7.4;
+# docs/reviews/algorithm-mvp-0.62.md), on top of the evidence reading fixes' mvp-0.61. The router valued a lesson
+# offer's committed delayed check as a full practice attempt at its due day, whether or not the simulated learner came
+# back or a question existed, and charged it no minutes. At this tag a new lesson offer carries its check's delivery
+# sensors (the as-of cold-completion statistics with the one-trial seed, whether a question exists now, the plan's
+# minutes for one check), and every rollout of a new decision prices the check through
+# ``router_objective.check_value``: delivered with that probability, only on a simulated return, on the session's
+# clock, from streams of its own. Decisions, plans, receipts and commitments already recorded keep their meaning; only
+# new decisions move, so activation is the idempotent projection. No kill switch (owner rule 2026-11-16). No
+# migration. ONE constant.
+COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION = "mvp-0.62"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1005,6 +1017,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     EVIDENCE_READING_FIX_ALGORITHM_VERSION,
+    COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION,
 )
 
 
@@ -1068,6 +1081,20 @@ def evidence_reading_fixes_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in EVIDENCE_READING_FIX_VERSIONS
+
+# Versions whose new lesson offers carry their committed checks' delivery sensors and whose rollouts price the checks
+# by them (the committed-check credit). Every later successor keeps it; gates must use this set, never equality, and
+# read it through :func:`committed_check_delivery_on`.
+COMMITTED_CHECK_DELIVERY_VERSIONS: frozenset[str] = successors_from(COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION)
+
+
+def committed_check_delivery_on(config: object) -> bool:
+    """The committed-check credit (mvp-0.62), gated by the vault's tag alone (no kill switch): below it a lesson offer's
+    record, its numeric action and every rollout are mvp-0.61's exactly. ``config`` is a vault's config; the one
+    predicate the offer builder and the chooser both read, so they cannot disagree on the tag."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in COMMITTED_CHECK_DELIVERY_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

@@ -20,10 +20,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/stuck.py"
+  - "src/learnloop/daily_plan/check_delivery.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
-  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/cli/ai_compare.py"
@@ -107,6 +107,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/attempts/stuck.py`
+- `src/learnloop/daily_plan/check_delivery.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/recurrence.py`
@@ -116,7 +117,6 @@ Database triggers:
 - `src/learnloop/learner_context.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/router_objective/miss_cause.py`
-- `src/learnloop/teacher/check_delivery.py`
 - `src/learnloop/workbench/help_outcomes.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 

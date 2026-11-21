@@ -1,8 +1,10 @@
 """The successor's value of a lesson's committed delayed checks (spec_teacher_v2 §7.4): a check happens only when the
 simulated learner returns, costs its minutes on that session's clock, and is answered only as often as checks like it
-are answered cold. Unserved: nothing under ``src`` calls :func:`evaluate`; the activation at ``mvp-0.62`` wires it.
+are answered cold. From ``mvp-0.62`` every rollout of a new decision runs here (the chooser's evaluator,
+``daily_plan.objective_chooser._evaluator``; the diagnostic evaluator's offer branch); below the tag the rollouts
+price every decision, as before.
 
-**What differs from the rollouts' own pricing** (:mod:`rollouts`, which still prices every served decision and refuses
+**What differs from the rollouts' own pricing** (:mod:`rollouts`, which prices every decision below the tag and refuses
 the typed checks this path reads). There a committed check (``Action.commitments``, ``(LO, days)``) is a full graded
 practice attempt at the first day boundary at or past its date, whether or not the learner returns, with no minutes,
 its outcome from one of eight shared columns. Here a lesson's :class:`types.CheckCommitment`:

@@ -178,6 +178,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_plan_candidates_trace_label_and_reversibility`
   - `test_stops_trace_label_and_support`
 - [tests/test_carried_valuation_lifecycle.py](../../../../../../tests/test_carried_valuation_lifecycle.py) — direct import
+- [tests/test_check_credit_activation.py](../../../../../../tests/test_check_credit_activation.py) — direct import
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import

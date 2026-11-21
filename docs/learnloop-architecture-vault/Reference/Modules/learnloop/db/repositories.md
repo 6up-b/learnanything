@@ -644,6 +644,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
+- [tests/epp_repeat_helpers.py](../../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
 - [tests/exam_protection_identity_helpers.py](../../../../../../tests/exam_protection_identity_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
@@ -1347,6 +1348,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_where_no_receipt_can_be_persisted_nothing_is_forced`
+- [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
+  - `test_epp1_stop_condition_scorer_raises_on_unreadable_time`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_protected_item_gets_no_repeat_receipt`
+  - `test_a_reopened_presentation_records_nothing_again`
+  - `test_the_subject_receipt_is_the_predecessors_own_prediction_at_the_serve`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
   - `test_a_delayed_read_equals_the_live_one_at_fixed_corrections`

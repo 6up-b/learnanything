@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_collection_dataset.py`
+- `tests/test_epp_repeat_receipts.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
 - `tests/test_probability_prep.py`

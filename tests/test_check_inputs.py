@@ -4,9 +4,7 @@ estimate from the plan's own estimator. Fakes only; no model is called and nothi
 
 from __future__ import annotations
 
-import ast
 import hashlib
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -165,29 +163,3 @@ def test_with_no_candidate_the_estimators_unknown_item_estimate(vault):
     assert (dry.basis, dry.item_id) == (CI.UNKNOWN_ITEM_ESTIMATE, None)
     assert dry.minutes == FALLBACK_PRIOR_MINUTES + DEFAULT_FEEDBACK_MINUTES == round(
         _plan_estimator(vault).estimate("", None, None).minutes, 4)
-
-
-def test_nothing_served_calls_the_adapters_yet():
-    """No module under ``src`` imports ``daily_plan.check_inputs`` (by name, from its package, or through importlib)
-    until the activation wires it into the offer."""
-
-    root = Path(__file__).resolve().parents[1]
-    hits = []
-    for path in sorted((root / "src").rglob("*.py")):
-        if path.name == "check_inputs.py":
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "check_inputs" not in text:
-            continue
-        for node in ast.walk(ast.parse(text)):
-            if isinstance(node, ast.ImportFrom) and ((node.module or "").endswith("check_inputs")
-                                                     or any(alias.name == "check_inputs" for alias in node.names)):
-                hits.append(str(path.relative_to(root)))
-            elif isinstance(node, ast.Import) and any(alias.name.endswith("check_inputs") for alias in node.names):
-                hits.append(str(path.relative_to(root)))
-            elif isinstance(node, ast.Call) and getattr(node.func, "attr", getattr(node.func, "id", "")) in {
-                    "import_module", "__import__"} and any(
-                    isinstance(arg, ast.Constant) and "check_inputs" in str(arg.value) for arg in node.args):
-                hits.append(str(path.relative_to(root)))
-    assert hits == []
-

@@ -865,6 +865,76 @@ def _boundary(config_name: str) -> dict[str, Any]:
     }
 
 
+#: A lesson offer's record as the offer builder writes it at mvp-0.62 (fixed numbers): its one retention check with the
+#: delivery sensors that enter the boundary's identity through ``BlockCandidate.log_row``.
+OFFER_RECORD: dict[str, Any] = {
+    "version": "pin", "status": "offered", "learning_object_id": "lo_pin",
+    "p_accept": {"mean": 0.4, "sd": 0.2, "beta": [2.0, 3.0]}, "duration": {"median_minutes": 15.0, "log_sd": 0.4},
+    "mass": {"mean": 0.5}, "checks": [{
+        "lo": "lo_pin", "purpose": "retention", "days": 3.0, "basis": "pin",
+        "key": "lo_pin:retention:0", "group": "legacy_vault_item:retention",
+        "delivery": {"policy_version": "committed_check_delivery_v1", "priors_version": "check_delivery_one_trial_seed_v1",
+                     "basis": "legacy", "purpose": "retention", "delivery_regime": "legacy_vault_item",
+                     "eligible_now": False, "successes": 0, "failures": 19, "censored_by_reason": {"pending": 2},
+                     "alpha": 0.0, "beta": 20.0, "predictive_mean": 0.0, "evidence_digest": "0" * 64,
+                     "seed_trials": 1.0},
+        "minutes": {"minutes": 3.5, "basis": "unknown_item_estimate", "item_id": None, "estimator_version": "pin"},
+        "rollout_policy": "committed_check_rollout_v1", "stream_layout": "commitment_streams_v1"}],
+}
+
+
+def _offer_candidate() -> Any:
+    from learnloop.daily_plan.types import BlockCandidate
+
+    return BlockCandidate(candidate_id="lesson_offer:lo_pin", lane="new", action="instruct", subtype="lesson_offer",
+                          learning_object_ids=("lo_pin",), item_ids=(), reading=None, est_minutes=15.0,
+                          planner_value=0.0, reason="pin", annotations={"lesson_offer": copy.deepcopy(OFFER_RECORD)})
+
+
+def _numeric_seed_offer(config_name: str) -> Callable[[], Any]:
+    """``C3.boundary``'s identity with a lesson offer in the support, its checks' delivery sensors included."""
+
+    def compute() -> Any:
+        from learnloop.daily_plan.objective_chooser import numeric_seed
+        from learnloop.daily_plan.router_chooser import _hash
+
+        identity = {**_boundary(config_name),
+                    "support": [_offer_candidate().log_row(), {"candidate_id": "blk_review", "lane": "review"},
+                                "stop_for_today"]}
+        return {"key": _hash(identity), "numeric_seed": numeric_seed(identity)}
+    return compute
+
+
+def _chooser_boundary_offer() -> Any:
+    """``C3b.chooser`` with a lesson offer beside the two blocks: the identity the chooser hashes holds the offer's
+    record, its checks' delivery sensors included."""
+
+    seen, _started = _run_chooser_boundary(offer=True)
+    identity = seen[-1]
+    from learnloop.daily_plan import objective_chooser as OC
+
+    return {"identity": identity, "key": OC._hash(identity), "numeric_seed": OC.numeric_seed(identity)}
+
+
+def _chooser_start_key_offer() -> Any:
+    _seen, started = _run_chooser_boundary(offer=True)
+    assert len(started) == 1, started
+    return {"key": started[0]}
+
+
+def _commitment_streams() -> Any:
+    """The committed checks' named streams (``check_value.uniforms``) at a fixed seed: the posterior group's propensity
+    draw, then delivery and outcome for commitments 1, 8 and 9 of an offer and two on one topic, each one ``K``-draw
+    array per name (rounded for the digest; the stream tests check independence and prefixes exactly)."""
+
+    from learnloop.router_objective.check_value import uniforms
+
+    names = ["theta:commit_delivery:legacy_vault_item:retention"]
+    for key in ("lo_a:retention:0", "lo_h:retention:7", "lo_i:retention:8", "lo_a:retention:1"):
+        names += [f"noise:commit_delivery:{key}", f"noise:commit_outcome:{key}"]
+    return {name: [round(float(u), 12) for u in uniforms("pin-seed", name, 8)] for name in names}
+
+
 def _chooser_boundary() -> Any:
     """The identity ``ObjectiveChooser.choose`` assembles for an objective block, captured as the chooser hashes it, on a
     new vault at the head and two fixed candidates: so a field the chooser adds, drops or reorders (its own literal, a
@@ -904,7 +974,7 @@ def _mix_seed() -> Any:
     return {"seed": mix_seed(SimpleNamespace(seed=None), "boundary-key-pin", "01JPINDECISION0000000000000")}
 
 
-def _run_chooser_boundary() -> tuple[list[dict[str, Any]], list[str]]:
+def _run_chooser_boundary(offer: bool = False) -> tuple[list[dict[str, Any]], list[str]]:
     """Run ``ObjectiveChooser.choose`` (``start_only``) on the fixed boundary: every objective-block identity it hashed,
     in order, and the keys it handed to ``_start_objective`` (stubbed: nothing starts)."""
 
@@ -951,7 +1021,8 @@ def _run_chooser_boundary() -> tuple[list[dict[str, Any]], list[str]]:
         # last one recorded is the seed's reduced identity, as when the two sat in one module.
         OC._hash = OS._hash = recording
         try:
-            chooser.choose(state, [candidate("blk_a", "maintain", 5.0, 0.5), candidate("blk_b", "new", 6.0, 0.4)])
+            candidates = [candidate("blk_a", "maintain", 5.0, 0.5), candidate("blk_b", "new", 6.0, 0.4)]
+            chooser.choose(state, [*candidates, _offer_candidate()] if offer else candidates)
         except DecisionPending:
             pass
         finally:
@@ -1606,14 +1677,16 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "the prefetch boundary key and the numeric policy's rollout RNG (router_objective/rollouts.py)",
         "different draws at a fixed input (P-draw fails) and prefetched decisions miss",
         {**{f"router_settings.{name}": _router_settings(name) for name in OBJECTIVE_CONFIGS},
-         **{f"boundary.{name}": _numeric_seed(name) for name in OBJECTIVE_CONFIGS}}),
+         **{f"boundary.{name}": _numeric_seed(name) for name in OBJECTIVE_CONFIGS},
+         **{f"boundary_offer.{name}": _numeric_seed_offer(name) for name in OBJECTIVE_CONFIGS}}),
     IdentitySite(
         "C3b", "the objective block's boundary identity as ObjectiveChooser.choose assembles it",
         ("src/learnloop/daily_plan/objective_chooser.py::ObjectiveChooser.choose",
          "src/learnloop/daily_plan/types.py::BlockCandidate.log_row"),
         "the prefetch boundary key and the numeric policy's seed (a started job is looked up by it at the serve)",
         "prefetched decisions miss and the numeric draws move at a fixed input",
-        {"chooser": _chooser_boundary, "start_key": _chooser_start_key}),
+        {"chooser": _chooser_boundary, "start_key": _chooser_start_key, "chooser_offer": _chooser_boundary_offer,
+         "start_key_offer": _chooser_start_key_offer}),
     IdentitySite(
         "C3m", "the mix's and the stop coin's seed for one decision (boundary key, decision id)",
         ("src/learnloop/daily_plan/objective_seeds.py::mix_seed",
@@ -1621,6 +1694,14 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "the mix's two uniforms and the stop coin's, and the seed every decision record and trace names",
         "every decision draws differently at a fixed input (P-draw fails), and a recorded seed no longer recomputes",
         {"seed": _mix_seed}),
+    IdentitySite(
+        "C7", "the committed checks' named streams (one K-draw array per commitment key and posterior group)",
+        ("src/learnloop/router_objective/check_value.py::uniforms",
+         "src/learnloop/router_objective/check_value.py::_Check.__init__"),
+        "every committed check's delivery propensity, delivery Bernoulli and answer outcome in the rollouts from "
+        "mvp-0.62 (router_objective/check_value.py)",
+        "different check draws at a fixed input (P-draw fails), and a stored replay payload no longer recomputes",
+        {"streams": _commitment_streams}),
     IdentitySite(
         "C4", "objective settings and the follow-up switch snapshot (the kill-switch list D7 deletes)",
         ("src/learnloop/daily_plan/objective_chooser.py::objective_settings",
@@ -1694,7 +1775,74 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "receipts written before and after the move are read by two shapes: a report misreads or drops one",
         {"stated": lambda: prediction_snapshot_pin(), "derived": lambda: prediction_snapshot_pin(stated=False),
          "voi": lambda: prediction_snapshot_pin(voi=True)}),
+    IdentitySite(
+        "EPp-repeat", "the predecessor's repeat receipts: their keys and versions and their inputs_json's shape "
+        "(evidence packets EPp, §7.7.3 item 1)",
+        ("src/learnloop/adaptive_difficulty/repeat_receipts.py::shared_inputs",
+         "src/learnloop/adaptive_difficulty/repeat_receipts.py::view_inputs",
+         "src/learnloop/adaptive_difficulty/repeat_receipts.py::memory_context",
+         "src/learnloop/adaptive_difficulty/repeat_receipts.py::delay_context",
+         "src/learnloop/adaptive_difficulty/repeat_receipts.py::build_receipt"),
+        "ad_threshold_repeat@* receipts' receipt_key (idempotence per presentation), inputs_json and its "
+        "inputs_hash: the memory successor's comparison reads them back by forecaster, key and input shape",
+        "repeats captured before and after the move are keyed or shaped two ways: the comparison splits or "
+        "misreads them",
+        {"keys": lambda: repeat_receipt_pin(), "inputs": lambda: repeat_receipt_pin(inputs=True)}),
 )
+
+
+def repeat_receipt_pin(*, inputs: bool = False) -> dict[str, Any]:
+    """A repeat receipt at fixed plain values: its key, forecaster version and versions, or its inputs (the memory
+    context and the delay read through a fixed fake view, assembled by the pure functions)."""
+
+    from types import SimpleNamespace
+
+    from learnloop.adaptive_difficulty import repeat_receipts as RR
+    from learnloop.adaptive_difficulty.snapshot_parts import ServedItem
+
+    item = SimpleNamespace(id="pi_pin", learning_object_id="lo_pin", evidence_fingerprint=None, surface_family="fam")
+    sibling = SimpleNamespace(id="pi_sib", learning_object_id="lo_pin", evidence_fingerprint=None,
+                              surface_family="fam")
+    served_at = "2026-10-12T09:00:00Z"
+    if not inputs:
+        receipts = [RR.build_receipt(name, item=item, presentation_kind="plan_presentation",
+                                     presentation_id="pp_pin", served_at=served_at, forecast={"p": 0.5},
+                                     inputs={"a": 1}, p=0.5, status="ok", parts=None)
+                    for name in RR.REPEAT_FORECASTERS]
+        return [{"receipt_key": r.receipt_key, "forecaster_version": r.forecaster_version,
+                 "versions": dict(r.versions), "columns": dict(r.columns), "scope": r.scope,
+                 "binding_kind": r.binding_kind, "kind": r.kind} for r in receipts]
+    rows = [{"id": "a_pin", "practice_item_id": "pi_pin", "learning_object_id": "lo_pin",
+             "created_at": "2026-10-09T09:00:00Z", "attempt_type": "independent_attempt",
+             "plan_presentation_id": None, "correctness": 0.0, "hints_used": 0, "primed": 0},
+            {"id": "s_pin", "practice_item_id": "pi_sib", "learning_object_id": "lo_pin",
+             "created_at": "2026-10-10T09:00:00Z", "attempt_type": "independent_attempt",
+             "plan_presentation_id": "pp_old", "correctness": 1.0, "hints_used": 1, "primed": 0}]
+    view = SimpleNamespace(
+        attempts=lambda _c: rows, reveals=lambda _c: [],
+        item=lambda item_id: {"pi_pin": item, "pi_sib": sibling}.get(str(item_id)),
+        presentation=lambda _c, _pid: {"origin": "chooser", "router_decision_id": "rd_pin", "block_id": "b_pin",
+                                       "scheduler_candidate_id": None})
+    served = ServedItem("pi_pin", "h" * 64, "lo_pin", ("facet_pin",), "fam", "surface_family")
+    memory = RR.memory_context(None, view, item, served, served_at)
+    shared = RR.shared_inputs(
+        item, content_hash="h" * 64, state_hash="state_pin",
+        features={"stamped_features": {"complexity": 1}, "task_feature_schema": "v1", "audit": {},
+                  "resolved_features": {"complexity": 1}},
+        recalibration="z_v1_logit_intercept_map_n01_v1", warmth=0.25,
+        exposure={"available": True, "id": "s_pin", "at": "2026-10-10T09:00:00Z", "kind": "attempt",
+                  "hours_before_serve": 48.0},
+        pre_exposed=False, memory=memory, delay=RR.delay_context(None, view, "pp_pin", memory, served_at),
+        coupling={})
+    spec = SimpleNamespace(signals={"z_llm": 0.5, "z_origin": 1.0}, loadings={"facet_pin": 1.0})
+    vector = {"z_llm": {"value": 0.5, "available": True, "receipt_id": None, "received_at": None,
+                        "source": "item.difficulty"},
+              "z_panel": {"value": None, "available": False, "why": "not_solver_panel"},
+              "z_v1": {"value": 0.1, "available": True, "receipt_id": "r_pin", "received_at": served_at, "p": 0.4,
+                       "p_recalibrated": 0.4, "recalibration": {"version": "v", "intercept": 0.0, "n": 0}},
+              "z_origin": {"value": 1.0, "available": True, "receipt_id": None, "received_at": None,
+                           "source": "generated"}}
+    return RR.view_inputs(shared, view="subject", mixture="bank", vector=vector, spec=spec)
 
 
 def prediction_snapshot_pin(*, stated: bool = True, voi: bool = False) -> dict[str, Any]:

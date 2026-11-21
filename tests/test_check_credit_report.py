@@ -181,6 +181,9 @@ def test_current_copy_from_real_builders_is_read_only(report, vault, monkeypatch
     assert (sensor["purpose"], sensor["S"], sensor["F"], sensor["alpha"], sensor["beta"],
             sensor["predictive_mean"]) == ("retention", 1, 2, 2.0, 2.0, 0.5)
     assert data["comparisons"]["current_copy"]["mixing_computable"] == 0
+    # The scenario runs under the rollout options the copy's tag serves (without them, the pre-mvp-0.50 review draw).
+    assert data["comparisons"]["current_copy"]["rollout_options"] == {
+        "merged_sessions": True, "consistent_review_draw": True, "held_ad_link": True}
     assert data["comparisons"]["exact_historical"]["computable"] == 0
     assert OT.LESSON not in json.dumps(data["comparisons"]["current_copy"]["values"])
 

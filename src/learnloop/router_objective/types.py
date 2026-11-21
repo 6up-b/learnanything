@@ -131,7 +131,7 @@ class Price:
 @dataclass(frozen=True)
 class CheckCommitment:
     """One delayed check a lesson commits, as numbers only (spec_teacher_v2 §7.4): read by the check-credit rollout
-    path (:mod:`check_value`), which the live entry points never select; the rollouts refuse it.
+    path (:mod:`check_value`), which every rollout of a decision at ``mvp-0.62`` or later runs; the rollouts refuse it.
 
     ``delivery`` is the posterior over the chance the check is answered cold, ``(alpha, beta)`` of a Beta, an endpoint
     allowed (``alpha = 0``: never; ``beta = 0``: always). ``minutes`` is its duration on the session's clock (a point

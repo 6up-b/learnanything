@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py) |
-| Source lines | 893 |
+| Source lines | 895 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,7 +60,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `check_eligible_items(vault: Any, repository: Any, los: Sequence[str], exclude: Any=(), *, now: datetime) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 485) — RO5 §9 item 2's eligibility rule, per LO in id order: unseen (never attempted), unrevealed (no reveal row at all), unassisted so far (no help row), not exam-reserved, held out or protected, nor in any routine serving exclusion, and servable (the delayed checks' candidate rule).
 - `check_sensors(vault: Any, repository: Any, lo: str, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 513) — RO5: a topic's sensors at a randomized check's administration (§9 item 7: the combiner is fitted on these against the check's outcome): AD's predictive on the logit scale and the FSRS retrievability of the LO's practised items (the decisions' own reads).
 - `action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practiced: set[str], spread: float) -> OT.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 610) — §8.1's interface for one candidate block.
-- `build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float=0.0, kappa_how: str='unset', sequences: Mapping[str, Sequence[BlockCandidate]] | None=None) -> tuple[OT.Inputs, list[OT.Action], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 691) — The decision's frozen inputs, its actions in support order, and the sources the trace records.
+- `build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str], candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float=0.0, kappa_how: str='unset', sequences: Mapping[str, Sequence[BlockCandidate]] | None=None) -> tuple[OT.Inputs, list[OT.Action], dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 693) — The decision's frozen inputs, its actions in support order, and the sources the trace records.
 
 ### Module constants
 
@@ -72,7 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `FOLLOWUP_PROBE_NOTE` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 56)
 - `OFFER_DECLINED_STEPS` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 58)
 - `_DECISION_READS` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 326)
-- `MISS_CAUSE_SOURCE` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 663)
+- `MISS_CAUSE_SOURCE` ([src/learnloop/daily_plan/objective_inputs.py](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 665)
 
 ### Explicit exports
 
@@ -110,8 +110,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_duration_spread(connection: Any) -> tuple[float, int]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 569) — The pooled spread of the learner's own durations on the log scale (none observed: 0, the mean only).
 - `_reading_los(vault: Any, repository: Any, candidate: BlockCandidate) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 580)
 - `_reading_los_outside_ad(vault: Any, repository: Any, reading: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 600) — AD off: no AD operation, no reading curve; the plan's own mapping (the raw-loading wrapper, as every caller outside AD).
-- `_miss_cause(connection: Any, config: Any, learning_object_ids: Sequence[str], now_iso: str, vault: Any=None, repository: Any=None) -> dict[str, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 666) — SG1: the candidate topics' miss-cause sensor (:func:`learnloop.router_objective.miss_cause.sensor`), or None off or below the tag (nothing is read).
-- `_step(action: OT.Action) -> OT.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 684) — A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence, then the tail, is what uses the information), never a nested repair bundle.
+- `_miss_cause(connection: Any, config: Any, learning_object_ids: Sequence[str], now_iso: str, vault: Any=None, repository: Any=None) -> dict[str, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 668) — SG1: the candidate topics' miss-cause sensor (:func:`learnloop.router_objective.miss_cause.sensor`), or None off or below the tag (nothing is read).
+- `_step(action: OT.Action) -> OT.Action` ([source](../../../../../../src/learnloop/daily_plan/objective_inputs.py), line 686) — A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence, then the tail, is what uses the information), never a nested repair bundle.
 
 ## Who imports or calls it
 
@@ -180,9 +180,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
   - `test_a_plan_candidate_reaches_its_kind_through_production_dispatch`
+- [tests/test_check_credit_activation.py](../../../../../../tests/test_check_credit_activation.py) — direct import
+  - `test_both_tags_the_offer_record_and_its_action`
 - [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
-  - `test_intended_an_offer_with_no_eligible_question_credits_no_check`
-  - `test_today_an_offer_is_built_with_a_check_whether_or_not_a_question_exists`
+  - `test_below_the_tag_an_offer_is_built_with_a_check_whether_or_not_a_question_exists`
+  - `test_both_tags_an_offer_with_no_eligible_question`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle`
   - `test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support`

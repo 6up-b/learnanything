@@ -325,6 +325,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_withheld_item_behind_the_material_view_reads_as_if_it_were_never_stored`
 - [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_protected_item_gets_no_repeat_receipt`
+  - `test_the_subject_receipt_is_the_predecessors_own_prediction_at_the_serve`
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
   - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
   - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`

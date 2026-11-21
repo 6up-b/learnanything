@@ -82,6 +82,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] — imports `UlidStream`; statically calls `UlidStream`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `new_ulid`; statically calls `new_ulid`
@@ -290,7 +291,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 184 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 185 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -298,6 +299,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ad23_contract_helpers.py](../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/capture_desktop_helpers.py](../../../../../tests/capture_desktop_helpers.py) — direct import
+- [tests/epp_repeat_helpers.py](../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/figure_build_golden_helpers.py](../../../../../tests/figure_build_golden_helpers.py) — direct import
 - [tests/figure_offers_helpers.py](../../../../../tests/figure_offers_helpers.py) — direct import
 - [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
@@ -343,6 +345,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_discriminating_search.py](../../../../../tests/test_discriminating_search.py) — direct import
   - `test_an_unverified_import_is_excluded_from_value_intents_but_not_practice`
 - [tests/test_due_queue_golden.py](../../../../../tests/test_due_queue_golden.py) — direct import
+- [tests/test_epp_repeat_receipts.py](../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_repeat_receipt_ids_come_from_their_own_stream`
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_protection.py](../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_revealed_item_is_never_the_cold_retry`

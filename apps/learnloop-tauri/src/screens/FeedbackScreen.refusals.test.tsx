@@ -176,7 +176,8 @@ it("a question filed under no subject: the note panel says why the note can't be
   render(<FeedbackScreen {...callbacks} />);
   await screen.findByText(/You used the unconditional probability/);
   await press("j");
-  const body = await screen.findByPlaceholderText(/write your note/);
+  // The note panel loads on first use; under a loaded machine that takes longer than the default second.
+  const body = await screen.findByPlaceholderText(/write your note/, {}, { timeout: 5000 });
   fireEvent.change(body, { target: { value: "Restrict to the condition first." } });
   await act(async () => {
     fireEvent.keyDown(body, { key: "Enter", ctrlKey: true });

@@ -19,7 +19,11 @@ from datetime import timedelta
 import numpy as np
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import (
+    EVIDENCE_READING_FIX_ALGORITHM_VERSION,
+    FAILURE_SHARE_ALGORITHM_VERSION,
+    LATEST_ALGORITHM_VERSION,
+)
 from learnloop.daily_plan import objective_card as OCARD
 from learnloop.daily_plan import objective_chooser as OC
 from learnloop.daily_plan.types import LESSON_OFFER_SUBTYPE, BlockCandidate
@@ -42,6 +46,10 @@ from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixtu
 
 TAG = LATEST_ALGORITHM_VERSION
 OLD = FAILURE_SHARE_ALGORITHM_VERSION
+#: The served journeys pair two runs decision by decision at pinned draws, so they run at the last tag before the
+#: committed-check credit (mvp-0.62): its offer values part the journeys at a different boundary, which is not what
+#: these tests are about. The split is the same at every tag from SG's.
+TWIN_TAG = EVIDENCE_READING_FIX_ALGORITHM_VERSION
 QUIET = "[router_objective]\nstop_coin = 0.0\n"
 SENSOR_ONLY = QUIET + "miss_cause_in_value = false\n"
 OFF = QUIET + "miss_cause_sensor = false\n"
@@ -621,7 +629,7 @@ def test_nothing_adds_a_threshold():
 # -- the decisions -------------------------------------------------------------------------------------------------------
 
 
-def _diagnosed_env(tmp_path, toml, *, seed, version=TAG, causes=SLIP_CAUSES):
+def _diagnosed_env(tmp_path, toml, *, seed, version=TWIN_TAG, causes=SLIP_CAUSES):
     env = mixture_env(tmp_path, fake_runtime(seed=seed), version=version, toml=toml, session_id="s1")
     for lo, item in (("lo_diag", "pi_diag_easy"), ("lo_r1", "pi_r1a")):
         attempt = _attempt(env.repository, f"att_miss_{lo}", lo, item, at=_at(1))
@@ -635,7 +643,7 @@ def twins(tmp_path, monkeypatch):
     join_carried_valuations(monkeypatch)
     pinned = _pin(monkeypatch)
 
-    def build(name, toml, version=TAG, causes=SLIP_CAUSES):
+    def build(name, toml, version=TWIN_TAG, causes=SLIP_CAUSES):
         env = _diagnosed_env(tmp_path / name, toml, seed=pinned, version=version, causes=causes)
         run(env)
         return env

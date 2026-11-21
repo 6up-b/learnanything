@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py) |
-| Source lines | 337 |
+| Source lines | 340 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,7 +59,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `inputs_digest(inputs: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 170)
 - `categorical_body(likelihood: Mapping[str, Mapping[str, float]], prior: Mapping[str, float], *, alphabet: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 175) — The Part B body of a categorical forecast over ``alphabet``.
 - `clamped_as_of(value: str | None, created_at: str) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 209) — ``inputs_as_of`` in the receipt's own format, never after the receipt.
-- `record_receipts(repository: Repository | None, receipts: Sequence[ForecastReceipt], *, vault: Any=None, clock: Clock | None=None, created_at: str | None=None) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 233) — Append ``receipts`` in the caller's transaction; never raises.
+- `record_receipts(repository: Repository | None, receipts: Sequence[ForecastReceipt], *, vault: Any=None, clock: Clock | None=None, created_at: str | None=None, new_id: Callable[[], str] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 233) — Append ``receipts`` in the caller's transaction; never raises.
 
 ### Module constants
 
@@ -134,6 +134,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS`, `LO_COLD_AFTER_BLOCK`, `LO_COLD_SUCCESS`, `NO_BINDING`, `record_receipts`; statically calls `ForecastReceipt`, `record_receipts`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `LO_COLD_SUCCESS`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `FIRST_PRESENTATION`, `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS`, `record_receipts`; statically calls `ForecastReceipt`, `record_receipts`
+- [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] — imports `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS`; statically calls `ForecastReceipt`
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `valid_for_serve`; statically calls `valid_for_serve`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] — imports `record_receipts`; statically calls `record_receipts`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS`; statically calls `ForecastReceipt`
@@ -164,7 +165,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -195,6 +196,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_writer_derives_a_target_from_the_receipt_and_names_what_it_could_not_version`
   - `test_where_no_receipt_can_be_persisted_nothing_is_forced`
   - `test_writes_are_idempotent_and_roll_back_with_their_transaction`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_protected_item_gets_no_repeat_receipt`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_a_completed_diagnosis_writes_its_forecast_in_its_own_transaction`
   - `test_a_held_grade_resolves_nothing_until_a_regrade_releases_it`

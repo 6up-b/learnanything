@@ -30,13 +30,13 @@ source_paths:
   - "tests/diagnosis_fakes.py"
   - "tests/diagnosis_identity_helpers.py"
   - "tests/diagnosis_input_provenance_helpers.py"
+  - "tests/epp_repeat_helpers.py"
   - "tests/epp_snapshot_helpers.py"
   - "tests/followup_contract_baseline_helpers.py"
   - "tests/forecast_receipts_helpers.py"
   - "tests/held_grade_evidence_helpers.py"
   - "tests/help_outcomes_helpers.py"
   - "tests/hint_fakes.py"
-  - "tests/http_provider_double.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/diagnosis"
@@ -92,13 +92,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_fakes.py`
 - `tests/diagnosis_identity_helpers.py`
 - `tests/diagnosis_input_provenance_helpers.py`
+- `tests/epp_repeat_helpers.py`
 - `tests/epp_snapshot_helpers.py`
 - `tests/followup_contract_baseline_helpers.py`
 - `tests/forecast_receipts_helpers.py`
 - `tests/held_grade_evidence_helpers.py`
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_fakes.py`
-- `tests/http_provider_double.py`
 
 ## Extension and modification guidance
 

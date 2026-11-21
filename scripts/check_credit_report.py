@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from contextlib import contextmanager
-from dataclasses import fields, is_dataclass, replace
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 import hashlib
 import importlib.util
@@ -29,7 +29,7 @@ from learnloop.plan_refs import LESSON_OFFER_PREFIX as PREFIX
 from learnloop.router_objective import check_value as CV
 from learnloop.router_objective import mix, rollouts as ROL, types as OT
 from learnloop.router_objective.objective import numeric_choice
-from learnloop.teacher import check_delivery as CD
+from learnloop.daily_plan import check_delivery as CD
 
 REPLAY_VERSION = "check_credit_report_replay_v1"
 HISTORICAL_MISSING = [
@@ -305,27 +305,9 @@ def paired_scenario(inputs, old_actions, proposed_actions, *, draws, seed, optio
 
 
 def _codec(value, *, decode=False):
-    from learnloop.router_objective.ad_link import AdLink, LessonCurve
-    from learnloop.router_objective.memory import Combiner
+    from learnloop.router_objective import check_replay as CR
 
-    classes = (OT.Inputs, OT.Action, OT.Topic, OT.DatedUse, OT.Price, OT.Learning,
-               OT.EffectSlope, OT.CauseSplit, OT.CheckCommitment, AdLink, LessonCurve, Combiner)
-    registry = {cls.__name__: cls for cls in classes}
-    if not decode and is_dataclass(value):
-        if type(value) not in classes:
-            raise ValueError("unsupported numeric type")
-        return {"type": type(value).__name__, "fields": {f.name: _codec(getattr(value, f.name)) for f in fields(value)}}
-    if isinstance(value, dict):
-        if decode and set(value) == {"type", "fields"}:
-            cls = registry[value["type"]]
-            if set(value["fields"]) != {f.name for f in fields(cls)}:
-                raise ValueError("incomplete numeric snapshot")
-            return cls(**{k: _codec(v, decode=True) for k, v in value["fields"].items()})
-        return {k: _codec(v, decode=decode) for k, v in value.items()}
-    if isinstance(value, (tuple, list)):
-        result = [_codec(v, decode=decode) for v in value]
-        return tuple(result) if decode else result
-    return value
+    return CR.decode(value) if decode else CR.encode(value)
 
 
 def replay_record(inputs, old_actions, proposed_actions, *, seed, draws, as_of, options, mixing=None):
@@ -338,7 +320,42 @@ def replay_record(inputs, old_actions, proposed_actions, *, seed, draws, as_of, 
     return {"version": REPLAY_VERSION, "payload": payload, "sha256": hashlib.sha256(payload.encode()).hexdigest()}
 
 
-def _replay(record, at, chosen_ref, support):
+def _live_replay(record, at, chosen_ref, support, recorded_q):
+    """A payload the live writer stored (mvp-0.62 or later): exact when it is this decision's, read no later than the
+    decision, under the policies this checkout prices, and when it reproduces the value the trace recorded."""
+    from learnloop.clock import parse_utc
+    from learnloop.router_objective import check_replay as CR
+
+    body = CR.read(record)
+    read_at, decided = parse_utc(str(body.get("as_of") or "")), parse_utc(str(at or ""))
+    if read_at is None or decided is None or read_at > decided or not body["seed"] or body["draws"] < 1:
+        raise ValueError("missing original clock, seed or draws")
+    if chosen_ref not in {a.ref for a in body["proposed_actions"]}:
+        raise ValueError("replay belongs to another offer")
+    if {a.ref for a in body["proposed_actions"] if a.choosable} != set(support):
+        raise ValueError("incomplete frozen candidate support")
+    versions = body["versions"]
+    if (versions.get("rollout_policy"), versions.get("streams")) != (CV.POLICY_VERSION, CV.STREAM_LAYOUT_VERSION):
+        raise ValueError("unsupported numeric policy")
+    for sensor in body["sensors"].values():
+        delivery = (sensor or {}).get("delivery") or {}
+        if (delivery.get("policy_version"), delivery.get("priors_version")) != (CD.DELIVERY_POLICY_VERSION,
+                                                                               CD.PRIORS_VERSION):
+            raise ValueError("unsupported numeric policy")
+    result = paired_scenario(body["inputs"], body["old_actions"], body["proposed_actions"], draws=body["draws"],
+                             seed=body["seed"], options=body["options"], offer_ref=chosen_ref)
+    offer = next((row for row in result["offers"]), None)
+    # The trace keeps six decimals; a payload whose recomputed value is not the recorded one replays something else.
+    if offer is None or recorded_q is None or abs(offer["proposed"]["q"] - float(recorded_q)) > 5e-7:
+        raise ValueError("replay does not reproduce the recorded value")
+    return result
+
+
+def _replay(record, at, chosen_ref, support, recorded_q=None):
+    from learnloop.router_objective import check_replay as CR
+
+    if record.get("version") == CR.REPLAY_VERSION:
+        return _live_replay(record, at, chosen_ref, support, recorded_q)
     if record.get("version") != REPLAY_VERSION:
         raise ValueError("unsupported replay version")
     payload = record["payload"]
@@ -489,7 +506,8 @@ def build_report(path, *, as_of=None, draws=8):
                 try:
                     support = [c.get("ref") or c.get("candidate_id") for c in _json(offer["candidates_json"], [])
                                if c.get("feasible", True)]
-                    exact.append(_replay(replay, offer["created_at"], offer["chosen_ref"], support))
+                    exact.append(_replay(replay, offer["created_at"], offer["chosen_ref"], support,
+                                         (candidate.get("terms") or {}).get("q")))
                 except (KeyError, TypeError, ValueError):
                     exact_reasons["invalid_or_unsupported_replay_payload"] += 1
             else:
@@ -509,6 +527,7 @@ def build_report(path, *, as_of=None, draws=8):
         }
         comparisons["exact_historical"]["coverage_reasons"] = dict(exact_reasons)
         comparisons["current_copy"]["coverage_reasons"] = dict(current_reasons)
+        comparisons["current_copy"]["rollout_options"] = current[0]["options"] if current else None
         comparisons["current_copy"]["scope"] = (
             "present-day inputs; recorded offer contract and plan price; lesson versus stop only; "
             "not a historical correction or historical mixing comparison")
@@ -561,8 +580,13 @@ def _current_pair(vault, repository, offer, candidate, at, draws):
                         "duration_basis": duration.basis})
     proposed = replace(old, commitments=(), checks=tuple(checks))
     stop = OT.Action(ref=OT.STOP_FOR_TODAY, kind=OT.STOP)
-    return {**paired_scenario(inputs, [old, stop], [proposed, stop], draws=draws, seed="check-credit-current-copy-v1"),
-            "delivery_posteriors": sensors}
+    from learnloop.daily_plan.objective_chooser import rollout_options
+
+    # The rollouts' options the copy's tag serves (the review draw, merged sessions, the held link): without them the
+    # scenario would run the pre-mvp-0.50 review draw, which can flip the sign of a check's effect.
+    return {**paired_scenario(inputs, [old, stop], [proposed, stop], draws=draws, seed="check-credit-current-copy-v1",
+                              options=rollout_options(vault.config)),
+            "delivery_posteriors": sensors, "options": rollout_options(vault.config)}
 
 
 def render(report):

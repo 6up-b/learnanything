@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/forecast_receipts.py](../../../../../../../src/learnloop/db/stores/forecast_receipts.py) |
-| Source lines | 126 |
+| Source lines | 128 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Public API
 
 - `has_table(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 38)
-- `insert_receipt(connection: sqlite3.Connection, *, receipt_key: str, kind: str, forecaster: str, forecaster_version: str, scope: str, decision_kind: str, binding_kind: str, event: str, forecast: Mapping[str, Any], inputs: Mapping[str, Any], inputs_hash: str, inputs_as_of: str, parameters: Any, versions: Mapping[str, Any], created_at: str, status: str='ok', **columns: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 44) — Append one receipt; None when its receipt key already exists.
-- `list_receipts(connection: sqlite3.Connection, *, since: str | None=None, kind: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 101) — Every receipt (decoded), oldest first; ``[]`` on a database without the table.
+- `insert_receipt(connection: sqlite3.Connection, *, receipt_key: str, kind: str, forecaster: str, forecaster_version: str, scope: str, decision_kind: str, binding_kind: str, event: str, forecast: Mapping[str, Any], inputs: Mapping[str, Any], inputs_hash: str, inputs_as_of: str, parameters: Any, versions: Mapping[str, Any], created_at: str, status: str='ok', receipt_id: str | None=None, **columns: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 44) — Append one receipt; None when its receipt key already exists.
+- `list_receipts(connection: sqlite3.Connection, *, since: str | None=None, kind: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 103) — Every receipt (decoded), oldest first; ``[]`` on a database without the table.
 
 ### Module constants
 
@@ -77,7 +77,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_decode(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 92)
+- `_decode(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 94)
 
 ## Who imports or calls it
 
@@ -116,6 +116,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cold_retry_reschedule.py](../../../../../../../tests/test_cold_retry_reschedule.py) — direct import
 - [tests/test_epp_prediction_snapshots.py](../../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
+- [tests/test_epp_repeat_receipts.py](../../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_protected_item_gets_no_repeat_receipt`
+  - `test_a_write_that_fails_rolls_back_alone`
 - [tests/test_forecast_receipts.py](../../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_a_failed_receipt_never_breaks_its_diagnosis`
 - [tests/test_forecast_receipts_landing.py](../../../../../../../tests/test_forecast_receipts_landing.py) — direct import

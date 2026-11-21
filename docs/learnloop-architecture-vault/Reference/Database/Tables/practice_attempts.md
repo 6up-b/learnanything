@@ -194,6 +194,7 @@ Indexes and uniqueness:
 - `src/learnloop/capture/report.py`
 - `src/learnloop/confidence_events.py`
 - `src/learnloop/content/proposals/method_phrasing.py`
+- `src/learnloop/daily_plan/check_delivery.py`
 - `src/learnloop/daily_plan/check_inputs.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
@@ -295,7 +296,6 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/teacher/actions.py`
 - `src/learnloop/teacher/brief.py`
-- `src/learnloop/teacher/check_delivery.py`
 - `src/learnloop/teacher/diagnosed_sources.py`
 - `src/learnloop/teacher/report.py`
 - `src/learnloop/teacher/service.py`

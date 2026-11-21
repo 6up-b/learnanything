@@ -618,9 +618,11 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
         from learnloop.daily_plan.lesson_offer import action_inputs
 
         offer = action_inputs(candidate)
+        # The committed-check credit (mvp-0.62): a record carrying its checks' sensors gives typed checks, which only
+        # ``router_objective.check_value`` prices; a record without them, the untyped pairs the rollouts price.
         return OT.Action(ref=candidate.candidate_id, kind=OT.LESSON, item_los=(offer["lo"],), minutes=offer["minutes"],
                          minutes_log_sd=offer["log_sd"], mass=offer["mass"], accept=offer["accept"],
-                         commitments=offer["checks"])
+                         commitments=offer["checks"], checks=offer.get("typed_checks", ()))
     if (candidate.annotations or {}).get(FOLLOWUP_PROBE_NOTE):
         # IH2 (spec_instruct_handoff_v1 §5 item 4): a generated probe not yet written (its decision comes first), against
         # a lesson offer: RO §8.1's probe bundle on its LO, as any probe. No new number: the same draws and sensors.
