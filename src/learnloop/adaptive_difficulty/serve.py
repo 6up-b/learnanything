@@ -46,7 +46,7 @@ from learnloop.adaptive_difficulty.material_view import current_view, material_v
 from learnloop.adaptive_difficulty.reading import sweep
 from learnloop.adaptive_difficulty.generation import record_landed_commissions
 from learnloop.adaptive_difficulty.serve_inputs import build_row, never_attempted
-from learnloop.adaptive_difficulty.serving import frozen_loadings, threshold_receipts
+from learnloop.adaptive_difficulty.serving import frozen_loadings, served_item, threshold_receipts
 from learnloop.adaptive_difficulty.switches import receipts_enabled
 
 LOG = logging.getLogger(__name__)
@@ -120,7 +120,8 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
                 row["protection_epoch"] = view.epoch
                 record.serve_inputs_id = store.insert_serve_inputs(connection, row)
             receipts = in_process_receipts(vault, repository, connection, item, presentation_kind=PLAN_PRESENTATION,
-                                           presentation_id=presentation_id, served_at=served_at, view=view)
+                                           presentation_id=presentation_id, served_at=served_at, view=view,
+                                           served=served_item(vault, item))
             if fresh_item:
                 # AD2+AD3 (§8.2): ad_threshold@subject, @subject_uniform and @lo.
                 receipts += threshold_receipts(vault, repository, connection, item,

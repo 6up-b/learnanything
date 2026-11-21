@@ -1685,7 +1685,58 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "forecasts by target_hash",
         "one target recorded before and after the move carries two hashes: reports split it or miss its forecasts",
         {"full": lambda: prediction_target_pin(), "minimal": lambda: prediction_target_pin(minimal=True)}),
+    IdentitySite(
+        "EPp", "a prediction snapshot's serialized shape (evidence packets EPp, §7.7.2)",
+        ("src/learnloop/scheduling/prediction_snapshots.py::receipt_bodies",
+         "src/learnloop/scheduling/prediction_snapshots.py::voi_snapshot"),
+        "forecast receipts' versions_json.snapshot and forecast_json.distribution, voi_forecasts' "
+        "versions_json.snapshot: the evaluation reports that read them back later",
+        "receipts written before and after the move are read by two shapes: a report misreads or drops one",
+        {"stated": lambda: prediction_snapshot_pin(), "derived": lambda: prediction_snapshot_pin(stated=False),
+         "voi": lambda: prediction_snapshot_pin(voi=True)}),
 )
+
+
+def prediction_snapshot_pin(*, stated: bool = True, voi: bool = False) -> dict[str, Any]:
+    """The bodies a fixed receipt is written with: one whose producer states its snapshot, one whose writer
+    derives it, and a VOI forecast's."""
+
+    from learnloop.db.evidence_cutoff import Cutoff
+    from learnloop.db.prediction_target import PredictionTarget, TargetMember
+    from learnloop.scheduling import prediction_snapshots as PS
+    from learnloop.scheduling.forecast_receipts import ForecastReceipt
+
+    if voi:
+        return PS.voi_snapshot(
+            site="probe_selection", forecast_version="voi_forecast_v4",
+            forecast={"predicted_outcomes": {"pass": 0.7, "fail": 0.3}, "forecast_of": "committed",
+                      "chosen_ref": "cand_pin", "verdict": "measure"},
+            columns={"chosen_practice_item_id": "pi_pin_svd_000", "learning_object_id": "lo_pin_svd",
+                     "presentation_id": "pp_pin"})
+    parts = None
+    if stated:
+        parts = PS.SnapshotParts(
+            cutoff=Cutoff.ad_replay("2026-10-12T08:00:00Z"), source={"ad_state_hash": "state_pin"},
+            target=PredictionTarget(
+                kind="item_unassisted_success",
+                members=(TargetMember("item", "pi_pin_svd_000", revision="sha256:" + "0" * 64),
+                         TargetMember("learning_object", "lo_pin_svd")),
+                unit="ad_category3", event_version="ad_category:ad_priors_v1",
+                resolver_version="ad_forecast_scores_v1", action_kind="serve", action_id="pi_pin_svd_000",
+                horizon_kind="presentation", anchor_kind="plan_presentation", anchor_id="pp_pin"),
+            distribution=PS.categorical_distribution({"0": 0.5, "1": 0.25, "2": 0.25}, unit="ad_category3",
+                                                     event="unassisted_success", event_outcomes=("2",)),
+            provenance={"prior": {"version": "ad_priors_v1", "source": "code"}})
+    receipt = ForecastReceipt(
+        receipt_key="pin", kind="item_unassisted_success", forecaster="pin_forecaster", forecaster_version="v1",
+        scope="presentation", decision_kind="serve", binding_kind="plan_presentation", event="unassisted_success",
+        forecast={"p": 0.25, "event": "unassisted_success", "p_categories": None}, inputs={"a": 1}, parameters=[],
+        versions={"prompt": "prompt_pin", "model": "model_pin"}, inputs_as_of="2026-10-12T08:00:00Z", p=0.25,
+        columns={"decision_ref": "pp_pin", "practice_item_id": "pi_pin_svd_000", "learning_object_id": "lo_pin_svd",
+                 "plan_presentation_id": "pp_pin"},
+        snapshot=parts)
+    forecast, versions = PS.receipt_bodies(receipt, "2026-10-12T09:00:00Z", "2026-10-12T08:00:00Z")
+    return {"forecast": forecast, "versions": versions}
 
 
 def prediction_target_pin(*, minimal: bool = False) -> dict[str, str]:

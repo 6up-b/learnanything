@@ -32,6 +32,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import voi_forecasts as store
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
+from learnloop.scheduling import prediction_snapshots
 
 logger = logging.getLogger(__name__)
 
@@ -374,6 +375,15 @@ def record_forecast(
             "loss_table_version": AL.LOSS_TABLE_VERSION,
             **dict(versions or {}),
         }
+        try:
+            # The prediction snapshot (EP spec §7.7.3): evaluation-only, beside the body, never in it; a
+            # snapshot that cannot be built costs the forecast nothing.
+            payload_versions.setdefault("snapshot", prediction_snapshots.voi_snapshot(
+                site=site, forecast=forecast, columns=columns, forecast_version=FORECAST_VERSION))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("voi forecast snapshot not built (site=%s)", site, exc_info=True)
+            payload_versions.setdefault("snapshot", {"schema": prediction_snapshots.SNAPSHOT_SCHEMA,
+                                                     "error": type(exc).__name__})
         algorithm_version = None
         if vault is not None:
             algorithm_version = getattr(getattr(getattr(vault, "config", None), "algorithms", None),

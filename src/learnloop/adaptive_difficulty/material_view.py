@@ -531,7 +531,37 @@ class MaterialView:
             return self._gap_source_withheld(connection, row)
         if table in _LESSON_RECORDS:
             return self._lesson_record_withheld(row, _LESSON_RECORDS[table])
+        if table == "forecast_receipts":
+            return self._snapshot_withheld(connection, row)
         raise ValueError(f"no self rule for {table}")
+
+    def _snapshot_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
+        """A forecast receipt's prediction snapshot (EP spec §7.7.2): withheld when a member its target names is,
+        an item by id or at its revision, a facet only withheld material names. A receipt with no snapshot (every
+        receipt before snapshots) is judged by its columns alone; an unreadable snapshot is withheld (fail
+        closed)."""
+
+        try:
+            versions = _value(row, "versions_json")
+            record = versions if isinstance(versions, Mapping) else json.loads(versions or "null")
+            snapshot = record.get("snapshot") if isinstance(record, Mapping) else None
+            if snapshot is None:
+                return False
+            block = snapshot.get("target") or {}
+            target = block.get("target")
+            if target is None:
+                return False
+            members = [(str(m["kind"]), str(m["id"]), m.get("revision")) for m in target["members"]]
+        except Exception:  # noqa: BLE001 - fail closed
+            return True
+        canonical = getattr(self.vault, "canonical_facet_id", lambda v: v)
+        for kind, value, revision in members:
+            if kind == "item" and (self.withheld(value) or (
+                    revision and self.revision_hash_withheld(connection, str(revision)))):
+                return True
+            if kind == "facet" and canonical(value) in self.protected_only_facets(connection):
+                return True
+        return False
 
     def _lesson_record_withheld(self, row: Mapping[str, Any], column: str) -> bool:
         """Teacher TE3a (spec_teacher_v1 §14.2, §14.3; Option B): a lesson's own record (its goal, its outline, its
