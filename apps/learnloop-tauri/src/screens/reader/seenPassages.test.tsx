@@ -165,19 +165,18 @@ it("a passage is sent until acknowledged (a failed save sends it again), and nev
   expect(reports()).toHaveLength(3);
 });
 
-it("passages the backend refuses as not the section's are dropped, so the counts beside them still save", async () => {
-  api.readerNoteReadingProgress.mockRejectedValueOnce({ code: "validation_error", message: "not here", retryable: false });
+it("an answered report acknowledges every passage it carried, those the backend left out too: none is sent again", async () => {
+  // The backend keeps the section's own passages and leaves out any other, answering the report as usual.
   const { result } = renderHook(() => useHarness());
   act(() => result.current.placeAtOpen(view.sourceId, "s0", null));
   await scrollByHand(result);
   await saved();
+  await markerAt(result, "s1");
+  await saved();
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(SEEN_REPORT_MS * 2 + 50);
+    await vi.advanceTimersByTimeAsync(SEEN_REPORT_MS * 8);
   });
-  expect(reports()).toEqual([
-    { extractionId: view.extractionId, sectionId: "u1", spansSeen: 1, spanCount: 5, seenSpanIds: ["s0"] },
-    { extractionId: view.extractionId, sectionId: "u1", spansSeen: 1, spanCount: 5 },
-  ]);
+  expect(reports().map((one) => one.seenSpanIds)).toEqual([["s0"], ["s1"]]);
 });
 
 it("finishing a section by its control sends the completion alone: no passage is invented for it", async () => {

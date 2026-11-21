@@ -250,6 +250,20 @@ describe("the Reader's intents (mobile v2 V4, §3.4, §5.4)", () => {
     expect((await listReaderIntents())[0].params).toMatchObject({ seenSpanIds: ["b0", "b1", "b2"], reachedEnd: true, completed: true });
   });
 
+  it("a queued passages report and a later completion go as one record, which the host's answer delivers", async () => {
+    // The host keeps the section's own passages and leaves out any other, never refusing the completion beside them
+    // (tests/test_reader_seen_passages.py, the same merged params at the handler).
+    await addReaderIntent({ ...progress("01A", 2), params: { extractionId: "ext1", sectionId: "u1", spansSeen: 2, spanCount: 3, seenSpanIds: ["b0", "b1", "node-footnote-7"], reachedEnd: true } });
+    await addReaderIntent({ ...progress("01B", 3), params: { extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, completed: true } });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, result: { progress: {}, enqueuedGeneration: false } }), { status: 200 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    expect(sentBodies()).toEqual([{
+      method: "reader.mark_section_progress", request_id: "01B",
+      params: { extractionId: "ext1", sectionId: "u1", spansSeen: 3, spanCount: 3, seenSpanIds: ["b0", "b1", "node-footnote-7"], reachedEnd: true, completed: true }
+    }]);
+    expect(await listReaderIntents()).toEqual([]);
+  });
+
   it("no answer keeps it and sends it again under the same key (the host coalesces the replay)", async () => {
     await addReaderIntent({ id: "01A", method: "reader.log_activity", params: { events: [{ kind: "reader_view_opened", occurredAt: "t" }] } });
     fetchMock.mockRejectedValueOnce(new TypeError("offline"));

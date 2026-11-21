@@ -72,15 +72,15 @@ interface SeenSave {
   acknowledged: Record<string, number>;
   sending: Record<string, number>;
   /** The passages the learner's own reading observed, per section, and the sections
-   *  whose last passage was among them. The backend unions them, so each goes until it is acknowledged. */
+   *  whose last passage was among them. The backend unions them, so each goes until it is acknowledged; an
+   *  answered report acknowledges every id it carried, the ones the backend left out as not the section's too,
+   *  so none is sent again. */
   passages: Record<string, Set<string>>;
   acknowledgedPassages: Set<string>;
   sendingPassages: Set<string>;
   ends: Set<string>;
   acknowledgedEnds: Set<string>;
   sendingEnds: Set<string>;
-  /** Refused by the backend as not this reading's section: never sent again. */
-  refused: Set<string>;
   attempts: number;
   timer: number | null;
 }
@@ -91,7 +91,7 @@ function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSa
     save = {
       wanted: {}, acknowledged: {}, sending: {}, passages: {}, acknowledgedPassages: new Set(),
       sendingPassages: new Set(), ends: new Set(), acknowledgedEnds: new Set(), sendingEnds: new Set(),
-      refused: new Set(), attempts: 0, timer: null,
+      attempts: 0, timer: null,
     };
     saves.set(extractionId, save);
   }
@@ -115,10 +115,8 @@ function sendSeenCounts(
     const countNew = counts !== undefined
       && counts.spansSeen > Math.max(save.acknowledged[sectionId] ?? 0, save.sending[sectionId] ?? 0);
     const passages = [...(save.passages[sectionId] ?? [])]
-      .filter((spanId) => !save.acknowledgedPassages.has(spanId) && !save.sendingPassages.has(spanId)
-        && !save.refused.has(spanId));
-    const end = save.ends.has(sectionId) && !save.acknowledgedEnds.has(sectionId) && !save.sendingEnds.has(sectionId)
-      && !save.refused.has(`end:${sectionId}`);
+      .filter((spanId) => !save.acknowledgedPassages.has(spanId) && !save.sendingPassages.has(spanId));
+    const end = save.ends.has(sectionId) && !save.acknowledgedEnds.has(sectionId) && !save.sendingEnds.has(sectionId);
     if (!countNew && passages.length === 0 && !end) continue;
     if (countNew) save.sending[sectionId] = counts.spansSeen;
     for (const spanId of passages) save.sendingPassages.add(spanId);
@@ -136,13 +134,7 @@ function sendSeenCounts(
         save.attempts = 0;
         onSaved?.(extractionId);
       })
-      .catch((error: unknown) => {
-        // Passages the backend says are not this reading's section (a guide answered for another reading) are
-        // dropped, never sent again: the counts beside them must not be refused with them on every retry.
-        if ((error as { code?: unknown } | null)?.code === "validation_error" && (passages.length > 0 || end)) {
-          for (const spanId of passages) save.refused.add(spanId);
-          if (end) save.refused.add(`end:${sectionId}`);
-        }
+      .catch(() => {
         if (save.timer !== null || save.attempts >= SEEN_RETRY_LIMIT) return;
         save.attempts += 1;
         save.timer = window.setTimeout(() => {
