@@ -11,6 +11,7 @@ import pytest
 
 from learnloop.ai.errors import AITurnTimeout
 from learnloop.ai.execution import ModelCheckpoint, checkpointed, content_key, request_key
+from learnloop.ai.structured_contracts import Predicate, RecoveryAllowance, checked_structured_answer, contract_of
 from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
 from learnloop.content.synthesis.ai_contracts import ConceptGraphStructuring, ConceptMergeGroup
 from learnloop.content.synthesis import source_unit_inventory as inventory
@@ -114,6 +115,81 @@ def test_a_checkpoint_under_its_own_key_reads_its_own_shape():
     assert checkpoint.load() == ("same", "m")
     store.rows["own:key"] = {"model": "m"}
     assert checkpoint.load() is None and "own:key" not in store.rows
+
+
+# -- the shared contract step on a checkpoint (learnloop.ai.structured_contracts) --------------------------------
+
+_AT_LEAST_SIX = contract_of(Predicate("too_short", lambda answer: len(answer.text) >= 6, "Write six characters or more."))
+
+
+def _checked(checkpoint, *answers):
+    """A checked call whose sends answer ``answers`` in turn; returns its outcome and the prompts sent."""
+
+    sent: list[str] = []
+
+    def send(attempt, check):
+        sent.append(attempt.prompt)
+        return check(answers[len(sent) - 1])
+
+    result = checked_structured_answer(
+        first_prompt="q", contract=_AT_LEAST_SIX, send=send, recovery=RecoveryAllowance(admit=lambda: True),
+        checkpoint=checkpoint, failure=lambda info: RuntimeError(info.reason),
+    )
+    return result, sent
+
+
+def test_a_checked_call_reuses_a_saved_answer_that_holds_and_pays_nothing():
+    store = _Store()
+    checkpoint = checkpointed(store, purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer)
+    store.rows[checkpoint.key] = {"text": "saved long"}
+
+    result, sent = _checked(checkpoint)
+
+    assert (result.answer, result.reused, sent, store.saves) == (_Answer(text="saved long"), True, [], [])
+
+
+def test_a_saved_answer_that_fails_the_contract_is_discarded_by_its_exact_value_and_paid_once():
+    store = _Store()
+    checkpoint = checkpointed(store, purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer)
+    store.rows[checkpoint.key] = {"text": "short"}
+
+    result, sent = _checked(checkpoint, _Answer(text="a longer one"))
+
+    # The stale answer's discard does not owe a correction: the first request goes out unchanged.
+    assert (result.answer.text, result.reused, result.discarded, sent) == ("a longer one", False, "too_short", ["q"])
+    assert store.rows[checkpoint.key] == {"text": "a longer one"}
+
+
+class _RacingStore(_Store):
+    """Another run discards the same stale answer and saves its fresh one first."""
+
+    def discard_model_checkpoint(self, cache_key, *, result=None):
+        self.rows[cache_key] = {"text": "another run's"}
+        super().discard_model_checkpoint(cache_key, result=result)
+
+
+def test_a_fresh_answer_another_run_saved_meanwhile_survives_the_discard_of_a_stale_one():
+    store = _RacingStore()
+    checkpoint = checkpointed(store, purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer)
+    store.rows[checkpoint.key] = {"text": "short"}
+
+    result, _sent = _checked(checkpoint, _Answer(text="a longer one"))
+
+    assert result.answer.text == "a longer one"
+    # Write-once: the other run's answer holds the slot.
+    assert store.rows[checkpoint.key] == {"text": "another run's"}
+
+
+def test_a_rejected_answer_is_never_saved_and_the_correction_is_kept_under_the_original_key():
+    store = _Store()
+    checkpoint = checkpointed(store, purpose="p", prompt="q", schema=None, settings=None, result_model=_Answer)
+
+    result, sent = _checked(checkpoint, _Answer(text="tiny"), _Answer(text="long enough"))
+
+    assert result.sends == 2 and len(sent) == 2 and sent[0] == "q" and sent[1].startswith("q\n\n")
+    assert store.saves == [(checkpoint.key, "p", {"text": "long enough"}, None)]
+    restarted, sent = _checked(checkpoint)
+    assert (restarted.answer.text, restarted.reused, sent) == ("long enough", True, [])
 
 
 def _checkpoint_rows(repo, purpose):
