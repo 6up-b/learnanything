@@ -3622,6 +3622,18 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     elif topics is not None:
         by_parts = {"topic_scopes": topics.scopes, "applied_patch_ids": topics.earlier_waves(),
                     "progress": progress, "part_status": part_status}
+    # A first set from the part of a section read is grounded only in passages the learner saw: its line says so
+    # (the finish's would tell the writer the whole section was read), and a note's excerpt goes with it only when
+    # it lies wholly within those passages (a note standing for the book can hold text not read yet).
+    reason = payload.get("reason") or "reader_section_completed"
+    if topics is not None and topics.part_read:
+        by_parts["note_filter"] = PART_READ.seen_text_filter(ctx.repo, topics.readings())
+        seeds = ("These items seed practice for the part of a section the learner has read so far "
+                 f"({reason}); they have not finished it. The cited source spans are the passages they have "
+                 "read: ground every item in them and ask about nothing beyond them.")
+    else:
+        seeds = (f"These items seed practice for material the learner just finished reading ({reason}). "
+                 "Ground every item in the cited source spans.")
     try:
         result = generate_post_probe_practice_proposal(
             ctx.vault_root,
@@ -3633,9 +3645,7 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
             source_refs=source_refs,
             **by_parts,
             extra_instructions=(
-                "These items seed practice for material the learner just finished reading "
-                f"({payload.get('reason') or 'reader_section_completed'}). Ground every item in the "
-                "cited source spans. For each item, copy the exact proposal-local ref_id values from "
+                f"{seeds} For each item, copy the exact proposal-local ref_id values from "
                 "context.source_refs whose learning_object_ids contain that item's learning_object_id "
                 "into item.source_ref_ids; do not cite bundles assigned to another Learning Object."
             ),
@@ -3677,6 +3687,18 @@ class _TopicWork:
         for row in rows.values():
             ctx.repo.update_topic_question_work(row["id"], state="running", model_settings=model_settings(client))
         return cls(ctx, rows, {str(lo): str(key) for lo, key in keys.items()})
+
+    @property
+    def part_read(self) -> bool:
+        """Whether every topic of this job was claimed from the part of a section read (never mixed: one claim
+        is one trigger)."""
+
+        return bool(self.rows) and all(row.get("trigger_event") == "part_read" for row in self.rows.values())
+
+    def readings(self) -> list[str]:
+        """The readings this job's topics were claimed on."""
+
+        return list(dict.fromkeys(str(row["extraction_id"]) for row in self.rows.values()))
 
     def earlier_waves(self) -> list[str]:
         """Proposals of the same sections' topic work queued in other batches: their applied rows are judged with

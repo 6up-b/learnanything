@@ -2,6 +2,7 @@
 // Next serves the plan's step under the phone's origin, what the phone can't show waits for the
 // desktop and is counted, the stop offer goes both ways, and a randomized check offers no help.
 import { findJargon } from "@desktop/copy/denyList";
+import { MORE_AS_YOU_READ, NO_QUESTIONS_YET, QUESTIONS_FROM_READING } from "@desktop/app/todayCause";
 import {
   answers, App, cacheSessionId, called, cleanup, describe, expect, fakeFetch, feedback, fireEvent, getAnswers, installFakeHost, it, item, render,
   screen, session, vi, waitFor
@@ -476,7 +477,7 @@ describe("first questions arrive (P11): an empty day says why, in the desktop's 
     answers.get_source_library = book(built());
     render(<App />);
     expect((await screen.findByTestId("today-cause")).textContent).toBe(
-      "Your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end."
+      `Read “Symmetric Matrices and Variance” for your first questions. ${QUESTIONS_FROM_READING}`
     );
     expect(screen.getByTestId("today-sentence").textContent).toBe("Nothing planned for today.");
     expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
@@ -487,7 +488,7 @@ describe("first questions arrive (P11): an empty day says why, in the desktop's 
     answers.get_source_library = book(built(facts({ count: 5, itemIds: ["i1"], sections: ["Conditional probability"] })));
     render(<App />);
     expect((await screen.findByTestId("today-cause")).textContent).toBe(
-      "5 questions from “Conditional probability”, the part you read. More come as you finish sections."
+      `5 questions from “Conditional probability”, the part you read. ${MORE_AS_YOU_READ}`
     );
     expect(screen.queryByRole("button", { name: /Begin/ })).toBeNull();
   });
@@ -497,7 +498,7 @@ describe("first questions arrive (P11): an empty day says why, in the desktop's 
     answers.get_source_library = book({ text: "Writing questions for Ch. 1", tone: "working", action: null, details: null, progress: { done: 1, total: 2 } });
     render(<App />);
     expect((await screen.findByTestId("today-cause")).textContent).toBe(
-      "Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done. Questions come as you finish sections. Keep reading meanwhile."
+      `Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done. ${QUESTIONS_FROM_READING} Keep reading meanwhile.`
     );
   });
 
@@ -577,7 +578,7 @@ describe("a book whose build found no topics (UX-43): the phone says the desktop
     render(<App />);
     const cause = await screen.findByTestId("today-cause");
     expect(cause.textContent).toBe(
-      "LearnLoop found no topics to practise in “Symmetric Matrices and Variance”. Try again, or keep reading: the sections you finish get their questions once topics are found."
+      "LearnLoop found no topics to practise in “Symmetric Matrices and Variance”. Try again, or keep reading: what you read gets its questions once topics are found."
     );
     expect(findJargon(cause.textContent ?? "")).toEqual([]);
   });
@@ -588,7 +589,7 @@ describe("a book whose build found no topics (UX-43): the phone says the desktop
       questions: facts({ noneNeeded: ["Document"] }) });
     render(<App />);
     expect((await screen.findByTestId("today-cause")).textContent).toBe(
-      "Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections."
+      `Nothing from “Symmetric Matrices and Variance” is up today. ${MORE_AS_YOU_READ}`
     );
   });
 });
@@ -633,7 +634,7 @@ describe("question writing you can follow: the phone says the desktop's sentence
 
   it("questions written, and a topic that could not be", async () => {
     expect(await causeFor(facts({ count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"], failed: [FAILED], progress: { done: 7, total: 8 } }))).toBe(
-      "3 questions from “Conditional probability”, the part you read. More come as you finish sections. Not every topic's questions could be written."
+      `3 questions from “Conditional probability”, the part you read. ${MORE_AS_YOU_READ} Not every topic's questions could be written.`
     );
   });
 
@@ -691,9 +692,9 @@ describe("after the first answers (UX-44): the phone counts only what can be ask
     );
   });
 
-  it("none left and nothing being written: none up today, and more come as you finish sections", async () => {
+  it("none left and nothing being written: none up today, and more come as you read on", async () => {
     expect(await causeFor(facts({ count: 3, itemIds: FIRST_TOPIC, laterItemIds: FIRST_TOPIC }))).toBe(
-      "Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections."
+      `Nothing from “Symmetric Matrices and Variance” is up today. ${MORE_AS_YOU_READ}`
     );
   });
 });
@@ -723,7 +724,7 @@ describe("the phone's own Today heading agrees with the desktop (UX-52b): no 'No
 
   it("an empty, finished day with a book's questions written: the offer, and no 'Nothing planned for today.'", async () => {
     const { heading, cause } = await headingFor(doneEmpty(), facts({ count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"] }));
-    expect(cause).toBe("3 questions from “Conditional probability”, the part you read. More come as you finish sections.");
+    expect(cause).toBe(`3 questions from “Conditional probability”, the part you read. ${MORE_AS_YOU_READ}`);
     expect(heading ?? "").not.toMatch(/Nothing planned/);
   });
 
@@ -741,9 +742,9 @@ describe("the phone's own Today heading agrees with the desktop (UX-52b): no 'No
     expect(heading ?? "").not.toMatch(/Nothing planned/);
   });
 
-  it("nothing offered (the writing line): the heading stays", async () => {
+  it("nothing offered (the writing line): the heading says none are ready yet, as the desktop's (F45)", async () => {
     const { heading } = await headingFor(doneEmpty(), facts({ writing: ["Conditional probability"], progress: { done: 1, total: 8 } }));
-    expect(heading).toBe("Nothing planned for today.");
+    expect(heading).toBe(NO_QUESTIONS_YET);
   });
 });
 
@@ -848,5 +849,72 @@ describe("the first evening, step 7: what comes next, dated, on the phone", () =
     await screen.findByTestId("today-next");
     const reads = called("get_daily_plan").length;
     await waitFor(() => expect(called("get_daily_plan").length).toBeGreaterThan(reads), { timeout: 3000 });
+  });
+});
+
+describe("the first evening, step 8: the phone says the desktop's one explanation, where to read to, and held questions", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...extra
+  });
+  const book = (statusLine: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1", statusLine }]
+  });
+  const built = (questions = facts()) => ({ text: "Questions for Ch. 1–2 are written from the parts you read", tone: "quiet", action: null, details: null, questions });
+  const PART = "Conditional probability";
+
+  it("ready + writing + held: the offer, and the held line apart, which opens nothing", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(built(facts({ count: 2, itemIds: ["i1", "i2"], sections: [PART], writing: [PART], partRead: [PART], toLookAt: 2, awaitingOk: 2 })));
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(`2 questions from what you’ve read of “${PART}” are ready. More are being written.`);
+    const held = await screen.findByTestId("today-held");
+    expect(held.textContent).toBe("2 more questions need your OK.");
+    expect(held.querySelectorAll("button, a")).toHaveLength(0);
+    expect(document.body.textContent).not.toMatch(/Nothing planned|finish sections|finish a section/);
+  });
+
+  it("every question held: the cause says so, with no second held line", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(built(facts({ toLookAt: 3, awaitingOk: 3 })));
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe("3 questions from what you’ve read in “Symmetric Matrices and Variance” need your OK.");
+    expect(screen.queryByTestId("today-held")).toBeNull();
+  });
+
+  it("a done day with questions held: the held line under the day's words", async () => {
+    answers.get_daily_plan = reply({ status: "complete" });
+    answers.get_source_library = book(built(facts({ count: 1, itemIds: ["i1"], sections: [PART], toLookAt: 1, awaitingOk: 1 })));
+    render(<App />);
+    expect((await screen.findByTestId("today-held")).textContent).toBe("1 more question needs your OK.");
+  });
+
+  it("while the book is got ready after reading part of a section: no questions ready yet, and they follow from what was read", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book({ text: "Getting Ch. 1 ready for questions", tone: "working", action: null, details: null,
+      progress: { done: 1, total: 2 }, questions: facts({ beforeBuild: [PART] }) });
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done. "
+      + "Questions from what you’ve read will follow when “Symmetric Matrices and Variance” is ready. Keep reading meanwhile."
+    );
+    expect(screen.getByTestId("today-sentence").textContent).toBe(NO_QUESTIONS_YET);
+  });
+
+  it("read some, none qualifies yet: where to read to", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(built(facts({ readFurther: [PART], readTo: { section: PART, heading: "Variance", words: null, sectionEnd: false } })));
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe("Read through “Variance” in “Symmetric Matrices and Variance” for your first questions.");
+  });
+
+  it("an open plan with questions in it reads no books, so no held line", async () => {
+    answers.get_daily_plan = reply();
+    answers.get_source_library = book(built(facts({ toLookAt: 2, awaitingOk: 2 })));
+    render(<App />);
+    await screen.findByRole("button", { name: "Begin" });
+    expect(called("get_source_library")).toEqual([]);
+    expect(screen.queryByTestId("today-held")).toBeNull();
   });
 });

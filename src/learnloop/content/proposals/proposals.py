@@ -174,12 +174,15 @@ def build_authoring_context(
     instructions: str | None = None,
     focus_concepts: list[str] | None = None,
     focus_facets: list[str] | None = None,
+    note_filter: Callable[[str], bool] | None = None,
 ) -> AuthoringContext:
     """Assemble a deterministic authoring context from selected vault sources.
 
     Pure and Codex-free: the same vault state and selection produce the same
     context. Notes are filtered by id or by subject membership, and only short
     excerpts/locators are included to avoid overloading the model.
+    ``note_filter`` (default: every note in scope) is asked of each note's
+    excerpt, as the context would carry it; a note it refuses is left out.
     """
 
     selected_subjects = sorted(subjects) if subjects else sorted(vault.subjects)
@@ -192,12 +195,15 @@ def build_authoring_context(
                 continue
         elif subjects is not None and not (set(note.subjects) & subject_set):
             continue
+        excerpt = _excerpt(note.body)
+        if note_filter is not None and not note_filter(excerpt):
+            continue
         notes.append(
             {
                 "id": note.id,
                 "path": note.path,
                 "source_type": note.source_type,
-                "excerpt": _excerpt(note.body),
+                "excerpt": excerpt,
             }
         )
     notes.sort(key=lambda entry: entry["id"])
@@ -533,6 +539,7 @@ def generate_authoring_proposal(
     part_status: Callable[[list[dict[str, Any]]], None] | None = None,
     part_scopes: list[str] | None = None,
     applied_patch_ids: Sequence[str] = (),
+    note_filter: Callable[[str], bool] | None = None,
 ) -> str:
     """Run authoring generation through a AIProviderClient and persist the result.
 
@@ -560,6 +567,8 @@ def generate_authoring_proposal(
     prepared proposal ``<scope>:part:0``, so neither depends on which other parts
     were asked with it. ``applied_patch_ids`` names earlier proposals whose
     applied rows every part is judged against, as it is against its own call's.
+    ``note_filter`` decides which notes' excerpts the contexts carry
+    (:func:`build_authoring_context`).
     """
 
     vault = load_vault(root)
@@ -573,10 +582,11 @@ def generate_authoring_proposal(
         instructions=instructions,
         focus_concepts=focus_concepts,
         focus_facets=focus_facets,
+        note_filter=note_filter,
     )
     contexts = [build_authoring_context(
         context_vault, note_ids=note_ids, source_refs=source_refs,
-        focus_concepts=focus_concepts, focus_facets=focus_facets,
+        focus_concepts=focus_concepts, focus_facets=focus_facets, note_filter=note_filter,
         **{key: value for key, value in part.items() if key != "topic_id"},
     ) for part in part_requests] if part_requests is not None else [context]
     checkpoints = repository if checkpoint_scope is not None or part_scopes is not None else None

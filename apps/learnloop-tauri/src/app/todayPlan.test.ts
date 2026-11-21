@@ -170,9 +170,9 @@ describe("splitWhy", () => {
 });
 
 describe("streakLine", () => {
-  it("is quiet: days, and the best when it is longer", () => {
-    expect(streakLine({ current: 4, activeToday: true, longest: 9 })).toBe("4 days · best 9");
-    expect(streakLine({ current: 1, activeToday: true, longest: 1 })).toBe("1 day");
+  it("is quiet: days in a row, and the best when it is longer (a bare '1 day' said nothing of what it counts)", () => {
+    expect(streakLine({ current: 4, activeToday: true, longest: 9 })).toBe("4 days in a row · best 9");
+    expect(streakLine({ current: 1, activeToday: true, longest: 1 })).toBe("1 day in a row");
     expect(streakLine({ current: 0, activeToday: false, longest: 3 })).toBeNull();
     expect(streakLine(null)).toBeNull();
   });

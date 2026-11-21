@@ -56,8 +56,8 @@ from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet
 from learnloop.vault.paths import VaultPaths
 
 __all__ = [
-    "BEFORE_BUILD", "NOTHING", "OWED", "READ_FURTHER", "PART_READ", "SectionPartRead", "TopicCoverage", "assess",
-    "read_readings", "reconcile_part_read", "seen_grounding", "topic_coverage",
+    "BEFORE_BUILD", "NOTHING", "OWED", "READ_FURTHER", "PART_READ", "ReadTo", "SectionPartRead", "TopicCoverage",
+    "assess", "place_to_read", "read_readings", "reconcile_part_read", "seen_grounding", "seen_text_filter", "topic_coverage",
 ]
 
 #: The trigger a part-read claim is recorded under (``reader_topic_question_work.trigger_event``).
@@ -322,16 +322,107 @@ def seen_grounding(vault: LoadedVault, repository: Any, extraction_id: str, cove
     return bundles
 
 
+def seen_text_filter(repository: Any, extraction_ids: list[str]) -> Callable[[str], bool]:
+    """Whether a text lies wholly within passages the learner has seen of these readings: inside one run of
+    consecutive seen passages, whitespace collapsed (a run's passages joined by a space). An empty text, or one
+    that reaches into a passage not seen, does not."""
+
+    runs: list[str] = []
+    for extraction_id in dict.fromkeys(extraction_ids):
+        ir = repository.load_document_ir(extraction_id)
+        if ir is None:
+            continue
+        rows, block_by_span, _ = extraction_sections(ir)
+        seen = frozenset(seen_on(repository, extraction_id))
+        run: list[str] = []
+        for span in (span for row in rows for span in row["span_ids"]):
+            if span in seen:
+                run.append(" ".join(block_by_span[span].text.split()))
+            elif run:
+                runs.append(" ".join(run))
+                run = []
+        if run:
+            runs.append(" ".join(run))
+
+    def within(text: str) -> bool:
+        collapsed = " ".join(text.split())
+        return bool(collapsed) and any(collapsed in run for run in runs)
+
+    return within
+
+
+@dataclass(frozen=True)
+class ReadTo:
+    """Where the learner's reading must reach for the nearest topic to qualify: the passage (``span_id``), and how a
+    screen names it: the inner heading it lies under, else the opening words of it (or of the first passage after
+    it that has plain words), else the end of its section (``section_end``: it is the section's last passage)."""
+
+    span_id: str
+    heading: str | None
+    words: str | None
+    section_end: bool
+
+
+#: How many of a passage's opening words name it.
+_OPENING_WORDS = 6
+#: What a passage's opening words may not hold: a formula, code, a table, a link or markup reads as noise.
+_NOT_PLAIN = re.compile(r"[$\\`|<>{}\[\]*_^]")
+
+
+def _opening_words(text: str) -> str | None:
+    words = " ".join(str(text or "").split()).lstrip("#>-+•· ").split()
+    head = " ".join(words[:_OPENING_WORDS]).rstrip(",;:.!?–—-")
+    if not head or _NOT_PLAIN.search(head) or not head[0].isalnum():
+        return None
+    return f"{head}…" if len(words) > _OPENING_WORDS else head
+
+
+def _heading(text: str) -> str | None:
+    heading = " ".join(str(text or "").split()).lstrip("# ").strip()
+    if not heading or _NOT_PLAIN.search(heading):
+        return None
+    return heading if len(heading) <= 60 else heading[:59].rstrip() + "…"
+
+
+def place_to_read(order: list[str], section_of: Mapping[str, str], blocks: Mapping[str, tuple[str, str]],
+                  unseen_by_topic: list[list[str]]) -> ReadTo | None:
+    """The place a reading must reach for its nearest topic to qualify, from plain values: the reading's readable
+    passages in order, each one's section, each one's ``(block type, text)``, and, for each topic this reading can
+    complete, its passages not seen yet. The nearest topic is the one whose furthest unseen passage comes first;
+    the place is that passage, so reaching it is enough for that topic and never promises more (several unseen
+    passages in different places: the furthest). None when no topic can be completed by reading this book."""
+
+    index = {span: position for position, span in enumerate(order)}
+    furthest = [max(index[span] for span in spans) for spans in unseen_by_topic
+                if spans and all(span in index for span in spans)]
+    if not furthest:
+        return None
+    at = min(furthest)
+    span = order[at]
+    section = [candidate for candidate in order if section_of.get(candidate) == section_of.get(span)]
+    first = index[section[0]]
+    heading = next((_heading(blocks[order[position]][1]) for position in range(at, first, -1)
+                    if blocks[order[position]][0] == "SectionHeader"), None)
+    section_end = span == section[-1]
+    words = None
+    if heading is None and not section_end:
+        words = next((found for candidate in section[section.index(span):]
+                      for found in [_opening_words(blocks[candidate][1])] if found), None)
+    return ReadTo(span, heading, words, section_end)
+
+
 @dataclass(frozen=True)
 class SectionPartRead:
     """One unfinished section with seen passages: whether its chapter's topics are in, the topics citing it that
-    need questions and nobody owns (``candidates``), those of them that qualify, with their grounding."""
+    need questions and nobody owns (``candidates``), those of them that qualify, with their grounding, and, while
+    none does, where reading on must reach for the nearest one to (``read_to``)."""
 
     section_id: str
     settled: bool
     candidates: tuple[str, ...] = ()
     coverage: Mapping[str, TopicCoverage] = field(default_factory=dict)
     grounding: Mapping[str, list[dict[str, Any]]] = field(default_factory=dict)
+    read_to: ReadTo | None = None
 
     @property
     def qualifying(self) -> tuple[str, ...]:
@@ -396,11 +487,24 @@ def assess(vault: LoadedVault, repository: Any, extraction_id: str, *,
                     if lo in vault.learning_objects}
         grounding = {lo: bundles for lo, cover in coverage.items() if cover.qualifies
                      for bundles in [seen_grounding(vault, repository, extraction_id, cover, library)] if bundles}
-        sections[section_id] = SectionPartRead(section_id, True, tuple(candidates), coverage, grounding)
+        read_to = None if grounding else _read_to(reading, coverage)
+        sections[section_id] = SectionPartRead(section_id, True, tuple(candidates), coverage, grounding, read_to)
     if remember:
         with _MEMO_LOCK:
             _MEMO[key] = (fingerprint, sections)
     return sections
+
+
+def _read_to(reading: _Reading, coverage: Mapping[str, TopicCoverage]) -> ReadTo | None:
+    """Where reading this book must reach for the nearest of these topics: only a topic held back by passages of this
+    reading not seen yet can be completed by reading on (one also needing another book, a reference that resolves to
+    nothing, or a passage held out cannot)."""
+
+    unseen = [[span for _reading, span in cover.unseen] for cover in coverage.values()
+              if cover.reason == "unseen" and all(key[0] == reading.extraction_id for key in cover.unseen)]
+    blocks = {span: (str(block.block_type), str(block.text)) for span, block in reading.block_by_span.items()
+              if span in reading.index}
+    return place_to_read(reading.order, reading.section_of, blocks, unseen)
 
 
 def read_readings(repository: Any) -> list[str]:

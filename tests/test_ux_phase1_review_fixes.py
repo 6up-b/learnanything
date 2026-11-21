@@ -313,7 +313,7 @@ def test_f3_a_planner_that_dies_after_queuing_its_build_is_never_orphaned(tmp_pa
     _drain(jobs)
     assert len(_build_batches(repo)) == 1  # never a second build
     assert repo.get_ingest_job(planner["id"])["result"]["build_batch_id"] == core.child_batch_id(planner["id"])
-    assert source_status_line(repo, load_vault(root), source_id)["text"] == "Questions for Ch. 1–2 are written as you finish sections"
+    assert source_status_line(repo, load_vault(root), source_id)["text"] == "Questions for Ch. 1–2 are written from the parts you read"
     assert undo_source_questions(jobs, source_id, clock=CLOCK) > 0
 
 
@@ -529,7 +529,7 @@ def test_f10_a_books_history_survives_lots_of_other_work(tmp_path):
         [JobSpec(core.AUTO_STUDY_MAP_JOB, {"source_id": f"src_other_{index}"}) for index in range(520)],
     )
     assert core.latest_auto_outcome(repo, item["source_id"])["outcome"] == "building"
-    assert source_status_line(repo, load_vault(root), item["source_id"])["text"] == "Questions for Ch. 1–2 are written as you finish sections"
+    assert source_status_line(repo, load_vault(root), item["source_id"])["text"] == "Questions for Ch. 1–2 are written from the parts you read"
     assert undo_source_questions(jobs, item["source_id"], clock=CLOCK) > 0
 
 

@@ -6,7 +6,7 @@ import { useState, type CSSProperties } from "react";
 import type { PendingAddDto, SourceActionKind, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
 import { COLOR, FONT_MONO } from "./term";
 import { IntentControl } from "./IntentControl";
-import { CONSENT_ACTION, SIDECAR_CONSENT_LABEL, readableTitle } from "../app/todayCause";
+import { CONSENT_ACTION, QUESTIONS_FROM_READING, SIDECAR_CONSENT_LABEL, readableTitle } from "../app/todayCause";
 
 // The card's OK words and its title net live with Today's cause line, which the
 // phone shares: this module imports the desktop's client, the phone may not.
@@ -137,12 +137,15 @@ export function BookCard({
           {/* The words match what each does and what this is (UX Phase 1
               re-test #6): "the whole book" for a paper, beside a line whose
               own action builds as you read. The press gets every chapter's
-              topics ready; it writes no question to practise (a section's
-              are written when it is finished), so it promises none. */}
+              topics ready; it writes no question to practise (questions are
+              written from the parts read), so it promises none, and says so. */}
           {ready && readable ? (
-            <button type="button" style={linkButton} onClick={() => onAction("build_whole_book", card)}>
-              Get the whole {noun} ready for questions at once
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <button type="button" style={{ ...linkButton, alignSelf: "flex-start" }} onClick={() => onAction("build_whole_book", card)}>
+                Get the whole {noun} ready for questions
+              </button>
+              <span data-testid="whole-book-why" style={{ color: COLOR.textFaint }}>{QUESTIONS_FROM_READING}</span>
+            </div>
           ) : null}
           {card.subjectId ? (
             <button type="button" style={linkButton} onClick={() => onAction("undo_questions", card)}>

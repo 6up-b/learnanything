@@ -117,6 +117,9 @@ def test_the_error_hunt_label_never_declares_that_there_is_an_error(ctx):
 
     lowered = (label or "").lower()
     assert not any(word in lowered for word in ("error", "mistake", "wrong", "repair"))
+    # Shown before the learner answers, it is the work they are to check: never a word that reads as the answer.
+    assert label == "The work to check"
+    assert not any(word in lowered for word in ("solution", "answer", "worked"))
 
 
 def test_a_laddered_stem_part_carries_the_stimulus_its_parts_climb(ctx):

@@ -329,7 +329,7 @@ describe("T4: it's tomorrow, open LearnLoop and do today's learning (§11)", () 
     expect(place.textContent).not.toMatch(/\b(maintain|repair|push)\b/);
     expect(findJargon(place.textContent ?? "")).toEqual([]);
     expect(screen.getByText("Tuesday evening")).toBeTruthy();
-    expect(screen.getByTestId("today-streak").textContent).toBe("4 days · best 9");
+    expect(screen.getByTestId("today-streak").textContent).toBe("4 days in a row · best 9");
     // The one action: Enter.
     await press({ key: "Enter" });
     const practice = await screen.findByTestId("practice-stub");

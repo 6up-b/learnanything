@@ -65,7 +65,8 @@ export interface NextPracticeWordsOptions {
   /** The session's finish (a snapshot): it also says what is still due today and a check open now, which Today's
    *  own plan and list already say there. */
   finish?: boolean;
-  /** Say the questions still being written (Today leaves them to its own line about a book's questions). */
+  /** Say the question work under way: questions still being written, and finished sections whose questions wait to
+   *  be written (Today leaves both to its own line about a book's questions). */
   writing?: boolean;
 }
 
@@ -82,6 +83,10 @@ export function nextPracticeLines(next: NextPracticeDto | null | undefined, opti
   const dueToday = groupOn(next.reviews, today);
   const dueTomorrow = groupOn(next.reviews, tomorrow);
   const writing = options.writing !== false && next.writing.topicCount > 0;
+  // Finished sections whose writing waits for their book or the desktop. The topics held for a look (`next.held`) get
+  // no words: their state is not moved when the learner later gives or refuses the OK, and Today's own line counts
+  // the held questions an OK would apply from the books' facts.
+  const waiting = options.writing !== false ? next.waiting?.sectionCount ?? 0 : 0;
   const laterCheck = next.checks.find((group) => (daysFrom(today, group.date) ?? 0) > 0 && group.count > 0);
   const checkNow = groupOn(next.checks, today);
   if (options.finish && dueToday) {
@@ -95,7 +100,7 @@ export function nextPracticeLines(next: NextPracticeDto | null | undefined, opti
     const group = groupOn(next.reviews, next.nextReviewDate);
     const one = group?.count === 1;
     lines.push(`Nothing ${more}is due tomorrow. Your next ${one ? "question is" : "questions are"} due ${onDay(next.nextReviewDate, today)}.`);
-  } else if (dueToday || laterCheck || checkNow || writing) {
+  } else if (dueToday || laterCheck || checkNow || writing || waiting > 0) {
     lines.push(`Nothing ${more}is due tomorrow.`);
   }
   if (options.finish && checkNow) {
@@ -107,6 +112,9 @@ export function nextPracticeLines(next: NextPracticeDto | null | undefined, opti
   }
   if (writing) {
     lines.push(`Questions on ${next.writing.topicCount} more ${next.writing.topicCount === 1 ? "topic" : "topics"} are still being written.`);
+  }
+  if (waiting > 0) {
+    lines.push(`Questions from ${waiting} finished ${waiting === 1 ? "section" : "sections"} are waiting to be written.`);
   }
   return lines;
 }
