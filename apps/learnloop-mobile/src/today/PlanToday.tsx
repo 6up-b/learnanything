@@ -15,6 +15,7 @@ import { RouterLine, WhyLink } from "../practice/RouterLine";
 import { currentWhy, doneLine, planSentence, stepOf, waitingForDesktop } from "./planWords";
 import { NO_QUESTIONS_YET, causeSentence, causeUnderway, heldLine, todayCause } from "@desktop/app/todayCause";
 import { nextPracticeLines, useLatestNextPractice, useNextDayRefresh } from "@desktop/app/nextPractice";
+import { WAIT_DETAILS_LABEL, useWaitWords, waitDetailOf } from "@desktop/app/waitDetail";
 
 /** A day whose plan has nothing in it: no question and no reading planned (the desktop's `planWasEmpty`). */
 function emptyDay(data: PhonePlanDto | undefined): boolean {
@@ -78,7 +79,25 @@ export function PlanToday({
   const planDone = Boolean(query.data?.plan) && query.data?.plan?.status !== "open";
   const library = useCachedQuery(empty || planDone ? ["get_source_library", "phone_today"] : null, () => phone.library(), { tags: [TAG.sources] });
   const cause = empty && library.data ? todayCause({ cards: library.data.sources, ai: null, listItems: 0, listUnknown: true }) : null;
-  const causeLine = cause ? <p className="dim" role="status" data-testid="today-cause">{causeSentence(cause)}</p> : null;
+  // While a book is got ready or its questions are written, what is happening now under the sentence, in the desktop's
+  // words, with clock times: this Today is not read again on its own, so an age would grow false as it sat.
+  const detail = useWaitWords(waitDetailOf(cause), "at");
+  const causeLine = cause ? (
+    <>
+      <p className="dim" role="status" data-testid="today-cause">{causeSentence(cause)}</p>
+      {detail ? (
+        <div className="dim" data-testid="today-cause-detail">
+          {detail.lines.map((line) => <p key={line}>{line}</p>)}
+          {detail.details.length ? (
+            <details>
+              <summary>{WAIT_DETAILS_LABEL}</summary>
+              {detail.details.map((line) => <p key={line}>{line}</p>)}
+            </details>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  ) : null;
   // As on the desktop: a book's questions offered are the day's news, so no "Nothing planned for today." above them;
   // above work under way the heading says no questions are ready yet, never "nothing".
   const offersQuestions = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work";

@@ -341,6 +341,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("hypothesis_sets", TableRole.RAW_LEDGER),
     ("ingest_batches", TableRole.WORKFLOW),
     ("ingest_job_dependencies", TableRole.WORKFLOW),
+    # What a running ingest job is doing, for a waiting screen (migration 258):
+    # its step, counts and the times its streamed output arrived. Workflow, as
+    # the job row beside it: operational, never evidence, never rebuilt.
+    ("ingest_job_progress", TableRole.WORKFLOW),
     ("ingest_jobs", TableRole.WORKFLOW),
     # Canonical sources S0: rendered proposals (append-only facts of what
     # reached the screen; never the activity_exposure_events burn boundary).

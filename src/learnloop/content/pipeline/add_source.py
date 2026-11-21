@@ -52,7 +52,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-from learnloop.clock import Clock, FrozenClock, utc_now_iso
+from learnloop.clock import Clock, FrozenClock, SystemClock, utc_now_iso
 from learnloop.content.sources.front_matter import FRONT_MATTER
 from learnloop.content.sources.source_outline import title_from_file_name, title_from_local_uri
 from learnloop.ids import kebab_case
@@ -2472,6 +2472,13 @@ def build_minutes(repo, *, section_count: int, sample: int = 5) -> float | None:
     differ in size (a paper's ten short sections took 48 s where two
     textbook chapters of ten sections each took about 20 s apiece)."""
 
+    measured = build_minutes_measured(repo, section_count=section_count, sample=sample)
+    return measured[0] if measured is not None else None
+
+
+def build_minutes_measured(repo, *, section_count: int, sample: int = 5) -> tuple[float, int] | None:
+    """:func:`build_minutes`, with how many finished builds it rests on."""
+
     from datetime import datetime
 
     per_section: list[float] = []
@@ -2496,7 +2503,7 @@ def build_minutes(repo, *, section_count: int, sample: int = 5) -> float | None:
         return None
     ordered = sorted(per_section)
     middle = ordered[len(ordered) // 2]
-    return middle * max(1, section_count) / 60.0
+    return middle * max(1, section_count) / 60.0, len(per_section)
 
 
 _BUILD_STEP_JOBS = frozenset({"inventory", "bootstrap_synthesis", "append_synthesis"})
@@ -2642,6 +2649,7 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     ``awaiting_ok``, present only when some: of ``to_look_at``, the questions
     an OK would apply (:func:`_awaiting_ok`)."""
 
+    from learnloop.content.pipeline import wait_detail
     from learnloop.content.pipeline.runner import effective_ingest_job_status
     from learnloop.db.stores.reader import (
         SECTION_DEFERRED_TO_PRIMARY as DEFERRED_TO_PRIMARY,
@@ -2670,6 +2678,15 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
 
         parts = (job.get("payload") or {}).get("question_parts") or []
         active = _active(job)
+        if active and "writing_detail" not in fact:
+            # The first section being written, in recorded facts (its topic, requests and output), for a wait that
+            # shows more than one line. Additive: nothing else here reads it.
+            fact["writing_detail"] = wait_detail.writing_detail(
+                repo, vault, job, measured=wait_detail.topic_minutes(repo), now=(clock or SystemClock()).now())
+        elif active and (fact["writing_detail"].get("topic") or {}).get("index") is not None:
+            # Another job writes too: its topic's place among this job's topics is not its place among all the
+            # topics the screen counts ("0 of 4 topics done" adds the jobs up), so only its name is kept.
+            fact["writing_detail"]["topic"] = {**fact["writing_detail"]["topic"], "index": None, "total": None}
         if active:
             total = job.get("total_windows")
             if total is None:
@@ -3029,21 +3046,7 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
     if state["undone"]:
         return _line(f"Questions for this {noun} were taken back out", "quiet", ("build_now", "Build them again"))
     if _active(state["batch"]):
-        minutes = build_minutes(repo, section_count=_scope_size(outcome))
-        estimate = build_minutes_phrase(repo, section_count=_scope_size(outcome)) if minutes is not None else None
-        # The build gets the book's topics ready; it writes no question to
-        # practise (a section's are written when it is finished), so the card
-        # says what Today says of it.
-        line = (_line(f"Getting {phrase} ready for questions", "working") if estimate is None
-                else _line(f"Getting {phrase} ready for questions {estimate}", "working"))
-        # Facts for a screen that says how far along it is (P11). Additive: the
-        # words above are unchanged and an older screen ignores them.
-        progress = build_progress(repo.ingest_jobs_for_batch(str(state["batch"]["id"])))
-        if progress is not None:
-            line["progress"] = progress
-        if minutes is not None:
-            line["minutes"] = round(minutes, 1)
-        return line
+        return _building_line(repo, state["batch"], outcome, phrase)
     if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
         if state["error_code"] == "spend_paused":
             if state["error_details"].get("reason") == "daily_cap":
@@ -3102,6 +3105,31 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
     line["without_ai"] = _line(f"{reading_rule_for(built)} once an AI is connected", "quiet", ("connect_ai", "Connect"))
     if questions is not None:
         line["questions"] = questions
+    return line
+
+
+def _building_line(repo, batch: Mapping[str, Any], outcome: Mapping[str, Any], phrase: str) -> dict[str, Any]:
+    """The line of a book whose build is under way."""
+
+    measured = build_minutes_measured(repo, section_count=_scope_size(outcome))
+    minutes = measured[0] if measured is not None else None
+    estimate = build_minutes_phrase(repo, section_count=_scope_size(outcome)) if minutes is not None else None
+    # The build gets the book's topics ready; it writes no question to
+    # practise (a section's are written when it is finished), so the card
+    # says what Today says of it.
+    line = (_line(f"Getting {phrase} ready for questions", "working") if estimate is None
+            else _line(f"Getting {phrase} ready for questions {estimate}", "working"))
+    # Facts for a screen that says how far along it is (P11). Additive: the
+    # words above are unchanged and an older screen ignores them.
+    progress = build_progress(repo.ingest_jobs_for_batch(str(batch["id"])))
+    if progress is not None:
+        line["progress"] = progress
+    if minutes is not None:
+        line["minutes"] = round(minutes, 1)
+    # What the build is doing now, in recorded facts, for a wait that shows more than one line (additive).
+    from learnloop.content.pipeline.wait_detail import build_detail
+
+    line["build_detail"] = build_detail(repo, batch, measured=measured, now=SystemClock().now())
     return line
 
 

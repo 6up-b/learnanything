@@ -81,7 +81,7 @@ from learnloop.ai.chatgpt_plan.session import (
 )
 from learnloop.ai.plan_fallback import note_plan_failure
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AIProviderUnavailable, AITurnTimeout
-from learnloop.ai.execution import model_call, report_call_usage, single_request_active
+from learnloop.ai.execution import model_call, report_call_usage, report_model_output, single_request_active
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.ai.structured_contracts import claim_schema_repair, recovery_remaining_seconds
@@ -138,6 +138,20 @@ class _Deadline:
     @property
     def reason(self) -> str:
         return "ceiling" if self.idle_seconds is not None else "deadline"
+
+
+class _OutputPieces:
+    """Counts a stream's non-empty output pieces (text and reasoning deltas, the stream deadline's own rule: a
+    lifecycle event or keepalive is not output) and reports the count as each arrives, for a waiting screen. It
+    only reads events the stream already parses; nothing sent changes."""
+
+    def __init__(self) -> None:
+        self.pieces = 0
+
+    def __call__(self, kind: str, event: Any) -> None:
+        if kind.startswith("response.") and kind.endswith(".delta") and event.get("delta"):
+            self.pieces += 1
+            report_model_output(self.pieces)
 
 
 class ChatGPTPlanRequestRejected(AIProviderUnavailable):
@@ -496,7 +510,8 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                             schema=body.get("text"), budget=budget) as receipt:
                 try:
                     stream_limits = {"idle_timeout": deadline.idle_seconds} if deadline.idle_seconds is not None else {}
-                    result = stream.send(body, access_token=token, timeout=remaining, **stream_limits)
+                    result = stream.send(body, access_token=token, timeout=remaining, on_event=_OutputPieces(),
+                                         **stream_limits)
                 except StreamCancelled as cancelled:
                     self._meter({}, getattr(stream, "request_id", None), extra={
                         **(extra or {}), **getattr(stream, "delivery", {}),

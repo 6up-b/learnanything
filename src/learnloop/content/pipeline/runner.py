@@ -43,7 +43,7 @@ from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.ai import model_use, plan_fallback
-from learnloop.ai.execution import record_model_calls
+from learnloop.ai.execution import observe_model_output, record_model_calls
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.repositories import Repository
@@ -72,6 +72,10 @@ _LOG = logging.getLogger(__name__)
 # writer) the next attempt comes sooner than the regular interval, so one
 # failure costs seconds of lease rather than a whole interval.
 _HEARTBEAT_RETRY_SECONDS = 1.0
+#: At most how often a streamed request's output is written for a waiting screen (``job_output_recorder``). The
+#: screens read it every few seconds; a reply streams thousands of pieces, and a write for each would only add
+#: writes beside the job's own.
+OUTPUT_RECORD_SECONDS = 1.0
 
 # Every drain tick expires stale leases at most this often.
 _LEASE_EXPIRY_INTERVAL_SECONDS = 1.0
@@ -1092,6 +1096,11 @@ class IngestRunner:
                 for try_number in range(1, tries + 1):
                     ctx.retrying_on_its_own = try_number > 1
                     try:
+                        self.repo.start_ingest_job_progress(job["id"], attempt_count=job["attempt_count"],
+                                                            try_number=try_number, clock=self.clock)
+                    except Exception:  # noqa: BLE001 - what a wait shows never stops the work it shows
+                        _LOG.warning("Could not start the progress row of ingest job %s", job["id"], exc_info=True)
+                    try:
                         # Scopes a handler holds for the rest of its attempt
                         # (the per-request spend gate of an automatic build)
                         # close here, inside the classification below, so what
@@ -1103,6 +1112,8 @@ class IngestRunner:
                                 self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"],
                                 halted=self.halted.is_set,
                             ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]), \
+                                    observe_model_output(job_output_recorder(
+                                        self.repo, job["id"], job["attempt_count"], self.clock)), \
                                     _batch_unit(self, batch_id):
                                 result = handler(ctx)
                         break
@@ -1425,6 +1436,30 @@ def a_retry_may_cure(exc: BaseException) -> bool:
     if isinstance(exc, AITurnTimeout) and exc.reason == "ceiling":
         return False
     return isinstance(exc, (AIProviderUnavailable, InventoryValidationError, TimeoutError))
+
+
+def job_output_recorder(repo: Repository, job_id: str, attempt_count: int, clock: Clock) -> Callable[[str | None, int], None]:
+    """What a job's streamed model output is recorded through (``observe_model_output``): the request and its
+    count of output pieces, with the time on the runner's clock, at most every :data:`OUTPUT_RECORD_SECONDS` for one
+    request (a new request is written at once). Inventory windows stream in parallel threads, hence the lock."""
+
+    lock = threading.Lock()
+    last: dict[str | None, Any] = {}
+
+    def record(call_id: str | None, pieces: int) -> None:
+        now = clock.now()
+        with lock:
+            written = last.get(call_id)
+            if written is not None and (now - written).total_seconds() < OUTPUT_RECORD_SECONDS:
+                return
+            last[call_id] = now
+        try:
+            repo.record_ingest_job_output(job_id, attempt_count=attempt_count, call_id=call_id, events=pieces,
+                                          at=utc_now_iso(clock))
+        except Exception:  # noqa: BLE001 - what a wait shows never stops the work it shows
+            _LOG.warning("Could not record the output of ingest job %s", job_id, exc_info=True)
+
+    return record
 
 
 def retried_on_its_own(job: Mapping[str, Any]) -> bool:

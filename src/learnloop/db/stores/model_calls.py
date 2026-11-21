@@ -100,6 +100,19 @@ class ModelCallStoreMixin:
             ).fetchone()
         return int(row[0] or 0)
 
+    def model_call_times(self, *, owner_kind: str, owner_id: str) -> list[dict[str, Any]]:
+        """When each of one owner's model calls was sent and, once it finished, ended: ``id``, ``status``,
+        ``started_at``, ``finished_at``, oldest first. A receipt is written before its request is sent, so a
+        ``started`` one is a request in flight (or one whose end was never recorded)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT id, status, started_at, finished_at FROM model_call_receipts "
+                "WHERE owner_kind = ? AND owner_id = ? ORDER BY started_at, id",
+                (owner_kind, owner_id),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def model_call_spend_rows(
         self,
         *,

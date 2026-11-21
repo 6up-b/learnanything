@@ -3742,6 +3742,61 @@ export interface SourceStatusLineDto {
   waitingBehind?: string;
   /** What the learner's finished sections gave (on a built book's line, and on any line once there is something). */
   questions?: ReadingQuestionsDto | null;
+  /** While a build is under way: what it is doing now, in recorded facts (wait_detail.py `build_detail`). Absent from an
+   *  older sidecar. */
+  buildDetail?: BuildDetailDto | null;
+}
+
+/** What a model request of a job waited on has done, this try (wait_detail.py `delivery`): when the newest request
+ *  still in flight was sent, when the newest reply was received, and the in-flight request's streamed output (how many
+ *  pieces, when the last came; 0 and null with none, and always on a connection that does not stream). */
+export interface WaitDeliveryDto {
+  requestSentAt: string | null;
+  replyReceivedAt: string | null;
+  outputPieces: number;
+  lastOutputAt: string | null;
+}
+
+/** A measured time with the number of samples it rests on: this library's own history, never an estimate. */
+export interface WaitMeasuredDto {
+  minutes: number;
+  samples: number;
+}
+
+/** A book being got ready for questions, in recorded facts (wait_detail.py `build_detail`). */
+export interface BuildDetailDto {
+  /** When the sidecar read these facts: ages are counted to it. */
+  asOf: string | null;
+  startedAt: string | null;
+  stage: "queued" | "reading" | "planning" | "organizing" | "checking" | "saving";
+  /** A try after an earlier one stopped. */
+  retry: boolean;
+  delivery: WaitDeliveryDto | null;
+  /** Earlier builds in this library, scaled to this one's size, with how many; null before the first finished. */
+  measured: WaitMeasuredDto | null;
+  /** Reading: windows read (each counted once its answer was checked and kept) of those known; units read before. */
+  inventory?: { done: number; total: number | null; reused: number | null };
+  /** Planning: the part being planned, of how many, and the pass ("evidence": another look with the passages the
+   *  plan asked for; "plan_reused": a part kept from an earlier run). */
+  synthesis?: { part: number | null; parts: number | null; pass: "plan" | "plan_reused" | "evidence" | null };
+  /** Checking: the topics a complete, parsed plan drafted. */
+  draftedTopics?: number;
+}
+
+/** A section's questions being written, in recorded facts (wait_detail.py `writing_detail`). */
+export interface WritingDetailDto {
+  asOf: string | null;
+  startedAt: string | null;
+  /** Its writing waits its turn. */
+  queued: boolean;
+  retry: boolean;
+  /** The topic being written now: its title (null: none to show), which of how many (null where other writing runs
+   *  beside it, so its place would not be among the topics the line counts). */
+  topic: { title: string | null; index: number | null; total: number | null } | null;
+  topicStartedAt: string | null;
+  delivery: WaitDeliveryDto | null;
+  /** How long one topic's questions took to write in this library, with how many topics; null before any was timed. */
+  measured: WaitMeasuredDto | null;
 }
 
 /** The questions written from sections the learner finished (add_source.py `reading_questions`). */
@@ -3788,6 +3843,8 @@ export interface ReadingQuestionsDto {
   readTo?: { section: string; heading: string | null; words: string | null; sectionEnd: boolean };
   /** Of `toLookAt`, the questions an OK would apply (valid, not blocked). Present only when there are some. */
   awaitingOk?: number;
+  /** The first section being written, in recorded facts. Absent from an older sidecar, and when nothing is written. */
+  writingDetail?: WritingDetailDto | null;
 }
 
 /** A link an Add is still fetching: it has no library card yet. */
