@@ -174,6 +174,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `lesson_taken`, `lose_to_lesson`, `lost_offer_decision`, `lost_to`, `lost_to_lesson`, `move`, `reopen_after_lesson`, `retire_waiting`, `session_rows`, `waiting_still_valid`, `workflow_of_item`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `probe_answer_exposed`; statically calls `probe_answer_exposed`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `diagnosis_ended`; statically calls `diagnosis_ended`
+- [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `module`; statically calls `get`, `note`, `noted`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `close_probe`, `finish`, `get`, `lose_to_lesson`, `move`, `note`, `noted`, `release_feedback`, `set_fields`, `superseded`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `module`; statically calls `finish`
 - [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `module`; statically calls `attempt_workflow`
@@ -212,7 +213,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 11 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -272,6 +273,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_verify_a_check_on_another_object_or_of_a_non_blocking_kind_refuses_nothing`
   - `test_f9_verify_a_check_on_the_object_that_arrives_during_authoring_stops_the_offer`
   - `test_f9_verify_a_retry_is_refused_by_a_check_on_the_whole_learning_object`
+- [tests/test_followup_contract_baseline.py](../../../../../../tests/test_followup_contract_baseline.py) — direct import
+  - `test_unadopted_pending_correction_sends_nothing_after_stop`
+  - `test_unadopted_physical_request_counts`
+- [tests/test_followup_contract_recovery.py](../../../../../../tests/test_followup_contract_recovery.py) — direct import
+  - `test_crash_after_claim_never_duplicates_the_correction`
+  - `test_crash_after_rejection_keeps_owed_state_and_the_original_deadline`
+  - `test_crash_before_corrected_answer_save_recovers_receipt_under_original_key`
+  - `test_exactly_one_second_left_keeps_the_original_inclusive_request_floor`
+  - `test_owed_correction_survives_restart_and_saves_only_accepted_answer`
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
 - [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
   - `test_a_door_on_a_held_screen_keeps_the_causes_held`

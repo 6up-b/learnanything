@@ -118,6 +118,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/projects/report|learnloop.projects.report]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] — imports `FsrsFittingConfig`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `LearnLoopConfig`
+- [[Reference/Modules/learnloop/sim/ad_memory_experiment|learnloop.sim.ad_memory_experiment]] — imports `MasteryConfig`; statically calls `MasteryConfig`
 - [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] — imports `MasteryConfig`; statically calls `MasteryConfig`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `LearnLoopConfig`; statically calls `LearnLoopConfig`
@@ -160,16 +161,19 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 65 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 66 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/followup_contract_baseline_helpers.py](../../../../../../tests/followup_contract_baseline_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
   - `test_every_new_key_is_a_classified_config_leaf`
   - `test_the_switches_compose`
+- [tests/test_ad_memory_simulation.py](../../../../../../tests/test_ad_memory_simulation.py) — direct import
+  - `test_no_configuration_or_global_prior_mutation`
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
 - [tests/test_ai_config.py](../../../../../../tests/test_ai_config.py) — direct import
   - `test_ai_provider_profiles_load_openai_chat`

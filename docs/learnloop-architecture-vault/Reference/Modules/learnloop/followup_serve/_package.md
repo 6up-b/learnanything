@@ -52,7 +52,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 18 | 19 |
 | [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] | [[Reference/Modules/learnloop/followup_serve/marks#^module-purpose|purpose]] | `ACTIVE` | 9 | 2 |
 | [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
-| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 16 | 31 |
+| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 17 | 33 |
 
 ## Cross-package dependencies
 
@@ -64,7 +64,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 16 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 17 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 13 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 7 static module edges
@@ -97,7 +97,7 @@ flowchart LR
     n_learnloop_sidecar["learnloop_sidecar"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_followup_run -->|16| center
+    n_learnloop_followup_run -->|17| center
     n_learnloop_sidecar_handlers -->|13| center
     n_learnloop_diagnosis -->|11| center
     n_learnloop_diagnosis_split -->|7| center

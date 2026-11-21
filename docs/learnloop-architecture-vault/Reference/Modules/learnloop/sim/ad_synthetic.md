@@ -204,6 +204,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]] — imports `module`; statically calls `censoring`, `coding`, `feature_time_correlation`, `fitted_useful_dose`, `hyperparameters_learned`, `own_answers_before_band`, `readers`, `recovery`, `related_topics`, `rng_for`, `time_to_usable`, `true_curve`, `true_useful_dose`, `wrong_proposal_shrinks`
+- [[Reference/Modules/learnloop/sim/ad_memory_synthetic|learnloop.sim.ad_memory_synthetic]] — imports `rng_for`, `sample_category`; statically calls `rng_for`, `sample_category`
 
 ## Dependencies
 
@@ -231,7 +232,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 No direct learner/operator workflow is assigned. This module is offline, shadow-only, dormant, or a dependency reached only through the static consumers below.
 
-Static participation evidence comes from [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]].
+Static participation evidence comes from [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]], [[Reference/Modules/learnloop/sim/ad_memory_synthetic|learnloop.sim.ad_memory_synthetic]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -241,6 +242,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_ad23_sim.py](../../../../../../tests/test_ad23_sim.py) — imports consumer [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]]
 - [tests/test_ad23_sim_smoke.py](../../../../../../tests/test_ad23_sim_smoke.py) — imports consumer [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]]
+- [tests/test_ad_memory_simulation.py](../../../../../../tests/test_ad_memory_simulation.py) — imports consumer [[Reference/Modules/learnloop/sim/ad_memory_synthetic|learnloop.sim.ad_memory_synthetic]]
 
 ## Modification guidance
 

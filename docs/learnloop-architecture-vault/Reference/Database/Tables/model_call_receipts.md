@@ -135,6 +135,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/experiments/contextual_embeddings/records.py`
 - `src/learnloop/figures/prefetch_ledger.py`
+- `src/learnloop/followup_run/contract_job.py`
 - `src/learnloop/hints/map_report.py`
 - `src/learnloop/hints/report_adaptive.py`
 - `src/learnloop/ops/pf_reports.py`

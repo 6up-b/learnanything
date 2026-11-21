@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/field/classification.py"
+  - "src/learnloop/followup_run/contract_job.py"
   - "src/learnloop/ops/pf_calls.py"
-  - "src/learnloop/practice_index/paid.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/ai/execution.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/field/classification.py`
+- `src/learnloop/followup_run/contract_job.py`
 - `src/learnloop/ops/pf_calls.py`
 - `src/learnloop/practice_index/paid.py`
 - `src/learnloop/source_retrieval/library_ask.py`
@@ -111,6 +112,7 @@ Indexes and uniqueness:
 - `tests/test_approach_maps.py`
 - `tests/test_empty_first_build.py`
 - `tests/test_first_questions_arrive.py`
+- `tests/test_followup_contract_recovery.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_outcome.py`
@@ -125,7 +127,6 @@ Indexes and uniqueness:
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_source_set_synthesis.py`
 - `tests/test_synthesis_answer_reuse.py`
-- `tests/test_synthesis_tail_golden.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

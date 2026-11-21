@@ -144,6 +144,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]] — imports `AIInterrupted`
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `AIInterrupted`, `AIOutputTruncated`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `AIInvalidOutput`; statically calls `AIInvalidOutput`
 - [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `AIInterrupted`, `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIProviderUnavailable`
@@ -217,7 +218,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 105 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 106 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -265,7 +266,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_expired_deadline_is_never_extended_into_a_send`
   - `test_an_interrupt_during_the_token_refresh_keeps_the_new_tokens_and_sends_nothing`
   - `test_an_interrupt_while_waiting_for_the_refresh_lock_sends_nothing`
-  - `test_contract_failing_then_a_malformed_correction_gets_no_repair`
   - `test_incomplete_truncated_and_broken_streams`
   - `test_single_request_never_repairs_or_retries`
   - `test_the_deadline_shuts_a_stalled_stream`

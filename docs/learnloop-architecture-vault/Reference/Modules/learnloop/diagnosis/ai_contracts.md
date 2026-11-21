@@ -108,6 +108,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `PROBE_INSTANCE_PROMPT_VERSION`, `ProbeFamilyTrials`, `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `ProbeInstanceSurfaces`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`; statically calls `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `FOLLOWUP_PROBE_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `FollowupProbeAuthored`, `FollowupProbeContext`, `followup_probe_prompt`; statically calls `FollowupProbeContext`, `followup_probe_prompt`
+- [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `FollowupProbeAuthored`, `FollowupProbeContext`
 - [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `FollowupProbeContext`; statically calls `FollowupProbeContext`
 
 ## Dependencies
@@ -130,12 +131,13 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/followup_contract_baseline_helpers.py](../../../../../../tests/followup_contract_baseline_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/probe_surface_mint_helpers.py](../../../../../../tests/probe_surface_mint_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
@@ -146,6 +148,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_good_first_answer_keeps_existing_expected_rows`
   - `test_measured_empty_answer_then_good_is_served_with_both_receipts_and_reason`
   - `test_other_missing_contract_parts_are_reasked`
+- [tests/test_followup_contract_baseline.py](../../../../../../tests/test_followup_contract_baseline.py) — direct import
+  - `test_every_schema_or_contract_recovery_needs_admission_time_and_no_cancellation`
+  - `test_separate_credits_preserve_the_unadopted_success`
+  - `test_two_attempts_each_allow_only_one_schema_repair`
+- [tests/test_followup_contract_recovery.py](../../../../../../tests/test_followup_contract_recovery.py) — direct import
+  - `test_named_predicates_preserve_the_interleaved_pipeline`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_protected_and_reserved_items_never_reach_the_prompt`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
@@ -163,7 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_send_that_skips_the_check_still_cannot_get_a_bad_answer_accepted`
   - `test_checked_structured_call_returns_the_accepted_answer`
   - `test_receipt_recovery_reruns_the_contract_and_checks_the_correction_linkage`
-  - `test_the_chat_providers_repair_shares_the_one_recovery`
+  - `test_the_chat_providers_repair_is_separate_from_the_contract_recovery`
   - `test_the_correction_names_only_the_first_failing_predicate`
   - `test_without_a_contract_an_operation_and_its_receipt_are_as_before`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import

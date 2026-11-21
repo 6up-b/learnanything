@@ -160,6 +160,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_rereview_continue_without_commits_its_preference_and_outcome_with_the_move`
   - `test_f7_verify_an_episode_another_presentation_still_holds_stays_open`
   - `test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared`
+- [tests/test_followup_contract_baseline.py](../../../../../../tests/test_followup_contract_baseline.py) — direct import
+  - `test_unadopted_pending_correction_sends_nothing_after_stop`
 - [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
   - `test_a_door_on_a_held_screen_keeps_the_causes_held`
   - `test_an_exposure_while_held_is_recorded_and_counts`
