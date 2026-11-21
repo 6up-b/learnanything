@@ -48,43 +48,43 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py) |
-| Source lines | 520 |
+| Source lines | 529 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Predicate(Generic[T])` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 60) — One named obligation of a parsed answer.
-  - `__post_init__(self) -> None` (line 74; internal)
-- `contract_of(*predicates: Predicate[Any]) -> tuple[Predicate[Any], ...]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 87) — ``predicates`` as a contract, refused when one is not a :class:`Predicate` or two share a name (a correction names its predicate; two would be ambiguous).
-- `first_failure(contract: Iterable[Predicate[T]], answer: T) -> Predicate[T] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 101) — The first predicate ``answer`` fails, in declared order, or None.
-- `correction_prompt(first_prompt: str, predicate: Predicate[Any]) -> str` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 114) — The correction: the original prompt, then the failed predicate and its requirement.
-- `class ContractRejected(Exception)` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 122) — A parsed answer failed a contract predicate.
-  - `__init__(self, predicate: Predicate[Any]) -> None` (line 129; internal)
-- `class RecoveryState` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 135) — What one logical call has spent, in the form a durable job stores and restores.
-  - `__post_init__(self) -> None` (line 147; internal)
-  - `as_dict(self) -> dict[str, Any]` (line 151; public)
-  - `from_dict(cls, data: Mapping[str, Any] | None) -> RecoveryState` (line 155; public)
-- `class RecoveryAllowance` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 162) — The caller's own room for the one recovery; it holds no money of its own.
-- `class ContractFailure` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 188) — Why a checked call ended without an accepted answer, for the caller's ``failure``.
-- `class Attempt` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 206) — One request the caller's ``send`` makes: the first (ordinal 0) or a correction.
-- `class CheckedAnswer(Generic[T])` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 218)
-- `claim_schema_repair() -> bool` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 271) — Whether a provider may send its schema repair now.
-- `recovery_remaining_seconds() -> float | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 287) — What remains of the checked call's one deadline, or None (no checked call, or no deadline).
-- `correction_in_flight() -> bool` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 298) — Whether the request being made is a checked call's correction.
-- `checked_structured_call(*, first_prompt: str, contract: Iterable[Predicate[T]], send: Callable[[Attempt, Callable[[T], T]], T], recovery: RecoveryAllowance, checkpoint: ModelCheckpoint[T] | None, failure: Callable[[ContractFailure], BaseException], request_key: str | None=None, usage: Callable[[T], dict[str, Any]] | None=None) -> T` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 319) — The accepted answer of one structured call with a contract (:func:`checked_structured_answer`).
-- `checked_structured_answer(*, first_prompt: str, contract: Iterable[Predicate[T]], send: Callable[[Attempt, Callable[[T], T]], T], recovery: RecoveryAllowance, checkpoint: ModelCheckpoint[T] | None, failure: Callable[[ContractFailure], BaseException], request_key: str | None=None, usage: Callable[[T], dict[str, Any]] | None=None) -> CheckedAnswer[T]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 338) — Check, and at most once correct, one structured call's answer.
-- `recovery_note(budget_json: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 445) — A root receipt's :data:`RECOVERY_NOTE` (its ``budget_json``), or None.
-- `recover_from_receipts(receipts: Iterable[Mapping[str, Any]], *, first_prompt: str, request_key: str | None, contract: Iterable[Predicate[T]], read: Callable[[str], T]) -> tuple[T, Mapping[str, Any]] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 455) — The newest receipt answer a checked call may reuse, and its receipt, or None.
+- `class Predicate(Generic[T])` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 59) — One named obligation of a parsed answer.
+  - `__post_init__(self) -> None` (line 73; internal)
+- `contract_of(*predicates: Predicate[Any]) -> tuple[Predicate[Any], ...]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 86) — ``predicates`` as a contract, refused when one is not a :class:`Predicate` or two share a name (a correction names its predicate; two would be ambiguous).
+- `first_failure(contract: Iterable[Predicate[T]], answer: T) -> Predicate[T] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 100) — The first predicate ``answer`` fails, in declared order, or None.
+- `correction_prompt(first_prompt: str, predicate: Predicate[Any]) -> str` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 113) — The correction: the original prompt, then the failed predicate and its requirement.
+- `class ContractRejected(Exception)` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 121) — A parsed answer failed a contract predicate.
+  - `__init__(self, predicate: Predicate[Any]) -> None` (line 128; internal)
+- `class RecoveryState` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 134) — What one logical call has spent, in the form a durable job stores and restores.
+  - `__post_init__(self) -> None` (line 146; internal)
+  - `as_dict(self) -> dict[str, Any]` (line 150; public)
+  - `from_dict(cls, data: Mapping[str, Any] | None) -> RecoveryState` (line 154; public)
+- `class RecoveryAllowance` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 161) — The caller's own room for the one recovery; it holds no money of its own.
+- `class ContractFailure` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 187) — Why a checked call ended without an accepted answer, for the caller's ``failure``.
+- `class Attempt` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 205) — One request the caller's ``send`` makes: the first (ordinal 0) or a correction.
+- `class CheckedAnswer(Generic[T])` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 217)
+- `claim_schema_repair() -> bool` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 278) — Whether a provider may send its schema repair now.
+- `recovery_remaining_seconds() -> float | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 296) — What remains of the checked call's one deadline, or None (no checked call, or no deadline).
+- `correction_in_flight() -> bool` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 307) — Whether the request being made is a checked call's correction.
+- `checked_structured_call(*, first_prompt: str, contract: Iterable[Predicate[T]], send: Callable[[Attempt, Callable[[T], T]], T], recovery: RecoveryAllowance, checkpoint: ModelCheckpoint[T] | None, failure: Callable[[ContractFailure], BaseException], request_key: str | None=None, usage: Callable[[T], dict[str, Any]] | None=None) -> T` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 328) — The accepted answer of one structured call with a contract (:func:`checked_structured_answer`).
+- `checked_structured_answer(*, first_prompt: str, contract: Iterable[Predicate[T]], send: Callable[[Attempt, Callable[[T], T]], T], recovery: RecoveryAllowance, checkpoint: ModelCheckpoint[T] | None, failure: Callable[[ContractFailure], BaseException], request_key: str | None=None, usage: Callable[[T], dict[str, Any]] | None=None) -> CheckedAnswer[T]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 347) — Check, and at most once correct, one structured call's answer.
+- `recovery_note(budget_json: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 454) — A root receipt's :data:`RECOVERY_NOTE` (its ``budget_json``), or None.
+- `recover_from_receipts(receipts: Iterable[Mapping[str, Any]], *, first_prompt: str, request_key: str | None, contract: Iterable[Predicate[T]], read: Callable[[str], T]) -> tuple[T, Mapping[str, Any]] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 464) — The newest receipt answer a checked call may reuse, and its receipt, or None.
 
 ### Module constants
 
 - `T` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 44)
-- `MAX_STRUCTURED_RECOVERIES` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 49)
-- `RECOVERY_NOTE` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 52)
-- `_PREDICATE_NAME` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 54)
-- `_REFUSALS` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 56)
+- `MAX_STRUCTURED_RECOVERIES` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 48)
+- `RECOVERY_NOTE` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 51)
+- `_PREDICATE_NAME` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 53)
+- `_REFUSALS` ([src/learnloop/ai/structured_contracts.py](../../../../../../src/learnloop/ai/structured_contracts.py), line 55)
 
 ### Explicit exports
 
@@ -113,10 +113,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `class _Ledger` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 228) — The one recovery of the checked call in flight, as the hooks below see it.
-- `_checker(contract: tuple[Predicate[T], ...]) -> Callable[[T], T]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 305)
-- `_named(contract: tuple[Predicate[T], ...], name: Any) -> Predicate[T] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 315)
-- `_run(ledger: _Ledger, send: Callable[[Attempt, Callable[[T], T]], T], contract: tuple[Predicate[T], ...], attempt: Attempt, key: str | None, failure: Callable[[ContractFailure], BaseException], sends: int) -> tuple[Any, Predicate[T] | None, BaseException | None]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 414) — One send under the ledger: (answer, None, None) accepted, or (None, failed predicate, cause).
+- `class _Ledger` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 227) — The one recovery of the checked call in flight, as the hooks below see it.
+- `_checker(contract: tuple[Predicate[T], ...]) -> Callable[[T], T]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 314)
+- `_named(contract: tuple[Predicate[T], ...], name: Any) -> Predicate[T] | None` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 324)
+- `_run(ledger: _Ledger, send: Callable[[Attempt, Callable[[T], T]], T], contract: tuple[Predicate[T], ...], attempt: Attempt, key: str | None, failure: Callable[[ContractFailure], BaseException], sends: int) -> tuple[Any, Predicate[T] | None, BaseException | None]` ([source](../../../../../../src/learnloop/ai/structured_contracts.py), line 423) — One send under the ledger: (answer, None, None) accepted, or (None, failed predicate, cause).
 
 ## Who imports or calls it
 
@@ -127,6 +127,8 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `claim_schema_repair`; statically calls `claim_schema_repair`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `correction_in_flight`; statically calls `correction_in_flight`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `Predicate`; statically calls `Predicate`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Predicate`, `contract_of`, `correction_prompt`; statically calls `Predicate`, `contract_of`, `correction_prompt`
+- [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `ContractFailure`, `RecoveryAllowance`, `RecoveryState`, `checked_structured_call`, `recover_from_receipts`, `recovery_note`; statically calls `RecoveryAllowance`, `RecoveryState`, `checked_structured_call`, `recover_from_receipts`, `recovery_note`
 
 ## Dependencies
 
@@ -147,7 +149,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -158,10 +160,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_background_request_gets_no_fresh_ceiling_past_the_checked_calls_deadline`
   - `test_a_checked_call_sends_the_first_request_unchanged_and_one_correction`
   - `test_a_checked_call_with_no_admitted_recovery_sends_no_plan_repair`
-  - `test_contract_failing_then_a_malformed_correction_gets_no_repair`
-  - `test_malformed_then_repaired_then_contract_failing_stops`
+  - `test_contract_failing_then_a_malformed_correction_gets_one_repair`
+  - `test_malformed_then_repaired_then_contract_failing_gets_one_correction`
 - [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
   - `test_a_cut_stream_never_reaches_the_semantic_predicate`
+- [tests/test_followup_contract_baseline.py](../../../../../../tests/test_followup_contract_baseline.py) — direct import
+  - `test_every_schema_or_contract_recovery_needs_admission_time_and_no_cancellation`
+  - `test_separate_credits_preserve_the_unadopted_success`
+  - `test_two_attempts_each_allow_only_one_schema_repair`
+- [tests/test_followup_contract_recovery.py](../../../../../../tests/test_followup_contract_recovery.py) — direct import
+  - `test_named_predicates_preserve_the_interleaved_pipeline`
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
 - [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
   - `test_a_metered_contract_correction_is_admitted_and_charged_as_a_retry`
@@ -187,7 +195,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_other_failures_of_the_send_are_the_callers_own`
   - `test_predicates_run_in_declared_order_and_the_first_failure_wins`
   - `test_receipt_recovery_reruns_the_contract_and_checks_the_correction_linkage`
-  - `test_the_chat_providers_repair_shares_the_one_recovery`
+  - `test_the_chat_providers_repair_is_separate_from_the_contract_recovery`
   - `test_the_correction_is_the_original_prompt_and_the_exact_suffix`
   - `test_the_correction_reproduces_the_followup_authors_reask_byte_for_byte`
   - `test_the_correction_runs_on_what_remains_of_the_one_deadline`

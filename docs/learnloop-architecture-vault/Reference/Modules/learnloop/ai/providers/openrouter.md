@@ -100,6 +100,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_contract_baseline_helpers.py](../../../../../../../tests/followup_contract_baseline_helpers.py) — direct import
 - [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
 - [tests/test_multimodal_client.py](../../../../../../../tests/test_multimodal_client.py) — direct import
   - `test_openrouter_inherits_media_methods_with_headers`

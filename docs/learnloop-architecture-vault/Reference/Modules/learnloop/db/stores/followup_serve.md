@@ -106,6 +106,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `module`; statically calls `generation_job`
 - [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] — imports `module`; statically calls `any_feedback_held`, `present`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `finish_generation_job`, `generation_job`, `lease_next_generation_job`, `open_workflows`, `present`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `append_binding`, `update_workflow`
@@ -133,7 +134,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]], [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]], [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -153,6 +154,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f8_a_transport_failure_retries_under_the_decision_it_drew`
   - `test_f8_naming_the_decision_commits_with_it`
   - `test_f9_a_retry_rechecks_the_hard_refusals_and_keeps_the_draw`
+- [tests/test_followup_contract_baseline.py](../../../../../../../tests/test_followup_contract_baseline.py) — direct import
+  - `test_unadopted_physical_request_counts`
+- [tests/test_followup_contract_recovery.py](../../../../../../../tests/test_followup_contract_recovery.py) — direct import
+  - `test_crash_after_claim_never_duplicates_the_correction`
+  - `test_crash_before_corrected_answer_save_recovers_receipt_under_original_key`
+  - `test_owed_correction_survives_restart_and_saves_only_accepted_answer`
 - [tests/test_followup_generate_e2e.py](../../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_entry_enqueues_deduplicated_work_and_never_calls_a_model_inline`
 - [tests/test_followup_live_shape.py](../../../../../../../tests/test_followup_live_shape.py) — direct import

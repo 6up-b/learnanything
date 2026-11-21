@@ -47,34 +47,36 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py) |
-| Source lines | 319 |
+| Source lines | 345 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class AuthoringRejected(ValueError)` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 55) — An authored question failed an output check: nothing was written, nothing is served.
-- `class AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 60)
-- `protection_view(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 68) — The withheld items; raises when they can't be read, so no prompt is built.
-- `admissible_item(withheld: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 79)
-- `reserved_view(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 83) — The questions still reserved or withheld, as ``protection_view`` says; raises when they can't be read, so nothing is compared against half a list and no prompt is built.
-- `causes_match_reserved(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 104) — The owner's ruling of Nov 4, 2026: a cause stops its probe only by reproducing a question still reserved, read by its words.
-- `causes_coverage(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 120) — For the admission receipt: what each cause's write-time record covers.
-- `build_context(vault: Any, repository: Repository, *, learning_object_id: str, hypotheses: Sequence[Mapping[str, Any]], router_decision: Mapping[str, Any], target_facets: Sequence[str], source_item_id: str | None, measurement_pattern: str | None=None, avoid_phrases: Sequence[str]=()) -> tuple[FollowupProbeContext, dict[str, str]]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 149) — The prompt's context, and the reference -> hypothesis id map.
-- `request_authored_probe(client: Any, context: FollowupProbeContext, *, rejection_reason: str | None=None, retry_deadline: datetime | None=None, clock: Clock | None=None) -> FollowupProbeAuthored` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 216)
-- `check_output(vault: Any, repository: Repository, authored: FollowupProbeAuthored, *, refs: Mapping[str, str], learning_object_id: str) -> AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 242) — The output checks that run before anything is written (§4.1).
-- `resolve_author_client(vault: Any) -> Any | None` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 305) — The route's client, or None when it is not ready (nothing is spent).
+- `class AuthoringRejected(ValueError)` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 56) — An authored question failed an output check: nothing was written, nothing is served.
+- `class AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 61)
+- `protection_view(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 69) — The withheld items; raises when they can't be read, so no prompt is built.
+- `admissible_item(withheld: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 80)
+- `reserved_view(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 84) — The questions still reserved or withheld, as ``protection_view`` says; raises when they can't be read, so nothing is compared against half a list and no prompt is built.
+- `causes_match_reserved(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 105) — The owner's ruling of Nov 4, 2026: a cause stops its probe only by reproducing a question still reserved, read by its words.
+- `causes_coverage(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 121) — For the admission receipt: what each cause's write-time record covers.
+- `build_context(vault: Any, repository: Repository, *, learning_object_id: str, hypotheses: Sequence[Mapping[str, Any]], router_decision: Mapping[str, Any], target_facets: Sequence[str], source_item_id: str | None, measurement_pattern: str | None=None, avoid_phrases: Sequence[str]=()) -> tuple[FollowupProbeContext, dict[str, str]]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 150) — The prompt's context, and the reference -> hypothesis id map.
+- `request_authored_probe(client: Any, context: FollowupProbeContext, *, rejection_reason: str | None=None, retry_deadline: datetime | None=None, clock: Clock | None=None) -> FollowupProbeAuthored` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 217)
+- `check_structure(authored: FollowupProbeAuthored, refs: Mapping[str, str]) -> dict[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 242) — The original ordered pipeline, including its interleaved terminal checks.
+- `authoring_contract(refs: Mapping[str, str]) -> tuple[Predicate[FollowupProbeAuthored], ...]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 276) — Adapt only the pipeline's retryable failures; terminal failures still raise.
+- `check_output(vault: Any, repository: Repository, authored: FollowupProbeAuthored, *, refs: Mapping[str, str], learning_object_id: str) -> AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 298) — Check structure, then protection, before anything is written (§4.1).
+- `resolve_author_client(vault: Any) -> Any | None` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 331) — The route's client, or None when it is not ready (nothing is spent).
 
 ### Module constants
 
-- `AUTHORING_PURPOSE` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 30)
-- `AUTHOR_ROUTE` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 32)
-- `AUTHOR_AXES` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 34)
-- `CAUSE_MATCHES_RESERVED` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 37)
-- `QUESTION_MATCHES_RESERVED` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 38)
-- `RESERVED_MATCHES` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 39)
-- `CONTRACT_REASK_REQUIREMENTS` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 42)
+- `AUTHORING_PURPOSE` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 31)
+- `AUTHOR_ROUTE` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 33)
+- `AUTHOR_AXES` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 35)
+- `CAUSE_MATCHES_RESERVED` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 38)
+- `QUESTION_MATCHES_RESERVED` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 39)
+- `RESERVED_MATCHES` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 40)
+- `CONTRACT_REASK_REQUIREMENTS` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 43)
 
 ### Explicit exports
 
@@ -90,10 +92,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `QUESTION_MATCHES_RESERVED`
 - `RESERVED_MATCHES`
 - `admissible_item`
+- `authoring_contract`
 - `build_context`
 - `causes_coverage`
 - `causes_match_reserved`
 - `check_output`
+- `check_structure`
 - `reserved_view`
 - `protection_view`
 - `request_authored_probe`
@@ -101,7 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_cause_words(hypothesis: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 96) — What the router's card and the author's prompt would show of a cause.
+- `_cause_words(hypothesis: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 97) — What the router's card and the author's prompt would show of a cause.
 - `_normalized(text: str) -> str` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 238)
 
 ## Who imports or calls it
@@ -110,7 +114,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `AuthoredProbe`, `AuthoringRejected`, `QUESTION_MATCHES_RESERVED`, `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`; statically calls `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `CONTRACT_REASK_REQUIREMENTS`, `QUESTION_MATCHES_RESERVED`, `RESERVED_MATCHES`, `module`, `resolve_author_client`; statically calls `causes_match_reserved`, `resolve_author_client`
+- [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `AUTHORING_PURPOSE`, `AuthoringRejected`, `authoring_contract`, `module`; statically calls `AuthoringRejected`, `authoring_contract`, `followup_probe_prompt`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `QUESTION_MATCHES_RESERVED`, `RESERVED_MATCHES`, `module`, `resolve_author_client`; statically calls `causes_match_reserved`, `resolve_author_client`
 - [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `admissible_item`, `module`, `protection_view`, `reserved_view`; statically calls `admissible_item`, `check_output`, `protection_view`, `request_authored_probe`, `reserved_view`
 
 ## Dependencies
@@ -118,6 +123,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
+- [[Reference/Modules/learnloop/ai/structured_contracts|learnloop.ai.structured_contracts]] — imports `Predicate`, `contract_of`, `correction_prompt`; calls `Predicate`, `contract_of`, `correction_prompt`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`; calls `SystemClock`
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `reserved_findings`, `reserved_questions`; calls `reserved_findings`, `reserved_questions`
@@ -138,7 +144,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]].
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]], [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -146,6 +152,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f7_verify_the_settled_exit_adds_no_question_of_its_own`
+- [tests/test_followup_contract_baseline.py](../../../../../../tests/test_followup_contract_baseline.py) — direct import
+  - `test_capture_unadopted_prompt_digests`
+  - `test_every_schema_or_contract_recovery_needs_admission_time_and_no_cancellation`
+  - `test_separate_credits_preserve_the_unadopted_success`
+  - `test_two_attempts_each_allow_only_one_schema_repair`
+- [tests/test_followup_contract_recovery.py](../../../../../../tests/test_followup_contract_recovery.py) — direct import
+  - `test_named_predicates_preserve_the_interleaved_pipeline`
 - [tests/test_followup_live_shape.py](../../../../../../tests/test_followup_live_shape.py) — direct import
   - `test_audit_task_features_are_declared_as_the_systems_and_nothing_undeclared_slips_through`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
@@ -165,7 +178,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_send_that_skips_the_check_still_cannot_get_a_bad_answer_accepted`
   - `test_a_valid_first_answer_is_one_unchanged_request_and_asks_for_no_recovery`
   - `test_checked_structured_call_returns_the_accepted_answer`
-  - `test_the_chat_providers_repair_shares_the_one_recovery`
+  - `test_the_chat_providers_repair_is_separate_from_the_contract_recovery`
   - `test_the_correction_reproduces_the_followup_authors_reask_byte_for_byte`
   - `test_without_a_contract_an_operation_and_its_receipt_are_as_before`
 

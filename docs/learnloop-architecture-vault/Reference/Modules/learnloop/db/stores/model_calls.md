@@ -83,6 +83,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]] — imports `delete_checkpoint`, `insert_checkpoint`; statically calls `delete_checkpoint`, `insert_checkpoint`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ModelCallStoreMixin`
+- [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] — imports `insert_checkpoint`; statically calls `insert_checkpoint`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `delete_checkpoint`, `finish_receipt`, `insert_checkpoint`; statically calls `delete_checkpoint`, `finish_receipt`, `insert_checkpoint`
 
 ## Dependencies
@@ -105,7 +106,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]], [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

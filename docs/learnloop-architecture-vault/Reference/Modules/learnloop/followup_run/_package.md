@@ -8,6 +8,7 @@ source_paths:
   - "src/learnloop/followup_run/__init__.py"
   - "src/learnloop/followup_run/admission.py"
   - "src/learnloop/followup_run/authoring.py"
+  - "src/learnloop/followup_run/contract_job.py"
   - "src/learnloop/followup_run/decision_view.py"
   - "src/learnloop/followup_run/jobs.py"
   - "src/learnloop/followup_run/lanes.py"
@@ -53,26 +54,27 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/followup_run/__init__|learnloop.followup_run]] | [[Reference/Modules/learnloop/followup_run/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] | [[Reference/Modules/learnloop/followup_run/admission#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] | [[Reference/Modules/learnloop/followup_run/authoring#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
+| [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] | [[Reference/Modules/learnloop/followup_run/authoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
+| [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] | [[Reference/Modules/learnloop/followup_run/contract_job#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] | [[Reference/Modules/learnloop/followup_run/decision_view#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] | [[Reference/Modules/learnloop/followup_run/jobs#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
+| [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] | [[Reference/Modules/learnloop/followup_run/jobs#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
 | [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] | [[Reference/Modules/learnloop/followup_run/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] | [[Reference/Modules/learnloop/followup_run/lesson_probe#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] | [[Reference/Modules/learnloop/followup_run/marks#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] | [[Reference/Modules/learnloop/followup_run/router#^module-purpose|purpose]] | `ACTIVE` | 2 | 17 |
-| [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] | [[Reference/Modules/learnloop/followup_run/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
+| [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] | [[Reference/Modules/learnloop/followup_run/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
-- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 16 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 13 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 23 static module edges
+- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 17 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 10 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 9 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 8 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 3 static module edges
@@ -101,20 +103,20 @@ flowchart LR
     n_learnloop_followup_serve["learnloop.followup_serve"]
     n_learnloop["learnloop"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_vault["learnloop.vault"]
-    center -->|22| n_learnloop_diagnosis
-    center -->|16| n_learnloop_followup_serve
-    center -->|13| n_learnloop
-    center -->|9| n_learnloop_db
+    center -->|23| n_learnloop_diagnosis
+    center -->|17| n_learnloop_followup_serve
+    center -->|14| n_learnloop
+    center -->|10| n_learnloop_db
+    center -->|9| n_learnloop_ai
     n_learnloop_sidecar_handlers -->|9| center
+    center -->|8| n_learnloop_db_stores
     center -->|7| n_learnloop_daily_plan
-    center -->|6| n_learnloop_db_stores
-    center -->|4| n_learnloop_ai
     center -->|4| n_learnloop_content_authoring
     center -->|4| n_learnloop_vault
 ```
