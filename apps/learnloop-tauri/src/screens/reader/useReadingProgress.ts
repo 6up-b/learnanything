@@ -38,6 +38,7 @@ import { screenLeavesKey } from "../../app/keymap";
 import { scrollIntoViewWithin } from "../../components/scrollWithin";
 import {
   pagePositionAt,
+  passagesInView,
   resumeSpanFromHistory,
   spanAtPosition,
   spanOnPage,
@@ -150,7 +151,8 @@ function sendSeenCounts(
   }
 }
 
-/** The passages a reading position observed, as the progress report names them (by id). On the
+/** The passages a reading position observed, as the progress report names them (by id), beside what the
+ *  learner's own movement showed in the view (`passagesInView`, sampled where the movement happens). On the
  *  text view (and a video's transcript) it is the passage under the reading marker; on the original PDF whose
  *  passages know only their page, a page's passages share it in order (as `spanOnPage` reads them), and one is
  *  observed once the marker is `through` of the way through its share (the count's within-page rule, which this is
@@ -373,6 +375,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // The passage under the marker at the learner's last reading position, for what the marker leaves behind as
   // it moves forward; cleared by every placement, so a jump never counts the passage before it.
   const markerPassageRef = useRef<{ sectionIndex: number; spanIndex: number; spanId: string } | null>(null);
+  // What was on screen when the learner's hand started a movement (a wheel, a touch, a scroll key, the scrollbar),
+  // kept until the first frame of that movement: a step that lands in one frame (Page Down, End, a scripted scroll)
+  // has already left that screen when its scroll is heard. Taken only before the movement counts as reading.
+  const startViewRef = useRef<{ at: number; spanIds: string[] } | null>(null);
   // The quick check the learner asked to open from a section break: shown
   // above Contents, scrolled to and started (usability round 1, U5).
   const [focusQuickCheck, setFocusQuickCheck] = useState<string | null>(null);
@@ -383,6 +389,13 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // read and no quick check is written: a paper opened on its first page was
   // asked about its Introduction before a word was read.
   const [readingMoved, setReadingMoved] = useState(false);
+  // The same, for the scroll frame and the hand's input, which run between renders: a jump resets it at once, so
+  // a frame drawn before the jump's render cannot observe where the jump landed.
+  const movedRef = useRef(false);
+  const setMoved = useCallback((moved: boolean) => {
+    movedRef.current = moved;
+    setReadingMoved(moved);
+  }, []);
   const userScrollAtRef = useRef(0);
   // A scroll of the learner's own, waiting for the frame that reads where it
   // took them (``onReadingScroll``).
@@ -492,8 +505,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     lastReadRef.current = null;
     setFocusQuickCheck(null);
     setHiddenPdfOffers([]);
-    setReadingMoved(false);
+    setMoved(false);
     movedPendingRef.current = false;
+    startViewRef.current = null;
     userScrollAtRef.current = 0;
     lastPlaybackSpanRef.current = null;
     setReadingHistory(null);
@@ -509,7 +523,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     setTimedOutSections([]);
     authorRequestedRef.current = new Set();
     setStickyQuestionSections([]);
-  }, []);
+  }, [setMoved]);
 
   const settleOpening = useCallback(() => {
     settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
@@ -627,6 +641,40 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     () => new Map((guidePlan?.sections ?? []).map((section) => [section.endSpanId, section])),
     [guidePlan],
   );
+
+  // Record passages observed by the learner's own reading, per section, and the sections whose last passage is
+  // among them (a section's end is its last passage observed, never a position: the count can be full by the
+  // leave-after-60% rule without it). Ids that are no section's readable passage are dropped.
+  const notePassages = useCallback((observed: string[]) => {
+    if (!render || offline || observed.length === 0) return;
+    // Only passages of the reading the report names: a guide answered for another reading names other spans.
+    if (guidePlan?.extractionId && guidePlan.extractionId !== render.extractionId) return;
+    setSeenPassages((current) => {
+      let next = current;
+      for (const spanId of observed) {
+        const section = guideSectionBySpan.get(spanId);
+        if (!section || (next[section.id] ?? []).includes(spanId)) continue;
+        if (next === current) next = { ...current };
+        next[section.id] = [...(next[section.id] ?? []), spanId];
+      }
+      return next;
+    });
+    const ended = observed.flatMap((spanId) => {
+      const section = guideSectionBySpan.get(spanId);
+      return section && section.endSpanId === spanId ? [section.id] : [];
+    });
+    if (ended.length > 0) {
+      setReachedEnds((current) => (ended.every((id) => current.includes(id)) ? current : [...new Set([...current, ...ended])]));
+    }
+  }, [render, offline, guidePlan, guideSectionBySpan]);
+  // The scroll frame, the hand's input and playback run between renders: they reach the newest of these.
+  const notePassagesRef = useRef(notePassages);
+  notePassagesRef.current = notePassages;
+  // What the reading area shows now. A video is read by playback (the cues played), never by what its transcript
+  // list or the page around the player shows.
+  const watching = Boolean(watch || watchLoading);
+  const viewNowRef = useRef<() => string[]>(() => []);
+  viewNowRef.current = () => (watching ? [] : passagesInView(bodyRef.current, pageMode ? pageSpans : null));
   const currentGuideSection = useMemo(() => {
     const positioned = guideSectionBySpan.get(readingSpan ?? activeSpan ?? "");
     return positioned ?? guidePlan?.sections[0] ?? null;
@@ -788,34 +836,12 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       return;
     }
     markerPassageRef.current = { sectionIndex: index, spanIndex: at, spanId: readingSpan };
-    // Only passages of the reading the report names: a guide answered for another reading names other spans.
-    if (!guidePlan?.extractionId || guidePlan.extractionId === render.extractionId) {
-      const forward = marker !== null
-        && (marker.sectionIndex < index || (marker.sectionIndex === index && marker.spanIndex < at));
-      const observed = observedPassages({
-        spanId: readingSpan, pageSpans: pageMode ? pageSpansRef.current : null, offset: readingOffset,
-        through: PAGE_READ_THROUGH, left: forward ? marker.spanId : null,
-      });
-      setSeenPassages((current) => {
-        let next = current;
-        for (const spanId of observed) {
-          const section = guideSectionBySpan.get(spanId);
-          if (!section || (next[section.id] ?? []).includes(spanId)) continue;
-          if (next === current) next = { ...current };
-          next[section.id] = [...(next[section.id] ?? []), spanId];
-        }
-        return next;
-      });
-      // A section's end is its last passage observed, never a position (the count can be full by the
-      // leave-after-60% rule without it).
-      const ended = observed.flatMap((spanId) => {
-        const section = guideSectionBySpan.get(spanId);
-        return section && section.endSpanId === spanId ? [section.id] : [];
-      });
-      if (ended.length > 0) {
-        setReachedEnds((current) => (ended.every((id) => current.includes(id)) ? current : [...new Set([...current, ...ended])]));
-      }
-    }
+    const forward = marker !== null
+      && (marker.sectionIndex < index || (marker.sectionIndex === index && marker.spanIndex < at));
+    notePassages(observedPassages({
+      spanId: readingSpan, pageSpans: pageMode ? pageSpansRef.current : null, offset: readingOffset,
+      through: PAGE_READ_THROUGH, left: forward ? marker.spanId : null,
+    }));
     const count = currentGuideSection.spanIds.length;
     const seenHere = pageMode ? at + ((readingOffset ?? 0) >= PAGE_READ_THROUGH ? 1 : 0) : at + 1;
     setSectionSeen((current) => {
@@ -833,8 +859,8 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       }
       return changed ? next : current;
     });
-  }, [render, offline, guidePlan, guideSectionBySpan, currentGuideSection, readingSpan, readingOffset, pageMode,
-    currentSectionProgress, readingMoved]);
+  }, [render, offline, guidePlan, currentGuideSection, readingSpan, readingOffset, pageMode,
+    currentSectionProgress, readingMoved, notePassages]);
 
   // Save how far each section was read, gathered for a moment, and once more
   // when the Reader closes: Today's reading step and the next open read it.
@@ -1019,16 +1045,25 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     readingRafRef.current = window.requestAnimationFrame(() => {
       readingRafRef.current = null;
       updateReadingPosition();
+      const own = movedPendingRef.current || movedRef.current;
       // The learner's movement counts together with where it took them, in
       // one render: never as reading at the place a resume or jump left the
       // page (reading-hardening, part 2: a first scroll away from a resumed
       // section's last page offered that section's check).
       if (movedPendingRef.current) {
         movedPendingRef.current = false;
-        setReadingMoved(true);
+        setMoved(true);
       }
+      // Every passage this frame of the learner's own movement shows, not only the one under the marker (a
+      // screenful read at a time recorded one passage a screen); a continuous scroll is observed frame by frame,
+      // so what crosses the view is too. What a step skips in a single frame was never displayed.
+      if (!own || Date.now() < settleUntilRef.current) return;
+      const start = startViewRef.current;
+      startViewRef.current = null;
+      const fresh = start !== null && Date.now() - start.at < USER_SCROLL_MS;
+      notePassagesRef.current([...(fresh ? start.spanIds : []), ...viewNowRef.current()]);
     });
-  }, [updateReadingPosition]);
+  }, [updateReadingPosition, setMoved]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(updateReadingPosition);
@@ -1085,8 +1120,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       // ticked, and nothing is asked about where it lands until the learner
       // reads on.
       settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
-      setReadingMoved(false);
+      setMoved(false);
       movedPendingRef.current = false;
+      startViewRef.current = null;
       setActiveSpan(spanId);
       setReadingSpan(spanId);
       // Watch mode: a jump means "take the video there" — seek the player (the
@@ -1114,7 +1150,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (el instanceof HTMLElement) scrollIntoViewWithin(el, { behavior: reduced ? "auto" : "smooth", block: "center" });
     },
-    [pdfView, surface, offline, pageBySpan, revealSegment, setActiveSpan, watchRef, paneRef, bodyRef],
+    [pdfView, surface, offline, pageBySpan, revealSegment, setActiveSpan, watchRef, paneRef, bodyRef, setMoved],
   );
 
   const noteFoundApproximate = useCallback((approximate: boolean) => setPlaceApproximate(approximate ? "found" : false), []);
@@ -1122,9 +1158,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   const notePlacement = useCallback(() => {
     jumpGuardRef.current = Date.now() + 1200;
     settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
-    setReadingMoved(false);
+    setMoved(false);
     movedPendingRef.current = false;
-  }, []);
+    startViewRef.current = null;
+  }, [setMoved]);
 
   // A book with no saved place but reading history from before the Reader
   // saved places reopens where that history leaves off, as Today's reading
@@ -1152,9 +1189,19 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   }, [translatedPlace, render, offline, jumpToSpan]);
 
   // The learner's own hand on the page: what makes a scroll reading (round 2).
+  // Before their movement counts, what is on screen as their hand starts it is kept for its first frame; a
+  // jump still settling keeps nothing. Several inputs before that frame (a wheel's events) add to it.
+  const noteMovementStart = useCallback(() => {
+    const now = Date.now();
+    if (movedRef.current || now < settleUntilRef.current) return;
+    const start = startViewRef.current;
+    const kept = start !== null && now - start.at < USER_SCROLL_MS ? start.spanIds : [];
+    startViewRef.current = { at: now, spanIds: [...new Set([...kept, ...viewNowRef.current()])] };
+  }, []);
   const noteUserScroll = useCallback(() => {
     userScrollAtRef.current = Date.now();
-  }, []);
+    noteMovementStart();
+  }, [noteMovementStart]);
   // Watching is reading too: playback that moves past the cue a video
   // resumed at counts, as the learner's own scrolling does on a page. A seek
   // (a jump, a resume, a click in the transcript) only sets the cue playback
@@ -1163,9 +1210,14 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   const onPlaybackSpan = useCallback((spanId: string | null, advancing: boolean) => {
     const last = lastPlaybackSpanRef.current;
     lastPlaybackSpanRef.current = spanId;
-    if (advancing && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) setReadingMoved(true);
+    if (advancing && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) {
+      setMoved(true);
+      // Playback moved on from that cue, so it was played: the cue a seek, a resume or a pause left it at too
+      // (the marker's rule only reaches cues that playback arrives at while already moving).
+      notePassagesRef.current([last]);
+    }
     setReadingSpan(spanId);
-  }, []);
+  }, [setMoved]);
   // Every seek the watch panel makes is a placement, like a jump on a page
   // (reading-hardening verify, N1: a click on a transcript cue past 70 % of an
   // unread section carried the watching done before it there, and offered and
@@ -1174,11 +1226,12 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // by the old watching. Checks already offered stay pinned.
   const onPlaybackSeek = useCallback((spanId: string | null) => {
     settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
-    setReadingMoved(false);
+    setMoved(false);
     movedPendingRef.current = false;
+    startViewRef.current = null;
     lastPlaybackSpanRef.current = spanId;
     if (spanId) setReadingSpan(spanId);
-  }, []);
+  }, [setMoved]);
   useEffect(() => {
     if (!render) return;
     const onKey = (event: KeyboardEvent) => {
@@ -1188,11 +1241,13 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       // An Alt chord is never a scroll key: Alt+↓ / Alt+↑ move between margin
       // marks (RW3a), and a mark brought into view is a placement, not reading.
       if (event.altKey) return;
-      if (SCROLL_KEYS.has(event.key)) userScrollAtRef.current = Date.now();
+      if (!SCROLL_KEYS.has(event.key)) return;
+      userScrollAtRef.current = Date.now();
+      noteMovementStart();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [render]);
+  }, [render, noteMovementStart]);
 
   // Resume the last stable span after the chosen surface has mounted. The
   // position is local to the source and never becomes learner evidence.

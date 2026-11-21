@@ -294,6 +294,7 @@ export function ReaderScreen({
     const root = body.current;
     if (!root || !section || typeof IntersectionObserver === "undefined") return undefined;
     const viewport = new IntersectionObserver((entries) => {
+      let addedHere = false;
       for (const entry of entries) {
         const node = entry.target as HTMLElement;
         const span = node.dataset.span;
@@ -301,8 +302,14 @@ export function ReaderScreen({
         if (!span || !readable.has(span) || node.dataset.withheld !== undefined) continue;
         if (entry.isIntersecting) onScreen.current.add(span);
         else onScreen.current.delete(span);
+        // A busy page hands over a passage's coming on screen and its leaving in one delivery (a fast fling): what
+        // is on screen after the delivery no longer holds it, though it was shown during the learner's movement.
+        if (entry.isIntersecting && moved.current && !observed.current.has(span)) {
+          observed.current.add(span);
+          addedHere = true;
+        }
       }
-      if (noteObserved()) schedule();
+      if (noteObserved() || addedHere) schedule();
     });
     for (const node of root.querySelectorAll<HTMLElement>("[data-span]")) viewport.observe(node);
     return () => viewport.disconnect();

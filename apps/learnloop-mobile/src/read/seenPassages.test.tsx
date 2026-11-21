@@ -39,6 +39,17 @@ function screenShows(shown: string[], gone: string[] = []) {
   }
 }
 
+/** One delivery in which `span` came on screen and left again (a fast fling while the page was busy: the browser
+ *  queues both changes and hands them over together). */
+function screenFlashes(span: string) {
+  for (const observer of [...FakeObserver.all]) {
+    const target = [...observer.targets].find((one) => one.dataset.span === span);
+    if (!target) continue;
+    const entries = [true, false].map((isIntersecting) => ({ target, isIntersecting }) as unknown as IntersectionObserverEntry);
+    act(() => observer.callback(entries, observer as unknown as IntersectionObserver));
+  }
+}
+
 /** The learner's own finger moves the page: a touch, then the frame's scroll. */
 function scrollByHand() {
   fireEvent.touchMove(window);
@@ -123,5 +134,14 @@ describe("the phone Reader's seen passages", () => {
     // u2's last passage is held out: the phone never reads it, so it never reaches u2's end.
     expect(progressSent().some((one) => one.reachedEnd)).toBe(false);
     expect(passagesSent("u1")).toEqual([]);
+  }, 15000);
+
+  it("a passage that came on screen and left in one delivery, during the learner's own movement, was shown and is read", async () => {
+    await openBook();
+    screenShows(["b0", "b1"]);
+    scrollByHand();
+    await waitFor(() => expect(passagesSent("u1")).toEqual(["b0", "b1"]), WAIT);
+    screenFlashes("b2");
+    await waitFor(() => expect(passagesSent("u1")).toEqual(["b0", "b1", "b2"]), WAIT);
   }, 15000);
 });
