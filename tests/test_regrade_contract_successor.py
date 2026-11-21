@@ -119,7 +119,7 @@ def _state(repository):
 def test_the_successor_is_the_latest_and_keeps_every_predecessor():
     assert VERSION == "mvp-0.26"
     # The one eligibility decision (mvp-0.27) followed it and keeps it.
-    assert SUCCESSOR_CHAIN[17] == VERSION and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.62"
+    assert SUCCESSOR_CHAIN[17] == VERSION and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.63"
     assert SUCCESSOR_CHAIN[16] == PREDECESSOR == "mvp-0.25"
     assert VERSION in PLACEMENT_VERSIONS
 
