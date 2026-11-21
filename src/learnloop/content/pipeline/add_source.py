@@ -2605,6 +2605,23 @@ def _awaiting_ok(item: Mapping[str, Any]) -> bool:
             and item.get("dependency_status") != "blocked")
 
 
+def _note_part_read_states(fact: dict[str, Any], states: Iterable[tuple[str, str, Any]]) -> None:
+    """What the reading of unfinished sections can say, added to the questions fact: read before the build, a
+    qualifying topic not claimed yet, or read some with no topic whose every passage was seen (and, for the first
+    such section that can say it, the place reading on must reach)."""
+
+    for state, label, read_to in states:
+        if state == part_read_rule.BEFORE_BUILD:
+            fact.setdefault("before_build", []).append(label)
+        elif state == part_read_rule.OWED:
+            fact.setdefault("owed", []).append(label)
+        elif state == part_read_rule.READ_FURTHER and label not in fact.get("part_read", []):
+            fact.setdefault("read_further", []).append(label)
+            if read_to is not None and "read_to" not in fact:
+                fact["read_to"] = {"section": label, "heading": read_to.heading, "words": read_to.words,
+                                   "section_end": read_to.section_end}
+
+
 def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
     """The questions written from what the learner finished reading of this
     book: the only questions an as-you-read book gets. Its build writes topics
@@ -2784,16 +2801,7 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
         label = labels.get(section_id) or ""
         add_section(label, topic_jobs(own_claims(section_id)))
         fact.setdefault("part_read", []).append(label)
-    for state, label, read_to in _part_read_states(repo, vault, extraction_id, order, labels):
-        if state == part_read_rule.BEFORE_BUILD:
-            fact.setdefault("before_build", []).append(label)
-        elif state == part_read_rule.OWED:
-            fact.setdefault("owed", []).append(label)
-        elif state == part_read_rule.READ_FURTHER and label not in fact.get("part_read", []):
-            fact.setdefault("read_further", []).append(label)
-            if read_to is not None and "read_to" not in fact:
-                fact["read_to"] = {"section": label, "heading": read_to.heading, "words": read_to.words,
-                                   "section_end": read_to.section_end}
+    _note_part_read_states(fact, _part_read_states(repo, vault, extraction_id, order, labels))
     # Claims made on an earlier reading of this book (a reread carries the stamp, not the claims): reported under
     # the section they were made in, after the current reading's.
     earlier: dict[tuple[str, str], list[dict[str, Any]]] = {}
