@@ -2797,6 +2797,8 @@ describe("The first evening, step 8: one explanation, where to read to, held que
     show(causeProps({ aiConnection: ready(), session: SESSION }));
     fireEvent.click(await screen.findByRole("button", { name: /Keep going/ }));
     expect((await screen.findByTestId("today-keep-going-nothing")).textContent).toBe(NO_QUESTIONS_YET);
+  });
+});
 
 describe("An honest wait (the first evening, step 6): what is happening now, in a few lines, read with the existing reads", () => {
   const ready = () => connection({ needs: null, consented: true, canAuthor: true });

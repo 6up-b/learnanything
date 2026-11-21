@@ -916,6 +916,8 @@ describe("the first evening, step 8: the phone says the desktop's one explanatio
     await screen.findByRole("button", { name: "Begin" });
     expect(called("get_source_library")).toEqual([]);
     expect(screen.queryByTestId("today-held")).toBeNull();
+  });
+});
 
 describe("an honest wait (the first evening, step 6): the phone says what is happening now under the sentence", () => {
   const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
