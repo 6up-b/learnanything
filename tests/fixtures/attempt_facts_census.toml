@@ -1,0 +1,791 @@
+# The attempt-facts census: every reader that decides whether an attempt was assisted, cold, primed, eligible or
+# independent, the predicate it applies, the module that owns that predicate, and whether it reaches it through
+# learnloop.attempts.fact_predicates. Checked by tests/test_attempt_facts_census.py: each caller exists and reads
+# what the row says, an "adapted" caller names its predicate, every predicate it names is a function of
+# fact_predicates, and every function that names one of the predicate authorities (the sets and functions in
+# tests/test_attempt_facts_census.py's AUTHORITIES) is a row, so a new reader of one cannot arrive unnamed.
+#
+# Bounded on purpose: a function is a row when it names a predicate authority, or when it applies an inline
+# assistance/coldness expression over hints_used / primed / attempt_type found by the search the record
+# (docs/reviews/ep0-attempt-facts.md) gives. Rendering an attempt's stored flags, scoring weights that read a hint
+# count, and the submit path's folds that write hints_used and primed are not predicates over the facts.
+#
+# status:
+#   adapted       the caller asks its question through the named predicate (`predicate`), with the values it read
+#   delegated     the owner keeps the kernel; the named predicate calls this function
+#   named         follows a delegated or adapted row (it calls the owner's function, unchanged)
+#   not_adapted   applies its own expression; `predicate` is the equal named predicate where one exists (else
+#                 empty), and `why` says why it was not moved
+#
+# purpose: assisted | cold | primed | eligible | independent | research_cold | help_timing | category | fsrs_cap
+# ledger: the discrepancy ledger's row in the record where this reader's answer differs from another's (D-n).
+
+# -- the canonical causal-activity policy ---------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_activity_policy.py::attempt_counts_as_assisted"
+reads = "classify_attempt_activity"
+purpose = "assisted"
+predicate = "counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "delegated"
+evidence = "classify_attempt_activity(...).counts_as_assisted: a legacy assisted type (hinted_attempt, guided_walkthrough, reconstruction_after_walkthrough), any hint, or primed; an instructional diagnostic or a repair activity (the causal class) never adds to that union for a bare attempt"
+ledger = "D-1"
+proof = "tests/test_attempt_fact_predicates.py::test_every_predicate_equals_its_readers_expression_on_the_matrix"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_activity_policy.py::classify_attempt_activity"
+reads = "LEGACY_ASSISTED_ATTEMPT_TYPES"
+purpose = "assisted"
+predicate = "counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "delegated"
+evidence = "the complete attempt policy (class, FSRS and certification eligibility, assistance); causal_activity_v1"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_canonical_policy_matches_its_legacy_union_on_the_matrix"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_activity_policy.py::_resolve_attempt_activity_policy"
+reads = "classify_attempt_activity"
+purpose = "assisted"
+predicate = "recorded_counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "delegated"
+evidence = "the inferred policy unioned with the recorded causal classification (assistance and segment contamination a union, eligibility an intersection)"
+proof = "tests/test_attempt_fact_predicates.py::test_the_recorded_classification_reaches_the_projections_assisted"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_activity_policy.py::gate_unverified_reference"
+reads = "counts_as_assisted"
+purpose = "eligible"
+predicate = "recorded_counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "delegated"
+evidence = "an unverified answer key turns certification eligibility off and keeps the assistance flag"
+proof = "tests/test_attempt_fact_predicates.py::test_the_recorded_classification_reaches_the_projections_assisted"
+
+[[reader]]
+caller = "src/learnloop/goals/certification_cold_probe.py::_attempt_is_assisted"
+reads = "attempt_counts_as_assisted"
+purpose = "assisted"
+predicate = "counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "certification_cold_probe_outcomes.assisted (RAW_LEDGER): the canonical test, type defaulted to independent_attempt (equal for an empty type)"
+ledger = "D-6"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_canonical_policy_matches_its_legacy_union_on_the_matrix"
+
+[[reader]]
+caller = "src/learnloop/goals/certification_cold_probe.py::_record_probe_outcome"
+reads = "_attempt_is_assisted"
+purpose = "assisted"
+predicate = ""
+owner = "goals.certification_cold_probe"
+status = "not_adapted"
+evidence = "stores _attempt_is_assisted; before that, refuses to consume the probe on hints > 0, a hinted_attempt type or primed (not guided_walkthrough or reconstruction_after_walkthrough)"
+why = "goals -> attempts is a back edge of a frozen package cycle; adapting it needs a new exemption. Its consumption gate differs from its stored flag (ledger D-6)"
+ledger = "D-6"
+
+[[reader]]
+caller = "src/learnloop/scheduling/intent/serving.py::on_your_own"
+reads = "attempt_counts_as_assisted"
+purpose = "assisted"
+predicate = "counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "a Check once is answered only by an attempt the canonical test calls unassisted"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_canonical_policy_matches_its_legacy_union_on_the_matrix"
+
+[[reader]]
+caller = "src/learnloop/scheduling/intent/recall_targets.py::fsrs_eligible"
+reads = "classify_attempt_activity"
+purpose = "eligible"
+predicate = ""
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "the canonical policy's eligible_for_fsrs (the recall target's anchor)"
+proof = "tests/test_causal_activity_policy.py"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/scoreboard.py::cold_success_trajectories"
+reads = "attempt_counts_as_assisted"
+purpose = "cold"
+predicate = "counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "a cold success is a canonical-unassisted attempt at or above the threshold"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_canonical_policy_matches_its_legacy_union_on_the_matrix"
+
+[[reader]]
+caller = "src/learnloop/substrate/canonical_projection.py::project_canonical_facet_state"
+reads = "resolve_attempt_activity_policy"
+purpose = "assisted"
+predicate = "recorded_counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "the projection's assisted lane: the canonical test with the recorded classification and the reference status"
+proof = "tests/test_attempt_fact_predicates.py::test_the_recorded_classification_reaches_the_projections_assisted"
+
+[[reader]]
+caller = "src/learnloop/learner/facet_evidence_timeline.py::_observation_events_by_facet"
+reads = "resolve_attempt_activity_policy"
+purpose = "assisted"
+predicate = "recorded_counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "the facet timeline's assisted flag, the projection's rule"
+proof = "tests/test_attempt_fact_predicates.py::test_the_recorded_classification_reaches_the_projections_assisted"
+
+[[reader]]
+caller = "src/learnloop/field/outcomes.py::_load"
+reads = "resolve_attempt_activity_policy"
+purpose = "assisted"
+predicate = "recorded_counts_as_assisted"
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "facet_outcome_observations.assisted = the recorded canonical test; .primed = the submitted flag; the feature's cold = not assisted and not primed; retrieval_cold = _qualifies_for_field_memory_retrieval; the FSRS rating through fsrs_rating_for_attempt"
+proof = "tests/test_attempt_fact_predicates.py::test_the_recorded_classification_reaches_the_projections_assisted"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_probe_coherence.py::classify_causal_activity"
+reads = "counts_as_assisted"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.causal_probe_coherence"
+status = "not_adapted"
+evidence = "a presentation's causal class from its own signals, with the policy's counts_as_assisted carried into the payload"
+why = "classifies a probe presentation from presentation signals (tutor help, exposure), not an attempt's submitted facts"
+
+[[reader]]
+caller = "src/learnloop/attempts/attempts.py::_apply_attempt_in_transaction"
+reads = "classify_attempt_activity"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.causal_activity_policy"
+status = "named"
+evidence = "the attempt path records repair_activity for a primed draft (the classification event's writer)"
+proof = "tests/test_causal_activity_policy.py"
+
+[[reader]]
+caller = "src/learnloop/attempts/attempts.py::_fsrs_review"
+reads = "fsrs_rating_for_attempt"
+purpose = "fsrs_cap"
+predicate = "fsrs_rating_cap"
+owner = "attempts.attempts"
+status = "named"
+evidence = "the policy's FSRS eligibility, then fsrs_rating_for_attempt(item, score, max_points, draft.hints_used)"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_fsrs_rating_cap_keeps_binning_key_coercion_fallback_and_errors"
+
+# -- the FSRS rating cap --------------------------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/attempts/attempts.py::_capped_rating"
+reads = "fsrs_cap_value"
+purpose = "fsrs_cap"
+predicate = "fsrs_cap_value"
+owner = "attempts.attempts"
+status = "adapted"
+evidence = "the item's fsrs_rating_cap_by_hint entry for the hint count (exact key, its string, else the largest numeric key at or below), then the cap's name parsed and min'd with the score's bin"
+proof = "tests/test_attempt_fact_predicates.py::test_the_moved_function_kernel_is_the_readers_function"
+
+[[reader]]
+caller = "src/learnloop/field/outcomes.py::_qualifies_for_field_memory_retrieval"
+reads = "GRADED_RETRIEVAL_TYPES"
+purpose = "research_cold"
+predicate = ""
+owner = "field.outcomes"
+status = "not_adapted"
+evidence = "learner field memory rows only: canonical-unassisted, FSRS-eligible, a graded retrieval type (independent_attempt, dont_know, exam_attempt), every final coldness receipt covering a valid interval ending at the attempt with unassisted and answer_leakage passing, a strict reveal check; no retrieval-delay requirement"
+why = "a purpose-specific research rule kept apart by the owner (K5-4); it reads coldness receipts and reveals through the connection"
+ledger = "D-5"
+
+[[reader]]
+caller = "src/learnloop/instructional/reader_followups.py::retention_due"
+reads = "fsrs_rating_for_attempt"
+purpose = "fsrs_cap"
+predicate = "fsrs_rating_cap"
+owner = "attempts.attempts"
+status = "named"
+evidence = "the stored hints_used through fsrs_rating_for_attempt"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_fsrs_rating_cap_keeps_binning_key_coercion_fallback_and_errors"
+
+[[reader]]
+caller = "src/learnloop/scheduling/evaluation.py::_retention_section"
+reads = "fsrs_rating_for_attempt"
+purpose = "fsrs_cap"
+predicate = "fsrs_rating_cap"
+owner = "attempts.attempts"
+status = "named"
+evidence = "the stored hints_used through fsrs_rating_for_attempt"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_fsrs_rating_cap_keeps_binning_key_coercion_fallback_and_errors"
+
+[[reader]]
+caller = "src/learnloop/scheduling/review_log.py::review_log_from_attempts"
+reads = "fsrs_rating_for_attempt"
+purpose = "fsrs_cap"
+predicate = "fsrs_rating_cap"
+owner = "attempts.attempts"
+status = "named"
+evidence = "review-log reconstruction for fitting: the stored hints_used through fsrs_rating_for_attempt (learner/lesson_weight.py's reconstruction is a different reader, not touched)"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_fsrs_rating_cap_keeps_binning_key_coercion_fallback_and_errors"
+
+# -- intervention outcomes -------------------------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/substrate/intervention_outcomes.py::is_assisted"
+reads = "UNAIDED_TYPES"
+purpose = "independent"
+predicate = "intervention_assisted"
+owner = "substrate.intervention_outcomes"
+status = "delegated"
+evidence = "any type outside independent_attempt, dont_know, exam_attempt (so open_text, diagnostic_probe and hinted types count), a hint, or primed; retrieval_interventions.next_assisted"
+ledger = "D-2"
+proof = "tests/test_attempt_predicate_characterization.py::test_intervention_outcomes_counts_an_open_text_answer_as_assisted"
+
+[[reader]]
+caller = "src/learnloop/substrate/intervention_outcomes.py::_passes_intervention_coldness_checks"
+reads = "is_assisted"
+purpose = "research_cold"
+predicate = ""
+owner = "substrate.intervention_outcomes"
+status = "not_adapted"
+evidence = "reports and field memory only: unaided (is_assisted false), no item or topic reveal, relevant source exposure or overlapping intervention in the day ending at the answer, no failed unassisted/answer_leakage/exposure_isolation receipt; no delay reset for another retrieval in the topic"
+why = "a purpose-specific research rule kept apart by the owner (K5-4); it reads exposures, receipts and the vault"
+ledger = "D-5"
+
+[[reader]]
+caller = "src/learnloop/substrate/intervention_outcomes.py::outcome_for"
+reads = "is_assisted"
+purpose = "independent"
+predicate = "intervention_assisted"
+owner = "substrate.intervention_outcomes"
+status = "named"
+evidence = "next_assisted = int(is_assisted(next attempt)); the cold search through _passes_intervention_coldness_checks"
+proof = "tests/test_attempt_predicate_characterization.py::test_intervention_outcomes_counts_an_open_text_answer_as_assisted"
+
+[[reader]]
+caller = "src/learnloop/instructional/reader_followups.py::_solved_attempt"
+reads = "is_assisted"
+purpose = "independent"
+predicate = "intervention_assisted"
+owner = "substrate.intervention_outcomes"
+status = "named"
+evidence = "a solved follow-up: correctness at the success threshold and not is_assisted"
+proof = "tests/test_attempt_predicate_characterization.py::test_intervention_outcomes_counts_an_open_text_answer_as_assisted"
+
+[[reader]]
+caller = "src/learnloop/instructional/valuation.py::recent_assisted_success"
+reads = "is_assisted"
+purpose = "independent"
+predicate = "intervention_assisted"
+owner = "substrate.intervention_outcomes"
+status = "named"
+evidence = "a recent success that was assisted by is_assisted"
+proof = "tests/test_attempt_predicate_characterization.py::test_intervention_outcomes_counts_an_open_text_answer_as_assisted"
+
+[[reader]]
+caller = "src/learnloop/reader/reader_report.py::_skipped_core"
+reads = "is_assisted"
+purpose = "independent"
+predicate = "intervention_assisted"
+owner = "substrate.intervention_outcomes"
+status = "named"
+evidence = "the Reader report's graded attempts: not held and not is_assisted"
+proof = "tests/test_attempt_predicate_characterization.py::test_intervention_outcomes_counts_an_open_text_answer_as_assisted"
+
+# -- the coldness receipt -------------------------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/attempts/coldness_receipt.py::_evaluate"
+reads = "_unassisted"
+purpose = "cold"
+predicate = "unassisted_for_coldness"
+owner = "attempts.coldness_receipt"
+status = "delegated"
+evidence = "the unassisted dimension: pass needs hints_used == 0, primed false and no reveal_events row on the cold item in the measurement window (any amount), with status, evidence rows, their amount and whether a scan was made"
+ledger = "D-3"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_coldness_dimension_keeps_its_status_evidence_and_scan_flag"
+
+[[reader]]
+caller = "src/learnloop/attempts/coldness_receipt.py::_derive"
+reads = "qualifies_as_cold_retrieval"
+purpose = "cold"
+predicate = ""
+owner = "attempts.coldness_receipt"
+status = "not_adapted"
+evidence = "qualifies_as_cold_retrieval: the receipt's derived claim over its dimensions (delay, unassisted, leakage, isolation, ...), the serving-side cold rule"
+why = "a claim over the receipt's dimensions, not over an attempt's facts"
+ledger = "D-5"
+
+[[reader]]
+caller = "src/learnloop/placement/state.py::_final_receipt_veto"
+reads = "qualifies_as_cold_retrieval"
+purpose = "cold"
+predicate = ""
+owner = "placement.state"
+status = "not_adapted"
+evidence = "placement's stricter check: a final receipt must state qualifies_as_cold_retrieval true"
+why = "reads the receipt's stored claim; placement's own rule (K5-4 names it)"
+
+[[reader]]
+caller = "src/learnloop/substrate/dataset.py::_cold_receipt_status"
+reads = "qualifies_as_cold_retrieval"
+purpose = "cold"
+predicate = ""
+owner = "substrate.dataset"
+status = "not_adapted"
+evidence = "the dataset export's cold status from the receipt's stored claim"
+why = "reads the receipt's stored claim"
+
+[[reader]]
+caller = "src/learnloop/substrate/dataset.py::outcome_records.cold_records"
+reads = "qualifies_as_cold_retrieval"
+purpose = "cold"
+predicate = ""
+owner = "substrate.dataset"
+status = "not_adapted"
+evidence = "cold records: receipts whose claim is true"
+why = "reads the receipt's stored claim"
+
+# -- the diagnoser's history ----------------------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::history_attempt_from_blind_record"
+reads = "diagnoser_assisted"
+purpose = "assisted"
+predicate = "diagnoser_assisted"
+owner = "diagnosis.split.history"
+status = "adapted"
+evidence = "assisted = a hint or an assisted type (hinted_attempt, guided_walkthrough, reconstruction_after_walkthrough); primed is its own field"
+ledger = "D-4"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_diagnoser_history_keeps_assisted_and_primed_apart"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::VaultHistoryStore._from_stored"
+reads = "diagnoser_assisted"
+purpose = "assisted"
+predicate = "diagnoser_assisted"
+owner = "diagnosis.split.history"
+status = "adapted"
+evidence = "the stored joint grade's attempt, the same rule over the row's hints_used"
+ledger = "D-4"
+proof = "tests/test_attempt_fact_predicates.py::test_the_moved_expression_kernels_are_the_readers_expressions"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/history.py::HistoryAttempt.cold_unassisted"
+reads = "assisted"
+purpose = "cold"
+predicate = "diagnoser_cold_unassisted"
+owner = "diagnosis.split.history"
+status = "not_adapted"
+evidence = "not assisted and not primed (the diagnoser's demonstrated); reads the two flags its constructor stored"
+why = "a property over the record's two stored booleans: the facts are not kept on the record"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_diagnoser_history_keeps_assisted_and_primed_apart"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/split/context.py::_render_attempt"
+reads = "assisted"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.split.context"
+status = "not_adapted"
+evidence = "the diagnoser's prompt gets assisted and primed as bare booleans from the history record"
+why = "renders the adapted record's flags; the prompt is unchanged until the packets move onto the facts"
+
+# -- the teacher, the lesson suggestion and the miss cause ----------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/teacher/brief.py::_cold"
+reads = "unhelped_cold_type"
+purpose = "cold"
+predicate = "unhelped_cold_type"
+owner = "teacher.brief"
+status = "adapted"
+evidence = "a cold-type answer (independent_attempt, open_text, diagnostic_probe, exam_attempt), unprimed, with no hint; no reveal is read"
+ledger = "D-3"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_teacher_and_lesson_cold_checks_on_the_matrix"
+
+[[reader]]
+caller = "src/learnloop/teacher/brief.py::_history"
+reads = "teacher_attempt_kind"
+purpose = "assisted"
+predicate = "teacher_attempt_kind"
+owner = "teacher.brief"
+status = "adapted"
+evidence = "cold / assisted (an assisted type or a hint) / primed / the type itself"
+proof = "tests/test_attempt_fact_predicates.py::test_the_moved_expression_kernels_are_the_readers_expressions"
+
+[[reader]]
+caller = "src/learnloop/teacher/brief.py::_delayed_result"
+reads = "unhelped_cold_type"
+purpose = "cold"
+predicate = "unhelped_cold_type"
+owner = "teacher.brief"
+status = "adapted"
+evidence = "a delayed check's first answer: answered cold or with help"
+proof = "tests/test_attempt_fact_predicates.py::test_the_moved_expression_kernels_are_the_readers_expressions"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/lesson_suggestion.py::_cold"
+reads = "graded_cold_check"
+purpose = "cold"
+predicate = "graded_cold_check"
+owner = "daily_plan.lesson_suggestion"
+status = "adapted"
+evidence = "a cold check: a type of lesson_weight.COLD_ATTEMPT_TYPES, unprimed, no hint, graded"
+proof = "tests/test_attempt_predicate_characterization.py::test_the_teacher_and_lesson_cold_checks_on_the_matrix"
+
+[[reader]]
+caller = "src/learnloop/learner/lesson_weight.py::qualifying_outcomes"
+reads = "COLD_ATTEMPT_TYPES"
+purpose = "cold"
+predicate = "graded_cold_check"
+owner = "learner.lesson_weight"
+status = "not_adapted"
+evidence = "SQL: a cold type, primed = 0, hints_used = 0, correctness not null, the item's first answer after the lesson, a lesson probe's exposed answers left out"
+why = "SQL over the store; the lesson-weight reconstruction is not to be touched by this step"
+
+[[reader]]
+caller = "src/learnloop/router_objective/miss_cause.py::_cold_filter_sql"
+reads = "COLD_ATTEMPT_TYPES"
+purpose = "cold"
+predicate = "graded_cold_check"
+owner = "router_objective.miss_cause"
+status = "not_adapted"
+evidence = "SQL: a type of COLD_ATTEMPT_TYPES, primed = 0, hints_used = 0, correctness not null (equal to graded_cold_check on stored rows: both columns are NOT NULL)"
+why = "a SQL filter; moving it into Python changes which rows are read"
+
+# -- the router card and the chat packet -----------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/daily_plan/router_card.py::CardGatherer._learning_objects"
+reads = "hinted_or_primed"
+purpose = "assisted"
+predicate = "hinted_or_primed"
+owner = "daily_plan.router_card"
+status = "adapted"
+evidence = "the per-LO assisted count: a hint or primed, whatever the type"
+ledger = "D-1"
+proof = "tests/test_attempt_fact_predicates.py::test_the_moved_expression_kernels_are_the_readers_expressions"
+
+[[reader]]
+caller = "src/learnloop/daily_plan/router_card.py::CardGatherer._recent_work"
+reads = "primed_only"
+purpose = "primed"
+predicate = "primed_only"
+owner = "daily_plan.router_card"
+status = "adapted"
+evidence = "the Decider card's recent work: assisted = primed, hints_used beside it"
+ledger = "D-1"
+proof = "tests/test_attempt_fact_predicates.py::test_the_moved_expression_kernels_are_the_readers_expressions"
+
+[[reader]]
+caller = "src/learnloop/learner_context.py::_traces"
+reads = "primed_only"
+purpose = "primed"
+predicate = "primed_only"
+owner = "learner_context"
+status = "adapted"
+evidence = "the chat packet's traces: assisted = primed, hints_used beside it; cold_check from the receipt's qualifies_as_cold_retrieval"
+ledger = "D-1"
+proof = "tests/test_attempt_fact_predicates.py::test_the_moved_expression_kernels_are_the_readers_expressions"
+
+[[reader]]
+caller = "src/learnloop/hints/state.py::_assisted"
+reads = "hints_used"
+purpose = "assisted"
+predicate = "counts_as_assisted"
+owner = "hints.state"
+status = "not_adapted"
+evidence = "a hint, primed or a legacy assisted type: the canonical legacy union, inline"
+why = "learnloop.hints imports nothing of learnloop.attempts (hints-never-write-evidence); equal to the canonical test on the matrix"
+
+# -- adaptive difficulty -------------------------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/outcomes.py::category"
+reads = "help_timing"
+purpose = "category"
+predicate = ""
+owner = "adaptive_difficulty.outcomes"
+status = "not_adapted"
+evidence = "the help-adjusted ordinal category (2/1/0/censored/excluded) from correctness, hints and their timing, help questions, primed, pre-exposure, a bound presentation and forced failure"
+why = "adaptive difficulty imports nothing of learnloop.attempts (its evidence guard) and nothing in attempts may import it; the facts carry every input and the mapping onto its type is tested"
+proof = "tests/test_attempt_facts.py::test_adaptive_difficultys_categories_over_the_facts_match_its_own_on_the_full_matrix"
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/replay.py::load_events"
+reads = "ELIGIBLE_TYPES"
+purpose = "eligible"
+predicate = ""
+owner = "adaptive_difficulty.replay"
+status = "not_adapted"
+evidence = "AD's eligible types, first surface, held, unassessed, zero mass; then AttemptFacts built from recorded hints_used, first_hint_progress, help questions, primed, frozen pre_exposed, a bound plan presentation and forced_failure"
+why = "the evidence guard (as above); the replay must not read anything but its material view"
+proof = "tests/test_attempt_facts.py::test_adaptive_difficultys_categories_over_the_facts_match_its_own_on_the_full_matrix"
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/serve_inputs.py::_outcome_of_first_presentation"
+reads = "hints_used"
+purpose = "category"
+predicate = ""
+owner = "adaptive_difficulty.serve_inputs"
+status = "not_adapted"
+evidence = "a first presentation's success: correctness at the threshold and hints_used == 0"
+why = "the evidence guard"
+
+[[reader]]
+caller = "src/learnloop/adaptive_difficulty/data_check.py::data_check"
+reads = "hints_used"
+purpose = "assisted"
+predicate = "hinted_or_primed"
+owner = "adaptive_difficulty.data_check"
+status = "not_adapted"
+evidence = "a report's share of first, hinted or primed attempts"
+why = "the evidence guard"
+
+[[reader]]
+caller = "src/learnloop/router_objective/checks.py::exclusion"
+reads = "ELIGIBLE_TYPES"
+purpose = "eligible"
+predicate = ""
+owner = "router_objective.checks"
+status = "not_adapted"
+evidence = "a randomized check's answer has no label when its type is not one AD reads, its grade is held, unassessed or quarantined"
+why = "reads AD's set through the exempted function-local edge; no attempts predicate covers it"
+
+[[reader]]
+caller = "src/learnloop/router/outcomes.py::_completion"
+reads = "INDEPENDENT_ATTEMPT_TYPES"
+purpose = "independent"
+predicate = ""
+owner = "router.outcomes"
+status = "not_adapted"
+evidence = "delayed completion's inputs: an independent type or hinted_attempt; help_requested = hints, a help-ledger attempt, primed or a reveal during the presentation"
+why = "the delayed-completion definition's own inputs (delayed_completion_v1); learnloop.router imports nothing of learnloop.attempts (router-log-is-a-leaf)"
+
+[[reader]]
+caller = "src/learnloop/router/outcomes.py::_exclusions"
+reads = "INDEPENDENT_ATTEMPT_TYPES"
+purpose = "independent"
+predicate = ""
+owner = "router.outcomes"
+status = "not_adapted"
+evidence = "R_next's types: independent_attempt, dont_know, diagnostic_probe, open_text, exam_attempt"
+why = "a type set, no help test; learnloop.router imports nothing of learnloop.attempts (router-log-is-a-leaf)"
+ledger = "D-2"
+
+# -- other cold, clean and qualifying rules ------------------------------------------------------------------
+
+[[reader]]
+caller = "src/learnloop/placement/rules.py::AnswerFacts.learner_side_clean"
+reads = "CLEAN_ATTEMPT_TYPES"
+purpose = "cold"
+predicate = ""
+owner = "placement.rules"
+status = "not_adapted"
+evidence = "a graded type (independent_attempt, open_text, diagnostic_probe, exam_attempt), no hints, not primed, not don't know, no assisted class"
+why = "placement's own facts value; placement -> attempts is a back edge of a frozen package cycle"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/forecast_receipts.py::diagnosis_receipts"
+reads = "QUALIFYING_ATTEMPT_TYPES"
+purpose = "eligible"
+predicate = ""
+owner = "diagnosis.forecast_receipts"
+status = "not_adapted"
+evidence = "the diagnosis forecast's qualifying types (independent_attempt, dont_know, diagnostic_probe, exam_attempt)"
+why = "a receipt field naming the types; no help test"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/remediation.py::assisted_attempt"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.remediation"
+status = "not_adapted"
+evidence = "a hint, the hinted_attempt type, or primed (not the walkthrough types)"
+why = "an unexplained variant of the canonical test (ledger D-6); not moved so no choice is made"
+ledger = "D-6"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_cold_verification.py::cold_verification_context"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.causal_cold_verification"
+status = "not_adapted"
+evidence = "the source attempt's hints mark the context"
+why = "a context field, not a yes-or-no over the cold attempt"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_cold_verification.py::record_cold_verification_from_task"
+reads = "hints_used"
+purpose = "cold"
+predicate = ""
+owner = "diagnosis.causal_cold_verification"
+status = "not_adapted"
+evidence = "attempt_clean = not primed and no hint (any type)"
+why = "a cold-verification precondition beside the coldness receipt; moving it is a separate caller group"
+ledger = "D-3"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_probe_coherence.py::record_delayed_cold_verification"
+reads = "hints_used"
+purpose = "cold"
+predicate = ""
+owner = "diagnosis.causal_probe_coherence"
+status = "not_adapted"
+evidence = "a delayed cold verification is refused when primed or hinted"
+why = "a precondition raising an exception; moving it is a separate caller group"
+ledger = "D-3"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/causal_attribution.py::materialize_causal_episode"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.causal_attribution"
+status = "not_adapted"
+evidence = "a probe attempt's class: repair_activity when primed, instructional_diagnostic with a hint, else pure_diagnostic (the policy's contamination_class_for_attempt, inline)"
+why = "the causal class, not an assistance yes-or-no; equal to the policy's class rule"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/probe_episodes.py::episode_posterior"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.probe_episodes"
+status = "not_adapted"
+evidence = "a hinted attempt's evidence weight is the configured hinted weight"
+why = "a weight, not a yes-or-no"
+
+[[reader]]
+caller = "src/learnloop/diagnosis/probe_evidence.py::_presentation_contamination"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "diagnosis.probe_evidence"
+status = "not_adapted"
+evidence = "a presentation's contamination record: hints, tutor help, exposure"
+why = "a contamination record, not a yes-or-no"
+
+[[reader]]
+caller = "src/learnloop/goals/forecast_ledger.py::_cold_outcomes"
+reads = "hints_used"
+purpose = "cold"
+predicate = ""
+owner = "goals.forecast_ledger"
+status = "not_adapted"
+evidence = "an in-scope graded attempt, not primed, no hint, and not hinted_attempt, guided_walkthrough or self_report"
+why = "goals -> attempts is a back edge of a frozen package cycle; its own type list (self_report excluded here only)"
+ledger = "D-6"
+
+[[reader]]
+caller = "src/learnloop/serve_eligibility.py::_decide_submit"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "serve_eligibility"
+status = "not_adapted"
+evidence = "the submit decision: hints, a hinted_attempt type or worked help taken"
+why = "the submit path's own eligibility decision over its inputs (no facts value exists before the fold)"
+
+[[reader]]
+caller = "src/learnloop/reader/recap.py::_claims"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "reader.recap"
+status = "not_adapted"
+evidence = "a recap claim from help: a book counted on the workbench or a hint"
+why = "a claim basis (book or help), not an assistance yes-or-no"
+
+[[reader]]
+caller = "src/learnloop/field/predictors.py::LoGeneral.observe"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "field.predictors"
+status = "not_adapted"
+evidence = "the field row's hints_used or help_before_work"
+why = "a pure predictor over the field's own rows (field-predictors-are-pure forbids attempts)"
+
+[[reader]]
+caller = "src/learnloop/field/evaluation.py::_eligible"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "field.evaluation"
+status = "not_adapted"
+evidence = "the field row's hints_used or help_before_work"
+why = "the field's evaluation over its own rows"
+
+[[reader]]
+caller = "src/learnloop/field/evaluation.py::evaluate"
+reads = "hints_used"
+purpose = "cold"
+predicate = ""
+owner = "field.evaluation"
+status = "not_adapted"
+evidence = "not row.assisted, no hints, no help before work"
+why = "the field's evaluation over its own rows"
+
+[[reader]]
+caller = "src/learnloop/field/answer_signals.py::_ability_row"
+reads = "hints_used"
+purpose = "assisted"
+predicate = ""
+owner = "field.answer_signals"
+status = "not_adapted"
+evidence = "the field row's hints_used or help_before_work"
+why = "a pure arm over replay rows (field-predictors-are-pure forbids attempts)"
+
+[[reader]]
+caller = "src/learnloop/hints/report.py::build_hints_report"
+reads = "hints_used"
+purpose = "cold"
+predicate = ""
+owner = "hints.report"
+status = "not_adapted"
+evidence = "SQL: later independent attempts, COALESCE(hints_used, 0) = 0 AND COALESCE(primed, 0) = 0"
+why = "a SQL filter in a report"
+
+[[reader]]
+caller = "src/learnloop/router_objective/preference_report.py::_later_cold"
+reads = "hints_used"
+purpose = "cold"
+predicate = ""
+owner = "router_objective.preference_report"
+status = "not_adapted"
+evidence = "SQL: a later graded attempt with no hints and not primed"
+why = "a SQL filter in a report"
+
+[[reader]]
+caller = "src/learnloop/evsi_calibration/forecast_report.py::next_observation"
+reads = "hints_used"
+purpose = "cold"
+predicate = ""
+owner = "evsi_calibration.forecast_report"
+status = "not_adapted"
+evidence = "an unaided next observation: a qualifying type, unprimed, no hint"
+why = "the offline harness's own rule (kept for a later policy discovery harness)"
+
+[[reader]]
+caller = "src/learnloop/attempts/coldness_receipt.py::record_schedule_refusal_receipt"
+reads = "qualifies_as_cold_retrieval"
+purpose = "cold"
+predicate = ""
+owner = "attempts.coldness_receipt"
+status = "not_adapted"
+evidence = "a refused schedule's receipt states every claim as None (no attempt measured)"
+why = "writes the receipt's claims, reads no attempt"
+
+[[reader]]
+caller = "src/learnloop_sidecar/handlers/serializers.py::_cold_check_result"
+reads = "qualifies_as_cold_retrieval"
+purpose = "cold"
+predicate = ""
+owner = "learnloop_sidecar.handlers.serializers"
+status = "not_adapted"
+evidence = "the desktop's cold-check result: the receipt's claim true, its window passing and no downgrade"
+why = "reads the receipt's stored claim for display"
