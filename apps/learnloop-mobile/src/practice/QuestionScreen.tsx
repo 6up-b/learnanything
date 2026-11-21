@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, PracticeItemDetail, ProbeContractDto, SessionSnapshot } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
+import { presentedBlocks } from "@desktop/app/presentedBlocks";
 import { useAttemptClock } from "@desktop/screens/useAttemptClock";
 import { MathLiveEditor } from "@desktop/render/MathLiveEditor";
 import { committedAttempt, staleRefusal } from "../api/http";
@@ -614,7 +615,8 @@ export function QuestionScreen({
       ) : null}
       {checkBanner ? <p className="banner">{checkBanner}</p> : null}
       {eligibilityMessage ? <p className="dim">{eligibilityMessage}</p> : null}
-      {item.presentation.blocks.map((block, index) => (
+      {/* An error hunt's work already in its prompt is shown once (the desktop's rule). */}
+      {presentedBlocks(item.presentation.blocks).map((block, index) => (
         <div key={`${block.kind}:${index}`}>
           {block.label ? <div className="dim">{block.label}</div> : null}
           {/* Mobile v2 §2.3 (V4): a stored image and a page link render from the host; a remote image stays a link. */}

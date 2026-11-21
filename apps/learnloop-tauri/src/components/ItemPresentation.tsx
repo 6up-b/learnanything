@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { ItemPresentationDto, PresentationBlockDto } from "../api/dto";
 import { COLOR, FONT_MONO, Faint } from "./term";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { presentedBlocks } from "../app/presentedBlocks";
 
 // Meas §3.A2/§3.A3 — the one renderer for "what must the learner SEE to answer
 // this item". Practice and exams both mount THIS, rather than each reaching into
@@ -16,7 +17,9 @@ import { MarkdownMath } from "../render/MarkdownMath";
 // The rule that keeps it closed: render every block, in order, whatever its
 // kind. `kind` selects a caption and a frame; it never decides whether a block
 // is shown. A block kind this build does not recognise is a stimulus added after
-// it was compiled, and hiding it would recreate the defect exactly.
+// it was compiled, and hiding it would recreate the defect exactly. The one
+// exception hides no material: an error hunt's work whose text the prompt
+// already holds is shown once, in the prompt (`app/presentedBlocks`).
 //
 // THE LADDERED STEM IS SHOWN ON EVERY PART, NOT ONCE PER RUN. §3.A2 describes
 // presenting the shared setup once and amortizing the context load across the
@@ -42,7 +45,7 @@ export function ItemPresentation({
 }) {
   return (
     <div style={style}>
-      {presentation.blocks.map((block, index) => (
+      {presentedBlocks(presentation.blocks).map((block, index) => (
         <PresentationBlock key={`${block.kind}:${index}`} block={block} />
       ))}
     </div>
