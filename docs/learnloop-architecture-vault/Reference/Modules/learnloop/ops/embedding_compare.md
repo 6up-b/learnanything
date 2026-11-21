@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py) |
-| Source lines | 902 |
+| Source lines | 905 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,36 +64,36 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `price_for(self, model: str) -> float | None` (line 156; public)
   - `embedding_config(self, model: str) -> dict[str, Any]` (line 159; public) — What besides model, width and prefix identifies the vectors (cache key).
   - `vectors(self, model: str, texts: list[str], *, dims: int, task_prefix: str='similarity') -> dict[str, np.ndarray]` (line 169; public) — Unit vectors of width ``dims`` by text, embedding only uncached texts.
-- `class VectorCache` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 209) — Content-addressed float32 unit vectors in the output directory, not the vault.
-  - `__init__(self, root: Path, model: str, task_prefix: str, *, dims: int, config: Mapping[str, Any] | None=None) -> None` (line 216; internal)
-  - `key(text: str) -> str` (line 236; public)
-  - `get(self, text: str) -> np.ndarray | None` (line 239; public)
-  - `put_many(self, texts: list[str], vectors: list[list[float]]) -> None` (line 243; public)
-- `roc_auc(scores: list[float], labels: list[bool]) -> float | None` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 265)
-- `blocking_cutoff(scores: list[float], labels: list[bool], target_recall: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 274) — The highest cutoff whose recall on positives reaches the target (R4).
-- `binary_metrics(predictions: list[bool | None], labels: list[bool]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 289) — Confusion counts and rates; a ``None`` prediction is an abstention.
-- `judge_prediction(verdict: str) -> bool | None` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 312) — A freshness verdict as a duplicate prediction; no verdict is an abstention (``None``).
-- `centered_cosines(pairs: list[tuple[np.ndarray, np.ndarray]], dims: int) -> list[float]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 319) — Mean-centered cosine on MRL-truncated vectors, as retrieval scores them.
-- `class CompareSuite(Protocol)` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 340)
-  - `load(self, vault: LoadedVault, request: CompareRequest) -> Any` (line 344; public)
-  - `plan(self, vault: LoadedVault, data: Any, request: CompareRequest) -> dict[str, Any]` (line 346; public)
-  - `run(self, data: Any, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]` (line 348; public)
-- `class B2Case` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 366)
-- `class B2Data` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 376)
-- `b2_case_identity(revision: str, case: B2Case) -> str` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 389) — A tier- and model-independent identity for one labelled pair.
-- `class B2Suite` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 400)
-  - `load(self, vault: LoadedVault, request: CompareRequest) -> B2Data` (line 405; public)
-  - `_skeleton_texts(self, data: B2Data) -> list[str]` (line 438; internal)
-  - `plan(self, vault: LoadedVault, data: B2Data, request: CompareRequest) -> dict[str, Any]` (line 442; public)
-  - `run(self, data: B2Data, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]` (line 467; public)
-- `class VAItem` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 565)
-- `class VAData` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 573)
-- `class ValidAlternativeSuite` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 578)
-  - `load(self, vault: LoadedVault, request: CompareRequest) -> VAData` (line 583; public)
-  - `plan(self, vault: LoadedVault, data: VAData, request: CompareRequest) -> dict[str, Any]` (line 594; public) — Calls and input-plus-output tokens per role, from the actual prompts (no request).
-  - `run(self, data: VAData, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]` (line 618; public)
-- `run_compare(vault: LoadedVault, *, request: CompareRequest, caps: SpendCaps, price_per_million: float | None=None, embedding_price_per_million: float | None=None, cancelled: Callable[[], bool] | None=None, clients: Mapping[str, Any] | None=None, embedding_clients: Mapping[str, Any] | None=None, input_price_per_million: float | None=None, output_price_per_million: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 696) — Plan (or run) one registered suite and write an aggregate report.
-- `spend_lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 825) — The bill first, then cap accounting (owner batch 2: in the owner's B1 run "charged" overstated the provider's bill about 17x).
+- `class VectorCache` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 212) — Content-addressed float32 unit vectors in the output directory, not the vault.
+  - `__init__(self, root: Path, model: str, task_prefix: str, *, dims: int, config: Mapping[str, Any] | None=None) -> None` (line 219; internal)
+  - `key(text: str) -> str` (line 239; public)
+  - `get(self, text: str) -> np.ndarray | None` (line 242; public)
+  - `put_many(self, texts: list[str], vectors: list[list[float]]) -> None` (line 246; public)
+- `roc_auc(scores: list[float], labels: list[bool]) -> float | None` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 268)
+- `blocking_cutoff(scores: list[float], labels: list[bool], target_recall: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 277) — The highest cutoff whose recall on positives reaches the target (R4).
+- `binary_metrics(predictions: list[bool | None], labels: list[bool]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 292) — Confusion counts and rates; a ``None`` prediction is an abstention.
+- `judge_prediction(verdict: str) -> bool | None` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 315) — A freshness verdict as a duplicate prediction; no verdict is an abstention (``None``).
+- `centered_cosines(pairs: list[tuple[np.ndarray, np.ndarray]], dims: int) -> list[float]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 322) — Mean-centered cosine on MRL-truncated vectors, as retrieval scores them.
+- `class CompareSuite(Protocol)` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 343)
+  - `load(self, vault: LoadedVault, request: CompareRequest) -> Any` (line 347; public)
+  - `plan(self, vault: LoadedVault, data: Any, request: CompareRequest) -> dict[str, Any]` (line 349; public)
+  - `run(self, data: Any, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]` (line 351; public)
+- `class B2Case` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 369)
+- `class B2Data` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 379)
+- `b2_case_identity(revision: str, case: B2Case) -> str` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 392) — A tier- and model-independent identity for one labelled pair.
+- `class B2Suite` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 403)
+  - `load(self, vault: LoadedVault, request: CompareRequest) -> B2Data` (line 408; public)
+  - `_skeleton_texts(self, data: B2Data) -> list[str]` (line 441; internal)
+  - `plan(self, vault: LoadedVault, data: B2Data, request: CompareRequest) -> dict[str, Any]` (line 445; public)
+  - `run(self, data: B2Data, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]` (line 470; public)
+- `class VAItem` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 568)
+- `class VAData` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 576)
+- `class ValidAlternativeSuite` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 581)
+  - `load(self, vault: LoadedVault, request: CompareRequest) -> VAData` (line 586; public)
+  - `plan(self, vault: LoadedVault, data: VAData, request: CompareRequest) -> dict[str, Any]` (line 597; public) — Calls and input-plus-output tokens per role, from the actual prompts (no request).
+  - `run(self, data: VAData, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]` (line 621; public)
+- `run_compare(vault: LoadedVault, *, request: CompareRequest, caps: SpendCaps, price_per_million: float | None=None, embedding_price_per_million: float | None=None, cancelled: Callable[[], bool] | None=None, clients: Mapping[str, Any] | None=None, embedding_clients: Mapping[str, Any] | None=None, input_price_per_million: float | None=None, output_price_per_million: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 699) — Plan (or run) one registered suite and write an aggregate report.
+- `spend_lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 828) — The bill first, then cap accounting (owner batch 2: in the owner's B1 run "charged" overstated the provider's bill about 17x).
 
 ### Module constants
 
@@ -101,8 +101,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `DEFAULT_TARGET_RECALL` ([src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py), line 75)
 - `EMBED_BATCH` ([src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py), line 76)
 - `EMBEDDING_PRICES_PER_MILLION` ([src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py), line 86)
-- `B2_CASE_IDENTITY_VERSION` ([src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py), line 386)
-- `SUITES` ([src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py), line 693)
+- `B2_CASE_IDENTITY_VERSION` ([src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py), line 389)
+- `SUITES` ([src/learnloop/ops/embedding_compare.py](../../../../../../src/learnloop/ops/embedding_compare.py), line 696)
 
 ### Explicit exports
 
@@ -129,10 +129,10 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Internal implementation anchors
 
 - `_embedding_client(vault: LoadedVault, model: str, dims: int) -> Any` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 197)
-- `_read_manifest(directory: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 351)
-- `_count(values) -> dict[str, int]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 557)
-- `_usd(value: Any) -> str` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 821)
-- `_markdown(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 863)
+- `_read_manifest(directory: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 354)
+- `_count(values) -> dict[str, int]` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 560)
+- `_usd(value: Any) -> str` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 824)
+- `_markdown(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/ops/embedding_compare.py), line 866)
 
 ## Who imports or calls it
 
@@ -149,6 +149,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`; calls `content_key`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `bind`
 - [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] — imports `output_budget`; calls `output_budget`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `OpenAIEmbeddingProviderClient`; calls `OpenAIEmbeddingProviderClient`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; calls `SpendEstimate`, `SpendLimitExceeded`

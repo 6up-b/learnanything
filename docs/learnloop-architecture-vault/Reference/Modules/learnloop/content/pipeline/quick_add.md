@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/quick_add.py](../../../../../../../src/learnloop/content/pipeline/quick_add.py) |
-| Source lines | 493 |
+| Source lines | 491 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,7 +64,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `select_relevant_units(outline, *, keywords: set[str], cap_tokens: int, ranked_unit_ids: list[str] | None=None) -> tuple[list[str], list[str], int, bool]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 160) — Deterministic ToC-guided relevant-scope selection (§1).
 - `rank_units_by_text(repo, outline, extraction_id: str, *, query_text: str, keywords: set[str], rrf_k: int=60) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 207) — Slice 2 T6: units ranked by relevance to the brief, best first; unmatched omitted.
 - `plan_quick_add(repo, config, vault, source: str, *, subject_id: str | None=None, brief_overrides: dict[str, Any] | None=None) -> QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 310) — Build the single-confirmation Quick-add plan for an already-extracted source.
-- `enqueue_quick_add(vault, ingest_jobs, plan: QuickAddPlan, *, role_override: str | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, batch_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 430) — Post-confirmation step: create the source set from the plan and enqueue the priority [inventory(selected) -> bootstrap_synthesis] build batch (§1).
+- `enqueue_quick_add(vault, ingest_jobs, plan: QuickAddPlan, *, role_override: str | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, batch_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 428) — Post-confirmation step: create the source set from the plan and enqueue the priority [inventory(selected) -> bootstrap_synthesis] build batch (§1).
 
 ### Module constants
 
@@ -92,9 +92,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`; calls `provider_for_task`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `recorded_acceptance`
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `build_acquisition_preview`; calls `build_acquisition_preview`
-- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `consent_key`; calls `consent_key`
 - [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] — imports `build_build_plan`; calls `build_build_plan`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `OutlineNotFound`, `build_source_outline`; calls `build_source_outline`
 - [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] — imports `validate_brief`; calls `validate_brief`

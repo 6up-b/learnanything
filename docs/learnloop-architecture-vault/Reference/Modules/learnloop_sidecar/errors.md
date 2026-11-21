@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] · Root: 
 
 ## Why this module exists
 
-This module keeps errors behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]]. Its public surface centers on `SidecarError`, `json_rpc_error`, `sidecar_error`.
+This module keeps errors behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]]. Its public surface centers on `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`, `require_ai_ok`.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,25 +50,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/errors.py](../../../../../src/learnloop_sidecar/errors.py) |
-| Source lines | 56 |
+| Source lines | 73 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SidecarError(Exception)` ([source](../../../../../src/learnloop_sidecar/errors.py), line 11)
-  - `__str__(self) -> str` (line 17; internal)
-- `json_rpc_error(code: int, message: str, *, stable_code: str | None=None, retryable: bool=False, details: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/errors.py), line 21)
-- `sidecar_error(exc: SidecarError) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/errors.py), line 38)
+- `class SidecarError(Exception)` ([source](../../../../../src/learnloop_sidecar/errors.py), line 14)
+  - `__str__(self) -> str` (line 20; internal)
+- `json_rpc_error(code: int, message: str, *, stable_code: str | None=None, retryable: bool=False, details: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/errors.py), line 24)
+- `sidecar_error(exc: SidecarError) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/errors.py), line 41)
+- `waiting_for_ok_error() -> SidecarError` ([source](../../../../../src/learnloop_sidecar/errors.py), line 62) — No OK to use AI yet: nothing was sent.
+- `require_ai_ok(vault_root: Path | str | None, client: Any | None=None) -> None` ([source](../../../../../src/learnloop_sidecar/errors.py), line 69) — Before an RPC starts model work: refuse it, and store nothing, while the OK is missing.
 
 ### Module constants
 
-- `APPLICATION_ERROR_CODE` ([src/learnloop_sidecar/errors.py](../../../../../src/learnloop_sidecar/errors.py), line 7)
+- `APPLICATION_ERROR_CODE` ([src/learnloop_sidecar/errors.py](../../../../../src/learnloop_sidecar/errors.py), line 10)
 
 ## Internal implementation anchors
 
-- `_stable_code_for_json_rpc(code: int) -> str` ([source](../../../../../src/learnloop_sidecar/errors.py), line 48)
+- `_stable_code_for_json_rpc(code: int) -> str` ([source](../../../../../src/learnloop_sidecar/errors.py), line 51)
 
 ## Who imports or calls it
 
@@ -90,7 +92,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/compare_scope|learnloop_sidecar.handlers.compare_scope]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `SidecarError`; statically calls `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
 - [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `SidecarError`; statically calls `SidecarError`
@@ -102,7 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarError`; statically calls `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
 - [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/kept_comparisons|learnloop_sidecar.handlers.kept_comparisons]] — imports `SidecarError`; statically calls `SidecarError`
@@ -121,7 +123,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/provenance|learnloop_sidecar.handlers.provenance]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `SidecarError`; statically calls `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `SidecarError`; statically calls `SidecarError`
@@ -146,7 +148,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_rw2c|learnloop_sidecar.handlers.workbench_rw2c]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SidecarError`, `json_rpc_error`, `sidecar_error`; statically calls `SidecarError`, `json_rpc_error`, `sidecar_error`
+- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`; statically calls `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] — imports `SidecarError`; statically calls `SidecarError`
 
@@ -154,11 +156,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `waiting`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `typing`
+- Standard library: `__future__`, `dataclasses`, `pathlib`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -406,6 +408,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_learner_links_a_note_by_hand_from_the_reader`
   - `test_meaning_search_is_refused_while_embeddings_are_off`
   - `test_switched_off_every_rpc_refuses_nothing_is_read_and_the_reader_is_todays`
+- [tests/test_one_ai_ok.py](../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_quick_add_waits_for_the_ok_before_it_creates_anything`
+  - `test_the_goal_resolver_waits_for_the_ok_before_the_goal_is_made`
+  - `test_the_readers_ask_waits_for_the_ok_and_sends_nothing`
+  - `test_the_section_quick_check_waits_for_the_ok_and_queues_nothing`
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import
   - `test_fix2_a_key_from_another_session_is_refused_not_succeeded`
 - [tests/test_placement_sidecar.py](../../../../../tests/test_placement_sidecar.py) — direct import
@@ -605,7 +612,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
   - `test_continue_with_chatgpt_needs_a_sign_in_first`
   - `test_openrouter_needs_its_key`
-  - `test_without_a_ready_route_the_sheet_asks_to_connect`
 - [tests/test_ux_phase1_review_fixes.py](../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
   - `test_f9_text_recognition_without_an_extractor_that_can_do_it_says_so`
 - [tests/test_ux_phase3_today.py](../../../../../tests/test_ux_phase3_today.py) — direct import

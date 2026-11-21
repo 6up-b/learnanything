@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/recurrence/benchmarks.py](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py) |
-| Source lines | 1379 |
+| Source lines | 1381 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,47 +64,47 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class BenchContext` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 219) — The local runner's context: the 5a contract's ``vectors`` plus ``complete``.
   - `__init__(self, vault: LoadedVault, spend: ReviewSpend, *, output_dir: Path, embedding_clients: Mapping[str, Any] | None=None, writer_client: Any=None, embedding_price: float | None=None) -> None` (line 222; internal)
   - `_embedder(self, model: str, dims: int) -> Any` (line 241; internal)
-  - `vectors(self, model: str, texts: Sequence[str], *, dims: int, task_prefix: str='similarity') -> dict[str, np.ndarray]` (line 261; public)
-  - `writer_client(self, role: str) -> Any` (line 283; public)
-  - `complete(self, role: str, prompt: str, result_model: type[WireModel], purpose: str, output_tokens: int | None=None) -> Any` (line 294; public)
-- `writer_tokens(prompt: str, result_model: type[WireModel], output_tokens: int=B1_DEFAULT_WRITER_OUTPUT_TOKENS) -> int` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 330) — One writer call's input-plus-output bound, as 5a's harness counts it.
-- `requested_writer_output_tokens(request: Any, config: Any | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 338) — The writer's output budget a request asks for.
-- `writer_identity(model: str | None, settings: Mapping[str, Any], output_tokens: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 371) — Who writes B1's hypotheses: part of every hypothesis cache key (owner batch 2).
-- `configured_writer(vault: LoadedVault, output_tokens: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 387) — The writer identity from config alone, as the harness plans the role.
-- `roc_auc(scores: Sequence[float], labels: Sequence[bool]) -> float | None` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 418)
-- `blocking_cutoff(scores: Sequence[float], labels: Sequence[bool], target_recall: float) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 427) — The highest cutoff whose recall on confirmed matches reaches the target (R4).
-- `rank_metrics(ranks: Sequence[int | None], k: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 446)
-- `class BM25` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 462) — Okapi BM25 over short documents, scored through postings.
-  - `__init__(self, documents: Sequence[str], *, k1: float=1.5, b: float=0.75) -> None` (line 465; internal)
-  - `scores(self, query: str) -> np.ndarray` (line 478; public)
-- `class MisconceptionHypothesis(WireModel)` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 518)
-  - `_not_blank(cls, value: str) -> str` (line 525; internal) — A blank hypothesis breaks the contract (Codex review F1).
-- `b1_prompt(case: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 540)
-- `class B1Data` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 576)
-- `load_eedi(directory: Path, *, max_cases: int | None=None) -> tuple[dict[str, Any], list[tuple[str, str]], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 585) — Read the Kaggle files the owner downloaded (no network here).
-- `raw_query(case: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 633)
-- `class B1Suite` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 640)
-  - `load(self, vault: LoadedVault, request: BenchRequest) -> B1Data` (line 645; public)
-  - `_hypothesis_cache(self, request: BenchRequest) -> Path` (line 656; internal)
-  - `_cached_hypotheses(self, request: BenchRequest) -> dict[str, str]` (line 659; internal) — Cached hypotheses by key.
-  - `_case_key(case: Mapping[str, Any], writer: Mapping[str, Any]) -> str` (line 678; internal)
-  - `plan(self, vault: LoadedVault, data: B1Data, request: BenchRequest) -> dict[str, Any]` (line 681; public)
-  - `_write_hypotheses(self, data: B1Data, request: BenchRequest, ctx: Any) -> tuple[dict[str, str], dict[str, Any]]` (line 717; internal) — Each case's hypothesis, written or reused, and the writer's summary.
-  - `run(self, data: B1Data, request: BenchRequest, ctx: Any) -> dict[str, Any]` (line 772; public)
-  - `markdown_lines(self, results: Mapping[str, Any]) -> list[str]` (line 833; public) — The aggregate table the harness's Markdown report renders (owner batch 2).
-- `b1_markdown_lines(results: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 839)
-- `class B3Data` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 876)
-- `class B3Suite` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 915)
-  - `markdown_lines(self, results: Mapping[str, Any]) -> list[str]` (line 919; public) — The aggregate table the harness's Markdown report renders (owner batch 2).
-  - `load(self, vault: LoadedVault, request: BenchRequest) -> B3Data` (line 924; public)
-  - `plan(self, vault: LoadedVault, data: B3Data, request: BenchRequest) -> dict[str, Any]` (line 942; public)
-  - `run(self, data: B3Data, request: BenchRequest, ctx: Any) -> dict[str, Any]` (line 962; public)
-  - `_score(self, data: B3Data, by_id: Mapping[str, Any], vectors: Mapping[str, np.ndarray], texts: list[str], *, model: str, dims: int, target_recall: float) -> dict[str, Any]` (line 984; internal)
-- `register_suites(registry: dict[str, Any], *, role_tasks: dict[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1159) — Register B1/B3 on Phase 5a's harness (call from the composition root).
-- `run_bench(vault: LoadedVault, *, request: BenchRequest, caps: SpendCaps, price_per_million: float | None=None, embedding_price_per_million: float | None=None, cancelled: Callable[[], bool] | None=None, embedding_clients: Mapping[str, Any] | None=None, writer_client: Any=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1178)
-- `plan_admission(vault: LoadedVault, plan: Mapping[str, Any], spend: ReviewSpend, *, writer_client: Any=None, embedding_price_per_million: float | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1257) — The whole plan's estimate on ``spend``'s routes (no client built, nothing sent).
-- `b3_markdown_lines(results: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1326)
-- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1343) — The local runner's report (the harness renders through ``markdown_lines``).
+  - `vectors(self, model: str, texts: Sequence[str], *, dims: int, task_prefix: str='similarity') -> dict[str, np.ndarray]` (line 263; public)
+  - `writer_client(self, role: str) -> Any` (line 285; public)
+  - `complete(self, role: str, prompt: str, result_model: type[WireModel], purpose: str, output_tokens: int | None=None) -> Any` (line 296; public)
+- `writer_tokens(prompt: str, result_model: type[WireModel], output_tokens: int=B1_DEFAULT_WRITER_OUTPUT_TOKENS) -> int` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 332) — One writer call's input-plus-output bound, as 5a's harness counts it.
+- `requested_writer_output_tokens(request: Any, config: Any | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 340) — The writer's output budget a request asks for.
+- `writer_identity(model: str | None, settings: Mapping[str, Any], output_tokens: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 373) — Who writes B1's hypotheses: part of every hypothesis cache key (owner batch 2).
+- `configured_writer(vault: LoadedVault, output_tokens: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 389) — The writer identity from config alone, as the harness plans the role.
+- `roc_auc(scores: Sequence[float], labels: Sequence[bool]) -> float | None` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 420)
+- `blocking_cutoff(scores: Sequence[float], labels: Sequence[bool], target_recall: float) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 429) — The highest cutoff whose recall on confirmed matches reaches the target (R4).
+- `rank_metrics(ranks: Sequence[int | None], k: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 448)
+- `class BM25` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 464) — Okapi BM25 over short documents, scored through postings.
+  - `__init__(self, documents: Sequence[str], *, k1: float=1.5, b: float=0.75) -> None` (line 467; internal)
+  - `scores(self, query: str) -> np.ndarray` (line 480; public)
+- `class MisconceptionHypothesis(WireModel)` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 520)
+  - `_not_blank(cls, value: str) -> str` (line 527; internal) — A blank hypothesis breaks the contract (Codex review F1).
+- `b1_prompt(case: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 542)
+- `class B1Data` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 578)
+- `load_eedi(directory: Path, *, max_cases: int | None=None) -> tuple[dict[str, Any], list[tuple[str, str]], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 587) — Read the Kaggle files the owner downloaded (no network here).
+- `raw_query(case: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 635)
+- `class B1Suite` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 642)
+  - `load(self, vault: LoadedVault, request: BenchRequest) -> B1Data` (line 647; public)
+  - `_hypothesis_cache(self, request: BenchRequest) -> Path` (line 658; internal)
+  - `_cached_hypotheses(self, request: BenchRequest) -> dict[str, str]` (line 661; internal) — Cached hypotheses by key.
+  - `_case_key(case: Mapping[str, Any], writer: Mapping[str, Any]) -> str` (line 680; internal)
+  - `plan(self, vault: LoadedVault, data: B1Data, request: BenchRequest) -> dict[str, Any]` (line 683; public)
+  - `_write_hypotheses(self, data: B1Data, request: BenchRequest, ctx: Any) -> tuple[dict[str, str], dict[str, Any]]` (line 719; internal) — Each case's hypothesis, written or reused, and the writer's summary.
+  - `run(self, data: B1Data, request: BenchRequest, ctx: Any) -> dict[str, Any]` (line 774; public)
+  - `markdown_lines(self, results: Mapping[str, Any]) -> list[str]` (line 835; public) — The aggregate table the harness's Markdown report renders (owner batch 2).
+- `b1_markdown_lines(results: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 841)
+- `class B3Data` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 878)
+- `class B3Suite` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 917)
+  - `markdown_lines(self, results: Mapping[str, Any]) -> list[str]` (line 921; public) — The aggregate table the harness's Markdown report renders (owner batch 2).
+  - `load(self, vault: LoadedVault, request: BenchRequest) -> B3Data` (line 926; public)
+  - `plan(self, vault: LoadedVault, data: B3Data, request: BenchRequest) -> dict[str, Any]` (line 944; public)
+  - `run(self, data: B3Data, request: BenchRequest, ctx: Any) -> dict[str, Any]` (line 964; public)
+  - `_score(self, data: B3Data, by_id: Mapping[str, Any], vectors: Mapping[str, np.ndarray], texts: list[str], *, model: str, dims: int, target_recall: float) -> dict[str, Any]` (line 986; internal)
+- `register_suites(registry: dict[str, Any], *, role_tasks: dict[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1161) — Register B1/B3 on Phase 5a's harness (call from the composition root).
+- `run_bench(vault: LoadedVault, *, request: BenchRequest, caps: SpendCaps, price_per_million: float | None=None, embedding_price_per_million: float | None=None, cancelled: Callable[[], bool] | None=None, embedding_clients: Mapping[str, Any] | None=None, writer_client: Any=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1180)
+- `plan_admission(vault: LoadedVault, plan: Mapping[str, Any], spend: ReviewSpend, *, writer_client: Any=None, embedding_price_per_million: float | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1259) — The whole plan's estimate on ``spend``'s routes (no client built, nothing sent).
+- `b3_markdown_lines(results: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1328)
+- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1345) — The local runner's report (the harness renders through ``markdown_lines``).
 
 ### Module constants
 
@@ -125,7 +125,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `WRITER_SETTING_KEYS` ([src/learnloop/diagnosis/recurrence/benchmarks.py](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 138)
 - `MIN_CONFIRMED_FOR_RECOMMENDATION` ([src/learnloop/diagnosis/recurrence/benchmarks.py](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 142)
 - `_TOKEN` ([src/learnloop/diagnosis/recurrence/benchmarks.py](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 143)
-- `SUITES` ([src/learnloop/diagnosis/recurrence/benchmarks.py](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1156)
+- `SUITES` ([src/learnloop/diagnosis/recurrence/benchmarks.py](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1158)
 
 ### Explicit exports
 
@@ -156,21 +156,21 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_complete(ctx: Any, role: str, prompt: str, result_model: type[WireModel], purpose: str, prompt_version: str, output_tokens: int) -> tuple[Any, str | None]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 312) — Through the local context, or Phase 5a's PF caller (``ctx.role`` + ``ctx.caller.call``).
-- `_settings_view(profile: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 354)
-- `_client_settings(client: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 362) — An injected or resolved client's generation settings (its profile or config).
-- `_run_writer(ctx: Any, output_tokens: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 402) — The writer identity of the client this run actually calls.
-- `_tokens(text: str) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 458)
-- `_rank_of(scores: np.ndarray, gold: int) -> int` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 489) — 1-based rank of ``gold``; ties broken by index (deterministic).
-- `_ranks_from_order(scores: np.ndarray) -> np.ndarray` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 496)
-- `_matrix(vectors: Mapping[str, np.ndarray], texts: Sequence[str], dims: int) -> np.ndarray` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 503)
-- `_centred(matrix: np.ndarray) -> np.ndarray` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 509)
-- `_read_manifest(directory: Path) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 561)
-- `_episode_labels(build: Any, *, exclude_nominations: Sequence[str]=(), only_nominations: Sequence[str]=()) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 892) — One effective verdict per episode pair (highest authority; a tie is ``different``), over the labels of the chosen nominations.
-- `_in_scope(by_id: Mapping[str, Any], pair: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1068)
-- `_judge_load(subjects: Sequence[Any], score: Callable[[str, str], float], top_k: int, cutoff: float | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1074) — Judge calls the live rule would make over the whole history.
-- `_config_lines(provenance: Mapping[str, Any], cutoff: float | None, top_k: int | None) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1091) — The [recurrence] lines; a cutoff always carries what it was measured on.
-- `_merge_replay(build: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1107) — Merge precision/recall when the union is replayed from a subset of sources (P6).
+- `_complete(ctx: Any, role: str, prompt: str, result_model: type[WireModel], purpose: str, prompt_version: str, output_tokens: int) -> tuple[Any, str | None]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 314) — Through the local context, or Phase 5a's PF caller (``ctx.role`` + ``ctx.caller.call``).
+- `_settings_view(profile: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 356)
+- `_client_settings(client: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 364) — An injected or resolved client's generation settings (its profile or config).
+- `_run_writer(ctx: Any, output_tokens: int) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 404) — The writer identity of the client this run actually calls.
+- `_tokens(text: str) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 460)
+- `_rank_of(scores: np.ndarray, gold: int) -> int` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 491) — 1-based rank of ``gold``; ties broken by index (deterministic).
+- `_ranks_from_order(scores: np.ndarray) -> np.ndarray` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 498)
+- `_matrix(vectors: Mapping[str, np.ndarray], texts: Sequence[str], dims: int) -> np.ndarray` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 505)
+- `_centred(matrix: np.ndarray) -> np.ndarray` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 511)
+- `_read_manifest(directory: Path) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 563)
+- `_episode_labels(build: Any, *, exclude_nominations: Sequence[str]=(), only_nominations: Sequence[str]=()) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 894) — One effective verdict per episode pair (highest authority; a tie is ``different``), over the labels of the chosen nominations.
+- `_in_scope(by_id: Mapping[str, Any], pair: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1070)
+- `_judge_load(subjects: Sequence[Any], score: Callable[[str, str], float], top_k: int, cutoff: float | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1076) — Judge calls the live rule would make over the whole history.
+- `_config_lines(provenance: Mapping[str, Any], cutoff: float | None, top_k: int | None) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1093) — The [recurrence] lines; a cutoff always carries what it was measured on.
+- `_merge_replay(build: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/recurrence/benchmarks.py), line 1109) — Merge precision/recall when the union is replayed from a subset of sources (P6).
 
 ## Who imports or calls it
 
@@ -185,6 +185,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIProviderUnavailable`; calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`, `generation_limit`, `record_model_calls`; calls `content_key`, `generation_limit`, `record_model_calls`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `bind`
 - [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] — imports `DEFAULT_OUTPUT_TOKENS`, `output_budget`; calls `output_budget`
 - [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `OpenAIEmbeddingProviderClient`; calls `OpenAIEmbeddingProviderClient`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`, `ready_client_for_task`; calls `provider_for_task`, `ready_client_for_task`

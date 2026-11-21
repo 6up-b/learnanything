@@ -146,7 +146,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `module`, `ready_client_for_task`; statically calls `is_decider_profile`, `provider_for_task`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `is_plan_profile`, `ready_client_for_task`; statically calls `is_plan_profile`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `provider_for_task`, `ready_client_for_task`; statically calls `provider_for_task`, `ready_client_for_task`
-- [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] — imports `provider_for_task`; statically calls `provider_for_task`
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `MANUAL_PROVIDER`, `configured_fallback`, `is_decider_profile`, `is_generation_profile`, `ready_client_for_task`; statically calls `configured_fallback`, `is_decider_profile`, `is_generation_profile`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `ready_client_for_task`; statically calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `provider_for_task`; statically calls `provider_for_task`
@@ -187,6 +186,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `is_embedding_profile`, `is_generation_profile`, `provider_for_task`, `ready_client_for_task`, `route_names`, `runtime_for_provider`; statically calls `is_embedding_profile`, `is_generation_profile`, `provider_for_task`, `ready_client_for_task`, `route_names`, `runtime_for_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] — imports `MANUAL_PROVIDER`, `client_for_provider`, `ready_client_for_task`, `runtime_for_provider`; statically calls `client_for_provider`, `ready_client_for_task`, `runtime_for_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] — imports `provider_for_task`; statically calls `provider_for_task`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `provider_for_task`; statically calls `provider_for_task`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `ready_client_for_task`; statically calls `ready_client_for_task`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `is_generation_profile`, `runtime_for_provider`; statically calls `is_generation_profile`, `runtime_for_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `provider_for_task`; statically calls `provider_for_task`
@@ -284,6 +284,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_llm_judge_runs_on_the_subscription_route_by_default`
 - [tests/test_knowledge_map_text_neighbors.py](../../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
   - `test_render_never_calls_a_model_or_writes`
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_a_fallback_provider_is_held_to_the_same_ok`
 - [tests/test_openai_embedding_client.py](../../../../../../tests/test_openai_embedding_client.py) — direct import
   - `test_custom_key_and_endpoint`
   - `test_embedding_route_defaults_but_a_vault_that_never_enables_embeddings_sends_nothing`

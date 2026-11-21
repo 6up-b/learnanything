@@ -687,6 +687,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_authoring_contract.py](../../../../../../tests/test_authoring_contract.py) — direct import
 - [tests/test_authoring_create_ids.py](../../../../../../tests/test_authoring_create_ids.py) — direct import
   - `test_checkpoint_replay_keeps_minted_ids_and_applies_nothing_twice`
+  - `test_fresh_and_checkpointed_authoring_keep_the_same_minted_and_named_ids`
   - `test_named_recorded_answer_produces_byte_identical_rows`
   - `test_three_unnamed_questions_apply_and_finish_topic_without_any_repair`
   - `test_vault_collision_uses_first_free_suffix_and_checkpoint_keeps_it`
@@ -3434,6 +3435,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_while_the_next_build_is_planned_the_card_says_chapters_found`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
   - `test_an_openrouter_key_connects_every_use_case`
+  - `test_closing_the_sheet_leaves_the_book_readable_and_its_questions_waiting`
   - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`
   - `test_one_ok_records_consent_for_the_connected_provider`
   - `test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build`

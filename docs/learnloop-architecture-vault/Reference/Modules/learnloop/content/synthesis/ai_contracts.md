@@ -181,6 +181,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_chatgpt_plan_runaway.py](../../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
   - `test_built_synthesis_prompt_agrees_with_required_nullable_integration`
+  - `test_null_integration_is_accepted_on_the_first_synthesis_request`
 - [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_append_schema_declares_properties_on_bare_restructure_payload`

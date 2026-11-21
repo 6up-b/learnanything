@@ -199,6 +199,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_requests_refuse_untyped_questions_and_bad_counts`
   - `test_score_answers_must_match_the_rubric`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_router_g7_fallback.py](../../../../../../tests/test_router_g7_fallback.py) — direct import
   - `test_an_error_or_an_invalid_answer_falls_back`

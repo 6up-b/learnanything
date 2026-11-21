@@ -34,12 +34,12 @@ source_paths:
   - "tests/ad23_fakes.py"
   - "tests/ad_fakes.py"
   - "tests/ad_ingest_fakes.py"
+  - "tests/ai_ok_world.py"
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/attempt_predicate_helpers.py"
   - "tests/causal_orchestrator_helpers.py"
   - "tests/causal_p2_acceptance_helpers.py"
-  - "tests/chatgpt_plan_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/embedding"
@@ -62,8 +62,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `embedding.enabled` | `false` | boolean | explicit template decision | Master switch for remote embeddings. While false, the embedding route resolves to no client, so no consumer can send text, and the disabled route does not affect settings health. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3408`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/ai/routing.py:688` |
 | `embedding.backfill_enabled` | `false` | boolean | explicit template decision | Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work without it. Both switches must be true before any request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3409`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/ops/embedding_backfill.py:239` |
-| `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3410`; `src/learnloop/ai/client.py:30`; `src/learnloop/ai/plan_fallback.py:138` |
-| `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3411`; `src/learnloop/ai/client.py:31`; `src/learnloop/ai/plan_fallback.py:138` |
+| `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3410`; `src/learnloop/ai/client.py:31`; `src/learnloop/ai/plan_fallback.py:138` |
+| `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3411`; `src/learnloop/ai/client.py:32`; `src/learnloop/ai/plan_fallback.py:138` |
 | `embedding.map_neighbors_enabled` | `true` | boolean | modeled default or validator seed | Display-only kill switch for the knowledge map: while true, an item whose current stem has a stored vector for the ranking model takes its four shown neighbours from item-text similarity; false keeps the facet/concept-graph neighbours. The ranking model is embedding.model once its stored vectors cover every current stem another stored model covers; until a replacement's backfill catches up, the previous model keeps ranking (Slice 2 §4). Reads stored vectors only (no calls) and never moves map coordinates or learner state. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3416`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/handlers/item_text_neighbors.py:88` |
 | `embedding.backfill_sources_on_extract` | `true` | boolean | modeled default or validator seed | Turns backfill sources on extract behavior on or off within opt-in embedding substrate, model identity, backfill consent, and privacy disclosure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3424`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/source_retrieval/source_vectors.py:82` |
 | `embedding.source_backfill_max_cost_usd` | `1.0` | number | modeled default or validator seed | Controls source backfill max cost usd in opt-in embedding substrate, model identity, backfill consent, and privacy disclosure, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3425`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/source_retrieval/source_vectors.py:153` |
@@ -98,12 +98,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
 - `tests/ad_ingest_fakes.py`
+- `tests/ai_ok_world.py`
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/attempt_predicate_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
 - `tests/causal_p2_acceptance_helpers.py`
-- `tests/chatgpt_plan_fakes.py`
 
 ## Extension and modification guidance
 

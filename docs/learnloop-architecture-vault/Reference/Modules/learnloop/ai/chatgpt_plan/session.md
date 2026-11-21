@@ -220,6 +220,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
   - `test_the_plan_route_request_is_byte_identical_under_a_ceiling`
 - [tests/test_notes_as_learner_text.py](../../../../../../../tests/test_notes_as_learner_text.py) — direct import
+- [tests/test_one_ai_ok.py](../../../../../../../tests/test_one_ai_ok.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_a_plan_call_that_fails_for_availability_offers_openrouter_for_that_route`
   - `test_admission_equals_wire_and_every_body_keeps_the_grammar`

@@ -48,40 +48,40 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py) |
-| Source lines | 334 |
+| Source lines | 337 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class VideoGenerationRequest` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 44)
-- `class VideoJob` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 54)
-- `class VideoJobStatus` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 61)
-- `class VideoModelConstraints` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 70)
-- `clamp_duration(requested: int | None, *, max_seconds: int, constraints: VideoModelConstraints | None) -> int | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 106) — The shot length to ask for: the largest supported value under the caps.
-- `clamp_resolution(preferred: str | None, constraints: VideoModelConstraints | None) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 128) — The preferred resolution when the model lists it (or lists nothing), else its first.
-- `clamp_aspect_ratio(preferred: str | None, constraints: VideoModelConstraints | None) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 134) — Same rule for aspect ratios: an off-list value is a 400 from OpenRouter.
-- `class OpenRouterVideoClient` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 140)
-  - `__init__(self, provider_name: str, profile: AIProviderConfig, *, http: HttpTransport | None=None, sleep: Callable[[float], None]=time.sleep, clock: Callable[[], float]=time.monotonic) -> None` (line 143; internal)
-  - `supports(self, capability: str) -> bool` (line 179; public)
-  - `_request(self, method: str, url: str, payload: Any=None, *, timeout: float) -> tuple[int, Any]` (line 184; internal)
-  - `model_constraints(self) -> VideoModelConstraints | None` (line 193; public) — Supported durations/resolutions for this model; None when unknown.
-  - `submit(self, request: VideoGenerationRequest) -> VideoJob` (line 216; public) — Submit one generation job.
-  - `poll(self, job_id: str) -> VideoJobStatus` (line 237; public)
-  - `download(self, job_id: str, index: int=0) -> bytes` (line 264; public)
-  - `wait_all(self, job_ids: Sequence[str], *, max_wait_seconds: float, poll_interval_seconds: float=DEFAULT_POLL_INTERVAL_SECONDS, first_delay_seconds: float=FIRST_POLL_DELAY_SECONDS, checkpoint: Callable[[list[VideoJobStatus], float], None] | None=None) -> list[VideoJobStatus]` (line 274; public) — Poll every job until all complete.
+- `class VideoGenerationRequest` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 45)
+- `class VideoJob` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 55)
+- `class VideoJobStatus` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 62)
+- `class VideoModelConstraints` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 71)
+- `clamp_duration(requested: int | None, *, max_seconds: int, constraints: VideoModelConstraints | None) -> int | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 107) — The shot length to ask for: the largest supported value under the caps.
+- `clamp_resolution(preferred: str | None, constraints: VideoModelConstraints | None) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 129) — The preferred resolution when the model lists it (or lists nothing), else its first.
+- `clamp_aspect_ratio(preferred: str | None, constraints: VideoModelConstraints | None) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 135) — Same rule for aspect ratios: an off-list value is a 400 from OpenRouter.
+- `class OpenRouterVideoClient` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 141)
+  - `__init__(self, provider_name: str, profile: AIProviderConfig, *, http: HttpTransport | None=None, sleep: Callable[[float], None]=time.sleep, clock: Callable[[], float]=time.monotonic) -> None` (line 144; internal)
+  - `supports(self, capability: str) -> bool` (line 180; public)
+  - `_request(self, method: str, url: str, payload: Any=None, *, timeout: float) -> tuple[int, Any]` (line 185; internal)
+  - `model_constraints(self) -> VideoModelConstraints | None` (line 196; public) — Supported durations/resolutions for this model; None when unknown.
+  - `submit(self, request: VideoGenerationRequest) -> VideoJob` (line 219; public) — Submit one generation job.
+  - `poll(self, job_id: str) -> VideoJobStatus` (line 240; public)
+  - `download(self, job_id: str, index: int=0) -> bytes` (line 267; public)
+  - `wait_all(self, job_ids: Sequence[str], *, max_wait_seconds: float, poll_interval_seconds: float=DEFAULT_POLL_INTERVAL_SECONDS, first_delay_seconds: float=FIRST_POLL_DELAY_SECONDS, checkpoint: Callable[[list[VideoJobStatus], float], None] | None=None) -> list[VideoJobStatus]` (line 277; public) — Poll every job until all complete.
 
 ### Module constants
 
-- `DEFAULT_POLL_INTERVAL_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 28)
-- `FIRST_POLL_DELAY_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 29)
-- `SUBMIT_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 30)
-- `POLL_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 31)
-- `DOWNLOAD_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 32)
-- `POLL_ATTEMPTS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 35)
-- `POLL_RETRY_DELAY_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 36)
-- `TERMINAL_FAILURE_STATES` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 37)
+- `DEFAULT_POLL_INTERVAL_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 29)
+- `FIRST_POLL_DELAY_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 30)
+- `SUBMIT_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 31)
+- `POLL_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 32)
+- `DOWNLOAD_TIMEOUT_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 33)
+- `POLL_ATTEMPTS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 36)
+- `POLL_RETRY_DELAY_SECONDS` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 37)
+- `TERMINAL_FAILURE_STATES` ([src/learnloop/ai/providers/openrouter_video.py](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 38)
 
 ### Explicit exports
 
@@ -101,9 +101,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_urllib_transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float) -> tuple[int, Mapping[str, str], bytes]` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 76)
-- `_error_text(payload: Any) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 94)
-- `_clamp_choice(preferred: str | None, supported: Sequence[str]) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 120)
+- `_urllib_transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float) -> tuple[int, Mapping[str, str], bytes]` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 77)
+- `_error_text(payload: Any) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 95)
+- `_clamp_choice(preferred: str | None, supported: Sequence[str]) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/openrouter_video.py), line 121)
 
 ## Who imports or calls it
 
@@ -118,6 +118,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`, `VideoGenerationFailed`, `VideoGenerationTimeout`; calls `AIProviderUnavailable`, `VideoGenerationFailed`, `VideoGenerationTimeout`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `admit`
 - [[Reference/Modules/learnloop/ai/providers/openrouter|learnloop.ai.providers.openrouter]] — imports `OPENROUTER_API_KEY_ENV`, `OPENROUTER_BASE_URL`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `VIDEO_GENERATION`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`
@@ -144,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_concept_animation_service.py](../../../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_generate_video_model_clamps_aspect_ratio_and_resumes_from_persisted_jobs`
   - `test_storyboard_total_is_checked_on_the_clamped_durations`
+- [tests/test_one_ai_ok.py](../../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_the_video_adapter_asks_for_the_ok_too`
 - [tests/test_openrouter_video_client.py](../../../../../../../tests/test_openrouter_video_client.py) — direct import
   - `test_clamp_aspect_ratio_follows_the_model_listing`
   - `test_clamp_helpers`

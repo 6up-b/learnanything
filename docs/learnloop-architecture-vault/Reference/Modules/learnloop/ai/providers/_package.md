@@ -58,7 +58,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] | [[Reference/Modules/learnloop/ai/providers/openai_embedding#^module-purpose|purpose]] | `ACTIVE` | 6 | 11 |
 | [[Reference/Modules/learnloop/ai/providers/openrouter|learnloop.ai.providers.openrouter]] | [[Reference/Modules/learnloop/ai/providers/openrouter#^module-purpose|purpose]] | `ACTIVE` | 2 | 9 |
 | [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]] | [[Reference/Modules/learnloop/ai/providers/openrouter_catalog#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]] | [[Reference/Modules/learnloop/ai/providers/openrouter_video#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]] | [[Reference/Modules/learnloop/ai/providers/openrouter_video#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]] | [[Reference/Modules/learnloop/ai/providers/structured_output#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/ai/providers/voyage_contextual|learnloop.ai.providers.voyage_contextual]] | [[Reference/Modules/learnloop/ai/providers/voyage_contextual#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 
@@ -66,7 +66,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 32 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 33 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 10 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 4 static module edges
 
@@ -104,7 +104,7 @@ flowchart LR
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_diagnosis_offline_review["learnloop.diagnosis.offline_review"]
     n_learnloop_ai -->|8| center
-    center -->|32| n_learnloop_ai
+    center -->|33| n_learnloop_ai
     center -->|10| n_learnloop_config
     center -->|4| n_learnloop_ai_chatgpt_plan
     n_learnloop_cli -->|2| center

@@ -245,6 +245,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refresh_door_reports_the_same_errors_as_the_generation_door`
 - [tests/test_authoring_create_ids.py](../../../../../../../tests/test_authoring_create_ids.py) — direct import
   - `test_checkpoint_replay_keeps_minted_ids_and_applies_nothing_twice`
+  - `test_fresh_and_checkpointed_authoring_keep_the_same_minted_and_named_ids`
   - `test_named_recorded_answer_produces_byte_identical_rows`
   - `test_vault_collision_uses_first_free_suffix_and_checkpoint_keeps_it`
 - [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
@@ -267,6 +268,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_doctor_warns_on_duplicate_diagnostic_practice_proposals`
 - [tests/test_e2e_codex_mock.py](../../../../../../../tests/test_e2e_codex_mock.py) — direct import
   - `test_codex_mocked_end_to_end`
+- [tests/test_empty_first_build.py](../../../../../../../tests/test_empty_first_build.py) — direct import
+  - `test_empty_topic_and_rejected_match_share_the_same_two_passes`
 - [tests/test_exercise_authoring.py](../../../../../../../tests/test_exercise_authoring.py) — direct import
   - `test_missing_weights_are_not_uniformly_backfilled_and_smears_are_flagged`
 - [tests/test_followup_generate_e2e.py](../../../../../../../tests/test_followup_generate_e2e.py) — direct import

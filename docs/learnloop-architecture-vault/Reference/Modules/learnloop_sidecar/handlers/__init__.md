@@ -255,6 +255,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_mobile_v4_plan.py](../../../../../../tests/test_mobile_v4_plan.py) — direct import
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_pinned_draws.py](../../../../../../tests/test_pinned_draws.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
