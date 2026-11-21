@@ -34,12 +34,12 @@ source_paths:
   - "tests/ad_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/chatgpt_plan_fakes.py"
+  - "tests/check_credit_helpers.py"
+  - "tests/check_credit_report_helpers.py"
   - "tests/compare_sources_keep_helpers.py"
   - "tests/conftest.py"
   - "tests/connection_reuse.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
-  - "tests/daily_plan_reading_helpers.py"
-  - "tests/data_capture_a2_measurement_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router"
@@ -96,12 +96,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/chatgpt_plan_fakes.py`
+- `tests/check_credit_helpers.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/compare_sources_keep_helpers.py`
 - `tests/conftest.py`
 - `tests/connection_reuse.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
-- `tests/daily_plan_reading_helpers.py`
-- `tests/data_capture_a2_measurement_helpers.py`
 
 ## Extension and modification guidance
 

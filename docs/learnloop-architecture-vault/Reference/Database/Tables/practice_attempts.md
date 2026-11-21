@@ -194,6 +194,7 @@ Indexes and uniqueness:
 - `src/learnloop/capture/report.py`
 - `src/learnloop/confidence_events.py`
 - `src/learnloop/content/proposals/method_phrasing.py`
+- `src/learnloop/daily_plan/check_inputs.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/daily_plan/measurement.py`
@@ -294,6 +295,7 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/teacher/actions.py`
 - `src/learnloop/teacher/brief.py`
+- `src/learnloop/teacher/check_delivery.py`
 - `src/learnloop/teacher/diagnosed_sources.py`
 - `src/learnloop/teacher/report.py`
 - `src/learnloop/teacher/service.py`
@@ -347,6 +349,7 @@ Indexes and uniqueness:
 - `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/assumed_known_helpers.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/daily_plan_fakes.py`
 - `tests/data_capture_a2_measurement_helpers.py`
 - `tests/data_capture_a3_time_metric_helpers.py`
@@ -358,7 +361,6 @@ Indexes and uniqueness:
 - `tests/hint_h2a_review_round2_helpers.py`
 - `tests/hint_h2b_review_helpers.py`
 - `tests/ih2_lessons_compete_helpers.py`
-- `tests/learner_blindness_relax_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

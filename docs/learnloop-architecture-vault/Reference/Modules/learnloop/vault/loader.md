@@ -203,6 +203,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `load_vault`
+- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py); calls `load_vault`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `load_vault`
 
 ## Dependencies
@@ -794,6 +795,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_billing_class_is_subscription`
   - `test_t6_rewrite_runs_on_the_plan_with_receipts`
+- [tests/test_check_inputs.py](../../../../../../tests/test_check_inputs.py) — direct import
 - [tests/test_cli_append_units.py](../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — direct import
   - `test_cli_show_attempt_includes_evidence_and_surprise`

@@ -52,8 +52,8 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] | [[Reference/Modules/learnloop/scheduling/intent/followup_gate#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 | [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] | [[Reference/Modules/learnloop/scheduling/intent/model#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
 | [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] | [[Reference/Modules/learnloop/scheduling/intent/recall_targets#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
-| [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] | [[Reference/Modules/learnloop/scheduling/intent/resolution#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
-| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 7 | 15 |
+| [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] | [[Reference/Modules/learnloop/scheduling/intent/resolution#^module-purpose|purpose]] | `ACTIVE` | 9 | 4 |
+| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 8 | 15 |
 
 ## Cross-package dependencies
 
@@ -74,6 +74,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 7 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 4 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 3 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 2 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 1 static module edge
 
@@ -92,8 +93,8 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_teacher["learnloop.teacher"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    n_learnloop_db["learnloop.db"]
     n_learnloop_daily_plan -->|9| center
     center -->|7| n_learnloop
     n_learnloop_intent -->|7| center
@@ -103,8 +104,8 @@ flowchart LR
     center -->|3| n_learnloop_scheduling
     n_learnloop_source_retrieval -->|3| center
     center -->|2| n_learnloop_diagnosis
+    n_learnloop_teacher -->|2| center
     center -->|1| n_learnloop_content_sources
-    center -->|1| n_learnloop_db
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

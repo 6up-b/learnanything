@@ -211,6 +211,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
+  - `test_today_an_offer_is_built_with_a_check_whether_or_not_a_question_exists`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_followup_arriving_over_an_interrupting_offer_joins_the_block_below_and_the_offer_stands`
   - `test_a_probe_arriving_during_an_open_offer_gets_a_new_decision_holding_both`

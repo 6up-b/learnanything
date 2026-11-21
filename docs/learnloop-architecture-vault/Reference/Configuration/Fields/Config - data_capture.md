@@ -21,6 +21,7 @@ source_paths:
   - "tests/ad3_subject_view_helpers.py"
   - "tests/ad_guard_offer_receipts_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/check_credit_report_helpers.py"
   - "tests/figure_build_golden_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/identity_pins_helpers.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/local_embeddings_fakes.py"
   - "tests/probe_router_authority_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_ad1_fix_round5.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/data-capture"
@@ -62,6 +62,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad3_subject_view_helpers.py`
 - `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/figure_build_golden_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/identity_pins_helpers.py`
@@ -69,7 +70,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/local_embeddings_fakes.py`
 - `tests/probe_router_authority_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_fix_round5.py`
 
 ## Extension and modification guidance
 

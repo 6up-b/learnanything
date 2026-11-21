@@ -18,12 +18,12 @@ source_paths:
   - "migrations/180_daily_plans.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/check_inputs.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lanes.py"
   - "src/learnloop/daily_plan/lesson_offer.py"
   - "src/learnloop/daily_plan/measurement.py"
-  - "src/learnloop/daily_plan/objective_inputs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -129,6 +129,7 @@ None found by exact static reference scan.
 - `tests/source_service_fakes.py`
 - `tests/test_ad_guard.py`
 - `tests/test_architecture.py`
+- `tests/test_check_credit_report.py`
 - `tests/test_curriculum_c1_codex_review_fixes.py`
 - `tests/test_curriculum_c1_fix_round2.py`
 - `tests/test_curriculum_c1_landing.py`
@@ -137,7 +138,6 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_reading.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_data_capture_a2_measurement.py`
-- `tests/test_data_capture_codex_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

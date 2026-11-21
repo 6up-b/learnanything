@@ -118,6 +118,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `module`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `recompute`; statically calls `recompute`
 
+### Repository tooling consumers
+
+- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py); calls `recompute`
+
 ## Dependencies
 
 ### LearnLoop dependencies

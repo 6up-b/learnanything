@@ -162,6 +162,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/check_credit_report_helpers.py](../../../../../../tests/check_credit_report_helpers.py) — direct import
+- [tests/test_check_delivery.py](../../../../../../tests/test_check_delivery.py) — direct import
 - [tests/test_commitment_arcs.py](../../../../../../tests/test_commitment_arcs.py) — direct import
   - `test_arc_pins_depth_and_maps_stages`
   - `test_shrink_envelope_rejects_widening`

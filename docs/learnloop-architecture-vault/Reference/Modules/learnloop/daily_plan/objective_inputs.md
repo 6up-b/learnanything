@@ -121,6 +121,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `_PROBE_MODES`, `module`; statically calls `check_eligible_items`, `check_sensors`, `population`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `_lessons_on`, `build`
 
+### Repository tooling consumers
+
+- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py); calls `build`
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -176,6 +180,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
   - `test_a_plan_candidate_reaches_its_kind_through_production_dispatch`
+- [tests/test_check_credit_characterization.py](../../../../../../tests/test_check_credit_characterization.py) — direct import
+  - `test_intended_an_offer_with_no_eligible_question_credits_no_check`
+  - `test_today_an_offer_is_built_with_a_check_whether_or_not_a_question_exists`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle`
   - `test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support`

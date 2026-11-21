@@ -111,7 +111,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/check_credit_report_helpers.py`
 - `tests/teacher_te1b_migration_helpers.py`
+- `tests/test_check_credit_report.py`
 - `tests/test_followups_batch6_te1b_card.py`
 - `tests/test_ih3_learner_preferences.py`
 - `tests/test_te3b_binding.py`

@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/check_inputs.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lesson_offer.py"
@@ -82,6 +83,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/check_inputs.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/daily_plan/lesson_offer.py`
@@ -113,6 +115,7 @@ None found by exact static reference scan.
 
 - `tests/ad23_contract_helpers.py`
 - `tests/ad23_fakes.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/instruct_handoff_ih0_helpers.py`
 - `tests/mobile_v2_review_fixes_helpers.py`
 - `tests/plan_follows_path_helpers.py`
@@ -130,7 +133,6 @@ None found by exact static reference scan.
 - `tests/test_ih3_phone_host.py`
 - `tests/test_ih6_workbench_open_item.py`
 - `tests/test_instruct_handoff_ih0.py`
-- `tests/test_instruct_handoff_ih1.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

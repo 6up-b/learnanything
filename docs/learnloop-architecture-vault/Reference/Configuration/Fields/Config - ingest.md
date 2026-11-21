@@ -36,10 +36,10 @@ source_paths:
   - "tests/ad_guard_helpers.py"
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
+  - "tests/check_credit_report_helpers.py"
   - "tests/conftest.py"
   - "tests/connection_reuse.py"
   - "tests/contamination_report_helpers.py"
-  - "tests/curriculum_c1_fix_round2_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -139,10 +139,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_guard_helpers.py`
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/conftest.py`
 - `tests/connection_reuse.py`
 - `tests/contamination_report_helpers.py`
-- `tests/curriculum_c1_fix_round2_helpers.py`
 
 ## Extension and modification guidance
 

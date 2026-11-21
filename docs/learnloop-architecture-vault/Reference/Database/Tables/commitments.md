@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/scheduling/controller_store.py`
+- `src/learnloop/teacher/check_delivery.py`
 
 ### Direct SQL writers
 
@@ -127,10 +128,16 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/ad23_fakes.py`
+- `tests/check_credit_helpers.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/daily_plan_fakes.py`
 - `tests/test_ad23_intent_compose.py`
 - `tests/test_ad2_serving.py`
 - `tests/test_causal_attribution_p1.py`
+- `tests/test_check_credit_characterization.py`
+- `tests/test_check_credit_report.py`
+- `tests/test_check_delivery.py`
+- `tests/test_check_value.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`
 - `tests/test_constraint_engine.py`
@@ -140,12 +147,6 @@ Indexes and uniqueness:
 - `tests/test_curriculum_c0b_landing.py`
 - `tests/test_curriculum_c1_landing.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
-- `tests/test_daily_loop_reference_adoption.py`
-- `tests/test_data_capture_a2_measurement.py`
-- `tests/test_data_capture_a3_time_metric.py`
-- `tests/test_data_capture_codex_rereview.py`
-- `tests/test_data_capture_codex_review.py`
-- `tests/test_data_capture_landing_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -18,7 +18,9 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/intent/deadline.py"
+  - "tests/check_credit_report_helpers.py"
   - "tests/test_causal_p2_acceptance.py"
+  - "tests/test_check_delivery.py"
   - "tests/test_commitment_arcs.py"
   - "tests/test_commitments.py"
   - "tests/test_controller_ownership.py"
@@ -28,8 +30,6 @@ source_paths:
   - "tests/test_data_capture_a2_measurement.py"
   - "tests/test_data_capture_a3_time_metric.py"
   - "tests/test_data_capture_codex_review.py"
-  - "tests/test_data_capture_landing_review.py"
-  - "tests/test_deliverable_codex_review.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/intent"
@@ -63,7 +63,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/check_credit_report_helpers.py`
 - `tests/test_causal_p2_acceptance.py`
+- `tests/test_check_delivery.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`
 - `tests/test_controller_ownership.py`
@@ -73,8 +75,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_data_capture_a2_measurement.py`
 - `tests/test_data_capture_a3_time_metric.py`
 - `tests/test_data_capture_codex_review.py`
-- `tests/test_data_capture_landing_review.py`
-- `tests/test_deliverable_codex_review.py`
 
 ## Extension and modification guidance
 

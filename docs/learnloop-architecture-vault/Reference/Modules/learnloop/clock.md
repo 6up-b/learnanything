@@ -458,6 +458,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher/check_delivery|learnloop.teacher.check_delivery]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `utc_now_iso`; statically calls `utc_now_iso`
@@ -500,6 +501,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Repository tooling consumers
 
+- [scripts/check_credit_report.py](../../../../../scripts/check_credit_report.py); calls `parse_utc`
 - [scripts/voi_cap_report.py](../../../../../scripts/voi_cap_report.py); calls `SystemClock`
 
 ## Dependencies
@@ -520,7 +522,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 420 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 421 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -536,6 +538,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/causal_p2_acceptance_helpers.py](../../../../../tests/causal_p2_acceptance_helpers.py) — direct import
 - [tests/causal_shadow_selection_helpers.py](../../../../../tests/causal_shadow_selection_helpers.py) — direct import
 - [tests/certification_cold_probe_helpers.py](../../../../../tests/certification_cold_probe_helpers.py) — direct import
+- [tests/check_credit_report_helpers.py](../../../../../tests/check_credit_report_helpers.py) — direct import
 - [tests/cli_generate_practice_helpers.py](../../../../../tests/cli_generate_practice_helpers.py) — direct import
 - [tests/cold_retry_reschedule_helpers.py](../../../../../tests/cold_retry_reschedule_helpers.py) — direct import
 - [tests/compare_methods_helpers.py](../../../../../tests/compare_methods_helpers.py) — direct import
@@ -828,6 +831,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_probe_submission.py](../../../../../tests/test_characterization_probe_submission.py) — direct import
 - [tests/test_chatgpt_plan_landing.py](../../../../../tests/test_chatgpt_plan_landing.py) — direct import
   - `test_a_snapshot_diagnosis_on_the_plan_records_what_it_served_with_its_row_and_forecasts`
+- [tests/test_check_delivery.py](../../../../../tests/test_check_delivery.py) — direct import
 - [tests/test_choose.py](../../../../../tests/test_choose.py) — direct import
   - `test_it_reads_no_database_clock_or_id_stream_and_leaves_its_inputs_alone`
 - [tests/test_cli_generate_practice.py](../../../../../tests/test_cli_generate_practice.py) — direct import

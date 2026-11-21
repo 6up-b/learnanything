@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/intent/checks.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/recap.py`
+- `src/learnloop/teacher/check_delivery.py`
 
 ### Direct SQL writers
 

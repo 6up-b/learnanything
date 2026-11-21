@@ -24,12 +24,12 @@ source_paths:
   - "tests/causal_orchestrator_helpers.py"
   - "tests/causal_p2_acceptance_helpers.py"
   - "tests/causal_shadow_selection_helpers.py"
+  - "tests/check_credit_report_helpers.py"
   - "tests/cli_generate_practice_helpers.py"
   - "tests/cold_retry_reschedule_helpers.py"
   - "tests/data_capture_codex_review_helpers.py"
   - "tests/data_capture_successor_helpers.py"
   - "tests/diagnostic_probe_single_use_helpers.py"
-  - "tests/followups_batch6_verify_fixes_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -65,12 +65,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/causal_orchestrator_helpers.py`
 - `tests/causal_p2_acceptance_helpers.py`
 - `tests/causal_shadow_selection_helpers.py`
+- `tests/check_credit_report_helpers.py`
 - `tests/cli_generate_practice_helpers.py`
 - `tests/cold_retry_reschedule_helpers.py`
 - `tests/data_capture_codex_review_helpers.py`
 - `tests/data_capture_successor_helpers.py`
 - `tests/diagnostic_probe_single_use_helpers.py`
-- `tests/followups_batch6_verify_fixes_helpers.py`
 
 ## Extension and modification guidance
 

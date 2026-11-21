@@ -114,6 +114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/check_credit_report_helpers.py](../../../../../../tests/check_credit_report_helpers.py) — direct import
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f9_the_drawn_options_forecast_is_resolved_and_reported`
 - [tests/test_ro4_trace_report.py](../../../../../../tests/test_ro4_trace_report.py) — direct import

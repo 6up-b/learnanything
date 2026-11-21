@@ -246,6 +246,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_a_paused_plan_never_falls_back_to_codex`
   - `test_the_plan_serves_a_workspace_and_takes_the_callers_deadline`
+- [tests/test_check_inputs.py](../../../../../../tests/test_check_inputs.py) — direct import
+  - `test_the_adapters_write_nothing_and_call_no_model`
 - [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
   - `test_an_old_config_naming_codex_loads_and_every_entry_refuses_it_clearly`
 - [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import

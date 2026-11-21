@@ -116,6 +116,7 @@ Database triggers:
 - `src/learnloop/learner_context.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/router_objective/miss_cause.py`
+- `src/learnloop/teacher/check_delivery.py`
 - `src/learnloop/workbench/help_outcomes.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
@@ -149,6 +150,7 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/test_check_delivery.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_goal_series.py`
 - `tests/test_help_outcomes.py`
@@ -168,7 +170,6 @@ Database triggers:
 - `tests/test_field_split_outcomes.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_reserved_only.py`
-- `tests/test_forecast_receipts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

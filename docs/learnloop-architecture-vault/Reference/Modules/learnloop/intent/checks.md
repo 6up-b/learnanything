@@ -134,6 +134,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/reader_ca1_as_printed_helpers.py](../../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
+- [tests/test_check_credit_report.py](../../../../../../tests/test_check_credit_report.py) — direct import
+  - `test_current_copy_from_real_builders_is_read_only`
+- [tests/test_check_delivery.py](../../../../../../tests/test_check_delivery.py) — direct import
 - [tests/test_data_capture_codex_rereview.py](../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
   - `test_f10_a_check_answered_between_settles_keeps_one_due_and_is_terminal`
   - `test_f10_a_check_answered_between_settles_reads_the_same_whatever_the_wall_clock`

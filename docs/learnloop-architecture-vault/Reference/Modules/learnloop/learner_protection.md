@@ -162,6 +162,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `PROBE_MODES`, `WITHHELD_EXAM`, `WITHHELD_PROBE`, `Withheld`, `attempt_protection`; statically calls `Withheld`, `attempt_protection`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_result`, `module`; statically calls `attempt_protection`, `attempt_result`, `held_attempts`, `withheld_items`
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `WITHHELD_EXAM`, `WITHHELD_RESERVED`
+- [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `PastWork`, `WITHHELD_UNREADABLE`; statically calls `PastWork`
@@ -210,12 +211,18 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] and 22 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/daily_plan/check_inputs|learnloop.daily_plan.check_inputs]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] and 23 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_check_credit_characterization.py](../../../../../tests/test_check_credit_characterization.py) — direct import
+- [tests/test_check_inputs.py](../../../../../tests/test_check_inputs.py) — direct import
+  - `test_the_adapters_write_nothing_and_call_no_model`
+  - `test_the_brief_says_the_same_words_and_the_offer_reads_the_same_rule`
+  - `test_the_minutes_are_the_plans_estimate_of_the_item_the_picker_would_choose`
+  - `test_the_offer_adapter_fails_closed`
 - [tests/test_deliverable_path.py](../../../../../tests/test_deliverable_path.py) — direct import
   - `test_g_c3_held_out_items_are_never_picked`
 - [tests/test_diagnosis_input_provenance.py](../../../../../tests/test_diagnosis_input_provenance.py) — direct import

@@ -94,6 +94,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `module`
 - [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `AdLink`, `LessonCurve`
 
+### Repository tooling consumers
+
+- [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py)
+
 ## Dependencies
 
 ### LearnLoop dependencies

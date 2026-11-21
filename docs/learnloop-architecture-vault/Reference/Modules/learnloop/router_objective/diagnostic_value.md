@@ -127,6 +127,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
   - `test_a_probe_with_a_diagnostic_payload_has_its_effect_through_the_successor_evaluator`
+- [tests/test_check_value.py](../../../../../../tests/test_check_value.py) — direct import
+  - `test_the_rollouts_refuse_typed_checks_and_this_path_refuses_untyped_ones`
 - [tests/test_diagnostic_probe_value.py](../../../../../../tests/test_diagnostic_probe_value.py) — direct import
   - `test_a_flat_channel_changes_nothing_and_its_probe_is_worth_only_its_burden`
   - `test_a_probe_anywhere_in_a_sequence_appends_the_rest_and_the_tail_once`
