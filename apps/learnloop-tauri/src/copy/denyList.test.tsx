@@ -273,7 +273,9 @@ const ROUND_3B_SENTENCES = [
     { kind: "on_the_way", title: "Past Exam", card: BOOK, progress: null, minutes: null, behind: "Probability" },
     { kind: "on_the_way", title: "Probability", card: BOOK, progress: { done: 1, total: 2 }, minutes: null, queued: ["Past Exam"] },
     { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, queued: ["Past Exam", "Notes"] }
-  ] as TodayCause[]).map(causeSentence)
+  ] as TodayCause[]).map(causeSentence),
+  // UX-44c: the full list's words for a question that waits.
+  "not answered yet", "coming back later today", "comes back tomorrow", "comes back in 9 days"
 ];
 
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).

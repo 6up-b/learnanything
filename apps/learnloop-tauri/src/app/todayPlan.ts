@@ -334,8 +334,11 @@ export function todayThreads(questionRows: readonly QuestionQueueRowDto[], probl
 
 // ── The full list (`l`): a plain list ───────────────────────────────────────
 
-/** Why an item is on today's list, in about five words. */
-export function fullListWhy(item: ScheduledItemDto): string {
+/** Why an item is on today's list, in about five words. A question in the
+ *  list's "later" part is one never answered (no due time) or one answered and
+ *  waiting to come back (its next due time): said apart, by the day it comes
+ *  back, not "later today" for both. */
+export function fullListWhy(item: ScheduledItemDto, now: number = Date.now()): string {
   if (item.isFollowup) {
     switch (item.followupKind) {
       case "certification_cold_probe":
@@ -352,8 +355,21 @@ export function fullListWhy(item: ScheduledItemDto): string {
   }
   if (item.isProbe) return "to see what you know";
   if (item.dueStatus === "due") return "time to bring it back";
-  if (item.dueStatus === "later") return "coming back later today";
+  if (item.dueStatus === "later") return laterWhy(item.dueAt, now);
   return "next up for you";
+}
+
+function laterWhy(dueAt: string | null, now: number): string {
+  const due = dueAt ? Date.parse(dueAt) : Number.NaN;
+  if (Number.isNaN(due)) return "not answered yet";
+  if (due <= now) return "time to bring it back";
+  const day = (time: number) => {
+    const date = new Date(time);
+    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+  };
+  const days = Math.round(day(due) - day(now));
+  if (days <= 0) return "coming back later today";
+  return days === 1 ? "comes back tomorrow" : `comes back in ${days} days`;
 }
 
 /** The why? behind a check on your own (the Reader doc's cold wording). */
