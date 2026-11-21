@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/ingest_queue.py](../../../../../../../src/learnloop/db/stores/ingest_queue.py) |
-| Source lines | 973 |
+| Source lines | 986 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -89,18 +89,19 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `delete_finished_ingest_batches(self, batch_ids: Sequence[str]) -> dict[str, int]` (line 663; public) — Delete finished queue history without touching source artifacts.
   - `update_ingest_job_payload(self, job_id: str, payload: Mapping[str, Any]) -> None` (line 714; public) — Replace a durable job payload before an explicit retry.
   - `set_ingest_job_cancel_requested(self, job_id: str) -> None` (line 726; public)
-  - `ingest_jobs_by_types(self, job_types: Sequence[str], *, limit: int | None=None) -> list[dict[str, Any]]` (line 733; public)
-  - `ingest_jobs_for_source(self, job_types: Sequence[str], source_id: str) -> list[dict[str, Any]]` (line 749; public) — Every job of ``job_types`` whose payload or result names ``source_id``, newest first.
-  - `latest_ingest_job_per_source(self, job_type: str) -> list[dict[str, Any]]` (line 784; public) — The newest ``job_type`` job for every source it names (complete: no window over the whole queue).
-  - `ingest_batch_spend_rows(self, *, batch_prefix: str, started_since: str) -> list[dict[str, Any]]` (line 814; public) — Usage rows (as :meth:`model_call_spend_rows`) of the ingest jobs in batches whose id starts with ``batch_prefix`` (automatic book preparation: ``batch_auto_``), started at or after ``started_since``, each with its job's ``batch_id``.
-  - `ingest_batches_by_workflow(self, workflow_type: str, *, exclude_statuses: Sequence[str]=()) -> list[dict[str, Any]]` (line 831; public) — Every batch of one workflow, newest first, optionally without the terminal statuses named (no window over the whole queue).
-  - `active_ingest_jobs(self) -> list[dict[str, Any]]` (line 847; public) — Return every job that has not reached a terminal state.
-  - `has_runnable_ingest_job(self, *, job_types: Sequence[str] | None=None, workflow_types: Sequence[str]=(), batch_id_prefixes: Sequence[str]=()) -> bool` (line 860; public) — Whether a queued job could be claimed now, as :meth:`claim_next_ingest_job` picks one: its batch is not being cancelled and every job it depends on completed.
-  - `expired_running_ingest_jobs(self, lease_cutoff_iso: str) -> list[dict[str, Any]]` (line 918; public)
-  - `rung_variant_batch_dead(self, batch_id: str | None) -> bool` (line 933; public) — Whether a rung-variant batch is absent or wholly terminal.
-  - `concept_animation_batch_dead(self, batch_id: str | None) -> bool` (line 938; public) — Whether a concept-animation batch is absent or wholly terminal.
-  - `_ingest_batch_dead(self, batch_id: str | None, *, job_type: str) -> bool` (line 943; internal)
-  - `rung_variant_pending_source_ids(self) -> set[str]` (line 957; public) — Source item ids held by live durable rung-variant work.
+  - `ingest_job_payloads(self, job_type: str, statuses: Sequence[str]) -> list[str]` (line 733; public) — The raw payloads of every ``job_type`` job in one of ``statuses``, oldest first: a read for summaries that only need what the jobs were asked to do (nothing is decoded or claimed).
+  - `ingest_jobs_by_types(self, job_types: Sequence[str], *, limit: int | None=None) -> list[dict[str, Any]]` (line 746; public)
+  - `ingest_jobs_for_source(self, job_types: Sequence[str], source_id: str) -> list[dict[str, Any]]` (line 762; public) — Every job of ``job_types`` whose payload or result names ``source_id``, newest first.
+  - `latest_ingest_job_per_source(self, job_type: str) -> list[dict[str, Any]]` (line 797; public) — The newest ``job_type`` job for every source it names (complete: no window over the whole queue).
+  - `ingest_batch_spend_rows(self, *, batch_prefix: str, started_since: str) -> list[dict[str, Any]]` (line 827; public) — Usage rows (as :meth:`model_call_spend_rows`) of the ingest jobs in batches whose id starts with ``batch_prefix`` (automatic book preparation: ``batch_auto_``), started at or after ``started_since``, each with its job's ``batch_id``.
+  - `ingest_batches_by_workflow(self, workflow_type: str, *, exclude_statuses: Sequence[str]=()) -> list[dict[str, Any]]` (line 844; public) — Every batch of one workflow, newest first, optionally without the terminal statuses named (no window over the whole queue).
+  - `active_ingest_jobs(self) -> list[dict[str, Any]]` (line 860; public) — Return every job that has not reached a terminal state.
+  - `has_runnable_ingest_job(self, *, job_types: Sequence[str] | None=None, workflow_types: Sequence[str]=(), batch_id_prefixes: Sequence[str]=()) -> bool` (line 873; public) — Whether a queued job could be claimed now, as :meth:`claim_next_ingest_job` picks one: its batch is not being cancelled and every job it depends on completed.
+  - `expired_running_ingest_jobs(self, lease_cutoff_iso: str) -> list[dict[str, Any]]` (line 931; public)
+  - `rung_variant_batch_dead(self, batch_id: str | None) -> bool` (line 946; public) — Whether a rung-variant batch is absent or wholly terminal.
+  - `concept_animation_batch_dead(self, batch_id: str | None) -> bool` (line 951; public) — Whether a concept-animation batch is absent or wholly terminal.
+  - `_ingest_batch_dead(self, batch_id: str | None, *, job_type: str) -> bool` (line 956; internal)
+  - `rung_variant_pending_source_ids(self) -> set[str]` (line 970; public) — Source item ids held by live durable rung-variant work.
 
 ## Internal implementation anchors
 

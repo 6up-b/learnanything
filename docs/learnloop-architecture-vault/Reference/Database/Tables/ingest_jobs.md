@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/daily_plan/next_practice.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/cli/ingest_batches.py"
@@ -108,6 +107,7 @@ Indexes and uniqueness:
 - `Repository.has_runnable_ingest_job()`
 - `Repository.heartbeat_ingest_job()`
 - `Repository.ingest_batch_spend_rows()`
+- `Repository.ingest_job_payloads()`
 - `Repository.ingest_jobs_by_payload()`
 - `Repository.ingest_jobs_by_types()`
 - `Repository.ingest_jobs_for_batches()`
@@ -125,7 +125,6 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/ingest_queue.py`
 
 ### Direct SQL writers
@@ -140,6 +139,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/ingest_queue.py`
 - `src/learnloop/figures/build.py`
 - `src/learnloop/figures/rich.py`
