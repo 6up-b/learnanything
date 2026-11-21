@@ -2098,9 +2098,11 @@ def reader_mark_section_progress(
     practice generation for the section's provenance-linked Learning Objects.
 
     Idempotent per section via ``generation_batch_id`` (NULL = untriggered,
-    else the stamps of ``learnloop.reader.section_generation`` or the enqueued
-    batch id) — a re-completed section never enqueues twice. A section finished
-    before its chapter's topics are in waits for them (``waiting_for_build``)."""
+    else the stamps of ``learnloop.reader.section_generation``: ``topic_managed``
+    for work claimed per topic, or a section job's batch id from before) — a
+    re-completed section never enqueues twice, and its reply's ``batch_id`` is
+    the batch queued for the topics it claimed. A section finished before its
+    chapter's topics are in waits for them (``waiting_for_build``)."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop.reader.section_generation import DEFERRED_TO_PRIMARY, WAITING_FOR_BUILD

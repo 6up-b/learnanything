@@ -37,7 +37,9 @@ _STANDING_DELETE = (
 # What ``reader_section_progress.generation_batch_id`` holds besides NULL (not finished, or not yet stamped) and
 # the id of the batch writing a finished section's questions. When each is written is
 # ``learnloop.reader.section_generation``'s rule.
-#: The section's writing is being queued (taken before the queueing, replaced by the batch id after).
+#: A section job was being queued (older versions took it before the queueing and replaced it with the batch id
+#: after; one whose process died between the two still holds it). Nothing writes it now: the claim, the batch and
+#: :data:`SECTION_TOPIC_MANAGED` are one transaction.
 SECTION_ENQUEUING = "enqueuing"
 #: Finished on the phone host, whose own work never includes model calls: the desktop starts it.
 SECTION_DEFERRED_TO_PRIMARY = "deferred_to_primary"
@@ -48,6 +50,22 @@ SECTION_NONE_NEEDED = "none_needed_after_build"
 #: What older versions wrote for "nothing to write", also while the book's topics were not in yet; read as
 #: undecided and decided again once.
 SECTION_NONE_NEEDED_BEFORE = "none_needed"
+#: The section's question work is its topics' claims in ``reader_topic_question_work`` (migration 257), each
+#: naming the batch queued with it. Not a batch id (never an ``ingest_batches`` row), and not "finished".
+SECTION_TOPIC_MANAGED = "topic_managed"
+
+#: The purpose of a topic's claim: the first set of questions a learner's reading commissions for it.
+READER_FIRST_SET = "reader_first_set"
+
+_TOPIC_WORK_JSON = ("passage_ids_json", "source_refs_json", "proposal_ids_json", "model_settings_json")
+
+
+def _topic_work_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    out = dict(row)
+    for name in _TOPIC_WORK_JSON:
+        value = out.pop(name)
+        out[name.removesuffix("_json")] = json.loads(value) if value is not None else None
+    return out
 
 
 class ReaderStoreMixin:
@@ -1288,23 +1306,6 @@ class ReaderStoreMixin:
             connection.commit()
         return cursor.rowcount > 0
 
-    def set_section_generation_batch(
-        self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None = None
-    ) -> None:
-        """Unconditional stamp update (replaces the 'enqueuing' placeholder with
-        the real batch id after a successful enqueue)."""
-
-        with self.connection() as connection:
-            connection.execute(
-                """
-                UPDATE reader_section_progress
-                SET generation_batch_id = ?, updated_at = ?
-                WHERE extraction_id = ? AND section_id = ?
-                """,
-                (batch_id, utc_now_iso(clock), extraction_id, section_id),
-            )
-            connection.commit()
-
     def swap_section_generation(
         self, *, extraction_id: str, section_id: str, from_batch_id: str, batch_id: str,
         clock: Clock | None = None,
@@ -1339,6 +1340,135 @@ class ReaderStoreMixin:
         with self.connection() as connection:
             rows = connection.execute(sql + " ORDER BY completed_at, extraction_id, section_id", args).fetchall()
         return [dict(row) for row in rows]
+
+    # --- topic question work (migration 257) ----------------------------------
+
+    def topic_question_work_for(
+        self, learning_object_ids: Iterable[str], *, purpose: str = READER_FIRST_SET
+    ) -> dict[str, dict[str, Any]]:
+        """The claims of these topics (topic work and section jobs' topics alike), by topic."""
+
+        ids = sorted({str(lo) for lo in learning_object_ids})
+        if not ids:
+            return {}
+        marks = ", ".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM reader_topic_question_work WHERE purpose = ? AND learning_object_id IN ({marks})",
+                (purpose, *ids),
+            ).fetchall()
+        return {str(row["learning_object_id"]): _topic_work_row(row) for row in rows}
+
+    def topic_question_work_rows(
+        self, *, extraction_id: str | None = None, section_id: str | None = None, source_id: str | None = None,
+        batch_id: str | None = None, owner: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Claims filtered by origin, batch or owner, in the order they were made."""
+
+        where, args = [], []
+        for column, value in (("extraction_id", extraction_id), ("section_id", section_id),
+                              ("source_id", source_id), ("batch_id", batch_id), ("owner", owner)):
+            if value is not None:
+                where.append(f"{column} = ?")
+                args.append(value)
+        sql = "SELECT * FROM reader_topic_question_work"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        with self.connection() as connection:
+            rows = connection.execute(sql + " ORDER BY rowid", args).fetchall()
+        return [_topic_work_row(row) for row in rows]
+
+    def insert_topic_question_work(self, rows: Sequence[Mapping[str, Any]], *, clock: Clock | None = None) -> None:
+        """Claim topics: one row each, owner ``topic``. A topic claimed already makes the whole insert fail
+        (the identity is unique), never a second owner."""
+
+        now = utc_now_iso(clock)
+        values = [
+            (str(row.get("id") or new_ulid()), str(row["learning_object_id"]), str(row.get("purpose") or READER_FIRST_SET),
+             row.get("source_id"), row.get("extraction_id"), row.get("section_id"), row["trigger_event"],
+             _json(list(row.get("passage_ids") or [])), _json(list(row.get("source_refs") or [])),
+             row.get("requested_count"), str(row["work_key"]), str(row["batch_id"]), row.get("job_id"), now, now)
+            for row in rows
+        ]
+        if not values:
+            return
+        with self.connection() as connection:
+            connection.executemany(
+                """
+                INSERT INTO reader_topic_question_work(
+                  id, learning_object_id, purpose, owner, source_id, extraction_id, section_id, trigger_event,
+                  passage_ids_json, source_refs_json, requested_count, work_key, batch_id, job_id, state,
+                  claimed_at, updated_at
+                )
+                VALUES (?, ?, ?, 'topic', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)
+                """,
+                values,
+            )
+            connection.commit()
+
+    def index_section_job_topics(self, rows: Sequence[Mapping[str, Any]], *, clock: Clock | None = None) -> None:
+        """Record topics a section job named before topic work existed as that job's (owner ``section_job``, state
+        ``legacy``): a topic nobody owns gains a row; a row the same job already owns has its proposal references
+        brought up to date; a topic anyone else owns is left as it is."""
+
+        now = utc_now_iso(clock)
+        values = [
+            (new_ulid(), str(row["learning_object_id"]), row.get("source_id"), row.get("extraction_id"),
+             row.get("section_id"), _json(list(row.get("source_refs") or [])), str(row["batch_id"]), row.get("job_id"),
+             _json(list(row.get("proposal_ids") or [])), now, now)
+            for row in rows
+        ]
+        if not values:
+            return
+        with self.connection() as connection:
+            connection.executemany(
+                f"""
+                INSERT INTO reader_topic_question_work(
+                  id, learning_object_id, purpose, owner, source_id, extraction_id, section_id, source_refs_json,
+                  batch_id, job_id, proposal_ids_json, state, claimed_at, updated_at
+                )
+                VALUES (?, ?, '{READER_FIRST_SET}', 'section_job', ?, ?, ?, ?, ?, ?, ?, 'legacy', ?, ?)
+                ON CONFLICT(learning_object_id, purpose) DO UPDATE SET
+                  proposal_ids_json = excluded.proposal_ids_json,
+                  updated_at = excluded.updated_at
+                WHERE reader_topic_question_work.owner = 'section_job'
+                  AND reader_topic_question_work.batch_id = excluded.batch_id
+                  AND reader_topic_question_work.proposal_ids_json <> excluded.proposal_ids_json
+                """,
+                values,
+            )
+            connection.commit()
+
+    def update_topic_question_work(
+        self, work_id: str, *, state: str | None = None, error: str | None = None, clear_error: bool = False,
+        proposal_ids: Sequence[str] | None = None, model_settings: Mapping[str, Any] | None = None,
+        requested_count: int | None = None, clock: Clock | None = None,
+    ) -> None:
+        """Move one topic's work along. ``model_settings`` and ``requested_count`` are kept from the first run
+        that names them (the run that froze its request); later runs leave them."""
+
+        sets, args = ["updated_at = ?"], [utc_now_iso(clock)]
+        if state is not None:
+            sets.append("state = ?")
+            args.append(state)
+        if error is not None or clear_error:
+            sets.append("error = ?")
+            args.append(error)
+        if proposal_ids is not None:
+            sets.append("proposal_ids_json = ?")
+            args.append(_json(list(proposal_ids)))
+        if model_settings is not None:
+            sets.append("model_settings_json = COALESCE(model_settings_json, ?)")
+            args.append(_json(dict(model_settings)))
+        if requested_count is not None:
+            sets.append("requested_count = COALESCE(requested_count, ?)")
+            args.append(int(requested_count))
+        with self.connection() as connection:
+            connection.execute(
+                f"UPDATE reader_topic_question_work SET {', '.join(sets)} WHERE id = ? AND owner = 'topic'",
+                (*args, work_id),
+            )
+            connection.commit()
 
     def reader_authored_questions_for_extraction(
         self, extraction_id: str

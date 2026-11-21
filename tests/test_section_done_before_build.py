@@ -94,6 +94,13 @@ def _section_batches(ctx, section_id):
     ]
 
 
+def _claims(ctx):
+    """The topic-work rows: one per topic whose questions a finished section commissioned."""
+
+    with ctx.repository.connection() as connection:
+        return [dict(row) for row in connection.execute("SELECT * FROM reader_topic_question_work ORDER BY rowid")]
+
+
 def _card(ctx, source_id):
     return next(card for card in call(ctx, "get_source_library", {})["sources"] if card["sourceId"] == source_id)
 
@@ -136,7 +143,11 @@ def test_a_section_finished_before_the_build_applies_gets_its_questions_when_it_
     job = ctx.repository.ingest_jobs_for_batch(batches[0]["id"])[0]
     assert job["status"] == "queued"
     assert "lo_diagonalize_symmetric" in job["payload"]["learning_object_ids"]
-    assert _stamp(ctx, source_id, CITED) == batches[0]["id"]
+    # The section's work is its topics' claims, each naming the batch queued with it.
+    assert _stamp(ctx, source_id, CITED) == "topic_managed"
+    assert {(row["batch_id"], row["section_id"], row["trigger_event"], row["owner"]) for row in _claims(ctx)} == {
+        (batches[0]["id"], CITED, "section_finished", "topic")}
+    assert sorted(row["learning_object_id"] for row in _claims(ctx)) == sorted(job["payload"]["learning_object_ids"])
     # Read again, everywhere, and again: never a second writing.
     _reads_again(ctx, source_id)
     _reads_again(ctx, source_id)
@@ -261,6 +272,67 @@ def test_a_section_in_a_chapter_no_build_covers_yet_waits_for_one(tmp_path):
 
     assert done["enqueuedGeneration"] is False and done["waitingForBuild"] is True
     assert _card(ctx, source_id)["statusLine"]["questions"]["waiting"] == [_label(ctx, source_id, UNBUILT)]
+
+
+def test_a_finished_section_claims_its_topics_once_and_today_reads_their_work_as_before(tmp_path):
+    ctx, source_id = _book(tmp_path)
+    _drain(ctx, max_jobs=None)
+    _card(ctx, source_id)
+    label = _label(ctx, source_id, CITED)
+
+    done = _finish(ctx, source_id, CITED)
+
+    assert done["enqueuedGeneration"] is True and done["progress"]["generationBatchId"] == "topic_managed"
+    (batch,) = _section_batches(ctx, CITED)
+    assert done["batchId"] == batch["id"]
+    (job,) = ctx.repository.ingest_jobs_for_batch(batch["id"])
+    claims = _claims(ctx)
+    extraction_id = resolve_extraction_id(ctx.repository, source_id)
+    assert [(row["learning_object_id"], row["owner"], row["state"], row["source_id"], row["extraction_id"],
+             row["section_id"], row["batch_id"], row["job_id"]) for row in claims] == [
+        (topic, "topic", "queued", source_id, extraction_id, CITED, batch["id"], job["id"])
+        for topic in job["payload"]["learning_object_ids"]]
+    assert job["payload"]["topic_keys"] == {row["learning_object_id"]: row["work_key"] for row in claims}
+    # Today's facts, as the section job's were: writing, then stopped with its batch to resume.
+    questions = _card(ctx, source_id)["statusLine"]["questions"]
+    assert (questions["writing"], questions["failed"], questions["count"]) == ([label], [], 0)
+    assert questions["progress"] == {"done": 0, "total": len(claims)}
+    assert ctx.repository.transition_unleased_ingest_job(job["id"], status="failed",
+                                                         error={"code": "AITurnTimeout", "message": "late"})
+    questions = _card(ctx, source_id)["statusLine"]["questions"]
+    assert (questions["writing"], questions["failed"]) == ([], [{"label": label, "resumeId": batch["id"]}])
+    # Finished again, read again: nothing is claimed or queued twice.
+    _finish(ctx, source_id, CITED)
+    _reads_again(ctx, source_id)
+    assert len(_section_batches(ctx, CITED)) == 1 and len(_claims(ctx)) == len(claims)
+
+
+def test_a_section_finished_before_the_build_and_another_citing_its_topic_claim_it_once(tmp_path):
+    ctx, source_id = _book(tmp_path)
+    _until_synthesis_is_next(ctx)
+    _finish(ctx, source_id, CITED)
+
+    _drain(ctx)  # the build applies: the waiting section's topics are claimed with its batch
+    (batch,) = _section_batches(ctx, CITED)
+    claimed = {row["learning_object_id"] for row in _claims(ctx)}
+    assert claimed and {row["trigger_event"] for row in _claims(ctx)} == {"section_finished"}
+    _card(ctx, source_id)
+    extraction_id = resolve_extraction_id(ctx.repository, source_id)
+    # Another section of the book whose topics are those: it finishes, and nothing is claimed or queued again.
+    from learnloop.reader import section_generation
+
+    ctx.repository.upsert_reader_section_progress(extraction_id=extraction_id, section_id=UNCITED, completed=True)
+    other = section_generation.claim_section_topics(
+        ctx.repository, extraction_id=extraction_id, section_id=UNCITED, lo_ids=sorted(claimed), refs=[],
+        from_stamp=None, enqueue=lambda *args: pytest.fail("queued twice"))
+    assert other is None and _stamp(ctx, source_id, UNCITED) == "topic_managed"
+    assert {row["learning_object_id"] for row in _claims(ctx)} == claimed
+    assert {row["section_id"] for row in _claims(ctx)} == {CITED}
+    assert [batch["id"] for batch in _section_batches(ctx, CITED)] == [batch["id"]]
+    # Its topics' questions are the first section's to report; it has nothing of its own to write.
+    questions = core.reading_questions(ctx.repository, ctx.vault, source_id)
+    assert questions["writing"] == [_label(ctx, source_id, CITED)]
+    assert questions["none_needed"] == [_label(ctx, source_id, UNCITED)]
 
 
 # -- rows an older version stamped "none needed" ---------------------------------------------------

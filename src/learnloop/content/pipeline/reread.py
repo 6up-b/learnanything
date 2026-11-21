@@ -297,6 +297,9 @@ def carry_progress(repository: Any, old_extraction_id: str, new_extraction_id: s
         complete = len(contributors) >= max(landing[section_id], 1) and all(row.get("completed_at") for row in contributors)
         stamps = sorted(str(row["completed_at"]) for row in contributors if row.get("completed_at"))
         revealed = sorted(str(row["revealed_at"]) for row in contributors if row.get("revealed_at"))
+        # The stamp carries as it is, so the new reading's section never starts its questions again: a batch id,
+        # another stamp, or "topic_managed", whose claims stay with the reading they were made on (Today's
+        # facts find those by book, ``add_source.reading_questions``).
         batches = [row["generation_batch_id"] for row in contributors if row.get("generation_batch_id")]
         carried.append({
             "section_id": section_id,

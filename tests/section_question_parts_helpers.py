@@ -158,3 +158,59 @@ def comparable_rows(repo, patch):
 
 def live_questions(paths):
     return {key for key in load_vault(paths.root).practice_items if key.startswith("pi_lo_topic_")}
+
+
+#: The reading the topic-work tests finish sections of (no Document IR: the topics and grounding are named).
+EXTRACTION, SOURCE = "ext_topics", "src_topics"
+
+
+def queue(jobs):
+    """The claim's enqueue on a real queue: the batch is recorded inside the claim's transaction, never run there."""
+
+    def enqueue(lo_ids, reason, refs, topic_keys):
+        return jobs.enqueue_practice_expansion(learning_object_ids=lo_ids, reason=reason, source_refs=refs,
+                                               topic_keys=topic_keys, start=False)
+    return enqueue
+
+
+def claim(repo, jobs, section_id, topics, *, extraction_id=EXTRACTION, source_id=SOURCE, refs=(), from_stamp=None,
+          start=True, enqueue=None):
+    """A finished section's topics, claimed as a finish claims them: one transaction moves the section's stamp,
+    claims each topic nobody owns and queues their work; the work starts after it commits (``start=False``: the
+    process went away before its worker started). ``from_stamp`` is the stamp read (None: a first finish)."""
+
+    from learnloop.reader.section_generation import claim_section_topics
+
+    if from_stamp is None:
+        repo.upsert_reader_section_progress(extraction_id=extraction_id, section_id=section_id, spans_seen=1,
+                                            span_count=1, completed=True, clock=FrozenClock(NOW))
+    batch = claim_section_topics(repo, extraction_id=extraction_id, section_id=section_id, source_id=source_id,
+                                 lo_ids=list(topics), refs=[dict(ref) for ref in refs], from_stamp=from_stamp,
+                                 enqueue=enqueue or queue(jobs))
+    if start:
+        jobs.run_queued_work()
+    return batch
+
+
+def work_rows(repo):
+    """Every topic-work row, in claim order, with its JSON read."""
+
+    with repo.connection() as connection:
+        rows = [dict(row) for row in connection.execute("SELECT * FROM reader_topic_question_work ORDER BY rowid")]
+    for row in rows:
+        for name in ("passage_ids_json", "source_refs_json", "proposal_ids_json", "model_settings_json"):
+            row[name.removesuffix("_json")] = json.loads(row.pop(name)) if row.get(name) is not None else None
+    return rows
+
+
+def stamp(repo, section_id, extraction_id=EXTRACTION):
+    return (repo.reader_section_progress_row(extraction_id, section_id) or {}).get("generation_batch_id")
+
+
+def topic_ref(topic, spans, extraction_id=EXTRACTION, section_id="section_one"):
+    """A reader citation bundle assigned to one topic, as ``source_refs_for_section`` makes them."""
+
+    return {"ref_type": "canonical_source", "ref_id": f"reader_citation:{extraction_id}:{topic}:{spans[0]}-{spans[-1]}",
+            "path": None, "locator": f"span:{extraction_id}/{spans[0]}", "quote": " ".join(spans),
+            "source_id": SOURCE, "revision_id": "rev_topics", "extraction_id": extraction_id, "span_ids": list(spans),
+            "section_id": section_id, "learning_object_ids": [topic]}
