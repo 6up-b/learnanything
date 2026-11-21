@@ -434,7 +434,7 @@ Found by `tests/test_probe_router_authority.py`, which pins today's behaviour at
 
 ## From the teacher v2 reviews (2026-11-20)
 
-Found by three independent reviews of the teacher v2 design (spec `docs/specs/spec_teacher_v2.md` §7.4, on the teacher v2 docs branch). The fix is a router successor in seven steps; steps 1 to 4 change nothing served or stored ([algorithm-check-credit-steps-1-4.md](algorithm-check-credit-steps-1-4.md)).
+Found by three independent reviews of the teacher v2 design (spec `docs/specs/spec_teacher_v2.md` §7.4; evidence in `docs/reviews/teacher-v2-arc-reviews-2026-11-20.md`). The fix is a router successor in seven steps; steps 1 to 4 change nothing served or stored ([algorithm-check-credit-steps-1-4.md](algorithm-check-credit-steps-1-4.md)).
 
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|

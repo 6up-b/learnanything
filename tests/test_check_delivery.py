@@ -1,5 +1,5 @@
 """The as-of classifier of planned delayed-check receipts and the one-trial seed's posterior
-(``learnloop.check_delivery``): synthetic rows for every class, read through a read-only attachment that
+(``learnloop.teacher.check_delivery``): synthetic rows for every class, read through a read-only attachment that
 never settles anything.
 
 Each case is one planned entry of a closed lesson's receipt with its own item and commitment; the decision times are
@@ -21,7 +21,7 @@ from learnloop.clock import FrozenClock
 from learnloop.curriculum import commitments as C
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop import check_delivery as CD
+from learnloop.teacher import check_delivery as CD
 
 CLOSE = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
 DUE = CLOSE + timedelta(days=3)

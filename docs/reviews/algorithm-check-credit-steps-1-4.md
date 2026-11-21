@@ -2,28 +2,32 @@
 
 Branch `algo/check-credit`, on main `9658a9ce2f`. Steps 1 to 4 of the seven-step fix of ledger row TV2-1
 ([refactor-bug-ledger.md](refactor-bug-ledger.md#from-the-teacher-v2-reviews-2026-11-20)); the spec is
-`docs/specs/spec_teacher_v2.md` §7.4 on the teacher v2 docs branch (not on main yet). Nothing served or stored changes:
+`docs/specs/spec_teacher_v2.md` §7.4, with the reviewers' evidence in `docs/reviews/teacher-v2-arc-reviews-2026-11-20.md`. Nothing served or stored changes:
 no algorithm tag, no upgrade row, no migration, no config key, no kill switch, no prompt. The activation at `mvp-0.62`
 (step 6), the stored-row report (step 5) and the record with the comparison on copies of the owner's vaults (step 7)
 are later steps.
 
 ## Commits
 
-| Step | What |
-|---|---|
-| 1 | `tests/test_check_credit_characterization.py`, `tests/check_credit_helpers.py`; ledger row TV2-1 |
-| 2 | `src/learnloop/check_delivery.py`, `tests/test_check_delivery.py` |
-| 3 | `delayed_checks.check_available`, `teacher/te2.delayed_check_words` through it, `src/learnloop/daily_plan/check_inputs.py`, `tests/test_check_inputs.py` |
-| 4 | `types.CheckCommitment` and `Action.checks`; `rollouts` (a refusal, a hook, two extractions); `src/learnloop/router_objective/check_value.py`; `tests/test_check_value.py`; step 1's expected failures that the new path satisfies turned into both-paths tests; this record |
+| Commit | Step | What |
+|---|---|---|
+| `a1a8433609` | 1 | `tests/test_check_credit_characterization.py`, `tests/check_credit_helpers.py`; ledger row TV2-1 |
+| `b7030a184b` | 2 | the receipt reader (then at `src/learnloop/check_delivery.py`), `tests/test_check_delivery.py` |
+| `d068ec449f` | 3 | `delayed_checks.check_available`, `teacher/te2.delayed_check_words` through it, `src/learnloop/daily_plan/check_inputs.py`, `tests/test_check_inputs.py` |
+| `b32f4222d3` | 4 | `types.CheckCommitment` and `Action.checks`; `rollouts` (a refusal, a hook, two extractions); `src/learnloop/router_objective/check_value.py`; `tests/test_check_value.py`; step 1's expected failures that the new path satisfies turned into both-paths tests; this record |
+| (follow-up) | 2 | the reader moved to `src/learnloop/teacher/check_delivery.py` (judgment call 1); the record's results |
 
 ## Read first: the judgment calls
 
-1. **The receipt reader is `learnloop/check_delivery.py`, not `router_objective/commitment_delivery.py`** (the design's
-   example). It reads the intent resolver (`scheduling.intent`), and `router_objective` importing `scheduling` closes a
-   package cycle the frozen-cycles import contract refuses (`lint-imports` failed with it there). A top-level leaf beside
-   `delayed_checks` has no incoming edge. The offer adapters are in `daily_plan/check_inputs.py` for the same reason the
-   other way round: they need the plan's estimator, and a top-level module importing `daily_plan` would cycle once the
-   plan imports it at the activation.
+1. **The receipt reader is `learnloop/teacher/check_delivery.py`, not `router_objective/commitment_delivery.py`** (the
+   design's example). In `router_objective` it broke the import contract `frozen-cross-package-cycles` ("Existing
+   deferred cross-package cycles are frozen": `router_objective -> scheduling` closes a cycle), because it reads the
+   intent resolver (`scheduling.intent`). Step 2 committed it as a root module, `learnloop/check_delivery.py`; the
+   structure ratchet `first_level_root_modules` (and `first_level_root_modules_not_upgrade`) then rose from 36 to 37,
+   which `tests/test_structure_ratchets.py` refused at step 4's gate, so the follow-up commit moved it into `teacher`
+   rather than raise the golden. The teacher package already reads `scheduling`,
+   `serve_eligibility` and the attempt availability rule, and the receipts are its own. The offer adapters are in
+   `daily_plan/check_inputs.py`: they need the plan's estimator, which the plan alone may import.
 2. **The new path is a subclass of the rollouts' model, reached only through `check_value.evaluate`.** The rollouts
    gained no option that selects it. Four edits to `rollouts.py`, each inert for every existing input: `run_tail` takes
    `on_return` (None everywhere but the new path; with None the session starts at minute 0 of the day with the same
@@ -90,7 +94,7 @@ The four intended behaviours were strict expected failures (`raises=AssertionErr
 each failing on its own number: 0.6 against 0.5; a cost difference of 5.6e-17 against 0.041125; equal arrays; 0.6 against
 0.5 for the built offer. Step 4 turned the first three into both-paths tests; the fourth stays (below).
 
-## Step 2: the receipt statistics (`learnloop/check_delivery.py`)
+## Step 2: the receipt statistics (`learnloop/teacher/check_delivery.py`)
 
 `classify(repository, *, as_of, config)` reads every planned entry of every lesson receipt recorded by `as_of`; one
 trial per entry, keyed `lesson:<id>:<purpose>:<node or "lesson">` (with the entry's ordinal when two share a key).
@@ -198,10 +202,11 @@ refuses.
 
 ## Pins and goldens
 
-Unchanged at every commit: `tests/test_identity_pins.py` (345 passed after each of the four commits), the journey golden
-(`tests/test_diagnosis_journey_golden.py`), the effective-defaults golden, the CLI help snapshot, the kill-switch list,
-the structure ratchets (no golden rewritten). No pinned draw moved: every existing router-objective test passes with its
-seeds unchanged, and the new path's streams have names of their own.
+Unchanged: `tests/test_identity_pins.py` passed after every commit (345 passed after each of steps 1 to 3; in the gate
+run after step 4 and after the follow-up), the journey golden (`tests/test_diagnosis_journey_golden.py`), the
+effective-defaults golden, the CLI help snapshot, the kill-switch list and the structure ratchets; no golden or pin file
+was rewritten. No pinned draw moved: every existing router-objective test passes with its seeds unchanged, and the new
+path's streams have names of their own.
 
 ## What ran
 
@@ -209,16 +214,18 @@ Through the scratch wrapper, `-n 1`, in a 3G scope, one command at a time:
 
 | Command | Result |
 |---|---|
-| step 1, 2, 3, 4 test files | 9 (8 passed, 1 xfailed), 9, 8, 23 passed |
-| the brief's name filter (38 files: router_objective, rollout, lesson_offer, objective_inputs, delayed_check, te2, te3, daily_plan, estimates), `-m "not arc_close"` | 317 passed, 3 skipped, 1 xfailed |
-| `scripts/affected_tests.py` listed 213 files; the router and check files among them beyond the name filter (46: `test_ro*`, `test_rospeed*`, `diagnostic_probe`, `action_kinds`, `probe_router*`, `instruct_handoff_ih0/1`, `data_capture_a6`, the new files), two chunks | 315 passed, 1 xfailed; see the report |
-| `tests/test_identity_pins.py` after each commit | 345 passed |
-
-The remaining rows (goldens, ratchets, layout, architecture, gate partition, ruff, lint-imports) are in the report the
-orchestrator received.
+| step files during the steps | step 1: 5 passed, 4 xfailed; step 2: 9 passed; step 3 with `test_teacher_te2_lessons.py`: 17 passed; step 4: 23 passed |
+| `tests/test_identity_pins.py` after steps 1, 2, 3 | 345 passed each time |
+| the brief's name filter (38 files: router_objective, rollout, lesson_offer, objective_inputs, delayed_check, te2, te3, daily_plan, estimates), `-m "not arc_close"`, at step 4's tree | 317 passed, 3 skipped, 1 xfailed |
+| `scripts/affected_tests.py --files` (the seven changed source files) listed 213 files; beyond the name filter, the 46 router and check files among them (`test_ro*`, `test_rospeed*`, `diagnostic_probe_value`, `action_kinds_complete`, `probe_router*`, `instruct_handoff_ih0/1`, `data_capture_a6_delayed_pick`, the four new files), two chunks, `-m "not arc_close"` | 315 passed, 1 xfailed; 352 passed |
+| after the follow-up: the four new test files and `test_teacher_te2_lessons.py` | 57 passed, 1 xfailed |
+| after the follow-up: identity pins, journey golden, effective-defaults golden, CLI help snapshot, kill switches, SQLite file copies, structure ratchets | 407 passed (at step 4's commit the ratchet failed on the root module; see judgment call 1) |
+| `tests/test_test_layout.py` alone; `tests/test_architecture.py` alone | 3 passed; 18 passed |
+| `ruff check`; `lint-imports --no-cache`; `scripts/check_gate_partition.py` | All checks passed; 43 kept, 0 broken; 32068 collected: landing 32003 + arc_close 65 |
 
 ## Not verified
 
+- The wide chunks were run at step 4's tree, before the follow-up moved the reader (nothing they import changed).
 - The 167 affected files outside the name filters (the change reaches them through `types`, `rollouts`, `delayed_checks`
   and `te2` imports; their behaviour is covered by the byte-identity tests and the pins, not by running them).
 - Any owner vault or copy: the census (24 missing entries, 19 retention and 5 transfer) is the reviews' number, not
