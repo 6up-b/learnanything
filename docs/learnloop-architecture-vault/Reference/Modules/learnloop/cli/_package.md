@@ -42,6 +42,7 @@ source_paths:
   - "src/learnloop/cli/inbox.py"
   - "src/learnloop/cli/ingest_batches.py"
   - "src/learnloop/cli/mcp.py"
+  - "src/learnloop/cli/notebook.py"
   - "src/learnloop/cli/pf.py"
   - "src/learnloop/cli/placement.py"
   - "src/learnloop/cli/plan.py"
@@ -104,7 +105,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] | [[Reference/Modules/learnloop/cli/ad#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] | [[Reference/Modules/learnloop/cli/ai#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] | [[Reference/Modules/learnloop/cli/ai_compare#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 165 |
+| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 166 |
 | [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]] | [[Reference/Modules/learnloop/cli/calibration#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/card|learnloop.cli.card]] | [[Reference/Modules/learnloop/cli/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/claims|learnloop.cli.claims]] | [[Reference/Modules/learnloop/cli/claims#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -137,6 +138,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/inbox|learnloop.cli.inbox]] | [[Reference/Modules/learnloop/cli/inbox#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ingest_batches|learnloop.cli.ingest_batches]] | [[Reference/Modules/learnloop/cli/ingest_batches#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/mcp|learnloop.cli.mcp]] | [[Reference/Modules/learnloop/cli/mcp#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/cli/notebook|learnloop.cli.notebook]] | [[Reference/Modules/learnloop/cli/notebook#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/pf|learnloop.cli.pf]] | [[Reference/Modules/learnloop/cli/pf#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]] | [[Reference/Modules/learnloop/cli/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]] | [[Reference/Modules/learnloop/cli/plan#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -145,7 +147,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/project|learnloop.cli.project]] | [[Reference/Modules/learnloop/cli/project#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/cli/questions|learnloop.cli.questions]] | [[Reference/Modules/learnloop/cli/questions#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] | [[Reference/Modules/learnloop/cli/reader#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] | [[Reference/Modules/learnloop/cli/receipts#^module-purpose|purpose]] | `ACTIVE` | 9 | 0 |
+| [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] | [[Reference/Modules/learnloop/cli/receipts#^module-purpose|purpose]] | `ACTIVE` | 9 | 1 |
 | [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]] | [[Reference/Modules/learnloop/cli/recurrence#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]] | [[Reference/Modules/learnloop/cli/registry#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] | [[Reference/Modules/learnloop/cli/render#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -213,6 +215,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 1 static module edge
+- [[Reference/Modules/learnloop/notebook_authoring/_package|learnloop.notebook_authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 
