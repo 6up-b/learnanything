@@ -399,7 +399,9 @@ def live_decider_check(loaded, *, task: str = "llm_probability_decider", http=No
 
     name, profile, _settings, questions, _tokens, estimate = _readiness_request(loaded, task)
     load_machine_environment(loaded.root)
-    client = DeciderProviderClient(name, profile, http=http)
+    from learnloop.ai import model_use
+
+    client = model_use.bind(DeciderProviderClient(name, profile, http=http), loaded.root)
     caps = READINESS_CAPS
     budget = SpendBudget(caps)
     repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)

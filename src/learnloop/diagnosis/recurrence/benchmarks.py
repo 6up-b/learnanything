@@ -253,9 +253,11 @@ class BenchContext:
                         "Benchmarks embed through the vault's embedding route: set embedding.enabled = true and "
                         "ai.routing.embedding to an openai_embedding profile on the copy you benchmark"
                     )
-                self._clients[key] = OpenAIEmbeddingProviderClient(
+                from learnloop.ai import model_use
+
+                self._clients[key] = model_use.bind(OpenAIEmbeddingProviderClient(
                     route, profile.model_copy(update={"model": model, "dimensions": dims})
-                )
+                ), self.vault.root)
         return self._clients[key]
 
     def vectors(self, model: str, texts: Sequence[str], *, dims: int, task_prefix: str = "similarity") -> dict[str, np.ndarray]:

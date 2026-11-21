@@ -20,6 +20,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
+from learnloop.ai import model_use
 from learnloop.ai.errors import AIProviderUnavailable, VideoGenerationFailed, VideoGenerationTimeout
 from learnloop.ai.providers.openrouter import OPENROUTER_API_KEY_ENV, OPENROUTER_BASE_URL
 from learnloop.ai.transport import VIDEO_GENERATION
@@ -182,6 +183,8 @@ class OpenRouterVideoClient:
     # -- protocol ---------------------------------------------------------------
 
     def _request(self, method: str, url: str, payload: Any = None, *, timeout: float) -> tuple[int, Any]:
+        # The video API is not a structured call (no model_call), so it asks for the one OK itself.
+        model_use.admit(self)
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
         status, _headers, raw = self._http(method, url, self._headers, body, timeout)
         try:

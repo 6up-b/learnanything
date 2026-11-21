@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, TypeAlias
 
+from learnloop.ai import model_use
 from learnloop.ai.agent_harness import refuse_agent_harness
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import OperationClient
@@ -47,38 +48,42 @@ def make_ai_provider_client_from_profile(
 ) -> AIProviderClient:
     """Build one client for ``profile``: the single AI client factory.
 
+    Every client it builds carries the live lookup of the learner's one OK for
+    the library at ``vault_root`` (:func:`learnloop.ai.model_use.bind`): none of
+    its requests is sent before that OK, whichever thread or job sends it.
+
     A Codex agent-harness profile (``codex_sdk``, legacy ``http``) an old
     config may still name is refused here with the clear message, not
     reported as an unsupported type.
     """
 
-    del vault_root  # only the removed Codex transport used it; kept for the callers' signature
     refuse_agent_harness(provider_name, profile)
     provider_type = profile.type.lower()
     if provider_type == "openai_embedding":
         from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
 
-        return OpenAIEmbeddingProviderClient(provider_name, profile)
+        return model_use.bind(OpenAIEmbeddingProviderClient(provider_name, profile), vault_root)
     if provider_type == "voyage_contextual_embedding":
         from learnloop.ai.providers.voyage_contextual import VoyageContextualClient
 
-        return VoyageContextualClient(provider_name, profile)
+        return model_use.bind(VoyageContextualClient(provider_name, profile), vault_root)
     if provider_type == "openai_chat":
         from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 
-        return OpenAIChatProviderClient(provider_name, profile)
+        return model_use.bind(OpenAIChatProviderClient(provider_name, profile), vault_root)
     if provider_type == "openrouter":
         from learnloop.ai.providers.openrouter import OpenRouterProviderClient
 
-        return OpenRouterProviderClient(provider_name, profile)
+        return model_use.bind(OpenRouterProviderClient(provider_name, profile), vault_root)
     if provider_type == "decider":
         from learnloop.ai.providers.decider import DeciderProviderClient
 
-        return DeciderProviderClient(provider_name, profile)
+        return model_use.bind(DeciderProviderClient(provider_name, profile), vault_root)
     if provider_type == "chatgpt_plan":
         from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
 
-        return ChatGPTPlanProviderClient(provider_name, profile, idle_timeout_seconds=idle_timeout_seconds)
+        client = ChatGPTPlanProviderClient(provider_name, profile, idle_timeout_seconds=idle_timeout_seconds)
+        return model_use.bind(client, vault_root)
     raise AIProviderUnavailable(f"Unsupported AI provider type {profile.type!r} for {provider_name!r}")
 
 
@@ -97,7 +102,6 @@ def make_video_generation_client(
     new profile type is introduced, so runtime readiness checks already cover
     the key."""
 
-    del vault_root  # no local resources; kept for signature parity with the chat factory
     profile = config.ai.providers.get(provider_name)
     if profile is None:
         raise AIProviderUnavailable(f"video provider {provider_name!r} is not configured")
@@ -107,4 +111,4 @@ def make_video_generation_client(
         )
     from learnloop.ai.providers.openrouter_video import OpenRouterVideoClient
 
-    return OpenRouterVideoClient(provider_name, profile, http=http)
+    return model_use.bind(OpenRouterVideoClient(provider_name, profile, http=http), vault_root)

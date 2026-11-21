@@ -100,6 +100,7 @@ markers = [
   "arc_close: a pre-registered statistical simulation or a long journey whose size is the point; the landing gate runs -m 'not arc_close', the arc-close gate runs -m arc_close, and plain pytest runs both",
   "fresh_connections: runs production's connection opens and fresh-schema build in the fast lane instead of the lane's shortcuts (tests/connection_reuse.py); for a test about connection identity or open-time behaviour",
   "owner_vaults: reads backup-API copies of the owner's vaults that S0 removed from fixtures/; skipped unless LEARNLOOP_OWNER_VAULTS names their directory (tests/owner_vaults.py)",
+  "no_ai_ok: the machine has no OK to use AI unless the test writes one; by default every test runs as a machine where the learner already said OK (tests/ai_ok_world.py)",
   "real_draws: the router's seeded draws as production makes them (seeds on fresh ids and the date, refinement while the clock allows) instead of the default pinned by the test's node id with one batch of draws (tests/pinned_draws.py); for a test whose subject is the draw or a seed function",
   "gpu_smoke:trains a tiny random-initialised query student on the GPU under the GPU lock and the memory floors; skipped unless LEARNLOOP_GPU_SMOKE=1 (tests/test_query_student_gpu.py)",
   "ux_walk_browser: starts a UX walk (bridge, sidecar, headless Chromium) and drives it; skipped unless LEARNLOOP_UX_WALK_BROWSER=1, so neither gate starts a browser (tests/test_ux_walk_harness.py)",

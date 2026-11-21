@@ -18,6 +18,7 @@ import logging
 from typing import Any, Callable, Generic, Protocol, TypeVar
 from uuid import uuid4
 
+from learnloop.ai import model_use
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated
 from learnloop.provenance import current_trace
 
@@ -509,8 +510,12 @@ def model_call(
 ):
     """One model call: a receipt for the observer and, unless ``wrapper`` (an
     operation around the physical requests a provider makes), admission
-    through the context's request gate before anything is sent."""
+    through the context's request gate before anything is sent.
 
+    First of all, the learner's one OK to use AI (:mod:`learnloop.ai.model_use`):
+    without it nothing is sent, no receipt opens and no gate is charged."""
+
+    model_use.admit(client)
     gate = None if wrapper else _request_gate.get()
     if gate is None:
         with _observed_call(client, purpose=purpose, prompt=prompt, schema=schema, budget=budget) as metadata:
