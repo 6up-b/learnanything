@@ -100,7 +100,11 @@ export type TodayCause =
   | { kind: "needs_look"; title: string }
   /** A book is being got ready for questions; `progress` and `minutes` where the build says them. `waiting`: a section
    *  the learner finished waits for it (`part`: that section, or null for what they read of the book). */
-  | { kind: "on_the_way"; title: string; card: SourceLibraryCard | null; progress: { done: number; total: number } | null; minutes: number | null; waiting?: { part: string | null } | null; firstBuild?: boolean }
+  | { kind: "on_the_way"; title: string; card: SourceLibraryCard | null; progress: { done: number; total: number } | null; minutes: number | null; waiting?: { part: string | null } | null; firstBuild?: boolean;
+      /** Its getting ready waits its turn behind this book's work. */
+      behind?: string | null;
+      /** Books whose getting ready waits its turn behind this one's. */
+      queued?: readonly string[] }
   /** The questions of a section the learner finished are being written; `progress`: how many of its topics are done,
    *  where the fact says it for that section. `failedTopics`: some of its topics' questions could not be written while
    *  the rest still are; said beside the writing, with no Try again (a resume requeues nothing while the job runs). */
@@ -260,7 +264,7 @@ export function todayCause(input: {
     // what comes next (more being written, or none up today), below.
     if (listed.length === 0 || listed.some((id) => !notNow.has(id))) return { kind: "list_has_more" };
   }
-  const found: Array<{ rank: Rank; title: string; card: SourceLibraryCard | null; batchId: string | null }> = [];
+  const found: Array<{ rank: Rank; title: string; card: SourceLibraryCard | null; batchId: string | null; line?: SourceStatusLineDto | null }> = [];
   for (const card of readable) {
     const rank = rankOf(shownLine(card, input.ai), input.ai);
     if (rank) found.push({ rank, title: readableTitle(card.title), card, batchId: null });
@@ -275,7 +279,7 @@ export function todayCause(input: {
     const rank = rankOf(entry.statusLine, input.ai);
     // A link still being fetched has no card to open or act on: its OK goes
     // through the Library (an upload's OK), its failure retries by its batch.
-    if (rank) found.push({ rank: rank === "waiting_ok" || rank === "needs_ai" || rank === "no_topics" ? "needs_look" : rank, title: entry.title, card: null, batchId: entry.batchId });
+    if (rank) found.push({ rank: rank === "waiting_ok" || rank === "needs_ai" || rank === "no_topics" ? "needs_look" : rank, title: entry.title, card: null, batchId: entry.batchId, line: entry.statusLine });
   }
   for (const rank of ORDER) {
     const hits = found.filter((entry) => entry.rank === rank);
@@ -318,7 +322,11 @@ export function todayCause(input: {
         const copied = questions?.progress && line?.progress
           && questions.progress.done === line.progress.done && questions.progress.total === line.progress.total;
         const firstBuild = Boolean(line?.progress) && !copied && (line?.minutes ?? null) === null;
-        return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting, firstBuild };
+        // One book is got ready at a time: one queued behind another's work says which, and the book at work names those behind it.
+        const behind = (first.line ?? line)?.waitingBehind ?? null;
+        const queued = hits.slice(1).filter((hit) => (hit.line ?? hit.card?.statusLine)?.waitingBehind === first.title).map((hit) => hit.title);
+        return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting, firstBuild,
+          ...(behind ? { behind } : {}), ...(queued.length ? { queued } : {}) };
       }
       case "section_writing": {
         // Where the list is not read (the phone), questions already written are said with the writing.
@@ -403,6 +411,9 @@ function minutesWords(minutes: number): string {
   return minutes < 1 ? "usually under a minute" : `usually about ${Math.round(minutes)} min`;
 }
 
+/** Why a book's getting ready waits behind another's. */
+export const ONE_BOOK_AT_A_TIME = "LearnLoop gets one book ready at a time.";
+
 function topicsDone(progress: Progress): string {
   return `${progress.done} of ${progress.total} ${progress.total === 1 ? "topic" : "topics"} done`;
 }
@@ -412,13 +423,17 @@ function topicsDone(progress: Progress): string {
 export function causeWait(cause: TodayCause): { line: string; after: string; later: string | null } | null {
   switch (cause.kind) {
     case "on_the_way": {
+      if (cause.behind) {
+        return { line: `“${cause.title}” is waiting its turn behind “${cause.behind}”`, after: `${ONE_BOOK_AT_A_TIME} Keep reading meanwhile.`, later: null };
+      }
       const amount = cause.progress && cause.progress.total > 0 ? ` · ${cause.progress.done} of ${cause.progress.total} steps done` : "";
       const usually = cause.minutes !== null ? ` · ${minutesWords(cause.minutes)}` : "";
+      const queued = cause.queued?.length ? `${cause.queued.map((title) => `“${title}”`).join(" and ")} ${cause.queued.length === 1 ? "is waiting its" : "are waiting their"} turn behind it. ` : "";
       return {
         line: `Getting “${cause.title}” ready for questions${amount}${usually}`,
-        after: cause.waiting
+        after: queued + (cause.waiting
           ? `${waitingWords(cause.title, cause.waiting.part)} Keep reading meanwhile.`
-          : "Questions come as you finish sections. Keep reading meanwhile.",
+          : "Questions come as you finish sections. Keep reading meanwhile."),
         later: cause.firstBuild ? WAITING_COPY.firstBuildLater : null
       };
     }

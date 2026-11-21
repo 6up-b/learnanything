@@ -2706,6 +2706,34 @@ def _not_askable_now(repo, item_ids: Sequence[str], now_iso: str) -> list[str]:
     return [item_id for item_id in item_ids if item_id in waiting or item_id in kept]
 
 
+def _waiting_turn_line(repo, import_job: Mapping[str, Any]) -> dict[str, Any] | None:
+    """An import still queued while another book's work runs: the queue takes
+    one job at a time, so it waits its turn (seconds of its own work behind
+    minutes of another's), and "Getting this PDF ready" said nothing of why.
+    The line names that book and carries its title (``waiting_behind``) for
+    Today. ``None`` when the import is not queued, nothing else runs, or the
+    running work's book has no title to name."""
+
+    if import_job.get("status") != "queued":
+        return None
+    for job in repo.active_ingest_jobs():
+        if job["status"] != "running" or job["batch_id"] == import_job["batch_id"]:
+            continue
+        payload = job.get("payload") or {}
+        source_id = _job_source_id(job) or (payload.get("auto_build") or {}).get("source_id")
+        artifact = repo.get_source_artifact(str(source_id)) if source_id else None
+        if artifact is None:
+            continue
+        revision_id = artifact.get("current_revision_id")
+        title = learner_title(artifact, repo.get_source_revision(revision_id) if revision_id else None)
+        if not title:
+            continue
+        line = _line(f"Waiting its turn behind “{title}”", "working")
+        line["waiting_behind"] = title
+        return line
+    return None
+
+
 def _budget_used_line(details: str | None = None) -> dict[str, Any]:
     return _line("Paused — today's AI budget is used", "quiet", ("open_settings", "Raise it"),
                  details or "Or wait until tomorrow.")
@@ -2746,7 +2774,7 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
         category = _category_of((import_job.get("payload") or {}).get("source"))
         if import_job["status"] in {"failed", "blocked", "cancelled"}:
             return _import_failure_line(import_job, category, config=vault.config if vault else None)
-        return _line(f"Getting this {kind_noun(category)} ready", "working")
+        return _waiting_turn_line(repo, import_job) or _line(f"Getting this {kind_noun(category)} ready", "working")
 
     artifact = repo.get_source_artifact(source_id)
     if artifact is None:
@@ -2791,7 +2819,7 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
             return None
         if latest_import["status"] in {"failed", "blocked", "cancelled"}:
             return _import_failure_line(latest_import, category, config=vault.config if vault else None)
-        return _line(f"Getting this {noun} ready", "working")
+        return _waiting_turn_line(repo, latest_import) or _line(f"Getting this {noun} ready", "working")
 
     waiting = _import_waiting_for_upload_ok(repo, source_id)
     if waiting is not None:

@@ -266,7 +266,14 @@ const ROUND_3B_SENTENCES = [
   // UX-51: the selection box's words.
   INTENT_COPY.whereThisGoes, INTENT_COPY.findsOnly("highlight"), INTENT_COPY.keptAsNote,
   // UX-56: Ask's source chips.
-  ...["Wikipedia Elevator Paradox · modeling-the-elevator-problem", "Some Notes · root", "Wikipedia Elevator Paradox · (intro)"].map(citationWords)
+  ...["Wikipedia Elevator Paradox · modeling-the-elevator-problem", "Some Notes · root", "Wikipedia Elevator Paradox · (intro)"].map(citationWords),
+  // UX-54: a book waiting its turn (the card's line is the sidecar's; Today's sentences).
+  "Waiting its turn behind “Probability”",
+  ...([
+    { kind: "on_the_way", title: "Past Exam", card: BOOK, progress: null, minutes: null, behind: "Probability" },
+    { kind: "on_the_way", title: "Probability", card: BOOK, progress: { done: 1, total: 2 }, minutes: null, queued: ["Past Exam"] },
+    { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, queued: ["Past Exam", "Notes"] }
+  ] as TodayCause[]).map(causeSentence)
 ];
 
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).

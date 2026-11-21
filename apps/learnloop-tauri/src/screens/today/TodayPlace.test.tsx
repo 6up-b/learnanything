@@ -2397,3 +2397,41 @@ describe("Broken controls, third round: Today offering questions says no 'nothin
     expect(enterMarked().map((button) => button.textContent)).toEqual(["Begin ↵"]);
   });
 });
+
+describe("Broken controls, third round: a book whose getting ready waits its turn behind another's says so (UX-54)", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const waiting: SourceStatusLineDto = {
+    text: "Waiting its turn behind “Symmetric Matrices and Variance”", tone: "working", action: null, details: null,
+    waitingBehind: "Symmetric Matrices and Variance"
+  };
+
+  it("the waiting book's line names the book it waits behind, and says one book is got ready at a time", async () => {
+    const exam = libraryCard(waiting, { sourceId: "src_exam", title: "Past Exam", kindNoun: "PDF", acquisitionKind: "pdf" });
+    emptyToday([exam]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("“Past Exam” is waiting its turn behind “Symmetric Matrices and Variance”")).toBeTruthy();
+    expect(cause.textContent).toContain("LearnLoop gets one book ready at a time. Keep reading meanwhile.");
+    expect(cause.textContent).not.toContain("Getting “Past Exam” ready");
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("the book being got ready first: its own line, and the book waiting behind it named after it", async () => {
+    const chapter = libraryCard(LINE.writing);
+    const exam = libraryCard(waiting, { sourceId: "src_exam", title: "Past Exam", kindNoun: "PDF", acquisitionKind: "pdf" });
+    emptyToday([chapter, exam]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Getting “Symmetric Matrices and Variance” ready for questions")).toBeTruthy();
+    expect(cause.textContent).toContain("“Past Exam” is waiting its turn behind it.");
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("no book waiting: the line is as it was", async () => {
+    emptyToday([libraryCard(LINE.writing)]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Getting “Symmetric Matrices and Variance” ready for questions")).toBeTruthy();
+    expect(cause.textContent).not.toMatch(/its turn/);
+  });
+});
