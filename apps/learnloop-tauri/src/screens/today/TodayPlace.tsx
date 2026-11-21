@@ -27,6 +27,7 @@ import type {
   AiConnectionDto,
   DailyPlanDto,
   GoalDto,
+  NextPracticeDto,
   OpenLessonDto,
   PlanLessonOfferStepDto,
   PlanReadingDto,
@@ -58,6 +59,7 @@ import { QuestionInProgress } from "./QuestionInProgress";
 import type { LessonEntry } from "../LessonScreen";
 import { todayQueueInput } from "../../app/autoAdvance";
 import { aboutMinutes, planStepAction, questionInProgressLine, useDailyPlan, waitingLine } from "../../app/dailyPlan";
+import { nextPracticeLines, useLatestNextPractice, useNextDayRefresh } from "../../app/nextPractice";
 import {
   THREADS_SHOWN,
   dayPhrase,
@@ -98,6 +100,8 @@ import {
 
 export interface TodayPlaceProps {
   session: SessionSnapshot | null;
+  /** The session's finish card is up: it says what comes next from the same summary, so Today does not repeat it. */
+  finishCardShown?: boolean;
   /** The streak as of vault load; the plan's fresher copy wins. */
   streak: StreakSummary | null;
   /** Begin started a session (and maybe served its first step). */
@@ -355,6 +359,7 @@ function CapturesLine({ subjects, onAsk }: { subjects: { id: string; title: stri
 function PlainList({
   queue,
   plan,
+  next,
   busy,
   failed,
   onRetry,
@@ -363,6 +368,8 @@ function PlainList({
 }: {
   queue: QueueSnapshot | null;
   plan: DailyPlanDto["plan"] | null;
+  /** The plan's dated summary: a waiting row says its day from it. */
+  next: NextPracticeDto | null;
   busy: boolean;
   /** Fix round 1 (F6): the list's read failed (with `queue`, its refresh). */
   failed: boolean;
@@ -452,7 +459,7 @@ function PlainList({
                 {item.learningObjectTitle}
               </button>
               {minutes !== undefined ? <span style={{ color: COLOR.textFaint, fontSize: 12 }}>{aboutMinutes(minutes)}</span> : null}
-              <span style={{ color: COLOR.textFaint, fontSize: 12 }}>{fullListWhy(item)}</span>
+              <span style={{ color: COLOR.textFaint, fontSize: 12 }}>{fullListWhy(item, Date.now(), next)}</span>
               {cold ? (
                 <button type="button" style={dimLink} aria-expanded={why === item.practiceItemId} onClick={() => setWhy((open) => (open === item.practiceItemId ? null : item.practiceItemId))}>
                   why?
@@ -469,6 +476,7 @@ function PlainList({
 
 export function TodayPlace({
   session,
+  finishCardShown = false,
   streak: snapshotStreak,
   onBeginSession,
   onStartSession,
@@ -631,6 +639,10 @@ export function TodayPlace({
     }, 1500);
     return () => window.clearInterval(timer);
   }, [deciding, refetchPlan]);
+  // The first evening, step 7: what comes next, dated, from the plan's read (a step's reply carries none: the last read
+  // stands until the next). Read again when the plan's next day starts, so "tomorrow" is never yesterday's.
+  const nextPractice = useLatestNextPractice(data?.nextPractice);
+  useNextDayRefresh(planOn ? nextPractice?.calendar.nextDayStartsAt : null, () => void refetchPlan().catch(() => undefined));
   const waitingUntil = plan?.waiting?.until ?? null;
   useEffect(() => {
     if (!waitingUntil) return;
@@ -989,6 +1001,11 @@ export function TodayPlace({
 
   const streak = data?.streak ?? snapshotStreak;
   const streakText = streakLine(streak);
+  // Said once the day's plan is done or holds nothing (while it holds questions, the plan is what comes next), never
+  // under the finish card that says the same; a cause line about a book's questions says what is being written.
+  const nextLines = planOn && data && !list && !finishCardShown && (done || emptyDay)
+    ? nextPracticeLines(nextPractice, { writing: cause === null })
+    : [];
 
   // ── States (§7.1) ───────────────────────────────────────────────────────
   let body: ReactNode;
@@ -1014,6 +1031,7 @@ export function TodayPlace({
       <PlainList
         queue={queue}
         plan={plan}
+        next={nextPractice}
         busy={busy}
         failed={queueQuery.error !== null}
         onRetry={retryQueue}
@@ -1194,6 +1212,11 @@ export function TodayPlace({
         ) : null}
         {!list && onStartLesson ? <OpenLessons lessonOpen={lessonOpen} onStartLesson={onStartLesson} /> : null}
         {body}
+        {nextLines.length ? (
+          <div data-testid="today-next" role="status" style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 13, color: COLOR.textDim }}>
+            {nextLines.map((line) => <div key={line}>{line}</div>)}
+          </div>
+        ) : null}
         {waitLine ? <Waiting line={waitLine} /> : null}
         {!list && primaryGoal ? (
           <GoalCard goal={primaryGoal} onPractise={() => void practiseGoal()} onTakeExam={onTakeExam} onGoalChanged={() => void goals.refetch().catch(() => undefined)} onNewGoal={() => setWizard(true)} onError={onError} />

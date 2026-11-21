@@ -2066,6 +2066,7 @@ export function App() {
     // place, the finite plan in minutes. Classic keeps both screens as they were.
     const todayPlace = () => (
       <TodayPlace
+        finishCardShown={finishSummary !== null}
         key={snapshot.vault?.root}
         session={session}
         streak={snapshot.streak}

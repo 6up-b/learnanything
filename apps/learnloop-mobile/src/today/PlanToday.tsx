@@ -14,6 +14,7 @@ import { Waiting } from "../components/Waiting";
 import { RouterLine, WhyLink } from "../practice/RouterLine";
 import { currentWhy, doneLine, planSentence, stepOf, waitingForDesktop } from "./planWords";
 import { causeSentence, todayCause } from "@desktop/app/todayCause";
+import { nextPracticeLines, useLatestNextPractice, useNextDayRefresh } from "@desktop/app/nextPractice";
 
 /** A day whose plan has nothing in it: no question and no reading planned (the desktop's `planWasEmpty`). */
 function emptyDay(data: PhonePlanDto | undefined): boolean {
@@ -64,6 +65,10 @@ export function PlanToday({
 }) {
   const sessionId = session?.sessionId ?? null;
   const query = useCachedQuery<PhonePlanDto>(planKey(sessionId), () => phone.getDailyPlan(sessionId), { tags: [TAG.queue] });
+  // A step's reply stored as the plan carries no summary: the last read's stands until Today is read again, which it
+  // is when the plan's next day starts.
+  const nextPractice = useLatestNextPractice(query.data?.nextPractice);
+  useNextDayRefresh(nextPractice?.calendar.nextDayStartsAt, () => void query.refetch().catch(() => undefined));
   const [minutesBusy, setMinutesBusy] = useState(false);
   // First questions arrive (P11): an empty day says why, in the desktop's words for the same states (the shared
   // `todayCause`), read from the books' lines as the Read tab gets them. Today's list is not read here, so a book's
@@ -116,11 +121,30 @@ export function PlanToday({
 
   const waiting = waitingForDesktop(data);
   const step = stepOf(data);
+  // The first evening, step 7: what comes next, dated. The finish says it as read at the session's end while that is
+  // still today in the plan's calendar; otherwise (no finish, or the day has turned) Today says it as read now, once
+  // the plan is done or holds nothing, leaving what is being written to a book's own line when one shows.
+  const snapshot = finished && !session && finished.nextPractice
+    && (!nextPractice || nextPractice.calendar.today === finished.nextPractice.calendar.today) ? finished.nextPractice : null;
+  const snapshotLines = nextPracticeLines(snapshot, { finish: true });
   const finishedLine = finished && !session ? (
-    <p className="banner" role="status">
-      Session finished: {finished.attemptsRecorded} {finished.attemptsRecorded === 1 ? "answer" : "answers"}.
-    </p>
+    <>
+      <p className="banner" role="status">
+        Session finished: {finished.attemptsRecorded} {finished.attemptsRecorded === 1 ? "answer" : "answers"}.
+      </p>
+      {snapshotLines.length ? (
+        <div className="dim" data-testid="session-next">
+          {snapshotLines.map((line) => <p key={line}>{line}</p>)}
+        </div>
+      ) : null}
+    </>
   ) : null;
+  const nextLines = (lines: string[]) => (!snapshot && lines.length ? (
+    <div className="dim" role="status" data-testid="today-next">
+      {lines.map((line) => <p key={line}>{line}</p>)}
+    </div>
+  ) : null);
+  const todayNext = nextLines(nextPracticeLines(nextPractice, { writing: cause === null }));
 
   async function chooseMinutes(minutes: number) {
     setMinutesBusy(true);
@@ -144,6 +168,7 @@ export function PlanToday({
         {finishedLine}
         {offersQuestions ? null : <p data-testid="today-sentence">{causeLine ? "Nothing planned for today." : doneLine(data)}</p>}
         {causeLine}
+        {todayNext}
         {waiting ? <p className="dim" role="status">{waiting}</p> : null}
         <div className="actions">
           {resumeEntry}
@@ -167,6 +192,7 @@ export function PlanToday({
         <WhyLink why={why.why} details={why.details} explainId={why.decisionId} />
       </p>
       {!held && !sentence ? causeLine : null}
+      {!held && !sentence && empty ? todayNext : null}
       <RouterLine decision={data.routerDecision} explainId={why.decisionId} />
       {waiting ? <p className="dim" role="status">{waiting}</p> : null}
       {/* IH6: the desktop's open workbench holds what a read would decide; the phone's Next is an explicit step and decides. */}

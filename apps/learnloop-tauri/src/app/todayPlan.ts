@@ -14,6 +14,7 @@ import { api } from "../api/client";
 import type {
   DailyPlanBodyDto,
   DailyPlanDto,
+  NextPracticeDto,
   PlanBlockDto,
   PlanItemDto,
   PlanLane,
@@ -24,6 +25,7 @@ import type {
   WorkbenchOpenProblemDto
 } from "../api/dto";
 import { aboutMinutes, wholeMinutes } from "./dailyPlan";
+import { dayName, daysFrom, nextPracticeRowWhy } from "./nextPractice";
 import { plainMathLine } from "../render/mathSnippet";
 
 type Plan = DailyPlanBodyDto;
@@ -336,9 +338,12 @@ export function todayThreads(questionRows: readonly QuestionQueueRowDto[], probl
 
 /** Why an item is on today's list, in about five words. A question in the
  *  list's "later" part is one never answered (no due time) or one answered and
- *  waiting to come back (its next due time): said apart, by the day it comes
- *  back, not "later today" for both. */
-export function fullListWhy(item: ScheduledItemDto, now: number = Date.now()): string {
+ *  waiting to come back: said apart, by the day it comes back, not "later
+ *  today" for both. With the plan's dated summary (`next`), a row it names says
+ *  the day of its effective due, or, kept for a check on your own, the day that
+ *  check becomes available; otherwise the row's own due time on this device's
+ *  calendar. */
+export function fullListWhy(item: ScheduledItemDto, now: number = Date.now(), next?: NextPracticeDto | null): string {
   if (item.isFollowup) {
     switch (item.followupKind) {
       case "certification_cold_probe":
@@ -355,21 +360,24 @@ export function fullListWhy(item: ScheduledItemDto, now: number = Date.now()): s
   }
   if (item.isProbe) return "to see what you know";
   if (item.dueStatus === "due") return "time to bring it back";
-  if (item.dueStatus === "later") return laterWhy(item.dueAt, now);
+  if (item.dueStatus === "later") return nextPracticeRowWhy(next, item) ?? laterWhy(item.dueAt, now);
   return "next up for you";
+}
+
+function localDay(time: number): string {
+  const date = new Date(time);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function laterWhy(dueAt: string | null, now: number): string {
   const due = dueAt ? Date.parse(dueAt) : Number.NaN;
   if (Number.isNaN(due)) return "not answered yet";
   if (due <= now) return "time to bring it back";
-  const day = (time: number) => {
-    const date = new Date(time);
-    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
-  };
-  const days = Math.round(day(due) - day(now));
+  const today = localDay(now);
+  const day = localDay(due);
+  const days = daysFrom(today, day) ?? 0;
   if (days <= 0) return "coming back later today";
-  return days === 1 ? "comes back tomorrow" : `comes back in ${days} days`;
+  return days > 6 ? `comes back on ${dayName(day, today)}` : `comes back ${dayName(day, today)}`;
 }
 
 /** The why? behind a check on your own (the Reader doc's cold wording). */

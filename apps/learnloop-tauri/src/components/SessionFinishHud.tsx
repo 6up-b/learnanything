@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionEndSummary, SessionTopicDto } from "../api/dto";
+import { nextPracticeLines } from "../app/nextPractice";
 import { simplePracticeFeedback } from "../app/practiceFeedback";
 import { PrimaryAction, quietLine } from "./PlainParts";
 import { COLOR } from "./term";
@@ -117,6 +118,8 @@ function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary;
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onDismiss]);
   const topics = summary.topics ?? [];
+  // The first evening, step 7: what comes next, dated, as read at the session's end (a snapshot).
+  const nextLines = nextPracticeLines(summary.nextPractice, { finish: true });
   return (
     <div
       role="status"
@@ -149,6 +152,11 @@ function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary;
                   {sessionTopicLine(topic)}
                 </span>
               ))}
+            </div>
+          ) : null}
+          {nextLines.length ? (
+            <div data-testid="session-next" style={{ marginTop: 4 }}>
+              {nextLines.map((line) => <div key={line}>{line}</div>)}
             </div>
           ) : null}
           {summary.streak.current > 1 ? (

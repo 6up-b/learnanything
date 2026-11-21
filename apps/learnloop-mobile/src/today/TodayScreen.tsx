@@ -5,6 +5,7 @@ import { Waiting } from "../components/Waiting";
 import { useCachedQuery } from "@desktop/api/useCachedQuery";
 import { TAG } from "@desktop/api/queryTags";
 import { phone } from "../api/phone";
+import { nextPracticeLines } from "@desktop/app/nextPractice";
 
 /** M2a's Today, the allowlisted queue: since mobile v2 V2 the phone's Today is the shared plan
  *  (`PlanToday`), and this is Today only while the plan is off for the vault or the host's kill switch
@@ -62,6 +63,7 @@ export function TodayScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.error]);
 
+  const finishedNext = nextPracticeLines(finished?.nextPractice, { finish: true });
   if (!session) {
     return (
       <div className="screen">
@@ -70,6 +72,12 @@ export function TodayScreen({
           <p className="banner" role="status">
             Session finished: {finished.attemptsRecorded} {finished.attemptsRecorded === 1 ? "answer" : "answers"}.
           </p>
+        ) : null}
+        {/* The first evening, step 7: what comes next, dated, as read at the session's end. */}
+        {finishedNext.length ? (
+          <div className="dim" data-testid="session-next">
+            {finishedNext.map((line) => <p key={line}>{line}</p>)}
+          </div>
         ) : null}
         <div className="actions">
           <p className="dim">How long have you got?</p>

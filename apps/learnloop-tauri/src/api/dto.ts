@@ -736,6 +736,37 @@ export interface SessionEndSummary {
    *  (● on your own, ◌ with help); a topic only tried, missed, skipped or
    *  held is not named. Absent from an older sidecar. */
   topics?: SessionTopicDto[];
+  /** The first evening, step 7: what comes next, dated, read at the session's end (a snapshot). Null when it could
+   *  not be read; absent from an older sidecar. */
+  nextPractice?: NextPracticeDto | null;
+}
+
+/** One day's reviews or checks on your own, in the plan's calendar. */
+export interface NextPracticeGroupDto {
+  /** The plan-calendar day (YYYY-MM-DD): a review's effective due, a check's first day. */
+  date: string;
+  count: number;
+  itemIds: string[];
+  learningObjectIds: string[];
+  /** Reviews only: the plan's own estimate for the day, null where no estimate supports one. */
+  minutes?: number | null;
+  /** Checks only: which kinds of check. */
+  kinds?: string[];
+}
+
+/** What comes next, dated (`daily_plan.next_practice`): read-only, shared by the session's finish and Today. */
+export interface NextPracticeDto {
+  asOf: IsoTimestamp;
+  calendar: { zone: string; today: string; tomorrow: string; nextDayStartsAt: IsoTimestamp };
+  /** Reviews by the day they are due; what is due now or later today is today's. */
+  reviews: NextPracticeGroupDto[];
+  /** Checks on your own by the day they become available; a check's question is never also a review. */
+  checks: NextPracticeGroupDto[];
+  /** The first day after today with a review due, or null. */
+  nextReviewDate: string | null;
+  writing: { topicCount: number; learningObjectIds: string[] };
+  waiting: { sectionCount: number };
+  held: { topicCount: number; learningObjectIds: string[] };
 }
 
 export interface SessionTopicDto {
@@ -8514,6 +8545,8 @@ export interface DailyPlanDto {
   streak?: StreakSummary | null;
   /** next_plan_item / plan_learner_pick / plan_reading_ended: the typed step (null while the next block is being chosen). */
   step?: PlanStepDto | null;
+  /** get_daily_plan only: what comes next, dated (null when it could not be read; absent from other plan replies). */
+  nextPractice?: NextPracticeDto | null;
   /** plan_more_new: the trade-off shown before anything is added. */
   preview?: {
     items: number;
