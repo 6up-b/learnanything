@@ -493,7 +493,6 @@ def test_a_correction_is_refused_over_a_legacy_endpoint_that_cannot_carry_it():
 
 def _chat_client(monkeypatch, *responses):
     monkeypatch.setenv("TEST_ROUTER_KEY", "fake")
-    monkeypatch.setattr("learnloop.ai.providers.openai_chat._sleep", lambda _: None)
     fake = install_fake_openai(monkeypatch, *responses)
     return fake, OpenRouterProviderClient("router", AIProviderConfig(
         type="openrouter", model="vendor/model", api_key_env="TEST_ROUTER_KEY"))
