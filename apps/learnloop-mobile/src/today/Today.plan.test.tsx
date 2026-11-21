@@ -746,3 +746,43 @@ describe("the phone's own Today heading agrees with the desktop (UX-52b): no 'No
     expect(heading).toBe("Nothing planned for today.");
   });
 });
+
+describe("questions from the part of a section read (the first evening, step 4): the phone says the desktop's sentences", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...extra
+  });
+  const book = (questions: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1",
+      statusLine: { text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null, questions } }]
+  });
+
+  it("reading on the phone that qualifies topics: saved, and written when the desktop runs", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(facts({ owed: ["Conditional probability"] }));
+    render(<App />);
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toBe("Your reading is saved. Questions will be written when the desktop is running.");
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("questions written from the part read: how many can be asked now, from what you've read, with no Begin of their own", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(facts({ count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"],
+      partRead: ["Conditional probability"], laterItemIds: ["i3"] }));
+    render(<App />);
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toBe("2 questions from what you’ve read of “Conditional probability” are ready. More come as you read on.");
+    expect(screen.queryByTestId("today-sentence")).toBeNull();  // an offer: no "Nothing planned" above it
+    expect(screen.queryByRole("button", { name: /Begin/ })).toBeNull();
+  });
+
+  it("reading that qualifies no topic yet: read a little further", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(facts({ readFurther: ["Conditional probability"] }));
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "Read a little further in “Symmetric Matrices and Variance” for your first questions.");
+  });
+});

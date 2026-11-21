@@ -194,7 +194,16 @@ const STAGE3_CAUSES: TodayCause[] = [
   { kind: "questions_ready_with_section_work", title: "Probability", part: "Conditional probability", count: 2, itemId: "pi_1", card: BOOK,
     writing: null, failedTopics: true, resumeId: "batch_1" },
   // A build that found no topic to practise (docs/reviews/ux43-empty-build.md).
-  { kind: "no_topics", title: "Probability", card: BOOK, sourceId: "src_1" }
+  { kind: "no_topics", title: "Probability", card: BOOK, sourceId: "src_1" },
+  // Questions from the part of a section read (docs/reviews/first-evening-step-4.md).
+  { kind: "questions_ready", title: "Probability", part: null, count: 3, itemId: "pi_1", card: BOOK, fromReading: true },
+  { kind: "questions_ready_with_section_work", title: "Probability", part: "Conditional probability", count: 1, itemId: "pi_1", card: BOOK,
+    writing: { progress: null }, failedTopics: false, resumeId: null, fromReading: true },
+  { kind: "section_writing", title: "Probability", part: null, card: BOOK, fromReading: true },
+  { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, waiting: { part: null, fromReading: true } },
+  { kind: "section_waiting", title: "Probability", part: null, card: BOOK, fromReading: true },
+  { kind: "read_further", title: "Probability", card: BOOK },
+  { kind: "reading_saved", title: "Probability", card: BOOK }
 ];
 const STAGE3_SENTENCES = [
   ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "", causeSecondActionLabel(cause) ?? "",
