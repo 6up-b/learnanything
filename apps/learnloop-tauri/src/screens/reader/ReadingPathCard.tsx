@@ -10,6 +10,7 @@ import {
   READING_PATH_COPY as COPY,
   READING_PATH_POLL_MS,
   READING_PATH_REFRESH_MS,
+  WAITING_FOR_OK,
   depthSourceLine,
   exercisesWorthTrying,
   offeredChoice,
@@ -20,6 +21,7 @@ import {
 import { MeaningLabel } from "./voices";
 import { sectionWords } from "./readerShared";
 import { scrollIntoViewWithin } from "../../components/scrollWithin";
+import { askForAiOk, useAiOkAsked } from "../../app/aiOk";
 
 const LINK = {
   background: "none", border: "none", padding: 0, color: COLOR.amberLink, cursor: "pointer",
@@ -43,6 +45,9 @@ export interface ReadingPathCardProps {
    *  when it changes the mounted card reads the path again (Codex review F3). */
   refreshKey?: string;
 }
+
+/** A book opened straight into the Reader asks for the one OK once per app run when its path waits for it. */
+let askedOnReaderEntry = false;
 
 export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, onTryExercise, onError, focusToken = 0, refreshKey = "" }: ReadingPathCardProps) {
   const jump = (spanId: string, sectionId: string) => (onJumpSection ? onJumpSection(spanId, sectionId) : jumpTo(spanId));
@@ -70,6 +75,21 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
     setOpen(null);
     void read();
   }, [extractionId, read]);
+
+  // The path waits for the learner's one OK to use AI: the sheet asks (once per run on its own; the line's
+  // "Give your OK" any time), and once it closes the path is read again, so an OK given judges it then.
+  const okAsked = useAiOkAsked();
+  const waitingForOk = path?.status === "failed" && path.reason === WAITING_FOR_OK;
+  useEffect(() => {
+    if (!waitingForOk || askedOnReaderEntry) return;
+    askedOnReaderEntry = true;
+    askForAiOk();
+  }, [waitingForOk]);
+  const wasAsked = useRef(okAsked);
+  useEffect(() => {
+    if (wasAsked.current && !okAsked && waitingForOk) void read();
+    wasAsked.current = okAsked;
+  }, [okAsked, waitingForOk, read]);
 
   // A judgment runs in the background: read the path again, paced, until it lands.
   useEffect(() => {
@@ -179,7 +199,9 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
             {path.status === "failed" ? (
               <Faint style={{ fontSize: 10 }}>
                 {path.message}{" "}
-                {path.reason === "capped" || path.reason === "models_off" || path.reason === "unrouted" || path.reason === "unpriced" ? null : (
+                {waitingForOk ? (
+                  <button type="button" style={LINK} onClick={() => askForAiOk()}>{COPY.giveOk}</button>
+                ) : path.reason === "capped" || path.reason === "models_off" || path.reason === "unrouted" || path.reason === "unpriced" ? null : (
                   <button type="button" style={LINK} onClick={() => void read({ retry: true })}>{COPY.tryAgain}</button>
                 )}
               </Faint>
