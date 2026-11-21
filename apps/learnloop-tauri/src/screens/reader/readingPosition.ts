@@ -85,6 +85,49 @@ export function spanOnPage(
   return before.length > 0 ? before[before.length - 1].spanId : (pageSpans[0]?.spanId ?? null);
 }
 
+/**
+ * The passages shown in ``scroller``'s reading area now, in the order the page holds them.
+ *
+ * Shown means part of it lies inside the area: its box and the area's box overlap by more than nothing vertically
+ * (the phone's viewport observer's notion, an `IntersectionObserver` at threshold 0; that observer also counts a box
+ * that only touches an edge, which shows nothing of it). A passage covered by the next step's fold (`data-folded`)
+ * and a box that is not laid out (no size) show nothing.
+ *
+ * ``pageSpans`` is the original PDF whose passages know only their page: a page's passages share it in order (as
+ * `spanOnPage` reads them), and one is shown when its share of the page overlaps the part of the page in the area.
+ * A page with no passage of its own (a figure) shows none.
+ */
+export function passagesInView(
+  scroller: HTMLElement | null,
+  pageSpans: ReadonlyArray<{ spanId: string; page: number }> | null
+): string[] {
+  if (!scroller) return [];
+  const area = scroller.getBoundingClientRect();
+  const shown: string[] = [];
+  if (pageSpans) {
+    for (const pageEl of Array.from(scroller.querySelectorAll<HTMLElement>("[data-pdf-page]"))) {
+      const rect = pageEl.getBoundingClientRect();
+      const page = Number(pageEl.dataset.pdfPage);
+      if (rect.height <= 0 || !Number.isFinite(page) || rect.bottom <= area.top || rect.top >= area.bottom) continue;
+      const from = (Math.max(area.top, rect.top) - rect.top) / rect.height;
+      const to = (Math.min(area.bottom, rect.bottom) - rect.top) / rect.height;
+      const onPage = pageSpans.filter((entry) => entry.page === page);
+      onPage.forEach((entry, index) => {
+        if (index / onPage.length < to && (index + 1) / onPage.length > from) shown.push(entry.spanId);
+      });
+    }
+    return shown;
+  }
+  for (const node of Array.from(scroller.querySelectorAll<HTMLElement>("[data-span-id]"))) {
+    const spanId = node.dataset.spanId;
+    if (!spanId || node.dataset.folded !== undefined) continue;
+    const rect = node.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) continue;
+    if (rect.bottom > area.top && rect.top < area.bottom) shown.push(spanId);
+  }
+  return shown;
+}
+
 /** One section's reading history, as `reader.get_progress` returns it. */
 export interface SectionHistory {
   sectionId: string;
