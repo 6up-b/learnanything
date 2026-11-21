@@ -183,7 +183,34 @@ No production reader calls the collector yet.
 
 ## 8. Commands and results
 
-RESULTS
+All through the scratch wrapper; every pytest run in a 3G memory scope at `-n 1` with explicit targets from a script
+file. Name filter for the affected set (`scripts/affected_tests.py` lists 1,021 files): the brief's names (`coldness`,
+`cold_`, `assist`, `reveal`, `hint_fold`, `intervention`, `causal`, `fsrs`, `grade_application`, `eligib`,
+`material_view`, `blind_grading`, `due_queue`, `diagnosis_journey`, `evidence_cutoff`: 49 files), the affected files
+named for the adapted readers (`router_card`, `lesson_suggest`, `learner_context`, `teacher_te0`, `history_modes`,
+the new files: 10), and every test file importing an adapted module (`learner_context`, `lesson_suggestion`,
+`teacher.brief`, `router_card`, `split.history`, `split.context`: 65).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile --extra tui`; `uv pip install --offline pypdfium2==5.14.0` | installed |
+| `pytest tests/test_attempt_predicate_characterization.py` on the unadapted readers (before any move) | `6 passed in 1.80s` |
+| `pytest tests/test_attempt_facts.py` (collector) | `20 passed in 11.51s` |
+| `pytest tests/test_identity_pins.py tests/test_structure_ratchets.py` with the coldness kernel moved | `1 failed, 383 passed`: `modules_in_an_import_cycle` 221 > 220 (the kernel went back; section 1 item 2) |
+| the same after the kernel went back | `383 passed in 35.86s` |
+| `pytest -m "not arc_close"` brief chunk 1 (25 files) | `447 passed in 86.51s` |
+| `pytest -m "not arc_close"` brief chunk 2 (24 files) | `714 passed in 36.28s` |
+| `pytest -m "not arc_close"` chunk 3 (the 4 new files, `test_diagnosis_history_modes`, `test_router_card`, `test_router_card_reading_gaps`, three `test_teacher_te0_*`, and 30 importers) | `771 passed, 4 xfailed in 448.30s` |
+| `pytest -m "not arc_close"` chunk 4 (35 importers) | `659 passed in 310.76s` |
+| `pytest` the four new files, `test_identity_pins`, `test_structure_ratchets`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_kill_switches`, `test_sqlite_file_copies`, `test_public_tip_guards`, `test_retired_config_identities` | `461 passed in 92.60s` |
+| `pytest tests/test_test_layout.py` (alone) | `3 passed in 21.40s` |
+| `pytest tests/test_architecture.py` (alone) | `18 passed in 31.53s` |
+| `python scripts/check_gate_partition.py` | `collected 32243: landing 32178 + arc_close 65` |
+| `ruff check` | `All checks passed!` |
+| `lint-imports --no-cache` | `Contracts: 45 kept, 0 broken.` (44 + the new grader contract) |
+| `git diff --check` (base..head) | clean |
+
+The 4 xfails are existing strict xfails in the importers; none was added or changed.
 
 ## 9. Not checked
 
