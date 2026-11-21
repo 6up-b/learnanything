@@ -483,7 +483,8 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="id depth learner_override ledger_id model prompt_version created_at",
         derived="label reason state_key"),
     "reader_section_progress": _table({"extraction_id": "extraction", "section_id": "section@extraction_id"},
-        values="revealed_at completed_at generation_batch_id updated_at", derived="spans_seen span_count"),
+        values="revealed_at completed_at generation_batch_id updated_at completion_cause completion_algorithm_version",
+        derived="spans_seen span_count"),
     # Curriculum C0a (migration 222): the coverage judge's treatment of one LO by one section is a
     # READING row; what the judge or the learner wrote and the hashes and keys it was judged under are
     # never read as stored (AD reads no coverage).

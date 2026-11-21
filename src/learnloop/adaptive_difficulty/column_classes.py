@@ -601,7 +601,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         ""),
     "reader_section_progress": (
         "extraction_id section_id spans_seen span_count revealed_at completed_at generation_batch_id "
-        "updated_at",
+        "updated_at completion_cause completion_algorithm_version",
         ""),
     "reader_seen_spans": (
         "extraction_id span_id section_id first_seen_at origin",

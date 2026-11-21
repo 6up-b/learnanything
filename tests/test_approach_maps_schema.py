@@ -54,6 +54,7 @@ from tests.reader_seen_spans_migration_helpers import SEEN_SPANS_ADDED_OBJECTS
 from tests.reader_topic_question_work_migration_helpers import TOPIC_WORK_ADDED_OBJECTS
 from tests.ingest_job_progress_migration_helpers import JOB_PROGRESS_ADDED_OBJECTS
 from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
+from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 from tests.helpers import MIGRATION_HEAD_FIXTURE
@@ -100,9 +101,9 @@ def _upgrade(tmp_path: Path) -> Path:
     # 212 rebuilds the two learner-text tables (their source_kind CHECK only).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | K35_ALTERED_TABLES) | RO1_ALTERED_TABLES))} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | RO1_ALTERED_TABLES))} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | K35_ALTERED_TABLES) | RO1_ALTERED_TABLES))}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | RO1_ALTERED_TABLES))}  # nothing else changed
     return database
 
 
