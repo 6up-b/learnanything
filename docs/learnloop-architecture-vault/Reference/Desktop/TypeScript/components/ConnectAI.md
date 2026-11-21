@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/ConnectAI.tsx](../../../../../../apps/learnloop-tauri/src/components/ConnectAI.tsx) |
-| Source lines | 260 |
+| Source lines | 273 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -62,17 +62,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const primary: CSSProperties =` — const, line 16
 - `const quiet: CSSProperties =` — const, line 28
 - `async function openExternal(url: string)` — function, line 41
-- `const alive = useRef(true)` — const, line 61
-- `const onKey = (event: KeyboardEvent)` — const, line 79
-- `const connect = async (provider: "chatgpt" | "openrouter" | "current")` — const, line 87
-- `const next = await api.connectAi(` — const, line 91
-- `const continueWithChatGPT = async ()` — const, line 108
-- `const started = await api.chatgptPlanSigninStart(` — const, line 116
-- `const attemptId = started.attempt?.id ?? null` — const, line 119
-- `const status = await api.chatgptPlanStatus()` — const, line 124
-- `const attempt = status.attempt` — const, line 125
-- `const connectKey = async ()` — const, line 147
-- `const needs = connection?.needs ?? null` — const, line 162
+- `const alive = useRef(true)` — const, line 63
+- `const latest = useRef<AiConnectionDto | null>(null)` — const, line 64
+- `const onKey = (event: KeyboardEvent)` — const, line 83
+- `const connect = async (provider: "chatgpt" | "openrouter" | "current")` — const, line 91
+- `const next = await api.connectAi(` — const, line 95
+- `const continueWithChatGPT = async ()` — const, line 112
+- `const started = await api.chatgptPlanSigninStart(` — const, line 120
+- `const attemptId = started.attempt?.id ?? null` — const, line 123
+- `const status = await api.chatgptPlanStatus()` — const, line 128
+- `const attempt = status.attempt` — const, line 129
+- `const connectKey = async ()` — const, line 151
+- `const needs = connection?.needs ?? null` — const, line 166
+- `const consented = connection?.consented === true` — const, line 167
+- `const done = connection !== null && consented && needs === null` — const, line 168
+- `const title = connection?.title ?? "Before LearnLoop uses AI"` — const, line 169
 
 ## Who imports or calls it
 

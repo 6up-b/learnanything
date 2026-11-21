@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/copy/ingestErrors.ts](../../../../../../apps/learnloop-tauri/src/copy/ingestErrors.ts) |
-| Source lines | 52 |
+| Source lines | 57 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/copy/_area|TypeScript/copy]] |
 | Refactor status | `ACTIVE` |
@@ -55,18 +55,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface PlainError` — interface, line 7
-- `export function plainError(error: unknown, fallback = "Something went wrong."): PlainError` — function, line 38
+- `export function plainError(error: unknown, fallback = "Something went wrong."): PlainError` — function, line 43
 
 ## Internal implementation anchors
 
 - `const LINES: Record<string, string> =` — const, line 14
-- `const OWN_WORDS = new Set(["library_folder_in_use", "chatgpt_models_unavailable", "text_recognition_unavailable"])` — const, line 29
-- `function asCommandError(error: unknown): CommandError | null` — function, line 31
-- `const command = asCommandError(error)` — const, line 39
-- `const raw = command?.message ?? (error instanceof Error ? error.message : typeof error === "string" ? error : null)` — const, line 40
-- `const retryable = Boolean(command?.retryable)` — const, line 41
-- `const known = command ? LINES[command.code] : undefined` — const, line 45
-- `const line = command?.code === "invalid_page_range" && raw ? `$` — const, line 48
+- `const OWN_WORDS = new Set([ "library_folder_in_use", "chatgpt_models_unavailable", "text_recognition_unavailable", "waiting_for_ok" ])` — const, line 29
+- `function asCommandError(error: unknown): CommandError | null` — function, line 36
+- `const command = asCommandError(error)` — const, line 44
+- `const raw = command?.message ?? (error instanceof Error ? error.message : typeof error === "string" ? error : null)` — const, line 45
+- `const retryable = Boolean(command?.retryable)` — const, line 46
+- `const known = command ? LINES[command.code] : undefined` — const, line 50
+- `const line = command?.code === "invalid_page_range" && raw ? `$` — const, line 53
 
 ## Who imports or calls it
 

@@ -49,13 +49,13 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 70 | 86 |
+| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 70 | 87 |
 | [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] | [[Reference/Modules/learnloop/config/compat#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/config/kill_switches|learnloop.config.kill_switches]] | [[Reference/Modules/learnloop/config/kill_switches#^module-purpose|purpose]] | `ACTIVE` | 0 | 2 |
-| [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 12 |
+| [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 13 | 12 |
 | [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
 | [[Reference/Modules/learnloop/config/scheduler_switches|learnloop.config.scheduler_switches]] | [[Reference/Modules/learnloop/config/scheduler_switches#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 37 | 113 |
+| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 37 | 114 |
 | [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 
 ## Cross-package dependencies
@@ -66,7 +66,7 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 12 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 10 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 9 static module edges
@@ -122,7 +122,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_projects["learnloop.projects"]
-    n_learnloop_ai -->|11| center
+    n_learnloop_ai -->|12| center
     n_learnloop_ai_providers -->|10| center
     n_learnloop_cli -->|10| center
     n_learnloop_ops -->|9| center

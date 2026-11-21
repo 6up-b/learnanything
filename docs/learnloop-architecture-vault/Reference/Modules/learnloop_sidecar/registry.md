@@ -316,6 +316,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v4_plan.py](../../../../../tests/test_mobile_v4_plan.py) — direct import
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`
+- [tests/test_one_ai_ok.py](../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_an_unchecked_model_call_in_any_rpc_answers_waiting_for_ok`
 - [tests/test_pinned_draws.py](../../../../../tests/test_pinned_draws.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_f8_an_error_that_is_not_a_sidecar_error_keeps_the_offer`

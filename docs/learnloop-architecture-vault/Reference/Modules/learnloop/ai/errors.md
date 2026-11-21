@@ -270,6 +270,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_single_request_never_repairs_or_retries`
   - `test_the_deadline_shuts_a_stalled_stream`
 - [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_a_cut_stream_never_reaches_the_semantic_predicate`
   - `test_failed_receipt_records_delivery_without_partial_text`
   - `test_interrupt_during_runaway_wins_without_retry`
 - [tests/test_chatgpt_plan_signin.py](../../../../../../tests/test_chatgpt_plan_signin.py) — direct import

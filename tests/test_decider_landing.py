@@ -262,12 +262,12 @@ def test_the_one_ok_and_settings_name_perplexity_through_openrouter(tmp_path, mo
 
     root = fresh_library(tmp_path)
     payload = _connection(root, monkeypatch)
-    base = ("LearnLoop sends passages of the books you add, and your answers, to Codex (your ChatGPT account) "
-            "to write questions and give feedback.")
     note = payload["deciderNote"]
     assert note.startswith("With an OpenRouter key, LearnLoop also asks Perplexity, through OpenRouter,")
     assert "your answers and questions" in note and "book passages" in note
-    assert payload["whatLeaves"] == f"{base} {note}"
+    # The one OK (UX-10) names every service under "What's sent", the Decider's recipient among them.
+    assert payload["whatsSent"][1] == note
+    assert payload["whatsSent"][0].startswith("To Codex (your ChatGPT account): passages of your books")
     settings = {entry["route"]: entry["disclosure"] for entry in judge_route_disclosures(load_vault(root).config)}
     for route in ("tier1_decider", "learner_gap_decider"):
         assert "OpenRouter, which forwards it to Perplexity" in settings[route]
@@ -287,10 +287,8 @@ def test_with_every_decider_route_off_the_one_ok_is_unchanged(tmp_path, monkeypa
     })
     payload = _connection(root, monkeypatch)
     assert payload["deciderNote"] is None
-    assert payload["whatLeaves"] == (
-        "LearnLoop sends passages of the books you add, and your answers, to Codex (your ChatGPT account) "
-        "to write questions and give feedback."
-    )
+    assert not any("Perplexity" in line for line in payload["whatsSent"])
+    assert payload["whatsSent"][0].startswith("To Codex (your ChatGPT account): passages of your books")
 
 
 def test_with_the_tier1_switches_off_the_one_ok_names_only_the_routes_still_on(

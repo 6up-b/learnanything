@@ -97,6 +97,7 @@ Indexes and uniqueness:
 - `tests/test_model_work_checkpoints.py`
 - `tests/test_outer_cache_keys.py`
 - `tests/test_source_set_synthesis.py`
+- `tests/test_empty_first_build.py`
 - `tests/test_synthesis_answer_reuse.py`
 - `tests/test_synthesis_runs_repo.py`
 

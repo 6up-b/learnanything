@@ -229,18 +229,22 @@ def test_topic_order_follows_first_cited_span(tmp_path):
 def test_the_request_states_when_a_grounded_question_applies_without_review(tmp_path):
     paths, repo = section(tmp_path, 1)
     writer = Writer()
-    enqueue(jobs_for(paths, repo, writer), 1)
+    batch = enqueue(jobs_for(paths, repo, writer), 1)
+    job = repo.ingest_jobs_for_batch(batch)[0]
+    assert job["status"] == "completed", job["error"]
+    assert [(row["validation_status"], row["decision"]) for row in _rows(repo, job)] == [("valid", "accepted")]
+    assert live_questions(paths) == {f"pi_{TOPICS[0]}"}
+    assert writer.calls == [[TOPICS[0]]]
+
     lines = writer.contexts[0].instructions.splitlines()
     (rule,) = [line for line in lines if "review_route=" in line]
-    # The policy the review route applies: grounded in the supplied passages and audited means
-    # auto_apply; review_required is the exception, and says why.
-    assert "review_route='auto_apply' on an item when every one of its source_ref_ids" in rule
-    assert "note or canonical_source reference supplied in context.source_refs" in rule
-    assert "audit is passed (or not_applicable_with_trace with a trace)" in rule
-    assert "review_required' only for an item you could not fully check against the passages it cites" in rule
-    assert "relies on something outside them" in rule
-    assert "say in its rationale what is unchecked" in rule
-    assert "review_required' unless" not in rule
+    assert rule.encode() == (
+        b"Set review_route='auto_apply' on an item when every one of its source_ref_ids is a note or "
+        b"canonical_source reference supplied in context.source_refs and its audit is passed (or "
+        b"not_applicable_with_trace with a trace); use review_route='review_required' only for an item you "
+        b"could not fully check against the passages it cites, or that relies on something outside them, "
+        b"and say in its rationale what is unchecked."
+    )
 
 
 def _rows(repo, job):
@@ -276,6 +280,21 @@ def test_one_question_of_three_held_for_review_leaves_two_applied_and_the_topic_
     assert [row["decision"] for row in _rows(repo, job)] == ["accepted", "accepted", "pending"]
     assert "error" not in job["payload"]["question_parts"][0]
     assert (job["current_window"], job["total_windows"]) == (1, 1)
+    assert writer.calls == [[TOPICS[0]]]
+
+
+def test_an_empty_proposal_fails_the_topic_without_a_second_request(tmp_path):
+    paths, repo = section(tmp_path, 1)
+    writer = Writer(per_topic=0)
+    batch = enqueue(jobs_for(paths, repo, writer), 1)
+    job = repo.ingest_jobs_for_batch(batch)[0]
+
+    assert job["status"] == "failed"
+    assert job["payload"]["question_parts"][0]["error"] == "Questions need review before applying"
+    assert (job["current_window"], job["total_windows"]) == (0, 1)
+    assert _rows(repo, job) == []
+    assert live_questions(paths) == set()
+    assert writer.calls == [[TOPICS[0]]]
 
 
 def test_a_held_question_beside_a_refused_one_still_fails_its_topic(tmp_path):
@@ -292,6 +311,10 @@ def test_a_held_question_beside_a_refused_one_still_fails_its_topic(tmp_path):
     assert TOPICS[1] in job["error"]["message"] and TOPICS[0] not in job["error"]["message"]
     assert (job["current_window"], job["total_windows"]) == (1, 2)
     assert live_questions(paths) == {f"pi_{TOPICS[0]}"}
+    assert [(row["validation_status"], row["decision"]) for row in repo.proposal_items(second["patch_id"])] == [
+        ("invalid", "pending"), ("valid", "pending"),
+    ]
+    assert writer.calls == [[lo] for lo in TOPICS[:2]]
 
 
 def test_queue_revision_reload_sees_each_part_before_the_job_finishes(tmp_path, monkeypatch):

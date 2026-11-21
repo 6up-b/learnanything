@@ -47,102 +47,102 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py) |
-| Source lines | 1665 |
+| Source lines | 1671 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class DeliverableError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 140) — A request the deliverable cannot answer (``code`` names it for the sidecar).
-  - `__init__(self, code: str, message: str) -> None` (line 143; internal)
-- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 148)
-- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 152)
-- `class RouteUnavailable(Exception)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 165) — A route cannot run (``reason``: models_off | unrouted | unpriced | capped | unavailable | failed); ``message`` is the learner's line.
-  - `__init__(self, reason: str, message: str) -> None` (line 169; internal)
-- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 179) — The curriculum's one daily cap (``curriculum.max_daily_cost_usd``) over its routes (C0a's coverage judge, C0b's two and, since C2b, the note link judge).
-- `capped_message(vault: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 189)
-- `class ChatRoute` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 210) — One C0b route's pinned plan for one call (RW7a's ``JudgeRoute`` shape).
-  - `__init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None, envelope: Any | None, label: str, plan_only: bool=False, subscription_only: bool=False) -> None` (line 223; internal)
-  - `_subscription_only_refusal(self) -> RouteUnavailable` (line 238; internal)
-  - `plan_only_problem(self) -> RouteUnavailable | None` (line 242; public) — With ``plan_only``, why the planned route may not be asked (None: it may).
-  - `subscription(self) -> bool` (line 252; public)
-  - `problem(self) -> RouteUnavailable | None` (line 255; public)
-  - `ask(self, prompt: str, result_model: type[WireModel], *, owner_id: str, prompt_version: str, guard: SC.CoverageGuard | None=None, validate: Callable[[Any], Any] | None=None) -> Any` (line 271; public) — One call.
-  - `model(self) -> str` (line 322; public)
-- `admission_problem(vault: Any, repository: Repository, task: str, *, client: Any | None=None, clock: Clock | None=None) -> RouteUnavailable | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 328) — Whether a call on ``task`` would be refused now, before any call.
-- `recover_publications(vault_root: Path | str, repository: Repository) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 413) — Finish or drop every unfinished publication (see the journal above).
-- `goal_of(vault: Any, goal_id: str) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 511)
-- `kind_of(goal: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 520) — How the deliverable is shown (§5.1; shown, never stored): an exam, a quest or a project.
-- `create_deliverable(vault: Any, repository: Repository, sentence: str, *, due_at: str | None=None, exam: bool=False, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 529) — A new learner goal from the learner's sentence, and the sentence as its first scope input.
-- `scope_for(vault: Any, repository: Repository, learning_object_ids: Sequence[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 569) — The goal's ``facet_scope`` for the resolved LOs (§5.3).
-- `write_facet_scope(vault: Any, repository: Repository, goal_id: str, learning_object_ids: Sequence[str], *, clock: Clock | None=None) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 594) — The goal's ``facet_scope`` from the resolved LOs, under the vault mutation lock (no receipt; :func:`resolve` and :func:`decide_unmatched` publish with theirs).
-- `scope_library(vault: Any, repository: Repository) -> SC.Library` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 642) — The library a scope input reads (C3, §9.1): C0a's teaching library plus the readings of ``syllabus`` sources (``SCOPE_READABLE_ROLES``), with exam and held-out material, readings held back and every other non-teaching role left out exactly as C0a leaves them.
-- `syllabus_extractions(vault: Any, repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 653) — The readings a ``syllabus`` member holds whole (whole-document scope inputs).
-- `syllabus_documents(vault: Any, repository: Repository) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 659) — The syllabi the learner may attach whole as a scope input (C3, §5.2; Codex review F5): every reading a ``syllabus`` member holds whole that the scope library reads now (exam material, a reading held back or an unreadable predicate: none).
-- `whole_document_spans(vault: Any, repository: Repository, extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 680) — Every readable span of a syllabus, in reading order (§5.2: "a whole short document").
-- `passage_texts(vault: Any, repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 701) — A passage's text, read through the exam predicate now (§9.1, G-C2).
-- `add_input(vault: Any, repository: Repository, goal_id: str, kind: str, *, text: str | None=None, extraction_id: str | None=None, span_ids: Sequence[str]=(), context: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 730) — One scope input (append-only).
-- `depth_of(repository: Repository, goal_id: str) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 758) — The deliverable's depth: its newest ``depth`` input (None: ask once, §5.4).
-- `class NeededTopic(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 772)
-- `class UnmatchedPhrase(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 778)
-- `class ScopeResolutionV1(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 784)
-- `topic_records(vault: Any, *, statement_chars: int=STATEMENT_CHARS) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 822) — The vault's active LOs as compact records (§5.3): never their items.
-- `class ScopePrompt` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 844)
-- `exam_units_in_scope(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 871) — C3's kill switch (``curriculum.exam_units_in_scope``): off, the resolver reads C0b's prompt.
-- `deliverable_subjects(vault: Any, repository: Repository, goal_id: str, inputs: Sequence[Mapping[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 917) — The subjects a deliverable is about, from its own explicit context (§5.3: the past-papers mapping is "of this subject"; Codex review F1), first that names one: 1.
-- `past_paper_groups(vault: Any, repository: Repository, among: Iterable[str] | None=None) -> list[tuple[str, list[str]]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 959) — C2b (past papers option A, §5.3 as built): with the deliverable's subject ambiguous, each active subject's past-papers ids (:func:`past_paper_learning_objects` for that subject alone, so a unit counts only for its own subject), empty groups left out, in subject-id order.
-- `past_paper_learning_objects(vault: Any, repository: Repository, subjects: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 995) — §9.2: the active LOs of ``subjects`` that practice-available exam and problem-set units of those subjects map to, by id.
-- `build_scope_prompt(vault: Any, repository: Repository, goal: Any, inputs: Sequence[Mapping[str, Any]]) -> ScopePrompt` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1051)
-- `validate_resolution(vault: Any, output: ScopeResolutionV1) -> tuple[list[dict[str, str]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1103) — ``(needs, unmatched)``: every id an active LO, each once (first phrase kept); every unmatched phrase with a title and a statement, each once.
-- `class ScopeResult` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1136)
-- `latest_resolution(repository: Repository, goal_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1149)
-- `needed_learning_objects(vault: Any, repository: Repository, goal_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1156) — The deliverable's needed LOs with their phrases (the newest resolution), active ones only.
-- `passage_guard(vault: Any, repository: Repository, inputs: Sequence[Mapping[str, Any]], *, live_vault: Callable[[], Any] | None=None, prompt: ScopePrompt | None=None) -> SC.CoverageGuard | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1167) — C0a's :class:`SC.CoverageGuard` over the sections the passage inputs read (Codex review F1): protection is read again, from the vault as it is now (``live_vault``, the sidecar's generation-bound provider; else its files), before every physical request and before the receipt.
-- `resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None) -> ScopeResult` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1225) — One resolver call over the inputs in order (none when this state was resolved), the resolution row and its ledger verdict, then the goal's facet scope.
-- `decide_unmatched(vault: Any, repository: Repository, goal_id: str, phrase: str, decision: str, *, subject_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1306) — The learner's *add it* / *no* on an unmatched phrase (§5.3).
-- `also_about(vault: Any, repository: Repository, extraction_id: str, section_id: str, text: str, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1407) — Resolve the learner's words to one LO and write C0a's ``is_about`` correction.
-- `scope_view(vault: Any, repository: Repository, goal_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1472) — What the learner sees of the scope (§5.3): one line per topic with the phrase it answers, the phrases not in the library yet with their state, and the receipt on demand.
-- `deliverable_goals(vault: Any, repository: Repository) -> list[Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1516) — Active learner goals with a resolution (the deliverables), highest ``(priority, id)`` first.
-- `learning_objects_of(entries: Iterable[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1528)
-- `typed_goal_key(text: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1541)
-- `resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client: Any | None=None, clock: Clock | None=None) -> ScopeResult` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1545) — C0b's resolver on a lesson's typed goal alone (§11.5): one call returns the needed LOs, each with the phrase it answers, and the phrases it could not match with a proposed title and statement; ids are validated.
-- `create_lesson_topic(vault: Any, repository: Repository, *, lesson_id: str, phrase: str, title: str, statement: str, subject_id: str, anchors: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1594) — A typed lesson goal's phrase the learner said *yes* to: ``create_goal_lo`` with ``mechanism = teacher_goal_v1`` (``origin = codex_proposal``, the anchors in ``source_refs``, none: unsourced), the lesson's id as its goal id; undoable; the daily cap shared with text-gap creations,…
-- `typed_goal_subject(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1612) — The subject a typed goal's new topic joins (:func:`_subject_for`'s rule).
+- `class DeliverableError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 141) — A request the deliverable cannot answer (``code`` names it for the sidecar).
+  - `__init__(self, code: str, message: str) -> None` (line 144; internal)
+- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 149)
+- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 153)
+- `class RouteUnavailable(Exception)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 166) — A route cannot run (``reason``: models_off | unrouted | unpriced | capped | unavailable | failed); ``message`` is the learner's line.
+  - `__init__(self, reason: str, message: str) -> None` (line 170; internal)
+- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 181) — The curriculum's one daily cap (``curriculum.max_daily_cost_usd``) over its routes (C0a's coverage judge, C0b's two and, since C2b, the note link judge).
+- `capped_message(vault: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 191)
+- `class ChatRoute` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 212) — One C0b route's pinned plan for one call (RW7a's ``JudgeRoute`` shape).
+  - `__init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None, envelope: Any | None, label: str, plan_only: bool=False, subscription_only: bool=False) -> None` (line 225; internal)
+  - `_subscription_only_refusal(self) -> RouteUnavailable` (line 240; internal)
+  - `plan_only_problem(self) -> RouteUnavailable | None` (line 244; public) — With ``plan_only``, why the planned route may not be asked (None: it may).
+  - `subscription(self) -> bool` (line 254; public)
+  - `problem(self) -> RouteUnavailable | None` (line 257; public)
+  - `ask(self, prompt: str, result_model: type[WireModel], *, owner_id: str, prompt_version: str, guard: SC.CoverageGuard | None=None, validate: Callable[[Any], Any] | None=None) -> Any` (line 275; public) — One call.
+  - `model(self) -> str` (line 328; public)
+- `admission_problem(vault: Any, repository: Repository, task: str, *, client: Any | None=None, clock: Clock | None=None) -> RouteUnavailable | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 334) — Whether a call on ``task`` would be refused now, before any call.
+- `recover_publications(vault_root: Path | str, repository: Repository) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 419) — Finish or drop every unfinished publication (see the journal above).
+- `goal_of(vault: Any, goal_id: str) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 517)
+- `kind_of(goal: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 526) — How the deliverable is shown (§5.1; shown, never stored): an exam, a quest or a project.
+- `create_deliverable(vault: Any, repository: Repository, sentence: str, *, due_at: str | None=None, exam: bool=False, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 535) — A new learner goal from the learner's sentence, and the sentence as its first scope input.
+- `scope_for(vault: Any, repository: Repository, learning_object_ids: Sequence[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 575) — The goal's ``facet_scope`` for the resolved LOs (§5.3).
+- `write_facet_scope(vault: Any, repository: Repository, goal_id: str, learning_object_ids: Sequence[str], *, clock: Clock | None=None) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 600) — The goal's ``facet_scope`` from the resolved LOs, under the vault mutation lock (no receipt; :func:`resolve` and :func:`decide_unmatched` publish with theirs).
+- `scope_library(vault: Any, repository: Repository) -> SC.Library` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 648) — The library a scope input reads (C3, §9.1): C0a's teaching library plus the readings of ``syllabus`` sources (``SCOPE_READABLE_ROLES``), with exam and held-out material, readings held back and every other non-teaching role left out exactly as C0a leaves them.
+- `syllabus_extractions(vault: Any, repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 659) — The readings a ``syllabus`` member holds whole (whole-document scope inputs).
+- `syllabus_documents(vault: Any, repository: Repository) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 665) — The syllabi the learner may attach whole as a scope input (C3, §5.2; Codex review F5): every reading a ``syllabus`` member holds whole that the scope library reads now (exam material, a reading held back or an unreadable predicate: none).
+- `whole_document_spans(vault: Any, repository: Repository, extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 686) — Every readable span of a syllabus, in reading order (§5.2: "a whole short document").
+- `passage_texts(vault: Any, repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 707) — A passage's text, read through the exam predicate now (§9.1, G-C2).
+- `add_input(vault: Any, repository: Repository, goal_id: str, kind: str, *, text: str | None=None, extraction_id: str | None=None, span_ids: Sequence[str]=(), context: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 736) — One scope input (append-only).
+- `depth_of(repository: Repository, goal_id: str) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 764) — The deliverable's depth: its newest ``depth`` input (None: ask once, §5.4).
+- `class NeededTopic(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 778)
+- `class UnmatchedPhrase(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 784)
+- `class ScopeResolutionV1(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 790)
+- `topic_records(vault: Any, *, statement_chars: int=STATEMENT_CHARS) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 828) — The vault's active LOs as compact records (§5.3): never their items.
+- `class ScopePrompt` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 850)
+- `exam_units_in_scope(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 877) — C3's kill switch (``curriculum.exam_units_in_scope``): off, the resolver reads C0b's prompt.
+- `deliverable_subjects(vault: Any, repository: Repository, goal_id: str, inputs: Sequence[Mapping[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 923) — The subjects a deliverable is about, from its own explicit context (§5.3: the past-papers mapping is "of this subject"; Codex review F1), first that names one: 1.
+- `past_paper_groups(vault: Any, repository: Repository, among: Iterable[str] | None=None) -> list[tuple[str, list[str]]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 965) — C2b (past papers option A, §5.3 as built): with the deliverable's subject ambiguous, each active subject's past-papers ids (:func:`past_paper_learning_objects` for that subject alone, so a unit counts only for its own subject), empty groups left out, in subject-id order.
+- `past_paper_learning_objects(vault: Any, repository: Repository, subjects: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1001) — §9.2: the active LOs of ``subjects`` that practice-available exam and problem-set units of those subjects map to, by id.
+- `build_scope_prompt(vault: Any, repository: Repository, goal: Any, inputs: Sequence[Mapping[str, Any]]) -> ScopePrompt` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1057)
+- `validate_resolution(vault: Any, output: ScopeResolutionV1) -> tuple[list[dict[str, str]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1109) — ``(needs, unmatched)``: every id an active LO, each once (first phrase kept); every unmatched phrase with a title and a statement, each once.
+- `class ScopeResult` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1142)
+- `latest_resolution(repository: Repository, goal_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1155)
+- `needed_learning_objects(vault: Any, repository: Repository, goal_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1162) — The deliverable's needed LOs with their phrases (the newest resolution), active ones only.
+- `passage_guard(vault: Any, repository: Repository, inputs: Sequence[Mapping[str, Any]], *, live_vault: Callable[[], Any] | None=None, prompt: ScopePrompt | None=None) -> SC.CoverageGuard | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1173) — C0a's :class:`SC.CoverageGuard` over the sections the passage inputs read (Codex review F1): protection is read again, from the vault as it is now (``live_vault``, the sidecar's generation-bound provider; else its files), before every physical request and before the receipt.
+- `resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None) -> ScopeResult` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1231) — One resolver call over the inputs in order (none when this state was resolved), the resolution row and its ledger verdict, then the goal's facet scope.
+- `decide_unmatched(vault: Any, repository: Repository, goal_id: str, phrase: str, decision: str, *, subject_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1312) — The learner's *add it* / *no* on an unmatched phrase (§5.3).
+- `also_about(vault: Any, repository: Repository, extraction_id: str, section_id: str, text: str, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1413) — Resolve the learner's words to one LO and write C0a's ``is_about`` correction.
+- `scope_view(vault: Any, repository: Repository, goal_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1478) — What the learner sees of the scope (§5.3): one line per topic with the phrase it answers, the phrases not in the library yet with their state, and the receipt on demand.
+- `deliverable_goals(vault: Any, repository: Repository) -> list[Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1522) — Active learner goals with a resolution (the deliverables), highest ``(priority, id)`` first.
+- `learning_objects_of(entries: Iterable[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1534)
+- `typed_goal_key(text: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1547)
+- `resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client: Any | None=None, clock: Clock | None=None) -> ScopeResult` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1551) — C0b's resolver on a lesson's typed goal alone (§11.5): one call returns the needed LOs, each with the phrase it answers, and the phrases it could not match with a proposed title and statement; ids are validated.
+- `create_lesson_topic(vault: Any, repository: Repository, *, lesson_id: str, phrase: str, title: str, statement: str, subject_id: str, anchors: Sequence[Mapping[str, Any]]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1600) — A typed lesson goal's phrase the learner said *yes* to: ``create_goal_lo`` with ``mechanism = teacher_goal_v1`` (``origin = codex_proposal``, the anchors in ``source_refs``, none: unsourced), the lesson's id as its goal id; undoable; the daily cap shared with text-gap creations,…
+- `typed_goal_subject(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1618) — The subject a typed goal's new topic joins (:func:`_subject_for`'s rule).
 
 ### Module constants
 
-- `SCOPE_ROUTE` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 91)
-- `PATH_ROUTE` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 92)
-- `OWNER_KINDS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 94)
-- `SCOPE_PROMPT_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 95)
-- `SCOPE_PAST_PAPERS_PROMPT_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 98)
-- `SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 103)
-- `SCOPE_READABLE_ROLES` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 105)
-- `PAST_PAPER_ROLES` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 109)
-- `DECISION_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 110)
-- `SCOPE_LEDGER_TASK` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 111)
-- `MODELS_ENV` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 114)
-- `INPUT_KINDS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 116)
-- `SCOPE_KINDS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 118)
-- `DEPTHS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 119)
-- `EXAM_REFUSAL` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 120)
-- `INPUT_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 126)
-- `PHRASE_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 128)
-- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 130)
-- `PROPOSAL_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 132)
-- `_CHARS_PER_TOKEN` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 134)
-- `_OVERHEAD_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 135)
-- `_CAPS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 137)
-- `ADMISSION_REASONS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 176)
-- `PLAN_ONLY_REASON` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 196)
-- `SUBSCRIPTION_ONLY_REASON` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 207)
-- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 790)
-- `_PAST_PAPERS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 800)
-- `_PAST_PAPERS_GROUPED` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 806)
-- `_ALSO_ABOUT` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 814)
-- `SUPERSEDED_MESSAGE` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1145)
-- `TYPED_GOAL_PREFIX` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1538)
+- `SCOPE_ROUTE` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 92)
+- `PATH_ROUTE` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 93)
+- `OWNER_KINDS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 95)
+- `SCOPE_PROMPT_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 96)
+- `SCOPE_PAST_PAPERS_PROMPT_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 99)
+- `SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 104)
+- `SCOPE_READABLE_ROLES` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 106)
+- `PAST_PAPER_ROLES` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 110)
+- `DECISION_VERSION` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 111)
+- `SCOPE_LEDGER_TASK` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 112)
+- `MODELS_ENV` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 115)
+- `INPUT_KINDS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 117)
+- `SCOPE_KINDS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 119)
+- `DEPTHS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 120)
+- `EXAM_REFUSAL` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 121)
+- `INPUT_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 127)
+- `PHRASE_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 129)
+- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 131)
+- `PROPOSAL_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 133)
+- `_CHARS_PER_TOKEN` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 135)
+- `_OVERHEAD_CHARS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 136)
+- `_CAPS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 138)
+- `ADMISSION_REASONS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 177)
+- `PLAN_ONLY_REASON` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 198)
+- `SUBSCRIPTION_ONLY_REASON` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 209)
+- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 796)
+- `_PAST_PAPERS` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 806)
+- `_PAST_PAPERS_GROUPED` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 812)
+- `_ALSO_ABOUT` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 820)
+- `SUPERSEDED_MESSAGE` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1151)
+- `TYPED_GOAL_PREFIX` ([src/learnloop/source_retrieval/deliverables.py](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1544)
 
 ### Explicit exports
 
@@ -197,27 +197,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_one_line(text: Any, limit: int=PHRASE_CHARS) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 156)
-- `_is_plan_type(profile_type: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 199)
-- `_write_goals(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 342) — Publish ``goals.yaml`` whole (a temporary file, then an atomic replace).
-- `_journal_dir(root: Path | str) -> Path` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 369)
-- `_journal_write(root: Path | str, entry: Mapping[str, Any]) -> Path` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 373)
-- `_goal_entry_update(vault_root: Path | str, goal_id: str, *, scope: Mapping[str, Any] | None=None, append: Mapping[str, Any] | None=None, now: str) -> None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 386) — goals.yaml: one goal's facet scope replaced, or a new goal appended (validated).
-- `_goal_revision(vault_root: Path | str, goal_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 454) — The goal's facet scope and ``updated_at`` as goals.yaml has them now (None: no such goal).
-- `_scope_key(scope: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 468) — A facet scope compared by content (key order and list order are not edits).
-- `_finish_scope(vault_root: Path | str, entry: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 477) — Finish one stopped scope publication without overwriting a later learner edit (F15).
-- `_normalize_due(due_at: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 500)
-- `_publish(vault: Any, repository: Repository, goal_id: str, row: dict[str, Any], ledger: Mapping[str, Any], *, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 608) — One resolution receipt and the goal's scope, journalled (Codex review F8).
-- `_input_row(goal_id: str, kind: str, text: str | None, *, now: str, extraction_id: str | None=None, span_ids: Sequence[str]=(), context: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 635)
-- `_bounded_topics(vault: Any, budget_chars: int) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 859) — Every active LO's record within the prompt bound: statements are clipped, then dropped, before an LO is ever left out (an LO left out could not be chosen).
-- `_source_of_extractions(repository: Repository, extraction_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 877) — ``{extraction id: source id}`` for the readings named (unknown ones are absent).
-- `_set_subjects_by_source(vault: Any) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 898) — ``{source id: the subjects of the source sets holding it}``.
-- `_active_subjects(vault: Any, learning_object_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 908)
-- `_subject_name(vault: Any, subject_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 953)
-- `_learning_object_refs(vault: Any, learning_object: Any) -> list[Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 980) — The LO's own source refs and its canonical facets' (Reader's mapping, ``reader_progression.learning_objects_for_section``; Codex review F2).
-- `_superseded_ledger(goal_id: str, prompt: ScopePrompt, needs: Any, unmatched: Any, model: str, now: str, head: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1216)
-- `_first_subject(vault: Any, title: str, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1374) — A library with no subject yet (no book's questions built so far) gets its first one when the learner says *add it*, named after the topic: there is nothing to choose between, and without it the refusal left *add it* doing nothing (UX journey audit UX-7, beginner-1 #54).
-- `_subject_for(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1389) — The subject a new topic joins: the one most of the needed LOs share (ties by id); None when they name none (the learner then chooses).
+- `_one_line(text: Any, limit: int=PHRASE_CHARS) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 157)
+- `_is_plan_type(profile_type: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 201)
+- `_write_goals(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 348) — Publish ``goals.yaml`` whole (a temporary file, then an atomic replace).
+- `_journal_dir(root: Path | str) -> Path` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 375)
+- `_journal_write(root: Path | str, entry: Mapping[str, Any]) -> Path` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 379)
+- `_goal_entry_update(vault_root: Path | str, goal_id: str, *, scope: Mapping[str, Any] | None=None, append: Mapping[str, Any] | None=None, now: str) -> None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 392) — goals.yaml: one goal's facet scope replaced, or a new goal appended (validated).
+- `_goal_revision(vault_root: Path | str, goal_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 460) — The goal's facet scope and ``updated_at`` as goals.yaml has them now (None: no such goal).
+- `_scope_key(scope: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 474) — A facet scope compared by content (key order and list order are not edits).
+- `_finish_scope(vault_root: Path | str, entry: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 483) — Finish one stopped scope publication without overwriting a later learner edit (F15).
+- `_normalize_due(due_at: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 506)
+- `_publish(vault: Any, repository: Repository, goal_id: str, row: dict[str, Any], ledger: Mapping[str, Any], *, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 614) — One resolution receipt and the goal's scope, journalled (Codex review F8).
+- `_input_row(goal_id: str, kind: str, text: str | None, *, now: str, extraction_id: str | None=None, span_ids: Sequence[str]=(), context: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 641)
+- `_bounded_topics(vault: Any, budget_chars: int) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 865) — Every active LO's record within the prompt bound: statements are clipped, then dropped, before an LO is ever left out (an LO left out could not be chosen).
+- `_source_of_extractions(repository: Repository, extraction_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 883) — ``{extraction id: source id}`` for the readings named (unknown ones are absent).
+- `_set_subjects_by_source(vault: Any) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 904) — ``{source id: the subjects of the source sets holding it}``.
+- `_active_subjects(vault: Any, learning_object_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 914)
+- `_subject_name(vault: Any, subject_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 959)
+- `_learning_object_refs(vault: Any, learning_object: Any) -> list[Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 986) — The LO's own source refs and its canonical facets' (Reader's mapping, ``reader_progression.learning_objects_for_section``; Codex review F2).
+- `_superseded_ledger(goal_id: str, prompt: ScopePrompt, needs: Any, unmatched: Any, model: str, now: str, head: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1222)
+- `_first_subject(vault: Any, title: str, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1380) — A library with no subject yet (no book's questions built so far) gets its first one when the learner says *add it*, named after the topic: there is nothing to choose between, and without it the refusal left *add it* doing nothing (UX journey audit UX-7, beginner-1 #54).
+- `_subject_for(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverables.py), line 1395) — The subject a new topic joins: the one most of the needed LOs share (ties by id); None when they name none (the learner then chooses).
 
 ## Who imports or calls it
 
@@ -237,6 +237,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `call_labels`, `content_key`, `gate_model_requests`; calls `call_labels`, `content_key`, `gate_model_requests`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `waiting`
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `is_subscription_transport`, `spend_envelopes`; calls `SpendBudget`, `SpendCaps`, `is_subscription_transport`, `spend_envelopes`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `render_structured_prompt`; calls `render_structured_prompt`

@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `READING_PATH_COPY`, `READING_PATH_POLL_MS`, `shouldPoll`, `pathHeading` and related exports within the desktop's TypeScript/screens/reader ownership area.
+Provides `READING_PATH_COPY`, `WAITING_FOR_OK`, `READING_PATH_POLL_MS`, `shouldPoll` and related exports within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/readingPath.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/readingPath.ts) |
-| Source lines | 97 |
+| Source lines | 102 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -55,19 +55,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export const READING_PATH_COPY =` — const, line 9
-- `export const READING_PATH_POLL_MS = 1500` — const, line 30
-- `export function shouldPoll(path: ReadingPathDto | null): boolean` — function, line 33
-- `export function pathHeading(path: ReadingPathDto): string` — function, line 38
-- `export function depthSourceLine(path: ReadingPathDto): string | null` — function, line 43
-- `export function reasonIsModels(section: ReadingPathSectionDto): boolean` — function, line 52
-- `export function offeredChoice(section: ReadingPathSectionDto): "read_anyway" | "skip" | null` — function, line 58
-- `export function exercisesWorthTrying(path: ReadingPathDto): ReadingPathSectionDto[]` — function, line 64
-- `export const READING_PATH_REFRESH_MS = 2000` — const, line 75
-- `export function readingPathRefreshKey(input:` — function, line 84
+- `export const WAITING_FOR_OK = "waiting_for_ok"` — const, line 32
+- `export const READING_PATH_POLL_MS = 1500` — const, line 35
+- `export function shouldPoll(path: ReadingPathDto | null): boolean` — function, line 38
+- `export function pathHeading(path: ReadingPathDto): string` — function, line 43
+- `export function depthSourceLine(path: ReadingPathDto): string | null` — function, line 48
+- `export function reasonIsModels(section: ReadingPathSectionDto): boolean` — function, line 57
+- `export function offeredChoice(section: ReadingPathSectionDto): "read_anyway" | "skip" | null` — function, line 63
+- `export function exercisesWorthTrying(path: ReadingPathDto): ReadingPathSectionDto[]` — function, line 69
+- `export const READING_PATH_REFRESH_MS = 2000` — const, line 80
+- `export function readingPathRefreshKey(input:` — function, line 89
 
 ## Internal implementation anchors
 
-- `const done = input.sections .filter((section)` — const, line 92
+- `const done = input.sections .filter((section)` — const, line 97
 
 ## Who imports or calls it
 
@@ -75,7 +76,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `readingPathRefreshKey`; references `readingPathRefreshKey`
-- [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export: `COPY`, `READING_PATH_POLL_MS`, `READING_PATH_REFRESH_MS`, `depthSourceLine`, `exercisesWorthTrying`, `offeredChoice`, `pathHeading`, `reasonIsModels`, `shouldPoll`; references `COPY`, `READING_PATH_POLL_MS`, `READING_PATH_REFRESH_MS`, `depthSourceLine`, `exercisesWorthTrying`, `offeredChoice`, `pathHeading`, `reasonIsModels`, `shouldPoll`
+- [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export: `COPY`, `READING_PATH_POLL_MS`, `READING_PATH_REFRESH_MS`, `WAITING_FOR_OK`, `depthSourceLine`, `exercisesWorthTrying`, `offeredChoice`, `pathHeading`, `reasonIsModels`, `shouldPoll`; references `COPY`, `READING_PATH_POLL_MS`, `READING_PATH_REFRESH_MS`, `WAITING_FOR_OK`, `depthSourceLine`, `exercisesWorthTrying`, `offeredChoice`, `pathHeading`, `reasonIsModels`, `shouldPoll`
 
 ## Dependencies
 

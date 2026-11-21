@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/deliverables.py](../../../../../../src/learnloop_sidecar/handlers/deliverables.py) |
-| Source lines | 788 |
+| Source lines | 791 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -61,24 +61,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `curriculum_deliverables(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 539) — The learner's deliverables and their scope lines (no model call).
 - `class CreateDeliverableInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 547)
 - `curriculum_create_deliverable(ctx: SidecarContext, params: CreateDeliverableInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 562) — A new deliverable from the learner's sentence, resolved at once (pressed).
-- `class SetScopeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 576)
-- `curriculum_set_scope(ctx: SidecarContext, params: SetScopeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 588) — One more scope input in the learner's words, then the resolution and the goal's scope.
-- `class GoalInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 609)
-- `curriculum_scope(ctx: SidecarContext, params: GoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 614) — The deliverable's scope lines (no model call).
-- `class ScopeDecideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 624)
-- `curriculum_scope_decide(ctx: SidecarContext, params: ScopeDecideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 633) — *add it* / *no* on a phrase not in the library: an LO is created only on the learner's yes.
-- `class SetDepthInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 648)
-- `curriculum_set_depth(ctx: SidecarContext, params: SetDepthInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 654) — "How deep for this?" (asked once; the newest stands).
-- `class PathInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 673)
-- `curriculum_path(ctx: SidecarContext, params: PathInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 681) — The deliverable's path across books (at once; any judgment runs in the background).
-- `class GuideSliceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 688)
-- `curriculum_guide_slice(ctx: SidecarContext, params: GuideSliceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 695) — The Guide's slice of a deliverable's path for this reading (``status: none``: RW7a's card).
-- `class PathOverrideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 718)
-- `curriculum_path_override(ctx: SidecarContext, params: PathOverrideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 728) — A path line's choice: kept across re-judgments; marks nothing as known.
-- `curriculum_ready(ctx: SidecarContext, params: GoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 743) — The answer to "am I ready?": per topic demonstrated, likely (a prediction) or untested.
-- `curriculum_ready_check(ctx: SidecarContext, params: GoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 754) — The pressed "Am I ready?": one Check once per topic not shown and not already waiting.
-- `class AlsoAboutInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 764)
-- `curriculum_also_about(ctx: SidecarContext, params: AlsoAboutInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 771) — *also about…* in the learner's words: resolved to a topic and kept as their correction.
+- `class SetScopeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 578)
+- `curriculum_set_scope(ctx: SidecarContext, params: SetScopeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 590) — One more scope input in the learner's words, then the resolution and the goal's scope.
+- `class GoalInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 612)
+- `curriculum_scope(ctx: SidecarContext, params: GoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 617) — The deliverable's scope lines (no model call).
+- `class ScopeDecideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 627)
+- `curriculum_scope_decide(ctx: SidecarContext, params: ScopeDecideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 636) — *add it* / *no* on a phrase not in the library: an LO is created only on the learner's yes.
+- `class SetDepthInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 651)
+- `curriculum_set_depth(ctx: SidecarContext, params: SetDepthInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 657) — "How deep for this?" (asked once; the newest stands).
+- `class PathInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 676)
+- `curriculum_path(ctx: SidecarContext, params: PathInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 684) — The deliverable's path across books (at once; any judgment runs in the background).
+- `class GuideSliceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 691)
+- `curriculum_guide_slice(ctx: SidecarContext, params: GuideSliceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 698) — The Guide's slice of a deliverable's path for this reading (``status: none``: RW7a's card).
+- `class PathOverrideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 721)
+- `curriculum_path_override(ctx: SidecarContext, params: PathOverrideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 731) — A path line's choice: kept across re-judgments; marks nothing as known.
+- `curriculum_ready(ctx: SidecarContext, params: GoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 746) — The answer to "am I ready?": per topic demonstrated, likely (a prediction) or untested.
+- `curriculum_ready_check(ctx: SidecarContext, params: GoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 757) — The pressed "Am I ready?": one Check once per topic not shown and not already waiting.
+- `class AlsoAboutInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 767)
+- `curriculum_also_about(ctx: SidecarContext, params: AlsoAboutInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 774) — *also about…* in the learner's words: resolved to a topic and kept as their correction.
 
 ### Module constants
 
@@ -112,7 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_path_state(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, *, judge: bool, retry: bool) -> tuple[dict[str, Any] | None, bool, dict[str, Any] | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 456) — ``(judging, covering, coverage failure)`` for the deliverable now, starting what it owes: the coverage of its LOs first, then (once no coverage is running) the path judgment.
 - `_likely(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 519) — AD's labelled prediction per LO for "Am I ready?" (None while AD does not predict).
 - `_after_scope(ctx: SidecarContext, goal_id: str, result: DL.ScopeResult) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 553)
-- `_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, *, judge: bool, retry: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 665)
+- `_path(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, *, judge: bool, retry: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/deliverables.py), line 668)
 
 ## Who imports or calls it
 
@@ -140,7 +140,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] — imports `background_jobs`; calls `background_jobs`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
-- [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`, `require_ai_ok`; calls `SidecarError`, `require_ai_ok`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `_require_source_reader`, `_source_id_for_extraction`; calls `_require_source_reader`, `_source_id_for_extraction`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 

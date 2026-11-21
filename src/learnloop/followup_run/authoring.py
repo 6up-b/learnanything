@@ -18,6 +18,7 @@ from datetime import datetime
 import re
 from typing import Any
 
+from learnloop.ai.structured_contracts import Predicate, contract_of, correction_prompt
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.clock import Clock, SystemClock
 from learnloop.db.repositories import Repository
@@ -217,9 +218,8 @@ def request_authored_probe(client: Any, context: FollowupProbeContext, *, reject
                            retry_deadline: datetime | None = None, clock: Clock | None = None) -> FollowupProbeAuthored:
     prompt = followup_probe_prompt(context)
     if rejection_reason is not None:
-        prompt += (f"\n\nThe previous answer failed validation: {rejection_reason}. "
-                   f"{CONTRACT_REASK_REQUIREMENTS[rejection_reason]} "
-                   "Write the complete answer again, satisfying all the original requirements.")
+        predicate = next(value for value in authoring_contract({}) if value.name == rejection_reason)
+        prompt = correction_prompt(prompt, predicate)
     timeout_seconds = None
     if retry_deadline is not None:
         timeout_seconds = (retry_deadline - (clock or SystemClock()).now()).total_seconds()
@@ -239,19 +239,8 @@ def _normalized(text: str) -> str:
     return re.sub(r"\W+", " ", str(text or "")).strip().casefold()
 
 
-def check_output(
-    vault: Any,
-    repository: Repository,
-    authored: FollowupProbeAuthored,
-    *,
-    refs: Mapping[str, str],
-    learning_object_id: str,
-) -> AuthoredProbe:
-    """The output checks that run before anything is written (§4.1).
-
-    The criterion contract must let the rivals be told apart, and the question must not
-    repeat any item the context withheld (compared here, never shown to the model).
-    """
+def check_structure(authored: FollowupProbeAuthored, refs: Mapping[str, str]) -> dict[str, tuple[str, ...]]:
+    """The original ordered pipeline, including its interleaved terminal checks."""
 
     prompt = authored.prompt_md.strip()
     expected = authored.expected_answer_md.strip()
@@ -281,6 +270,43 @@ def check_output(
     declared = {entry.axis for entry in authored.intended_manipulations} | set(authored.incidental_changes)
     if not declared <= AUTHOR_AXES or set(authored.held_constant) & declared:
         raise AuthoringRejected("manipulation_contract_invalid")
+    return failing
+
+
+def authoring_contract(refs: Mapping[str, str]) -> tuple[Predicate[FollowupProbeAuthored], ...]:
+    """Adapt only the pipeline's retryable failures; terminal failures still raise.
+
+    Every predicate observes the first failure of the same ordered pipeline.
+    Hoisting the six checks out of that pipeline would reorder terminal checks
+    and the per-prediction reference/criteria checks.
+    """
+
+    def holds(answer: FollowupProbeAuthored, name: str) -> bool:
+        try:
+            check_structure(answer, refs)
+        except AuthoringRejected as rejected:
+            reason = str(rejected)
+            if reason not in CONTRACT_REASK_REQUIREMENTS:
+                raise
+            return reason != name
+        return True
+
+    return contract_of(*(Predicate(name, lambda answer, name=name: holds(answer, name), requirement)
+                         for name, requirement in CONTRACT_REASK_REQUIREMENTS.items()))
+
+
+def check_output(
+    vault: Any,
+    repository: Repository,
+    authored: FollowupProbeAuthored,
+    *,
+    refs: Mapping[str, str],
+    learning_object_id: str,
+) -> AuthoredProbe:
+    """Check structure, then protection, before anything is written (§4.1)."""
+
+    failing = check_structure(authored, refs)
+    prompt = authored.prompt_md.strip()
     # A reserved question's echo is admission's to refuse (``admission.persist_item``), over
     # everything the learner would see, and it takes the practice lane. What's left here holds an
     # item from the learner for another reason.
@@ -314,6 +340,6 @@ def resolve_author_client(vault: Any) -> Any | None:
 __all__ = [
     "AUTHORING_PURPOSE", "AUTHOR_AXES", "AUTHOR_ROUTE", "AuthoredProbe", "AuthoringRejected", "CAUSE_MATCHES_RESERVED",
     "CONTRACT_REASK_REQUIREMENTS",
-    "QUESTION_MATCHES_RESERVED", "RESERVED_MATCHES", "admissible_item", "build_context", "causes_coverage",
-    "causes_match_reserved", "check_output", "reserved_view", "protection_view", "request_authored_probe", "resolve_author_client",
+    "QUESTION_MATCHES_RESERVED", "RESERVED_MATCHES", "admissible_item", "authoring_contract", "build_context", "causes_coverage",
+    "causes_match_reserved", "check_output", "check_structure", "reserved_view", "protection_view", "request_authored_probe", "resolve_author_client",
 ]

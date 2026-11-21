@@ -183,12 +183,14 @@ def author_probe(
     rejection_reason: str | None = None,
     retry_deadline: datetime | None = None,
     clock: Clock | None = None,
+    contract_job: Any = None,
 ) -> tuple[AuthoredProbe, Any, Any]:
     """The one authoring call for this workflow, and its output checks."""
 
     from learnloop.diagnosis.causal_probe_coherence import build_causal_hypothesis_set
     from learnloop.diagnosis.causal_probe_commissioning import support_scores
     from learnloop.diagnosis.probe_instance_generation import family_measurement_intent
+    from learnloop.followup_run.contract_job import CorrectionDeferred
 
     factor = repository.unresolved_cause_factor(factor_id)
     if factor is None or factor.get("status") != "open":
@@ -212,9 +214,15 @@ def author_probe(
             source_item_id=str(attempt.get("practice_item_id") or "") or None,
             measurement_pattern=family_measurement_intent(template.id), avoid_phrases=avoid_phrases,
         )
-        authored = request_authored_probe(client, context, rejection_reason=rejection_reason,
-                                          retry_deadline=retry_deadline, clock=clock)
+        if contract_job is None:
+            authored = request_authored_probe(client, context, rejection_reason=rejection_reason,
+                                              retry_deadline=retry_deadline, clock=clock)
+        else:
+            authored = contract_job.request(client, context, refs, lambda answer: check_output(
+                vault, repository, answer, refs=refs, learning_object_id=learning_object_id))
         probe = check_output(vault, repository, authored, refs=refs, learning_object_id=learning_object_id)
+    except CorrectionDeferred:
+        raise
     except AuthoringRejected as rejected:
         raise AdmissionFailed(str(rejected)) from rejected
     return probe, template, card

@@ -53,4 +53,9 @@ export const WAITING_COPY = {
   /** Today's line for a book being got ready in a library that has measured no build yet (so no "usually about N
    *  min"): the walks' first web chapter took about 1 minute for its first step and 3.5 to 7 for its second. */
   firstBuildLater: "The first time, this can take several minutes.",
+  /** The phone's Ask before the learner's one OK to use AI (the desktop shows the sheet; the phone cannot record
+   *  the OK yet): the same request, where to give it, and that nothing left. */
+  aiOkOnDesktop:
+    "LearnLoop asks for your OK before it uses AI: it can send your books, files you choose, your questions and your " +
+    "answers to the services you connect. Say OK on your desktop. Nothing was sent.",
 } as const;

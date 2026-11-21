@@ -47,109 +47,109 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py) |
-| Source lines | 1352 |
+| Source lines | 1358 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ReadingPathError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 148) — A request the path cannot answer (``code`` names it for the sidecar).
-  - `__init__(self, code: str, message: str) -> None` (line 151; internal)
-- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 156)
-- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 161)
-- `class LoStatus` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 170)
-- `class PathSection` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 177)
-- `class PathInputs` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 189)
-  - `section(self, section_id: str) -> PathSection | None` (line 201; public)
-  - `section_list_hash(self) -> str` (line 204; public)
-  - `state_key(self, depth: str) -> str` (line 207; public) — The cache key (§10.1): the depth, the section list sent and every linked LO's status (and the goal the path names, and the prompt).
-- `open_assumption_rows(vault: Any, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 228) — LOs with an open placement assumption that IS an ``assumption_decisions`` row (Codex review F1).
-- `lo_statuses(vault: Any, repository: Repository, learning_object_ids: Iterable[str]) -> dict[str, LoStatus]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 246) — Each LO's status: demonstrated (``lo_certification``), assumed (an open assumption row), learning (any evidence), or new.
-- `goal_for_source(vault: Any, learning_object_ids: Iterable[str]) -> Any | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 274) — The active goal whose facet scope covers the source's LOs (the Guide's ``goal_for_item`` over each, the highest priority); RW7a creates none.
-- `reading_of(repository: Repository, extraction_id: str) -> tuple[str, str | None]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 289)
-- `path_inputs(vault: Any, repository: Repository, extraction_id: str) -> PathInputs` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 297) — Everything a path is judged and shown from, read now.
-- `honest_label(label: str, learning_object_ids: Sequence[str], statuses: Mapping[str, LoStatus]) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 348) — ``(label, changed)``: ``already_shown`` only when every LO the section teaches is demonstrated, ``assumed`` only with an open assumption on every LO not demonstrated (at least one); otherwise ``core``.
-- `effective_label(stored: str, override_row: Mapping[str, Any] | None, learning_object_ids: Sequence[str], statuses: Mapping[str, LoStatus]) -> tuple[str, bool, str | None, str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 368) — ``(label, changed, override, effective)`` for one judged section: the honest label (:func:`honest_label`), the learner's newest choice (``None`` when there is none or it was cleared) and what that makes the section: a "read it anyway" is ``core``, a "skip it" is ``skipped``, oth…
-- `shown_reason(label: str, model_label: str, model_reason: str | None, section: PathSection, lo_titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 388) — The line under a chip.
-- `class SectionVerdict(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 410)
-- `class ReadingPathOutputV1(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 418)
-- `build_prompt(inputs: PathInputs, depth: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 437)
-- `class Verdict` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 459)
-- `validate(output: ReadingPathOutputV1, inputs: PathInputs) -> list[Verdict]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 467) — Every sent section once, in book order: the model's label made honest (:func:`honest_label`); a section the model left out or named twice keeps its first answer, or is ``core``; unknown section ids are dropped.
-- `exercise_label(text: str, page: int | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 491) — "Exercise 4.12" when the lead names one, else its number, else the page.
-- `pick_exercises(vault: Any, repository: Repository, inputs: PathInputs, section_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 503) — For each named section, the lead span of its first exercise region the one statement reader still reads (exam and held-out material never; fail closed).
-- `exercise_view(vault: Any, repository: Repository, inputs: PathInputs, lead_span_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 529) — The stored exercise read again now: None when its region is gone or exam or held-out material now (the statement reader fails closed).
-- `depth_choice(vault: Any, repository: Repository, source_id: str, extraction_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 605) — The depth the path is for: the newer of the Guide's choice and DL2's (mapped); ``depth`` None asks the learner.
-- `set_depth(repository: Repository, source_id: str, depth: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 622)
-- `class JudgeUnavailable(Exception)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 635) — The judge cannot run (``reason``: models_off | unrouted | unpriced | capped | unavailable); ``message`` is the learner's line.
-  - `__init__(self, reason: str, message: str) -> None` (line 639; internal)
-- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 645)
-- `capped_message(vault: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 652)
-- `class JudgeRoute` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 657) — The judge's pinned route for one judgment.
-  - `__init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any) -> None` (line 660; internal)
-  - `subscription(self) -> bool` (line 670; public)
-  - `problem(self) -> JudgeUnavailable | None` (line 673; public) — Checked before any call: the switch's env, the route, the price and the day's cap.
-  - `ask(self, prompt: str, *, owner_id: str) -> ReadingPathOutputV1` (line 689; public)
-  - `model(self) -> str` (line 709; public)
-- `admission_problem(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None) -> JudgeUnavailable | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 722) — Whether a judgment would be refused now, before any call (today's envelope, the vault's current config).
-- `class JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 732)
-- `claim_key(extraction_id: str, depth: str, state_key: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 771)
-- `judge(vault: Any, repository: Repository, extraction_id: str, depth: str, *, client: Any | None=None, clock: Clock | None=None, inputs: PathInputs | None=None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 822) — Label the reading's sections at ``depth``: no call when the cached path for the current state exists; otherwise one call, the honest-label rule, the exercises, then the ledger verdicts and the rows in one transaction.
-- `override(vault: Any, repository: Repository, extraction_id: str, depth: str, section_id: str, choice: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 943) — "Read it anyway" / "skip it" (or ``none``, clearing it): one ``learner_card`` ledger verdict and one ``reader_path_sections`` row, nothing else.
-- `next_activity(sections: Sequence[Mapping[str, Any]], depth: str, progress: Mapping[str, Mapping[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1004) — The suggested next activity, composed without a model (§10.1): the next unfinished core or prerequisite section (a "read it anyway" counts as core, a "skip it" leaves it out) and, at learn to use it and fluency, its exercise.
-- `goal_line(goal: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1025)
-- `judged_sections(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1031) — The sections one judgment was asked about: its judge rows.
-- `reasons_held_back(rows: Iterable[Mapping[str, Any]], inputs: PathInputs) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1041) — True when the judgment behind ``rows`` was asked about a section that may not be sent now (withheld since: held out, or exam material).
-- `path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs: PathInputs | None=None, judging: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1067) — What the Guide shows.
-- `class PlanSectionRef` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1151) — One section's effective label as the plan read it, with the rows it came from (Codex review F3): the judge's row and the learner's newest override row (None when there is none).
-  - `receipt(self) -> dict[str, Any]` (line 1162; public)
-- `class PlanPath` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1168) — What RW7b's plan reads of one reading's path.
-  - `follows(self) -> bool` (line 1190; public)
-  - `labels(self) -> Mapping[str, str]` (line 1194; public) — Section id -> effective label, for the sections the judgment names.
-  - `label_for(self, section_id: str) -> str | None` (line 1199; public) — The section's effective label, or None for a section the judgment does not name (a fresh judgment names every sendable section, so only a withheld one): never planned through the path.
-  - `plannable(self, section_id: str) -> bool` (line 1206; public)
-  - `receipt(self) -> dict[str, Any]` (line 1211; public) — The receipt's entry (Codex review F3): the inputs' key and the consumed judgment's key apart, and every judge and override row the labels came from, so neither a later judgment nor a later override changes what the receipt says was read.
-- `plan_path(vault: Any, repository: Repository, extraction_id: str) -> PlanPath` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1228) — The reading path RW7b's plan follows for one reading, read now and never judged here (the plan calls no model).
-- `skipped_section_learning_objects(vault: Any, repository: Repository) -> dict[str, dict[str, list[str]]]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1280) — RW7b's report adapter (spec §15's reading-path row, Codex review F4): for every reading with a "skip it" row, each skipped section's linked LOs (``reader_progression.learning_objects_by_section``, the map the report's connection-only reader does not have).
+- `class ReadingPathError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 149) — A request the path cannot answer (``code`` names it for the sidecar).
+  - `__init__(self, code: str, message: str) -> None` (line 152; internal)
+- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 157)
+- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 162)
+- `class LoStatus` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 171)
+- `class PathSection` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 178)
+- `class PathInputs` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 190)
+  - `section(self, section_id: str) -> PathSection | None` (line 202; public)
+  - `section_list_hash(self) -> str` (line 205; public)
+  - `state_key(self, depth: str) -> str` (line 208; public) — The cache key (§10.1): the depth, the section list sent and every linked LO's status (and the goal the path names, and the prompt).
+- `open_assumption_rows(vault: Any, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 229) — LOs with an open placement assumption that IS an ``assumption_decisions`` row (Codex review F1).
+- `lo_statuses(vault: Any, repository: Repository, learning_object_ids: Iterable[str]) -> dict[str, LoStatus]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 247) — Each LO's status: demonstrated (``lo_certification``), assumed (an open assumption row), learning (any evidence), or new.
+- `goal_for_source(vault: Any, learning_object_ids: Iterable[str]) -> Any | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 275) — The active goal whose facet scope covers the source's LOs (the Guide's ``goal_for_item`` over each, the highest priority); RW7a creates none.
+- `reading_of(repository: Repository, extraction_id: str) -> tuple[str, str | None]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 290)
+- `path_inputs(vault: Any, repository: Repository, extraction_id: str) -> PathInputs` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 298) — Everything a path is judged and shown from, read now.
+- `honest_label(label: str, learning_object_ids: Sequence[str], statuses: Mapping[str, LoStatus]) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 349) — ``(label, changed)``: ``already_shown`` only when every LO the section teaches is demonstrated, ``assumed`` only with an open assumption on every LO not demonstrated (at least one); otherwise ``core``.
+- `effective_label(stored: str, override_row: Mapping[str, Any] | None, learning_object_ids: Sequence[str], statuses: Mapping[str, LoStatus]) -> tuple[str, bool, str | None, str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 369) — ``(label, changed, override, effective)`` for one judged section: the honest label (:func:`honest_label`), the learner's newest choice (``None`` when there is none or it was cleared) and what that makes the section: a "read it anyway" is ``core``, a "skip it" is ``skipped``, oth…
+- `shown_reason(label: str, model_label: str, model_reason: str | None, section: PathSection, lo_titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 389) — The line under a chip.
+- `class SectionVerdict(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 411)
+- `class ReadingPathOutputV1(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 419)
+- `build_prompt(inputs: PathInputs, depth: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 438)
+- `class Verdict` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 460)
+- `validate(output: ReadingPathOutputV1, inputs: PathInputs) -> list[Verdict]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 468) — Every sent section once, in book order: the model's label made honest (:func:`honest_label`); a section the model left out or named twice keeps its first answer, or is ``core``; unknown section ids are dropped.
+- `exercise_label(text: str, page: int | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 492) — "Exercise 4.12" when the lead names one, else its number, else the page.
+- `pick_exercises(vault: Any, repository: Repository, inputs: PathInputs, section_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 504) — For each named section, the lead span of its first exercise region the one statement reader still reads (exam and held-out material never; fail closed).
+- `exercise_view(vault: Any, repository: Repository, inputs: PathInputs, lead_span_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 530) — The stored exercise read again now: None when its region is gone or exam or held-out material now (the statement reader fails closed).
+- `depth_choice(vault: Any, repository: Repository, source_id: str, extraction_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 606) — The depth the path is for: the newer of the Guide's choice and DL2's (mapped); ``depth`` None asks the learner.
+- `set_depth(repository: Repository, source_id: str, depth: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 623)
+- `class JudgeUnavailable(Exception)` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 636) — The judge cannot run (``reason``: models_off | unrouted | unpriced | capped | unavailable); ``message`` is the learner's line.
+  - `__init__(self, reason: str, message: str) -> None` (line 640; internal)
+- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 646)
+- `capped_message(vault: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 653)
+- `class JudgeRoute` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 658) — The judge's pinned route for one judgment.
+  - `__init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any) -> None` (line 661; internal)
+  - `subscription(self) -> bool` (line 671; public)
+  - `problem(self) -> JudgeUnavailable | None` (line 674; public) — Checked before any call: the learner's OK, the switch's env, the route, the price and the day's cap.
+  - `ask(self, prompt: str, *, owner_id: str) -> ReadingPathOutputV1` (line 692; public)
+  - `model(self) -> str` (line 712; public)
+- `admission_problem(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None) -> JudgeUnavailable | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 726) — Whether a judgment would be refused now, before any call (today's envelope, the vault's current config).
+- `class JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 736)
+- `claim_key(extraction_id: str, depth: str, state_key: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 775)
+- `judge(vault: Any, repository: Repository, extraction_id: str, depth: str, *, client: Any | None=None, clock: Clock | None=None, inputs: PathInputs | None=None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 826) — Label the reading's sections at ``depth``: no call when the cached path for the current state exists; otherwise one call, the honest-label rule, the exercises, then the ledger verdicts and the rows in one transaction.
+- `override(vault: Any, repository: Repository, extraction_id: str, depth: str, section_id: str, choice: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 949) — "Read it anyway" / "skip it" (or ``none``, clearing it): one ``learner_card`` ledger verdict and one ``reader_path_sections`` row, nothing else.
+- `next_activity(sections: Sequence[Mapping[str, Any]], depth: str, progress: Mapping[str, Mapping[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1010) — The suggested next activity, composed without a model (§10.1): the next unfinished core or prerequisite section (a "read it anyway" counts as core, a "skip it" leaves it out) and, at learn to use it and fluency, its exercise.
+- `goal_line(goal: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1031)
+- `judged_sections(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1037) — The sections one judgment was asked about: its judge rows.
+- `reasons_held_back(rows: Iterable[Mapping[str, Any]], inputs: PathInputs) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1047) — True when the judgment behind ``rows`` was asked about a section that may not be sent now (withheld since: held out, or exam material).
+- `path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs: PathInputs | None=None, judging: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1073) — What the Guide shows.
+- `class PlanSectionRef` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1157) — One section's effective label as the plan read it, with the rows it came from (Codex review F3): the judge's row and the learner's newest override row (None when there is none).
+  - `receipt(self) -> dict[str, Any]` (line 1168; public)
+- `class PlanPath` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1174) — What RW7b's plan reads of one reading's path.
+  - `follows(self) -> bool` (line 1196; public)
+  - `labels(self) -> Mapping[str, str]` (line 1200; public) — Section id -> effective label, for the sections the judgment names.
+  - `label_for(self, section_id: str) -> str | None` (line 1205; public) — The section's effective label, or None for a section the judgment does not name (a fresh judgment names every sendable section, so only a withheld one): never planned through the path.
+  - `plannable(self, section_id: str) -> bool` (line 1212; public)
+  - `receipt(self) -> dict[str, Any]` (line 1217; public) — The receipt's entry (Codex review F3): the inputs' key and the consumed judgment's key apart, and every judge and override row the labels came from, so neither a later judgment nor a later override changes what the receipt says was read.
+- `plan_path(vault: Any, repository: Repository, extraction_id: str) -> PlanPath` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1234) — The reading path RW7b's plan follows for one reading, read now and never judged here (the plan calls no model).
+- `skipped_section_learning_objects(vault: Any, repository: Repository) -> dict[str, dict[str, list[str]]]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1286) — RW7b's report adapter (spec §15's reading-path row, Codex review F4): for every reading with a "skip it" row, each skipped section's linked LOs (``reader_progression.learning_objects_by_section``, the map the report's connection-only reader does not have).
 
 ### Module constants
 
-- `DEPTHS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 96)
-- `DEPTH_LABELS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 97)
-- `DEPTH_MEANS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 100)
-- `INTENT_DEPTH` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 106)
-- `LABELS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 110)
-- `CHIPS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 111)
-- `OVERRIDES` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 116)
-- `STATUSES` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 118)
-- `ROUTE_TASK` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 120)
-- `OWNER_KIND` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 121)
-- `PROMPT_VERSION` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 122)
-- `OVERRIDE_VERSION` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 123)
-- `LEDGER_TASK` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 124)
-- `LEDGER_LEFT` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 125)
-- `LEDGER_RIGHT` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 126)
-- `ENVELOPE` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 127)
-- `MODELS_ENV` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 130)
-- `_CAPS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 132)
-- `REASON_CHARS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 133)
-- `WORDS_PER_MINUTE` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 134)
-- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 135)
-- `DEFAULT_REASONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 137)
-- `NOT_SHOWN_REASON` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 142)
-- `NOT_ASSUMED_REASON` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 143)
-- `CODE_REASONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 145)
-- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 422)
-- `ADMISSION_REASONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 719)
-- `CLAIM_TASK` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 752)
-- `CLAIM_LEASE_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 753)
-- `CLAIM_HEARTBEAT_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 754)
-- `CLAIM_WAIT_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 757)
-- `_CLAIM_POLL_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 758)
-- `PROCESS_TOKEN` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 759)
-- `PLANNED_LABELS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1137)
-- `PLAN_PATH_STATUSES` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1147)
+- `DEPTHS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 97)
+- `DEPTH_LABELS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 98)
+- `DEPTH_MEANS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 101)
+- `INTENT_DEPTH` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 107)
+- `LABELS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 111)
+- `CHIPS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 112)
+- `OVERRIDES` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 117)
+- `STATUSES` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 119)
+- `ROUTE_TASK` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 121)
+- `OWNER_KIND` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 122)
+- `PROMPT_VERSION` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 123)
+- `OVERRIDE_VERSION` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 124)
+- `LEDGER_TASK` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 125)
+- `LEDGER_LEFT` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 126)
+- `LEDGER_RIGHT` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 127)
+- `ENVELOPE` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 128)
+- `MODELS_ENV` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 131)
+- `_CAPS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 133)
+- `REASON_CHARS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 134)
+- `WORDS_PER_MINUTE` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 135)
+- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 136)
+- `DEFAULT_REASONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 138)
+- `NOT_SHOWN_REASON` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 143)
+- `NOT_ASSUMED_REASON` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 144)
+- `CODE_REASONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 146)
+- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 423)
+- `ADMISSION_REASONS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 722)
+- `CLAIM_TASK` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 756)
+- `CLAIM_LEASE_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 757)
+- `CLAIM_HEARTBEAT_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 758)
+- `CLAIM_WAIT_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 761)
+- `_CLAIM_POLL_SECONDS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 762)
+- `PROCESS_TOKEN` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 763)
+- `PLANNED_LABELS` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1143)
+- `PLAN_PATH_STATUSES` ([src/learnloop/source_retrieval/reading_paths.py](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1153)
 
 ### Explicit exports
 
@@ -207,20 +207,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_one_line(text: str | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 383)
-- `_intent_choice(vault: Any, repository: Repository, source_id: str, extraction_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 567) — DL2's own choice on this source (its intent-control commitment for the source or one of its readings), newest; read only.
-- `_instant(value: str) -> datetime` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 595) — An ISO timestamp as an aware instant (``Z`` and offsets alike); unreadable is the epoch.
-- `class _Claim` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 765)
-- `_lease_now() -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 775) — Wall-clock time for leases: process liveness, never the vault's clock.
-- `_acquire(repository: Repository, extraction_id: str, depth: str, key: str, input_hash: str) -> tuple[str, _Claim | None]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 781) — ``("fresh", None)`` once the state's rows exist, ``("claimed", claim)``, or ``("held", None)`` when another process kept its claim past the wait.
-- `_release(repository: Repository, claim: _Claim) -> None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 809)
-- `_ledger_question(extraction_id: str, depth: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 818)
-- `_judge_claimed(vault: Any, repository: Repository, extraction_id: str, depth: str, *, inputs: PathInputs, key: str, prompt: str, input_hash: str, route: JudgeRoute, claim: _Claim, clock: Clock | None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 860) — The call and the rows, under ``claim`` (the caller releases it unless this returns ``ready``, which completes it).
-- `_latest_ledger(connection: sqlite3.Connection, extraction_id: str, depth: str) -> dict[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 927) — The newest ledger row per section on this path's question (what a new verdict supersedes).
-- `_section_marker(label: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 990)
-- `_done(progress: Mapping[str, Mapping[str, Any]], section_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 994)
-- `_reason_by(label: str, reason: str, *, code_wrote: bool) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1054) — Who wrote the line shown: ``code`` (the evidence lines, a changed label's line, a default, a held-back reason's replacement) or ``model``.
-- `_depths() -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1063)
+- `_one_line(text: str | None) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 384)
+- `_intent_choice(vault: Any, repository: Repository, source_id: str, extraction_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 568) — DL2's own choice on this source (its intent-control commitment for the source or one of its readings), newest; read only.
+- `_instant(value: str) -> datetime` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 596) — An ISO timestamp as an aware instant (``Z`` and offsets alike); unreadable is the epoch.
+- `class _Claim` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 769)
+- `_lease_now() -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 779) — Wall-clock time for leases: process liveness, never the vault's clock.
+- `_acquire(repository: Repository, extraction_id: str, depth: str, key: str, input_hash: str) -> tuple[str, _Claim | None]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 785) — ``("fresh", None)`` once the state's rows exist, ``("claimed", claim)``, or ``("held", None)`` when another process kept its claim past the wait.
+- `_release(repository: Repository, claim: _Claim) -> None` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 813)
+- `_ledger_question(extraction_id: str, depth: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 822)
+- `_judge_claimed(vault: Any, repository: Repository, extraction_id: str, depth: str, *, inputs: PathInputs, key: str, prompt: str, input_hash: str, route: JudgeRoute, claim: _Claim, clock: Clock | None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 864) — The call and the rows, under ``claim`` (the caller releases it unless this returns ``ready``, which completes it).
+- `_latest_ledger(connection: sqlite3.Connection, extraction_id: str, depth: str) -> dict[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 933) — The newest ledger row per section on this path's question (what a new verdict supersedes).
+- `_section_marker(label: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 996)
+- `_done(progress: Mapping[str, Mapping[str, Any]], section_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1000)
+- `_reason_by(label: str, reason: str, *, code_wrote: bool) -> str` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1060) — Who wrote the line shown: ``code`` (the evidence lines, a changed label's line, a default, a held-back reason's replacement) or ``model``.
+- `_depths() -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/source_retrieval/reading_paths.py), line 1069)
 
 ## Who imports or calls it
 
@@ -241,6 +241,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `call_labels`, `content_key`; calls `call_labels`, `content_key`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `waiting`
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`; calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `render_structured_prompt`; calls `render_structured_prompt`
@@ -285,6 +286,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deliverable_path.py](../../../../../../tests/test_deliverable_path.py) — direct import
   - `test_already_shown_only_while_demonstrated`
 - [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
+  - `test_the_reading_path_judge_waits_and_judges_once_the_ok_is_given`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_a_path_that_cannot_be_read_leaves_the_reading_to_the_order`
   - `test_a_source_without_a_depth_or_a_judged_path_keeps_the_predecessors_order`

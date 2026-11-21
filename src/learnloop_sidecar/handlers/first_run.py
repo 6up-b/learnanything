@@ -5,10 +5,12 @@ a local file is registered and its original stored before the call returns, so
 the Reader opens on it at once; extraction and the automatic question build run
 in the durable queue (``learnloop.content.pipeline.add_source``).
 
-``get_ai_connection`` / ``connect_ai`` are the "connect once, consent once"
-sheet (§6.6, Q4): connecting ChatGPT or an OpenRouter key routes every use case
-to it, and the learner's one OK is recorded in the library's config with its
-date, then releases every book that was waiting for it.
+``get_ai_connection`` / ``connect_ai`` are the one sheet before LearnLoop uses AI:
+the learner's one OK covers every use of AI (``learnloop.ai.model_use``), is
+recorded in the library's config with its date and the version of the words it
+was given under (mirrored to this computer's AI defaults), and resumes, once,
+whatever waited for it. Connecting ChatGPT or an OpenRouter key routes every use
+case to it; connecting is not the OK.
 
 ``source_action`` runs the one action a book card's status line offers: undo,
 build now, retry, read scanned pages with text recognition, or the separate OK
@@ -106,9 +108,12 @@ def add_source_rpc(ctx: SidecarContext, params: AddSourceInput) -> dict[str, Any
         problem_set=params.problem_set,
         text_recognition=params.text_recognition,
     )
+    from learnloop.ai import model_use
+
     items = [core.add_source(vault, ctx.ingest_jobs, source, options) for source in sources]
     opened = next((item for item in items if item["status"] in {"added", "existing", "queued"}), None)
-    return versioned({"items": items, "opened": opened})
+    # The book opens either way; its questions wait for the one OK, which the desktop asks for now.
+    return versioned({"items": items, "opened": opened, "waiting_for_ok": not model_use.accepted(vault.root)})
 
 
 # ---------------------------------------------------------------------------
@@ -116,20 +121,56 @@ def add_source_rpc(ctx: SidecarContext, params: AddSourceInput) -> dict[str, Any
 # ---------------------------------------------------------------------------
 
 
+#: The one sheet's words (``model_use.DISCLOSURE_VERSION`` names this version).
+OK_TITLE = "Before LearnLoop uses AI"
+OK_SENTENCE = (
+    "LearnLoop uses AI for questions, replies, feedback and other learning help. It can send your books, "
+    "files you choose, your questions and your answers to the services you connect."
+)
+OK_CLOSING = "You say OK once, and it covers every use. Your library stays on this computer."
+
+
+def whats_sent(vault, label: str, decider_note: str | None) -> list[str]:
+    """The sheet's "What's sent": each service and what goes to it, in plain words."""
+
+    from learnloop.ai import plan_fallback
+    from learnloop.ai.routing import provider_for_task
+
+    lines = [
+        f"To {label}: passages of your books and of files you add, your questions to the tutor, and your "
+        "answers, to write questions, reply and give feedback.",
+    ]
+    if decider_note:
+        lines.append(decider_note)
+    config = vault.config
+    if config.embedding.enabled:
+        route = provider_for_task(config, "embedding").provider_name
+        if route:
+            lines.append(f"To {core.consent_label(core.consent_key(config, route))}: short passages of your books, "
+                         "to find related passages.")
+    offered = plan_fallback.offer_profile(config)
+    if offered:
+        lines.append(f"If {label} is unavailable, LearnLoop asks before it uses "
+                     f"{core.consent_label(core.consent_key(config, offered))} instead.")
+    lines.append("Sending a whole file (a recording to transcribe, a scan to read) asks once more, for that file.")
+    lines.append(OK_CLOSING)
+    return lines
+
+
 def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
+    from learnloop.ai import model_use
     from learnloop.decider_judgments import connection_note
 
     vault, _repository = ctx.require_vault()
     route = _status_route(vault)
-    record = vault.config.ai.consent.get(route.consent_key)
     label = core.consent_label(route.consent_key)
     # The Decider's small judgments go to Perplexity, not to the AI connected
     # here: the one OK says so in the words Settings uses (Tier 1, D6).
     decider_note = connection_note(vault.config)
-    what_leaves = core.what_leaves(label)
-    # T1 redesign D, round 5: the learner's yes on Add's offer is their OK for
-    # that action (it shows as consented while the grant stands).
-    consented = record is not None or route.granted
+    # The one OK covers every use and every provider (an earlier OK on this
+    # sheet counts); a sign-in, a connection or "Use OpenRouter instead" is not it.
+    acceptance = model_use.recorded_acceptance(vault.root)
+    consented = acceptance is not None
     if not route.ready:
         needs: str | None = "connect"
     elif not consented:
@@ -142,10 +183,12 @@ def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
         "provider_label": label,
         "consent_key": route.consent_key,
         "consented": consented,
-        "consented_at": record.granted_at if record is not None else None,
+        "consented_at": acceptance.granted_at if acceptance is not None else None,
         "needs": needs,
         "message": None if route.ready else route.message,
-        "what_leaves": what_leaves if decider_note is None else f"{what_leaves} {decider_note}",
+        "title": OK_TITLE,
+        "what_leaves": OK_SENTENCE,
+        "whats_sent": whats_sent(vault, label, decider_note),
         "decider_note": decider_note,
         "chatgpt_signed_in": chatgpt_plan_ready(),
         "openrouter_key_present": bool(os.environ.get("OPENROUTER_API_KEY")),
@@ -154,13 +197,13 @@ def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
 
 @method("get_ai_connection", EmptyParams)
 def get_ai_connection(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]:
-    """Can an AI write questions in this library, and has the learner said OK?"""
+    """Can an AI write questions in this library, and has the learner said OK to AI?"""
 
     return versioned(_connection_payload(ctx))
 
 
 class ConnectAiInput(ParamsModel):
-    # "current": the OK for the route already configured (e.g. Codex).
+    # "current": the learner's one OK to use AI, whatever is connected (or nothing yet).
     provider: Literal["chatgpt", "openrouter", "current"]
     model: str | None = None
 
@@ -193,7 +236,10 @@ def _written_plan_model(vault) -> str:
 
 @method("connect_ai", ConnectAiInput)
 def connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]:
-    """Connect an AI for every use case and record the learner's one OK."""
+    """Connect an AI for every use case (``chatgpt``, ``openrouter``), or record the learner's
+    one OK to use AI (``current``) and resume what waited for it."""
+
+    from learnloop.ai import model_use
 
     from learnloop.config import global_ai_defaults_path
     from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates, save_ai_settings_to
@@ -233,7 +279,6 @@ def connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]:
         # names (chatgpt_low / chatgpt_medium copy [ai.providers.chatgpt],
         # so the slug chosen here serves them all).
         _route_every_use_case(updates, "chatgpt", DEFAULT_SERVING_TASK_ROUTES)
-        key = "chatgpt"
     elif params.provider == "openrouter":
         if not os.environ.get("OPENROUTER_API_KEY"):
             raise SidecarError("openrouter_key_missing", "Add your OpenRouter key first, then connect.")
@@ -244,17 +289,9 @@ def connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]:
         elif params.model and params.model.strip():
             updates[("ai", "providers", "openrouter", "model")] = params.model.strip()
         _route_every_use_case(updates, "openrouter")
-        key = "openrouter"
     else:
-        route = _status_route(vault)
-        if not route.ready:
-            raise SidecarError(
-                "ai_not_connected", "Connect an AI first: Continue with ChatGPT, or add an OpenRouter key.",
-                details={"message": route.message},
-            )
-        key = route.consent_key
-    updates[("ai", "consent", key, "granted_at")] = utc_now_iso()
-    updates[("ai", "consent", key, "data_flow")] = core.DATA_FLOW
+        # The one OK, given on the sheet that says what is sent: it needs no AI connected yet.
+        updates.update(model_use.record_updates(utc_now_iso()))
 
     config_path = vault.root / "learnloop.toml"
     try:
@@ -270,8 +307,15 @@ def connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]:
         save_ai_settings_to(config_path, global_ai_defaults_path())
     except SettingsStoreError as exc:  # best effort, like Settings
         logger.warning("could not persist global AI defaults: %s", exc)
-    released = core.release_waiting_builds(ctx.ingest_jobs)
-    return versioned({**_connection_payload(ctx), "released": released})
+    payload = _connection_payload(ctx)
+    released: list[str] = []
+    resumed: list[str] = []
+    if payload["consented"]:
+        # Saying OK (or connecting where the OK was given before) resumes what waited, once:
+        # a waiting job is queued again a single time and a second OK finds nothing waiting.
+        resumed = ctx.ingest_jobs.resume_waiting_for_ok()
+        released = core.release_waiting_builds(ctx.ingest_jobs)
+    return versioned({**payload, "released": released, "resumed": resumed})
 
 
 # ---------------------------------------------------------------------------

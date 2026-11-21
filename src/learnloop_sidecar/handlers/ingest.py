@@ -19,7 +19,7 @@ from learnloop.content.synthesis.source_unit_selection import (
 )
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, camel_name, versioned
-from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.errors import SidecarError, require_ai_ok
 from learnloop.content.pipeline.jobs import APPLYING_JOB_TYPES, ActiveIngestJobError
 from learnloop_sidecar.registry import method
 
@@ -1494,6 +1494,8 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
                             {"batch_id": batch_id}, response, reload=True)
     if not params.unlimited_token_budget:
         _validate_inventory_output_budget(params.inventory_output_tokens)
+    # Quick Add's build is model work: the one OK first, before anything is created or queued.
+    require_ai_ok(vault.root)
     if params.subject_id not in vault.subjects:
         raise SidecarError("unknown_subject", f"Subject '{params.subject_id}' does not exist.")
     try:

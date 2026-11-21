@@ -141,8 +141,8 @@ Indexes and uniqueness:
 - `tests/test_cli_generate_practice.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
+- `tests/test_empty_first_build.py`
 - `tests/test_exam_seeding.py`
-- `tests/test_graph_edit_proposals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

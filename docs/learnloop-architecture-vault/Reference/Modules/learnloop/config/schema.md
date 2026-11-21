@@ -464,6 +464,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tier1_disclosure_names_the_statement_judgment`
 - [tests/test_native_media_readiness.py](../../../../../../tests/test_native_media_readiness.py) — direct import
 - [tests/test_objective_trace.py](../../../../../../tests/test_objective_trace.py) — direct import
+- [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
 - [tests/test_openai_embedding_client.py](../../../../../../tests/test_openai_embedding_client.py) — direct import
   - `test_embedding_route_defaults_but_a_vault_that_never_enables_embeddings_sends_nothing`
 - [tests/test_openrouter_video_client.py](../../../../../../tests/test_openrouter_video_client.py) — direct import

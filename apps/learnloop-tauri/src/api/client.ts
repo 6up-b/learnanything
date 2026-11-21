@@ -3,6 +3,7 @@ import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryC
 import { READER_PREFIX, TAG } from "./queryTags";
 import { noteFallbackOffer } from "../app/planFallback";
 import { noteSessionMovedError } from "../app/sessionMoved";
+import { isWaitingForOk, waitForAiOk } from "../app/aiOk";
 import type {
   NoteSearchDto,
   NoteLinkDto,
@@ -366,6 +367,16 @@ if (RPC_DEBUG) {
 }
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
+  try {
+    return await send<T>(command, args);
+  } catch (error) {
+    // Nothing was sent to any model: the one sheet asks, and an OK sends this same request again, once.
+    if (isWaitingForOk(error) && (await waitForAiOk())) return send<T>(command, args);
+    throw error;
+  }
+}
+
+async function send<T>(command: string, args: Record<string, unknown>): Promise<T> {
   if (RPC_DEBUG) {
     const count = (rpcCounts.get(command) ?? 0) + 1;
     rpcCounts.set(command, count);

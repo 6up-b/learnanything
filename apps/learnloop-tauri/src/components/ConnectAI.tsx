@@ -1,8 +1,8 @@
-// Connect an AI once, say OK once (docs/specs/ux_learnloop_v1.md §6.6, §8.3,
-// owner decision Q4). Continue with ChatGPT comes first and routes every use
-// case to the plan; an OpenRouter key does the same; everything else lives in
-// Settings. When an AI is already set up (e.g. Codex), the sheet asks for the
-// one OK, in one sentence about what leaves this computer.
+// The one sheet before LearnLoop uses AI (docs/specs/ux_learnloop_v1.md §6.6, §8.3, owner decisions Q4 and
+// 2026-11-20): the learner says OK once, to one sentence, and it covers every use of AI; "What's sent" lists each
+// service and what goes to it. OK comes first and needs nothing connected; then, when no AI is set up yet, Continue
+// with ChatGPT routes every use case to the plan, an OpenRouter key does the same, and everything else lives in
+// Settings. Connecting is not the OK. "Not now" leaves what needs AI waiting; reading never needs it.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
@@ -48,17 +48,21 @@ export function ConnectAISheet({
   onConnected,
   onOpenSettings
 }: {
-  onClose: () => void;
+  /** With the connection as the sheet last read it (null before the first read). */
+  onClose: (connection: AiConnectionDto | null) => void;
   onConnected: (connection: AiConnectionDto) => void;
   onOpenSettings: () => void;
 }) {
   const [connection, setConnection] = useState<AiConnectionDto | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [waitingForBrowser, setWaitingForBrowser] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const alive = useRef(true);
+  const latest = useRef<AiConnectionDto | null>(null);
+  latest.current = connection;
 
   useEffect(() => {
     alive.current = true;
@@ -78,7 +82,7 @@ export function ConnectAISheet({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event, { modal: true })) return;
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onClose(latest.current);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -97,7 +101,7 @@ export function ConnectAISheet({
       // next card). The books' own lines say what happens next ("◐ Writing
       // questions …"), and the settings dot turns green. A sign-in keeps its
       // "Connected" line: there the confirmation is the result.
-      if (provider === "current" && next.needs === null) onClose();
+      if (provider === "current" && next.needs === null) onClose(next);
     } catch (failure) {
       if (alive.current) setError(plainError(failure, "LearnLoop couldn't connect.").line);
     } finally {
@@ -160,20 +164,26 @@ export function ConnectAISheet({
   };
 
   const needs = connection?.needs ?? null;
+  const consented = connection?.consented === true;
+  const done = connection !== null && consented && needs === null;
+  const title = connection?.title ?? "Before LearnLoop uses AI";
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Connect an AI"
+      aria-label={title}
       style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) onClose(latest.current);
       }}
     >
       <div
         style={{
           width: 560,
           maxWidth: "calc(100vw - 32px)",
+          maxHeight: "calc(100vh - 32px)",
+          overflowY: "auto",
+          boxSizing: "border-box",
           background: COLOR.bgElev,
           border: `1px solid ${COLOR.borderStrong}`,
           borderRadius: 6,
@@ -187,23 +197,33 @@ export function ConnectAISheet({
           lineHeight: 1.6
         }}
       >
-        <div style={{ fontSize: 15, color: COLOR.text }}>Get questions on what you read</div>
-        <div>LearnLoop uses an AI to write questions from your books and to give feedback on your answers.</div>
+        <div style={{ fontSize: 15, color: COLOR.text }}>{title}</div>
 
         {connection === null && !error ? <div>…</div> : null}
 
-        {needs === "consent" ? (
+        {connection !== null && !consented ? (
           <>
-            <div>LearnLoop is set up to use {connection?.providerLabel}.</div>
-            <div style={{ color: COLOR.text }}>{connection?.whatLeaves}</div>
+            <div style={{ color: COLOR.text }}>{connection.whatLeaves}</div>
             <button type="button" style={primary} disabled={busy} onClick={() => void connect("current")}>
               OK
             </button>
+            <button type="button" style={quiet} aria-expanded={detailsOpen} onClick={() => setDetailsOpen((open) => !open)}>
+              What's sent {detailsOpen ? "▾" : "▸"}
+            </button>
+            {detailsOpen ? (
+              <ul aria-label="What's sent" style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+                {(connection.whatsSent ?? [connection.whatLeaves]).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div>Reading works without it. Anything that needs AI waits for your OK.</div>
           </>
         ) : null}
 
-        {needs === "connect" ? (
+        {consented && needs === "connect" ? (
           <>
+            <div>Now connect the AI LearnLoop uses.</div>
             <button type="button" style={primary} disabled={busy} onClick={() => void continueWithChatGPT()}>
               Continue with ChatGPT
             </button>
@@ -218,7 +238,7 @@ export function ConnectAISheet({
                   type="password"
                   value={key}
                   onChange={(event) => setKey(event.target.value)}
-                  style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: "4px 8px", flex: 1 }}
+                  style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: "4px 8px", flex: 1, minWidth: 0 }}
                 />
                 <button
                   type="button"
@@ -233,17 +253,10 @@ export function ConnectAISheet({
             <button type="button" style={quiet} onClick={onOpenSettings}>
               Other (advanced) ▸
             </button>
-            <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10 }}>
-              What leaves this computer: passages of the books you add, and your answers, go to the AI you connect. Your
-              library stays here.
-              {connection?.deciderNote ? ` ${connection.deciderNote}` : null}
-            </div>
           </>
         ) : null}
 
-        {needs === null && connection !== null ? (
-          <div style={{ color: COLOR.text }}>Connected to {connection.providerLabel}. Questions are on.</div>
-        ) : null}
+        {done ? <div style={{ color: COLOR.text }}>Connected to {connection.providerLabel}. Questions are on.</div> : null}
 
         {error ? (
           <div role="alert" style={{ color: COLOR.amber }}>
@@ -251,8 +264,8 @@ export function ConnectAISheet({
           </div>
         ) : null}
 
-        <button type="button" style={{ ...quiet, alignSelf: "flex-end" }} onClick={onClose}>
-          {needs === null && connection !== null ? "Close" : "Not now"}
+        <button type="button" style={{ ...quiet, alignSelf: "flex-end" }} onClick={() => onClose(latest.current)}>
+          {done ? "Close" : "Not now"}
         </button>
       </div>
     </div>

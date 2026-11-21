@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/client.ts](../../../../../../apps/learnloop-tauri/src/api/client.ts) |
-| Source lines | 1808 |
+| Source lines | 1819 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
@@ -54,29 +54,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const api =` — const, line 512
+- `export const api =` — const, line 523
 
 ## Internal implementation anchors
 
-- `function readRpcDebugFlag(): boolean` — function, line 355
-- `const RPC_DEBUG = import.meta.env.DEV && readRpcDebugFlag()` — const, line 362
-- `const rpcCounts = new Map<string, number>()` — const, line 363
-- `async function call<T>(command: string, args: Record<string, unknown> =` — function, line 368
-- `const count = (rpcCounts.get(command) ?? 0) + 1` — const, line 370
-- `let result: T` — let, line 374
-- `const normalized = normalizeError(error)` — const, line 378
-- `function normalizeError(error: unknown): CommandError` — function, line 390
-- `const commandError = error as CommandError` — const, line 392
-- `const validationErrors = (commandError.details as` — const, line 393
-- `const ATTEMPT_TAGS: readonly QueryTag[] = [TAG.queue, TAG.graph, TAG.goals, TAG.review, TAG.maintenance, TAG.errors]` — const, line 432
-- `const INGEST_TAGS: readonly QueryTag[] = [TAG.sources, TAG.library, TAG.maintenance]` — const, line 434
-- `const REVISION_TAGS: readonly QueryTag[] = [TAG.sources, TAG.graph, TAG.proposals, TAG.registry, TAG.maintenance]` — const, line 436
-- `function settled<T>(promise: Promise<T>, onSettled: ()` — function, line 445
-- `function mutating<T>(tags: readonly QueryTag[], promise: Promise<T>): Promise<T>` — function, line 458
-- `function mutatingAll<T>(promise: Promise<T>): Promise<T>` — function, line 463
-- `function mutatingReader<T>(promise: Promise<T>, extraTags: readonly QueryTag[] = []): Promise<T>` — function, line 468
-- `function afterProposalMutation( promise: Promise<ProposalsSnapshot>, extraTags: readonly QueryTag[] = [] ): Promise<ProposalsSnapshot>` — function, line 476
-- `function afterSettingsMutation(promise: Promise<SettingsDto>): Promise<SettingsDto>` — function, line 498
+- `function readRpcDebugFlag(): boolean` — function, line 356
+- `const RPC_DEBUG = import.meta.env.DEV && readRpcDebugFlag()` — const, line 363
+- `const rpcCounts = new Map<string, number>()` — const, line 364
+- `async function call<T>(command: string, args: Record<string, unknown> =` — function, line 369
+- `async function send<T>(command: string, args: Record<string, unknown>): Promise<T>` — function, line 379
+- `const count = (rpcCounts.get(command) ?? 0) + 1` — const, line 381
+- `let result: T` — let, line 385
+- `const normalized = normalizeError(error)` — const, line 389
+- `function normalizeError(error: unknown): CommandError` — function, line 401
+- `const commandError = error as CommandError` — const, line 403
+- `const validationErrors = (commandError.details as` — const, line 404
+- `const ATTEMPT_TAGS: readonly QueryTag[] = [TAG.queue, TAG.graph, TAG.goals, TAG.review, TAG.maintenance, TAG.errors]` — const, line 443
+- `const INGEST_TAGS: readonly QueryTag[] = [TAG.sources, TAG.library, TAG.maintenance]` — const, line 445
+- `const REVISION_TAGS: readonly QueryTag[] = [TAG.sources, TAG.graph, TAG.proposals, TAG.registry, TAG.maintenance]` — const, line 447
+- `function settled<T>(promise: Promise<T>, onSettled: ()` — function, line 456
+- `function mutating<T>(tags: readonly QueryTag[], promise: Promise<T>): Promise<T>` — function, line 469
+- `function mutatingAll<T>(promise: Promise<T>): Promise<T>` — function, line 474
+- `function mutatingReader<T>(promise: Promise<T>, extraTags: readonly QueryTag[] = []): Promise<T>` — function, line 479
+- `function afterProposalMutation( promise: Promise<ProposalsSnapshot>, extraTags: readonly QueryTag[] = [] ): Promise<ProposalsSnapshot>` — function, line 487
+- `function afterSettingsMutation(promise: Promise<SettingsDto>): Promise<SettingsDto>` — function, line 509
 
 ## Who imports or calls it
 
@@ -220,6 +221,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — dynamic import; imports `AcquisitionPreview`, `AddSourceInput`, `AddSourceResultDto`, `AdjudicationQueueDto`, `AdjudicationRecordInput`, `AdjudicationRecordResultDto`, `AdjudicationScoreboardDto`, `AiConnectionDto`, `AiUseFallbackDto`, `AnimationRuntimeDto`, `AnswerCalibrationReportDto`, `AnswerGradingClarificationResultDto`, `AppSnapshot`, `AppendResultDto`, `AppendSourceInput`, `AsPrintedViewDto`, `AskTutorQuestionInput`, `AttemptResultDto`, `AttemptTraceDto`, `AttemptTraceEvidenceDto`, `BeginProbeDialogueResult`, `BlueprintReadinessPreviewDto`, `BuildPlan`, `BuildPlanSelectionInput`, `BuildStudyMapInput`, `CalibrationSessionProgressDto`, `CapabilityGridResult`, `CausalProbeDeferResultDto`, `CausalProbeOfferResultDto`, `CausalRepairStatusResultDto`, `ChatGPTPlanDto`, `ClaimCandidateDto`, `CliCommandResult`, `CommandError`, `CompareRequestDto`, `CompareScopeReadingDto`, `CompareTableDto`, `ConceptAnimationDto`, `ConceptGraphSnapshot`, `ConfirmQuickAddInput`, `CorrespondencePreferencesDto`, `CorrespondentOperationDto`, `CorrespondentPeekDto`, `CorrespondentsDto`, `CreateGoalInput`, `CreateGoalResult`, `CreateStudyMapInput`, `CreateVaultInput`, `CreateVaultResult`, `CueDensity`, `DailyPlanDto`, `DecayPressureSnapshot`, `DeliverablePathChoice`, `DeliverableReadyDto`, `DeliverableScopeDto`, `DeliverableSliceDto`, `DetectProviderCapabilitiesInput`, `DiagnosisCardDto`, `DiagnosisCardResponse`, `DiagnosisFeedbackResultDto`, `DifficultyRating`, `EffectiveOutlineDto`, `ElicitingResponseResultDto`, `EndProbeDialogueResult`, `EntityProvenance`, `EscalationResponse`, `ExamAnswerResult`, `ExamReadinessReportDto`, `ExamReportSnapshot`, `ExamSessionSnapshot`, `ExamStatusSnapshot`, `ExerciseCandidatesDto`, `FacetDetailDto`, `FacetEvidenceTimelineDto`, `FacetIdentityActionDto`, `FacetListDto`, `FacetMasterySnapshot`, `FacetMergeResultDto`, `FacetRewordDecisionDto`, `FeedbackBundle`, `FigureBuildResultDto`, `FigurePredictionResultDto`, `FiguresDto`, `FindExercisesDto`, `FindPracticeResultDto`, `FirstHintProgress`, `FollowupDto`, `FollowupNextDto`, `ForecastTrackRecordDto`, `GenerateCommissioningPracticeResult`, `GenerateStarterPracticeResult`, `GetNextProbeItemDto`, `GoalDto`, `GoalFeasibilityInput`, `GoalFeasibilityResult`, `GoalReportSnapshot`, `GoalSeriesSnapshot`, `GoalsListSnapshot`, `GradingClarificationResultDto`, `GradingProviderResult`, `GuidedRedoDto`, `HelpStyle`, `HiddenNoteDto`, `HintCancelDto`, `HintDiscriminateAnswerDto`, `HintJobDto`, `HintRequestInput`, `HypothesisEventDto`, `HypothesisMark`, `HypothesisMarksDto`, `IngestBatchDto`, `IngestBatchesSnapshot`, `IngestBudgetsDto`, `IngestJobDto`, `IngestJobsSnapshot`, `IngestSourceClassification`, `InquirySelfCheck`, `InspectorEntity`, `IntentChoice`, `IntentScopeKind`, `IntentViewDto`, `KeepComparisonResultDto`, `KeepTakeDto`, `KeptMarksDto`, `KnowledgeMapHistory`, `KnowledgeMapPreviewDto`, `KnowledgeMapSnapshot`, `LearnerProfileDto`, `LearnerTextGapReversal`, `LearnerTextGapReversalDto`, `LearnerTextGapStatusDto`, `LessonActivityIntervalDto`, `LessonGoalDto`, `LessonSuggestionDto`, `LessonSuggestionResponseDto`, `LessonTurnInput`, `LessonViewDto`, `LibraryAskDto`, `LibraryAskEntry`, `LibraryExpansion`, `LibraryJobDto`, `LibraryNotesDto`, `LibraryTutorDto`, `MaintenanceFeedSnapshot`, `MaintenanceNoticeDto`, `MeasurementHealthDto`, `NextProbeDialogueTurnResult`, `NoteLinkDto`, `NoteMarksDto`, `NoteSearchDto`, `NotesPathDto`, `OpenLessonDto`, `OpenrouterKeyResult`, `OverconfidenceSnapshot`, `PlacementSelfReportInput`, `PlacementSelfReportResult`, `PlanQuickAddInput`, `PracticeCallerDto`, `PracticeItemDetail`, `PracticeRequestDto`, `PracticeSubmissionAcknowledgementDto`, `PracticeSubmissionRecoveryDto`, `PresentedClaimDto`, `PreviewBlueprintReadinessInput`, `PreviewKnowledgeMapInput`, `PrimedRetryResultDto`, `PrintRegionDto`, `PrintedCropsDto`, `ProbeContractDto`, `ProbeRemintResultDto`, `PromoteTutorQuestionResult`, `PromotionIntent`, `ProposalsSnapshot`, `ProposeFacetMergeInput`, `ProposeGraphEditsInput`, `ProposeGraphEditsResult`, `ProviderCapabilitiesDto`, `QuestionQueueSnapshot`, `QuestionResolution`, `QueueInput`, `QueueRestructureRequestInput`, `QueueRestructureRequestResult`, `QueueRevisionDto`, `QueueRevisionInput`, `QueueSnapshot`, `QuickAddConfirmationDto`, `QuickAddPlanDto`, `QuickAddResultDto`, `ReaderActiveQuestionDto`, `ReaderActiveQuestionRequestDto`, `ReaderActiveQuestionStatusDto`, `ReaderActiveStyle`, `ReaderActivityEvent`, `ReaderAnnotationResultDto`, `ReaderAnswerDto`, `ReaderAnswerMode`, `ReaderArcDto`, `ReaderAskHistoryDto`, `ReaderAskInput`, `ReaderAuthorQAInput`, `ReaderAuthorSectionQuestionDto`, `ReaderAuthoredCardDto`, `ReaderAuthoredQuestionDto`, `ReaderCaptureInput`, `ReaderCaptureReceiptDto`, `ReaderCoachLintDto`, `ReaderCueAction`, `ReaderCueActionDto`, `ReaderCueDiscoveryJobDto`, `ReaderCueImpressionInput`, `ReaderCuePreferencesDto`, `ReaderCueTapAction`, `ReaderCueTapDto`, `ReaderDisposition`, `ReaderDispositionResultDto`, `ReaderExerciseImportReceiptDto`, `ReaderExerciseImportStatusDto`, `ReaderGuidePlanDto`, `ReaderImportExerciseInput`, `ReaderInquiryQuestionActionInput`, `ReaderInquiryQuestionDto`, `ReaderInquiryQuestionReadDto`, `ReaderInquiryStatusDto`, `ReaderIntentRoutingDto`, `ReaderInvokePresetInput`, `ReaderMarkProgressResultDto`, `ReaderPdfViewDto`, `ReaderPresetReceiptDto`, `ReaderProgressListDto`, `ReaderPromptContractDto`, `ReaderQuestionControlResultDto`, `ReaderRecapDto`, `ReaderRecapEvent`, `ReaderReconnectAnswerDto`, `ReaderReconnectAnswerInput`, `ReaderRenderViewDto`, `ReaderRequestRow`, `ReaderSavedPlaceDto`, `ReaderSetInquiryStatusInput`, `ReaderSetModeResultDto`, `ReaderSourceSearchDto`, `ReaderWatchPlanDto`, `ReaderWrapUpDto`, `ReaderWrapUpOfferDto`, `ReadingPathChoice`, `ReadingPathDepth`, `ReadingPathDto`, `RecordProbeDialogueTurnResult`, `ReentrySummarySnapshot`, `RemediationDto`, `RequestConceptAnimationResult`, `ResolveConflictInput`, `ResolveEdgeDirectionInput`, `ResolveEdgeDirectionResult`, `ResolveQuestionEventResult`, `RetirementReason`, `RetrySynthesisInput`, `ReviewCountsDto`, `ReviewLogDto`, `RungVariantRequestDto`, `RungVariantRequestResultDto`, `RuntimeHealth`, `SaveUnitSelectionInput`, `SchedulerExplanationDto`, `SelectionPreviewDto`, `SessionEndSummary`, `SessionSnapshot`, `SessionStartInput`, `SettingsDto`, `SideBySideSectionDto`, `SomethingElseChosenDto`, `SomethingElseKind`, `SomethingElseOptionsDto`, `SourceActionKind`, `SourceActionResultDto`, `SourceConflictDto`, `SourceCoverageDto`, `SourceDeletionPlanDto`, `SourceDeletionResultDto`, `SourceExerciseImportDto`, `SourceLibrarySnapshot`, `SourceOutline`, `SourceSetDto`, `SourceSetsSnapshot`, `SourceToolRunDto`, `SpanViewDto`, `SpanViewInput`, `SqliteExecResult`, `SqliteTableSnapshot`, `SqliteTablesSnapshot`, `StartCalibrationSessionInput`, `StartExtractionRepairInput`, `StartImportBatchInput`, `StartIngestInput`, `StartOverconfidenceProbeResult`, `StartQuickCheckInput`, `StartRemediationDto`, `StartSummaryDto`, `StartTeachBackInput`, `StartTeachBackResult`, `StartingLevel`, `StopProbeResultDto`, `StudyMapDto`, `SubjectRegistryDto`, `SubmitAttemptInput`, `SubmitTeachBackTurnInput`, `SynthesisCandidateSummary`, `TeachBackTurnResult`, `TextRecognitionKeyResult`, `TodayHeadlineDto`, `TranscriptionKeyResult`, `TranscriptionReportDto`, `TutorAnswerDto`, `TutorOpeningDto`, `TutorSaveNoteResult`, `TutorTranscriptInput`, `TutorTranscriptSnapshot`, `UnitSelectionState`, `UnresolvedCauseSelfReportResponse`, `UnresolvedCauseSelfReportResultDto`, `UpdateAiSettingsInput`, `UpdateAnimationSettingsInput`, `UpdateIngestSettingsInput`, `UpdateProviderModalitiesInput`, `VaultFileContent`, `VaultSummary`, `VaultTreeSnapshot`, `WorkbenchAdmitDto`, `WorkbenchAnotherPassageDto`, `WorkbenchCompareMethodsDto`, `WorkbenchCompareOfferDto`, `WorkbenchHelpJobDto`, `WorkbenchHelpStateDto`, `WorkbenchOpenInput`, `WorkbenchOpenProblemDto`, `WorkbenchRequestHelpInput`, `WorkbenchSaveStepDto`, `WorkbenchSaveStepInput`, `WorkbenchSessionDto`, `WorkbenchSubmitDto`, `WorkbenchSubmitInput`, `WorkbenchSummaryDto`
 - [[Reference/Desktop/TypeScript/api/queryCache|src/api/queryCache.ts]] — import-or-re-export; imports `QueryTag`, `invalidate`, `invalidateAll`, `setQueryData`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `READER_PREFIX`, `TAG`
+- [[Reference/Desktop/TypeScript/app/aiOk|src/app/aiOk.ts]] — import-or-re-export; imports `isWaitingForOk`, `waitForAiOk`
 - [[Reference/Desktop/TypeScript/app/planFallback|src/app/planFallback.ts]] — import-or-re-export; imports `noteFallbackOffer`
 - [[Reference/Desktop/TypeScript/app/sessionMoved|src/app/sessionMoved.ts]] — import-or-re-export; imports `noteSessionMovedError`
 
@@ -239,6 +241,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/reader/guidePlan.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/guidePlan.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/ReaderScreen.guide.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/ReaderScreen.guide.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/autoAdvance.test.tsx](../../../../../../apps/learnloop-tauri/src/app/autoAdvance.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/app/aiOk.test.ts](../../../../../../apps/learnloop-tauri/src/app/aiOk.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_causal_repair_sidecar_rpcs.py](../../../../../../tests/test_causal_repair_sidecar_rpcs.py) — direct source contract: references the exact source path.
 - [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

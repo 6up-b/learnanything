@@ -94,6 +94,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/store|learnloop.ai.chatgpt_plan.store]] — imports `global_settings_path`; statically calls `global_settings_path`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `global_ai_defaults_path`; statically calls `global_ai_defaults_path`
 - [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]] — imports `global_settings_path`; statically calls `global_settings_path`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] — imports `global_settings_path`, `load_dotenv`; statically calls `global_settings_path`, `load_dotenv`
@@ -129,7 +130,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/store|learnloop.ai.chatgpt_plan.store]], [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]], [[Reference/Modules/learnloop/config/__init__|learnloop.config]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/store|learnloop.ai.chatgpt_plan.store]], [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]], [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

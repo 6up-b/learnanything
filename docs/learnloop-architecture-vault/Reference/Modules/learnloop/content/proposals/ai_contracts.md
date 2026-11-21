@@ -185,6 +185,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_generate_authoring_proposal_with_fake_client_has_lineage`
   - `test_persist_authoring_proposal_records_agent_run`
 - [tests/test_authoring_create_ids.py](../../../../../../../tests/test_authoring_create_ids.py) — direct import
+  - `test_fresh_and_checkpointed_authoring_keep_the_same_minted_and_named_ids`
   - `test_named_recorded_answer_produces_byte_identical_rows`
   - `test_other_supported_create_types_keep_their_prefix`
   - `test_other_wire_entry_points_reserve_vault_ids`

@@ -481,8 +481,8 @@ _reg_const("followup_run_jobs:NEED_RETRY_DELAY_SECONDS", "numerical", kind="stru
            rationale="a failed lane's background retry: what just failed would fail again if tried at once.")
 _reg_const("structured_contracts:MAX_STRUCTURED_RECOVERIES", "constraint", kind="structural",
            owner="structured_contracts",
-           rationale="keep: 2026-11-20 owner decision: one corrective recovery, shared by schema repair and "
-                     "parsed-contract re-ask; further admission remains caller-owned.")
+           rationale="keep: owner decision, clarified in step 5: one parsed-contract re-ask; provider schema "
+                     "repair is separate, at most once per attempt; every recovery needs caller admission.")
 _reg_const("data_capture_prefilter:_ROUND_DIGITS", "numerical", kind="structural", owner="data_capture_prefilter",
            rationale="decimal places of a priority or minutes in a prefilter receipt's inputs, so float "
            "noise does not defeat the content-addressed dedupe; receipt size only, never a decision.")

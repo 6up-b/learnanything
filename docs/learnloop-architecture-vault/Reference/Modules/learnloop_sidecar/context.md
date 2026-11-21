@@ -507,6 +507,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
   - `test_g10_a_phone_admission_is_one_transaction_with_its_cap_count`
 - [tests/test_mobile_v4_plan.py](../../../../../tests/test_mobile_v4_plan.py) — direct import
+- [tests/test_one_ai_ok.py](../../../../../tests/test_one_ai_ok.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_pinned_draws.py](../../../../../tests/test_pinned_draws.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
@@ -658,6 +659,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux11_html_extraction.py](../../../../../tests/test_ux11_html_extraction.py) — direct import
 - [tests/test_ux2_source_macros.py](../../../../../tests/test_ux2_source_macros.py) — direct import
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
+  - `test_closing_the_sheet_leaves_the_book_readable_and_its_questions_waiting`
 - [tests/test_ux_phase1_finish.py](../../../../../tests/test_ux_phase1_finish.py) — direct import
 - [tests/test_ux_phase1_landing.py](../../../../../tests/test_ux_phase1_landing.py) — direct import
   - `test_todays_plan_reads_mains_exam_predicate_for_the_reading_step`

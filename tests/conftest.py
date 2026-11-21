@@ -410,6 +410,9 @@ from tests import pinned_draws as _pinned_draws  # noqa: E402
 
 _pinned_draws.install()
 
+# The learner's one OK to use AI: given on this machine for every test not marked ``no_ai_ok`` (tests/ai_ok_world.py).
+from tests import ai_ok_world as _ai_ok_world  # noqa: E402
+
 
 # Set up before close_test_background_owners, so it closes after the test's background work has stopped: a test
 # that built a vault below the oldest supported tag (tests.helpers.allow_below_floor) may open any vault until then,
@@ -577,6 +580,7 @@ def pytest_runtest_setup(item):
     durable = _session_durable or item.get_closest_marker("durability") is not None
     _set_sqlite_test_mode(durable=durable)
     # Begun here rather than in a fixture so that fixtures of every scope this test sets up draw pinned too.
+    _ai_ok_world.begin(item, _TEMP_ROOT)
     if item.get_closest_marker("real_draws") is None:
         _pinned_draws.begin(item.nodeid)
         os.environ[_pinned_draws.KEY_ENV] = item.nodeid
@@ -590,6 +594,7 @@ def pytest_runtest_teardown(item, nextitem):
     _set_sqlite_test_mode(durable=_session_durable)
     _pinned_draws.end()
     os.environ.pop(_pinned_draws.KEY_ENV, None)
+    _ai_ok_world.end()
 
 
 @pytest.hookimpl(wrapper=True)
