@@ -37,13 +37,19 @@ from learnloop.reader.reader_progression import learning_objects_for_section
 from learnloop.vault.models import LoadedVault
 
 __all__ = [
-    "DEFERRED_TO_PRIMARY", "ENQUEUING", "NONE_NEEDED", "NONE_NEEDED_BEFORE", "OWED", "TOPIC_MANAGED",
+    "DEFERRED_TO_PRIMARY", "ENQUEUING", "NONE_NEEDED", "NONE_NEEDED_BEFORE", "OWED", "READER_FIRST_SET_TARGET",
+    "TOPIC_MANAGED",
     "WAITING_FOR_BUILD", "claim_section_topics", "index_section_jobs", "section_generation_candidates",
     "section_reason", "section_topic_requests", "start_section_questions",
 ]
 
 #: The stamps a finished section can still owe its questions under.
 OWED = (DEFERRED_TO_PRIMARY, WAITING_FOR_BUILD, NONE_NEEDED_BEFORE)
+
+#: A topic's first set from reading: it is asked for questions while it has fewer than this many, and for at most
+#: this many at once (``min(target - existing, target)``). Not a new number: the section-seeding contract's existing
+#: target, which the writing job plans to (``jobs.handle_practice_expansion``); the part read and the finish share it.
+READER_FIRST_SET_TARGET = 3
 
 #: The prefix of a finished section's reason, which a section job's payload names its section by.
 _SECTION_REASON = "reader_section_completed:"
@@ -60,8 +66,8 @@ def section_generation_candidates(
     *,
     extraction_id: str,
     section_id: str,
-    target_items_per_lo: int = 3,
-    max_new_per_lo: int = 3,
+    target_items_per_lo: int = READER_FIRST_SET_TARGET,
+    max_new_per_lo: int = READER_FIRST_SET_TARGET,
 ) -> list[str]:
     """LOs in the section that actually need items (dry-run of the expansion
     plan with the probe gate waived). Empty = nothing to generate."""
@@ -112,7 +118,8 @@ def section_topic_requests(vault: LoadedVault, repository: Repository, lo_ids: l
         return {}
     try:
         plan = build_practice_expansion_plan(vault, repository, learning_object_ids=lo_ids,
-                                             require_completed_probe=False, target_items_per_lo=3, max_new_per_lo=3)
+                                             require_completed_probe=False, target_items_per_lo=READER_FIRST_SET_TARGET,
+                                             max_new_per_lo=READER_FIRST_SET_TARGET)
     except PracticeExpansionError:
         return {}
     return {target.learning_object_id: target.requested_new_items for target in plan.targets}

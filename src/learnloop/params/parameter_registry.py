@@ -123,6 +123,8 @@ MODULE_INVENTORY: dict[str, str] = {
     "depth_transition": "src/learnloop/curriculum/depth_transition.py",
     # P2 DIAGNOSTIC track -- pre-authored diagnostic pack baseline cap (§5.2, design §E).
     "diagnostic_pack": "src/learnloop/diagnosis/diagnostic_pack.py",
+    # The first evening, step 4: the reader-first-set design value.
+    "section_generation": "src/learnloop/reader/section_generation.py",
     # P2 DIAGNOSTIC track -- two-tier triage confidence buckets (§6.1, U-027, design §E).
     # P2 step B.11 -- minimal bidirectional reader dialogue (U-033, §7.6).
     "reader_dialogue": "src/learnloop/reader/reader_dialogue.py",
@@ -670,6 +672,14 @@ _reg_const("figure_admission:GROUNDING_PASSAGES", "constraint", kind="structural
            rationale="keep: prompt size (spec_reader_show_me_figures_v1 §8.3, §15, owner-approved): at most three "
                      "passages ground a figure goal (retrieved, or a tutor answer's cited ones); more dilute the "
                      "author's context. A bound on what is sent, never a weight, margin or threshold.")
+
+# The first evening, step 4: a first set of questions from the part of a section read.
+_reg_const("section_generation:READER_FIRST_SET_TARGET", "constraint", kind="structural", owner="section_generation",
+           rationale="keep: the reader-first-set design value, not a new number: a topic is asked for "
+                     "min(3 - its practice questions, 3), the section-seeding contract's existing target "
+                     "(jobs.handle_practice_expansion plans to it). Its first set from the part read and from the "
+                     "finish share it; a held or refused set is never topped up. A bound on what is commissioned, "
+                     "never a weight, margin or threshold.")
 
 # Reader RW5d P3: figures as a help kind (all keep: a structural ladder level and a read bound).
 _reg_const("figure_help:FIGURE_LEVEL", "version", kind="structural", owner="figure_help",

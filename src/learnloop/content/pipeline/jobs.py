@@ -3623,8 +3623,8 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
             client,
             learning_object_ids=lo_ids,
             require_completed_probe=False,
-            target_items_per_lo=3,
-            max_new_per_lo=3,
+            target_items_per_lo=SG.READER_FIRST_SET_TARGET,
+            max_new_per_lo=SG.READER_FIRST_SET_TARGET,
             source_refs=source_refs,
             **by_parts,
             extra_instructions=(
