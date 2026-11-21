@@ -1,5 +1,17 @@
 # Structured contracts, step 0: the shared step with no caller
 
+## Amended by step 5
+
+The orchestrator clarified the owner's “one re-ask” decision: `MAX_STRUCTURED_RECOVERIES = 1`
+counts **contract re-asks only**, not provider schema repairs. Each of the initial and corrective
+attempts retains the provider's existing allowance of one schema repair, independently of the
+contract credit. Every repair still requires the caller's explicit `admit`, remaining deadline
+and no cancellation; outside a checked call the hooks remain inert. This supersedes the shared-credit
+descriptions and stopping assertions below. Exact preservation wins: both previously successful
+three-request follow-up sequences, and the captured four-request sequence, must remain successful.
+See [the step-5 record](structured-contracts-step-5.md) for the changed assertions, durable adapter,
+baseline, verification, and the separate unresolved question about existing transport retries.
+
 Status: built on branch `ai/structured-contracts-0` from `2f761915a2`; not landed. Commits `a0ab70c423` (the
 module, its registered count, the transport hook, tests) and `29a6b6f83b` (the provider hooks, their tests).
 

@@ -115,7 +115,7 @@ def process_next_job(
             _finish(repository, job, "failed", ATTEMPTS_EXHAUSTED, clock)
             outcome.state, outcome.error = "failed", ATTEMPTS_EXHAUSTED
             return outcome
-        _run(vault, repository, job, clients=clients, clock=clock)
+        _run(vault, repository, job, clients=clients, clock=clock, cancelled=cancelled)
         _finish(repository, job, "done", None, clock)
         return outcome
     except (QuestionEcho, AuthoringContractRetry) as echo:
@@ -208,7 +208,8 @@ def recover_pending_workflows(vault: Any, repository: Repository, *, clock: Cloc
     return sum(1 for row in rows if recover_workflow(vault, repository, row, clock=clock))
 
 
-def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None:
+def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None,
+         cancelled: Callable[[], bool] | None = None) -> None:
     from learnloop.daily_plan.router_runtime import default_runtime
 
     kind = str(job["kind"])
@@ -219,7 +220,7 @@ def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients:
     with runtime.spend.metered(repository, vault.config, owner_kind=RECEIPT_OWNER, owner_id=str(job["id"])):
         if kind == "workflow":
             _run_workflow(vault, repository, str(job["workflow_id"]), clients=clients, clock=clock,
-                          attempt=int(job.get("attempt_count") or 0))
+                          attempt=int(job.get("attempt_count") or 0), cancelled=cancelled)
         elif kind == "entry_episode":
             _run_entry(vault, repository, str(job["probe_episode_id"]), clients=clients, clock=clock)
         elif kind == "lesson":
@@ -330,7 +331,7 @@ def _run_need(vault: Any, repository: Repository, need_id: str, *, clients: Any,
 
 
 def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None,
-                  attempt: int = MAX_GENERATION_ATTEMPTS) -> None:
+                  attempt: int = MAX_GENERATION_ATTEMPTS, cancelled: Callable[[], bool] | None = None) -> None:
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
     from learnloop.followup_run.lanes import open_rival_factor, select_lane, settle_practice_lane
     row = wf.get(repository, workflow_id)
@@ -366,7 +367,8 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
         return
     wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, factor_id=choice.factor_id, clock=clock)
     row = wf.get(repository, workflow_id) or row
-    _run_probe_lane(vault, repository, row, choice=choice, clients=clients, clock=clock, attempt=attempt)
+    _run_probe_lane(vault, repository, row, choice=choice, clients=clients, clock=clock, attempt=attempt,
+                    cancelled=cancelled)
 
 
 def _author_client(vault: Any, clients: Any) -> Any:
@@ -379,16 +381,18 @@ def _author_client(vault: Any, clients: Any) -> Any:
 
 
 def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any,
-                    clock: Clock | None, attempt: int = MAX_GENERATION_ATTEMPTS) -> None:
+                    clock: Clock | None, attempt: int = MAX_GENERATION_ATTEMPTS,
+                    cancelled: Callable[[], bool] | None = None) -> None:
     """§5: the decision first and the item after it. One physical authoring call, on a plan route."""
 
     from learnloop.followup_run import admission, router
-    from learnloop.followup_run.authoring import CONTRACT_REASK_REQUIREMENTS, QUESTION_MATCHES_RESERVED, RESERVED_MATCHES
+    from learnloop.followup_run.authoring import QUESTION_MATCHES_RESERVED, RESERVED_MATCHES
+    from learnloop.followup_run.contract_job import CorrectionDeferred, JobContract, has_saved_correction
     from learnloop.followup_run.lanes import settle_practice_lane
 
     workflow_id = str(row["id"])
     factor_id = str(choice.factor_id)
-    if attempt > MAX_GENERATION_ATTEMPTS:
+    if attempt > MAX_GENERATION_ATTEMPTS and not has_saved_correction(repository, workflow_id):
         # F20, R11: the limit holds across crashes, before anything is paid. It settles like any
         # other exit: what the crashed runs prepared closes, feedback is released, Next goes on.
         with repository.atomic():
@@ -440,7 +444,8 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
         probe, template, card = admission.author_probe(
             vault, repository, workflow=row, factor_id=factor_id, decision=decision.for_author(), client=client,
             avoid_phrases=wf.noted(repository, workflow_id, reason=QUESTION_MATCHES_RESERVED).get("phrases") or (),
-            rejection_reason=retry.get("rejection_reason"), retry_deadline=deadline if retry else None, clock=clock,
+            clock=clock, contract_job=JobContract(repository, workflow_id, attempt, MAX_GENERATION_ATTEMPTS,
+                                                  deadline, author_clock, cancelled),
         )
         # The learner may have said "Not now" while the model wrote; nothing further was paid for.
         refusal = router.hard_refusal(vault, repository, row, factor_id=factor_id)
@@ -453,6 +458,8 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             fresh, repository, probe, workflow=row, factor_id=factor_id, router_decision_id=decision.decision_id,
             practice_item_id=item_id, client=client, clock=clock,
         )
+    except CorrectionDeferred as deferred:
+        raise AuthoringContractRetry(str(deferred)) from deferred
     except admission.OfferRefused as refused:
         with repository.atomic():
             _withdraw(repository, item_id, reason=refused.reason, workflow_id=workflow_id, clock=clock)
@@ -461,13 +468,6 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     except admission.AdmissionFailed as failed:
-        if (failed.reason in CONTRACT_REASK_REQUIREMENTS and attempt < MAX_GENERATION_ATTEMPTS
-                and not retry and (deadline - author_clock.now()).total_seconds() >= 1.0):
-            # Share the existing retry slot: separate repair loops multiply paid calls after other failures.
-            wf.note(repository, workflow_id, reason="authoring_contract_retry",
-                    detail={"rejection_reason": failed.reason, "deadline": deadline.isoformat(),
-                            "rejected_attempt": attempt, "retry_attempt": attempt + 1}, clock=clock)
-            raise AuthoringContractRetry(failed.reason) from failed
         if failed.reason == QUESTION_MATCHES_RESERVED and attempt < MAX_GENERATION_ATTEMPTS:
             # R10: the job's one retry, told only the draft's own words. Nothing was written.
             wf.note(repository, workflow_id, reason=failed.reason, detail={"phrases": failed.detail.get("phrases") or []},

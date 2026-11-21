@@ -1,8 +1,8 @@
-"""The shared "check the contract, ask once more" step for structured answers (no caller adopts it yet).
+"""The shared "check the contract, ask once more" step for structured answers.
 
 A parsed answer that fails a declared predicate is discarded and the request is sent once more with the predicate's
-fixed requirement; the first request goes out exactly as built. One recovery per logical call, shared with a
-provider's schema repair, drawn from the caller's own admission, time and cancellation; nothing is sent past it.
+fixed requirement; the first request goes out exactly as built. One contract recovery per logical call,
+separate from provider schema repair; both need the caller's admission, time and no cancellation.
 """
 
 from __future__ import annotations
@@ -289,7 +289,7 @@ def test_a_resumed_spent_recovery_stays_spent():
         _call(client, allowance=RecoveryAllowance(admit=admit, state=RecoveryState(1, "empty_question_or_key")))
     assert client.requests == [] and admit.asked == 0
     assert (raised.value.info.reason, raised.value.info.sends) == ("contract_failed", 0)
-    # Spent on a schema repair before the restart: the first request is the caller's to resend, the recovery is not.
+    # A persisted spent contract credit stays spent even if its owed name is absent.
     client = ScriptedAuthor(EMPTY, GOOD)
     with pytest.raises(Refused) as raised:
         _call(client, allowance=RecoveryAllowance(admit=admit, state=RecoveryState(1)))
@@ -498,19 +498,16 @@ def _chat_client(monkeypatch, *responses):
         type="openrouter", model="vendor/model", api_key_env="TEST_ROUTER_KEY"))
 
 
-def test_the_chat_providers_repair_shares_the_one_recovery(monkeypatch):
+def test_the_chat_providers_repair_is_separate_from_the_contract_recovery(monkeypatch):
     empty, good = EMPTY.model_dump_json(), GOOD.model_dump_json()
-    # Contract-failing, then a malformed correction: no repair after it.
+    # Contract-failing, then a malformed correction: the provider may repair it.
     fake, client = _chat_client(monkeypatch, empty, "not json", good)
-    with pytest.raises(Refused) as raised:
-        _call(client)
-    assert len(fake.instances[0].requests) == 2 and raised.value.info.reason == "schema_failed"
-    # Malformed, repaired, then contract-failing: no correction after it.
+    assert _call(client, allowance=RecoveryAllowance(admit=Admit(slots=2))).answer == GOOD
+    assert len(fake.instances[0].requests) == 3
+    # A schema repair does not spend the contract correction.
     fake, client = _chat_client(monkeypatch, "not json", empty, good)
-    with pytest.raises(Refused) as raised:
-        _call(client, allowance=RecoveryAllowance(admit=Admit(slots=5)))
-    assert len(fake.instances[0].requests) == 2
-    assert (raised.value.info.reason, raised.value.info.predicate) == ("contract_failed", "empty_question_or_key")
+    assert _call(client, allowance=RecoveryAllowance(admit=Admit(slots=2))).answer == GOOD
+    assert len(fake.instances[0].requests) == 3
     # Malformed with no admitted recovery: no repair is sent.
     fake, client = _chat_client(monkeypatch, "not json", good)
     with pytest.raises(Refused) as raised:

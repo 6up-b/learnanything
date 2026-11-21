@@ -9,9 +9,9 @@ once more with the original prompt plus that requirement
 (:func:`correction_prompt`). The first request is sent exactly as the caller
 built it; only the correction carries the suffix, and never the rejected answer.
 
-One corrective recovery per logical call (:data:`MAX_STRUCTURED_RECOVERIES`),
-shared by a provider's schema repair and the contract re-ask, so one failure
-never buys two extra requests. The recovery is the caller's own: it is sent only
+One contract recovery per logical call (:data:`MAX_STRUCTURED_RECOVERIES`).
+Each attempt may also use its provider's one schema repair, independently of
+that credit. Every recovery is the caller's own: it is sent only
 when the caller's ``admit`` says its retry slot and budget allow one, inside the
 caller's remaining time and before any cancellation. With none of that, nothing
 further is sent and the caller's own failure is raised through ``failure``.
@@ -43,9 +43,8 @@ from learnloop.ai.execution import ModelCheckpoint, annotate_calls, content_key
 
 T = TypeVar("T")
 
-#: Corrective recoveries one logical structured call may send: a provider's
-#: schema repair or one contract re-ask, whichever comes first. Any further
-#: request is the caller's own admission, never this step's.
+#: Contract re-asks one logical structured call may send. Provider schema
+#: repairs do not spend this count; each attempt may repair once, when admitted.
 MAX_STRUCTURED_RECOVERIES = 1
 
 #: The ``budget_json`` key a correction's root receipt carries (``annotate_calls``).
@@ -135,10 +134,10 @@ class ContractRejected(Exception):
 class RecoveryState:
     """What one logical call has spent, in the form a durable job stores and restores.
 
-    ``recoveries`` counts the corrective requests claimed (a schema repair or a
-    contract re-ask). ``owed`` names the predicate whose correction the call
-    owes once an answer was rejected; it is recorded before anything else, so a
-    restart sends that correction, not the first request again.
+    ``recoveries`` counts the contract re-asks claimed. ``owed`` names the
+    predicate whose correction the call owes once an answer was rejected; it
+    is recorded before anything else, so a restart sends that correction,
+    not the first request again.
     """
 
     recoveries: int = 0
@@ -254,6 +253,15 @@ class _Ledger:
 
         if self.state.recoveries >= MAX_STRUCTURED_RECOVERIES:
             return "recovery_spent"
+        refusal = self.admit()
+        if refusal is not None:
+            return refusal
+        self.note(RecoveryState(self.state.recoveries + 1, owed if owed is not None else self.state.owed))
+        return None
+
+    def admit(self) -> str | None:
+        """Caller authorization common to contract corrections and schema repairs."""
+
         if self.allowance.cancelled is not None and self.allowance.cancelled():
             return "cancelled"
         remaining = self.remaining()
@@ -261,7 +269,6 @@ class _Ledger:
             return "deadline"
         if self.allowance.admit is None or not self.allowance.admit():
             return "recovery_refused"
-        self.note(RecoveryState(self.state.recoveries + 1, owed if owed is not None else self.state.owed))
         return None
 
 
@@ -272,14 +279,16 @@ def claim_schema_repair() -> bool:
     """Whether a provider may send its schema repair now.
 
     Outside a checked call, True: every provider repairs as it always has.
-    Inside one, the repair is the call's one recovery: True only when it was
-    still unspent and the caller admitted it (it is then spent).
+    Inside one, each attempt may repair once, only with caller admission, time
+    left and no cancellation. This never spends the contract re-ask credit.
     """
 
     ledger = _active.get()
     if ledger is None:
         return True
-    refusal = ledger.claim(None)
+    if ledger.repair is not None:
+        return False
+    refusal = ledger.admit()
     ledger.repair = refusal or "claimed"
     return refusal is None
 

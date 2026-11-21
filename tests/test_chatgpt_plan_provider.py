@@ -600,30 +600,29 @@ def test_a_checked_call_sends_the_first_request_unchanged_and_one_correction(ser
     assert accepted["status"] == "completed"
 
 
-def test_malformed_then_repaired_then_contract_failing_stops(server):
+def test_malformed_then_repaired_then_contract_failing_gets_one_correction(server):
     client = _client(server)
     server.replies.extend([Reply(events=completed_events('{"ok": true}')),
                            Reply(events=completed_events('{"ok": true, "note": ""}')),
-                           Reply(events=completed_events('{"ok": true, "note": "never sent"}'))])
+                           Reply(events=completed_events('{"ok": true, "note": "accepted"}'))])
     before = len(server.requests)
-    with pytest.raises(Refused) as raised:
-        _checked(client, RecoveryAllowance(admit=Admit(slots=5)))
-    assert len(server.requests) - before == 2
-    assert server.requests[-1]["body"]["input"][0]["content"].startswith("Repair the following model output")
-    assert (raised.value.info.reason, raised.value.info.predicate) == ("contract_failed", "blank_note")
+    result = _checked(client, RecoveryAllowance(admit=Admit(slots=2)))
+    assert result.answer.note == "accepted" and result.state.recoveries == 1
+    assert len(server.requests) - before == 3
+    assert server.requests[-2]["body"]["input"][0]["content"].startswith("Repair the following model output")
+    assert server.requests[-1]["body"]["input"][0]["content"] == correction_prompt("Say ok", _NOTED[0])
 
 
-def test_contract_failing_then_a_malformed_correction_gets_no_repair(server):
+def test_contract_failing_then_a_malformed_correction_gets_one_repair(server):
     client = _client(server)
     server.replies.extend([Reply(events=completed_events('{"ok": true, "note": ""}')),
                            Reply(events=completed_events('{"ok": true}')),
-                           Reply(events=completed_events('{"ok": true, "note": "never sent"}'))])
+                           Reply(events=completed_events('{"ok": true, "note": "accepted"}'))])
     before = len(server.requests)
-    with pytest.raises(Refused) as raised:
-        _checked(client, RecoveryAllowance(admit=Admit(slots=5)))
-    assert len(server.requests) - before == 2
-    assert isinstance(raised.value.__cause__, AIInvalidOutput)
-    assert raised.value.info.reason == "schema_failed"
+    result = _checked(client, RecoveryAllowance(admit=Admit(slots=2)))
+    assert len(server.requests) - before == 3
+    assert result.answer.note == "accepted" and result.state.recoveries == 1
+    assert server.requests[-1]["body"]["input"][0]["content"].startswith("Repair the following model output")
 
 
 def test_a_checked_call_with_no_admitted_recovery_sends_no_plan_repair(server):
