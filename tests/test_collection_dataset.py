@@ -49,12 +49,23 @@ def test_exact_offer_survives_refresh_recovery_and_dataset_export(tmp_path):
         connection.execute("DELETE FROM decision_features WHERE decision_id=?", (first.scheduler_candidate_id,))
     with pytest.raises(ValueError, match="evidence"):
         repository.record_false_remediation(attempt_id=result.attempt_id, value=True, evidence_refs=[], author_kind="human", verifier_version="test-v1")
+    locked_set = repository.insert_hypothesis_set(
+        learning_object_id=attempt["learning_object_id"], probe_phase_id=None,
+        hypotheses=[{"id": "h1"}], prior={"h1": 1.0}, algorithm_version=vault.config.algorithms.algorithm_version,
+        clock=clock,
+    )
+    with pytest.raises(ValueError, match="retained ledger or receipt"):
+        repository.record_false_remediation(
+            attempt_id=result.attempt_id, value=True, evidence_refs=[{"table": "hypothesis_sets", "id": locked_set}],
+            author_kind="human", verifier_version="test-v1",
+        )
     adjudication = repository.record_false_remediation(attempt_id=result.attempt_id, value=False, evidence_refs=[{"table": "practice_attempts", "id": result.attempt_id}], author_kind="human", verifier_version="test-v1")
     report = data_quality_report(paths.sqlite_path)
     assert report["attempt_cohorts"][0]["exact_offer_links"] == 1
     assert not any(report["current_version_violations"].values())
     output = tmp_path / "dataset"
     manifest = export_dataset(paths.sqlite_path, output)
+    assert not (output / "hypothesis_sets.jsonl").exists()
     assert manifest["snapshot_sha256"] == hashlib.sha256((output / "snapshot.sqlite").read_bytes()).hexdigest()
     assert manifest["schema_migrations"][-1]["version"] >= 162
     labels = [json.loads(line) for line in (output / "outcome_contract.jsonl").read_text().splitlines()]

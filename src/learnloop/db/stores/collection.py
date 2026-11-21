@@ -9,7 +9,7 @@ from typing import Any
 
 from learnloop.clock import utc_now_iso
 from learnloop.db.stores.router import append_router_decision, record_learner_pick
-from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from learnloop.db.table_roles import CAPTURE_EXCLUDED_TABLES, TABLE_ROLES, TableRole
 from learnloop.ids import new_ulid
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
 
@@ -30,7 +30,7 @@ def _check_evidence_reference(connection: sqlite3.Connection, reference: object)
     key = reference.get("id")
     if not isinstance(table, str) or not isinstance(key, str) or not key:
         raise ValueError("Each evidence reference needs a string table and a string id.")
-    if TABLE_ROLES.get(table) not in _EVIDENCE_ROLES:
+    if table in CAPTURE_EXCLUDED_TABLES or TABLE_ROLES.get(table) not in _EVIDENCE_ROLES:
         raise ValueError(f"Adjudication evidence must reference a retained ledger or receipt table, not {table!r}.")
     key_column = _single_primary_key(connection, table)
     if key_column is None:

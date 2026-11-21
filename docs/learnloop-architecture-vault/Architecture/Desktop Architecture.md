@@ -103,6 +103,8 @@ Two typed errors come from the manager rather than from Python:
 > [!important] The ingest ownership fence, not process shutdown, protects a vault
 > Vault switching stops the previous sidecar before initializing the next, but correctness does not depend on every worker it started having exited. Each claimed ingest job attempt is owned by `JobOwner(worker_id, attempt_count)` and holds a renewable lease; `guard_ingest_writes` checks that the job row is still `running` for that worker and attempt before the first write of every write transaction and before every vault-file mutation (`guard_vault_mutations`). A superseded or expired attempt raises `JobOwnershipLost` instead of publishing. See [[Import Canonical Sources]].
 
+The owner left five in-flight writes in place by design (D-47, 2026-11-20), each begun before a refusal. Reader synthesis already in its model call can record its answer. Receipts for paid model work can be recorded after the fence. A running reading-sweep pass can finish. A request-started background job can write after cancellation unless it checks `closed_since`. An exam grade can land between its `serving()` check and its write.
+
 ## Filesystem refresh
 
 Rust's `vault_watcher` coalesces create/modify/remove bursts for Markdown, YAML, TOML, and JSON under the active vault. It ignores runtime/build/raw-original paths, sends normalized relative paths to Python's `refresh_vault_files`, and emits `learnloop://vault-files-changed` back to React.

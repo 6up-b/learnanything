@@ -201,7 +201,7 @@ def test_old_reveal_does_not_permanently_veto_spaced_reviews(tmp_path):
 
 
 @pytest.mark.parametrize("status,expected", [("pass", True), ("fail", False), ("unknown", False)])
-def test_receipt_owns_measurement_window_and_unassisted_claim(tmp_path, status, expected):
+def test_memory_uses_receipt_window_and_unassisted_claim_without_requiring_delay(tmp_path, status, expected):
     vault, repo = _vault(tmp_path)
     _attempt(repo, 0)
     _attempt(repo, 7)
@@ -217,9 +217,11 @@ def test_receipt_owns_measurement_window_and_unassisted_claim(tmp_path, status, 
                (id, lane, stage, cold_attempt_id, dimensions_json, derived_json,
                 telemetry_coverage_json, receipt_version, created_at)
                VALUES ('receipt', 'repair_cold_retry', 'final', 'attempt-7',
-                       ?, '{}', ?, 'test', ?)""",
+                       ?, ?, ?, 'test', ?)""",
             (json.dumps({"unassisted": {"status": status},
-                         "answer_leakage": {"status": "pass"}}),
+                         "answer_leakage": {"status": "pass"},
+                         "retrieval_delay": {"status": "fail"}}),
+             json.dumps({"qualifies_as_cold_retrieval": False}),
              json.dumps({"interval": {"from": (NOW+timedelta(days=2)).isoformat(),
                                        "to": (NOW+timedelta(days=7)).isoformat()}}),
              (NOW+timedelta(days=7)).isoformat()))

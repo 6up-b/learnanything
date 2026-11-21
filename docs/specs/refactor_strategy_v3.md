@@ -681,6 +681,8 @@ Count implementer tokens and gates in each landing record. Use the removal recor
 | TE4 | E6, E7 | An action in one place |
 | Planned-evidence, nat-scale, `measured_loss` | E5, G1 | Terms and probe facts in one place; `VALUE_PER_NAT_MINUTES` stops deciding |
 | RE3-RE8 | E6, RE2, I1 | New action kind; one read function for `S_eff`; RE7 is an `objective.py` term. RE's spec places RE3-RE8 between the refactor and the UX audit; the brief says beside the audit. Either works here. |
+| [Adaptive difficulty's memory model](spec_ad_memory_v1.md) | RE2, L4 for adaptive difficulty | One retrievability function; ADM1 can call the update with plain values. |
+| [Evidence packets](spec_evidence_packets_v1.md) | E7b for EP4, L2 for EP2s, P1 (EP2), and Appendix B's help facts | Shared learner signals and attempt facts; the store split gives status writes a home; the model's input is recorded. |
 | UX audit and overhaul | C3-C5, B9 | Fewer backends; `why.get` for the glass-box view; the UX list this strategy collects |
 | Codex docs, last | all | Describes the final screens |
 | Z3, the spec archive | Codex docs | Archives what the rewritten docs no longer cite as live |
@@ -1252,6 +1254,7 @@ The owner. A step moves a reader to it (G5), and a duplicate stops being written
 | Which prediction matched | `causal_discriminating_observations` | Features in `probe_observations`, grading evidence | Stays; read by the 8 modules in §2.10 |
 | Belief after an observation | `probe_observations` (episode posterior) | `support_scores`, `resolved_factor` | G3, G4 |
 | Attempt, presentation | `practice_attempts`, `probe_presentations` | `causal_probe_decision_receipts`, observations | Join by id; stop copying only where nothing reads the copy |
+| What help preceded an answer | EP0's shared attempt facts | [Reveal ledger](../../src/learnloop/attempts/reveal_ledger.py), [`help_assists`](../../src/learnloop/db/stores/help_assists.py), [help questions in `question_events`](../../src/learnloop/db/stores/questions.py), [the attempt's own columns](../../src/learnloop/db/repositories.py#L2262), [AD's `AttemptFacts`](../../src/learnloop/adaptive_difficulty/outcomes.py) | EP0 gathers the facts from the existing records; G5's reader moves are deferred. |
 | Whether to probe: formula and EVSI provenance | `causal_probe_decision_receipts` | Router's `observational` field | Stays; the verdict goes at G2, the facts stay |
 | Burden minutes | Trace | Receipts | Trace |
 | Learner's "Not now" | `causal_probe_preference_events` | Workflow's release reason | Statement stays there; the workflow names it |

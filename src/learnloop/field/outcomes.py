@@ -384,14 +384,15 @@ def _grader_models(connection) -> dict[str, str]:
     return {row[0]: str(row[1] or row[2] or "unknown") for row in rows}
 
 
-def _retrieval_cold(connection, repository, attempt, policy, since):
-    """Strict research coldness for memory arms; returns (cold, window start).
+def _qualifies_for_field_memory_retrieval(connection, repository, attempt, policy, since):
+    """Coldness for reports and learner field memory rows only, never serving.
 
-    Ordinary submissions use the since-last-item-attempt window. A final
-    coldness receipt instead owns its explicit interval and its unassisted and
-    answer-leakage findings. Old exposure is absorbed by the next attempt,
-    never a permanent veto. Unknown coldness fails: the reveal lookup is
-    strict, unlike the live best-effort helper.
+    Require an unaided, FSRS-eligible graded retrieval and a strict reveal
+    check. Ordinary submissions use the since-last-item-attempt window. Each
+    final receipt must cover a valid interval ending at the attempt and pass
+    unassisted and answer leakage. The reveal check uses the earliest receipt
+    start. Unlike qualifies_as_cold_retrieval, this rule has no retrieval-delay
+    requirement.
     """
     at = parse_utc(attempt["created_at"])
     cold = (
@@ -646,7 +647,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             fsrs_rating = int(fsrs_rating_for_attempt(item, score, rubric.max_points, hints))
         retrieval_cold = bool(
             retrieval and fsrs_rating is not None
-            and _retrieval_cold(connection, repository, attempt, policy, since)
+            and _qualifies_for_field_memory_retrieval(connection, repository, attempt, policy, since)
         )
         # Captured demand stays fixed, including LLM estimates. Uncertainty
         # widens the observation, never replaces b with today's LO prior.

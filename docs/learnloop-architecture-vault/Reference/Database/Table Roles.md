@@ -37,9 +37,11 @@ flowchart TD
 
 The decision tree is important because names such as `_state`, `_report`, or `_cache` are not reliable evidence of reconstructability. Classification is explicit, never inferred by suffix.
 
+The generated [[Database Catalog#By rebuild role|role index]] lists the current table counts.
+
 ## Raw Ledger
 
-**129 tables.** `RAW_LEDGER` includes authored definitions, captured provider/source output, measured calibration artifacts, raw observations, and mixed rows whose historical inputs are co-located with their current head. The rebuild umbrella never clears these rows.
+`RAW_LEDGER` includes authored definitions, captured provider/source output, measured calibration artifacts, raw observations, and mixed rows whose historical inputs are co-located with their current head. The rebuild umbrella never clears these rows.
 
 Examples:
 
@@ -47,13 +49,14 @@ Examples:
 - [[Reference/Database/Tables/raw_grade_events|raw_grade_events]] — retained grading output avoids re-calling a provider.
 - [[Reference/Database/Tables/activity_card_state|activity_card_state]] — scheduling head plus its only historical review stream remain co-located.
 - [[Reference/Database/Tables/parameter_registry|parameter_registry]] — effective values are mixed with lifecycle decisions and evidence links.
+- [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]] — the locked sets that probe paths write and read. The dataset's JSONL inventory and adjudication evidence keep their existing scope.
 
 > [!danger] “Could recompute some columns” is not enough
 > If any authoritative receipt or calibration input would be lost, the whole table remains outside `DERIVED` until those inputs have a separate durable ledger.
 
 ## Derived
 
-**10 tables.** A `DERIVED` table is deliberately cleared and reconstructed by exactly one registered owner. See [[Rebuild Ownership]] for the complete set and dependency order. Same-version full-column equivalence, stale-row removal, attempt coverage, and one-receipt accounting are test oracles.
+A `DERIVED` table is deliberately cleared and reconstructed by exactly one registered owner. See [[Rebuild Ownership]] for the complete set and dependency order. Same-version full-column equivalence, stale-row removal, attempt coverage, and one-receipt accounting are test oracles.
 
 Examples: [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], and [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]].
 
@@ -61,13 +64,13 @@ Examples: [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Ref
 
 ## Receipt
 
-**54 tables.** `RECEIPT` rows record historical decisions, audit facts, lifecycle events, and evaluation reports. They survive rebuilds. Many families also have schema triggers preventing update or delete.
+`RECEIPT` rows record historical decisions, audit facts, lifecycle events, and evaluation reports. They survive rebuilds. Many families also have schema triggers preventing update or delete.
 
 Examples: [[Reference/Database/Tables/derived_state_rebuilds|derived_state_rebuilds]], [[Reference/Database/Tables/attempt_submission_receipts|attempt_submission_receipts]], [[Reference/Database/Tables/controller_decisions|controller_decisions]], and [[Reference/Database/Tables/coldness_receipts|coldness_receipts]].
 
 ## Workflow
 
-**56 tables.** `WORKFLOW` covers mutable queues, jobs, reservations, sessions, leases, requests, and other in-flight state. These rows may transition during normal product operations but are not disposable projections.
+`WORKFLOW` covers mutable queues, jobs, reservations, sessions, leases, requests, and other in-flight state. These rows may transition during normal product operations but are not disposable projections.
 
 Examples: [[Reference/Database/Tables/ingest_jobs|ingest_jobs]], [[Reference/Database/Tables/exam_sessions|exam_sessions]], [[Reference/Database/Tables/activity_surface_reservations|activity_surface_reservations]], and [[Reference/Database/Tables/question_promotion_requests|question_promotion_requests]].
 
@@ -75,12 +78,11 @@ It also holds live overwritten state that rebuild must not clear wholesale: [[Re
 
 ## Compat
 
-**8 tables.** `COMPAT` is frozen state retained for old vaults, dormant designs, or incomplete successor cutovers. It is preserved during rebuilds and is not synonymous with “safe to remove.”
+`COMPAT` is frozen state retained for old vaults, dormant designs, or incomplete successor cutovers. It is preserved during rebuilds and is not synonymous with “safe to remove.”
 
-The eight tables are:
+Examples:
 
 - actively preserved legacy projections: [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]], [[Reference/Database/Tables/elicitation_events|elicitation_events]], [[Reference/Database/Tables/learner_state_beliefs|learner_state_beliefs]], and [[Reference/Database/Tables/lo_probe_state|lo_probe_state]];
-- live despite the role: [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]], whose locked sets the probe paths write and read (its role is on the owner's list in `docs/reviews/table-review-2026-11-11.md`);
 - owner-gated dormant state: [[Reference/Database/Tables/source_exam_profiles|source_exam_profiles]], [[Reference/Database/Tables/source_locator_schemes|source_locator_schemes]], and [[Reference/Database/Tables/learner_theta|learner_theta]].
 
 [[Reference/Database/Tables/practice_item_state|practice_item_state]] left this role for `WORKFLOW` in J1 (Nov 11): it is live overwritten state, and no role consumer treats the two roles differently.

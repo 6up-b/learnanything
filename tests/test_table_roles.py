@@ -48,6 +48,7 @@ def test_public_role_helpers_partition_registry():
     assert partition == set(TABLE_ROLES)
     assert sum(len(tables_for_role(role)) for role in TableRole) == len(TABLE_ROLES)
     assert role_for_table("practice_attempts") is TableRole.RAW_LEDGER
+    assert role_for_table("hypothesis_sets") is TableRole.RAW_LEDGER
     assert role_for_table("learning_object_mastery") is TableRole.DERIVED
     assert role_for_table("derived_state_rebuilds") is TableRole.RECEIPT
     assert role_for_table("ingest_jobs") is TableRole.WORKFLOW

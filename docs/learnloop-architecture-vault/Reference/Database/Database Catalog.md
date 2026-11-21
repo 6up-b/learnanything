@@ -36,11 +36,11 @@ This is the exhaustive map of the 397 user tables at migration head 255. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 166 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 167 |
 | [[Table Roles#Derived|`derived`]] | 27 |
 | [[Table Roles#Receipt|`receipt`]] | 96 |
 | [[Table Roles#Workflow|`workflow`]] | 100 |
-| [[Table Roles#Compat|`compat`]] | 8 |
+| [[Table Roles#Compat|`compat`]] | 7 |
 
 ### By functionality status
 
@@ -143,7 +143,7 @@ Learner beliefs, mastery, recall, and capability projections. This is a navigati
 - [[Reference/Database/Tables/facet_recall_state|facet_recall_state]] — `derived` · `active` · Materializes canonical per-facet recall evidence and uncertainty for the current knowledge model. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `facet_id`, `practice_item_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_registry_saves|facet_registry_saves]] — `workflow` · `active` · Gives facet registry save a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `status`, `abandoned_at`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]] — `derived` · `active` · Gives facet uncertainty a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `learning_object_id`, `facet_id`, `opened_by_attempt_id`, making the operational relationship explicit.
-- [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]] — `compat` · `active` · Gives hypothesis set a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `probe_phase_id`, `algorithm_version`, making the operational relationship explicit.
+- [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]] — `raw_ledger` · `active` · Gives hypothesis set a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `learning_object_id`, `probe_phase_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/intervention_needs|intervention_needs]] — `workflow` · `active` · Queues an identified supply gap for intervention so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `attempt_id`, `learning_object_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_claims|learner_claims]] — `raw_ledger` · `active` · Stores learner-supplied prior claims, including the optional initialization-wizard claim. It supplies replay-stable input rather than a disposable cache. Rows bind `scope_id`, `claim_type`, `scope_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_gap_check_advances|learner_gap_check_advances]] — `receipt` · `active` · Gives learner gap check advance a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `gap_id`, `learning_object_id`, `assumption_id`, making the operational relationship explicit.

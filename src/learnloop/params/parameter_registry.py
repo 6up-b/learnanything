@@ -293,11 +293,14 @@ MODULE_INVENTORY: dict[str, str] = {
     "ad_reading_cache": "src/learnloop/adaptive_difficulty/reading_cache.py",
 }
 
-# Runtime imports are derived from the same source inventory so a module move
-# cannot leave a second, silently stale namespace registry behind.
+# Audited modules share a source inventory for runtime imports. The plan
+# provider registers one operational bound outside the whole-module audit.
 MODULE_IMPORTS: dict[str, str] = {
-    name: ".".join(Path(source_path).with_suffix("").parts[1:])
-    for name, source_path in MODULE_INVENTORY.items()
+    **{
+        name: ".".join(Path(source_path).with_suffix("").parts[1:])
+        for name, source_path in MODULE_INVENTORY.items()
+    },
+    "chatgpt_plan": "learnloop.ai.providers.chatgpt_plan",
 }
 
 
@@ -783,6 +786,9 @@ _reg_const("figure_manim:FUNCTION_CHECK_SECONDS", "operational", kind="structura
            rationale="keep (machine safety): the declared-function check's sandbox CPU and wall clock.")
 _reg_const("figure_manim:FUNCTION_CHECK_MEMORY_MB", "operational", kind="structural", owner="figure_manim",
            rationale="keep (machine safety): the declared-function check's address-space cap in the sandbox.")
+_reg_const("chatgpt_plan:BACKGROUND_CEILING_SECONDS", "operational", kind="structural", owner="chatgpt_plan",
+           rationale="keep (machine safety): the absolute wall-clock ceiling for a background plan stream, "
+                     "including streams that keep emitting output.")
 _reg_const("figure_labels:MIN_SEGMENT_WORDS", "constraint", kind="structural", owner="figure_labels",
            rationale="keep (wording rule, spec §9b.4): the shortest segment of a code-owned label matched on its "
                      "own. Two words ('not checked') are ordinary prose; three name a label's claim ('not checked "
