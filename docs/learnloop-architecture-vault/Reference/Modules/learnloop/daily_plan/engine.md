@@ -948,6 +948,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r7_an_open_list_keyed_pick_also_rolls_back_and_an_unkeyed_one_still_serves`
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
   - `test_i_a_narrative_write_invalidates_c1s_memo_once_and_the_choice_is_the_same`
+- [tests/test_reader_seen_passages.py](../../../../../../tests/test_reader_seen_passages.py) — direct import
+  - `test_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_new_vaults_read_on_from_the_furthest_section`
   - `test_replay_never_reads_the_switch`

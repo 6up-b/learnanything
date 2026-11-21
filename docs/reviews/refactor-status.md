@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of the owner's small decisions (batch 1), the notebook and teach-back specs and the teacher v2 decisions on main `52b9edc050` (Nov 20), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of evidence packets' EP0t and the shared contract check's step 0 on main `5508b1a9bb` (Nov 21), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -352,3 +352,44 @@ The router credits each lesson offer's committed delayed check as a full practic
 | Step 5 | A read-only report over stored lesson offers and their delayed checks (`scripts/check_credit_report.py`) | landed | this commit | [algorithm-check-credit-step-5.md](algorithm-check-credit-step-5.md) | — |
 | Step 6 | Switch on at `mvp-0.62`: the offer builder attaches the sensors, the typed checks are priced, the inputs a later report needs are stored | not started | — | — | An explanation, from the value's components, of why the fix raises a lesson's value on the owner's present-day inputs (the report, 2026-11-20) |
 | Step 7 | The record, the comparison on copies of the owner's vaults, the G2 design renumbered to `mvp-0.63` | waiting on | — | — | Step 6 |
+
+## The first evening, finished (UX stage 2 of the journey audit's third part)
+
+A first set of questions from the part read; a section's end finishes it; an honest build wait; what comes tomorrow; one OK for every model route. The owner's decisions of 2026-11-20 are in [ux-journey-audit-3.md](ux-journey-audit-3.md); each step has its own record.
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| Step 1 | One OK before every model route (UX-10): one acceptance record, no call before it, one sheet | not started | — | — | — |
+| Step 2 | Which passages were seen (migration 256, two append-only tables) and the section's end as an observation; nothing reads them yet | landed | this commit | [first-evening-step-2.md](first-evening-step-2.md) | — |
+| Step 3 | Topic-work ownership and checkpoints, still triggered only by today's completion | not started | — | — | — |
+| Step 4 | A topic gets its questions once every passage it cites has been seen; Today says what is and is not ready | waiting on | — | — | Steps 2 and 3 |
+| Step 5 | A section's end finishes it; the quick-check controls split (a successor tag); the phone's count observer (ledger UX-59) | waiting on | — | — | Step 4 |
+| Step 6 | Typed build stages and a several-line wait | not started | — | — | — |
+| Step 7 | A dated next-practice line at the session's end and on Today | not started | — | — | — |
+| Step 8 | Wording and the held-question line | not started | — | — | — |
+| Step 9 | Web-page paragraphs and figures (UX-34, UX-35) | not started | — | — | — |
+| Step 10 | A second source is readable while the first is still being built (UX-54) | not started | — | — | — |
+| Step 11 | Keep an Ask answer's problems as practice | waiting on | — | — | Its own persisted-meaning review |
+
+## Evidence packets and AD memory, beside the refactor
+
+The owner decided on 2026-11-20 that five slices are built beside the refactor and that the behaviour steps come at the end of the queue (`docs/specs/spec_evidence_packets_v1.md` §12). None of the five needs a migration or an algorithm tag.
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| EP0t | The evidence-time rules readers already use, named: one serializable cutoff value with seven presets, a census of 60 callers, an inventory of what can be reconstructed historically, and the pinned identity of a prediction target | landed | this commit | [ep0t-time-policies.md](ep0t-time-policies.md) | 25 availability-SQL readers fit no preset and are left as they are: the record's question 1 |
+| EP0 | Attempt facts in one typed value and the named predicates over them, every caller's result unchanged | running | — | — | — |
+| EPp | Prediction snapshots and receipt repairs | waiting on | — | — | EP0t (landed) and a free worker |
+| ADM0 | Pre-registered simulation and descriptive baseline | not started | — | — | — |
+| ADM1 | The predecessor's update and eligibility interface, and an unused memory fold | not started | — | — | — |
+
+## Structured model answers: one shared contract check and one re-ask
+
+The owner decided on 2026-11-20 that every structured model call gets one shared step: an answer that parses but fails a declared predicate is discarded and asked for once more, inside the caller's own budget. The design has 22 steps; adoption goes family by family in the order of learner-visible harm.
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| Step 0 | The shared module (`ai/structured_contracts.py`), its registered count of one recovery shared with the provider's schema repair, and inert hooks; no caller uses it | landed | this commit | [structured-contracts-step-0.md](structured-contracts-step-0.md) | — |
+| Steps 1 to 5 | The five local fixes of Nov 20: three stay local (pinned by tests), the empty-build predicate is extracted, the follow-up question's re-ask moves onto the shared step | not started | — | — | — |
+| Steps 6 to 22 | Adoption by call-site family, starting with blank replies in live dialogue (tutor, teach-back, teacher) | waiting on | — | — | Steps 1 to 5; two owner questions (a strict rule for a second empty build; versions for predicates that change what counts as evidence) |
+

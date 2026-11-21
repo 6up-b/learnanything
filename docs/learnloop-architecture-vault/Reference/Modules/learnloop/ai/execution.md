@@ -129,6 +129,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ai/providers/voyage_contextual|learnloop.ai.providers.voyage_contextual]] — imports `model_call`, `report_call_usage`; statically calls `model_call`, `report_call_usage`
 - [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] — imports `generation_limit`, `observe_model_calls`, `truncation_retry_allowed`; statically calls `generation_limit`, `observe_model_calls`, `truncation_retry_allowed`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `declared_budgets`; statically calls `declared_budgets`
+- [[Reference/Modules/learnloop/ai/structured_contracts|learnloop.ai.structured_contracts]] — imports `ModelCheckpoint`, `annotate_calls`, `content_key`; statically calls `annotate_calls`, `content_key`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `background_model_work_active`, `generation_ceiling`, `model_call`, `output_limit`, `reasoning_effort_request`; statically calls `background_model_work_active`, `generation_ceiling`, `model_call`, `output_limit`, `reasoning_effort_request`
 - [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `generation_limit`, `single_request`; statically calls `generation_limit`, `single_request`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `annotate_calls`, `content_key`, `generation_limit`, `tee_model_calls`; statically calls `annotate_calls`, `content_key`, `generation_limit`, `tee_model_calls`
@@ -269,7 +270,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 128 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 129 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -336,6 +337,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_a_401_under_single_request_fails_and_the_next_call_refreshes`
+  - `test_a_background_request_gets_no_fresh_ceiling_past_the_checked_calls_deadline`
+  - `test_a_checked_call_sends_the_first_request_unchanged_and_one_correction`
   - `test_a_json_repair_is_sent_with_the_budget_of_the_request_it_repairs`
   - `test_incomplete_truncated_and_broken_streams`
   - `test_output_budget_rides_in_the_prompt_never_as_max_output_tokens`
@@ -420,10 +423,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
   - `test_runs_are_compared_with_the_budgets_recorded_on_their_receipts`
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
+  - `test_a_checked_call_reuses_a_saved_answer_that_holds_and_pays_nothing`
   - `test_a_checkpoint_under_its_own_key_reads_its_own_shape`
   - `test_a_failed_call_saves_nothing`
+  - `test_a_fresh_answer_another_run_saved_meanwhile_survives_the_discard_of_a_stale_one`
   - `test_a_fresh_answer_is_saved_with_its_usage_before_it_is_returned`
+  - `test_a_rejected_answer_is_never_saved_and_the_correction_is_kept_under_the_original_key`
   - `test_a_saved_answer_is_read_back_and_nothing_is_paid`
+  - `test_a_saved_answer_that_fails_the_contract_is_discarded_by_its_exact_value_and_paid_once`
   - `test_a_saved_answer_that_no_longer_reads_is_discarded_and_paid_once`
   - `test_the_request_key_is_what_is_sent_and_nothing_left_unset`
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
@@ -446,6 +453,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_pf_verify_extraction_parity.py](../../../../../../tests/test_pf_verify_extraction_parity.py) — direct import
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_admission_equals_wire_and_every_body_keeps_the_grammar`
+- [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
 - [tests/test_project_cli.py](../../../../../../tests/test_project_cli.py) — direct import
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
@@ -483,6 +491,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_spend_controls.py](../../../../../../tests/test_spend_controls.py) — direct import
   - `test_declared_caps_persist_on_real_receipt_for_success_and_failure`
   - `test_dry_run_is_nonmutating_and_does_not_emit_model_receipts`
+- [tests/test_structured_contracts.py](../../../../../../tests/test_structured_contracts.py) — direct import
+  - `test_a_crash_before_the_checkpoint_save_recovers_the_correction_from_its_receipt_under_the_original_key`
+  - `test_a_rejected_answer_finishes_its_operation_receipt_as_failed_and_the_correction_names_its_original`
+  - `test_no_ambient_authorization_sends_no_recovery`
+  - `test_without_a_contract_an_operation_and_its_receipt_are_as_before`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
 - [tests/test_synthesis_answer_reuse.py](../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
   - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`

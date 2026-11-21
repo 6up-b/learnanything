@@ -71,6 +71,16 @@ interface SeenSave {
   wanted: Record<string, { spansSeen: number; spanCount: number }>;
   acknowledged: Record<string, number>;
   sending: Record<string, number>;
+  /** The passages the learner's own reading observed, per section, and the sections
+   *  whose last passage was among them. The backend unions them, so each goes until it is acknowledged; an
+   *  answered report acknowledges every id it carried, the ones the backend left out as not the section's too,
+   *  so none is sent again. */
+  passages: Record<string, Set<string>>;
+  acknowledgedPassages: Set<string>;
+  sendingPassages: Set<string>;
+  ends: Set<string>;
+  acknowledgedEnds: Set<string>;
+  sendingEnds: Set<string>;
   attempts: number;
   timer: number | null;
 }
@@ -78,7 +88,11 @@ interface SeenSave {
 function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSave {
   let save = saves.get(extractionId);
   if (!save) {
-    save = { wanted: {}, acknowledged: {}, sending: {}, attempts: 0, timer: null };
+    save = {
+      wanted: {}, acknowledged: {}, sending: {}, passages: {}, acknowledgedPassages: new Set(),
+      sendingPassages: new Set(), ends: new Set(), acknowledgedEnds: new Set(), sendingEnds: new Set(),
+      attempts: 0, timer: null,
+    };
     saves.set(extractionId, save);
   }
   return save;
@@ -95,12 +109,28 @@ function sendSeenCounts(
 ): void {
   const save = saves.get(extractionId);
   if (!save) return;
-  for (const [sectionId, { spansSeen, spanCount }] of Object.entries(save.wanted)) {
-    if (spansSeen <= Math.max(save.acknowledged[sectionId] ?? 0, save.sending[sectionId] ?? 0)) continue;
-    save.sending[sectionId] = spansSeen;
-    api.readerNoteReadingProgress({ extractionId, sectionId, spansSeen, spanCount })
+  const sectionIds = new Set([...Object.keys(save.wanted), ...Object.keys(save.passages), ...save.ends]);
+  for (const sectionId of sectionIds) {
+    const counts = save.wanted[sectionId];
+    const countNew = counts !== undefined
+      && counts.spansSeen > Math.max(save.acknowledged[sectionId] ?? 0, save.sending[sectionId] ?? 0);
+    const passages = [...(save.passages[sectionId] ?? [])]
+      .filter((spanId) => !save.acknowledgedPassages.has(spanId) && !save.sendingPassages.has(spanId));
+    const end = save.ends.has(sectionId) && !save.acknowledgedEnds.has(sectionId) && !save.sendingEnds.has(sectionId);
+    if (!countNew && passages.length === 0 && !end) continue;
+    if (countNew) save.sending[sectionId] = counts.spansSeen;
+    for (const spanId of passages) save.sendingPassages.add(spanId);
+    if (end) save.sendingEnds.add(sectionId);
+    api.readerNoteReadingProgress({
+      extractionId, sectionId,
+      ...(counts ? { spansSeen: counts.spansSeen, spanCount: counts.spanCount } : {}),
+      ...(passages.length > 0 ? { seenSpanIds: passages } : {}),
+      ...(end ? { reachedEnd: true } : {}),
+    })
       .then(() => {
-        save.acknowledged[sectionId] = Math.max(save.acknowledged[sectionId] ?? 0, spansSeen);
+        if (counts) save.acknowledged[sectionId] = Math.max(save.acknowledged[sectionId] ?? 0, counts.spansSeen);
+        for (const spanId of passages) save.acknowledgedPassages.add(spanId);
+        if (end) save.acknowledgedEnds.add(sectionId);
         save.attempts = 0;
         onSaved?.(extractionId);
       })
@@ -113,9 +143,34 @@ function sendSeenCounts(
         }, SEEN_REPORT_MS * 2 ** save.attempts);
       })
       .finally(() => {
-        if (save.sending[sectionId] === spansSeen) delete save.sending[sectionId];
+        if (counts && save.sending[sectionId] === counts.spansSeen) delete save.sending[sectionId];
+        for (const spanId of passages) save.sendingPassages.delete(spanId);
+        if (end) save.sendingEnds.delete(sectionId);
       });
   }
+}
+
+/** The passages a reading position observed, as the progress report names them (by id). On the
+ *  text view (and a video's transcript) it is the passage under the reading marker; on the original PDF whose
+ *  passages know only their page, a page's passages share it in order (as `spanOnPage` reads them), and one is
+ *  observed once the marker is `through` of the way through its share (the count's within-page rule, which this is
+ *  for a page holding one passage), or once the learner's own reading carries the marker forward past it. Never a
+ *  passage the marker did not reach: the count's prefix is a position, not an observation. */
+export function observedPassages(input: {
+  spanId: string;
+  pageSpans: ReadonlyArray<{ spanId: string; page: number }> | null;
+  offset: number | null;
+  through: number;
+  left: string | null;
+}): string[] {
+  const { spanId, pageSpans, offset, through, left } = input;
+  const observed = left && left !== spanId ? [left] : [];
+  if (!pageSpans) return [...observed, spanId];
+  const page = pageSpans.find((entry) => entry.spanId === spanId)?.page;
+  const onPage = page === undefined ? [] : pageSpans.filter((entry) => entry.page === page);
+  const index = onPage.findIndex((entry) => entry.spanId === spanId);
+  if (index >= 0 && offset !== null && offset >= (index + through) / onPage.length) observed.push(spanId);
+  return observed;
 }
 
 export function readingPositionKey(sourceId: string): string {
@@ -310,6 +365,14 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // hydrated from and saved to reader.mark_section_progress: a section is
   // ticked when it was read through, never because the learner jumped past it.
   const [sectionSeen, setSectionSeen] = useState<Record<string, number>>({});
+  // WHICH passages the learner's own reading observed, per section, and the sections
+  // whose last passage was among them, reported beside the counts (`observedPassages`). Recorded only: nothing
+  // reads them back, and reaching a section's end finishes nothing. A restore, a jump or a seek observes nothing.
+  const [seenPassages, setSeenPassages] = useState<Record<string, string[]>>({});
+  const [reachedEnds, setReachedEnds] = useState<string[]>([]);
+  // The passage under the marker at the learner's last reading position, for what the marker leaves behind as
+  // it moves forward; cleared by every placement, so a jump never counts the passage before it.
+  const markerPassageRef = useRef<{ sectionIndex: number; spanIndex: number; spanId: string } | null>(null);
   // The quick check the learner asked to open from a section break: shown
   // above Contents, scrolled to and started (usability round 1, U5).
   const [focusQuickCheck, setFocusQuickCheck] = useState<string | null>(null);
@@ -423,6 +486,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     setRestoredSpan(null);
     setReadingOffset(null);
     setSectionSeen({});
+    setSeenPassages({});
+    setReachedEnds([]);
+    markerPassageRef.current = null;
     lastReadRef.current = null;
     setFocusQuickCheck(null);
     setHiddenPdfOffers([]);
@@ -716,7 +782,40 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     const at = currentGuideSection.spanIds.indexOf(readingSpan ?? "");
     const last = lastReadRef.current;
     lastReadRef.current = { id: currentGuideSection.id, index, progress: currentSectionProgress };
-    if (Date.now() < settleUntilRef.current || at < 0 || !readingMoved) return;
+    const marker = markerPassageRef.current;
+    if (Date.now() < settleUntilRef.current || at < 0 || !readingMoved || !readingSpan) {
+      markerPassageRef.current = null;
+      return;
+    }
+    markerPassageRef.current = { sectionIndex: index, spanIndex: at, spanId: readingSpan };
+    // Only passages of the reading the report names: a guide answered for another reading names other spans.
+    if (!guidePlan?.extractionId || guidePlan.extractionId === render.extractionId) {
+      const forward = marker !== null
+        && (marker.sectionIndex < index || (marker.sectionIndex === index && marker.spanIndex < at));
+      const observed = observedPassages({
+        spanId: readingSpan, pageSpans: pageMode ? pageSpansRef.current : null, offset: readingOffset,
+        through: PAGE_READ_THROUGH, left: forward ? marker.spanId : null,
+      });
+      setSeenPassages((current) => {
+        let next = current;
+        for (const spanId of observed) {
+          const section = guideSectionBySpan.get(spanId);
+          if (!section || (next[section.id] ?? []).includes(spanId)) continue;
+          if (next === current) next = { ...current };
+          next[section.id] = [...(next[section.id] ?? []), spanId];
+        }
+        return next;
+      });
+      // A section's end is its last passage observed, never a position (the count can be full by the
+      // leave-after-60% rule without it).
+      const ended = observed.flatMap((spanId) => {
+        const section = guideSectionBySpan.get(spanId);
+        return section && section.endSpanId === spanId ? [section.id] : [];
+      });
+      if (ended.length > 0) {
+        setReachedEnds((current) => (ended.every((id) => current.includes(id)) ? current : [...new Set([...current, ...ended])]));
+      }
+    }
     const count = currentGuideSection.spanIds.length;
     const seenHere = pageMode ? at + ((readingOffset ?? 0) >= PAGE_READ_THROUGH ? 1 : 0) : at + 1;
     setSectionSeen((current) => {
@@ -734,7 +833,8 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       }
       return changed ? next : current;
     });
-  }, [render, offline, guidePlan, currentGuideSection, readingSpan, readingOffset, pageMode, currentSectionProgress, readingMoved]);
+  }, [render, offline, guidePlan, guideSectionBySpan, currentGuideSection, readingSpan, readingOffset, pageMode,
+    currentSectionProgress, readingMoved]);
 
   // Save how far each section was read, gathered for a moment, and once more
   // when the Reader closes: Today's reading step and the next open read it.
@@ -753,10 +853,16 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       if (spanCount === undefined) continue;
       if (spansSeen > (save.wanted[sectionId]?.spansSeen ?? 0)) save.wanted[sectionId] = { spansSeen, spanCount };
     }
+    for (const [sectionId, spanIds] of Object.entries(seenPassages)) {
+      if (!counts.has(sectionId)) continue;
+      const kept = (save.passages[sectionId] ??= new Set());
+      for (const spanId of spanIds) kept.add(spanId);
+    }
+    for (const sectionId of reachedEnds) if (counts.has(sectionId)) save.ends.add(sectionId);
     activeSeenRef.current = extractionId;
     const timer = window.setTimeout(() => sendSeenCounts(saves, extractionId, noteProgressSaved), SEEN_REPORT_MS);
     return () => window.clearTimeout(timer);
-  }, [render, offline, guidePlan, sectionSeen, noteProgressSaved]);
+  }, [render, offline, guidePlan, sectionSeen, seenPassages, reachedEnds, noteProgressSaved]);
   useEffect(() => {
     const saves = seenSavesRef.current;
     // Closing the Reader saves every book it still holds counts for.

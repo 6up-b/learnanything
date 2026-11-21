@@ -68,7 +68,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/split/diagnoser|learnloop.diagnosis.split.diagnoser]] | [[Reference/Modules/learnloop/diagnosis/split/diagnoser#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/split/embeddings|learnloop.diagnosis.split.embeddings]] | [[Reference/Modules/learnloop/diagnosis/split/embeddings#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
 | [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]] | [[Reference/Modules/learnloop/diagnosis/split/figure_trace#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] | [[Reference/Modules/learnloop/diagnosis/split/history#^module-purpose|purpose]] | `ACTIVE` | 10 | 16 |
+| [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] | [[Reference/Modules/learnloop/diagnosis/split/history#^module-purpose|purpose]] | `ACTIVE` | 10 | 17 |
 | [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] | [[Reference/Modules/learnloop/diagnosis/split/jobs#^module-purpose|purpose]] | `ACTIVE` | 19 | 31 |
 | [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] | [[Reference/Modules/learnloop/diagnosis/split/legacy_view#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 7 | 17 |
@@ -88,8 +88,8 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 18 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 15 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 14 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 13 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 8 static module edges
@@ -124,8 +124,8 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_diagnosis_offline_review["learnloop.diagnosis.offline_review"]
     n_learnloop_ai["learnloop.ai"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_diagnosis_recurrence["learnloop.diagnosis.recurrence"]
@@ -136,8 +136,8 @@ flowchart LR
     n_learnloop_diagnosis_offline_review -->|12| center
     center -->|6| n_learnloop_diagnosis_offline_review
     center -->|17| n_learnloop_ai
+    center -->|15| n_learnloop_db
     center -->|15| n_learnloop_vault
-    center -->|14| n_learnloop_db
     center -->|14| n_learnloop_db_stores
     center -->|13| n_learnloop_attempts
     n_learnloop_diagnosis_recurrence -->|8| center

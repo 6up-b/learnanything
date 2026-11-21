@@ -47,47 +47,47 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/field/outcomes.py](../../../../../../src/learnloop/field/outcomes.py) |
-| Source lines | 894 |
+| Source lines | 895 |
 | Owning package | [[Reference/Modules/learnloop/field/_package|learnloop.field]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `borrowed_repository(connection: sqlite3.Connection) -> Repository` ([source](../../../../../../src/learnloop/field/outcomes.py), line 62) — A repository view that reads inside the caller's open snapshot.
-- `resolve_legacy_fallback(vault, legacy_fallback=None) -> str` ([source](../../../../../../src/learnloop/field/outcomes.py), line 237) — The single revision policy: an explicit option, else ``field.legacy_fallback``.
-- `current_criterion_evidence(evidence) -> list` ([source](../../../../../../src/learnloop/field/outcomes.py), line 253) — The latest surviving record for each criterion of an attempt's live rows.
-- `unverified_criterion_ids(evidence) -> set[str]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 263) — PF-c: the criteria of the current grade the valid-alternative gate recorded unverified.
-- `wholly_unassessed(evidence) -> bool` ([source](../../../../../../src/learnloop/field/outcomes.py), line 268) — PF-c: every criterion of the current grade is unverified, so the attempt measures nothing (owner decision 2026-10-12), whatever its scheduling grade.
-- `measurement_masses(connection, vault: LoadedVault, ledger) -> dict[str, float]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 275) — Per attempt, its effective mass before the item-dependent (familiarity) and assistance discounts: the attempt type's mass (an independent attempt's for a hinted one, as ``mass_without_assistance``), quarantine, an unassessable type and the grade's reliability.
-- `load_attempt_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None, retrieval=False, attempt_rows=None) -> tuple[AttemptRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 698) — Immutable attempt rows, including zero-mass exclusions for accounting.
-- `load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 714) — Attempt and facet rows for one prequential replay, read in one pass.
-- `fsrs_predicted_retrievability(connection, vault: LoadedVault, repository: Repository, *, held_attempt_ids=frozenset()) -> dict[str, float]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 719) — FSRS-predicted retrievability at each graded attempt, from the ledger.
-- `load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None, include_workbench=True)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 755) — ``(attempts, facets, signals)`` with the complete coldness derivation.
-- `load_facet_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None) -> tuple[FacetRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 770)
-- `rebuild_outcome_view(connection, vault: LoadedVault, *, legacy_fallback=None) -> int` ([source](../../../../../../src/learnloop/field/outcomes.py), line 774) — Replace only the outcome cache; transaction ownership stays with caller.
-- `data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 787) — Aggregate-only diagnostic; no learner answers, prompts or debug text.
+- `borrowed_repository(connection: sqlite3.Connection) -> Repository` ([source](../../../../../../src/learnloop/field/outcomes.py), line 63) — A repository view that reads inside the caller's open snapshot.
+- `resolve_legacy_fallback(vault, legacy_fallback=None) -> str` ([source](../../../../../../src/learnloop/field/outcomes.py), line 238) — The single revision policy: an explicit option, else ``field.legacy_fallback``.
+- `current_criterion_evidence(evidence) -> list` ([source](../../../../../../src/learnloop/field/outcomes.py), line 254) — The latest surviving record for each criterion of an attempt's live rows.
+- `unverified_criterion_ids(evidence) -> set[str]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 264) — PF-c: the criteria of the current grade the valid-alternative gate recorded unverified.
+- `wholly_unassessed(evidence) -> bool` ([source](../../../../../../src/learnloop/field/outcomes.py), line 269) — PF-c: every criterion of the current grade is unverified, so the attempt measures nothing (owner decision 2026-10-12), whatever its scheduling grade.
+- `measurement_masses(connection, vault: LoadedVault, ledger) -> dict[str, float]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 276) — Per attempt, its effective mass before the item-dependent (familiarity) and assistance discounts: the attempt type's mass (an independent attempt's for a hinted one, as ``mass_without_assistance``), quarantine, an unassessable type and the grade's reliability.
+- `load_attempt_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None, retrieval=False, attempt_rows=None) -> tuple[AttemptRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 699) — Immutable attempt rows, including zero-mass exclusions for accounting.
+- `load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 715) — Attempt and facet rows for one prequential replay, read in one pass.
+- `fsrs_predicted_retrievability(connection, vault: LoadedVault, repository: Repository, *, held_attempt_ids=frozenset()) -> dict[str, float]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 720) — FSRS-predicted retrievability at each graded attempt, from the ledger.
+- `load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None, include_workbench=True)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 756) — ``(attempts, facets, signals)`` with the complete coldness derivation.
+- `load_facet_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None) -> tuple[FacetRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 771)
+- `rebuild_outcome_view(connection, vault: LoadedVault, *, legacy_fallback=None) -> int` ([source](../../../../../../src/learnloop/field/outcomes.py), line 775) — Replace only the outcome cache; transaction ownership stays with caller.
+- `data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 788) — Aggregate-only diagnostic; no learner answers, prompts or debug text.
 
 ### Module constants
 
-- `OUTCOME_VIEW_VERSION` ([src/learnloop/field/outcomes.py](../../../../../../src/learnloop/field/outcomes.py), line 49)
-- `GRADED_RETRIEVAL_TYPES` ([src/learnloop/field/outcomes.py](../../../../../../src/learnloop/field/outcomes.py), line 234)
+- `OUTCOME_VIEW_VERSION` ([src/learnloop/field/outcomes.py](../../../../../../src/learnloop/field/outcomes.py), line 50)
+- `GRADED_RETRIEVAL_TYPES` ([src/learnloop/field/outcomes.py](../../../../../../src/learnloop/field/outcomes.py), line 235)
 
 ## Internal implementation anchors
 
-- `class _ReadRepository(Repository)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 52) — Borrow the caller's transaction; repository reads must not commit it.
-- `_json(value: str | None, default: Any=None) -> Any` ([source](../../../../../../src/learnloop/field/outcomes.py), line 67)
-- `_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/field/outcomes.py), line 71)
-- `_plan_served(plan_served, attempt, candidate_id)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 76) — The plan's ``item_served`` receipt for this attempt, or None.
-- `_serving(connection, attempt, plan_served=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 100)
-- `_revision(connection, vault, attempt, evidence, candidate_id, fallback)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 152)
-- `_unverified(record) -> bool` ([source](../../../../../../src/learnloop/field/outcomes.py), line 245) — A criterion the PF-c valid-alternative gate recorded as unverified.
-- `_hedging_readings(connection) -> dict[str, tuple[int, int]]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 305) — Per attempt, (hedged, read): the grader's reading of the learner's tone.
-- `_answer_signal_counts(attempts) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 325)
-- `_answer_signals(attempt: dict, hedging: dict[str, tuple[int, int]]) -> AnswerSignals` ([source](../../../../../../src/learnloop/field/outcomes.py), line 354) — The attempt's own pre-outcome signals (offline answer-signal arms only).
-- `_grader_models(connection) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 371) — Latest raw grade event of each attempt's latest observation (no text).
-- `_qualifies_for_field_memory_retrieval(connection, repository, attempt, policy, since)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 387) — Coldness for reports and learner field memory rows only, never serving.
-- `_load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=False, diagnostics=None, attempt_rows=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 429) — Derive attempt and facet rows; ``retrieval`` adds the memory-arm fields.
+- `class _ReadRepository(Repository)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 53) — Borrow the caller's transaction; repository reads must not commit it.
+- `_json(value: str | None, default: Any=None) -> Any` ([source](../../../../../../src/learnloop/field/outcomes.py), line 68)
+- `_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/field/outcomes.py), line 72)
+- `_plan_served(plan_served, attempt, candidate_id)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 77) — The plan's ``item_served`` receipt for this attempt, or None.
+- `_serving(connection, attempt, plan_served=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 101)
+- `_revision(connection, vault, attempt, evidence, candidate_id, fallback)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 153)
+- `_unverified(record) -> bool` ([source](../../../../../../src/learnloop/field/outcomes.py), line 246) — A criterion the PF-c valid-alternative gate recorded as unverified.
+- `_hedging_readings(connection) -> dict[str, tuple[int, int]]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 306) — Per attempt, (hedged, read): the grader's reading of the learner's tone.
+- `_answer_signal_counts(attempts) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 326)
+- `_answer_signals(attempt: dict, hedging: dict[str, tuple[int, int]]) -> AnswerSignals` ([source](../../../../../../src/learnloop/field/outcomes.py), line 355) — The attempt's own pre-outcome signals (offline answer-signal arms only).
+- `_grader_models(connection) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 372) — Latest raw grade event of each attempt's latest observation (no text).
+- `_qualifies_for_field_memory_retrieval(connection, repository, attempt, policy, since)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 388) — Coldness for reports and learner field memory rows only, never serving.
+- `_load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=False, diagnostics=None, attempt_rows=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 430) — Derive attempt and facet rows; ``retrieval`` adds the memory-arm fields.
 
 ## Who imports or calls it
 
@@ -111,6 +111,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `production_admissibility`; calls `production_admissibility`
 - [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `stuck_answer_summary`; calls `stuck_answer_summary`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
+- [[Reference/Modules/learnloop/db/evidence_cutoff|learnloop.db.evidence_cutoff]] — imports `completed_by_excludes`; calls `completed_by_excludes`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `plan_served_origins`; calls `plan_served_origins`
 - [[Reference/Modules/learnloop/db/stores/facet_identity|learnloop.db.stores.facet_identity]] — imports `settled_merge_rows`; calls `settled_merge_rows`
@@ -161,6 +162,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_empty_stuck_answer_on_a_plan_item_is_done_and_labelled_daily_plan`
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
   - `test_plan_served_attempts_have_the_daily_plan_serving_kind`
+- [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of`
 - [tests/test_facet_outcome_view.py](../../../../../../tests/test_facet_outcome_view.py) — direct import
   - `test_changed_numeric_mapping_is_not_proven_by_same_targets`
   - `test_dont_know_and_priming_do_not_double_discount`

@@ -513,6 +513,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_e0_review_round1.py](../../../../../../tests/test_e0_review_round1.py) — direct import
   - `test_f1_service_copy_preparation_never_sends_protected_text`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
+- [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_a_hint_shown_then_attached_after_the_cutoff_is_partly_reconstructable`
+  - `test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of`
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_pick_of_an_item_reserved_since_its_proposal_is_refused_before_anything_is_recorded`
   - `test_a_reader_question_about_held_out_material_is_refused_before_anything_is_sent`

@@ -208,6 +208,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/help_outcomes_helpers.py](../../../../../../../tests/help_outcomes_helpers.py) — direct import
 - [tests/test_compare_methods.py](../../../../../../../tests/test_compare_methods.py) — direct import
   - `test_f7_only_the_claims_holder_settles_and_a_stale_claim_can_be_taken_over`
+- [tests/test_evidence_cutoff_readers.py](../../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_a_hint_shown_then_attached_after_the_cutoff_is_partly_reconstructable`
 - [tests/test_figures_help.py](../../../../../../../tests/test_figures_help.py) — direct import
   - `test_the_workbench_fold_counts_a_figure_once`
 - [tests/test_followups_nov2_help_fold.py](../../../../../../../tests/test_followups_nov2_help_fold.py) — direct import

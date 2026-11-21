@@ -107,20 +107,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/ad1_attempt_columns_helpers.py](../../../../../tests/ad1_attempt_columns_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/capture_desktop_helpers.py](../../../../../tests/capture_desktop_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/daily_plan_kill_switch_helpers.py](../../../../../tests/daily_plan_kill_switch_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/device_eligibility_helpers.py](../../../../../tests/device_eligibility_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/facet_reword_paths_helpers.py](../../../../../tests/facet_reword_paths_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/figures_help_helpers.py](../../../../../tests/figures_help_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/followup_fg1d_probe_shadow_helpers.py](../../../../../tests/followup_fg1d_probe_shadow_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/followup_journey_helpers.py](../../../../../tests/followup_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/graph_editor_reads_helpers.py](../../../../../tests/graph_editor_reads_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/hint_h2a_review_helpers.py](../../../../../tests/hint_h2a_review_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/hint_h2a_review_round2_helpers.py](../../../../../tests/hint_h2a_review_round2_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/hint_h2b_review_helpers.py](../../../../../tests/hint_h2b_review_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
+- [tests/test_reader_seen_passages.py](../../../../../tests/test_reader_seen_passages.py) — direct import
+  - `test_reaching_the_end_is_recorded_with_its_origin_and_acted_on_by_nothing`
 
 ## Modification guidance
 

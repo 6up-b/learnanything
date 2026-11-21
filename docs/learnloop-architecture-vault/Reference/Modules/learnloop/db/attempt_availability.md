@@ -123,6 +123,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_the_sql_form_reads_an_empty_receipt_as_text`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_available_at_is_received_at_else_created_at`
   - `test_blank_received_at_stores_null_and_agrees_at_cutoffs`

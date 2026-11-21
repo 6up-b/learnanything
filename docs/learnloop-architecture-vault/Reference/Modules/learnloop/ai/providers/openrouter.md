@@ -114,6 +114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openrouter_thinking_disabled_sends_no_reasoning`
 - [tests/test_output_budget.py](../../../../../../../tests/test_output_budget.py) — direct import
 - [tests/test_practice_index_paid.py](../../../../../../../tests/test_practice_index_paid.py) — direct import
+- [tests/test_structured_contracts.py](../../../../../../../tests/test_structured_contracts.py) — direct import
 - [tests/test_t6_followup_composition.py](../../../../../../../tests/test_t6_followup_composition.py) — direct import
   - `test_pf_caller_prices_a_truncation_retry_at_its_doubled_output_budget`
 - [tests/test_t6_followup_review.py](../../../../../../../tests/test_t6_followup_review.py) — direct import

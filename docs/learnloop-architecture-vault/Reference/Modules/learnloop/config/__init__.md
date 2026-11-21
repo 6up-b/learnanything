@@ -473,6 +473,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pdf_without_text_layer_raises`
 - [tests/test_source_retrieval_rereview_cost.py](../../../../../../tests/test_source_retrieval_rereview_cost.py) — direct import
   - `test_the_openai_embedding_client_sends_the_request_timeout`
+- [tests/test_structured_contracts.py](../../../../../../tests/test_structured_contracts.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
   - `test_chat_transport_executes_every_feature_operation`
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import

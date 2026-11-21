@@ -1215,6 +1215,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
+- [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_a_delayed_read_equals_the_live_one_at_fixed_corrections`
+  - `test_a_hold_and_its_release_are_read_now`
+  - `test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
   - `test_g3_1_an_exposed_answer_recorded_below_the_tag_updates_no_belief_after_the_upgrade`
   - `test_k5_8_a_quarantined_answer_kept_its_review_live_and_keeps_it_on_replay`

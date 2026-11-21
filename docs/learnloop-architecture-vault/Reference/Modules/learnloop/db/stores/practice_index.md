@@ -141,6 +141,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_index_evaluation.py](../../../../../../../tests/test_practice_index_evaluation.py) — direct import
   - `test_duplicate_queries_cannot_manufacture_a_winning_evaluation`
 - [tests/test_practice_index_find.py](../../../../../../../tests/test_practice_index_find.py) — direct import
+- [tests/test_practice_index_paid.py](../../../../../../../tests/test_practice_index_paid.py) — direct import
+  - `test_a_rejected_answer_stays_on_a_failed_receipt_and_only_the_correction_is_recoverable`
 - [tests/test_router_r2a_serving.py](../../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_an_unplanned_proposal_pick_delivers_with_its_blocks_decision`
 - [tests/test_source_exercise_rpcs.py](../../../../../../../tests/test_source_exercise_rpcs.py) — direct import

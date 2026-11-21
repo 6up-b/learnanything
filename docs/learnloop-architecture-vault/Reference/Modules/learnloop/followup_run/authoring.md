@@ -157,6 +157,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_retired_codes_are_gone`
 - [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
   - `test_a_cause_matching_a_reserved_question_closes_the_factor_this_lane_opened`
+- [tests/test_structured_contracts.py](../../../../../../tests/test_structured_contracts.py) — direct import
+  - `test_a_correction_is_refused_over_a_legacy_endpoint_that_cannot_carry_it`
+  - `test_a_crash_after_the_rejection_resumes_with_the_correction_not_the_first_request`
+  - `test_a_deferred_correction_is_recorded_and_sent_on_the_next_run`
+  - `test_a_restored_owed_correction_is_sent_instead_of_the_first_request`
+  - `test_a_send_that_skips_the_check_still_cannot_get_a_bad_answer_accepted`
+  - `test_a_valid_first_answer_is_one_unchanged_request_and_asks_for_no_recovery`
+  - `test_checked_structured_call_returns_the_accepted_answer`
+  - `test_the_chat_providers_repair_shares_the_one_recovery`
+  - `test_the_correction_reproduces_the_followup_authors_reask_byte_for_byte`
+  - `test_without_a_contract_an_operation_and_its_receipt_are_as_before`
 
 ## Modification guidance
 

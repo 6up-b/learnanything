@@ -53,7 +53,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/followup_run/__init__|learnloop.followup_run]] | [[Reference/Modules/learnloop/followup_run/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] | [[Reference/Modules/learnloop/followup_run/admission#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] | [[Reference/Modules/learnloop/followup_run/authoring#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] | [[Reference/Modules/learnloop/followup_run/authoring#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] | [[Reference/Modules/learnloop/followup_run/decision_view#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] | [[Reference/Modules/learnloop/followup_run/jobs#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] | [[Reference/Modules/learnloop/followup_run/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |

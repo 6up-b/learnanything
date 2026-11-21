@@ -249,6 +249,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_profile_applies_is_recorded_and_reaches_the_audit_report`
   - `test_the_grading_prior_withholds_the_criteria_the_author_expects_to_fail`
   - `test_the_telemetry_survives_a_derived_state_rebuild`
+- [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
+  - `test_a_hold_and_its_release_are_read_now`
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
 - [tests/test_grading_context.py](../../../../../../tests/test_grading_context.py) — direct import
   - `test_grading_context_is_deterministic_and_hashable`

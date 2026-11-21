@@ -47,21 +47,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py) |
-| Source lines | 709 |
+| Source lines | 716 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 700) — A column's class.
+- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 707) — A column's class.
 
 ### Module constants
 
 - `METADATA` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 26)
 - `CONTENT` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 27)
 - `_CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 30)
-- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 693)
+- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 700)
 
 ### Explicit exports
 

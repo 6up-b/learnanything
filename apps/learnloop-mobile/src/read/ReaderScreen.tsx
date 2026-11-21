@@ -25,6 +25,10 @@ import { SelectionSheet, type PhoneSelection } from "./SelectionSheet";
 /** How long the Reader waits after the last span came into view before it reports progress (a `keep` bound:
  *  a report per pause in scrolling, not per span). */
 export const PROGRESS_DEBOUNCE_MS = 1500;
+/** The desktop's rule: a scroll this soon after the learner's own touch, wheel or scroll key is theirs; any other
+ *  (a section loading, the page settling) is not reading. */
+export const USER_SCROLL_MS = 1200;
+const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"]);
 
 export interface ReaderTarget {
   readonly extractionId: string;
@@ -64,6 +68,17 @@ export function ReaderScreen({
   const visitId = useMemo(() => newUlid(), [extractionId]);
   const seen = useRef<Set<string>>(new Set());
   const reported = useRef<Record<string, number>>({});
+  // WHICH passages were read, beside the count (whose observer is rooted at the section's own box, so it counts
+  // what was loaded, not what was on screen): the passages on screen now (in the viewport, through the scroller's
+  // clip), those on screen once the learner has moved the page themselves in this visit to the section, and per
+  // section the passages and the end already handed to the outbox. Opening a section (from the list, Continue
+  // reading, Next) moves nothing by the learner's hand, so it observes nothing until they scroll.
+  const onScreen = useRef<Set<string>>(new Set());
+  const observed = useRef<Set<string>>(new Set());
+  const moved = useRef(false);
+  const inputAt = useRef(0);
+  const queuedPassages = useRef<Record<string, Set<string>>>({});
+  const queuedEnds = useRef<Set<string>>(new Set());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const body = useRef<HTMLDivElement>(null);
 
@@ -155,6 +170,9 @@ export function ReaderScreen({
     setSection(null);
     setProblem(null);
     seen.current = new Set();
+    onScreen.current = new Set();
+    observed.current = new Set();
+    moved.current = false;
     setDose(null);
     // §4.5: the copy on this phone at once, then the host's (which replaces it, and drops it if a mark changed).
     void cachedSection(extractionId, sectionId).then((cached) => {
@@ -199,16 +217,28 @@ export function ReaderScreen({
 
   const readable = useMemo(() => new Set(current?.spanIds ?? []), [current]);
 
-  /** §3.4: progress as the desktop reports it: how many of the section's spans were seen, debounced, monotonic. */
+  /** §3.4: progress as the desktop reports it: how many of the section's spans were seen, debounced, monotonic; and
+   *  which passages the learner's own reading had on screen and whether the section's last one was among them, each
+   *  queued once (the outbox and the host union them). A completion is never turned into passages. */
   const report = useCallback((completed: boolean) => {
     if (!current) return;
     const spansSeen = completed ? current.spanIds.length : Math.min(seen.current.size, current.spanIds.length);
     const before = reported.current[current.id] ?? 0;
-    if (!completed && spansSeen <= before) return;
+    const queued = (queuedPassages.current[current.id] ??= new Set());
+    const passages = current.spanIds.filter((span) => observed.current.has(span) && !queued.has(span));
+    const last = current.spanIds[current.spanIds.length - 1];
+    const end = last !== undefined && observed.current.has(last) && !queuedEnds.current.has(current.id);
+    if (!completed && spansSeen <= before && passages.length === 0 && !end) return;
     reported.current[current.id] = Math.max(before, spansSeen);
+    for (const span of passages) queued.add(span);
+    if (end) queuedEnds.current.add(current.id);
     void addReaderIntent({
       id: newUlid(), method: "reader.mark_section_progress", coalesce: `${extractionId}:${current.id}`,
-      params: { extractionId, sectionId: current.id, spansSeen, spanCount: current.spanIds.length, ...(completed ? { completed: true } : {}) }
+      params: {
+        extractionId, sectionId: current.id, spansSeen, spanCount: current.spanIds.length,
+        ...(passages.length > 0 ? { seenSpanIds: passages } : {}), ...(end ? { reachedEnd: true } : {}),
+        ...(completed ? { completed: true } : {})
+      }
     }).then(() => flushOutbox()).catch(() => undefined);
     setProgress((list) => {
       const rows = list?.sections ?? [];
@@ -239,6 +269,66 @@ export function ReaderScreen({
       if (timer.current) clearTimeout(timer.current);
     };
   }, [section, readable, report, touch]);
+
+  // What is on screen once the learner has moved the page themselves is read; nothing before.
+  const noteObserved = useCallback((): boolean => {
+    if (!moved.current) return false;
+    let added = false;
+    for (const span of onScreen.current) {
+      if (observed.current.has(span)) continue;
+      observed.current.add(span);
+      added = true;
+    }
+    return added;
+  }, []);
+  const reportRef = useRef(report);
+  reportRef.current = report;
+  const schedule = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => reportRef.current(false), PROGRESS_DEBOUNCE_MS);
+  }, []);
+
+  // On screen is the viewport, through the scroller's clip: an observer with no root (the count's, rooted at the
+  // section's own box, which never scrolls, has every loaded passage intersecting).
+  useEffect(() => {
+    const root = body.current;
+    if (!root || !section || typeof IntersectionObserver === "undefined") return undefined;
+    const viewport = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const node = entry.target as HTMLElement;
+        const span = node.dataset.span;
+        // A passage held out from the phone shows a placeholder, never its words: it is not read here.
+        if (!span || !readable.has(span) || node.dataset.withheld !== undefined) continue;
+        if (entry.isIntersecting) onScreen.current.add(span);
+        else onScreen.current.delete(span);
+      }
+      if (noteObserved()) schedule();
+    });
+    for (const node of root.querySelectorAll<HTMLElement>("[data-span]")) viewport.observe(node);
+    return () => viewport.disconnect();
+  }, [section, readable, noteObserved, schedule]);
+
+  // The learner's own hand on the page: a scroll soon after their touch, wheel or scroll key (the page scrolls in
+  // the app's frame, so it is heard on the document as it passes).
+  useEffect(() => {
+    const hand = (event: Event) => {
+      if (event.type === "keydown" && !SCROLL_KEYS.has((event as KeyboardEvent).key)) return;
+      inputAt.current = Date.now();
+    };
+    const scrolled = () => {
+      if (Date.now() - inputAt.current >= USER_SCROLL_MS) return;
+      moved.current = true;
+      if (noteObserved()) schedule();
+    };
+    const options = { capture: true, passive: true } as const;
+    const kinds = ["touchmove", "wheel", "keydown"] as const;
+    for (const kind of kinds) window.addEventListener(kind, hand, options);
+    document.addEventListener("scroll", scrolled, options);
+    return () => {
+      for (const kind of kinds) window.removeEventListener(kind, hand, options);
+      document.removeEventListener("scroll", scrolled, options);
+    };
+  }, [noteObserved, schedule]);
 
   /** The foot of a section: it is finished, the dose arm draws (the server's, before anything shows), then on. */
   async function finishSection() {
@@ -450,7 +540,7 @@ function Block({ block, extractionId, pageOpen, onPage }: {
 }) {
   const page = typeof block.page === "number" ? block.page : null;
   if (block.withheld) {
-    return <p className="dim withheld" data-span={block.spanId ?? undefined}>A passage held out for your exam. It isn't shown here.</p>;
+    return <p className="dim withheld" data-span={block.spanId ?? undefined} data-withheld="">A passage held out for your exam. It isn't shown here.</p>;
   }
   const view = block.health?.recommendedView ?? "derived";
   // §3.1: a block whose text doesn't read well shows its page instead, and says so; never garbled text silently.

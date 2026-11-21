@@ -590,9 +590,16 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id extraction_id depth section_id label learner_override exercise_span_id ledger_id state_key model "
         "prompt_version created_at",
         "reason"),
+    # Seen passages (migration 256): DENIED; ids, times and an origin only.
+    "reader_section_ends": (
+        "extraction_id section_id span_id first_seen_at origin",
+        ""),
     "reader_section_progress": (
         "extraction_id section_id spans_seen span_count revealed_at completed_at generation_batch_id "
         "updated_at",
+        ""),
+    "reader_seen_spans": (
+        "extraction_id span_id section_id first_seen_at origin",
         ""),
     "section_coverage": (
         "id extraction_id section_id learning_object_id treatment origin candidate_rank learner_override "

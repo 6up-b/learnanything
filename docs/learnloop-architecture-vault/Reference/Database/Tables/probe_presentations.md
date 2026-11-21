@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/records.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/followup_serve.py"
