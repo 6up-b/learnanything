@@ -139,12 +139,12 @@ Indexes and uniqueness:
 - `tests/test_t1_batch_origin_migration.py`
 - `tests/test_ux_phase1_usability_round2.py`
 - `tests/test_ad23_owner_decisions.py`
+- `tests/test_add_source_same_content.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_empty_first_build.py`
 - `tests/test_first_questions_arrive.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
-- `tests/test_ingest_runner.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

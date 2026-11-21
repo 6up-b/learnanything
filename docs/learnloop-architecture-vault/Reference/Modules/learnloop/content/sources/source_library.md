@@ -100,6 +100,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/daily_plan_reading_helpers.py](../../../../../../../tests/daily_plan_reading_helpers.py) — direct import
 - [tests/sidecar_quick_add_helpers.py](../../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
+- [tests/test_add_source_same_content.py](../../../../../../../tests/test_add_source_same_content.py) — direct import
+  - `test_two_copies_already_in_the_library_stay_and_a_third_add_opens_the_first`
 - [tests/test_capture_domain.py](../../../../../../../tests/test_capture_domain.py) — direct import
   - `test_purge_retains_canonical_source_original`
 - [tests/test_capture_originals_race.py](../../../../../../../tests/test_capture_originals_race.py) — direct import

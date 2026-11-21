@@ -158,6 +158,7 @@ Indexes and uniqueness:
 - `tests/reading_request_sweep_helpers.py`
 - `tests/reread_safety_helpers.py`
 - `tests/test_ad23_fix_r5.py`
+- `tests/test_add_source_same_content.py`
 - `tests/test_apply_recovery.py`
 - `tests/test_build_study_map_routing.py`
 - `tests/test_capture_desktop.py`
@@ -170,7 +171,6 @@ Indexes and uniqueness:
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
 - `tests/test_figure_rich_rpc.py`
-- `tests/test_figures_help_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

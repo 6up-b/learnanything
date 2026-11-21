@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/scrollWithin.ts](../../../../../../apps/learnloop-tauri/src/components/scrollWithin.ts) |
-| Source lines | 80 |
+| Source lines | 108 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,34 +54,42 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type ScrollBlock = "start" | "center" | "end" | "nearest"` — type, line 10
-- `export interface ScrollWithinOptions` — interface, line 12
-- `export function scrollIntoViewWithin(target: Element | null | undefined, options: ScrollWithinOptions =` — function, line 60
+- `export type ScrollBlock = "start" | "center" | "end" | "nearest"` — type, line 13
+- `export interface ScrollWithinOptions` — interface, line 15
+- `export function scrollIntoViewWithin(target: Element | null | undefined, options: ScrollWithinOptions =` — function, line 88
 
 ## Internal implementation anchors
 
-- `const USER_SCROLLABLE = /^(auto|scroll|overlay)$/` — const, line 17
-- `function isUserScrollable(element: Element): boolean` — function, line 19
-- `const view = element.ownerDocument.defaultView` — const, line 20
-- `function pixels(value: string | null | undefined): number` — function, line 25
-- `const parsed = Number.parseFloat(value ?? "")` — const, line 26
-- `function targetScrollTop(container: HTMLElement, top: number, height: number, block: ScrollBlock, marginTop: number): number` — function, line 32
-- `const box = container.getBoundingClientRect()` — const, line 33
-- `const view = container.clientHeight` — const, line 34
-- `const offset = container.scrollTop + (top - box.top - container.clientTop)` — const, line 35
-- `const visibleTop = container.scrollTop` — const, line 44
-- `const visibleBottom = visibleTop + view` — const, line 45
-- `function clampScrollTop(container: HTMLElement, value: number): number` — function, line 53
-- `const max = container.scrollHeight - container.clientHeight` — const, line 54
-- `const block = options.block ?? "start"` — const, line 62
-- `const behavior = options.behavior ?? "auto"` — const, line 63
-- `const doc = target.ownerDocument` — const, line 64
-- `const view = doc.defaultView` — const, line 65
-- `const marginTop = view ? pixels(view.getComputedStyle(target).scrollMarginTop) : 0` — const, line 66
-- `const rect = target.getBoundingClientRect()` — const, line 67
-- `let shift = 0` — let, line 70
-- `const current = node.scrollTop` — const, line 73
-- `const next = clampScrollTop(node, targetScrollTop(node, rect.top - shift, rect.height, block, marginTop))` — const, line 74
+- `const USER_SCROLLABLE = /^(auto|scroll|overlay)$/` — const, line 20
+- `function isUserScrollable(element: Element): boolean` — function, line 22
+- `const view = element.ownerDocument.defaultView` — const, line 23
+- `function pixels(value: string | null | undefined): number` — function, line 28
+- `const parsed = Number.parseFloat(value ?? "")` — const, line 29
+- `function stickyCover(container: HTMLElement, target: Element):` — function, line 37
+- `const view = container.ownerDocument.defaultView` — const, line 38
+- `const own = view.getComputedStyle(container)` — const, line 40
+- `let top = 0` — let, line 41
+- `let bottom = 0` — let, line 42
+- `const style = view.getComputedStyle(child)` — const, line 45
+- `const height = child.getBoundingClientRect().height` — const, line 47
+- `function targetScrollTop(container: HTMLElement, top: number, height: number, block: ScrollBlock, marginTop: number, cover:` — function, line 58
+- `const box = container.getBoundingClientRect()` — const, line 60
+- `const view = container.clientHeight` — const, line 61
+- `const clear = Math.max(0, view - cover.top - cover.bottom)` — const, line 62
+- `const offset = container.scrollTop + (top - box.top - container.clientTop)` — const, line 63
+- `const visibleTop = container.scrollTop + cover.top` — const, line 72
+- `const visibleBottom = container.scrollTop + view - cover.bottom` — const, line 73
+- `function clampScrollTop(container: HTMLElement, value: number): number` — function, line 81
+- `const max = container.scrollHeight - container.clientHeight` — const, line 82
+- `const block = options.block ?? "start"` — const, line 90
+- `const behavior = options.behavior ?? "auto"` — const, line 91
+- `const doc = target.ownerDocument` — const, line 92
+- `const view = doc.defaultView` — const, line 93
+- `const marginTop = view ? pixels(view.getComputedStyle(target).scrollMarginTop) : 0` — const, line 94
+- `const rect = target.getBoundingClientRect()` — const, line 95
+- `let shift = 0` — let, line 98
+- `const current = node.scrollTop` — const, line 101
+- `const next = clampScrollTop(node, targetScrollTop(node, rect.top - shift, rect.height, block, marginTop, stickyCover(node, target)))` — const, line 102
 
 ## Who imports or calls it
 

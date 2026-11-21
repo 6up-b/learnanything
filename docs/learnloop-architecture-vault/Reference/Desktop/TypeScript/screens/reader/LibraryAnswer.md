@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/LibraryAnswer.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/LibraryAnswer.tsx) |
-| Source lines | 694 |
+| Source lines | 695 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,56 +54,56 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type ExplorableOutcome = | "built" // the figure is under its passage | "not_built" // the build was refused, failed or did not verify | "stopped" // the build was cancelled (or its book closed) | "another_reading" // the book opened on another reading…` — type, line 62
-- `export const LIBRARY_EXPLORABLE_COPY =` — const, line 73
-- `export function CompareTable(` — function, line 197
-- `export const COMPARE_AGAIN_COPY =` — const, line 202
-- `export function CompareTableByBook(` — function, line 209
-- `export function LibraryAnswer(` — function, line 280
+- `export type ExplorableOutcome = | "built" // the figure is under its passage | "not_built" // the build was refused, failed or did not verify | "stopped" // the build was cancelled (or its book closed) | "another_reading" // the book opened on another reading…` — type, line 63
+- `export const LIBRARY_EXPLORABLE_COPY =` — const, line 74
+- `export function CompareTable(` — function, line 198
+- `export const COMPARE_AGAIN_COPY =` — const, line 203
+- `export function CompareTableByBook(` — function, line 210
+- `export function LibraryAnswer(` — function, line 281
 
 ## Internal implementation anchors
 
-- `const linkStyle =` — const, line 48
-- `const headStyle =` — const, line 90
-- `function locator(hit: LibraryHitDto): string` — function, line 92
-- `function clip(text: string, limit = 420): string` — function, line 96
-- `const flat = text.split(/\s+/).join(" ").trim()` — const, line 97
-- `function HitBlock(` — function, line 101
-- `const pressOffer = ()` — const, line 123
-- `const settled = onExplorable()` — const, line 126
-- `const modelRole = note?.roles?.length && hit.role !== note.roles[0] ? note.roles[0].replace(/_/g, " ") : null` — const, line 129
-- `function CompareCells(` — function, line 173
-- `function uncheckedBecause(verification: CompareTableDto["verification"]): string | null` — function, line 188
-- `const status = `$` — const, line 189
-- `const unverified = table.unverifiedSources ?? []` — const, line 210
-- `const because = uncheckedBecause(table.verification)` — const, line 211
-- `const state = ctl.state` — const, line 306
-- `const gridActions: CompareGridActions | null = ctl.byPoint ?` — const, line 310
-- `const ask = state.ask.value` — const, line 334
-- `const scopedCompare = ctl.scopeOn && Boolean(state.chips) && Boolean(state.lastCompare) && state.lastCompare?.door !== "pins"` — const, line 336
-- `const answerSources = new Set((ask?.hits ?? []).flatMap((hit)` — const, line 339
-- `const notes = new Map((state.notes.value?.notes ?? []).map((note)` — const, line 340
-- `const notesPhase = state.notes.phase` — const, line 341
-- `const hits = new Map((ask?.hits ?? []).map((hit)` — const, line 342
-- `const order = state.notes.value?.order ?? []` — const, line 343
-- `const ordered = (keys: string[])` — const, line 344
-- `const left = order.indexOf(a)` — const, line 345
-- `const right = order.indexOf(b)` — const, line 346
-- `const itemList = (items: ProposedItemDto[])` — const, line 349
-- `const block = (key: string)` — const, line 367
-- `const hit = hits.get(key)` — const, line 368
-- `const prerequisites = ask?.expansions.find((expansion)` — const, line 384
-- `const perspectiveList = ()` — const, line 385
-- `const pinsCompare = state.compare.phase !== "idle" ? ( <ModelActionState phase=` — const, line 390
-- `const pinsTutor = ( <>` — const, line 409
-- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 461
-- `const target = event.target as HTMLElement` — const, line 462
-- `const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("[data-library-hit]"))` — const, line 470
-- `const current = target.closest<HTMLElement>("[data-library-hit]")` — const, line 471
-- `const key = current?.getAttribute("data-library-hit") ?? null` — const, line 472
-- `const at = current ? items.indexOf(current) : -1` — const, line 476
-- `const next = items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]` — const, line 477
-- `const hit = hits.get(key)` — const, line 495
+- `const linkStyle =` — const, line 49
+- `const headStyle =` — const, line 91
+- `function locator(hit: LibraryHitDto): string` — function, line 93
+- `function clip(text: string, limit = 420): string` — function, line 97
+- `const flat = text.split(/\s+/).join(" ").trim()` — const, line 98
+- `function HitBlock(` — function, line 102
+- `const pressOffer = ()` — const, line 124
+- `const settled = onExplorable()` — const, line 127
+- `const modelRole = note?.roles?.length && hit.role !== note.roles[0] ? note.roles[0].replace(/_/g, " ") : null` — const, line 130
+- `function CompareCells(` — function, line 174
+- `function uncheckedBecause(verification: CompareTableDto["verification"]): string | null` — function, line 189
+- `const status = `$` — const, line 190
+- `const unverified = table.unverifiedSources ?? []` — const, line 211
+- `const because = uncheckedBecause(table.verification)` — const, line 212
+- `const state = ctl.state` — const, line 307
+- `const gridActions: CompareGridActions | null = ctl.byPoint ?` — const, line 311
+- `const ask = state.ask.value` — const, line 335
+- `const scopedCompare = ctl.scopeOn && Boolean(state.chips) && Boolean(state.lastCompare) && state.lastCompare?.door !== "pins"` — const, line 337
+- `const answerSources = new Set((ask?.hits ?? []).flatMap((hit)` — const, line 340
+- `const notes = new Map((state.notes.value?.notes ?? []).map((note)` — const, line 341
+- `const notesPhase = state.notes.phase` — const, line 342
+- `const hits = new Map((ask?.hits ?? []).map((hit)` — const, line 343
+- `const order = state.notes.value?.order ?? []` — const, line 344
+- `const ordered = (keys: string[])` — const, line 345
+- `const left = order.indexOf(a)` — const, line 346
+- `const right = order.indexOf(b)` — const, line 347
+- `const itemList = (items: ProposedItemDto[])` — const, line 350
+- `const block = (key: string)` — const, line 368
+- `const hit = hits.get(key)` — const, line 369
+- `const prerequisites = ask?.expansions.find((expansion)` — const, line 385
+- `const perspectiveList = ()` — const, line 386
+- `const pinsCompare = state.compare.phase !== "idle" ? ( <ModelActionState phase=` — const, line 391
+- `const pinsTutor = ( <>` — const, line 410
+- `const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>)` — const, line 462
+- `const target = event.target as HTMLElement` — const, line 463
+- `const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("[data-library-hit]"))` — const, line 471
+- `const current = target.closest<HTMLElement>("[data-library-hit]")` — const, line 472
+- `const key = current?.getAttribute("data-library-hit") ?? null` — const, line 473
+- `const at = current ? items.indexOf(current) : -1` — const, line 477
+- `const next = items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]` — const, line 478
+- `const hit = hits.get(key)` — const, line 496
 
 ## Who imports or calls it
 
@@ -129,6 +129,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionState`
 - [[Reference/Desktop/TypeScript/screens/reader/ProposalExercises|src/screens/reader/ProposalExercises.tsx]] — import-or-re-export; imports `LibraryExercisesProps`, `ProposalExercises`
 - [[Reference/Desktop/TypeScript/screens/reader/comparePoints|src/screens/reader/comparePoints.ts]] — import-or-re-export; imports `byPoint`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `citationWords`
 - [[Reference/Desktop/TypeScript/screens/reader/roleLabel|src/screens/reader/roleLabel.ts]] — import-or-re-export; imports `hitRoleLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export; imports `LIBRARY_COPY`, `LibraryAskController`, `SCOPE_COPY`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `EvidenceMarker`, `MeaningLabel`, `ModelVoice`, `SourceVoice`

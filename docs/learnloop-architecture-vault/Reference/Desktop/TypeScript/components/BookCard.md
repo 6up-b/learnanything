@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/BookCard.tsx](../../../../../../apps/learnloop-tauri/src/components/BookCard.tsx) |
-| Source lines | 199 |
+| Source lines | 201 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const PAST_EXAM_DETAILS = "A past exam or problem set, kept in your Library. It doesn't open in the Reader, and LearnLoop doesn't write questions from it."` — const, line 24
 - `export function StatusLine(` — function, line 56
 - `export function BookCard(` — function, line 78
-- `export function PendingCard(` — function, line 174
+- `export function PendingCard(` — function, line 176
 
 ## Internal implementation anchors
 
@@ -69,7 +69,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const readable = card.readerEnabled !== false` — const, line 97
 - `const line = (aiReady === false ? card.statusLine?.withoutAi : null) ?? card.statusLine ?? null` — const, line 98
 - `const noun = card.kindNoun ?? "book"` — const, line 99
-- `const failed = entry.statusLine?.tone === "problem"` — const, line 184
+- `const failed = entry.statusLine?.tone === "problem"` — const, line 186
 
 ## Who imports or calls it
 

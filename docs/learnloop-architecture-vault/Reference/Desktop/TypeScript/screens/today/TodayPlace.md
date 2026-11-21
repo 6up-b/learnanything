@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/TodayPlace.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.tsx) |
-| Source lines | 1394 |
+| Source lines | 1396 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
@@ -123,104 +123,105 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section)` — const, line 564
 - `const listItemIds = useMemo(()` — const, line 565
 - `const listWaiting = useMemo(()` — const, line 567
-- `const moreLeft: boolean | null = !plan || !planDone ? null : plan.blocks.some((block)` — const, line 571
-- `const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn) ? todayCause(` — const, line 577
-- `const refetchLibrary = library.refetch` — const, line 582
-- `const refetchQueue = queueQuery.refetch` — const, line 583
-- `const onTheWay = cause?.kind === "on_the_way" || cause?.kind === "section_writing" || (cause?.kind === "questions_ready_with_section_work" && cause.writing !== null)` — const, line 584
-- `const timer = window.setInterval(()` — const, line 588
-- `const causeShown = cause !== null` — const, line 598
-- `const goals = useCachedQuery(["goals_list"], ()` — const, line 604
-- `const primaryGoal: GoalDto | null = useMemo(()` — const, line 605
-- `const active = (goals.data?.goals ?? []).filter((goal)` — const, line 606
-- `const da = a.dueAt ? Date.parse(a.dueAt) : Infinity` — const, line 608
-- `const db = b.dueAt ? Date.parse(b.dueAt) : Infinity` — const, line 609
-- `const deciding = plan?.deciding === true && !list` — const, line 617
-- `const refetchPlan = planQuery.refetch` — const, line 618
-- `let reads = 0` — let, line 621
-- `const timer = window.setInterval(()` — const, line 622
-- `const waitingUntil = plan?.waiting?.until ?? null` — const, line 632
-- `const at = Date.parse(waitingUntil)` — const, line 635
-- `const timer = window.setTimeout(()` — const, line 637
-- `const alive = useRef(true)` — const, line 645
-- `const stay = useCallback(<T,>(value: T): T` — const, line 652
-- `const startSession = useCallback( async (minutes: number): Promise<SessionSnapshot>` — const, line 657
-- `const started = await onStartSession(minutes)` — const, line 659
-- `const run = useCallback( async <T,>(work: ()` — const, line 665
-- `const runSaying = useCallback( async <T,>(line: string, work: ()` — const, line 682
-- `const done = plan ? plan.status !== "open" : false` — const, line 695
-- `const current = plan?.blocks.find((block)` — const, line 696
-- `const waiting = plan && !done && !current && plan.waiting ? plan.waiting : null` — const, line 697
-- `const inProgress = plan && !done && !current ? plan.questionInProgress ?? null : null` — const, line 700
-- `const openProblems = useCachedQuery(inProgress ? ["workbench_open_problems"] : null, ()` — const, line 701
-- `const inProgressProblem = inProgress ? openProblems.data?.problems.find((problem)` — const, line 702
-- `const inProgressItem = inProgress?.practiceItemId ?? null` — const, line 703
-- `const rows = plan && !done ? todayRows(plan) : []` — const, line 704
-- `async function begin()` — function, line 707
-- `const begun = await runSaying(WAITING_COPY.choosingNext, async ()` — const, line 711
-- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 712
-- `const first = await api.nextPlanItem(` — const, line 713
-- `const result = await runSaying(WAITING_COPY.choosingNext, ()` — const, line 719
-- `const action = planStepAction(result?.step,` — const, line 724
-- `function afterSomethingElse(result: SomethingElseChosenDto)` — function, line 731
-- `const entry = lessonEntryFor(result)` — const, line 732
-- `const action = planStepAction(result.step,` — const, line 741
-- `async function beginWithoutPlan()` — function, line 749
-- `const opened = await runSaying(WAITING_COPY.choosingNext, async ()` — const, line 751
-- `const started = session ?? (await startSession(minutes))` — const, line 752
-- `const head = await api.getTodayQueue(todayQueueInput(started))` — const, line 753
-- `function chooseMinutes(next: number)` — function, line 761
-- `async function keepGoing()` — function, line 770
-- `const result = await runSaying(WAITING_COPY.addingMore, ()` — const, line 773
-- `async function somethingNew(confirm: boolean)` — function, line 788
-- `const result = await run(()` — const, line 790
-- `async function finish()` — function, line 794
-- `const summaryResult = await run(()` — const, line 797
-- `async function skipCurrent()` — function, line 801
-- `const next = current.items.find((item)` — const, line 807
-- `async function openFromList(item: ScheduledItemDto, line: string = WAITING_COPY.openingQuestion)` — function, line 818
-- `const started = await runSaying(line, ()` — const, line 821
-- `const begun = await runSaying(line, async ()` — const, line 829
-- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 830
-- `const result = await api.planLearnerPick(item.practiceItemId, started.sessionId, item.schedulerCandidateId ?? null)` — const, line 831
-- `const result = await runSaying(line, ()` — const, line 837
-- `const step = result.step` — const, line 839
-- `async function practiseGoal()` — function, line 850
-- `async function practiseGoalHeld()` — function, line 861
-- `const input = queueInput ?? todayQueueInput(session)` — const, line 863
-- `const snapshot = await runSaying(WAITING_COPY.findingGoalQuestion, ()` — const, line 864
-- `const target = snapshot.sections.flatMap((section)` — const, line 866
-- `async function retryFromToday(target:` — function, line 877
-- `const result = await run(()` — const, line 878
-- `async function resumeSection(resumeId: string)` — function, line 883
-- `const resumed = await run(()` — const, line 884
-- `function causeAction(shown: TodayCause): (()` — function, line 888
-- `const item = shown.itemId ? queue?.sections.flatMap((section)` — const, line 897
-- `const card = shown.card` — const, line 914
-- `function causeSecond(shown: TodayCause): (()` — function, line 923
-- `const offersQuestions = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work"` — const, line 929
-- `const offerBegin = cause && offersQuestions ? causeAction(cause) : null` — const, line 930
-- `const causeLine = cause ? ( <CauseLine cause=` — const, line 932
-- `const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0` — const, line 948
-- `const goalCause = goalNothingReady && !goalHasQuestions ? todayCause(` — const, line 949
-- `const onKey = (event: KeyboardEvent)` — const, line 954
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 956
-- `const next = stepChoice(choices, minutes, event.key === "ArrowLeft" ? -1 : 1)` — const, line 978
-- `const streak = data?.streak ?? snapshotStreak` — const, line 986
-- `const streakText = streakLine(streak)` — const, line 987
-- `let body: ReactNode` — let, line 990
-- `const head = queue?.sections.flatMap((section)` — const, line 1032
-- `const empty = planWasEmpty(data)` — const, line 1046
-- `const sentence = plan.kind === "reentry" ? reentrySentence(plan) : planSentence(plan)` — const, line 1105
-- `function CauseLine(` — function, line 1240
-- `const label = causeActionLabel(cause)` — const, line 1266
-- `const second = causeSecondActionLabel(cause)` — const, line 1267
-- `const wait = sentence === undefined ? causeWait(cause) : null` — const, line 1268
-- `const failed = causeTopicsFailed(cause)` — const, line 1275
-- `const failed = causeTopicsFailed(cause)` — const, line 1296
-- `function OpenLessons(` — function, line 1360
-- `let cancelled = false` — let, line 1364
-- `function KeepGoingNothing()` — function, line 1388
+- `const listAskable = listItems === null ? null : Math.max(0, listItems - listWaiting.length)` — const, line 572
+- `const moreLeft: boolean | null = !plan || !planDone ? null : plan.blocks.some((block)` — const, line 573
+- `const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn) ? todayCause(` — const, line 579
+- `const refetchLibrary = library.refetch` — const, line 584
+- `const refetchQueue = queueQuery.refetch` — const, line 585
+- `const onTheWay = cause?.kind === "on_the_way" || cause?.kind === "section_writing" || (cause?.kind === "questions_ready_with_section_work" && cause.writing !== null)` — const, line 586
+- `const timer = window.setInterval(()` — const, line 590
+- `const causeShown = cause !== null` — const, line 600
+- `const goals = useCachedQuery(["goals_list"], ()` — const, line 606
+- `const primaryGoal: GoalDto | null = useMemo(()` — const, line 607
+- `const active = (goals.data?.goals ?? []).filter((goal)` — const, line 608
+- `const da = a.dueAt ? Date.parse(a.dueAt) : Infinity` — const, line 610
+- `const db = b.dueAt ? Date.parse(b.dueAt) : Infinity` — const, line 611
+- `const deciding = plan?.deciding === true && !list` — const, line 619
+- `const refetchPlan = planQuery.refetch` — const, line 620
+- `let reads = 0` — let, line 623
+- `const timer = window.setInterval(()` — const, line 624
+- `const waitingUntil = plan?.waiting?.until ?? null` — const, line 634
+- `const at = Date.parse(waitingUntil)` — const, line 637
+- `const timer = window.setTimeout(()` — const, line 639
+- `const alive = useRef(true)` — const, line 647
+- `const stay = useCallback(<T,>(value: T): T` — const, line 654
+- `const startSession = useCallback( async (minutes: number): Promise<SessionSnapshot>` — const, line 659
+- `const started = await onStartSession(minutes)` — const, line 661
+- `const run = useCallback( async <T,>(work: ()` — const, line 667
+- `const runSaying = useCallback( async <T,>(line: string, work: ()` — const, line 684
+- `const done = plan ? plan.status !== "open" : false` — const, line 697
+- `const current = plan?.blocks.find((block)` — const, line 698
+- `const waiting = plan && !done && !current && plan.waiting ? plan.waiting : null` — const, line 699
+- `const inProgress = plan && !done && !current ? plan.questionInProgress ?? null : null` — const, line 702
+- `const openProblems = useCachedQuery(inProgress ? ["workbench_open_problems"] : null, ()` — const, line 703
+- `const inProgressProblem = inProgress ? openProblems.data?.problems.find((problem)` — const, line 704
+- `const inProgressItem = inProgress?.practiceItemId ?? null` — const, line 705
+- `const rows = plan && !done ? todayRows(plan) : []` — const, line 706
+- `async function begin()` — function, line 709
+- `const begun = await runSaying(WAITING_COPY.choosingNext, async ()` — const, line 713
+- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 714
+- `const first = await api.nextPlanItem(` — const, line 715
+- `const result = await runSaying(WAITING_COPY.choosingNext, ()` — const, line 721
+- `const action = planStepAction(result?.step,` — const, line 726
+- `function afterSomethingElse(result: SomethingElseChosenDto)` — function, line 733
+- `const entry = lessonEntryFor(result)` — const, line 734
+- `const action = planStepAction(result.step,` — const, line 743
+- `async function beginWithoutPlan()` — function, line 751
+- `const opened = await runSaying(WAITING_COPY.choosingNext, async ()` — const, line 753
+- `const started = session ?? (await startSession(minutes))` — const, line 754
+- `const head = await api.getTodayQueue(todayQueueInput(started))` — const, line 755
+- `function chooseMinutes(next: number)` — function, line 763
+- `async function keepGoing()` — function, line 772
+- `const result = await runSaying(WAITING_COPY.addingMore, ()` — const, line 775
+- `async function somethingNew(confirm: boolean)` — function, line 790
+- `const result = await run(()` — const, line 792
+- `async function finish()` — function, line 796
+- `const summaryResult = await run(()` — const, line 799
+- `async function skipCurrent()` — function, line 803
+- `const next = current.items.find((item)` — const, line 809
+- `async function openFromList(item: ScheduledItemDto, line: string = WAITING_COPY.openingQuestion)` — function, line 820
+- `const started = await runSaying(line, ()` — const, line 823
+- `const begun = await runSaying(line, async ()` — const, line 831
+- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 832
+- `const result = await api.planLearnerPick(item.practiceItemId, started.sessionId, item.schedulerCandidateId ?? null)` — const, line 833
+- `const result = await runSaying(line, ()` — const, line 839
+- `const step = result.step` — const, line 841
+- `async function practiseGoal()` — function, line 852
+- `async function practiseGoalHeld()` — function, line 863
+- `const input = queueInput ?? todayQueueInput(session)` — const, line 865
+- `const snapshot = await runSaying(WAITING_COPY.findingGoalQuestion, ()` — const, line 866
+- `const target = snapshot.sections.flatMap((section)` — const, line 868
+- `async function retryFromToday(target:` — function, line 879
+- `const result = await run(()` — const, line 880
+- `async function resumeSection(resumeId: string)` — function, line 885
+- `const resumed = await run(()` — const, line 886
+- `function causeAction(shown: TodayCause): (()` — function, line 890
+- `const item = shown.itemId ? queue?.sections.flatMap((section)` — const, line 899
+- `const card = shown.card` — const, line 916
+- `function causeSecond(shown: TodayCause): (()` — function, line 925
+- `const offersQuestions = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work"` — const, line 931
+- `const offerBegin = cause && offersQuestions ? causeAction(cause) : null` — const, line 932
+- `const causeLine = cause ? ( <CauseLine cause=` — const, line 934
+- `const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0` — const, line 950
+- `const goalCause = goalNothingReady && !goalHasQuestions ? todayCause(` — const, line 951
+- `const onKey = (event: KeyboardEvent)` — const, line 956
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 958
+- `const next = stepChoice(choices, minutes, event.key === "ArrowLeft" ? -1 : 1)` — const, line 980
+- `const streak = data?.streak ?? snapshotStreak` — const, line 988
+- `const streakText = streakLine(streak)` — const, line 989
+- `let body: ReactNode` — let, line 992
+- `const head = queue?.sections.flatMap((section)` — const, line 1034
+- `const empty = planWasEmpty(data)` — const, line 1048
+- `const sentence = plan.kind === "reentry" ? reentrySentence(plan) : planSentence(plan)` — const, line 1107
+- `function CauseLine(` — function, line 1242
+- `const label = causeActionLabel(cause)` — const, line 1268
+- `const second = causeSecondActionLabel(cause)` — const, line 1269
+- `const wait = sentence === undefined ? causeWait(cause) : null` — const, line 1270
+- `const failed = causeTopicsFailed(cause)` — const, line 1277
+- `const failed = causeTopicsFailed(cause)` — const, line 1298
+- `function OpenLessons(` — function, line 1362
+- `let cancelled = false` — let, line 1366
+- `function KeepGoingNothing()` — function, line 1390
 
 ## Who imports or calls it
 

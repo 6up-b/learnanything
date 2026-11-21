@@ -103,13 +103,13 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/tutorReview.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/tutorReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/citationWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/citationWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/TutorAnswer.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/TutorAnswer.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_dialogue_causal_join.py](../../../../../../../tests/test_dialogue_causal_join.py) — cross-boundary name contract: references uniquely owned exported name `TutorAnswer`; it does **not** directly execute this source module.
 - [tests/test_e0_review_round1.py](../../../../../../../tests/test_e0_review_round1.py) — cross-boundary name contract: references uniquely owned exported name `TutorAnswer`; it does **not** directly execute this source module.
 - [tests/test_e0_review_round2.py](../../../../../../../tests/test_e0_review_round2.py) — cross-boundary name contract: references uniquely owned exported name `TutorAnswer`; it does **not** directly execute this source module.
 - [tests/test_field_signal_production_paths.py](../../../../../../../tests/test_field_signal_production_paths.py) — cross-boundary name contract: references uniquely owned exported name `TutorAnswer`; it does **not** directly execute this source module.
 - [tests/test_placement_signals.py](../../../../../../../tests/test_placement_signals.py) — cross-boundary name contract: references uniquely owned exported name `TutorAnswer`; it does **not** directly execute this source module.
-- [tests/test_question_signal.py](../../../../../../../tests/test_question_signal.py) — cross-boundary name contract: references uniquely owned exported name `TutorAnswer`; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
