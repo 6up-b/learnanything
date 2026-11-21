@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of `mvp-0.62` (the check-credit fix, switched on), evidence packets' repeat receipts and receipt repairs (SR-2, SR-3) and the seen-passage fix UX-62 (Nov 21), at `mvp-0.62`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of the first evening's step 7 (what comes next, in dated words) and the contract check's step 6 (the teacher turn) (Nov 21), at `mvp-0.62`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -365,7 +365,7 @@ A first set of questions from the part read; a section's end finishes it; an hon
 | Step 4 | A topic gets its questions once every passage it cites has been seen; Today says what is and is not ready | landed | this commit | [first-evening-step-4.md](first-evening-step-4.md) | A live-route walk is owed (the first step a walk can see); ledger UX-60 and UX-61 (a note's excerpt and the request's wording on a part-read request) |
 | Step 5 | A section's end finishes it; the quick-check controls split (a successor tag); the phone's count observer (ledger UX-59) | not started | — | — | A successor tag after `mvp-0.62` |
 | Step 6 | Typed build stages and a several-line wait | not started | — | — | — |
-| Step 7 | A dated next-practice line at the session's end and on Today | not started | — | — | — |
+| Step 7 | A dated next-practice line at the session's end and on Today | landed | this commit | [first-evening-step-7.md](first-evening-step-7.md) | A live-route walk is owed: the days named match the days the questions are offered |
 | Step 8 | Wording and the held-question line | not started | — | — | — |
 | Step 9 | Web-page paragraphs and figures (UX-34, UX-35) | not started | — | — | — |
 | Step 10 | A second source is readable while the first is still being built (UX-54) | not started | — | — | — |
@@ -391,5 +391,5 @@ The owner decided on 2026-11-20 that every structured model call gets one shared
 |---|---|---|---|---|---|
 | Step 0 | The shared module (`ai/structured_contracts.py`), its registered count of one contract re-ask (a provider's schema repair keeps its own rule: amended by step 5), and inert hooks | landed | `3f42da228a` | [structured-contracts-step-0.md](structured-contracts-step-0.md) | — |
 | Steps 1 to 5 | The five local fixes of Nov 20: three stay local (pinned by tests), the empty-build predicate is extracted, the follow-up question's re-ask moves onto the shared step | landed | this commit | [structured-contracts-steps-1-4.md](structured-contracts-steps-1-4.md), [structured-contracts-step-5.md](structured-contracts-step-5.md) | Step 5 amended step 0: the one re-ask counts contract re-asks only; a provider's schema repair keeps its own rule (one per attempt, admitted by the caller); transport retries are untouched |
-| Steps 6 to 22 | Adoption by call-site family, starting with blank replies in live dialogue (tutor, teach-back, teacher) | waiting on | — | — | Steps 1 to 5; two owner questions (a strict rule for a second empty build; versions for predicates that change what counts as evidence) |
+| Steps 6 to 22 | Adoption by call-site family, starting with blank replies in live dialogue (tutor, teach-back, teacher) | landed (step 6, the teacher turn) | this commit | [structured-contracts-step-6.md](structured-contracts-step-6.md) | The tutor's reply and the teach-back question are not adopted: neither call has an admission for a second request (ledger SC-1, the owner's call). Step 7 (the first build) needs the owner's rule for a second empty build. Steps 8 to 22 not started |
 
