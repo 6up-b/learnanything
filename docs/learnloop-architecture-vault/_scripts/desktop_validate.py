@@ -198,7 +198,7 @@ def main() -> int:
     # Waiting you can see (Nov 19): components/Waiting.tsx and copy/waiting.ts (the shared waiting indicator; entry-reachable).
     # Broken controls, second round (Reader): components/scrollWithin.ts (a Reader scroll moves its own pane, never the shell).
     # The one OK to use AI: app/aiOk.ts (requests waiting for the sheet's answer; entry-reachable).
-    # The first evening, step 7: app/nextPractice.ts (what comes next, dated; entry-reachable, shared with the phone).
+    # What comes next, dated: app/nextPractice.ts (what comes next, dated; entry-reachable, shared with the phone).
     if len(ts_sources) != 335:
         errors.append(f"source inventory drift: expected 335 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
@@ -299,7 +299,7 @@ def main() -> int:
         # Owner captures (Nov 8): screens/workbench/BookPassage.tsx. IH1, IH3: LessonOfferPage.tsx, SomethingElse.tsx.
         # IH6: QuestionInProgress.tsx. RE0: attemptClock.ts, useAttemptClock.ts. C5: the six Golden Path files left.
         # Waiting you can see: components/Waiting.tsx, copy/waiting.ts. Reader scrolls: components/scrollWithin.ts.
-        # The one OK to use AI: app/aiOk.ts. The first evening, step 7: app/nextPractice.ts.
+        # The one OK to use AI: app/aiOk.ts. What comes next, dated: app/nextPractice.ts.
         "entry-reachable build graph": 324,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,

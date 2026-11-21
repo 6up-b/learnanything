@@ -232,7 +232,7 @@ def end_session(ctx: SidecarContext, params: SessionEndInput) -> dict[str, Any]:
             # UX Phase 4: the calm session finish names what was practised, in
             # the knowledge well's words (display only, never evidence).
             "topics": _session_topics(vault, repository, params.session_id, demonstrated_attempt_ids),
-            # The first evening, step 7: what comes next, dated, as Today says it at this instant (a snapshot).
+            # What comes next, dated, as Today says it at this instant (a snapshot).
             "next_practice": next_practice_or_none(vault, repository),
             **learning_diff,
         }

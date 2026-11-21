@@ -639,7 +639,7 @@ export function TodayPlace({
     }, 1500);
     return () => window.clearInterval(timer);
   }, [deciding, refetchPlan]);
-  // The first evening, step 7: what comes next, dated, from the plan's read (a step's reply carries none: the last read
+  // What comes next, dated, from the plan's read (a step's reply carries none: the last read
   // stands until the next). Read again when the plan's next day starts, so "tomorrow" is never yesterday's.
   const nextPractice = useLatestNextPractice(data?.nextPractice);
   useNextDayRefresh(planOn ? nextPractice?.calendar.nextDayStartsAt : null, () => void refetchPlan().catch(() => undefined));

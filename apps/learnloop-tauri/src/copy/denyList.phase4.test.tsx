@@ -158,7 +158,7 @@ it("the session finish", async () => {
     facetsDemonstrated: 2, predictionsMoved: { up: 1, down: 0 }, corrections: 1, misconceptionsTouched: { resolved: 1, returned: 0 },
     coldChecksCompleted: 1, coldChecksPassed: 1,
     topics: [{ learningObjectId: "lo_1", title: "Conditional probability", evidence: "on_your_own" }],
-    // The first evening, step 7: what comes next, dated, in every line the finish says.
+    // What comes next, dated, in every line the finish says.
     nextPractice: {
       asOf: "2026-10-15T10:20:00Z",
       calendar: { zone: "EDT", today: "2026-10-15", tomorrow: "2026-10-16", nextDayStartsAt: "2026-10-16T04:00:00Z" },

@@ -1,4 +1,4 @@
-"""What comes next, dated (the first evening's step 7): one read-only summary the session's finish and Today share.
+"""What comes next, dated: one read-only summary the session's finish and Today share.
 
 The learner could not find when their answered questions would return. ``daily_plan.next_practice`` says, at one
 instant, which reviews are due on which day of the plan's calendar (each at its effective due), when each check on

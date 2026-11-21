@@ -2473,7 +2473,7 @@ describe("Broken controls, third round: the full list's words and a done plan's 
     await press({ key: "l" });
     const rows = await screen.findAllByTestId("today-list-row");
     const words = rows.map((row) => row.textContent ?? "");
-    // The first evening, step 7: the day it comes back, by name (a date after the week), not "in 9 days".
+    // The day it comes back, by name (a date after the week), not "in 9 days".
     const local = (time: number) => { const d = new Date(time); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
     expect(words[0]).toContain(`comes back on ${dayName(local(Date.parse(inDays(9))), local(Date.now()))}`);
     expect(words[1]).toMatch(/not answered yet/);

@@ -121,7 +121,7 @@ export function PlanToday({
 
   const waiting = waitingForDesktop(data);
   const step = stepOf(data);
-  // The first evening, step 7: what comes next, dated. The finish says it as read at the session's end while that is
+  // What comes next, dated. The finish says it as read at the session's end while that is
   // still today in the plan's calendar; otherwise (no finish, or the day has turned) Today says it as read now, once
   // the plan is done or holds nothing, leaving what is being written to a book's own line when one shows.
   const snapshot = finished && !session && finished.nextPractice

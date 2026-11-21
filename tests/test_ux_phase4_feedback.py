@@ -323,7 +323,7 @@ def test_a_missed_unassisted_answer_names_no_topic(ctx):
     assert _call(ctx, "end_session", {"sessionId": session_id})["topics"] == []
 
 
-# -- what comes next (the first evening, step 7) ----------------------------------------------
+# -- what comes next, dated ------------------------------------------------------------------
 
 
 @pytest.fixture()

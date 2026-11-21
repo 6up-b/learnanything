@@ -288,7 +288,7 @@ const ROUND_3B_SENTENCES = [
   "not answered yet", "coming back later today", "comes back tomorrow", "comes back on 9 November"
 ];
 
-// The first evening, step 7: what comes next, dated (the session's finish and Today, desktop and phone alike), and the
+// What comes next, dated (the session's finish and Today, desktop and phone alike), and the
 // full list's day for a row that waits.
 const STEP7_NEXT: NextPracticeDto = {
   asOf: "2026-10-31T23:00:00Z",

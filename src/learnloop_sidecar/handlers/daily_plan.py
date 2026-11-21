@@ -428,7 +428,7 @@ def get_daily_plan(ctx: SidecarContext, params: PlanSessionInput) -> dict[str, A
         return _off(ctx)
     vault, repository, env = required
     view = _current_view(env)
-    # The first evening, step 7: what comes next, dated (the session's finish reads the same summary). Read on every
+    # What comes next, dated (the session's finish reads the same summary). Read on every
     # read of Today, so it follows answers, applied questions, a review and the day's turn as the plan does.
     view["next_practice"] = next_practice_or_none(vault, repository, clock=env.clock)
     _schedule_ad(ctx, env, step=None)

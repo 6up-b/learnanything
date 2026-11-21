@@ -1,4 +1,4 @@
-// What comes next, dated (the first evening, step 7): the words for every state of the sidecar's summary. EVENING is
+// What comes next, dated: the words for every state of the sidecar's summary. EVENING is
 // tests/next_practice_helpers.py's EXPECTED as the sidecar sends it (camel case): Saturday 31 October 2026 in New
 // York, the night daylight saving ends.
 import { describe, expect, it } from "vitest";

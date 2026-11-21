@@ -1,4 +1,4 @@
-// What comes next, dated (the first evening, step 7): the words the session's finish and Today say from the
+// What comes next, dated: the words the session's finish and Today say from the
 // sidecar's one read-only summary (`next_practice`), on the desktop and the phone alike.
 //
 // Every day here is a date of the plan's own calendar (YYYY-MM-DD, as the sidecar read it), compared with that

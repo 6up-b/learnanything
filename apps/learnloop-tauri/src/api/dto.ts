@@ -736,7 +736,7 @@ export interface SessionEndSummary {
    *  (● on your own, ◌ with help); a topic only tried, missed, skipped or
    *  held is not named. Absent from an older sidecar. */
   topics?: SessionTopicDto[];
-  /** The first evening, step 7: what comes next, dated, read at the session's end (a snapshot). Null when it could
+  /** What comes next, dated, read at the session's end (a snapshot). Null when it could
    *  not be read; absent from an older sidecar. */
   nextPractice?: NextPracticeDto | null;
 }

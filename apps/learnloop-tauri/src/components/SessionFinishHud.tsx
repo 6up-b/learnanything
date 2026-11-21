@@ -118,7 +118,7 @@ function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary;
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onDismiss]);
   const topics = summary.topics ?? [];
-  // The first evening, step 7: what comes next, dated, as read at the session's end (a snapshot).
+  // What comes next, dated, as read at the session's end (a snapshot).
   const nextLines = nextPracticeLines(summary.nextPractice, { finish: true });
   return (
     <div

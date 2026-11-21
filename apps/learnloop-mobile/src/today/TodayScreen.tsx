@@ -73,7 +73,7 @@ export function TodayScreen({
             Session finished: {finished.attemptsRecorded} {finished.attemptsRecorded === 1 ? "answer" : "answers"}.
           </p>
         ) : null}
-        {/* The first evening, step 7: what comes next, dated, as read at the session's end. */}
+        {/* What comes next, dated, as read at the session's end. */}
         {finishedNext.length ? (
           <div className="dim" data-testid="session-next">
             {finishedNext.map((line) => <p key={line}>{line}</p>)}

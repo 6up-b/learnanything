@@ -99,7 +99,7 @@ it("a topic answered partly right on your own and finished with help says both, 
   expect(moved).toContain("◌ Mixtures (with help)");
 });
 
-// The first evening, step 7: the finish says what comes next, dated, from the summary read at the session's end.
+// The finish says what comes next, dated, from the summary read at the session's end.
 const NEXT = {
   asOf: "2026-10-31T23:00:00Z",
   calendar: { zone: "EDT", today: "2026-10-31", tomorrow: "2026-11-01", nextDayStartsAt: "2026-11-01T04:00:00Z" },
