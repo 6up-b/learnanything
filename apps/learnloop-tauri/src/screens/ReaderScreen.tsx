@@ -306,6 +306,7 @@ export function ReaderScreen({
   initialSource = null,
   onSourceChange,
   onOpenLibrary,
+  onOpenToday,
   shelf,
   onCheckMe,
   onUseExercise,
@@ -329,6 +330,8 @@ export function ReaderScreen({
   /** "← Library" goes to the Library place, the one shelf (spec K5; usability
    *  round 1: the Reader's own list was a second "Library"). */
   onOpenLibrary?: () => void;
+  /** "Back to Today" at the end of a book's last section (absent: the Reader offers no way there). */
+  onOpenToday?: () => void;
   /** With no book open, the Library's own shelf (spec K5, usability round 2:
    *  the Reader's own list read as a second Library). */
   shelf?: ReactNode;
@@ -606,7 +609,7 @@ export function ReaderScreen({
     authoringSections, timedOutSections, guideSectionByEnd, currentGuideSection, currentSectionProgress,
     currentSectionRead, pdfSurfaceActive, offeredCheckSections, openQuestionSections, pendingQuickCheckCount,
     currentQuestionOpen, pdfOfferSection, readingProgress, retryQuickCheck, openQuickCheck, revealSection,
-    completeSection, jumpToSpan, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleOpening, placeAtOpen,
+    completeSection, sectionFinishes, jumpToSpan, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleOpening, placeAtOpen,
     hydrateProgress, resetProgress,
   } = progress;
 
@@ -3661,7 +3664,7 @@ export function ReaderScreen({
             <Faint style={{ fontSize: 11, flexShrink: 0 }}>
               {currentGuideSection ? sectionWords(currentGuideSection.label) : "reading"}
             </Faint>
-            <div style={{ height: 3, flex: 1, maxWidth: 280, background: COLOR.border, overflow: "hidden" }} aria-label={`${Math.round(readingProgress * 100)}% read`}>
+            <div style={{ height: 3, flex: 1, maxWidth: 280, background: COLOR.border, overflow: "hidden" }} aria-label={`${Math.round(readingProgress * 100)}% through the book`}>
               <div style={{ height: "100%", width: `${Math.max(2, readingProgress * 100)}%`, background: COLOR.amber }} />
             </div>
             <Faint style={{ fontSize: 10 }}>{Math.round(readingProgress * 100)}%</Faint>
@@ -4285,6 +4288,8 @@ export function ReaderScreen({
             peekPassage={peekPassage}
             revealSection={revealSection}
             completeSection={completeSection}
+            sectionFinishes={sectionFinishes}
+            {...(onOpenToday ? { onOpenToday } : {})}
             bookTitle={sourceTitle}
             onError={onError}
             boundaryBlock={boundaryBlock}

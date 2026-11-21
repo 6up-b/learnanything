@@ -115,7 +115,7 @@ it("the line sits under the section's progress, from one shared quiet read; CA5a
   await waitFor(() => expect(line()).toBeTruthy());
   expect(line()!.textContent).toBe("also in Axler §5.A ▸");
   // Directly under the section's progress bar, in the section's card.
-  const bar = screen.getByRole("progressbar", { name: "Read of this section" });
+  const bar = screen.getByRole("progressbar", { name: "Position through this section" });
   expect(bar.parentElement!.contains(line())).toBe(true);
   expect(bar.compareDocumentPosition(line()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   const quiet = api.readerCorrespondents.mock.calls.filter((call) => call[0].sectionId === "u1" && call[0].searchFallback === false);
