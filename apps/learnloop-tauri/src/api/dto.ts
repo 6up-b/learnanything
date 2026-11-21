@@ -3845,6 +3845,10 @@ export interface ReadingQuestionsDto {
   awaitingOk?: number;
   /** The first section being written, in recorded facts. Absent from an older sidecar, and when nothing is written. */
   writingDetail?: WritingDetailDto | null;
+  /** The book's own count of topics across every wave of its writing (`progress` is the jobs writing now, and starts
+   *  again with each wave): `written`, topics whose questions were written so far (held for a look or not), and
+   *  `writing`, those still being written. Present only while some are being written (absent from an older sidecar). */
+  topics?: { written: number; writing: number };
 }
 
 /** A link an Add is still fetching: it has no library card yet. */

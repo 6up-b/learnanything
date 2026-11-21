@@ -77,6 +77,9 @@ export function readableTitle(title: string): string {
 const FAILURE_RETRY_LABELS: ReadonlySet<string> = new Set(["Retry", "Try again"]);
 
 type Progress = { done: number; total: number };
+/** A book's topics whose questions were written so far, and those still being written, across every wave of its
+ *  writing (the fact's `topics`). */
+type TopicCount = { written: number; writing: number };
 
 export type TodayCause =
   /** Today's list still has questions: the plan stopped with something left. */
@@ -98,7 +101,8 @@ export type TodayCause =
       count: number;
       itemId: string | null;
       card: SourceLibraryCard;
-      writing: { progress: Progress | null } | null;
+      /** `topics`: the book's own count across waves, where the line can say it (preferred to `progress`, one wave's). */
+      writing: { progress: Progress | null; topics?: TopicCount | null } | null;
       failedTopics: boolean;
       resumeId: string | null;
       fromReading?: boolean;
@@ -131,6 +135,8 @@ export type TodayCause =
    *  where the fact says it for that section. `failedTopics`: some of its topics' questions could not be written while
    *  the rest still are; said beside the writing, with no Try again (a resume requeues nothing while the job runs). */
   | { kind: "section_writing"; title: string; part: string | null; card: SourceLibraryCard; progress?: Progress | null; failedTopics?: boolean;
+      /** The book's topics written so far and still being written, across its waves, where the line can say it. */
+      topics?: TopicCount | null;
       /** The writing is of sections the learner has not finished: questions from what they've read. */
       fromReading?: boolean;
       /** What the writing is doing now, in recorded facts (`app/waitDetail`); absent where the fact carries none. */
@@ -241,19 +247,49 @@ function writingProgress(questions: ReadingQuestionsDto): Progress | null {
   return others ? null : progress;
 }
 
+/** The book's topics written so far and still being written, across every wave of its writing, where the line can say
+ *  them: a line that names the book, or one that names the part every question and every writing of the book is from
+ *  (a count over several sections beside one section's name would not be that section's). Null when the fact has no
+ *  such count (nothing being written, or an older sidecar): the wave's own `progress` is said then, as before. */
+function bookTopics(questions: ReadingQuestionsDto, part: string | null): TopicCount | null {
+  const topics = questions.topics;
+  if (!topics || topics.writing <= 0) return null;
+  if (part === null) return topics;
+  const own = [...questions.sections, ...questions.writing].every((label) => label === part)
+    && questions.failed.every((entry) => entry.label === part || entry.label.startsWith(`${part}: `));
+  return own ? topics : null;
+}
+
+/** The writing's detail, its topic placed in the book's count ("topic 3 of 5" beside "2 topics written · 3 more being
+ *  written"): the sidecar places it among its own job's topics, which restart with each wave. A topic with no place
+ *  (other writing runs beside it) keeps none. */
+function placedDetail(detail: WritingDetailDto, topics: TopicCount | null): WritingDetailDto {
+  const topic = detail.topic;
+  if (!topics || !topic || topic.index === null || topic.total === null) return detail;
+  return { ...detail, topic: { ...topic, index: topics.written + 1, total: topics.written + topics.writing } };
+}
+
+/** The questions written from the learner's reading, across the readable books (their `itemIds`): the questions Today
+ *  offers from what was read. */
+export function readingItemIds(cards: readonly SourceLibraryCard[] | null | undefined): string[] {
+  return (cards ?? []).filter((card) => card.readerEnabled !== false).flatMap((card) => questionsOf(card)?.itemIds ?? []);
+}
+
 /** A book's questions offered (or, on the phone, written) together with the writing still under way or stopped topics:
  *  null when neither, and the plain offer stands. */
 function readyWithSectionWork(card: SourceLibraryCard, questions: ReadingQuestionsDto, count: number, itemId: string | null): TodayCause | null {
   if (questions.writing.length === 0 && questions.failed.length === 0) return null;
   const stopped = stoppedEntries(questions);
+  const part = partName(questions.sections, questions.sectionCount);
+  const topics = bookTopics(questions, part);
   return {
     kind: "questions_ready_with_section_work",
     title: readableTitle(card.title),
-    part: partName(questions.sections, questions.sectionCount),
+    part,
     count,
     itemId,
     card,
-    writing: questions.writing.length > 0 ? { progress: writingProgress(questions) } : null,
+    writing: questions.writing.length > 0 ? { progress: writingProgress(questions), ...(topics ? { topics } : {}) } : null,
     failedTopics: questions.failed.length > 0,
     resumeId: stopped[0]?.resumeId ?? null,
     ...(fromReading(questions, questions.sections) ? { fromReading: true } : {})
@@ -384,15 +420,18 @@ export function todayCause(input: {
           : null;
         if (written) return written;
         const labels = questions?.writing.length ? questions.writing : questions?.owed ?? [];
+        const part = partName(labels, questions?.sectionCount ?? 0);
+        const topics = questions ? bookTopics(questions, part) : null;
         return {
           kind: "section_writing",
           title: first.title,
-          part: partName(labels, questions?.sectionCount ?? 0),
+          part,
           card: first.card as SourceLibraryCard,
           progress: questions ? writingProgress(questions) : null,
           failedTopics: (questions?.failed.length ?? 0) > 0,
+          ...(topics ? { topics } : {}),
           ...(questions && fromReading(questions, labels) ? { fromReading: true } : {}),
-          ...(questions?.writing.length && questions.writingDetail ? { detail: questions.writingDetail } : {})
+          ...(questions?.writing.length && questions.writingDetail ? { detail: placedDetail(questions.writingDetail, topics) } : {})
         };
       }
       case "section_waiting": {
@@ -527,6 +566,18 @@ function topicsDone(progress: Progress): string {
   return `${progress.done} of ${progress.total} ${progress.total === 1 ? "topic" : "topics"} done`;
 }
 
+function topicsWord(n: number): string {
+  return n === 1 ? "1 topic" : `${n} topics`;
+}
+
+/** The book's count, said the same way wherever Today says it: "2 topics written · 3 more being written" ("4 topics
+ *  being written" before the first is). It never starts again with a wave, and never says a share or a time. */
+export function topicCountWords(topics: TopicCount): string {
+  return topics.written > 0
+    ? `${topicsWord(topics.written)} written · ${topics.writing} more being written`
+    : `${topicsWord(topics.writing)} being written`;
+}
+
 /** The words of a cause that is a wait: the waiting indicator's line, what to know meanwhile (`after`), and the
  *  indicator's quieter second line where something true can be said (`later`). */
 export function causeWait(cause: TodayCause): { line: string; after: string; later: string | null } | null {
@@ -547,7 +598,8 @@ export function causeWait(cause: TodayCause): { line: string; after: string; lat
       };
     }
     case "section_writing": {
-      const amount = cause.progress && cause.progress.total > 0 ? ` · ${topicsDone(cause.progress)}` : "…";
+      const amount = cause.topics ? ` · ${topicCountWords(cause.topics)}`
+        : cause.progress && cause.progress.total > 0 ? ` · ${topicsDone(cause.progress)}` : "…";
       if (cause.fromReading) {
         return {
           line: cause.part ? `Writing questions from what you’ve read of “${cause.part}”${amount}` : `Writing questions from what you’ve read in “${cause.title}”${amount}`,
@@ -591,7 +643,9 @@ export const TOPICS_NOT_WRITTEN = "Not every topic's questions could be written.
 export function readyWithWorkSentence(cause: Extract<TodayCause, { kind: "questions_ready_with_section_work" }>): string {
   if (!cause.writing) return readySentence(cause);
   const progress = cause.writing.progress;
-  const more = `More are being written${progress && progress.total > 0 ? ` (${topicsDone(progress)})` : ""}.`;
+  const more = cause.writing.topics
+    ? `${topicCountWords(cause.writing.topics)}.`
+    : `More are being written${progress && progress.total > 0 ? ` (${topicsDone(progress)})` : ""}.`;
   const verb = cause.count === 1 ? "is" : "are";
   if (cause.fromReading) return `${questionsWord(cause.count)} ${fromWhatYouRead(cause)} ${verb} ready. ${more}`;
   return cause.part
