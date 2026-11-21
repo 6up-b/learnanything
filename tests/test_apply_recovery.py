@@ -456,7 +456,7 @@ def test_the_book_cards_undo_is_refused_before_it_changes_anything(tmp_path):
     assert [named["id"] for named in raised.value.details["intents"]] == [intent_id]
     assert ctx.repository.source_auto_build_state(source_id)["generation"] == generation
     card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
-    assert card["statusLine"]["text"] == "Questions for Ch. 1–2 come up as you read"
+    assert card["statusLine"]["text"] == "Questions for Ch. 1–2 are written as you finish sections"
 
 
 def test_the_book_cards_undo_holds_the_vault_lock_from_its_check_to_its_last_change(tmp_path, monkeypatch):

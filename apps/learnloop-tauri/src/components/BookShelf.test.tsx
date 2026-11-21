@@ -66,7 +66,7 @@ describe("BookCard", () => {
 
   // Usability round 1: details showed "Subject: introduction-to-probability".
   it("names the book's subject by its title in details", () => {
-    const line: SourceStatusLineDto = { text: "Questions for Ch. 1–2 come up as you read", tone: "quiet", action: null, details: null };
+    const line: SourceStatusLineDto = { text: "Questions for Ch. 1–2 are written as you finish sections", tone: "quiet", action: null, details: null };
     render(<BookCard card={card(line, { subjectId: "introduction-to-probability", subjectTitle: "Introduction to Probability" })} onContinue={vi.fn()} onAction={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
     expect(screen.getByText("Subject: Introduction to Probability")).toBeTruthy();
@@ -99,7 +99,7 @@ describe("BookCard", () => {
     expect(screen.getByText("HTTP 503 from example.org")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Undo this book's questions" }));
     expect(onAction).toHaveBeenCalledWith("undo_questions", expect.anything());
-    fireEvent.click(screen.getByRole("button", { name: "Build questions for the whole book at once" }));
+    fireEvent.click(screen.getByRole("button", { name: "Get the whole book ready for questions at once" }));
     expect(onAction).toHaveBeenCalledWith("build_whole_book", expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "See how it was added and built" }));
     expect(onOpenImports).toHaveBeenCalled();
@@ -213,12 +213,12 @@ describe("BookShelf", () => {
 // UX Phase 1 usability round 2 (docs/reviews/ux-phase1.md, "Usability round 2 fixes").
 describe("round 2", () => {
   const done: SourceStatusLineDto = {
-    text: "Questions for Ch. 1–2 come up as you read",
+    text: "Questions for Ch. 1–2 are written as you finish sections",
     tone: "quiet",
     action: null,
     details: null,
     withoutAi: {
-      text: "Questions for Ch. 1–2 come up as you read once an AI is connected",
+      text: "Questions for Ch. 1–2 are written as you finish sections once an AI is connected",
       tone: "quiet",
       action: { kind: "connect_ai", label: "Connect" },
       details: null
@@ -242,8 +242,8 @@ describe("round 2", () => {
     render(
       <BookShelf sources={[card(done)]} pending={[]} aiConnection={NEEDS_AI} onOpen={vi.fn()} onAction={vi.fn()} onConnectAi={vi.fn()} onAdd={vi.fn()} />
     );
-    expect(screen.queryByText("Questions for Ch. 1–2 come up as you read")).toBeNull();
-    expect(screen.getByText("Questions for Ch. 1–2 come up as you read once an AI is connected")).toBeTruthy();
+    expect(screen.queryByText("Questions for Ch. 1–2 are written as you finish sections")).toBeNull();
+    expect(screen.getByText("Questions for Ch. 1–2 are written as you finish sections once an AI is connected")).toBeTruthy();
   });
 
   it("keeps the as-you-read line when an AI can write questions", () => {
@@ -258,7 +258,7 @@ describe("round 2", () => {
         onAdd={vi.fn()}
       />
     );
-    expect(screen.getByText("Questions for Ch. 1–2 come up as you read")).toBeTruthy();
+    expect(screen.getByText("Questions for Ch. 1–2 are written as you finish sections")).toBeTruthy();
   });
 
   // UX Phase 1 re-test (#6): a paper's details said "the whole book" and
@@ -266,10 +266,10 @@ describe("round 2", () => {
   // learner knew. (Its "Keep this book on this computer" is retired.)
   it("names a paper a paper in its details, and says what each choice does", () => {
     const onAction = vi.fn();
-    const line: SourceStatusLineDto = { text: "Questions for this paper come up as you read", tone: "quiet", action: null, details: null };
+    const line: SourceStatusLineDto = { text: "Questions for this paper are written as you finish sections", tone: "quiet", action: null, details: null };
     render(<BookCard card={card(line, { kindNoun: "paper" })} onContinue={vi.fn()} onAction={onAction} onOpenImports={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
-    expect(screen.getByRole("button", { name: "Build questions for the whole paper at once" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Get the whole paper ready for questions at once" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Undo this paper's questions" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "See how it was added and built" })).toBeTruthy();
     const details = document.body.textContent ?? "";

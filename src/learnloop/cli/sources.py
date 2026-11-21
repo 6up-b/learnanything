@@ -390,7 +390,7 @@ def sources_tool(
 def sources_build_preview(
     source_id: Annotated[str, typer.Argument(help="The book's source id (src_...).")],
     vault: Annotated[Path, typer.Option("--vault", help="Vault root; use a fixtures-local copy for experiments.")],
-    whole_book: Annotated[bool, typer.Option("--whole-book", help="Preview 'Build questions for the whole book'.")] = False,
+    whole_book: Annotated[bool, typer.Option("--whole-book", help="Preview 'Get the whole book ready for questions at once'.")] = False,
     approved: Annotated[bool, typer.Option("--approved", help="Preview as if the learner pressed 'Build them'.")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:

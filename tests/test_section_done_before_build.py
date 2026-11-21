@@ -344,7 +344,7 @@ def test_the_whole_book_press_on_a_book_already_built_says_so_and_queues_nothing
     assert result["notice"] == ("All of this book is ready for questions. "
                                 "Each section's questions are written when you finish it.")
     assert _planners(ctx) == planners
-    assert "come up as you read" in _card(ctx, source_id)["statusLine"]["text"]
+    assert "are written as you finish sections" in _card(ctx, source_id)["statusLine"]["text"]
 
 
 def test_the_whole_book_press_while_the_whole_book_is_being_built_says_so(tmp_path):

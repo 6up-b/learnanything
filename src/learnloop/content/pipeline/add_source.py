@@ -2891,8 +2891,11 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
     if _active(state["batch"]):
         minutes = build_minutes(repo, section_count=_scope_size(outcome))
         estimate = build_minutes_phrase(repo, section_count=_scope_size(outcome)) if minutes is not None else None
-        line = (_line(f"Writing questions for {phrase}", "working") if estimate is None
-                else _line(f"Questions for {phrase} {estimate}", "working"))
+        # The build gets the book's topics ready; it writes no question to
+        # practise (a section's are written when it is finished), so the card
+        # says what Today says of it.
+        line = (_line(f"Getting {phrase} ready for questions", "working") if estimate is None
+                else _line(f"Getting {phrase} ready for questions {estimate}", "working"))
         # Facts for a screen that says how far along it is (P11). Additive: the
         # words above are unchanged and an older screen ignores them.
         progress = build_progress(repo.ingest_jobs_for_batch(str(state["batch"]["id"])))
@@ -2936,7 +2939,7 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
     if health is not None:
         return health
     if state["no_topics"]:
-        # Said, not hidden: "come up as you read" would promise questions nothing can write, and Today would send
+        # Said, not hidden: "are written as you finish sections" would promise questions nothing can write, and Today would send
         # the learner to finish sections that cannot give any.
         where = phrase if coverage(repo, source_id).built else f"this {noun}"
         line = _line(f"LearnLoop found no topics to practise in {where}", "problem", ("retry", "Try again"),
@@ -2946,16 +2949,16 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
         if questions is not None:
             line["questions"] = questions
         return line
-    # Questions come as the learner reads (a check at each section break, then
-    # practice once a section is done), so the line says where they come from;
-    # Undo lives in details (usability round 1, U8: "Questions ready · Undo"
-    # sent learners looking for questions and wondering what Undo would undo).
+    # A section's questions are written when the learner finishes it, so the
+    # line says when they come; Undo lives in details (usability round 1, U8:
+    # "Questions ready · Undo" sent learners looking for questions and
+    # wondering what Undo would undo).
     built = _built_phrase(repo, source_id, outcome, noun) or phrase
-    line = _line(f"Questions for {built} come up as you read", "quiet")
+    line = _line(f"Questions for {built} are written as you finish sections", "quiet")
     # The shelf shows this instead while no AI can write them (usability round
     # 2: with no AI the card still promised questions as you read).
-    line["without_ai"] = _line(f"Questions for {built} come up as you read once an AI is connected", "quiet",
-                               ("connect_ai", "Connect"))
+    line["without_ai"] = _line(f"Questions for {built} are written as you finish sections once an AI is connected",
+                               "quiet", ("connect_ai", "Connect"))
     questions = reading_questions(repo, vault, source_id)
     if questions is not None:
         line["questions"] = questions

@@ -136,10 +136,12 @@ export function BookCard({
           {card.subjectId ? <div>Subject: {card.subjectTitle ?? card.subjectId}</div> : null}
           {/* The words match what each does and what this is (UX Phase 1
               re-test #6): "the whole book" for a paper, beside a line whose
-              own action builds as you read. */}
+              own action builds as you read. The press gets every chapter's
+              topics ready; it writes no question to practise (a section's
+              are written when it is finished), so it promises none. */}
           {ready && readable ? (
             <button type="button" style={linkButton} onClick={() => onAction("build_whole_book", card)}>
-              Build questions for the whole {noun} at once
+              Get the whole {noun} ready for questions at once
             </button>
           ) : null}
           {card.subjectId ? (
