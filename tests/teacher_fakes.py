@@ -96,7 +96,8 @@ def build_teacher_vault(root: Path, *, config: str = "", reserved: bool = True,
 
 def context_of(prompt: str) -> dict[str, Any]:
     start = prompt.index("{", prompt.index("prompt_version"))
-    return json.loads(prompt[start:])["context"]
+    # A contract correction appends a fixed requirement after the original JSON.
+    return json.JSONDecoder().raw_decode(prompt[start:])[0]["context"]
 
 
 Turn = Mapping[str, Any] | Callable[[dict[str, Any]], Mapping[str, Any]]

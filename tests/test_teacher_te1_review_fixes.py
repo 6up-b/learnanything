@@ -78,9 +78,9 @@ def test_f1_a_graded_check_spends_from_the_lesson_envelope(tmp_path):
 
 
 def test_f3_a_key_in_a_plan_statement_or_a_recap_is_withheld(tmp_path):
-    plan_leak = {"message": "", "requests": [{"action": "write_plan", "plan": [
+    plan_leak = {"message": "Here is the plan.", "requests": [{"action": "write_plan", "plan": [
         {"id": "n1", "statement": f"The answer is {KEY}.", "lo_id": "lo_eigen", "anchors": [], "premises": []}]}]}
-    recap_leak = {"message": "", "requests": [{"action": "close", "close_reason": "goal_reached",
+    recap_leak = {"message": "Here is the recap.", "requests": [{"action": "close", "close_reason": "goal_reached",
                                                "recap": f"Remember: {KEY}."}]}
     paths, repository, fake, view = _open(tmp_path, [plan_leak, recap_leak, {"message": "Let's begin."}])
     assert _rows(repository, "SELECT validation FROM lesson_turns WHERE actor = 'teacher' ORDER BY seq") == [
@@ -90,7 +90,7 @@ def test_f3_a_key_in_a_plan_statement_or_a_recap_is_withheld(tmp_path):
 
 
 def test_f3_every_displayed_field_writes_reveal_rows(tmp_path):
-    plan_only = {"message": "", "requests": [{"action": "write_plan", "plan": [
+    plan_only = {"message": "Here is the plan.", "requests": [{"action": "write_plan", "plan": [
         {"id": "n1", "statement": "Picture a capybara walking two steps.", "lo_id": "lo_eigen", "anchors": [],
          "premises": []}]}]}
     paths, repository, fake, view = _open(tmp_path, [plan_only])
