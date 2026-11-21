@@ -48,30 +48,30 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py) |
-| Source lines | 430 |
+| Source lines | 432 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `is_assisted(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 103) — Not an unaided attempt: another attempt type, a hint used, or primed.
-- `exposure_evidence(connection: Any, *, cutoff: datetime | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 118) — The persisted exposure and coldness records the cold search reads; with ``cutoff`` (the historical read, :func:`outcomes_as_of`) only those written by then.
-- `outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str, Any]], vault: LoadedVault, *, as_of: datetime, signals: list[dict[str, Any]], evidence: Mapping[str, Any] | None=None, interventions_seen: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 234)
-- `outcomes_as_of(vault: LoadedVault, connection: Any, as_of: datetime, *, grades: Mapping[str, tuple[Any, bool]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 374) — Every intervention's outcome AS IT STOOD at ``as_of`` (S5's own historical read; Reader RW2c fix round 2, 5), keyed by intervention id.
-- `rebuild_intervention_outcomes(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 412) — The single DERIVED replayer: pure recomputation inside the caller's transaction.
+- `is_assisted(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 99) — Not an unaided attempt: another attempt type, a hint used, or primed.
+- `exposure_evidence(connection: Any, *, cutoff: datetime | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 111) — The persisted exposure and coldness records the cold search reads; with ``cutoff`` (the historical read, :func:`outcomes_as_of`) only those written by then.
+- `outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str, Any]], vault: LoadedVault, *, as_of: datetime, signals: list[dict[str, Any]], evidence: Mapping[str, Any] | None=None, interventions_seen: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 236)
+- `outcomes_as_of(vault: LoadedVault, connection: Any, as_of: datetime, *, grades: Mapping[str, tuple[Any, bool]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 376) — Every intervention's outcome AS IT STOOD at ``as_of`` (S5's own historical read; Reader RW2c fix round 2, 5), keyed by intervention id.
+- `rebuild_intervention_outcomes(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 414) — The single DERIVED replayer: pure recomputation inside the caller's transaction.
 
 ### Module constants
 
-- `OUTCOME_VERSION` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 54)
-- `COLD_DELAY` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 56)
-- `CENSOR_HORIZON` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 58)
-- `SUCCESS_CORRECTNESS` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 61)
-- `COLD_STATES` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 62)
-- `MEASURED_COLD_STATES` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 66)
-- `COLDNESS_DIMENSIONS` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 68)
-- `USAGE_TASK` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 69)
-- `UNAIDED_TYPES` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 100)
+- `OUTCOME_VERSION` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 50)
+- `COLD_DELAY` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 52)
+- `CENSOR_HORIZON` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 54)
+- `SUCCESS_CORRECTNESS` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 57)
+- `COLD_STATES` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 58)
+- `MEASURED_COLD_STATES` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 62)
+- `COLDNESS_DIMENSIONS` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 64)
+- `USAGE_TASK` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 65)
+- `UNAIDED_TYPES` ([src/learnloop/substrate/intervention_outcomes.py](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 96)
 
 ### Explicit exports
 
@@ -89,17 +89,17 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ## Internal implementation anchors
 
-- `_parse(value: str) -> datetime` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 72)
-- `_attempts(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 77)
-- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 113)
-- `_contamination(attempt: Mapping[str, Any], intervention: Mapping[str, Any], interventions_on_targets: Sequence[Mapping[str, Any]], evidence: Mapping[str, Any], vault: LoadedVault) -> list[str]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 150) — Why ``attempt`` is not independent of exposure (empty: it is), from persisted rows only: anything in the cold delay before it.
-- `_targets(intervention: Mapping[str, Any], vault: LoadedVault) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 187)
-- `_bucket(attempt: Mapping[str, Any], predicted: Mapping[str, float] | None) -> str | None` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 198)
-- `_signals(connection: Any, proposal_id: str | None, *, cutoff: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 215)
-- `_entropy(distribution: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 324)
-- `_observation(row: dict[str, Any], valuation: Mapping[str, Any], likelihood: Mapping[str, Mapping[str, float]] | None) -> None` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 328) — What the observed bucket implies, from persisted rows only (§11.4 items 2 and 3; Codex re-review F11): the posterior on the target hypotheses by Bayes' rule over the check's own member-0 likelihood (the model's implied movement, labelled so; calibration compares it with the pred…
-- `_dont_know(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 365)
-- `_overlaps(other: Mapping[str, Any], items: set[str], facets: set[str], vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 369)
+- `_parse(value: str) -> datetime` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 68)
+- `_attempts(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 73)
+- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 106)
+- `_passes_intervention_coldness_checks(attempt: Mapping[str, Any], intervention: Mapping[str, Any], interventions_on_targets: Sequence[Mapping[str, Any]], evidence: Mapping[str, Any], vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 143) — Research coldness for reports and learner field memory rows only, never serving.
+- `_targets(intervention: Mapping[str, Any], vault: LoadedVault) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 189)
+- `_bucket(attempt: Mapping[str, Any], predicted: Mapping[str, float] | None) -> str | None` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 200)
+- `_signals(connection: Any, proposal_id: str | None, *, cutoff: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 217)
+- `_entropy(distribution: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 326)
+- `_observation(row: dict[str, Any], valuation: Mapping[str, Any], likelihood: Mapping[str, Mapping[str, float]] | None) -> None` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 330) — What the observed bucket implies, from persisted rows only (§11.4 items 2 and 3; Codex re-review F11): the posterior on the target hypotheses by Bayes' rule over the check's own member-0 likelihood (the model's implied movement, labelled so; calibration compares it with the pred…
+- `_dont_know(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 367)
+- `_overlaps(other: Mapping[str, Any], items: set[str], facets: set[str], vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/substrate/intervention_outcomes.py), line 371)
 
 ## Who imports or calls it
 
@@ -141,6 +141,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
+  - `test_recent_retrieval_resets_the_cold_delay_anchor`
 - [tests/test_intervention_outcomes_replayer.py](../../../../../../tests/test_intervention_outcomes_replayer.py) — direct import
   - `test_a_valued_check_logs_its_bucket_beside_the_prediction`
   - `test_an_assisted_attempt_no_longer_masks_a_later_independent_one`

@@ -8,13 +8,9 @@ intervention, never the clock). Per intervention:
 * ``R_next``: the next attempt on the targeted items or facets within the
   session (or, without one, the UTC day), its correctness and whether it was
   assisted;
-* ``R_cold``: the next independent attempt at least the cold retrieval delay
-  later, as one of the decision-value spec's outcome states (§4.3). The
-  search skips assisted attempts and attempts contaminated by an exposure in
-  the cold delay before them (a reveal on the item or its LO, the passage or
-  the exercise's own source text shown, another retrieval intervention on the
-  same targets, a failed coldness receipt), so neither masks a later
-  independent attempt. A submitted "don't know" is an unaided answer
+* ``R_cold``: the next attempt that passes the intervention's research
+  coldness rule, as one of the decision-value spec's outcome states (§4.3).
+  A submitted "don't know" is an unaided answer
   (``cold_dont_know``, counted as a failure); declining the proposal
   (a ``skipped`` tap) with no attempt is ``learner_declined``. Pending
   outcomes stay right-censored, never failures;
@@ -107,9 +103,6 @@ def is_assisted(attempt: Mapping[str, Any]) -> bool:
             or bool(attempt.get("primed")))
 
 
-_assisted = is_assisted
-
-
 def _table(connection: Any, name: str) -> bool:
     return connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() \
         is not None
@@ -147,11 +140,24 @@ def exposure_evidence(connection: Any, *, cutoff: datetime | None = None) -> dic
     return evidence
 
 
-def _contamination(attempt: Mapping[str, Any], intervention: Mapping[str, Any],
-                   interventions_on_targets: Sequence[Mapping[str, Any]], evidence: Mapping[str, Any],
-                   vault: LoadedVault) -> list[str]:
-    """Why ``attempt`` is not independent of exposure (empty: it is), from
-    persisted rows only: anything in the cold delay before it."""
+def _passes_intervention_coldness_checks(
+    attempt: Mapping[str, Any], intervention: Mapping[str, Any],
+    interventions_on_targets: Sequence[Mapping[str, Any]], evidence: Mapping[str, Any],
+    vault: LoadedVault,
+) -> bool:
+    """Research coldness for reports and learner field memory rows only, never serving.
+
+    The search first requires one day since the intervention. This check
+    requires an unaided attempt with no item or topic reveal, relevant source
+    exposure, or overlapping intervention in the day ending at the answer.
+    It vetoes explicit receipt failures in unassisted, answer leakage or
+    exposure isolation. Unlike qualifies_as_cold_retrieval, it does not reset
+    the delay for another retrieval in the topic or require the receipt's
+    retrieval-delay or other positive findings.
+    """
+
+    if is_assisted(attempt):
+        return False
 
     at = _parse(attempt["created_at"])
     start = at - COLD_DELAY
@@ -160,28 +166,24 @@ def _contamination(attempt: Mapping[str, Any], intervention: Mapping[str, Any],
         moment = _parse(value)
         return start < moment <= at
 
-    reasons: list[str] = []
     item_id = str(attempt.get("practice_item_id") or "")
     lo_id = attempt.get("learning_object_id")
-    if any(inside(row["created_at"]) and (row["practice_item_id"] == item_id
-                                          or (lo_id and row.get("learning_object_id") == lo_id))
-           for row in evidence.get("reveals") or ()):
-        reasons.append("revealed")
+    revealed = any(inside(row["created_at"]) and (row["practice_item_id"] == item_id
+                                                 or (lo_id and row.get("learning_object_id") == lo_id))
+                   for row in evidence.get("reveals") or ())
     spans = {str(key) for key in (intervention.get("assets") or {}).get("span_keys") or ()}
     item = vault.practice_items.get(item_id)
     canonical = getattr(item, "canonical_exercise", None) if item is not None else None
     if canonical is not None:
         spans |= {f"{canonical.extraction_id}:{span}" for span in canonical.span_ids}
-    if any(inside(row["created_at"]) and (f"{row['extraction_id']}:{row['span_id']}" in spans
-                                          or (row.get("entity_type") == "practice_item"
-                                              and row.get("entity_id") == item_id))
-           for row in evidence.get("source_exposures") or ()):
-        reasons.append("source_exposed")
-    if any(other["id"] != intervention["id"] and inside(other["created_at"]) for other in interventions_on_targets):
-        reasons.append("another_intervention")
-    if evidence.get("coldness_failures", {}).get(str(attempt.get("id"))):
-        reasons.append("coldness_receipt_failed")
-    return reasons
+    source_exposed = any(inside(row["created_at"]) and (f"{row['extraction_id']}:{row['span_id']}" in spans
+                                                       or (row.get("entity_type") == "practice_item"
+                                                           and row.get("entity_id") == item_id))
+                         for row in evidence.get("source_exposures") or ())
+    another_intervention = any(other["id"] != intervention["id"] and inside(other["created_at"])
+                               for other in interventions_on_targets)
+    receipt_failed = bool(evidence.get("coldness_failures", {}).get(str(attempt.get("id"))))
+    return not (revealed or source_exposed or another_intervention or receipt_failed)
 
 
 def _targets(intervention: Mapping[str, Any], vault: LoadedVault) -> tuple[set[str], set[str]]:
@@ -262,7 +264,7 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
         if same_session or (session is None and same_day):
             held = bool(attempt.get(HELD_ROW_KEY))
             row.update(next_attempt_id=attempt["id"], next_correctness=None if held else attempt.get("correctness"),
-                       next_assisted=int(_assisted(attempt)), next_window="session" if same_session else "day")
+                       next_assisted=int(is_assisted(attempt)), next_window="session" if same_session else "day")
             if held:
                 # Held for review: no observation (the minutes are time only).
                 if attempt["practice_item_id"] in items and attempt.get("latency_seconds") is not None:
@@ -286,7 +288,7 @@ def outcome_for(intervention: Mapping[str, Any], attempts: Sequence[Mapping[str,
     for attempt in targeted:
         if _parse(attempt["created_at"]) < created + COLD_DELAY:
             continue
-        if _assisted(attempt) or _contamination(attempt, intervention, on_targets, evidence or {}, vault):
+        if not _passes_intervention_coldness_checks(attempt, intervention, on_targets, evidence or {}, vault):
             masked = masked or attempt
             continue
         cold = attempt

@@ -245,6 +245,155 @@ def tag_gates(src_files: list[Path], floor: str) -> dict:
 
 # -- test plumbing -------------------------------------------------------------
 
+# K9.5b manually resolved these dynamic targets. Match the audited call rather
+# than its line number, and count it only while it is still present.
+T4_DYNAMIC_PATCHES = {
+    "tests/test_facet_authority_rereview.py": "monkeypatch.setattr(facet_actions, name, killed)",
+    "tests/test_facet_identity_actions.py": "monkeypatch.setattr(actions_module, name, killed)",
+    "tests/test_grade_application_core.py": "monkeypatch.setattr(attempts_module, name, refuse)",
+    "tests/test_mobile_v2_plan.py": "monkeypatch.setattr(engine, name, reached)",
+    "tests/test_reader_rw4b_fix6.py": "monkeypatch.setattr(target, name, flaky)",
+    "tests/test_reading_hardening_verify_fixes.py": "monkeypatch.setattr(core, name, hooked)",
+    "tests/test_teacher_te2_review_fixes.py": "monkeypatch.setattr(*target[boundary], fault)",
+    # student_server.W is the dynamically loaded learnloop worker module.
+    "tests/test_query_student.py": "monkeypatch.setattr(student_server.W, '_guard_network', lambda: None)",
+}
+
+
+def _import_aliases(nodes) -> dict[str, str]:
+    aliases = {}
+    for node in nodes:
+        if isinstance(node, ast.Import):
+            for item in node.names:
+                head = item.name.split(".")[0]
+                aliases[item.asname or head] = item.name if item.asname else head
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            for item in node.names:
+                aliases[item.asname or item.name] = f"{node.module}.{item.name}"
+    return aliases
+
+
+def _resolve_test_name(node: ast.AST, aliases: dict[str, str]) -> str:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        return aliases.get(node.id, node.id)
+    if isinstance(node, ast.Attribute):
+        return f"{_resolve_test_name(node.value, aliases)}.{node.attr}"
+    if isinstance(node, ast.Call):
+        name = _resolve_test_name(node.func, aliases)
+        if name in {"importlib.import_module", "import_module"} and node.args:
+            return _resolve_test_name(node.args[0], aliases)
+        if name == "getattr" and len(node.args) >= 2:
+            owner, attr = (_resolve_test_name(arg, aliases) for arg in node.args[:2])
+            return f"{owner}.{attr}"
+    return ""
+
+
+def _patch_target(call: ast.Call, name: str, aliases: dict[str, str]) -> str:
+    if name == "setattr" or name.endswith((".setattr", ".patch.object")):
+        if len(call.args) >= 2:
+            obj, attr = call.args[:2]
+            owner = _resolve_test_name(obj, aliases)
+            if isinstance(obj, ast.Constant) and (name.endswith(".setattr") or not isinstance(attr, ast.Constant)):
+                return owner
+            if isinstance(attr, ast.Constant) and isinstance(attr.value, str):
+                return f"{owner}.{attr.value}"
+    elif (name == "patch" or name.endswith(".patch")) and call.args:
+        return _resolve_test_name(call.args[0], aliases)
+    return ""
+
+
+def _scope_nodes(node: ast.AST):
+    yield node
+    for child in ast.iter_child_nodes(node):
+        if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            yield from _scope_nodes(child)
+
+
+def _source_assertion_lines(nodes: list[ast.AST], source_calls: set[ast.Call]) -> set[int]:
+    lines = set()
+    scopes = (node for node in nodes if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)))
+
+    def sourced(node: ast.AST, tainted: set[str]) -> bool:
+        return any(part in source_calls or isinstance(part, ast.Name) and part.id in tainted
+                   for part in ast.walk(node))
+
+    for scope in scopes:
+        local = list(_scope_nodes(scope))
+        tainted: set[str] = set()
+        for _ in range(5):
+            for node in local:
+                if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value and sourced(node.value, tainted):
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    tainted.update(part.id for target in targets for part in ast.walk(target)
+                                   if isinstance(part, ast.Name))
+        lines.update(node.lineno for node in local if isinstance(node, ast.Assert) and sourced(node.test, tainted))
+    return lines
+
+
+def test_coupling(src_files: list[Path], test_files: list[Path]) -> dict[str, int]:
+    """K9.5b's static counts over Python files under tests, including helpers.
+
+    Count each monkeypatch/setattr/mock.patch call targeting a private
+    attribute of a real learnloop module once, including loops and the
+    audited dynamic targets. Resolve import aliases and module re-exports.
+    Exclude class/instance attributes, test modules, learnloop_sidecar and
+    public names.
+
+    Count assertions data-dependent on inspect.getsource, directly or
+    through assignments within a function or at module scope. Calls used
+    for helpers/parameterization alone do not count as assertions.
+    """
+    modules = {module_name(path): path for path in src_files if path.is_relative_to(ROOT / "src" / "learnloop")}
+    module_aliases: dict[str, dict[str, str]] = {}
+
+    def expand_module(name: str, depth: int = 0) -> str:
+        if name in modules or depth > 8 or "." not in name:
+            return name
+        prefix, member = name.rsplit(".", 1)
+        prefix = expand_module(prefix, depth + 1)
+        if prefix not in modules:
+            return name
+        if prefix not in module_aliases:
+            imports = ast.parse(read(modules[prefix])).body
+            module_aliases[prefix] = _import_aliases(
+                node for node in imports if not isinstance(node, ast.ImportFrom) or not node.level
+            )
+        reexport = module_aliases[prefix].get(member)
+        return expand_module(reexport, depth + 1) if reexport else name
+
+    private_patches = source_assertions = 0
+    for path in test_files:
+        source = read(path)
+        if not any(marker in source for marker in ("setattr", "patch", "getsource")):
+            continue
+        nodes = list(ast.walk(ast.parse(source)))
+        aliases = _import_aliases(nodes)
+        for _ in range(3):
+            for node in nodes:
+                if isinstance(node, ast.Assign):
+                    name = _resolve_test_name(node.value, aliases)
+                    if name in modules:
+                        aliases.update((target.id, name) for target in node.targets if isinstance(target, ast.Name))
+
+        source_calls = set()
+        audited_call = T4_DYNAMIC_PATCHES.get(rel(path))
+        for node in nodes:
+            if not isinstance(node, ast.Call):
+                continue
+            name = _resolve_test_name(node.func, aliases)
+            if name == "inspect.getsource":
+                source_calls.add(node)
+            owner, _, attr = _patch_target(node, name, aliases).rpartition(".")
+            if attr.startswith("_") and expand_module(owner) in modules:
+                private_patches += 1
+            elif audited_call and name.endswith(".setattr") and ast.unparse(node) == audited_call:
+                private_patches += 1
+        if source_calls:
+            source_assertions += len(_source_assertion_lines(nodes, source_calls))
+    return {"private_patch_sites": private_patches, "source_text_assertions": source_assertions}
+
 
 def _frozen_set_assertions(tree: ast.AST) -> int:
     """``X_VERSIONS == frozenset({...})`` (or a set literal): a pin every new
@@ -653,7 +802,8 @@ def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
         for name, _line, length in file_facts[path]["long_functions"] if length > 200
     )
     stage_by_file = {rel(p): f["stage_comments"] for p, f in file_facts.items() if f["stage_comments"]}
-    stage_tests = sorted(p.name for p in tracked("tests", suffix=".py") if STAGE_TEST_NAME.match(p.name))
+    test_files = tracked("tests", suffix=".py")
+    stage_tests = sorted(p.name for p in test_files if STAGE_TEST_NAME.match(p.name))
 
     schema = ast.parse(read(ROOT / "src/learnloop/config/schema.py"))
     enabled = sum(
@@ -696,6 +846,7 @@ def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
             "regex": STAGE_COMMENT.pattern,
         },
         "stage_test_files": {"count": len(stage_tests), "names": stage_tests, "regex": STAGE_TEST_NAME.pattern},
+        "test_coupling": test_coupling(src_files, test_files),
         "file_lines": {path: file_facts.get(ROOT / path, {}).get("raw", 0) for path in FILE_LINE_CEILINGS},
         "golden_json_lines": golden_json_lines,
         "wall_clock_reads_outside_clock_py": {
@@ -878,6 +1029,7 @@ def markdown(report: dict) -> str:
     tests = plumb.get("tests", {})
     st = c.get("structure", {})
     comp, names, comments = st.get("import_component", {}), st.get("first_level_names", {}), st.get("stage_comments", {})
+    coupling = st.get("test_coupling", {})
     clock, reach, cfg = st.get("wall_clock_reads_outside_clock_py", {}), st.get("serving_reach", {}), st.get("config", {})
     structure_rows = [
         ("Largest import component: modules (lines); next components",
@@ -891,6 +1043,8 @@ def markdown(report: dict) -> str:
         ("Comment lines naming a stage artifact (of all comment lines)",
          f"{comments.get('naming_a_stage_artifact')} ({comments.get('comment_lines')})"),
         ("Test files named for a stage or fix round", st.get("stage_test_files", {}).get("count")),
+        ("Private learnloop module patch sites in tests", coupling.get("private_patch_sites")),
+        ("Test assertions depending on inspect.getsource", coupling.get("source_text_assertions")),
         ("Wall-clock reads outside `clock.py`: total (now / utcnow / today / time); `time.monotonic`",
          f"{clock.get('total')} ({clock.get('datetime_now')} / {clock.get('datetime_utcnow')} / "
          f"{clock.get('date_today')} / {clock.get('time_time')}); {clock.get('time_monotonic')}"),

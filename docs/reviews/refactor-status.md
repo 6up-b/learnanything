@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of the check-credit fix's steps 1 to 5 and the G3 rerun on main `4e824350ba` (Nov 20), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of the owner's small decisions (batch 1), the notebook and teach-back specs and the teacher v2 decisions on main `52b9edc050` (Nov 20), after `mvp-0.61`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -52,7 +52,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | J1 | List candidate tables and correct their roles | landed | `f930ecb2cf` | [refactor-j1.md](refactor-j1.md) | — |
-| J2 | Drop the first approved family of tables | not started | — | — | Owner decided on 2026-11-20: drop the dead groups (a drop refuses a table that holds rows); `hypothesis_sets` becomes RAW_LEDGER |
+| J2 | Drop the first approved family of tables | not started | — | — | Owner decided on 2026-11-20: drop the dead groups (a drop refuses a table that holds rows); `hypothesis_sets` is RAW_LEDGER (landed Nov 20, [owner-decisions-small-1.md](owner-decisions-small-1.md)) |
 | J3 | Drop the next approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: retired-but-read tables are dropped once the steps that own their readers have removed them |
 | J4 | Drop the final approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: as J3 |
 
@@ -288,7 +288,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | T1 | Stop test files importing one another | landed | `732fe09aaf` | [refactor-t1.md](refactor-t1.md) | — |
 | T2 | Rename tests for the behavior they prove | waiting on | — | — | Documentation stage at the close |
 | T3 | Pin seeded draws in tests by default | landed | `412cc63b4b` | [refactor-t3.md](refactor-t3.md) | — |
-| T4 | Port private patches and ratchet their counts | not started | — | [ledger K9-8](refactor-bug-ledger.md) | Owner decided on 2026-11-20: both counts join the ratchet |
+| T4 | Port private patches and ratchet their counts | landed | this commit | [owner-decisions-small-1.md](owner-decisions-small-1.md) | — |
 | T5 | Merge stage-named tests and review slow tests and goldens | waiting on | — | — | Arc E and the refactor close |
 | Phase 1 review | Review the first phase and land its fixes | landed | `04a0154c0d` | [refactor-phase-1-review.md](refactor-phase-1-review.md) | — |
 | Phase 2 review | Review the second phase and land its fixes | waiting on | — | — | Arc D close |
@@ -329,7 +329,7 @@ The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 1
 | S1 | Keep one status table in the repository | landed | `31ce39ec3d` | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | — |
 | S2 | Stop batches when cost per removal more than doubles | landed | `31ce39ec3d` | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | — |
 | S3 | Reorder open lanes around cuts and reviews | landed | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Applied as a reordering: L1 and L2 ran ahead of the interior splits. L4's review has no slot yet. |
-| S4 | Name the next features and their prerequisites | not started | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: the strategy edits are approved |
+| S4 | Name the next features and their prerequisites | landed | this commit | [owner-decisions-small-1.md](owner-decisions-small-1.md) | — |
 | P1 | Record what evidence each model call saw | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: approved as EP2, before EP3 |
 
 ## Notebook activities (queued by the owner on Nov 20; track H and NA0 run beside the queue)

@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `append_router_decision`, `record_learner_pick`; calls `append_router_decision`, `record_learner_pick`
-- [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `TABLE_ROLES`, `TableRole`
+- [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `CAPTURE_EXCLUDED_TABLES`, `TABLE_ROLES`, `TableRole`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `COLLECTION_VERSION`, `LABEL_VERSION`
 
