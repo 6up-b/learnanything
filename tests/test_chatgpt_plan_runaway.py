@@ -1,15 +1,17 @@
 """A stalled JSON answer is abandoned without losing its delivery measurements."""
 import json
+from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
 
 from learnloop.ai.chatgpt_plan import responses
-from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
-from learnloop.ai.execution import observe_model_calls, single_request
+from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable, AITurnTimeout
+from learnloop.ai.execution import background_model_work, observe_model_calls, single_request
 from learnloop.ai.providers import chatgpt_plan
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.strict_schema import strict_output_schema
+from learnloop.ai.structured_contracts import Predicate, RecoveryAllowance, checked_structured_call
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.config.schema import ChatGPTPlanProviderConfig
 from learnloop.db.connection import connect
@@ -17,8 +19,10 @@ from learnloop.content.pipeline.runner import JobSpec, retried_on_its_own
 from learnloop.content.synthesis.ai_contracts import (
     SourceSetSynthesis, SourceSetSynthesisContext, source_set_synthesis_prompt,
 )
+from learnloop.content.synthesis.source_set_synthesis import request_source_set_synthesis
 from tests.ingest_runner_helpers import _runner
 from tests.plan_deadline_fakes import Session, completed, delta, install_stream
+from tests.structured_contracts_helpers import Admit, operation_send, refused
 
 
 class Answer(WireModel):
@@ -50,16 +54,75 @@ def runaway():
             (11, delta("\n" + " " * 999)), (12, delta(" true}")), (13, completed())]
 
 
-@pytest.mark.parametrize("one_facet_per_skill", [False, True])
-def test_built_synthesis_prompt_agrees_with_required_nullable_integration(one_facet_per_skill):
+@pytest.mark.parametrize(("one_facet_per_skill", "prompt_digest"), [
+    (False, "f7aff37e87f7eb6bd15b8dc0e5500c9d17676449a9a8b212cf471cd0a73e8806"),
+    (True, "8d897ddc975fa99ab8b88156fdfb161c012e4856e41177dec95fd02137639e5b"),
+])
+def test_built_synthesis_prompt_agrees_with_required_nullable_integration(one_facet_per_skill, prompt_digest):
     prompt = source_set_synthesis_prompt(SourceSetSynthesisContext(
         source_set_id="set", subject_id="subject", mode="bootstrap", one_facet_per_skill=one_facet_per_skill))
+    assert sha256(prompt.encode()).hexdigest() == prompt_digest
     assert "`integration` key is always present" in prompt
     assert "set `integration` to null" in prompt
     assert "OMIT it" not in prompt and "leave `integration` absent" not in prompt
     recipe = strict_output_schema(SourceSetSynthesis)["$defs"]["SynthRecipe"]
     assert recipe["required"] == ["id", "composition", "all_of", "any_of", "integration"]
     assert {"type": "null"} in recipe["properties"]["integration"]["anyOf"]
+
+
+def test_null_integration_is_accepted_on_the_first_synthesis_request(monkeypatch):
+    context = SourceSetSynthesisContext(source_set_id="set", subject_id="subject", mode="bootstrap")
+    answer = SourceSetSynthesis.model_validate({"blueprints": [{"recipes": [{"integration": None}]}]})
+    _, requests, _ = install_stream(monkeypatch, [(9, completed(answer.model_dump_json()))])
+
+    result = request_source_set_synthesis(client(), context)
+
+    assert result == answer
+    assert result.blueprints[0].recipes[0].integration is None
+    (request,) = requests
+    assert request["input"] == [{"role": "user", "content": source_set_synthesis_prompt(context)}]
+
+
+def test_an_omitted_required_key_still_gets_one_schema_repair(monkeypatch):
+    _, requests, _ = install_stream(monkeypatch, lambda n: [(9, completed("{}") if n == 1 else completed())])
+    assert execute_structured_operation(client(), purpose="synthesis", prompt="unchanged", result_model=Answer).ok
+
+    first, repair = requests
+    assert first["input"] == [{"role": "user", "content": "unchanged"}]
+    assert first["text"]["format"]["schema"]["required"] == ["ok"]
+    repair_text = repair["input"][0]["content"]
+    assert "Validation error:" in repair_text and "Field required" in repair_text
+    assert "The previous answer failed validation:" not in repair_text
+    assert "tools" not in repair
+
+
+@pytest.mark.parametrize(("terminal", "cut_at"), [("whitespace", 12), ("idle", 189), ("ceiling", 1200)])
+def test_a_cut_stream_never_reaches_the_semantic_predicate(monkeypatch, terminal, cut_at):
+    events = {
+        "whitespace": runaway(),
+        "idle": [(9, delta('{"ok":')), (200, completed())],
+        "ceiling": [(t, delta()) for t in range(100, 1301, 100)],
+    }
+    _, requests, connections = install_stream(monkeypatch, events[terminal])
+    admit = Admit()
+
+    def must_not_run(_answer):
+        pytest.fail("a cut stream reached a parsed-answer predicate")
+
+    send = operation_send(client(), purpose="synthesis", result_model=Answer)
+    with background_model_work(), single_request():
+        error = chatgpt_plan.ChatGPTPlanTransient if terminal == "whitespace" else AITurnTimeout
+        with pytest.raises(error) as failure:
+            checked_structured_call(
+                first_prompt="unchanged", contract=(Predicate("ok", must_not_run, "Return a verdict."),),
+                send=send, recovery=RecoveryAllowance(admit=admit), checkpoint=None, failure=refused,
+            )
+    if terminal == "whitespace":
+        assert failure.value.provider_error["code"] == "runaway_whitespace"
+    else:
+        assert failure.value.reason == terminal
+    assert connections[0].shutdown_at == cut_at
+    assert len(requests) == 1 and admit.asked == 0
 
 
 def test_runaway_is_cut_then_transient_retry_returns_good_answer(monkeypatch):

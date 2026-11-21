@@ -44,6 +44,7 @@ from learnloop.ai.execution import (
     model_settings,
     request_key,
 )
+from learnloop.ai.structured_contracts import Predicate
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
     CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
@@ -1372,13 +1373,18 @@ def finish_synthesis_run(
     owes_a_topic = mode.asks_again_without_a_topic and bootstrap_owes_a_topic(
         run.vault, resolve_subject_id(run.source_set, run.vault), run.brief, run.inputs.unit_inventories,
     )
+    topic_requirement = Predicate(
+        name="bootstrap_topic_with_question_plan",
+        holds=lambda candidate: not owes_a_topic or holds_a_topic(candidate),
+        requirement="Include a learning object with a matching blueprint that contains a recipe.",
+    )
     asked_again: list[dict[str, Any]] = []
     try:
         for fresh_answers in (False, True):
             answer = ask()
             if token_usage is not None:
                 token_usage += consume_client_usage(client)
-            if owes_a_topic and not fresh_answers and not holds_a_topic(answer.candidate):
+            if not fresh_answers and not topic_requirement.holds(answer.candidate):
                 # The model did not follow its instructions (the prompt asks for topics in every mode). Its answer
                 # was saved before anything judged its content, under the key the same request is sent with, so it
                 # is dropped first or the second request would be answered from it. The second answer is taken as

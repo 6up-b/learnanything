@@ -110,8 +110,8 @@ def delta(text="x", kind="response.output_text.delta"):
     return {"type": kind, "delta": text}
 
 
-def completed():
+def completed(text='{"ok": true}'):
     return {"type": "response.completed", "response": {
         "status": "completed", "output": [{"type": "message", "content": [
-            {"type": "output_text", "text": '{"ok": true}'}]}],
+            {"type": "output_text", "text": text}]}],
         "usage": {"input_tokens": 10, "output_tokens": 20}}}
