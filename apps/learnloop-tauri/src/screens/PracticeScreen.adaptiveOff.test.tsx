@@ -8,6 +8,9 @@
 // and after Ctrl+H (twice). The hint RPCs of H2a are never called. They were
 // rewritten once since, when the stuck prompt's kill switch went: every card
 // now shows "I'm stuck" and its ^d key, the only difference in each frame.
+// And once more when the optional confidence control moved under the row with
+// Submit (it appeared above it as the learner typed, moving Submit under the
+// pointer): the control's bytes moved, every other byte of each frame is the same.
 import type { ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";

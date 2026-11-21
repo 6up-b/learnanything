@@ -495,12 +495,13 @@ export function PracticeScreen({
     onAskOpener(() => openAskRef.current());
     return () => onAskOpener(null);
   }, [onAskOpener, panelOn]);
-  // The editor grows with its content but is capped so the answer card never
-  // pushes the Submit button (or anything below the editor) off-screen — once it
-  // hits the cap it scrolls internally instead. The cap is "viewport below the
-  // editor's top, minus whatever sits beneath it (counts, hints, panel, submit)
-  // and the key bar". Those sibling heights don't depend on the editor height,
-  // so there's no feedback loop.
+  // The editor grows with its content up to the height of the screen's
+  // scrolling area less whatever sits beneath it (counts, hints, panel, Submit),
+  // so the whole box and Submit fit on one screen once scrolled to; only an
+  // answer longer than that scrolls inside the box. The cap is not the space
+  // left under the question: under a long question that was the 140-pixel
+  // floor, about four lines, and a long answer looked cut off. Those sibling
+  // heights don't depend on the editor height, so there's no feedback loop.
   const editorSlotRef = useRef<HTMLDivElement>(null);
   const belowRef = useRef<HTMLDivElement>(null);
   const [editorMaxHeight, setEditorMaxHeight] = useState(0);
@@ -508,11 +509,8 @@ export function PracticeScreen({
   const recomputeEditorMax = useCallback(() => {
     const slot = editorSlotRef.current;
     if (!slot) return;
-    const top = slot.getBoundingClientRect().top;
     const below = belowRef.current?.offsetHeight ?? 0;
-    const keybar = (document.querySelector(".keybar") as HTMLElement | null)?.offsetHeight ?? 36;
-    const next = Math.max(140, Math.floor(window.innerHeight - top - below - keybar - 28));
-    setEditorMaxHeight(next);
+    setEditorMaxHeight(answerBoxCap(slot, below));
   }, []);
 
   useEffect(() => {
@@ -2114,55 +2112,6 @@ export function PracticeScreen({
             {simple ? null : (
               <div className="queue-meta">{answer.length} chars · {answer.split(/\s+/).filter(Boolean).length} words</div>
             )}
-            {/* §4.6 calibration duel — predicting the correctness of the answer
-                they just composed (not the prompt). Shown only once the draft is
-                non-empty; a 1–5 tap that is stored as-is (never mapped to a
-                probability in the UI). Locked once Submit is pressed (pre-reveal),
-                always skippable, never gates submission, absence is unscored — no
-                nagging. Selection is marked by the focused class + a caret, not by
-                color alone. */}
-            {answer.trim() ? (
-              <div
-                role="group"
-                aria-label="How likely is this answer to be correct? (optional, 1 unlikely to 5 certain)"
-                style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11 }}
-              >
-                <Faint>How likely is this answer to be correct? (optional)</Faint>
-                {[1, 2, 3, 4, 5].map((level) => {
-                  const on = answerConfidence === level;
-                  const locked = submitting || selfGradeVisible;
-                  return (
-                    <button
-                      key={level}
-                      type="button"
-                      // Phase 4: small inline buttons (the queue-row grid
-                      // stretched each one across the card).
-                      className={simple ? (on ? "plain-action primary" : "plain-action") : on ? "queue-row focused" : "queue-row"}
-                      style={simple
-                        ? { padding: "1px 8px", fontSize: 11, fontFamily: FONT_MONO, opacity: on ? 1 : 0.7 }
-                        : { padding: "0 7px", fontFamily: FONT_MONO, opacity: on ? 1 : 0.55 }}
-                      onClick={() => setAnswerConfidence(on ? null : level)}
-                      disabled={locked}
-                      aria-pressed={on}
-                      aria-label={`answer confidence ${level} of 5`}
-                    >
-                      {on ? "▸" : ""}{level}
-                    </button>
-                  );
-                })}
-                {answerConfidence != null && !submitting && !selfGradeVisible ? (
-                  <button
-                    type="button"
-                    className={simple ? "plain-action" : "queue-row"}
-                    style={{ padding: "0 7px", opacity: 0.55 }}
-                    onClick={() => setAnswerConfidence(null)}
-                    aria-label="clear answer confidence"
-                  >
-                    clear
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
             {/* Meas §3.A6 elicitation — one line at a decision point, offered
                 only where the answer underdetermines the reasoning, and only
                 while the per-session budget lasts. It is a field, not a step:
@@ -2363,6 +2312,58 @@ export function PracticeScreen({
               ) : null}
             </div>
             )}
+            {/* §4.6 calibration duel — predicting the correctness of the answer
+                they just composed (not the prompt). Placed under the row with
+                Submit: it appears once the learner types, and above Submit it
+                moved Submit down under the pointer, so a click meant for Submit
+                chose a confidence. Shown only once the draft is
+                non-empty; a 1–5 tap that is stored as-is (never mapped to a
+                probability in the UI). Locked once Submit is pressed (pre-reveal),
+                always skippable, never gates submission, absence is unscored — no
+                nagging. Selection is marked by the focused class + a caret, not by
+                color alone. */}
+            {answer.trim() ? (
+              <div
+                role="group"
+                aria-label="How likely is this answer to be correct? (optional, 1 unlikely to 5 certain)"
+                style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11 }}
+              >
+                <Faint>How likely is this answer to be correct? (optional)</Faint>
+                {[1, 2, 3, 4, 5].map((level) => {
+                  const on = answerConfidence === level;
+                  const locked = submitting || selfGradeVisible;
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      // Phase 4: small inline buttons (the queue-row grid
+                      // stretched each one across the card).
+                      className={simple ? (on ? "plain-action primary" : "plain-action") : on ? "queue-row focused" : "queue-row"}
+                      style={simple
+                        ? { padding: "1px 8px", fontSize: 11, fontFamily: FONT_MONO, opacity: on ? 1 : 0.7 }
+                        : { padding: "0 7px", fontFamily: FONT_MONO, opacity: on ? 1 : 0.55 }}
+                      onClick={() => setAnswerConfidence(on ? null : level)}
+                      disabled={locked}
+                      aria-pressed={on}
+                      aria-label={`answer confidence ${level} of 5`}
+                    >
+                      {on ? "▸" : ""}{level}
+                    </button>
+                  );
+                })}
+                {answerConfidence != null && !submitting && !selfGradeVisible ? (
+                  <button
+                    type="button"
+                    className={simple ? "plain-action" : "queue-row"}
+                    style={{ padding: "0 7px", opacity: 0.55 }}
+                    onClick={() => setAnswerConfidence(null)}
+                    aria-label="clear answer confidence"
+                  >
+                    clear
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {simple && cardDetailsOpen ? (
               // The card's receipts (§4.3): the question's id (opens the
               // inspector, which keeps an unanswered question's answer to
@@ -3156,4 +3157,13 @@ function validateSelfGrade(
     errors.confidence = "1..5";
   }
   return errors;
+}
+
+/** The answer box's greatest height: the visible height of the screen's scrolling area (the window less the key bar
+ *  where the box sits in none) less what sits under the box, never under 140 pixels. */
+function answerBoxCap(slot: HTMLElement, below: number): number {
+  const scroller = slot.closest(".screen-scroll") as HTMLElement | null;
+  const keybar = (document.querySelector(".keybar") as HTMLElement | null)?.offsetHeight ?? 36;
+  const visible = scroller && scroller.clientHeight > 0 ? scroller.clientHeight : window.innerHeight - keybar;
+  return Math.max(140, Math.floor(visible - below - 28));
 }
