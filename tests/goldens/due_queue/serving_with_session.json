@@ -8374,6 +8374,79 @@
        "loss_regime": "triage_route_wasted_minutes",
        "loss_table_hash": "f2e050240853137a2764da5d026ee0e0",
        "loss_table_version": 1,
+       "snapshot": {
+        "cutoff": {
+         "absent": "a value-of-information site does not state the evidence cutoff it read under",
+         "cutoff": null,
+         "inputs_as_of": {
+          "original": null,
+          "recorded": null,
+          "status": "unknown"
+         },
+         "source": null
+        },
+        "distribution": {
+         "administered": false,
+         "outcomes": {
+          "other|high": 0.25823497,
+          "other|low": 0.09683811,
+          "other|medium": 0.25823497,
+          "other|unknown": 0.03227937,
+          "signature_error|high": 0.02230871,
+          "signature_error|low": 0.00836577,
+          "signature_error|medium": 0.02230871,
+          "signature_error|unknown": 0.00278859,
+          "success|high": 0.11945632,
+          "success|low": 0.04479612,
+          "success|medium": 0.11945632,
+          "success|unknown": 0.01493204
+         },
+         "reason": null,
+         "source": "forecast.predicted_outcomes",
+         "unit": "emission"
+        },
+        "provenance": {
+         "forecast_version": "voi_forecast_v4",
+         "parameters": "parameters_json (each with its provenance)",
+         "site": "probe_episode_value_decision"
+        },
+        "schema": "prediction_snapshot/1",
+        "target": {
+         "absent": null,
+         "stated_by": "writer",
+         "target": {
+          "action": {
+           "id": null,
+           "kind": "probe_episode_value_decision"
+          },
+          "anchor": {
+           "id": "<ulid:20>",
+           "kind": "probe_episode"
+          },
+          "event_version": "voi_forecast_v4",
+          "horizon": {
+           "kind": "next_observation",
+           "value": null
+          },
+          "kind": "check_outcome",
+          "members": [
+           {
+            "id": "lo_svd_definition",
+            "kind": "learning_object",
+            "revision": null,
+            "source": null
+           }
+          ],
+          "resolver_version": "voi_forecast_report@unversioned",
+          "schema": "prediction_target/1",
+          "unit": "emission"
+         },
+         "target_hash": "sha256:ab3e99f54b88c0b76d8a0ca4287ace72dafa5ba53c7c420f02e5d6416b51ca6e",
+         "unversioned": [
+          "resolver_version"
+         ]
+        }
+       },
        "value_decision_forecast_version": "voi_stop_forecast_v1"
       }
      }
@@ -8660,6 +8733,75 @@
        "loss_regime": null,
        "loss_table_hash": null,
        "loss_table_version": 1,
+       "snapshot": {
+        "cutoff": {
+         "absent": "a value-of-information site does not state the evidence cutoff it read under",
+         "cutoff": null,
+         "inputs_as_of": {
+          "original": null,
+          "recorded": null,
+          "status": "unknown"
+         },
+         "source": null
+        },
+        "distribution": {
+         "administered": false,
+         "outcomes": {
+          "correct": 0.4310735,
+          "incorrect": 0.5689265
+         },
+         "reason": null,
+         "source": "forecast.predicted_outcomes",
+         "unit": "emission"
+        },
+        "provenance": {
+         "forecast_version": "voi_forecast_v4",
+         "parameters": "parameters_json (each with its provenance)",
+         "site": "teach_back_value_decision"
+        },
+        "schema": "prediction_snapshot/1",
+        "target": {
+         "absent": null,
+         "stated_by": "writer",
+         "target": {
+          "action": {
+           "id": null,
+           "kind": "teach_back_value_decision"
+          },
+          "anchor": {
+           "id": "<ulid:3>",
+           "kind": "scheduler_candidate"
+          },
+          "event_version": "voi_forecast_v4",
+          "horizon": {
+           "kind": "next_observation",
+           "value": null
+          },
+          "kind": "check_outcome",
+          "members": [
+           {
+            "id": "pi_svd_teach_due",
+            "kind": "item",
+            "revision": null,
+            "source": null
+           },
+           {
+            "id": "lo_svd_definition",
+            "kind": "learning_object",
+            "revision": null,
+            "source": null
+           }
+          ],
+          "resolver_version": "voi_forecast_report@unversioned",
+          "schema": "prediction_target/1",
+          "unit": "emission"
+         },
+         "target_hash": "sha256:757989078414fcba66e32b3d576b22aeaf3fca0299ac8b423e27eb1694c5f2ac",
+         "unversioned": [
+          "resolver_version"
+         ]
+        }
+       },
        "value_decision_forecast_version": "voi_stop_forecast_v1"
       }
      }
