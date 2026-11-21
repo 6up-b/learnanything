@@ -1,4 +1,4 @@
-"""The Reader records WHICH passages the learner saw (UX "the first evening, finished", step 2).
+"""The Reader records WHICH passages the learner saw, not only how many.
 
 ``reader.mark_section_progress`` takes an optional ``seenSpanIds`` (the passages the desktop or the phone observed
 during the learner's own reading) and ``reachedEnd`` (the section's last readable passage was among them). Through the

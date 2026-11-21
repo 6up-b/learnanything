@@ -590,7 +590,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id extraction_id depth section_id label learner_override exercise_span_id ledger_id state_key model "
         "prompt_version created_at",
         "reason"),
-    # The first evening, step 2 (migration 256): DENIED; ids, times and an origin only.
+    # Seen passages (migration 256): DENIED; ids, times and an origin only.
     "reader_section_ends": (
         "extraction_id section_id span_id first_seen_at origin",
         ""),

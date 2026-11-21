@@ -546,7 +546,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # replay never reads them; append-only by trigger.
     ("reader_path_depths", TableRole.WORKFLOW),
     ("reader_path_sections", TableRole.WORKFLOW),
-    # The first evening, step 2 (migration 256): which passages the learner's own
+    # Seen passages (migration 256): which passages the learner's own
     # reading observed, and the first time a section's last readable passage was
     # among them (append-only by trigger). The Reader's progress, as the counts
     # beside them: never cleared by a rebuild, never evidence of understanding, and

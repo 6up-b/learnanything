@@ -1,4 +1,4 @@
--- UX "the first evening, finished", step 2: WHICH passages the learner saw, not only how many,
+-- Seen passages: WHICH passages the learner saw, not only how many,
 -- and the observation that a section's last readable passage was reached by the learner's own reading.
 --
 -- Additive: two new append-only tables (WORKFLOW in db.table_roles, as reader_section_progress beside

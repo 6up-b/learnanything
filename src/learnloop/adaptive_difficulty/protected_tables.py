@@ -191,7 +191,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("reader_cue_impressions", PROTECTED),
     ("reader_path_depths", NEUTRAL),
     ("reader_path_sections", PROTECTED),
-    # The first evening, step 2 (migration 256): which passages were seen and where a section's end was
+    # Seen passages (migration 256): which passages were seen and where a section's end was
     # reached. Generation evidence for a later step, never evidence of understanding: never read inside an
     # operation (a reader inside one would need the table reclassified and a version decision first).
     ("reader_section_ends", DENIED),

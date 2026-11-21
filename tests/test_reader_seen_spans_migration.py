@@ -1,4 +1,4 @@
-"""The seen-passages migration (UX "the first evening, finished", step 2): ``reader_seen_spans`` and
+"""The seen-passages migration: ``reader_seen_spans`` and
 ``reader_section_ends``.
 
 Two new append-only WORKFLOW tables, refused to adaptive difficulty; nothing else changes. A vault one migration below

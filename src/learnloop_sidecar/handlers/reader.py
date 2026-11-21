@@ -2081,7 +2081,7 @@ class ReaderMarkSectionProgressInput(ParamsModel):
     span_count: int | None = None
     revealed: bool = False
     completed: bool = False
-    # The first evening, step 2: the passages the Reader observed during the learner's own reading (never a
+    # The passages the Reader observed during the learner's own reading (never a
     # restore, a jump or a completion), and whether the section's last readable passage was among them.
     # Recorded only (``learnloop.reader.seen_passages``): nothing reads them yet, and an end finishes nothing.
     seen_span_ids: list[str] | None = Field(default=None, max_length=5000)
