@@ -1,12 +1,17 @@
 """What a lesson offer's committed check needs from the vault before the router can price it (spec_teacher_v2 §7.4):
-whether a question exists for it now, and how long one check takes. Unserved: nothing under ``src`` calls these
-until the successor that prices checks (``mvp-0.62``) attaches them to the offer.
+whether a question exists for it now, and how long one check takes. From ``mvp-0.62`` the offer builder attaches them
+to each check of a new offer (:func:`check_sensors`); below it nothing calls them.
 
 * :func:`eligible_now`: the delayed checks' own candidate rule (``delayed_checks.check_available``, the rule the
   lesson brief's "an unseen question exists" reads), with the normal protection view; protection that cannot be
   read, or any failure to read, answers False (fail closed). It reserves nothing, writes nothing and calls no model.
   It is a seed for the delivery estimate, read before the lesson's own exposures: not a promise that the same item
   survives the lesson.
+* :func:`check_sensors`: both of the above with the delivery posterior (``daily_plan.check_delivery``: the receipts'
+  cold-completion counts as of the decision, seeded by :func:`eligible_now`), as the fields one check's record carries.
+  The decision's clock is left out of the record: the record is part of the boundary's identity, which must stay the
+  same between a prefetch and its serve unless the evidence itself changed (the counts' digest, the availability or the
+  minutes); the trace's replay payload holds the clock.
 * :func:`dry_check_minutes`: one check's minutes from the plan's own estimator (``daily_plan.estimates``), as the
   plan charges a "Check once" item: the item the delayed picker would choose now (its rule, without its receipt or a
   reservation) at its four-decimal planning estimate, or, with no candidate, the same estimator's estimate for an
@@ -106,4 +111,49 @@ def dry_check_minutes(vault: Any, repository: Any, learning_object_id: str, *, a
                         estimator_version=estimator.version, as_of=as_of)
 
 
-__all__ = ["CheckMinutes", "ITEM_ESTIMATE", "UNKNOWN_ITEM_ESTIMATE", "dry_check_minutes", "eligible_now"]
+def check_key(learning_object_id: str, purpose: str, ordinal: int) -> str:
+    """A committed check's stable key within its offer: its topic, purpose and place, so two checks on one topic draw
+    from streams of their own."""
+
+    return f"{learning_object_id}:{purpose}:{ordinal}"
+
+
+def delivery_group(purpose: str) -> str:
+    """The fitted posterior a check shares one propensity draw with: its purpose within the legacy regime."""
+
+    from learnloop.daily_plan.check_delivery import LEGACY_REGIME
+
+    return f"{LEGACY_REGIME}:{purpose}"
+
+
+def check_sensors(vault: Any, repository: Any, learning_object_id: str, *, purpose: str, ordinal: int, now_iso: str,
+                  trials: Any) -> dict[str, Any]:
+    """One committed check's record fields at a new decision: its key and group, the delivery posterior (the counts of
+    ``purpose`` over ``trials``, classified as of ``now_iso``, seeded by the availability now) and its minutes, with the
+    rollout path's versions. ``trials``: ``check_delivery.classify``'s result for the decision, read once per offer, or
+    None when it could not be read (then nothing is credited: the posterior is the point mass at zero)."""
+
+    from learnloop.router_objective.check_value import POLICY_VERSION, STREAM_LAYOUT_VERSION
+    from learnloop.daily_plan import check_delivery as CD
+
+    eligible = eligible_now(vault, repository, learning_object_id)
+    if trials is None:
+        delivery: dict[str, Any] = {"status": "unavailable", "eligible_now": eligible, "alpha": 0.0, "beta": 1.0,
+                                    "predictive_mean": 0.0}
+    else:
+        counts = CD.counts(trials, purpose=purpose, as_of=now_iso)
+        delivery = CD.posterior(counts, eligible_now=eligible).as_dict()
+        delivery.pop("as_of", None)
+        delivery["seed_trials"] = CD.SEED_TRIALS
+    try:
+        minutes = dry_check_minutes(vault, repository, learning_object_id, as_of=now_iso).as_dict()
+        minutes.pop("as_of", None)
+    except Exception:  # noqa: BLE001 - no estimate: the check still exists, at no minutes, and the record says so
+        minutes = {"minutes": 0.0, "basis": "unavailable", "item_id": None, "estimator_version": None}
+    return {"key": check_key(learning_object_id, purpose, ordinal), "group": delivery_group(purpose),
+            "delivery": delivery, "minutes": minutes, "rollout_policy": POLICY_VERSION,
+            "stream_layout": STREAM_LAYOUT_VERSION}
+
+
+__all__ = ["CheckMinutes", "ITEM_ESTIMATE", "UNKNOWN_ITEM_ESTIMATE", "check_key", "check_sensors", "delivery_group",
+           "dry_check_minutes", "eligible_now"]

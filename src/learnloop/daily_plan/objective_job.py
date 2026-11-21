@@ -107,6 +107,9 @@ class NumericPolicy:
     #: IH4 (spec_instruct_handoff_v1 §7): the choice model's frozen sensor and ``w_pref``
     #: (:mod:`learnloop.router_objective.preferences`); None with its switch off or nothing on record
     preference: Mapping[str, Any] | None = None
+    #: The committed-check credit (mvp-0.62): the lossless numeric replay payload of an answer whose candidates carry
+    #: typed committed checks (``router_objective.check_replay``), which the trace records; None otherwise.
+    replay: Mapping[str, Any] | None = None
 
 
 def pooled(config: Any) -> Any:

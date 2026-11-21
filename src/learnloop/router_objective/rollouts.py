@@ -1092,9 +1092,11 @@ class _Model:
                                  # SG2: the cause slopes' means only, as γ's (None stays None).
                                  causes=learning.causes.at_mean() if learning.causes is not None else None),
                 effect=None, stop_accept=(1.0, 1.0))
-            self._belief = _Model(believed, self.k, f"{self.seed}:belief", cutoff=self.carried,
-                                  merged_sessions=self.merged, consistent_review_draw=self.consistent,
-                                  held_ad_link=self.held)
+            # The same model class as this one, so a path the belief's world runs prices committed checks as the
+            # true world does (the check-credit path's model is a subclass).
+            self._belief = type(self)(believed, self.k, f"{self.seed}:belief", cutoff=self.carried,
+                                      merged_sessions=self.merged, consistent_review_draw=self.consistent,
+                                      held_ad_link=self.held)
         return self._belief
 
     def _probe_choice(self, probe: Action, repair: Action, result: bool | None) -> dict[str, Any]:

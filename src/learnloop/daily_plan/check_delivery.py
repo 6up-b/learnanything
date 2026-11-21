@@ -1,7 +1,7 @@
 """How often a lesson's planned delayed check is actually answered cold: the receipts classified as of a decision, and
-the one-trial seed's Beta posterior over that completion probability (spec_teacher_v2 §7.4). Unserved: nothing under
-``src`` reads it yet; the successor that prices checks by it (``mvp-0.62``) reads it from the offer builder. It sits
-with the offer that will read it: in ``router_objective`` it would close a package cycle through the intent resolver
+the one-trial seed's Beta posterior over that completion probability (spec_teacher_v2 §7.4). From ``mvp-0.62`` a new
+lesson offer reads it for each committed check (``daily_plan.lesson_offer``, through ``daily_plan.check_inputs``). It
+sits with the offer that reads it: in ``router_objective`` it would close a package cycle through the intent resolver
 (``scheduling``), and in ``teacher`` (where it was written) the plan reading it would close one through the teacher,
 both of which the frozen-cycles import contract refuses.
 

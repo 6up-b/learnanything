@@ -9,11 +9,9 @@ settlement written after its answer).
 
 from __future__ import annotations
 
-import ast
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 
@@ -296,28 +294,3 @@ def test_resolved_checks_move_the_seed():
     record = available.as_dict()
     assert record["successes"] == 0 and record["failures"] == 19 and record["delivery_regime"] == CD.LEGACY_REGIME
     assert record["policy_version"] == CD.DELIVERY_POLICY_VERSION and record["eligible_now"] is True
-
-
-def test_nothing_served_reads_the_statistics_yet():
-    """No module under ``src`` imports the reader (by name, from its package, or through importlib) until the
-    activation wires it."""
-
-    root = Path(__file__).resolve().parents[1]
-    hits = []
-    for path in sorted((root / "src").rglob("*.py")):
-        if path.name == "check_delivery.py":
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "check_delivery" not in text:
-            continue
-        for node in ast.walk(ast.parse(text)):
-            if isinstance(node, ast.ImportFrom) and ((node.module or "").endswith("check_delivery")
-                                                     or any(alias.name == "check_delivery" for alias in node.names)):
-                hits.append(str(path.relative_to(root)))
-            elif isinstance(node, ast.Import) and any(alias.name.endswith("check_delivery") for alias in node.names):
-                hits.append(str(path.relative_to(root)))
-            elif isinstance(node, ast.Call) and getattr(node.func, "attr", getattr(node.func, "id", "")) in {
-                    "import_module", "__import__"} and any(
-                    isinstance(arg, ast.Constant) and "check_delivery" in str(arg.value) for arg in node.args):
-                hits.append(str(path.relative_to(root)))
-    assert hits == []
