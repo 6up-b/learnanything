@@ -9,6 +9,7 @@ fields to decide anything. Fakes only: no network, no model call.
 
 from __future__ import annotations
 
+import json
 import math
 import sqlite3
 from contextlib import closing
@@ -308,6 +309,9 @@ def test_snapshots_move_no_id_seed_digest_score_or_state_under_a_frozen_clock(tm
     threshold receipts' categories. The receipts written are the same rows with the same keys, ``p``,
     ``inputs_hash`` and ids: the id stream after every receipt is consumed exactly as before."""
 
+    # The first journey of a process mints one id more than later ones (with or without snapshots alike: a
+    # one-time process setup), so a discarded warm-up makes the two compared copies start alike.
+    journey(tmp_path / "warm", monkeypatch)
     with_snapshots = journey(tmp_path / "with", monkeypatch)
     without = journey(tmp_path / "without", monkeypatch, snapshots=False)
     new, old = comparable(with_snapshots["paths"].sqlite_path), comparable(without["paths"].sqlite_path)
@@ -323,7 +327,11 @@ def test_snapshots_move_no_id_seed_digest_score_or_state_under_a_frozen_clock(tm
     for table in ("forecast_receipts", "item_serve_inputs", "ad_state", "ad_attempt_trace", "item_forecast_scores",
                   "plan_presentations"):
         assert new[table], table
-    assert any("z_v1" in row for row in new["item_serve_inputs"])
+    # z_v1 read the item forecasts (written with snapshots in one copy): available, and recalibrated on the
+    # first item's answered presentation at the second serve.
+    signals = [json.loads(json.loads(row)["signals_json"])["z_v1"] for row in new["item_serve_inputs"]]
+    assert all(signal["available"] for signal in signals) and len(signals) == 2
+    assert max(signal["recalibration"]["n"] for signal in signals) == 1
     assert any('"status": "scored"' in row for row in new["item_forecast_scores"])
 
 

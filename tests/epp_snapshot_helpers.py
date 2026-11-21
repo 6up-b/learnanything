@@ -44,6 +44,7 @@ def journey(root: Path, monkeypatch: Any, *, snapshots: bool = True, before_answ
         if not snapshots:
             patch.setattr(PS, "receipt_bodies", identity_bodies)
         paths = ad23_vault(root)
+        item_forecasts(paths)
         env, clock = env_for(paths)
         build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip")
         served = []
@@ -61,6 +62,39 @@ def journey(root: Path, monkeypatch: Any, *, snapshots: bool = True, before_answ
         RP.rebuild(vault, repository)
         scoring.rebuild(vault, repository)
     return {"paths": paths, "served": served}
+
+
+#: Before the plan's first serve: the item-only ``llm_v1`` forecasts ``z_v1`` reads (one per item, received an
+#: hour before), so the serves' frozen ``z_v1`` and its recalibration read receipts written through the writer.
+ITEM_FORECASTS = {"pi_m1a": 0.62, "pi_m1b": 0.41, "pi_m1c": 0.77}
+ITEM_FORECASTS_AT = "2026-10-12T08:00:00Z"
+
+
+def item_forecasts(paths: Any) -> list[str]:
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.adaptive_difficulty.switches import LLM_V1
+    from learnloop.scheduling import forecast_receipts as FR
+
+    from tests.ad23_fakes import ad_epoch
+
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    epoch = ad_epoch(paths)
+    out = []
+    for item_id, p in ITEM_FORECASTS.items():
+        item = vault.practice_items[item_id]
+        content_hash = item_revision(item)[0]
+        out.append(FR.ForecastReceipt(
+            receipt_key=f"{FR.ITEM_UNASSISTED_SUCCESS}:item:{content_hash}:{LLM_V1}", kind=FR.ITEM_UNASSISTED_SUCCESS,
+            forecaster=LLM_V1, forecaster_version="llm_v1:model_fake", scope="item", decision_kind="item_prepare",
+            binding_kind=FR.FIRST_PRESENTATION, event="unassisted_success",
+            forecast={"p": p, "event": "unassisted_success", "p_categories": None},
+            inputs={"practice_item_id": item_id, "content_hash": content_hash}, parameters=[],
+            versions={"prompt": "llm_v1_fake", "model": "model_fake", "protection_epoch": epoch},
+            inputs_as_of=ITEM_FORECASTS_AT, p=p,
+            columns={"practice_item_id": item_id, "item_content_hash": content_hash,
+                     "learning_object_id": item.learning_object_id, "status": "ok",
+                     "received_at": ITEM_FORECASTS_AT}))
+    return FR.record_receipts(repository, out, created_at=ITEM_FORECASTS_AT)
 
 
 def tables(path: Path) -> list[str]:
