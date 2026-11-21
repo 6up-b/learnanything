@@ -16,9 +16,11 @@ unavailable, never reconstructed.
 4. the outside ``llm_v3`` forecasters' exact request inputs
    (:func:`~learnloop.adaptive_difficulty.outside.freeze_presentation_inputs`);
 5. router objective RO2's ``llm_history_v1``: its seeded draw and the exact request inputs of its two
-   rungs (:func:`~learnloop.adaptive_difficulty.history_forecast.freeze_history_inputs`).
+   rungs (:func:`~learnloop.adaptive_difficulty.history_forecast.freeze_history_inputs`);
+6. for an item attempted before (a repeat), the predecessor's evaluation-only prediction
+   (:mod:`~learnloop.adaptive_difficulty.repeat_receipts`), last, with ids from its own stream.
 
-All five run in one savepoint: a failure rolls back AD's writes alone,
+All six run in one savepoint: a failure rolls back AD's writes alone,
 logged, and the serve proceeds (logging never breaks serving). Each write is
 idempotent per presentation, so a second call writes nothing new. With
 ``forecast_receipts`` (or the master switch) off nothing is read or written.
@@ -44,6 +46,7 @@ from learnloop.adaptive_difficulty.history_forecast import freeze_history_inputs
 from learnloop.adaptive_difficulty.outside import freeze_presentation_inputs
 from learnloop.adaptive_difficulty.material_view import current_view, material_view
 from learnloop.adaptive_difficulty.reading import sweep
+from learnloop.adaptive_difficulty.repeat_receipts import new_receipt_id, repeat_receipts
 from learnloop.adaptive_difficulty.generation import record_landed_commissions
 from learnloop.adaptive_difficulty.serve_inputs import build_row, never_attempted
 from learnloop.adaptive_difficulty.serving import frozen_loadings, served_item, threshold_receipts
@@ -63,6 +66,8 @@ class ServeRecord:
     frozen_inputs: str | None = None
     history_draw: str | None = None
     skipped: str | None = None
+    repeat_receipt_ids: list[str] = field(default_factory=list)
+    repeat_skipped: str | None = None
 
 
 def _serve_unrecorded(arguments: Any) -> "ServeRecord":
@@ -141,6 +146,19 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
             # RO2 (spec_router_objective_v1 §6.1, §6.3): llm_history_v1's draw and frozen rungs.
             record.history_draw = freeze_history_inputs(vault, connection, item, presentation_id=presentation_id,
                                                         served_at=served_at, view=view)
+            if not fresh_item:
+                # What the predecessor would predict on this repeat (evidence packets spec §7.7.3), evaluation
+                # only. Last, with ids from its own stream: drawn from new_ulid, each receipt would shift the
+                # router's next decision id and its seed. record_receipts' savepoint rolls a failed write back
+                # alone, so the receipts above stand.
+                repeat, record.repeat_skipped = repeat_receipts(
+                    vault, repository, connection, item, presentation_kind=PLAN_PRESENTATION,
+                    presentation_id=presentation_id, served_at=served_at, view=view)
+                if repeat:
+                    record.repeat_receipt_ids = record_receipts(
+                        repository, [_with_version(receipt, algorithm_version, view.epoch) for receipt in repeat],
+                        created_at=served_at, new_id=new_receipt_id)
+                    record.repeat_skipped = None if record.repeat_receipt_ids else "not_written"
     except Exception:  # noqa: BLE001 - AD's logging never breaks the serve
         warn_failure(LOG, "AD1 serve receipts for presentation %s not recorded", presentation_id)
         record.skipped = "failed"
