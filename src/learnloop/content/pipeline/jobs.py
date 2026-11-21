@@ -1524,6 +1524,8 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         for index in list(work_by_index):
             prepare(index, identity, warm_client)
 
+    # Units read before (their inventory is cached) are not asked for again: said beside the windows still to read.
+    _record_step(ctx, reused=len(specs) - len(work_by_index))
     if work_by_index:
         worker_count = min(_MAX_INVENTORY_WORKERS, len(work_by_index))
         clients = [warm_client]
@@ -1890,15 +1892,30 @@ def _synthesis_progress(ctx: JobContext):
     multi-shard synthesis can be cancelled at the next shard boundary instead
     of only before/after the whole model stage."""
 
-    def progress(stage: str, message: str, current: int | None = None, total: int | None = None) -> None:
+    def progress(stage: str, message: str, current: int | None = None, total: int | None = None, *,
+                 step: str | None = None, drafted_topics: int | None = None) -> None:
         ctx.report(
             _SYNTH_STAGE_PHASE.get(stage, "inventoried"),
             message=message,
             current_window=current,
             total_windows=total,
         )
+        if step is not None:
+            _record_step(ctx, step=step, drafted_topics=drafted_topics)
 
+    # The synthesis names its step to a progress function that takes one (``source_set_synthesis._notify``).
+    progress.takes_step = True  # type: ignore[attr-defined]
     return progress
+
+
+def _record_step(ctx: JobContext, **facts: Any) -> None:
+    """What the job is doing, for a waiting screen (``ingest_job_progress``); never a reason for the job to fail."""
+
+    try:
+        ctx.repo.record_ingest_job_progress(ctx.job_id, attempt_count=int(ctx.job.get("attempt_count") or 0),
+                                            clock=ctx.clock, **facts)
+    except Exception:  # noqa: BLE001 - what a wait shows never stops the work it shows
+        logging.getLogger(__name__).warning("Could not record the progress of ingest job %s", ctx.job_id, exc_info=True)
 
 
 def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:

@@ -732,6 +732,10 @@ def _apply_authoring_parts(root, client, repository, contexts, parts, receipt_ke
             continue
         saved = prepared[index]
         if saved is None:
+            # When this topic's writing was asked for, for a waiting screen: which topic is being written, since
+            # when, and (with ``written_at``) how long this library's topics take. Facts only; nothing reads them back.
+            states[index]["started_at"] = utc_now_iso(clock)
+            report()
             try:
                 proposal = dispatch_authoring_request(
                     client, context, checkpoints=repository, request_guard=request_guard,
@@ -757,7 +761,9 @@ def _apply_authoring_parts(root, client, repository, contexts, parts, receipt_ke
             # effects. A crash after apply must resume these same row ids.
             receipts[index].save(saved)
         patch_id = saved["batch"]["id"]
-        states[index] = {"topic_id": parts[index]["topic_id"], "patch_id": patch_id}
+        started = states[index].get("started_at")
+        states[index] = {"topic_id": parts[index]["topic_id"], "patch_id": patch_id,
+                         **({"started_at": started} if started else {})}
         if repository.proposal_batch(patch_id) is None:
             repository.persist_proposal_batch(saved["batch"], saved["rows"])
         report()
@@ -766,6 +772,8 @@ def _apply_authoring_parts(root, client, repository, contexts, parts, receipt_ke
         repository.bump_queue_revision(clock=clock)
         completed.add(index)
         describe(index)
+        if started:
+            states[index]["written_at"] = utc_now_iso(clock)
         report()
     if failures:
         # The runner gives this collection one automatic retry, with successful

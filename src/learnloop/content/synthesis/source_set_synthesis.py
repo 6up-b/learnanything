@@ -517,8 +517,18 @@ def _notify(
     *,
     current: int | None = None,
     total: int | None = None,
+    step: str | None = None,
+    drafted_topics: int | None = None,
 ) -> None:
-    if progress is not None:
+    """``step`` names the step for a waiting screen ('plan', 'plan_reused', 'evidence', 'identity', 'structure',
+    'validate', 'persist', 'apply'), and ``drafted_topics`` the topics of a parsed, normalized candidate: told only
+    to a progress function that takes them (``takes_step``), so any other keeps its four arguments."""
+
+    if progress is None:
+        return
+    if step is not None and getattr(progress, "takes_step", False):
+        progress(stage, message, current, total, step=step, drafted_topics=drafted_topics)
+    else:
         progress(stage, message, current, total)
 
 
@@ -672,7 +682,7 @@ def _facet_identity_plan(
         return None
     from learnloop.content.facet_identity.plan import build_plan
 
-    _notify(progress, "synthesis", "Checking facet identity")
+    _notify(progress, "synthesis", "Checking facet identity", step="identity")
     try:
         return build_plan(
             candidate, vault=vault, repository=repository, run_id=run_id,
@@ -979,7 +989,7 @@ def _gate_and_persist(
             status="failed", error_message=error_message, clock=clock,
         )
 
-    _notify(progress, "validation", "Validating candidate structure")
+    _notify(progress, "validation", "Validating candidate structure", step="validate")
     normalized = mode.normalize(
         merged, inputs, vault, now, subject_id=subject_id, items_off=items_off, nominator=nominator,
         facet_identity_plan=facet_identity_plan,
@@ -995,9 +1005,11 @@ def _gate_and_persist(
             candidate_preserved=True,
         )
 
+    # The candidate is complete, parsed and normalized here: its topics can be counted (never from a partial answer).
+    _notify(progress, "validation", "Running quality gates", step="validate",
+            drafted_topics=sum(1 for row in normalized.rows if row.get("item_type") == "learning_object"))
     # identifiability analysis (real §11.3 check) — findings drive both the
     # gate hook and the persisted generate-discriminator needs.
-    _notify(progress, "validation", "Running quality gates")
     findings = []
     if mode.analyzes_identifiability:
         view = build_proposal_view(
@@ -1073,7 +1085,7 @@ def _gate_and_persist(
                                                   synthesis_run_id, findings, clock=clock)
 
     # persist the dependency-annotated proposal.
-    _notify(progress, "persistence", "Persisting the study-map proposal")
+    _notify(progress, "persistence", "Persisting the study-map proposal", step="persist")
     patch_id = new_ulid()
     repository.persist_proposal_batch(
         {
@@ -1918,14 +1930,14 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
             reused_shards += 1
             _notify(progress, "synthesis",
                     f"Reusing completed shard {ordinal + 1} of {len(shards)}",
-                    current=ordinal + 1, total=len(shards))
+                    current=ordinal + 1, total=len(shards), step="plan_reused")
             result = _namespace_synthesis_shard(result, ordinal)
             merged = _merge_synthesis(merged, result) if merged is not None else result
             continue
 
         _notify(progress, "synthesis",
                 f"Synthesizing shard {ordinal + 1} of {len(shards)}",
-                current=ordinal + 1, total=len(shards))
+                current=ordinal + 1, total=len(shards), step="plan")
         future_reserve = sum(tokens for next_ordinal, tokens in base_reserves.items() if next_ordinal > ordinal)
         result = run_pass(context_for(shard, ordinal, len(shards), []), future_input_reserve=future_reserve)
         spend.check_shard_output(result)
@@ -1936,7 +1948,7 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
             shard_span_requests = len(requests)
             _notify(progress, "synthesis",
                     f"Resolving evidence spans for shard {ordinal + 1} of {len(shards)}",
-                    current=ordinal + 1, total=len(shards))
+                    current=ordinal + 1, total=len(shards), step="evidence")
             resolved, shard_hashes = _resolve_span_requests(
                 repository, requests, run.inputs,
                 max_count=budgets.synthesis_span_request_max_count,
@@ -2347,7 +2359,7 @@ def _model_graph_structuring(
                 and input_tokens_estimate + estimate > total_input_ceiling
             ):
                 return merged, {"graph_structuring_skipped": "total-input ceiling reached"}
-            _notify(progress, "synthesis", "Structuring the concept graph across sources")
+            _notify(progress, "synthesis", "Structuring the concept graph across sources", step="structure")
             with generation_limit(output_budget_tokens):
                 outcome = request_concept_graph_structuring(client, context)
             calls = 1
@@ -2869,7 +2881,7 @@ def _apply_map(
 
     from learnloop.content.proposals.patches import apply_accepted_items
 
-    _notify(progress, "apply", "Applying the study map")
+    _notify(progress, "apply", "Applying the study map", step="apply")
     apply_accepted_items(root, proposal_id, clock=clock)
     if not (create_goal and _is_exam_prep(brief)):
         return None
