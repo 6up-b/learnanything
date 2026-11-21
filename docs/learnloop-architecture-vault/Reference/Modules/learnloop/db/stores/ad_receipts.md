@@ -164,6 +164,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_guard.py](../../../../../../../tests/test_ad_guard.py) — direct import
   - `test_a_write_then_a_swallowed_denial_then_an_early_return_keeps_no_ad_rows`
 - [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — direct import
+- [tests/test_epp_repeat_receipts.py](../../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_the_repeat_path_writes_no_frozen_inputs_and_no_revision_snapshot`
 - [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_frozen_state_version_follows_the_switch`
 

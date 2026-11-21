@@ -16,6 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/181_router_decisions.sql"
+  - "src/learnloop/adaptive_difficulty/repeat_receipts.py"
   - "src/learnloop/cli/decider.py"
   - "src/learnloop/cli/router.py"
   - "src/learnloop/config/schema.py"
@@ -23,7 +24,6 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/learner_action.py"
   - "src/learnloop/daily_plan/measurement.py"
-  - "src/learnloop/daily_plan/objective_card.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

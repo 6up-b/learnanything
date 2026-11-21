@@ -20,10 +20,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/adaptive_difficulty/repeat_receipts.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
-  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -138,6 +138,7 @@ None found by exact static reference scan.
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_epp_prediction_snapshots.py`
+- `tests/test_epp_repeat_receipts.py`
 - `tests/test_ro2_ad_raw_document_reads.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -47,20 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py) |
-| Source lines | 166 |
+| Source lines | 184 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ServeRecord` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 58)
-- `record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, practice_item_id: str, served_at: str) -> ServeRecord | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 77) — Record AD1's serve-time receipts for one plan presentation, in the caller's transaction.
+- `class ServeRecord` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 61)
+- `record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, practice_item_id: str, served_at: str) -> ServeRecord | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 82) — Record AD1's serve-time receipts for one plan presentation, in the caller's transaction.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 52)
-- `PLAN_PRESENTATION` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 54)
+- `LOG` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 55)
+- `PLAN_PRESENTATION` ([src/learnloop/adaptive_difficulty/serve.py](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 57)
 
 ### Explicit exports
 
@@ -72,9 +72,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_serve_unrecorded(arguments: Any) -> 'ServeRecord'` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 68)
-- `_recorded(connection: Any, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 150)
-- `_with_version(receipt: Any, algorithm_version: str, epoch: str | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 158)
+- `_serve_unrecorded(arguments: Any) -> 'ServeRecord'` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 73)
+- `_recorded(connection: Any, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 168)
+- `_with_version(receipt: Any, algorithm_version: str, epoch: str | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/serve.py), line 176)
 
 ## Who imports or calls it
 
@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `freeze_presentation_inputs`; calls `freeze_presentation_inputs`
 - [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `sweep`; calls `sweep`
+- [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] — imports `new_receipt_id`, `repeat_receipts`; calls `repeat_receipts`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]] — imports `build_row`, `never_attempted`; calls `build_row`, `never_attempted`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `frozen_loadings`, `served_item`, `threshold_receipts`; calls `frozen_loadings`, `served_item`, `threshold_receipts`
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `receipts_enabled`; calls `receipts_enabled`
@@ -119,6 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/epp_repeat_helpers.py](../../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
@@ -126,6 +128,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_forecast_receipt_written_in_serve_transaction`
   - `test_held_out_sentinel_never_reaches_ad_inputs`
   - `test_serve_inputs_frozen_against_later_audit_and_edit`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_guard_refusal_is_never_bypassed`
+  - `test_a_protected_item_gets_no_repeat_receipt`
+  - `test_a_reopened_presentation_records_nothing_again`
+  - `test_repeat_receipt_ids_come_from_their_own_stream`
+  - `test_repeat_receipts_roll_back_with_the_serve_transaction`
+  - `test_the_repeat_path_writes_no_frozen_inputs_and_no_revision_snapshot`
 - [tests/test_ro2_ad_document_ir.py](../../../../../../tests/test_ro2_ad_document_ir.py) — direct import
   - `test_the_serve_records_its_ad_rows_with_a_span_anchored_question`
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import

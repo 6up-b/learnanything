@@ -206,6 +206,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
   - `test_redraw_frozen_journey_keeps_served_items_ids_and_every_seed`
   - `test_redraw_is_reconstructed_from_placement_alone_and_uses_one_uniform`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_the_delay_names_its_kind_and_what_is_unknown_of_its_assignment`
 - [tests/test_evidence_cutoff.py](../../../../../../tests/test_evidence_cutoff.py) — direct import
   - `test_closure_admits_matrix_equals_the_predecessor`
   - `test_closure_at_the_same_instant_is_inclusive`

@@ -487,6 +487,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/daily_plan_build_helpers.py](../../../../../../tests/daily_plan_build_helpers.py) — direct import
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/data_capture_a2_measurement_helpers.py](../../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
+- [tests/epp_repeat_helpers.py](../../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
 - [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
@@ -696,6 +697,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_keyed_pick_of_a_due_check_the_plan_does_not_hold_is_a_one_item_block_and_answers_it`
   - `test_a_keyed_pick_of_a_planned_due_check_serves_the_check_once_and_its_answer_satisfies_it`
   - `test_a_keyed_pick_of_an_item_a_waiting_check_holds_is_served_and_answers_nothing`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_reopened_presentation_records_nothing_again`
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
   - `test_a_committed_staged_forecast_joins_the_attempt_bound_to_its_presentation`
   - `test_an_unbound_attempt_on_the_chosen_item_is_never_the_forecasts_outcome`

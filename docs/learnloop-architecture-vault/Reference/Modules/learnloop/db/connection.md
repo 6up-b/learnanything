@@ -516,6 +516,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_voi_forecasts_carry_the_snapshot_in_their_own_versions`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_protected_item_gets_no_repeat_receipt`
+  - `test_the_subject_receipt_is_the_predecessors_own_prediction_at_the_serve`
 - [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import
   - `test_a_hint_shown_then_attached_after_the_cutoff_is_partly_reconstructable`
   - `test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of`

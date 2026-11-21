@@ -22,13 +22,13 @@ source_paths:
   - "tests/ad_guard_offer_receipts_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/check_credit_report_helpers.py"
+  - "tests/epp_repeat_helpers.py"
   - "tests/epp_snapshot_helpers.py"
   - "tests/figure_build_golden_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/identity_pins_helpers.py"
   - "tests/instruct_handoff_ih0_helpers.py"
   - "tests/local_embeddings_fakes.py"
-  - "tests/probe_router_authority_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/data-capture"
@@ -63,13 +63,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/check_credit_report_helpers.py`
+- `tests/epp_repeat_helpers.py`
 - `tests/epp_snapshot_helpers.py`
 - `tests/figure_build_golden_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/identity_pins_helpers.py`
 - `tests/instruct_handoff_ih0_helpers.py`
 - `tests/local_embeddings_fakes.py`
-- `tests/probe_router_authority_helpers.py`
 
 ## Extension and modification guidance
 

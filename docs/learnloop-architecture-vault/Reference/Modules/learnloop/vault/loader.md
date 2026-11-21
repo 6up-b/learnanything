@@ -270,6 +270,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
 - [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
+- [tests/epp_repeat_helpers.py](../../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
 - [tests/exam_pool_helpers.py](../../../../../../tests/exam_pool_helpers.py) — direct import
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
@@ -1223,6 +1224,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`
 - [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
   - `test_epp1_stop_condition_scorer_raises_on_unreadable_time`
+- [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
+  - `test_a_protected_item_gets_no_repeat_receipt`
+  - `test_a_reopened_presentation_records_nothing_again`
+  - `test_the_subject_receipt_is_the_predecessors_own_prediction_at_the_serve`
+  - `test_the_surface_group_is_recorded_as_served_after_a_later_edit`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
 - [tests/test_evidence_cutoff_readers.py](../../../../../../tests/test_evidence_cutoff_readers.py) — direct import

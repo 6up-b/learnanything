@@ -136,6 +136,7 @@ None found by exact static reference scan.
 
 - `tests/ad3_subject_view_helpers.py`
 - `tests/ad_fakes.py`
+- `tests/epp_repeat_helpers.py`
 - `tests/epp_snapshot_helpers.py`
 - `tests/forecast_receipts_helpers.py`
 - `tests/identity_pins_helpers.py`
@@ -153,7 +154,6 @@ None found by exact static reference scan.
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_epp_prediction_snapshots.py`
 - `tests/test_epp_receipt_repairs.py`
-- `tests/test_figure_predictions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

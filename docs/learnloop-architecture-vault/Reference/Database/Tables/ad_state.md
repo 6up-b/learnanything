@@ -103,6 +103,7 @@ None found by exact static reference scan.
 - `tests/test_ad_guard_offer_receipts.py`
 - `tests/test_architecture.py`
 - `tests/test_epp_prediction_snapshots.py`
+- `tests/test_epp_repeat_receipts.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_te3a_lesson_opportunity.py`
 

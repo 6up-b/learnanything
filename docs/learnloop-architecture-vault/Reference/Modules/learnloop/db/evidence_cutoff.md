@@ -184,6 +184,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] — imports `Cutoff`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `ad_replay_excludes`; statically calls `ad_replay_excludes`
 - [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]] — imports `Cutoff`
 - [[Reference/Modules/learnloop/attempts/facts|learnloop.attempts.facts]] — imports `CORRECTIONS_THEN`, `Cutoff`
@@ -210,7 +211,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]], [[Reference/Modules/learnloop/attempts/facts|learnloop.attempts.facts]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]], [[Reference/Modules/learnloop/attempts/facts|learnloop.attempts.facts]], [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
