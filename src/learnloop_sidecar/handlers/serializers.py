@@ -289,7 +289,8 @@ def item_presentation(item: PracticeItem) -> dict[str, Any]:
                 # and the clean rotation ("a rotation that sometimes presents
                 # correct work") is what kills the "there is always an error"
                 # strategy. A label reading "find the mistakes" would leak both.
-                "label": "Worked solution",
+                # It is shown before the learner answers: "Worked solution" read as the answer given away.
+                "label": "The work to check",
             }
         )
 

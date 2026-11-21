@@ -282,6 +282,68 @@ def test_reading_that_completes_no_topic_says_read_further(book, writer):
     questions = book.questions()
     assert questions["readFurther"] == ["1-eigenvalues"]
     assert questions["count"] == 0 and "partRead" not in questions
+    # Where to read to: the nearest topic is the house topic, which waits only on P1 (lo_early on P1 and P2, every
+    # other topic on a later passage). The book has no inner heading, so the place is said by the passage's
+    # opening words.
+    coverage = topic_coverage(load_vault(book.ctx.vault_root), book.repo, book.extraction_id,
+                              ["lo_diagonalize_symmetric", "lo_early"])
+    spans = book.spans()
+    assert [span for _reading, span in coverage["lo_diagonalize_symmetric"].unseen] == [spans["P1"][1]]
+    assert questions["readTo"] == {"section": "1-eigenvalues", "heading": None,
+                                   "words": "Paragraph P1 about the aardvark is…", "sectionEnd": False}
+
+
+# -- where to read to, from plain values -----------------------------------------------------------------------
+
+
+def _place(blocks, unseen, sections=None):
+    from learnloop.reader.part_read import place_to_read
+
+    order = [span for span, _block in blocks]
+    section_of = sections or {span: "sec" for span in order}
+    return place_to_read(order, section_of, dict(blocks), unseen)
+
+
+_TEXT = [(f"s{index}", ("Text", f"Passage {index} says something about symmetric matrices here.")) for index in range(1, 7)]
+
+
+def test_the_place_is_the_furthest_unseen_passage_of_the_nearest_topic():
+    place = _place(_TEXT, [["s5", "s3"], ["s6"], ["s4", "s2"]])
+
+    # The third topic is nearest (its furthest unseen passage, s4, comes before s5 and s6); s2 alone would not do.
+    assert (place.span_id, place.heading, place.words, place.section_end) == (
+        "s4", None, "Passage 4 says something about symmetric…", False)
+
+
+def test_the_place_is_the_sections_end_when_that_is_its_last_passage():
+    place = _place(_TEXT, [["s6"]])
+
+    assert (place.span_id, place.heading, place.words, place.section_end) == ("s6", None, None, True)
+
+
+def test_an_inner_heading_names_the_place():
+    blocks = [("h0", ("SectionHeader", "7.1 Symmetric matrices")), *_TEXT[:2],
+              ("h1", ("SectionHeader", "## Variance and  its additivity")), *_TEXT[2:]]
+
+    place = _place(blocks, [["s4"]])
+
+    # The section's own title (its first passage) is not an inner heading; the one the place lies under is.
+    assert (place.heading, place.words, place.section_end) == ("Variance and its additivity", None, False)
+    assert _place(blocks, [["s2"]]).heading is None
+
+
+def test_a_passage_with_no_plain_words_is_named_by_the_next_one_that_has_them():
+    blocks = [*_TEXT[:3], ("eq", ("Equation", "$$A = Q \\Lambda Q^T$$")), *_TEXT[3:]]
+
+    place = _place(blocks, [["eq"]])
+
+    # Reaching s4, just after it, means the formula was passed: the promise holds.
+    assert (place.span_id, place.words) == ("eq", "Passage 4 says something about symmetric…")
+
+
+def test_no_topic_this_reading_can_complete_has_no_place():
+    assert _place(_TEXT, []) is None
+    assert _place(_TEXT, [[]]) is None
 
 
 # -- what qualifies, and what does not -------------------------------------------------------------------------

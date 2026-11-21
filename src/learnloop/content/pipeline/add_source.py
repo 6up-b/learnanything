@@ -2578,6 +2578,26 @@ def section_topics_settled(repo, extraction_id: str, section_id: str) -> tuple[b
     return ended is not None, ended
 
 
+#: Where a book's questions come from, as every screen that says it words it (the apps' ``QUESTIONS_FROM_READING``):
+#: the parts the learner read. "As you finish sections" was true before a part read could give questions, and the
+#: walks found the two rules side by side.
+READING_RULE = "Questions are written from the parts you read."
+
+
+def reading_rule_for(phrase: str) -> str:
+    """The rule, for the chapters a card names (``Ch. 1–2``, ``this article``)."""
+
+    return f"Questions for {phrase} are written from the parts you read"
+
+
+def _awaiting_ok(item: Mapping[str, Any]) -> bool:
+    """A held question an OK would apply: a new question, not refused by validation (a warning is valid), not
+    blocked on a prerequisite that was turned down. Acceptance refuses the others."""
+
+    return (item.get("operation") == "create" and item.get("validation_status") != "invalid"
+            and item.get("dependency_status") != "blocked")
+
+
 def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
     """The questions written from what the learner finished reading of this
     book: the only questions an as-you-read book gets. Its build writes topics
@@ -2614,7 +2634,13 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     ``owed``, those with a topic that qualifies and is not claimed yet (the
     desktop claims it on its next read; the phone leaves it to the desktop);
     ``read_further``, those with no claim of their own whose topics need
-    questions and none has every cited passage seen."""
+    questions and none has every cited passage seen; ``read_to``, for the
+    first of those that can say it, where reading on must reach for its
+    nearest topic (``reader.part_read.place_to_read``): ``section`` (its
+    label), ``heading``, ``words``, ``section_end``.
+
+    ``awaiting_ok``, present only when some: of ``to_look_at``, the questions
+    an OK would apply (:func:`_awaiting_ok`)."""
 
     from learnloop.content.pipeline.runner import effective_ingest_job_status
     from learnloop.db.stores.reader import (
@@ -2667,6 +2693,8 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
                 continue
             if item.get("decision") == "pending":
                 fact["to_look_at"] += 1
+                if _awaiting_ok(item):
+                    fact["awaiting_ok"] = fact.get("awaiting_ok", 0) + 1
                 continue
             if item.get("decision") != "accepted" or not item.get("applied_change_batch_id"):
                 continue
@@ -2739,13 +2767,16 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
         label = labels.get(section_id) or ""
         add_section(label, topic_jobs(own_claims(section_id)))
         fact.setdefault("part_read", []).append(label)
-    for state, label in _part_read_states(repo, vault, extraction_id, order, labels):
+    for state, label, read_to in _part_read_states(repo, vault, extraction_id, order, labels):
         if state == part_read_rule.BEFORE_BUILD:
             fact.setdefault("before_build", []).append(label)
         elif state == part_read_rule.OWED:
             fact.setdefault("owed", []).append(label)
         elif state == part_read_rule.READ_FURTHER and label not in fact.get("part_read", []):
             fact.setdefault("read_further", []).append(label)
+            if read_to is not None and "read_to" not in fact:
+                fact["read_to"] = {"section": label, "heading": read_to.heading, "words": read_to.words,
+                                   "section_end": read_to.section_end}
     # Claims made on an earlier reading of this book (a reread carries the stamp, not the claims): reported under
     # the section they were made in, after the current reading's.
     earlier: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -2769,8 +2800,8 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
 
 
 def _part_read_states(repo, vault, extraction_id: str, order: Mapping[str, int], labels: Mapping[str, str]
-                      ) -> list[tuple[str, str]]:
-    """``(state, label)`` of each unfinished section the learner has seen passages of, in reading order
+                      ) -> list[tuple[str, str, Any]]:
+    """``(state, label, read_to)`` of each unfinished section the learner has seen passages of, in reading order
     (``reader.part_read.assess``; remembered until what it reads changes). Nothing when the vault cannot say."""
 
     if not hasattr(vault, "learning_objects"):
@@ -2784,7 +2815,7 @@ def _part_read_states(repo, vault, extraction_id: str, order: Mapping[str, int],
         logging.getLogger(__name__).warning("could not read what the part read owes", exc_info=True)
         return []
     ordered = sorted(sections.values(), key=lambda section: order.get(section.section_id, len(order)))
-    return [(section.state, labels.get(section.section_id) or "") for section in ordered]
+    return [(section.state, labels.get(section.section_id) or "", section.read_to) for section in ordered]
 
 
 def _not_askable_now(repo, item_ids: Sequence[str], now_iso: str) -> list[str]:
@@ -2860,8 +2891,11 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     line = _source_status_line(repo, vault, source_id, batch_id=batch_id)
     if line is not None and source_id is not None and "questions" not in line:
         questions = reading_questions(repo, vault, source_id)
+        # The part read too: while the book is got ready, Today reads this line, and without it said "Questions come
+        # as you finish sections" to a learner who had read half a section.
         if questions is not None and (questions["count"] or questions["writing"] or questions["waiting"]
-                                      or questions["failed"] or questions["to_look_at"]):
+                                      or questions["failed"] or questions["to_look_at"]
+                                      or any(questions.get(key) for key in ("before_build", "owed", "read_further"))):
             line["questions"] = questions
     if line is not None and "without_ai" in line and (line.get("questions") or {}).get("progress") is not None:
         # On "Chapters found", the copied topic count is spoken as build steps.
@@ -3060,12 +3094,12 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
     # "Questions ready · Undo" sent learners looking for questions and
     # wondering what Undo would undo).
     built = _built_phrase(repo, source_id, outcome, noun) or phrase
-    line = _line(f"Questions for {built} are written as you finish sections", "quiet")
+    questions = reading_questions(repo, vault, source_id)
+    written = (questions or {}).get("count") or 0
+    line = _line(reading_rule_for(built) + (f" · {written} written so far" if written else ""), "quiet")
     # The shelf shows this instead while no AI can write them (usability round
     # 2: with no AI the card still promised questions as you read).
-    line["without_ai"] = _line(f"Questions for {built} are written as you finish sections once an AI is connected",
-                               "quiet", ("connect_ai", "Connect"))
-    questions = reading_questions(repo, vault, source_id)
+    line["without_ai"] = _line(f"{reading_rule_for(built)} once an AI is connected", "quiet", ("connect_ai", "Connect"))
     if questions is not None:
         line["questions"] = questions
     return line
@@ -3245,7 +3279,7 @@ def whole_book_state(vault, repo, source_id: str) -> str | None:
 def whole_book_notice(state: str, noun: str) -> str | None:
     """What the whole-book press says when there is nothing left to build."""
 
-    rule = "Each section's questions are written when you finish it."
+    rule = READING_RULE
     if state == "built":
         return f"All of this {noun} is ready for questions. {rule}"
     if state == "building":
