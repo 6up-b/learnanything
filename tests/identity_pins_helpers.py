@@ -1663,7 +1663,35 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "the rich job's admission gate, compared before every request it makes (figure_admission.FiguresGate)",
         "a change stops every running rich job with nothing stored (figures_changed)",
         {"init": _rich_build_key(), "priced": _rich_build_key(price_per_million=2.0, max_daily_cost_usd=0.5)}),
+    IdentitySite(
+        "EP0t", "a prediction target's canonical serialization and target_hash (evidence packets EP0t, §7.7.4)",
+        ("src/learnloop/db/prediction_target.py::PredictionTarget.canonical_json",
+         "src/learnloop/db/prediction_target.py::PredictionTarget.target_hash"),
+        "prediction snapshots' versions_json.snapshot.target (EPp on): reports group, join and later filter "
+        "forecasts by target_hash",
+        "one target recorded before and after the move carries two hashes: reports split it or miss its forecasts",
+        {"full": lambda: prediction_target_pin(), "minimal": lambda: prediction_target_pin(minimal=True)}),
 )
+
+
+def prediction_target_pin(*, minimal: bool = False) -> dict[str, str]:
+    """A fixed target, every typed field set (members given out of canonical order), or only the required ones."""
+
+    from learnloop.db.prediction_target import PredictionTarget, TargetMember
+
+    if minimal:
+        target = PredictionTarget(kind="lo_cold_success", members=(TargetMember("learning_object", "lo_pin_svd"),),
+                                  unit="binary", event_version="cold_success@1", resolver_version="resolver@1")
+    else:
+        target = PredictionTarget(
+            kind="item_unassisted_success",
+            members=(TargetMember("surface_group", "svd_compute", source="authored"),
+                     TargetMember("item", "pi_pin_svd_000", revision="sha256:" + "0" * 64),
+                     TargetMember("facet", "svd_definition"), TargetMember("learning_object", "lo_pin_svd")),
+            unit="category3", event_version="ad_category@1", resolver_version="ad_resolver@1",
+            action_kind="serve", action_id="pi_pin_svd_000", horizon_kind="next_attempt", horizon=None,
+            anchor_kind="plan_presentation", anchor_id="pp_pin")
+    return {"canonical_json": target.canonical_json(), "target_hash": target.target_hash()}
 
 
 def _item_revision() -> Any:
