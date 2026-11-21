@@ -1,11 +1,22 @@
 # Migration-head fixture
 
-**Holds migration 257 (`257_reader_topic_question_work.sql`), the head.** The directory's name carries no number (since
+**Holds migration 258 (`258_ingest_job_progress.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## The first evening, step 6 (migration 258), `ux/first-evening-build-wait`, 2026-11-21
+
+Upgraded in place (no rename; base: `ux/first-evening-next-practice` at `1ac9290577`, head 257) by the B1 procedure
+below: `258_ingest_job_progress.sql` (one new table, `ingest_job_progress`, WORKFLOW, one row per ingest job, no
+index of its own, empty here) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy outside the
+checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[258]` only; `wal_checkpoint(TRUNCATE)`
+(0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked
+file removed and the copy written into its place with `backup_database`, no companion files. Compared with the 257
+file: two objects added (the table and its primary key's autoindex), no existing object's definition changed, and the
+only existing table whose rows changed is `schema_migrations` (gains 258): nothing is backfilled.
 
 ## The first evening, step 3 (migration 257), `ux/first-evening-topic-work`, 2026-11-21
 

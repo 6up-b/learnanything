@@ -310,6 +310,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "ingest_job_dependencies": (
         "job_id depends_on_job_id",
         ""),
+    # Migration 258: what a running job is doing, for a waiting screen; its step is a fixed vocabulary.
+    "ingest_job_progress": (
+        "job_id attempt_count try_number try_started_at step drafted_topics reused output_call_id output_events "
+        "last_output_at updated_at",
+        ""),
     "ingest_jobs": (
         "id batch_id ordinal job_type payload_schema_version status phase current_window total_windows "
         "usage_json attempt_count cancel_requested worker_id heartbeat_at created_at started_at "

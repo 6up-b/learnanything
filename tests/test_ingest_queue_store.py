@@ -11,6 +11,7 @@ _QUEUE_TABLES = (
     "ingest_batches",
     "ingest_jobs",
     "ingest_job_dependencies",
+    "ingest_job_progress",
 )
 
 _QUEUE_API = (
@@ -30,6 +31,10 @@ _QUEUE_API = (
     "ingest_job_dependents",
     "claim_next_ingest_job",
     "heartbeat_ingest_job",
+    "start_ingest_job_progress",
+    "record_ingest_job_progress",
+    "record_ingest_job_output",
+    "ingest_job_progress",
     "finish_owned_ingest_job",
     "expire_ingest_lease",
     "transition_unleased_ingest_job",

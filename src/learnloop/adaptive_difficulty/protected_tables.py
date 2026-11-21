@@ -121,6 +121,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("hypothesis_recurrence_state", DENIED),
     ("ingest_batches", NEUTRAL),
     ("ingest_job_dependencies", NEUTRAL),
+    # What a running ingest job is doing (migration 258): steps, counts and times, no protected material.
+    ("ingest_job_progress", NEUTRAL),
     ("ingest_jobs", NEUTRAL),
     ("interaction_events", PROTECTED),
     ("figure_source_checks", PROTECTED),
