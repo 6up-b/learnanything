@@ -12,7 +12,8 @@ config key, algorithm tag, kill switch or prompt change; no extra receipt row; n
 - **Changed:** `scheduling/forecast_receipts.py` (`ForecastReceipt.snapshot`, one call in `record_receipts`),
   `scheduling/voi_forecasts.py` (`record_forecast`), `adaptive_difficulty/serving.py` (`threshold_receipts`: the
   loop names its item spec once, computes the categories and passes the snapshot; nothing else in the file),
-  `adaptive_difficulty/forecasters.py` (the two in-process forecasters pass a snapshot),
+  `adaptive_difficulty/forecasters.py` (the two in-process forecasters pass a snapshot; optional `served`
+  argument), `adaptive_difficulty/serve.py` (passes the served identity, `serving.served_item`, to them),
   `adaptive_difficulty/material_view.py` and `protected_tables.py` (the snapshot's own withholding rule).
 
 ## 1. The snapshot's shape
@@ -47,7 +48,7 @@ keys it does not find: `setdefault`).
 
 | Producer | Cutoff | Target | Distribution | Provenance |
 |---|---|---|---|---|
-| `ad_threshold@subject`, `@subject_uniform`, `@lo` | `Cutoff.ad_replay(None)` (the serve's `RP.snapshot` reads every readable event, protection through the serve's material view; nothing approximate: at the serve, now is then) | item at its served revision (`item_revision`), LO, each canonical facet, the surface group with its source (`surface_group_with_source`, the key equal to `replay.surface_group`'s); unit `ad_category3`; action `serve`/item; horizon `presentation`; anchor the presentation; event `ad_category:ad_priors_v1`; resolver `ad_forecast_scores_v1` | categorical (§2) | prior and hyper versions; likelihood `graded_response`, version `ad-threshold-v1`, source `adaptive_difficulty.model.category_probabilities`, constants A, LAPSE, KAPPA, TAU0; fitted artifact `ad_state` by state hash; training cutoff `ad_replay`, as_of none; `mixture`: `bank`, `uniform` or `lo_view` |
+| `ad_threshold@subject`, `@subject_uniform`, `@lo` | `Cutoff.ad_replay(None)` (the serve's `RP.snapshot` reads every readable event, protection through the serve's material view; nothing approximate: at the serve, now is then) | item at its served revision (`item_revision`), LO, each canonical facet (`predict.facet_weights`), the surface group (`replay.surface_group`) with the field its key came from (`snapshot_parts.surface_source`), read once per serve by `serving.served_item` (never raises: on failure the writer derives the target); unit `ad_category3`; action `serve`/item; horizon `presentation`; anchor the presentation; event `ad_category:ad_priors_v1`; resolver `ad_forecast_scores_v1` (`snapshot_parts.RESOLVER_VERSION`, restated from `scoring.SCORE_VERSION` because importing scoring closed an import cycle; a test pins the two equal) | categorical (§2) | prior and hyper versions; likelihood `graded_response`, version `ad-threshold-v1`, source `adaptive_difficulty.model.category_probabilities`, constants A, LAPSE, KAPPA, TAU0; fitted artifact `ad_state` by state hash; training cutoff `ad_replay`, as_of none; `mixture`: `bank`, `uniform` or `lo_view` |
 | `mastery_ekf` | `Cutoff.current()` (it reads the persisted mastery states as they stand) | the same members, unit `binary` | binary | version hash; training cutoff absent ("the persisted mastery states keep no cutoff of the evidence they fold") |
 | `lo_general+composite` | `Cutoff.completed_by(served_at)` (the field rows as of the serve) | as above | binary | version hash; training cutoff `completed_by` at the serve |
 | every other producer of the generic writer (outside `llm_v1`/`llm_v3`, `llm_history_v1`, diagnosis, repair, teacher) | absent, with the reason above | derived from columns (`stated_by: writer`, two fields unversioned) | binary, or not issued with its reason | writer's (model call fields where the versions name a prompt or model) |
@@ -61,8 +62,9 @@ as `float(dot(w, rows[..., k]))`. `predict` computes `p̄ = float(dot(w, expecte
 `expected_success` is defined as exactly that `category_probabilities(...)` expression's `[..., 2]`: same inputs,
 same operations, same strided column, same dot. So category 2 is `p̄` bit for bit; no posterior-update
 probability, no unweighted grid average. `threshold_receipts` passes the very view, item spec (`_no_loadings`
-in the LO view), warmth and weights its `p̄` used (`threshold_snapshot`, which never raises: on a failure
-`p_categories` stays `null` as before and the receipt is written).
+in the LO view), warmth and weights its `p̄` used, through a closure handed to `threshold_snapshot` (which never
+raises: if the categories fail, `p_categories` stays `null` as before; if only the snapshot fails, the categories
+are kept; the receipt is written either way).
 
 Tested (`test_threshold_receipts_store_categories_whose_category_two_is_the_binary_value`): at each of two serves
 (the first on the prior, the second on a state the first answer moved), for all three mixture variants (the
@@ -129,6 +131,19 @@ Values from the dump of the two copies (identical in both; ids are the counting 
 Also: no old receipt is updated (receipts are append-only by trigger; the writer only inserts), no new scoring or
 training eligibility (no row added, no reader of the new keys), the clamped `inputs_as_of` is unchanged.
 
+### Goldens that record receipt bodies
+
+Three journey goldens record every row written, receipts' JSON included, so they gained the new keys and were
+regenerated (`DIAGNOSIS_JOURNEY_WRITE_GOLDEN=1`, `DUE_QUEUE_GOLDEN_WRITE=1`, `GRADE_APPLICATION_GOLDEN_WRITE=1`):
+`tests/fixtures/diagnosis_journey_golden.json`, `tests/goldens/due_queue/serving_with_session.json`,
+`tests/goldens/grade_application/history.json`. Checked by script against the previous versions: with every
+`snapshot` and `distribution` key removed (inside JSON-in-text columns too) and the `<id:N>` placeholders
+renumbered by first appearance, all three are equal: the snapshot keys hold ids (anchors, decision refs), so the
+placeholders after them were renumbered; no row, value, decision-state config hash or id pattern changed. The
+structure ratchet's `golden_json_lines` was raised by hand from 235085 to 237130 for these lines (`--write`
+would have rewritten unrelated members); `private_patch_sites` (465) and `source_text_assertions` (23) did not
+rise, nor the import-cycle numbers (84, 220) after the cycle fix.
+
 ## 6. The new pin
 
 Identity site **EPp** in `tests/identity_pins_helpers.py` (sources `prediction_snapshots.receipt_bodies`,
@@ -142,7 +157,7 @@ Identity site **EPp** in `tests/identity_pins_helpers.py` (sources `prediction_s
 
 ## 7. Tests and fail-first evidence
 
-`tests/test_epp_prediction_snapshots.py` (18 tests and one strict xfail), helpers in `tests/epp_snapshot_helpers.py`.
+`tests/test_epp_prediction_snapshots.py` (19 tests and one strict xfail), helpers in `tests/epp_snapshot_helpers.py`.
 Committed first (`f8128c0f65`) and run before the writer was wired (the two new modules present, unused): 16
 failed (`TypeError: ... unexpected keyword argument 'snapshot'`, `KeyError: 'snapshot'`/`'reason'`, the threshold
 test's `assert 0 == 3` category calls; the two-copy journey compared every table equal and failed only on
@@ -157,7 +172,22 @@ warm-up journey (above) and the `llm_v1` item forecasts that make `z_v1` availab
 
 All through the scratch wrapper, each pytest run in a 3G memory scope at `-n 1` with explicit targets.
 
-See the final report for the command table (filled at the end of the step).
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile --extra tui`; `uv pip install --offline pypdfium2==5.14.0` | installed |
+| `pytest tests/test_epp_prediction_snapshots.py` before wiring | `16 failed, 2 passed, 1 xfailed` |
+| the same at the tip | `19 passed, 1 xfailed` (one test added with the cycle fix) |
+| `python tests/test_identity_pins.py --write` | `identities.toml`: 3 insertions (`EPp.*`), nothing else |
+| chunk 1, `-m "not arc_close"`: the brief's name filter (9 files: `test_ad2_model`, `test_ad2_serving`, `test_evidence_cutoff`, `test_evidence_cutoff_census`, `test_evidence_cutoff_readers`, `test_forecast_receipts`, `test_forecast_receipts_landing`, `test_prediction_target`, `test_voi_forecasts`) | `198 passed` |
+| chunk 2, `-m "not arc_close"`: 40 of the 55 files `scripts/affected_tests.py` lists (348 files) whose names match `test_(ad[0-9_]\|adaptive\|*forecast\|*voi\|evsi\|*serve\|*receipt\|*material_view\|placement\|*scoring\|epp_\|ro2_)` | `2 failed, 719 passed, 3 skipped, 1 xfailed`: the two are EPp-2 (`test_ad1_fix_round5.py::test_the_draft_keeps_hint_seen_under_its_retry_key[on/off]`), failing the same with this step's source reverted to the base; they pass in chunk 4's order |
+| chunk 3, `-m "not arc_close"`: the other 15 of them, the diagnosis journey golden, the teacher TE1/TE1b/TE2-log files, `test_rebuild_orchestrator`, `test_te3a_lesson_opportunity`, `test_ad23_migration` (31 files) | `856 passed` |
+| chunk 4, `-m "not arc_close"`: every `test_*golden*` file, `test_identity_pins`, `test_structure_ratchets`, `test_cli_help_snapshot`, `test_kill_switches`, `test_sqlite_file_copies`, `test_public_tip_guards`, `test_ad1_fix_round5`, `test_epp_prediction_snapshots`, `test_ad_protected_tables`, `test_forecast_receipts`, `test_voi_forecasts` | `633 passed, 1 xfailed` |
+| `pytest tests/test_test_layout.py` (alone) | `3 passed` |
+| `pytest tests/test_architecture.py` (alone) | `18 passed` |
+| `ruff check` | `All checks passed!` |
+| `lint-imports --no-cache` | `Contracts: 45 kept, 0 broken.` |
+| `python scripts/check_gate_partition.py` | `collected 32369: landing 32304 + arc_close 65` |
+| `git diff --check` | clean |
 
 ## 9. What the two later parts need from this one
 
