@@ -255,7 +255,7 @@ def test_threshold_receipts_store_categories_whose_category_two_is_the_binary_va
             assert math.isclose(sum(categories), 1.0, rel_tol=0.0, abs_tol=1e-12)
             forecast = stored[name]["forecast"]
             assert [forecast["p_categories"][k] for k in ("0", "1", "2")] == list(categories)
-            assert forecast["p"] == round(prediction.p_bar, 8) == stored[name]["p"]
+            assert forecast["p"] == round(prediction.p_bar, 8) and stored[name]["p"] == prediction.p_bar
             assert forecast["p_band"] == round(prediction.p_band, 8)
             assert forecast["distribution"]["outcomes"] == forecast["p_categories"]
             assert forecast["distribution"]["event_outcomes"] == ["2"]
@@ -347,17 +347,24 @@ def test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it(tmp
         assert len(rows) == 5
         view = material_view(vault, repository)
         assert len(view.filter(connection, "forecast_receipts", rows)) == 5
+        # The same rows judged by the snapshot alone (no column naming the item or the presentation), with and
+        # without a snapshot: only the snapshot's members can withhold these.
+        bare = [{**row, "practice_item_id": None, "plan_presentation_id": None} for row in rows]
         old_shape = [{**row, "versions": {k: v for k, v in row["versions"].items() if k != "snapshot"}}
-                     for row in rows]
+                     for row in bare]
         monkeypatch.setattr(view, "revision_hash_withheld", lambda _connection, value: value == revision)
         assert view.filter(connection, "forecast_receipts", rows) == []
+        assert view.filter(connection, "forecast_receipts", bare) == []
         assert len(view.filter(connection, "forecast_receipts", old_shape)) == 5
 
         fresh = material_view(vault, repository)
+        # The epoch digests the protection: read it first, so the rows stay current and only the rule is tested.
+        assert fresh.epoch == view.epoch
         facet = next(m["id"] for m in rows[0]["versions"]["snapshot"]["target"]["target"]["members"]
                      if m["kind"] == "facet")
         monkeypatch.setattr(fresh, "protected_only_facets", lambda _connection=None: {facet})
         assert fresh.filter(connection, "forecast_receipts", rows) == []
+        assert fresh.filter(connection, "forecast_receipts", bare) == []
         assert len(fresh.filter(connection, "forecast_receipts", old_shape)) == 5
 
         unreadable = [{**rows[0], "versions": {**rows[0]["versions"], "snapshot": {"target": {"target": 7}}}}]

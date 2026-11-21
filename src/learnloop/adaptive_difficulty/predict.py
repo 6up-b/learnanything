@@ -61,6 +61,23 @@ def predict(view: View, spec: ItemSpec, *, warmth: float = 0.0, weights: np.ndar
                       tuple((float(a), float(b)) for a, b in zip(m, v, strict=True)))
 
 
+def category_mixture(view: View, spec: ItemSpec, *, warmth: float = 0.0,
+                     weights: np.ndarray | None = None) -> tuple[float, float, float]:
+    """``P(Y = 0, 1, 2)`` under the view's mixture: what :func:`predict`'s ``p̄`` is the last of.
+
+    The same per-row ``(m, v_e)``, residual variance, guess floor and mixture weights as :func:`predict`,
+    computed by :func:`~learnloop.adaptive_difficulty.model.expected_success`'s own expression, so category 2
+    equals ``p̄`` to the bit. A posterior-update probability (``Bank.update``'s) or an unweighted grid
+    average would be a different distribution from the one the binary receipt states."""
+
+    m, v = view.prediction(spec, warmth)
+    w = mixture_weights(view) if weights is None else weights
+    rows = M.category_probabilities(np.asarray(m), np.asarray(v) + (P.A * P.TAU0) ** 2,
+                                    np.full(np.shape(m), spec.guess))
+    zero, one, two = (float(np.dot(w, rows[..., k])) for k in range(3))
+    return zero, one, two
+
+
 def score(view: View, specs: Sequence[ItemSpec], *, warmth: float = 0.0,
           constants: SelectionConstants = SelectionConstants(), weights: np.ndarray | None = None,
           information: bool = True) -> list[Scored]:
@@ -160,6 +177,7 @@ __all__ = [
     "Prediction",
     "VIEW_SUBJECT",
     "capability",
+    "category_mixture",
     "current_spec",
     "facet_weights",
     "guess",

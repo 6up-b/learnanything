@@ -401,6 +401,7 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
     from learnloop.scheduling.voi_forecasts import parameter
 
     from learnloop.adaptive_difficulty.forecasters import EVENT, receipt_key
+    from learnloop.adaptive_difficulty.snapshot_parts import threshold_snapshot
 
     if not successor_active(vault.config):
         return []
@@ -409,18 +410,24 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
     warmth = _warmth(connection, view, str(item.learning_object_id), served_at)
     constants = S.constants_from_config(vault.config)
     out = []
-    for name, state, weights in (
-        ("ad_threshold@subject", snapshot.subject, None),
-        ("ad_threshold@subject_uniform", snapshot.subject, PR.mixture_weights(snapshot.subject, uniform=True)),
-        ("ad_threshold@lo", snapshot.lo_view(str(item.learning_object_id)), None),
+    for name, state, weights, mixture in (
+        ("ad_threshold@subject", snapshot.subject, None, "bank"),
+        ("ad_threshold@subject_uniform", snapshot.subject, PR.mixture_weights(snapshot.subject, uniform=True),
+         "uniform"),
+        ("ad_threshold@lo", snapshot.lo_view(str(item.learning_object_id)), None, "lo_view"),
     ):
-        prediction = PR.predict(state, spec if state.subject_view else _no_loadings(spec), warmth=warmth,
-                                weights=weights, band=constants.band)
+        item_spec = spec if state.subject_view else _no_loadings(spec)
+        prediction = PR.predict(state, item_spec, warmth=warmth, weights=weights, band=constants.band)
+        # The categories ``p̄`` is the last of, and the prediction snapshot (evaluation-only).
+        categories, parts = threshold_snapshot(
+            vault, item, name=name, state=state, spec=item_spec, warmth=warmth, weights=weights, mixture=mixture,
+            state_hash=snapshot.state_hash(), presentation_kind=presentation_kind, presentation_id=presentation_id,
+            served_at=served_at, epoch=view.epoch)
         out.append(ForecastReceipt(
             receipt_key=receipt_key(presentation_kind, presentation_id, name), kind=ITEM_UNASSISTED_SUCCESS,
             forecaster=name, forecaster_version=f"{THRESHOLD_VERSION}:{P.PRIORS_VERSION}:{P.HYPER_VERSION}",
             scope="presentation", decision_kind="serve", binding_kind=presentation_kind, event=EVENT,
-            forecast={"p": round(prediction.p_bar, 8), "event": EVENT, "p_categories": None,
+            forecast={"p": round(prediction.p_bar, 8), "event": EVENT, "p_categories": categories,
                       "p_band": round(prediction.p_band, 8)},
             inputs={"practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
                     "state_hash": snapshot.state_hash(), "warmth": round(warmth, 8),
@@ -431,6 +438,7 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
             inputs_as_of=served_at, p=prediction.p_bar,
             columns={"decision_ref": presentation_id, "practice_item_id": str(item.id),
                      "learning_object_id": item.learning_object_id, f"{presentation_kind}_id": presentation_id},
+            snapshot=parts,
         ))
     return out
 

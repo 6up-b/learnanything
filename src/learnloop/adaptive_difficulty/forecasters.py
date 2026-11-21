@@ -132,6 +132,11 @@ def in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any,
             warn_failure(LOG, "AD1 in-process forecaster %s skipped for %s", forecaster, item.id)
             continue
         p = min(max(float(p), 0.0), 1.0)
+        from learnloop.adaptive_difficulty.snapshot_parts import in_process_snapshot
+
+        parts = in_process_snapshot(vault, item, forecaster=forecaster, version_hash=version_hash, inputs=inputs,
+                                    presentation_kind=presentation_kind, presentation_id=presentation_id,
+                                    served_at=served_at)
         receipts.append(ForecastReceipt(
             receipt_key=receipt_key(presentation_kind, presentation_id, forecaster),
             kind=ITEM_UNASSISTED_SUCCESS,
@@ -153,6 +158,7 @@ def in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any,
                 "learning_object_id": item.learning_object_id,
                 f"{presentation_kind}_id": presentation_id,
             },
+            snapshot=parts,
         ))
     return receipts
 
