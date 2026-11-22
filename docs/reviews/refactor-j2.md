@@ -178,6 +178,9 @@ All pytest runs through the scratch wrapper, `-n 1 -p no:cacheprovider`, in a 3G
 | `ruff check` | All checks passed |
 | `lint-imports --no-cache` | 45 kept, 0 broken |
 | `python scripts/check_gate_partition.py` | collected 32819: landing 32753 + arc_close 66 |
+| `db_generate_reference.py` (as is) | exit 1: `expected 396 table notes, got 401` (the generator writes notes but does not delete the five dropped tables' notes) |
+| `db_validate_reference.py` (as is) | exit 1: table-note coverage differs, extra = the five dropped tables |
+| the same two after deleting `Reference/Database/Tables/{angle_inventories,controller_constraint_manifests,controller_prequential_reports,family_evidence_cap_policies,learner_theta}.md` | generator exit 0 (`table_notes: 396`, `uncommitted_inputs: 0`); validator exit 0, `errors: []`. The generated changes were then reverted: the landing regenerates. |
 
 ## 7. What the orchestrator must run on owner copies
 
@@ -213,4 +216,4 @@ For each of `arxiv_v2`, `linear_algebra`, `probability` (and any retired vault t
 - Owner vaults and retired vaults (the orchestrator's lane, §7). "Empty" in the review covers only the three live
   vaults as of Nov 9.
 - How the desktop app and the phone host show the refusal (no GUI run); the CLI shows it at the end of a traceback.
-- The landing gate as a whole; the vault references were not regenerated (the landing does).
+- The landing gate as a whole; the vault references were not regenerated (the landing does). **The landing must delete the five dropped tables' notes** under `Reference/Database/Tables/` before `generate_all.py`, or the database generator stops at its note count (shown in §6).
