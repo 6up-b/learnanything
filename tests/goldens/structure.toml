@@ -22,7 +22,7 @@ source_text_assertions = 23
 "src/learnloop/db/repositories.py" = 3025
 "src/learnloop/scheduling/scheduler.py" = 3752
 "src/learnloop_sidecar/handlers/reader.py" = 2980
-golden_json_lines = 237130
+golden_json_lines = 267270
 
 [members]
 import_component = [
