@@ -1356,7 +1356,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_where_no_receipt_can_be_persisted_nothing_is_forced`
 - [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
-  - `test_epp1_stop_condition_scorer_raises_on_unreadable_time`
+  - `test_epp1_unreadable_time_is_invalid_without_changing_other_scores`
 - [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
   - `test_a_protected_item_gets_no_repeat_receipt`
   - `test_a_reopened_presentation_records_nothing_again`
