@@ -7,8 +7,8 @@
   exactly as it was, so a retry starts from the right lifecycle.
 * **F3**: a rebuild completes the recurrence reconciliation its own learner
   replay made necessary, so the rebuild right after it changes nothing.
-* **F2** (rejected, out of scope): the same-second reverse-completion case is
-  pinned as a strict xfail so its fix is noticed.
+* **F2** (rejected for that stage): the same-second reverse-completion case,
+  pinned as a strict xfail until mvp-0.65 fixed it (the application order).
 """
 
 from __future__ import annotations
@@ -177,15 +177,9 @@ def _answer_at(vault, repository, item_id, *, minutes, points, attempt_id):
         attempts_module.new_ulid = real
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "F2, rejected for this stage: two grades of one LO committed in the same second in reverse id "
-        "order replay in (created_at, id) order, not commit order. Pre-existing (replay's fold order); "
-        "the fix needs a persisted commit sequence (a migration) and a new ledger order everywhere."
-    ),
-)
 def test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live(tmp_path):
+    # Fixed at mvp-0.65 (the vault here is at the latest tag): the ledger's order breaks a tie inside one second by
+    # the application sequence apply_attempt reserved. tests/test_same_second_order.py holds the boundaries.
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
     from tests.rebuild_equivalence_helpers import _mastery, _vault
 

@@ -18,6 +18,7 @@ from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
+from learnloop.db.attempt_order import attempt_order_for, reserve_application_sequence
 from learnloop.db.records import FacetUncertaintyState
 from learnloop.db.repositories import (
     ItemParameterState,
@@ -2934,6 +2935,18 @@ def apply_attempt(
     reject_salience(attempt, context="apply_attempt")
 
     with repository.atomic():
+        if not attempt.replace_existing and attempt_order_for(vault.config).by_sequence:
+            # mvp-0.65: the attempt's place among the grades applied in its second, taken under this transaction's
+            # write lock before anything is computed. Its id was minted when grading started, so it cannot say
+            # which of two grades in one second was applied first. A replay or a regrade re-applies an attempt
+            # that already has its place and takes none.
+            with repository.connection() as connection:
+                reserve_application_sequence(
+                    connection,
+                    attempt.attempt_id,
+                    algorithm_version=vault.config.algorithms.algorithm_version,
+                    recorded_at=utc_now_iso(clock),
+                )
         attempt = _refold_server_hints(vault, repository, attempt)
         result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
@@ -3974,8 +3987,9 @@ def load_attempt_prior_state(
 
     ``ledger_before`` is set by replay only: the replayed attempt's own ledger
     position ``(created_at, id)``. The recent-attempt windows then read only
-    the attempts recorded before it, as the live write did; without it replay
-    would read the attempts recorded after it too (rebuild equivalence).
+    the attempts recorded before it in the ledger's order
+    (``attempt_order_for``), as the live write did; without it replay would
+    read the attempts recorded after it too (rebuild equivalence).
     """
 
     facet_ids = list(dict.fromkeys(facets))
@@ -3999,13 +4013,15 @@ def load_attempt_prior_state(
     from learnloop.outcome_contract import HELD_ROW_KEY
     from learnloop.held_grades import held_attempt_ids
 
+    order = attempt_order_for(vault.config)
     recent_lo_attempts = repository.list_recent_attempts_by_learning_object(
         learning_object_id,
         limit=max(vault.config.recall_coverage.familiarity_recent_attempt_window, 20),
         before=ledger_before,
+        order=order,
     )
     recent_item_attempts = repository.list_recent_attempts_by_practice_item(
-        practice_item_id, limit=5, before=ledger_before
+        practice_item_id, limit=5, before=ledger_before, order=order
     )
     held = held_attempt_ids(
         repository, [row.get("id") for row in (*recent_lo_attempts, *recent_item_attempts)]

@@ -36,6 +36,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
 
 from learnloop.clock import Clock, SystemClock, parse_utc
+from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder, application_sequences, attempt_order_for_version
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.attempts import GradingEvidenceRecord
 from learnloop.grading_epochs import ordered_epochs
@@ -211,6 +212,11 @@ class FacetTimelineSnapshot:
     # is unrecorded. The projection banks nothing from them; neither does this
     # fold.
     contract_unrecorded: frozenset[str] = frozenset()
+    # The order ``attempts`` are in and the events' ties are broken by, the
+    # projection's (``learnloop.db.attempt_order``), with each attempt's
+    # application sequence under the application order (empty otherwise).
+    order: AttemptOrder = LEGACY_ORDER
+    application_sequences: dict[str, int] = field(default_factory=dict)
 
 
 def load_facet_timeline_snapshot(
@@ -227,13 +233,18 @@ def load_facet_timeline_snapshot(
 
     grading_by_attempt: dict[str, list[GradingEvidenceRecord]] = defaultdict(list)
     contract_ids: set[str] = set()
+    order = attempt_order_for_version(projection_version)
     merge_map = repository.facet_merge_map()
     for record in repository.list_grading_evidence_history(include_superseded=True):
         grading_by_attempt[record.attempt_id].append(record)
         if record.assessment_contract_version_id:
             contract_ids.add(record.assessment_contract_version_id)
+    sequences: dict[str, int] = {}
+    if order.by_sequence:
+        with repository.connection() as connection:
+            sequences = application_sequences(connection)
     return FacetTimelineSnapshot(
-        attempts=tuple(repository.list_attempt_history()),
+        attempts=tuple(repository.list_attempt_history(order=order)),
         grading_by_attempt={
             attempt_id: tuple(records)
             for attempt_id, records in grading_by_attempt.items()
@@ -248,6 +259,8 @@ def load_facet_timeline_snapshot(
         },
         activity_by_attempt=repository.all_causal_activity_classifications(),
         contract_unrecorded=_contract_unrecorded(repository),
+        order=order,
+        application_sequences=sequences,
     )
 
 
@@ -1014,9 +1027,11 @@ def _observation_events_by_facet(
                 )
         for cell, groups in marked_by_latest_epoch.items():
             seen_groups_by_cell[cell].update(groups)
-    # Stable global order: by event time, then attempt id, then original order.
+    # Stable global order: by event time, then the attempt's place in the ledger's order (its id, or from mvp-0.65
+    # its application sequence and then its id, as the projection folds it), then original order.
+    order, sequences = snapshot.order, snapshot.application_sequences
     for events in events_by_facet.values():
-        events.sort(key=lambda event: (event.event_at, event.attempt_id))
+        events.sort(key=lambda event: order.key(event.event_at, event.attempt_id, sequences))
     return events_by_facet
 
 

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, FrozenClock, parse_utc
+from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.repositories import CANONICAL_STAMPED_TABLES, Repository
 from learnloop.attempts.attempts import AttemptResult, GradeAttribution, replay_existing_attempt
 from learnloop.learner import mastery as learner_mastery
@@ -321,7 +322,8 @@ def _replay_learning_object(
     project_canonical_state: bool,
     clock: Clock | None,
 ) -> ReplayResult:
-    attempts = repository.list_attempts_by_learning_object(learning_object_id)
+    # The order the attempts were applied in (mvp-0.65: a tie inside one second by its application sequence).
+    attempts = repository.list_attempts_by_learning_object(learning_object_id, order=attempt_order_for(vault.config))
     existing_error_events = {
         attempt["id"]: repository.raw_error_events_for_attempt(attempt["id"])
         for attempt in attempts
