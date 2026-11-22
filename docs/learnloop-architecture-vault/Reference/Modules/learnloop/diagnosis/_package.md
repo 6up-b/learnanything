@@ -141,7 +141,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] | [[Reference/Modules/learnloop/diagnosis/grading_hardcases#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] | [[Reference/Modules/learnloop/diagnosis/guided_redo#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/longform_trace|learnloop.diagnosis.longform_trace]] | [[Reference/Modules/learnloop/diagnosis/longform_trace#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] | [[Reference/Modules/learnloop/diagnosis/machine_checks#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
+| [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] | [[Reference/Modules/learnloop/diagnosis/machine_checks#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] | [[Reference/Modules/learnloop/diagnosis/misconceptions#^module-purpose|purpose]] | `ACTIVE` | 10 | 7 |
 | [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] | [[Reference/Modules/learnloop/diagnosis/missing_vocabulary#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/predictive_eig|learnloop.diagnosis.predictive_eig]] | [[Reference/Modules/learnloop/diagnosis/predictive_eig#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -167,7 +167,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] | [[Reference/Modules/learnloop/diagnosis/probe_targeting#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] | [[Reference/Modules/learnloop/diagnosis/probes#^module-purpose|purpose]] | `ACTIVE` | 17 | 16 |
 | [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] | [[Reference/Modules/learnloop/diagnosis/quick_check#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] | [[Reference/Modules/learnloop/diagnosis/remediation#^module-purpose|purpose]] | `ACTIVE` | 15 | 30 |
+| [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] | [[Reference/Modules/learnloop/diagnosis/remediation#^module-purpose|purpose]] | `ACTIVE` | 16 | 31 |
 | [[Reference/Modules/learnloop/diagnosis/repair_splice|learnloop.diagnosis.repair_splice]] | [[Reference/Modules/learnloop/diagnosis/repair_splice#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] | [[Reference/Modules/learnloop/diagnosis/robust_composition#^module-purpose|purpose]] | `ACTIVE` | 14 | 18 |
 | [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] | [[Reference/Modules/learnloop/diagnosis/scoreboard#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
@@ -187,12 +187,12 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 87 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 89 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 58 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 57 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 24 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 23 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 19 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 20 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 18 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 18 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 11 static module edges
@@ -215,6 +215,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
+- [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 1 static module edge
 
 ### Packages that import this package
 
@@ -265,8 +266,8 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_followup_run["learnloop.followup_run"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_scheduling["learnloop.scheduling"]
-    center -->|87| n_learnloop
+    n_learnloop_db_stores["learnloop.db.stores"]
+    center -->|89| n_learnloop
     center -->|58| n_learnloop_vault
     center -->|57| n_learnloop_db
     n_learnloop_attempts -->|22| center
@@ -278,8 +279,7 @@ flowchart LR
     n_learnloop_followup_run -->|23| center
     n_learnloop_learner -->|5| center
     center -->|18| n_learnloop_learner
-    n_learnloop_scheduling -->|11| center
-    center -->|9| n_learnloop_scheduling
+    center -->|20| n_learnloop_db_stores
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

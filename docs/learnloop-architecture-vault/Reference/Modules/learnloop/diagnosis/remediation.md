@@ -47,55 +47,59 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py) |
-| Source lines | 1487 |
+| Source lines | 1596 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class RemediationError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 59)
-- `class RemediationBlocked(RemediationError)` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 63) — A repair that the causal state holds back, with its typed status.
-  - `__init__(self, status: Any) -> None` (line 71; internal)
-  - `status(self) -> str` (line 76; public)
-- `open_episode_for_practice_item(repository: Repository, practice_item_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 80) — The live repair episode a reveal on ``practice_item_id`` belongs to.
-- `episode_reveal_spend(repository: Repository, episode_id: str | None) -> float` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 109) — How much answer this repair episode has already handed over (0..1+).
-- `start_remediation_episode(repository: Repository, misconception_id: str, *, vault: LoadedVault | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 131) — Start the repair episode, or raise the typed causal hold.
-- `episode_case(repository: Repository, episode: dict[str, Any]) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 166)
-- `case_value(case: Any, key: str, default: Any=None) -> Any` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 172)
-- `prescribe_remediation(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None, passage_provider: Any | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 178) — Prescribe the passages a repair overlay shows.
-- `record_prescription_delivery(repository: Repository, episode: Mapping[str, Any], *, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 280) — Record that this episode's prescribed passages were delivered for render.
-- `item_step_checkpoint_ids(target_refs) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 350)
-- `item_checkpoints(item: Any) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 424)
-- `start_remediation_treatment(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 524)
-- `record_remediation_attempt(repository: Repository, attempt: dict[str, Any], *, clock: Clock | None=None, vault: LoadedVault | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 817) — Link treatment attempts and consume delayed tasks exactly once.
-- `reschedule_assisted_cold_retry(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1111) — Help taken on a due repair cold retry: end it and schedule ONE fresh cold retry for the same repair (owner decision 2026-10-25, Reader CA2 follow-up Q4; ``mvp-0.38``).
-- `assisted_attempt(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1346) — Did the attempt take help (hints, a hinted type) or see its answer (primed)?
-- `withdraw_cold_measurement(vault: LoadedVault | None, repository: Repository, task_id: str, *, reason: str, reveal_event_ids: tuple[str, ...] | list[str]=(), decision: Mapping[str, Any] | None=None, stage: str='serve', release_reservation: bool=True, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1367) — Withdraw an open cold measurement its selected surface can no longer give a cold reading (the one eligibility decision, ``mvp-0.27``; Codex review F2): the item's answer was shown with no lapse (submit primes it until an attempt, and an attempt on it is a hard exposure of the co…
-- `misconception_status_history(repository: Repository, misconception_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1480)
+- `class RemediationError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 63)
+- `class RemediationBlocked(RemediationError)` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 67) — A repair that the causal state holds back, with its typed status.
+  - `__init__(self, status: Any) -> None` (line 75; internal)
+  - `status(self) -> str` (line 80; public)
+- `open_episode_for_practice_item(repository: Repository, practice_item_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 84) — The live repair episode a reveal on ``practice_item_id`` belongs to.
+- `episode_reveal_spend(repository: Repository, episode_id: str | None) -> float` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 113) — How much answer this repair episode has already handed over (0..1+).
+- `start_remediation_episode(repository: Repository, misconception_id: str, *, vault: LoadedVault | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 135) — Start the repair episode, or raise the typed causal hold.
+- `episode_case(repository: Repository, episode: dict[str, Any]) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 170)
+- `case_value(case: Any, key: str, default: Any=None) -> Any` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 176)
+- `prescribe_remediation(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None, passage_provider: Any | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 182) — Prescribe the passages a repair overlay shows.
+- `record_prescription_delivery(repository: Repository, episode: Mapping[str, Any], *, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 284) — Record that this episode's prescribed passages were delivered for render.
+- `item_step_checkpoint_ids(target_refs) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 354)
+- `item_checkpoints(item: Any) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 428)
+- `start_remediation_treatment(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 528)
+- `record_remediation_attempt(repository: Repository, attempt: dict[str, Any], *, clock: Clock | None=None, vault: LoadedVault | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 821) — Link treatment attempts and consume delayed tasks exactly once.
+- `reschedule_assisted_cold_retry(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1115) — Help taken on a due repair cold retry: end it and schedule ONE fresh cold retry for the same repair (owner decision 2026-10-25, Reader CA2 follow-up Q4; ``mvp-0.38``).
+- `assisted_attempt(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1350) — Did the attempt take help (hints, a hinted type) or see its answer (primed)?
+- `withdraw_cold_measurement(vault: LoadedVault | None, repository: Repository, task_id: str, *, reason: str, reveal_event_ids: tuple[str, ...] | list[str]=(), decision: Mapping[str, Any] | None=None, stage: str='serve', release_reservation: bool=True, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1371) — Withdraw an open cold measurement its selected surface can no longer give a cold reading (the one eligibility decision, ``mvp-0.27``; Codex review F2): the item's answer was shown with no lapse (submit primes it until an attempt, and an attempt on it is a hard exposure of the co…
+- `episode_item_id(repository: Repository, episode: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1503) — The practice item of the miss ``episode`` repairs, or None when no diagnosing attempt resolves.
+- `review_came_due(repository: Repository, item_id: str, *, opened: str, now: datetime, due_read: Callable[[str, Any], datetime | None]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1545) — Whether ``item_id``'s next ordinary review since ``opened`` has come due by ``now``.
+- `end_untaken_episodes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1557) — End every untaken episode whose item's next ordinary review is due; returns the episodes ended.
+- `misconception_status_history(repository: Repository, misconception_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1589)
 
 ### Module constants
 
-- `REPAIR_COLD_OPPORTUNITY_POLICY_VERSION` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 20)
-- `COLD_RETRIEVAL_DELAY` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 31)
-- `COLD_RETRY_WINDOW` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 37)
-- `EPISODE_REVEAL_BUDGET` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 56)
-- `REMEDIATION_DELIVERY_CONTEXT` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 272)
-- `REMEDIATION_DELIVERY_ENTITY_TYPE` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 277)
-- `RECENT_ATTEMPT_WINDOW` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 347)
-- `ASSISTED_RESCHEDULE_CONTEXT_KEY` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1103)
-- `ASSISTED_RESCHEDULE_TRIGGER` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1108)
-- `WITHDRAWN_COLD_RETRY_OUTCOME` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1364)
+- `REPAIR_COLD_OPPORTUNITY_POLICY_VERSION` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 24)
+- `COLD_RETRIEVAL_DELAY` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 35)
+- `COLD_RETRY_WINDOW` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 41)
+- `EPISODE_REVEAL_BUDGET` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 60)
+- `REMEDIATION_DELIVERY_CONTEXT` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 276)
+- `REMEDIATION_DELIVERY_ENTITY_TYPE` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 281)
+- `RECENT_ATTEMPT_WINDOW` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 351)
+- `ASSISTED_RESCHEDULE_CONTEXT_KEY` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1107)
+- `ASSISTED_RESCHEDULE_TRIGGER` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1112)
+- `WITHDRAWN_COLD_RETRY_OUTCOME` ([src/learnloop/diagnosis/remediation.py](../../../../../../src/learnloop/diagnosis/remediation.py), line 1368)
 
 ## Internal implementation anchors
 
-- `_case_target_checkpoint_ids(repository: Repository, misconception, *, case_kind: str='misconception', case_ref: str | None=None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 362) — The checkpoint ids the case's selected repair class targets, if known.
-- `_rank_items(vault: LoadedVault, repository: Repository, misconception, *, target_checkpoint_ids: tuple[str, ...]=(), clock: Clock | None=None) -> tuple[list[Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 435) — The repair's candidate items best-first, plus the servability skips.
-- `_independent_cold_item(vault: LoadedVault, repository: Repository, candidates: list[Any], *, excluded_surfaces: set[str | None]) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 669) — The best-ranked candidate on a surface group outside ``excluded_surfaces`` whose own material the learner was not shown (exam protection: ``exposed_items`` with held-out material), or None.
-- `_independent_cold_candidates(vault: LoadedVault, repository: Repository, candidates: list[Any], *, excluded_surfaces: set[str | None]) -> list[Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 690) — Every candidate :func:`_independent_cold_item` accepts, in rank order.
-- `_record_unbound_primed_disposition(repository: Repository, attempt: dict[str, Any], *, vault: LoadedVault | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 706) — Typed §4.3 disposition for a primed repair attempt with NO episode.
-- `_repair_forecast(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, repair_class_id: str | None, hypothesis_ids: list[str] | tuple[str, ...]=(), episode: Mapping[str, Any] | None=None, task: Mapping[str, Any] | None=None, censor_reason: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 790) — Saved diagnosis forecasts: the repair's predicted cold outcome, in the primed attempt's transaction (bound to its cold task, or censored at birth with the reason none was scheduled).
-- `_reschedule_assisted_cold_retry(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, withdrawn_episode_ids: list[str], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1177) — The rescheduling itself; ``withdrawn_episode_ids`` collects the episode of a retry it withdrew.
+- `_case_target_checkpoint_ids(repository: Repository, misconception, *, case_kind: str='misconception', case_ref: str | None=None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 366) — The checkpoint ids the case's selected repair class targets, if known.
+- `_rank_items(vault: LoadedVault, repository: Repository, misconception, *, target_checkpoint_ids: tuple[str, ...]=(), clock: Clock | None=None) -> tuple[list[Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 439) — The repair's candidate items best-first, plus the servability skips.
+- `_independent_cold_item(vault: LoadedVault, repository: Repository, candidates: list[Any], *, excluded_surfaces: set[str | None]) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 673) — The best-ranked candidate on a surface group outside ``excluded_surfaces`` whose own material the learner was not shown (exam protection: ``exposed_items`` with held-out material), or None.
+- `_independent_cold_candidates(vault: LoadedVault, repository: Repository, candidates: list[Any], *, excluded_surfaces: set[str | None]) -> list[Any]` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 694) — Every candidate :func:`_independent_cold_item` accepts, in rank order.
+- `_record_unbound_primed_disposition(repository: Repository, attempt: dict[str, Any], *, vault: LoadedVault | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 710) — Typed §4.3 disposition for a primed repair attempt with NO episode.
+- `_repair_forecast(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, repair_class_id: str | None, hypothesis_ids: list[str] | tuple[str, ...]=(), episode: Mapping[str, Any] | None=None, task: Mapping[str, Any] | None=None, censor_reason: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 794) — Saved diagnosis forecasts: the repair's predicted cold outcome, in the primed attempt's transaction (bound to its cold task, or censored at birth with the reason none was scheduled).
+- `_reschedule_assisted_cold_retry(vault: LoadedVault | None, repository: Repository, attempt: Mapping[str, Any], *, withdrawn_episode_ids: list[str], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1181) — The rescheduling itself; ``withdrawn_episode_ids`` collects the episode of a retry it withdrew.
+- `_reviewed_since(repository: Repository, item_id: str, since: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/remediation.py), line 1532)
 
 ## Who imports or calls it
 
@@ -109,6 +113,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `EPISODE_REVEAL_BUDGET`, `episode_reveal_spend`; statically calls `episode_reveal_spend`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `COLD_RETRIEVAL_DELAY`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `RemediationError`, `_rank_items`, `episode_case`, `start_remediation_episode`; statically calls `_rank_items`, `episode_case`, `start_remediation_episode`
+- [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] — imports `end_untaken_episodes`; statically calls `end_untaken_episodes`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `COLD_RETRIEVAL_DELAY`
 - [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `COLD_RETRIEVAL_DELAY`
 - [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] — imports `misconception_status_history`; statically calls `misconception_status_history`
@@ -122,19 +127,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `untaken_episode_end_on`; calls `untaken_episode_end_on`
 - [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] — imports `LANE_REPAIR_COLD_RETRY`, `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`, `repair_surface_hard_contamination`; calls `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`, `repair_surface_hard_contamination`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`; calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exam_material`, `exposed_items`; calls `exam_material`, `exposed_items`
 - [[Reference/Modules/learnloop/content/sources/provenance|learnloop.content.sources.provenance]] — imports `get_entity_provenance`; calls `get_entity_provenance`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/intent_reads|learnloop.db.stores.intent_reads]] — imports `module`; calls `attempts_since`
 - [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `cold_verification_context`; calls `cold_verification_context`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `causal_repair_status`; calls `causal_repair_status`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `record_causal_cold_outcome`; calls `record_causal_cold_outcome`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `record_repair_expectation`; calls `record_repair_expectation`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `diagnosis_receipt`, `selected_repair`; calls `diagnosis_receipt`, `selected_repair`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`; calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `parse_block_span`; calls `parse_block_span`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `SpanViewError`, `build_span_view`; calls `build_span_view`
+- [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `fsrs_eligible`, `ordinary_due_reader`; calls `fsrs_eligible`, `ordinary_due_reader`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `COLD_CHECK_HELP_TAKEN`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `unservable_refusal`; calls `unservable_refusal`
@@ -152,7 +161,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]], [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]], [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -236,6 +245,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
   - `test_cold_check_feedback_requires_cold_retrieval_and_intact_window`
   - `test_the_primed_repair_attempt_gets_no_cold_check_result`
+- [tests/test_untaken_repair_episode.py](../../../../../../tests/test_untaken_repair_episode.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1_the_routine_display_horizon_is_the_cold_retrieval_delay`
 

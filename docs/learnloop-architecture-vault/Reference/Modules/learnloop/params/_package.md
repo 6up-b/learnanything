@@ -46,7 +46,7 @@ For system intent, use [[Learning System]], [[Configuration]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/params/__init__|learnloop.params]] | [[Reference/Modules/learnloop/params/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] | [[Reference/Modules/learnloop/params/fitted_params#^module-purpose|purpose]] | `ACTIVE` | 25 | 7 |
+| [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] | [[Reference/Modules/learnloop/params/fitted_params#^module-purpose|purpose]] | `ACTIVE` | 26 | 7 |
 | [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] | [[Reference/Modules/learnloop/params/parameter_registry#^module-purpose|purpose]] | `ACTIVE` | 6 | 45 |
 | [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] | [[Reference/Modules/learnloop/params/sensitivity_certificates#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 
@@ -69,12 +69,12 @@ For system intent, use [[Learning System]], [[Configuration]].
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 2 static module edges
+- [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
-- [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 1 static module edge
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
@@ -96,7 +96,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_goals["learnloop.goals"]
-    n_learnloop_config["learnloop.config"]
+    n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop_scheduling -->|7| center
     center -->|1| n_learnloop_scheduling
     n_learnloop_attempts -->|4| center
@@ -109,7 +109,7 @@ flowchart LR
     n_learnloop_substrate -->|1| center
     center -->|2| n_learnloop_substrate
     n_learnloop_goals -->|2| center
-    center -->|1| n_learnloop_config
+    n_learnloop_scheduling_intent -->|2| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

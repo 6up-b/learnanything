@@ -1656,6 +1656,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_receipts_store_labels_and_unlabelled_calls_work_below_175`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`
 - [tests/test_k1_serve_door_reservation.py](../../../../../../tests/test_k1_serve_door_reservation.py) — direct import
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_km2_canonical.py](../../../../../../tests/test_km2_canonical.py) — direct import
@@ -2549,6 +2550,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tutor_promotion_w2.py](../../../../../../tests/test_tutor_promotion_w2.py) — direct import
 - [tests/test_tutor_qa.py](../../../../../../tests/test_tutor_qa.py) — direct import
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_untaken_repair_episode.py](../../../../../../tests/test_untaken_repair_episode.py) — direct import
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
   - `test_attaches_that_never_write_refuse_while_the_journal_stands`
   - `test_each_activation_kind_commits_its_own_receipt_once`

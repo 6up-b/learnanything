@@ -47,25 +47,25 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/machine_checks.py](../../../../../../src/learnloop/diagnosis/machine_checks.py) |
-| Source lines | 354 |
+| Source lines | 363 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `backfill_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 47) — The typed backfill obligation for one classified cause set.
-- `instrument_commissioning_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 82) — The typed obligation for a divergent factor with no instrument.
-- `enqueue_backfill_obligation(repository: Repository, obligation: Mapping[str, Any], *, learning_object_id: str | None, source: str='causal_orchestrator', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 110) — Queue one typed obligation; idempotent on its content hash.
-- `sweep_machine_checks(vault: LoadedVault, repository: Repository, learning_object_id: str, *, source: str='causal_orchestrator', clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 136) — Turn backfill obligations into queued machine checks, idempotently.
-- `close_satisfied_backfills(repository: Repository, factor_id: str, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 278) — Close this factor's repair-mapping checks once it owes nothing.
-- `resolve_machine_check(repository: Repository, check_id: str, *, resolution: Mapping[str, Any], status: str='resolved', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 308) — Explicit discharge for a regrade / verifier / authoring agent.
-- `pending_machine_checks_for_factor(repository: Repository, *, factor_id: str, learning_object_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 323) — Checks that must discharge before this factor may buy learner effort.
+- `backfill_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 48) — The typed backfill obligation for one classified cause set.
+- `instrument_commissioning_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 83) — The typed obligation for a divergent factor with no instrument.
+- `enqueue_backfill_obligation(repository: Repository, obligation: Mapping[str, Any], *, learning_object_id: str | None, source: str='causal_orchestrator', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 111) — Queue one typed obligation; idempotent on its content hash.
+- `sweep_machine_checks(vault: LoadedVault, repository: Repository, learning_object_id: str, *, source: str='causal_orchestrator', clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 137) — Turn backfill obligations into queued machine checks, idempotently.
+- `close_satisfied_backfills(repository: Repository, factor_id: str, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 287) — Close this factor's repair-mapping checks once it owes nothing.
+- `resolve_machine_check(repository: Repository, check_id: str, *, resolution: Mapping[str, Any], status: str='resolved', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 317) — Explicit discharge for a regrade / verifier / authoring agent.
+- `pending_machine_checks_for_factor(repository: Repository, *, factor_id: str, learning_object_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 332) — Checks that must discharge before this factor may buy learner effort.
 
 ## Internal implementation anchors
 
-- `_machine_check_id(obligation: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 33)
-- `_close_orphan_checks(repository: Repository, learning_object_id: str, live: set[str], *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 250)
+- `_machine_check_id(obligation: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 34)
+- `_close_orphan_checks(repository: Repository, learning_object_id: str, live: set[str], *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/machine_checks.py), line 259)
 
 ## Who imports or calls it
 
@@ -89,6 +89,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `MACHINE_CHECK_INSTRUMENT_COMMISSIONING`, `MACHINE_CHECK_REPAIR_MAPPING`, `PROBE_BLOCKING_MACHINE_CHECK_KINDS`, `SWEPT_MACHINE_CHECK_KINDS`
 - [[Reference/Modules/learnloop/diagnosis/content_ids|learnloop.diagnosis.content_ids]] — imports `content_id`; calls `content_id`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `classify_cause_set`; calls `classify_cause_set`
+- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `end_untaken_episodes`; calls `end_untaken_episodes`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `RIVAL_CAUSES_FACTOR_VERSION`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -123,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_follow_up_router_asks_the_same_check`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_d_a_pending_machine_check_refuses_before_the_router`
+- [tests/test_untaken_repair_episode.py](../../../../../../tests/test_untaken_repair_episode.py) — direct import
 
 ## Modification guidance
 

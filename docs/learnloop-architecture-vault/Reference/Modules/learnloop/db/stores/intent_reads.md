@@ -87,6 +87,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]] — imports `module`; statically calls `commitment_tables_present`, `events_for`, `head_targets_for`, `versions_for`
+- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `module`; statically calls `attempts_since`
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `module`; statically calls `attempts_for_anchor`
 - [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] — imports `module`; statically calls `commitment_tables_present`, `commitments_covering_items`, `events_for`, `head_targets_for`, `versions_for`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `module`; statically calls `attempts_since`
@@ -109,7 +110,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]], [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]], [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]], [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]], [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]], [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -119,16 +120,16 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_check_credit_activation.py](../../../../../../../tests/test_check_credit_activation.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]]
 - [tests/test_check_delivery.py](../../../../../../../tests/test_check_delivery.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]]
-- [tests/test_intent_codex_review.py](../../../../../../../tests/test_intent_codex_review.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]]
-- [tests/test_intent_recall_targets.py](../../../../../../../tests/test_intent_recall_targets.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]]
-- [tests/test_curriculum_c0b_landing.py](../../../../../../../tests/test_curriculum_c0b_landing.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]]
-- [tests/test_intent_goal_deadline.py](../../../../../../../tests/test_intent_goal_deadline.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]]
-- [tests/test_intent_resolution.py](../../../../../../../tests/test_intent_resolution.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]]
-- [tests/test_reader_followups.py](../../../../../../../tests/test_reader_followups.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]]
-- [tests/ad23_fakes.py](../../../../../../../tests/ad23_fakes.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
-- [tests/data_capture_codex_review_helpers.py](../../../../../../../tests/data_capture_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
-- [tests/intent_fakes.py](../../../../../../../tests/intent_fakes.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
-- [tests/reader_followups_round4_helpers.py](../../../../../../../tests/reader_followups_round4_helpers.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
+- [tests/causal_cold_outcomes_helpers.py](../../../../../../../tests/causal_cold_outcomes_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/diagnosis_journey_helpers.py](../../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/remediation_cold_retry_helpers.py](../../../../../../../tests/remediation_cold_retry_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/test_causal_attribution_p0.py](../../../../../../../tests/test_causal_attribution_p0.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/test_causal_attribution_p2.py](../../../../../../../tests/test_causal_attribution_p2.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/test_causal_factor_deferral.py](../../../../../../../tests/test_causal_factor_deferral.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/test_causal_orchestrator.py](../../../../../../../tests/test_causal_orchestrator.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/test_causal_p2_acceptance.py](../../../../../../../tests/test_causal_p2_acceptance.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/test_cold_retry_reschedule.py](../../../../../../../tests/test_cold_retry_reschedule.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
+- [tests/test_coldness_receipt.py](../../../../../../../tests/test_coldness_receipt.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]]
 
 ## Modification guidance
 

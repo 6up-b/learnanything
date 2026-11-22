@@ -102,6 +102,7 @@ Indexes and uniqueness:
 
 - `Repository._release_cold_reservation()`
 - `Repository._remediation_cold_item_ids()`
+- `Repository.abandon_untaken_remediation_episode()`
 - `Repository.active_followup_task_for_item()`
 - `Repository.attach_followup_task_measurement_opportunity()`
 - `Repository.consume_followup_task()`

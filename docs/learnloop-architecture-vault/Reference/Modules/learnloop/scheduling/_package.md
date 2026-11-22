@@ -99,7 +99,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] | [[Reference/Modules/learnloop/scheduling/randomization_layer#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] | [[Reference/Modules/learnloop/scheduling/reentry_summary#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] | [[Reference/Modules/learnloop/scheduling/review_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] | [[Reference/Modules/learnloop/scheduling/scheduler#^module-purpose|purpose]] | `ACTIVE` | 20 | 97 |
+| [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] | [[Reference/Modules/learnloop/scheduling/scheduler#^module-purpose|purpose]] | `ACTIVE` | 20 | 98 |
 | [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] | [[Reference/Modules/learnloop/scheduling/selection_rewards#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
 | [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] | [[Reference/Modules/learnloop/scheduling/serving_exclusions#^module-purpose|purpose]] | `ACTIVE` | 5 | 18 |
 | [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] | [[Reference/Modules/learnloop/scheduling/session_minutes#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -117,7 +117,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 38 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 39 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 24 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
@@ -185,7 +185,7 @@ flowchart LR
     n_learnloop_evsi_calibration["learnloop.evsi_calibration"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop -->|2| center
-    center -->|38| n_learnloop
+    center -->|39| n_learnloop
     center -->|24| n_learnloop_db
     n_learnloop_diagnosis -->|9| center
     center -->|11| n_learnloop_diagnosis

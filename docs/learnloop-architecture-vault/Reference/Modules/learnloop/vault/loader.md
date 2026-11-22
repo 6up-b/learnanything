@@ -1942,6 +1942,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
   - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`
 - [tests/test_k1_serve_door_reservation.py](../../../../../../tests/test_k1_serve_door_reservation.py) — direct import
 - [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
   - `test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored`
@@ -3449,6 +3450,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tutor_qa.py](../../../../../../tests/test_tutor_qa.py) — direct import
   - `test_ask_question_library_context_and_daily_limit`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_untaken_repair_episode.py](../../../../../../tests/test_untaken_repair_episode.py) — direct import
+  - `test_an_episode_open_at_the_upgrade_is_ended_by_the_first_sweep_after_it`
+  - `test_the_sweeps_due_read_is_the_plans`
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_ux_phase1_add_source.py](../../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_the_whole_path_runs_with_the_queue_draining`
