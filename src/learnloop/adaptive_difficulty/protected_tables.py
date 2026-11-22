@@ -56,6 +56,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("assessment_contract_versions", NEUTRAL),
     ("assumption_decisions", DENIED),
     ("assumption_returns", DENIED),
+    # mvp-0.65 (migration 261): an attempt's application sequence, read with the attempt it names.
+    ("attempt_application_order", PROTECTED),
     ("attempt_diagnoses", DENIED),
     ("attention_block_events", PROTECTED),
     ("attention_blocks", NEUTRAL),
@@ -341,6 +343,8 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "algorithm_version generating_job_id created_at"),
     "ad_state": _table({},
         values="view part payload_json state_hash as_of versions_json"),
+    "attempt_application_order": _table({"attempt_id": "attempt"},
+        values="sequence basis algorithm_version recorded_at"),
     "attention_block_events": _table({"detail_json": "plan_detail@block_id"},
         values="id block_id event_ordinal kind created_at"),
     "entity_source_links": _table({"entity_id": "entity@entity_type", "extraction_id": "extraction",
