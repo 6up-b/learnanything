@@ -333,6 +333,9 @@ export interface ReadingProgress {
   /** What each section finished in this visit started, from the backend's answer: its questions being written, waiting
    *  for the book, or nothing to say. */
   sectionFinishes: Record<string, SectionFinish>;
+  /** Sections finished by the learner's own reading reaching their end, as the backend stored it (this visit's saves and
+   *  the progress read on opening): the guide says the reading finished them. */
+  endedSections: string[];
   jumpToSpan: (spanId: string, align?: PassageAlign) => void;
   /** The view is about to move without a jump (focus brings a transcript's
    *  margin mark into view): a placement, like a jump -- the learner's
@@ -438,6 +441,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   const [dismissedSections, setDismissedSections] = useState<string[]>([]);
   const [completedSections, setCompletedSections] = useState<string[]>([]);
   const [sectionFinishes, setSectionFinishes] = useState<Record<string, SectionFinish>>({});
+  const [endedSections, setEndedSections] = useState<string[]>([]);
+  // Whether the reading area shows the book's last passage now: the whole-book position is then its end, though the
+  // reading marker, part-way down the view, rests on a passage a few before it.
+  const [lastInView, setLastInView] = useState(false);
   const [sectionPromptsEnabled, setSectionPromptsEnabled] = useState(() => {
     try {
       return window.localStorage.getItem("learnloop.reader.section-prompts") !== "off";
@@ -499,6 +506,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     if (!finish) return;
     setCompletedSections((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
     setSectionFinishes((current) => (current[sectionId] ? current : { ...current, [sectionId]: finish }));
+    if (result?.progress?.completionCause === "reached_end") {
+      setEndedSections((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
+    }
   }, []);
   const noteProgressSaved = useCallback((extractionId: string, sectionId: string, result: ReaderMarkProgressResultDto | null) => {
     if (extractionId !== activeSeenRef.current) return;
@@ -550,6 +560,8 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     setDismissedSections([]);
     setCompletedSections([]);
     setSectionFinishes({});
+    setEndedSections([]);
+    setLastInView(false);
     setAuthoringSections([]);
     setTimedOutSections([]);
     authorRequestedRef.current = new Set();
@@ -645,6 +657,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     setCompletedSections((ids) => [
       ...new Set([...ids, ...progress.sections.filter((s) => s.completedAt).map((s) => s.sectionId)])
     ]);
+    setEndedSections((ids) => [
+      ...new Set([...ids, ...progress.sections.filter((s) => s.completedAt && s.completionCause === "reached_end").map((s) => s.sectionId)])
+    ]);
     setReadingHistory(progress.sections);
   }, []);
 
@@ -721,12 +736,15 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // marker stands): the guide's bar under the section's name (finishing pass,
   // re-test #7: the bar was full on arriving at an unread one-page section).
   // A position, not proof that every passage was read: a finished section is not forced to 100 % (the learner may
-  // have said they read it, or skimmed to its end).
+  // have said they read it half-way). Its end is the end: the section's last passage shown during the learner's own
+  // movement (this visit, or a finish the backend stored as reached by its end). The count alone stops short of it,
+  // because it is the reading marker's passage and the marker sits part-way down the view.
   const currentSectionRead = useMemo(() => {
     if (!currentGuideSection) return 0;
+    if (reachedEnds.includes(currentGuideSection.id) || endedSections.includes(currentGuideSection.id)) return 1;
     const count = Math.max(1, currentGuideSection.spanIds.length);
     return Math.min(1, (sectionSeen[currentGuideSection.id] ?? 0) / count);
-  }, [currentGuideSection, sectionSeen]);
+  }, [currentGuideSection, sectionSeen, reachedEnds, endedSections]);
   // The original PDF's section break is at the section's last page, reached
   // by the learner's own reading this visit (finishing pass, re-test #8: a
   // check came a page before "the table on the next page"; #2: a resume into
@@ -850,9 +868,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     return offered[offered.length - 1] ?? null;
   }, [pdfView, surface, offline, boundaryChecksAvailable, guidePlan, currentGuideSection, openQuestionSections, hiddenPdfOffers, focusQuickCheck]);
   const readingProgress = useMemo(() => {
+    if (lastInView && blocks.length > 0) return 1;
     const at = blocks.findIndex((block) => block.spanId === (readingSpan ?? activeSpan));
     return at < 0 ? 0 : (at + 1) / Math.max(1, blocks.length);
-  }, [blocks, readingSpan, activeSpan]);
+  }, [blocks, readingSpan, activeSpan, lastInView]);
 
   // How far each section was read (usability round 1, U3). Scrolling through a
   // section counts its passages up to the reading marker; leaving it forward
@@ -1048,6 +1067,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     if (!container || Date.now() < settleUntilRef.current) return;
     if (pageModeRef.current) {
       // The original PDF with page-only passages: the page under the marker.
+      setLastInView(false);
       const position = pagePositionAt(container, READING_MARKER);
       const spanId = position ? spanOnPage(pageSpansRef.current, position) : null;
       if (position && spanId) {
@@ -1059,6 +1079,11 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     const containerRect = container.getBoundingClientRect();
     const markerY = containerRect.top + containerRect.height * READING_MARKER;
     const nodes = Array.from(container.querySelectorAll<HTMLElement>("[data-span-id]"));
+    const last = nodes[nodes.length - 1];
+    const lastRect = last?.getBoundingClientRect();
+    // Shown as the end event counts it (passagesInView): some part of it inside the reading area.
+    setLastInView(Boolean(lastRect && (lastRect.width > 0 || lastRect.height > 0)
+      && lastRect.bottom > containerRect.top && lastRect.top < containerRect.bottom));
     let best: HTMLElement | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const node of nodes) {
@@ -1340,7 +1365,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     boundaryChecksAvailable, authoringSections, timedOutSections: shownTimedOutSections, guideSectionBySpan, guideSectionByEnd,
     currentGuideSection, currentSectionProgress, currentSectionRead, pdfSurfaceActive, pageMode, checkSurface,
     offeredCheckSections, openQuestionSections, pendingQuickCheckCount, currentQuestionOpen, pdfOfferSection,
-    readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, sectionFinishes, jumpToSpan, notePlacement, revealSegment,
+    readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, sectionFinishes, endedSections, jumpToSpan, notePlacement, revealSegment,
     onReadingScroll, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleUntilRef, handoffRef, jumpGuardRef,
     settleOpening, placeAtOpen, placeApproximate, noteFoundApproximate, hydrateProgress, resetProgress,
   };

@@ -387,3 +387,39 @@ it("passagesInView: a passage is shown when part of it lies inside the reading a
   scrollY = 400;
   expect(passagesInView(body, pages)).toEqual(["a", "b"]);
 });
+
+// The live walk sectionend-1 (UX-78): at the chapter's last passage, and after the Reader said "Section finished", both
+// progress indicators read 99 %: the reading marker sits 70 % down the view, so at the bottom of the page it rests on a
+// passage a few before the last, and both read the marker's passage. The end shown during the learner's own movement
+// is the end of the section's position; the whole-book position is the end when the book's last passage is in view.
+it("at the true end of a section the section and book positions read the end, though the marker rests part-way down", async () => {
+  const { result } = openChapter();
+  await wait(2000);
+  for (let stop = 1; stop <= 12; stop += 1) {
+    await moveByHand(result, [stop * VIEW]);
+    await wait(3000);
+  }
+  await moveByHand(result, [CHAPTER.length * PASSAGE - VIEW]);
+  await saved();
+  // The count saved is still the marker's position (w131, 132 of 135: 98 %): what is stored does not change.
+  expect(Math.max(...reports().map((one) => one.spansSeen ?? 0))).toBe(132);
+  expect(reports().some((one) => one.reachedEnd)).toBe(true);
+  expect(result.current.currentSectionRead).toBe(1);
+  expect(result.current.readingProgress).toBe(1);
+  // Back up a screen: the book's position is where the reading is; the section was read to its end.
+  await moveByHand(result, [CHAPTER.length * PASSAGE - 2 * VIEW]);
+  expect(result.current.readingProgress).toBeLessThan(1);
+  expect(result.current.currentSectionRead).toBe(1);
+});
+
+it("a restore at the end moves no section position to the end: only the learner's own movement there does", async () => {
+  const { result } = openChapter();
+  act(() => result.current.placeAtOpen(readerRenderViewFixture.sourceId, "w132", null));
+  await moveByItself(result, CHAPTER.length * PASSAGE - VIEW);
+  await wait(4000);
+  await moveByItself(result, CHAPTER.length * PASSAGE - VIEW);
+  await wait(100);
+  expect(result.current.currentSectionRead).toBeLessThan(1);
+  // Where the page stands is the book's end: a position, never a completion.
+  expect(result.current.readingProgress).toBe(1);
+});

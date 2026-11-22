@@ -835,8 +835,12 @@ it("#7: the guide's section bar is empty on arriving at a section not read yet, 
   await scrollTo(1500);
   expect(screen.getAllByText("Why study probability?").length).toBeGreaterThan(1);
   expect(sectionBarWidth()).toBe("0%");
+  // Page 2 read past most of it, and page 3 (the section's last passage, a page of its own) shown at the view's foot by
+  // the learner's own wheel: that is the section's end (the end the progress save reports), so its position is the end
+  // (UX-78: a section's end and its position must not disagree). The view is one page tall, so page 2 never counts
+  // without page 3 in view: the 50 % this asserted was a position past which the end had already been reported.
   await scrollTo(2200);
-  expect(sectionBarWidth()).toBe("50%");
+  expect(sectionBarWidth()).toBe("100%");
   await scrollTo(3200);
   expect(sectionBarWidth()).toBe("100%");
 });
