@@ -6,7 +6,7 @@
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing of `mvp-0.63` (the first evening's step 5: a section's end finishes it) and the fixes from the third live walk (Nov 21), at `mvp-0.63`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
+The orchestrator updates this file in each landing commit. This snapshot is the landing of J2 (five dead tables dropped, migration 260) (Nov 21), at `mvp-0.63`, and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases and "no update" for exposed probe answers in `mvp-0.61`; waiting indicators).
 
 ## Baseline and arc A
 
@@ -52,8 +52,8 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | J1 | List candidate tables and correct their roles | landed | `f930ecb2cf` | [refactor-j1.md](refactor-j1.md) | — |
-| J2 | Drop the first approved family of tables | not started | — | — | Owner decided on 2026-11-20: drop the dead groups (a drop refuses a table that holds rows); `hypothesis_sets` is RAW_LEDGER (landed Nov 20, [owner-decisions-small-1.md](owner-decisions-small-1.md)) |
-| J3 | Drop the next approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: retired-but-read tables are dropped once the steps that own their readers have removed them |
+| J2 | Drop the first approved family of tables | landed | this commit | [refactor-j2.md](refactor-j2.md) | Five of group A's eleven dead tables are dropped (migration 260), behind a guard that refuses a vault where one holds a row. The other six wait: one is the parent of a retired-but-read table, five still have unreached code that a test runs. `hypothesis_sets` is RAW_LEDGER (landed Nov 20) |
+| J3 | Drop the next approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: retired-but-read tables are dropped once the steps that own their readers have removed them. Next family: the six left from group A with their unreached code and tests, and group F's `lapse_episodes`; the two `p2_ladder` tables hold rows seeded by migration 084 in every vault, so the guard would refuse them: the owner's call |
 | J4 | Drop the final approved family of tables | waiting on | — | — | Owner decided on 2026-11-20: as J3 |
 
 ## Arc D

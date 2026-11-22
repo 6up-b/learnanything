@@ -217,3 +217,23 @@ For each of `arxiv_v2`, `linear_algebra`, `probability` (and any retired vault t
   vaults as of Nov 9.
 - How the desktop app and the phone host show the refusal (no GUI run); the CLI shows it at the end of a traceback.
 - The landing gate as a whole; the vault references were not regenerated (the landing does). **The landing must delete the five dropped tables' notes** under `Reference/Database/Tables/` before `generate_all.py`, or the database generator stops at its note count (shown in §6).
+
+## The owner-copy lane, as run (2026-11-21; counts only)
+
+Backup-API copies of the owner's three vaults in a gitignored directory, with this branch; the copies were
+deleted afterwards and the live databases' SHA-256 were unchanged.
+
+| | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Rows in each of the five tables before | 0 in all five | 0 in all five | 0 in all five |
+| Migration head before and after | 255 and 260 | 255 and 260 | 255 and 260 |
+| The guard refused | no | no | no |
+| The five tables after | absent | absent | absent |
+| Database bytes before and after | 198,946,816 and the same | 53,366,784 and the same | 38,449,152 and the same |
+| Freelist pages before and after | 226 and 228 | 149 and 151 | 234 and 236 |
+| `integrity_check`; `foreign_key_check` | ok; 0 rows | ok; 0 rows | ok; 0 rows |
+
+Doctor's errors after the upgrade are the content findings that predate this step (unknown criterion
+dependencies, two invalid YAML files in one vault) and one missing directory in the copies; none names a
+dropped table. No space is reclaimed: the tables were empty and the procedure does not vacuum.
+
