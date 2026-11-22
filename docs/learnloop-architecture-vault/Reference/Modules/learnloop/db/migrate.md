@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/db/_package|learnloop.db]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps migrate behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `JournalModeSwitchError`, `UncoordinatedMigrationError`, `upgrade_allowance`, `upgrade_authority`, `Migration`, `default_migrations_dir`, `discover_migrations`, `applied_versions` and 4 more public symbols.
+This module keeps migrate behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `JournalModeSwitchError`, `UncoordinatedMigrationError`, `NonEmptyDropError`, `upgrade_allowance`, `upgrade_authority`, `Migration`, `default_migrations_dir`, `discover_migrations` and 5 more public symbols.
 
 The authoritative system-level explanation remains in [[State and Persistence]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,51 +47,56 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py) |
-| Source lines | 463 |
+| Source lines | 519 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class JournalModeSwitchError(RuntimeError)` ([source](../../../../../../src/learnloop/db/migrate.py), line 30) — The database could not be moved to WAL, so its journal mode is unchanged.
-- `class UncoordinatedMigrationError(RuntimeError)` ([source](../../../../../../src/learnloop/db/migrate.py), line 34) — An existing database is behind this code's migrations, and only the vault's migration coordinator may upgrade it.
-  - `__init__(self, sqlite_path: Path, current: int, pending: list[Migration]) -> None` (line 46; internal)
-- `upgrade_allowance(name: str) -> Iterator[str]` ([source](../../../../../../src/learnloop/db/migrate.py), line 82) — Allow upgrades of existing databases in this context (this thread or task), under one of the named allowances, for the ``with`` block only.
-- `upgrade_authority() -> str | None` ([source](../../../../../../src/learnloop/db/migrate.py), line 95) — The allowance this context upgrades under, or ``None``.
-- `class Migration` ([source](../../../../../../src/learnloop/db/migrate.py), line 102)
-- `default_migrations_dir() -> Path` ([source](../../../../../../src/learnloop/db/migrate.py), line 108)
-- `discover_migrations(migrations_dir: Path | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 112)
-- `applied_versions(sqlite_path: Path) -> set[int]` ([source](../../../../../../src/learnloop/db/migrate.py), line 123)
-- `schema_is_current(sqlite_path: Path, migrations_dir: Path | None=None) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 136) — Whether an existing database has exactly this code's migrations applied.
-- `apply_migrations(sqlite_path: Path, migrations_dir: Path | None=None, clock: Clock | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 152) — Create the database, or upgrade it to this code's migrations.
-- `create_or_attach_current(sqlite_path: Path, migrations_dir: Path | None=None, clock: Clock | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 174) — Create the database (a missing file, or one with no migration applied yet), or check that an existing one is at this code's migrations (moving it to WAL as :func:`apply_migrations` does).
-- `switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> str | None` ([source](../../../../../../src/learnloop/db/migrate.py), line 219) — Move a database to WAL journal mode once, where the linked SQLite allows it.
+- `class JournalModeSwitchError(RuntimeError)` ([source](../../../../../../src/learnloop/db/migrate.py), line 33) — The database could not be moved to WAL, so its journal mode is unchanged.
+- `class UncoordinatedMigrationError(RuntimeError)` ([source](../../../../../../src/learnloop/db/migrate.py), line 37) — An existing database is behind this code's migrations, and only the vault's migration coordinator may upgrade it.
+  - `__init__(self, sqlite_path: Path, current: int, pending: list[Migration]) -> None` (line 49; internal)
+- `class NonEmptyDropError(RuntimeError)` ([source](../../../../../../src/learnloop/db/migrate.py), line 60) — A pending migration drops a table that holds rows in this database.
+  - `__init__(self, sqlite_path: Path, migration: Migration, row_counts: dict[str, int]) -> None` (line 68; internal)
+- `upgrade_allowance(name: str) -> Iterator[str]` ([source](../../../../../../src/learnloop/db/migrate.py), line 106) — Allow upgrades of existing databases in this context (this thread or task), under one of the named allowances, for the ``with`` block only.
+- `upgrade_authority() -> str | None` ([source](../../../../../../src/learnloop/db/migrate.py), line 119) — The allowance this context upgrades under, or ``None``.
+- `class Migration` ([source](../../../../../../src/learnloop/db/migrate.py), line 126)
+- `default_migrations_dir() -> Path` ([source](../../../../../../src/learnloop/db/migrate.py), line 132)
+- `discover_migrations(migrations_dir: Path | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 136)
+- `applied_versions(sqlite_path: Path) -> set[int]` ([source](../../../../../../src/learnloop/db/migrate.py), line 147)
+- `schema_is_current(sqlite_path: Path, migrations_dir: Path | None=None) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 160) — Whether an existing database has exactly this code's migrations applied.
+- `apply_migrations(sqlite_path: Path, migrations_dir: Path | None=None, clock: Clock | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 176) — Create the database, or upgrade it to this code's migrations.
+- `create_or_attach_current(sqlite_path: Path, migrations_dir: Path | None=None, clock: Clock | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 198) — Create the database (a missing file, or one with no migration applied yet), or check that an existing one is at this code's migrations (moving it to WAL as :func:`apply_migrations` does).
+- `switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> str | None` ([source](../../../../../../src/learnloop/db/migrate.py), line 246) — Move a database to WAL journal mode once, where the linked SQLite allows it.
 
 ### Module constants
 
 - `_LOG` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 16)
 - `_MIGRATION_RE` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 18)
 - `_FOREIGN_KEYS_OFF_RE` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 19)
-- `_COMPANION_SUFFIXES` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 27)
-- `UPGRADE_BY_COORDINATOR` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 71)
-- `UPGRADE_SCRATCH_COPY` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 72)
-- `UPGRADE_TEST_HELPER` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 73)
-- `_UPGRADE_ALLOWANCES` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 74)
-- `_UPGRADE_AUTHORITY` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 75)
-- `_CREATING` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 78)
+- `_REFUSE_IF_ROWS_RE` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 25)
+- `_COMPANION_SUFFIXES` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 30)
+- `UPGRADE_BY_COORDINATOR` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 95)
+- `UPGRADE_SCRATCH_COPY` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 96)
+- `UPGRADE_TEST_HELPER` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 97)
+- `_UPGRADE_ALLOWANCES` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 98)
+- `_UPGRADE_AUTHORITY` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 99)
+- `_CREATING` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 102)
 
 ## Internal implementation anchors
 
-- `_migrate(sqlite_path: Path, migrations: list[Migration], clock: Clock | None, *, upgrade: bool) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 191)
-- `_switch_failure_cause(error: sqlite3.OperationalError, sqlite_path: Path) -> str` ([source](../../../../../../src/learnloop/db/migrate.py), line 262) — Name the real cause of a failed switch from SQLite's error code.
-- `_apply_incremental_migration(connection: sqlite3.Connection, migration: Migration, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 286) — Apply one existing-database migration as one durable transaction.
-- `_refuse_unauthorized(connection: sqlite3.Connection, migration: Migration) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 355) — Raise :class:`UncoordinatedMigrationError` for an upgrade of an existing database outside every :func:`upgrade_allowance` (F8).
-- `_migration_is_applied(connection: sqlite3.Connection, version: int) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 370)
-- `_iter_sql_statements(sql: str) -> Iterator[str]` ([source](../../../../../../src/learnloop/db/migrate.py), line 385) — Yield executable statements without splitting trigger bodies.
-- `_apply_fresh(sqlite_path: Path, migrations: list[Migration], clock: Clock | None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 404) — Create a brand-new database with every migration, fast and atomically.
-- `_existing_companion_files(sqlite_path: Path) -> list[Path]` ([source](../../../../../../src/learnloop/db/migrate.py), line 452)
-- `_remove_companion_files(sqlite_path: Path, *, include_database: bool) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 457) — Delete companions of a database that does not exist (or is being replaced).
+- `_migrate(sqlite_path: Path, migrations: list[Migration], clock: Clock | None, *, upgrade: bool) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 215)
+- `_switch_failure_cause(error: sqlite3.OperationalError, sqlite_path: Path) -> str` ([source](../../../../../../src/learnloop/db/migrate.py), line 289) — Name the real cause of a failed switch from SQLite's error code.
+- `_apply_incremental_migration(connection: sqlite3.Connection, migration: Migration, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 313) — Apply one existing-database migration as one durable transaction.
+- `_refuse_unauthorized(connection: sqlite3.Connection, migration: Migration) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 382) — Raise :class:`UncoordinatedMigrationError` for an upgrade of an existing database outside every :func:`upgrade_allowance` (F8).
+- `_refuse_dropping_rows(sqlite_path: Path, pending: list[Migration]) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 397) — Raise :class:`NonEmptyDropError` for the first pending migration that drops a table holding rows, reading the database read-only.
+- `_rows_held(connection: sqlite3.Connection, tables: list[str]) -> dict[str, int]` ([source](../../../../../../src/learnloop/db/migrate.py), line 412) — Row counts of the named tables that exist and hold rows, in the order named.
+- `_migration_is_applied(connection: sqlite3.Connection, version: int) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 426)
+- `_iter_sql_statements(sql: str) -> Iterator[str]` ([source](../../../../../../src/learnloop/db/migrate.py), line 441) — Yield executable statements without splitting trigger bodies.
+- `_apply_fresh(sqlite_path: Path, migrations: list[Migration], clock: Clock | None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 460) — Create a brand-new database with every migration, fast and atomically.
+- `_existing_companion_files(sqlite_path: Path) -> list[Path]` ([source](../../../../../../src/learnloop/db/migrate.py), line 508)
+- `_remove_companion_files(sqlite_path: Path, *, include_database: bool) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 513) — Delete companions of a database that does not exist (or is being replaced).
 
 ## Who imports or calls it
 
@@ -179,6 +184,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deliverable_curriculum_migration.py](../../../../../../tests/test_deliverable_curriculum_migration.py) — direct import
   - `test_228_is_c0bs_migration_classified_with_no_derived_table`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
+- [tests/test_drop_dead_tables_migration.py](../../../../../../tests/test_drop_dead_tables_migration.py) — direct import
+  - `test_a_row_in_any_family_table_refuses_the_upgrade_and_leaves_the_file_byte_identical`
+  - `test_an_empty_family_is_dropped_and_nothing_else_changes`
+  - `test_an_older_database_with_a_row_is_refused_before_any_earlier_migration_applies`
+  - `test_the_head_fixture_holds_it_in_rollback_mode_without_the_tables`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit`

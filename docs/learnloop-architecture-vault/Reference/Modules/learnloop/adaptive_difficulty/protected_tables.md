@@ -159,6 +159,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_registry_names_real_tables_and_roles`
 - [tests/test_deliverable_curriculum_migration.py](../../../../../../tests/test_deliverable_curriculum_migration.py) — direct import
   - `test_228_is_c0bs_migration_classified_with_no_derived_table`
+- [tests/test_drop_dead_tables_migration.py](../../../../../../tests/test_drop_dead_tables_migration.py) — direct import
+  - `test_no_list_names_a_dropped_table`
 - [tests/test_figure_prefetch_migration.py](../../../../../../tests/test_figure_prefetch_migration.py) — direct import
   - `test_237_is_p5s_migration_and_every_table_is_classified`
 - [tests/test_help_assist_figures_migration.py](../../../../../../tests/test_help_assist_figures_migration.py) — direct import

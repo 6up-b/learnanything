@@ -45,7 +45,7 @@ It belongs to the **activity substrate** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/065_activity_lineage_substrate.sql`.
-- **Schema touched by:** `065_activity_lineage_substrate.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`.
+- **Schema touched by:** `065_activity_lineage_substrate.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`, `260_drop_dead_tables.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
