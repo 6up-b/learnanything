@@ -247,6 +247,29 @@ print(json.dumps({"algorithm_version": vault.config.algorithms.algorithm_version
 4. Report counts only. If `item_unresolved_stays_open` is not zero, those episodes keep today's open-ended life and,
    at the tag, their cold item is withheld from Today's queue until they end otherwise: say how many.
 
+## The owner-copy lane, as run (2026-11-21; counts only)
+
+Backup-API copies of the owner's three vaults in a gitignored directory, with this branch, each upgraded to
+`mvp-0.63` first; the copies were deleted afterwards and the live databases' SHA-256 were unchanged.
+
+| | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Untaken episodes at `mvp-0.63` | 1 (`prescribed`, no cold item) | 2 (`treatment`, each with a cold item) | 1 (`treatment`, with a cold item) |
+| Of them, the first sweep would end | 0 | 2 | 0 |
+| Stay open until their item's review is due | 1 | 0 | 1 |
+| Item cannot be resolved | 0 | 0 | 0 |
+| `learnloop upgrade --to mvp-0.64` | upgraded | upgraded | upgraded |
+| Shadow rebuild: mastery, facet and schedule VALUES that differ | 0 | 0 | 0 |
+| The first sweep ended | 0 | 2 | 0 |
+| Untaken episodes after the sweep | 1 | 0 | 1 |
+| A second sweep ended | 0 | 0 | 0 |
+| `integrity_check`; `foreign_key_check` | ok; 0 rows | ok; 0 rows | ok; 0 rows |
+
+So on the owner's data the first sweep after the upgrade ends two long-open episodes in one vault and frees
+their two reserved questions for ordinary practice; in the other two vaults one episode each stays open until
+its missed question's review comes due, and from the tag its reserved question (where it has one) is withheld
+from routine practice until then. No episode is unresolvable.
+
 ## Judgment calls to read first
 
 1. **The item is the missed item** (above). The decision text names "the item"; this is the only reading under which
