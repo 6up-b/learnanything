@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import logging
@@ -50,6 +51,7 @@ from learnloop.scheduling.serving_exclusions import (
     admission_reason,
     out_of_timing_serving_exclusions,
     routine_serving_exclusions,
+    routine_withhold_reason,
 )
 from learnloop.diagnosis import voi_stopping as voi
 from learnloop.scheduling.slate_record import record_slate
@@ -463,6 +465,7 @@ def _due_queue(
         voi_context=voi_context,
         voi_probe_active=voi_probe_active,
         device_filter=device_filter,
+        intent_view=intent_view,
     )
     admission = _BuildAdmission(
         vault,
@@ -3018,9 +3021,11 @@ class AdmissionReads:
     lane's deferrals) because the reads after each write must see it. The rest
     the admission used to read on first use, and the gather
     (:func:`_gather_admission_reads`) now reads for everything that could need
-    them: the in-progress, unblocked probe episodes (keyed by episode id; the
-    familiarity by episode and item id) and the device's refusal of every item.
-    A gathered read that raised holds a :class:`_ReadFailed`.
+    them: the in-progress, unblocked probe episodes an item could reach (keyed
+    by episode id; the familiarity by episode and item id), what their value
+    decisions read, and the device's refusal of every item. The value
+    decisions themselves are computed where the admission consults them, from
+    these fields alone. A gathered read that raised holds a :class:`_ReadFailed`.
     """
 
     exclusions: Any
@@ -3039,8 +3044,15 @@ class AdmissionReads:
     episode_contexts: Mapping[str, Any]
     #: The eligible instruments by item id, per probing episode with a context.
     episode_eligibles: Mapping[str, Any]
-    #: The value decision, per probing episode with an eligible instrument (value stopping on).
-    voi_decisions: Mapping[str, Any]
+    #: What a probe value decision reads (latencies, triage routes, intervention durations, the measured
+    #: unresolved cost), loaded for the gathered episodes; it reads no repository. None when no episode needs one.
+    voi_context: Any
+    #: The episode's qualifying observations, per probing episode with an instrument (value stopping on).
+    qualifying_observations: Mapping[str, Any]
+    #: The session's qualifying observations; None when no episode needs it.
+    session_qualifying_observations: Any
+    #: The episode's pinned channel (``load_pinned_channel``), per such episode with a calibration model hash.
+    pinned_channels: Mapping[str, Any]
     #: ``familiarity_discount`` of each eligible instrument, by ``(episode id, item id)``.
     probe_familiarity: Mapping[tuple[str, str], Any]
     #: Whether the build's device refuses each item, by item id; None without a device filter.
@@ -3099,6 +3111,30 @@ def _recent_attempts_marked(vault: LoadedVault, repository: Repository, learning
     )
 
 
+class _NoRepository:
+    """The repository of the probe site's value context once the gather has loaded it: any read fails loudly
+    instead of reaching the database from a decision the admission computes from gathered values."""
+
+    def __getattr__(self, name: str) -> Any:
+        raise RuntimeError(f"a probe value decision read the repository ({name}) after the admission's reads were gathered")
+
+
+def _load_voi_reads(voi_context: Any, eligible: Mapping[str, Any], posterior: Mapping[str, float]) -> None:
+    """Make every repository read ``voi.probe_episode_decision`` makes for this episode, through ``voi_context``'s
+    own caches: the latencies (``item_minutes``), and for the posterior's labels with mass the triage routes
+    (``label_actions``) and the routes' intervention durations and measured unresolved cost (``loss_table``),
+    as ``value_candidates`` asks them."""
+
+    first = next(iter(eligible.values()))
+    voi_context.item_minutes(first.item)
+    labels = sorted(label for label, value in posterior.items() if float(value) > 0)
+    if not labels:
+        return
+    label_actions = voi_context.label_actions(labels)
+    if label_actions:
+        voi_context.loss_table(label_actions)
+
+
 def _episode_probe_reads(
     vault: LoadedVault,
     repository: Repository,
@@ -3108,13 +3144,16 @@ def _episode_probe_reads(
     voi_context: Any,
     voi_probe_active: bool,
 ) -> dict[str, Any]:
-    """Each probing episode's context, instruments, value decision and instruments' familiarity, every read the
-    admission's probe score could make for it."""
+    """Each episode's context, instruments and instruments' familiarity, and what its value decision reads: every
+    read the admission's probe score could make for it."""
 
     contexts: dict[str, Any] = {}
     eligibles: dict[str, Any] = {}
-    decisions: dict[str, Any] = {}
     familiarity: dict[tuple[str, str], Any] = {}
+    qualifying: dict[str, Any] = {}
+    channels: dict[str, Any] = {}
+    session_qualifying: Any = None
+    voi_loaded = False
     for episode in episodes:
         context = _attempted_read(_load_episode_context, vault, repository, episode, contexts)
         contexts[episode.id] = context
@@ -3125,17 +3164,20 @@ def _episode_probe_reads(
         if isinstance(eligible, _ReadFailed) or not eligible:
             continue
         if voi_probe_active:
-            decisions[episode.id] = _attempted_read(
-                lambda episode=episode, context=context, eligible=eligible: voi.probe_episode_decision(
-                    voi_context,
-                    episode,
-                    list(eligible.values()),
-                    context[1],
-                    session_id=session_id,
-                    qualifying_observations=qualifying_observation_count(vault, repository, episode.id),
-                    session_qualifying_observations=session_qualifying_total(vault, repository, session_id),
+            qualifying[episode.id] = _attempted_read(qualifying_observation_count, vault, repository, episode.id)
+            if session_qualifying is None:
+                session_qualifying = _attempted_read(session_qualifying_total, vault, repository, session_id)
+            if getattr(episode, "calibration_model_hash", None) is not None:
+                from learnloop.diagnosis.probe_robust import load_pinned_channel
+
+                channels[episode.id] = _attempted_read(
+                    load_pinned_channel, repository, episode.calibration_model_hash
                 )
-            )
+            loaded = _attempted_read(_load_voi_reads, voi_context, eligible, context[1])
+            if isinstance(loaded, _ReadFailed):
+                # Kept per episode: its decision raises this where the admission computes it.
+                channels[episode.id] = loaded
+            voi_loaded = True
         recent_by_lo: dict[str, Any] = {}
         for item_id, entry in eligible.items():
             learning_object = vault.learning_object_for_item(entry.item)
@@ -3151,12 +3193,48 @@ def _episode_probe_reads(
                     _prospective_familiarity, vault, entry.item, recent
                 )
             )
+    decision_context = None
+    if voi_loaded:
+        decision_context = copy.copy(voi_context)
+        decision_context.repository = _NoRepository()
     return {
         "episode_contexts": contexts,
         "episode_eligibles": eligibles,
-        "voi_decisions": decisions,
         "probe_familiarity": familiarity,
+        "voi_context": decision_context,
+        "qualifying_observations": qualifying,
+        "session_qualifying_observations": session_qualifying,
+        "pinned_channels": channels,
     }
+
+
+def _reachable_episodes(
+    vault: LoadedVault,
+    episodes: list[Any],
+    *,
+    item_states: Mapping[str, PracticeItemState],
+    exclusions: Any,
+    intent_view: Any,
+) -> list[Any]:
+    """The probing episodes an item could still reach: one with an item on its LO that passes the routine gate
+    (``routine_withhold_reason``) and that intent does not exclude (Pause, Reference, Let go:
+    ``ItemIntent.excluded``, the part of intent's gate that does not wait on the check split). The admission
+    scores an item's probe only after both gates, so an episode none of whose items passes them is never read."""
+
+    if not episodes:
+        return []
+    by_lo = {episode.learning_object_id: episode for episode in episodes}
+    reachable: set[str] = set()
+    for item in vault.practice_items.values():
+        learning_object = vault.learning_object_for_item(item)
+        if learning_object is None or learning_object.id not in by_lo or learning_object.id in reachable:
+            continue
+        if routine_withhold_reason(vault, item, item_states.get(item.id), exclusions) is not None:
+            continue
+        if intent_view is not None and intent_view.intent(item.id).excluded:
+            continue
+        reachable.add(learning_object.id)
+    return [episode for episode in episodes if episode.learning_object_id in reachable]
 
 
 def _gather_admission_reads(
@@ -3177,15 +3255,23 @@ def _gather_admission_reads(
     voi_context: Any,
     voi_probe_active: bool,
     device_filter: DeviceFilter | None,
+    intent_view: Any,
 ) -> AdmissionReads:
     """The build's admission reads: its own, already made, and the ones the admission used to make on first use.
 
-    Reads more than the lazy admission did: an episode none of whose items
-    reached the probe gate, and the device's refusal of items another gate
+    Reads more than the lazy admission did: an episode an item can reach past
+    the routine gate and intent's exclusions but none does (a later gate
+    withholds them all), and the device's refusal of items another gate
     withholds. Nothing between this and the candidate loop writes, so the
     values are the ones the lazy reads returned."""
 
-    episodes = _probing_episodes(open_episodes, probe_block_reason)
+    episodes = _reachable_episodes(
+        vault,
+        _probing_episodes(open_episodes, probe_block_reason),
+        item_states=item_states,
+        exclusions=exclusions,
+        intent_view=intent_view,
+    )
     return AdmissionReads(
         exclusions=exclusions,
         item_states=item_states,
@@ -3345,8 +3431,20 @@ class _LazyAdmissionReads:
         return self._episode_reads["episode_eligibles"]
 
     @property
-    def voi_decisions(self) -> Any:
-        return self._episode_reads["voi_decisions"]
+    def voi_context(self) -> Any:
+        return self._episode_reads["voi_context"]
+
+    @property
+    def qualifying_observations(self) -> Any:
+        return self._episode_reads["qualifying_observations"]
+
+    @property
+    def session_qualifying_observations(self) -> Any:
+        return self._episode_reads["session_qualifying_observations"]
+
+    @property
+    def pinned_channels(self) -> Any:
+        return self._episode_reads["pinned_channels"]
 
     @property
     def probe_familiarity(self) -> Any:
@@ -3634,7 +3732,16 @@ class _BuildAdmission:
             if context is not None and eligible_entry is not None and self.voi_probe_active:
                 voi_decision = self.voi_probe_decisions.get(episode.id)
                 if voi_decision is None:
-                    voi_decision = _gathered(self.reads.voi_decisions[episode.id])
+                    voi_decision = voi.probe_episode_decision(
+                        self.reads.voi_context,
+                        episode,
+                        list(_gathered(self.reads.episode_eligibles[episode.id]).values()),
+                        context[1],
+                        session_id=self.session.session_id,
+                        qualifying_observations=_gathered(self.reads.qualifying_observations[episode.id]),
+                        session_qualifying_observations=_gathered(self.reads.session_qualifying_observations),
+                        pinned_channel=_gathered(self.reads.pinned_channels.get(episode.id)),
+                    )
                     self.voi_probe_decisions[episode.id] = voi_decision
                 voi_value = voi_decision.value_for(item.id)
                 if voi_value is not None:

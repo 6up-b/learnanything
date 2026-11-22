@@ -449,3 +449,37 @@ def test_the_admission_goldens_reach_their_paths(tmp_path, seeded_ids):
         vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace),
         prepare=_retire_everything)
     assert empty["queue"] == []
+
+
+@pytest.mark.parametrize("vault_builder", [build_rich_vault, build_gate_vault], ids=["rich", "gates"])
+def test_the_probe_value_decision_reads_nothing_where_it_is_computed(tmp_path, seeded_ids, monkeypatch,
+                                                                     vault_builder):
+    """The admission computes an episode's value decision where it consults it, from the gathered reads: the value
+    context it gets reaches no repository (any read raises), and the decision is the one a context reading the
+    repository itself returns, in a build and in the admission asked outside one."""
+
+    from learnloop.diagnosis import voi_stopping as voi
+
+    vault, repository = vault_builder(tmp_path / "vault")
+    real = voi.probe_episode_decision
+    computed: list[str] = []
+
+    def checked(ctx, episode, eligible, posterior, **kwargs):
+        with pytest.raises(RuntimeError, match="read the repository"):
+            ctx.repository.connection()
+        decision = real(ctx, episode, eligible, posterior, **kwargs)
+        kwargs.pop("pinned_channel")
+        reference = real(voi.VoiContext(vault, repository), episode, eligible, posterior, **kwargs)
+        assert decision.as_dict() == reference.as_dict()
+        computed.append(str(episode.id))
+        return decision
+
+    monkeypatch.setattr(voi, "probe_episode_decision", checked)
+    read_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION))
+    assert computed, "the build computed a value decision"
+    computed.clear()
+    refusal = pool_admission(vault, repository, now=CLOCK.now())
+    for item_id in sorted(vault.practice_items):
+        refusal(item_id)
+    if vault_builder is build_gate_vault:
+        assert computed, "the outside admission computed a value decision for its diagnostic surface"
