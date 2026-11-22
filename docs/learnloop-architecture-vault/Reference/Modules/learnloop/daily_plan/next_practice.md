@@ -117,6 +117,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_held_topic_work_review.py](../../../../../../tests/test_held_topic_work_review.py) — direct import
 - [tests/test_next_practice.py](../../../../../../tests/test_next_practice.py) — direct import
   - `test_it_reads_nothing_through_the_callers_repository`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import

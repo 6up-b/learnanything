@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/feedback/FeedbackSurface.tsx](../../../../../../../apps/learnloop-tauri/src/screens/feedback/FeedbackSurface.tsx) |
-| Source lines | 511 |
+| Source lines | 519 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] |
 | Refactor status | `ACTIVE` |
@@ -87,26 +87,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const lines: string[] = []` — const, line 185
 - `const check = f.coldCheckResult` — const, line 191
 - `const when = fmtDay(check.instructedAt)` — const, line 193
-- `const held = verdict === "held"` — const, line 254
-- `const unrecorded = gradedVersionUnrecorded(f)` — const, line 255
-- `const presentation = f.answeredPresentation ?? item?.presentation ?? null` — const, line 256
-- `const fullAnswer = answeredFullAnswer(f, item)` — const, line 257
-- `const currentAnswer = currentAnswerForUnrecorded(f, item)` — const, line 258
-- `const shownAnswer = fullAnswer || currentAnswer` — const, line 259
-- `const criteria = answeredCriterionRows(f)` — const, line 260
-- `const learnerAnswer = (f.learnerAnswerMd ?? "").trim()` — const, line 261
-- `const exposure = useAnswerExposure( f.attemptId, Boolean(shownAnswer) && !answerCovered, recordAnswerDisplay ? (displayId)` — const, line 264
-- `const diagnosisSummary = diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null` — const, line 269
-- `const sentence = diagnosisSummary ?? (matchedCorrection ? `You may be mixing two ideas up. $` — const, line 271
-- `const prerequisite = diagnosis.status === "done" ? diagnosis.card?.prerequisiteGap ?? null : null` — const, line 274
-- `const whyHasContent = why.causes.length > 0 || why.showed.length > 0 || Boolean(why.mechanism) || why.madeBefore.length > 0 || why.onNotRight !== null || why.notRightRecorded` — const, line 275
-- `const contestBox = useRef<HTMLInputElement>(null)` — const, line 282
-- `const tone = verdict === "right" ? COLOR.green : verdict === "partly" ? COLOR.amber : COLOR.text` — const, line 286
-- `const assessed = criterionAssessed(row)` — const, line 413
-- `const full = row.pointsAwarded >= row.pointsPossible` — const, line 414
-- `const some = row.pointsAwarded > 0` — const, line 415
-- `const mark = !assessed ? "·" : full ? "✓" : some ? "◐" : "✗"` — const, line 416
-- `const color = !assessed ? COLOR.textFaint : full ? COLOR.green : some ? COLOR.amber : COLOR.red` — const, line 417
+- `const held = verdict === "held"` — const, line 257
+- `const unrecorded = gradedVersionUnrecorded(f)` — const, line 258
+- `const presentation = f.answeredPresentation ?? item?.presentation ?? null` — const, line 259
+- `const fullAnswer = answeredFullAnswer(f, item)` — const, line 260
+- `const currentAnswer = currentAnswerForUnrecorded(f, item)` — const, line 261
+- `const shownAnswer = fullAnswer || currentAnswer` — const, line 262
+- `const criteria = answeredCriterionRows(f)` — const, line 263
+- `const learnerAnswer = (f.learnerAnswerMd ?? "").trim()` — const, line 264
+- `const exposure = useAnswerExposure( f.attemptId, Boolean(shownAnswer) && !answerCovered, recordAnswerDisplay ? (displayId)` — const, line 267
+- `const diagnosisSummary = diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null` — const, line 272
+- `const sentence = diagnosisSummary ?? (matchedCorrection ? `You may be mixing two ideas up. $` — const, line 274
+- `const prerequisite = diagnosis.status === "done" ? diagnosis.card?.prerequisiteGap ?? null : null` — const, line 277
+- `const whyHasContent = why.causes.length > 0 || why.showed.length > 0 || Boolean(why.mechanism) || why.madeBefore.length > 0 || why.onNotRight !== null || why.notRightRecorded` — const, line 278
+- `const contestBox = useRef<HTMLInputElement>(null)` — const, line 285
+- `const tone = verdict === "right" ? COLOR.green : verdict === "partly" ? COLOR.amber : COLOR.text` — const, line 289
+- `const assessed = criterionAssessed(row)` — const, line 416
+- `const full = row.pointsAwarded >= row.pointsPossible` — const, line 417
+- `const some = row.pointsAwarded > 0` — const, line 418
+- `const mark = !assessed ? "·" : full ? "✓" : some ? "◐" : "✗"` — const, line 419
+- `const color = !assessed ? COLOR.textFaint : full ? COLOR.green : some ? COLOR.amber : COLOR.red` — const, line 420
 
 ## Who imports or calls it
 

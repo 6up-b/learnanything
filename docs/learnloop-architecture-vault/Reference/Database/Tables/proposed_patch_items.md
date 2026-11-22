@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `Repository.reset_proposal_item_decision()`
 - `Repository.set_proposal_item_decision()`
 - `Repository.set_proposal_item_dependency_status()`
+- `Repository.settle_reviewed_topic_work()`
 - `Repository.synthesis_run_introducing_entity()`
 - `Repository.update_proposal_item_edited_payload()`
 - `Repository.update_proposal_item_validation()`
@@ -123,6 +124,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/concepts.py`
 - `src/learnloop/db/stores/ad_serving.py`
 - `src/learnloop/db/stores/content.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
@@ -161,6 +163,7 @@ Indexes and uniqueness:
 - `tests/test_ad23_owner_decisions.py`
 - `tests/test_ad_epoch.py`
 - `tests/test_apply_recovery.py`
+- `tests/test_held_topic_work_review.py`
 - `tests/test_patch_applier.py`
 - `tests/test_ux_phase2_error_type_proposals.py`
 - `tests/apply_write_ahead_helpers.py`
@@ -177,7 +180,6 @@ Indexes and uniqueness:
 - `tests/test_cli_generate_practice.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_diagnostic_generation.py`
-- `tests/test_e2e_codex_mock.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

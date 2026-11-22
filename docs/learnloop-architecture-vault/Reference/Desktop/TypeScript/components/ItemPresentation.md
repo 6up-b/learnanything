@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/ItemPresentation.tsx](../../../../../../apps/learnloop-tauri/src/components/ItemPresentation.tsx) |
-| Source lines | 89 |
+| Source lines | 92 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,12 +54,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function ItemPresentation(` — function, line 36
+- `export function ItemPresentation(` — function, line 39
 
 ## Internal implementation anchors
 
-- `const FRAMED_KINDS = new Set(["error_hunt_worked_solution", "laddered_stem_stimulus"])` — const, line 34
-- `function PresentationBlock(` — function, line 52
+- `const FRAMED_KINDS = new Set(["error_hunt_worked_solution", "laddered_stem_stimulus"])` — const, line 37
+- `function PresentationBlock(` — function, line 55
 
 ## Who imports or calls it
 
@@ -78,6 +78,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ItemPresentationDto`, `PresentationBlockDto`
+- [[Reference/Desktop/TypeScript/app/presentedBlocks|src/app/presentedBlocks.ts]] — import-or-re-export; imports `presentedBlocks`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 

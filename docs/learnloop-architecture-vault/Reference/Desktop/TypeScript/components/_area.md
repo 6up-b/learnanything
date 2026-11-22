@@ -71,7 +71,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/InspectorOverlay|InspectorOverlay.tsx]] | `ACTIVE` | Provides the reusable `InspectorOverlay` interaction surface used by one or more desktop workflows. | 17 | 1 |
 | [[Reference/Desktop/TypeScript/components/IntentCheckFeedback|IntentCheckFeedback.tsx]] | `ACTIVE` | Provides the reusable `IntentCheckFeedback` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/IntentControl|IntentControl.tsx]] | `ACTIVE` | Provides the reusable `IntentControl` interaction surface used by one or more desktop workflows. | 4 | 2 |
-| [[Reference/Desktop/TypeScript/components/ItemPresentation|ItemPresentation.tsx]] | `ACTIVE` | Provides the reusable `ItemPresentation` interaction surface used by one or more desktop workflows. | 3 | 6 |
+| [[Reference/Desktop/TypeScript/components/ItemPresentation|ItemPresentation.tsx]] | `ACTIVE` | Provides the reusable `ItemPresentation` interaction surface used by one or more desktop workflows. | 4 | 6 |
 | [[Reference/Desktop/TypeScript/components/KeyboardHelp|KeyboardHelp.tsx]] | `ACTIVE` | Provides the reusable `KeyboardHelp` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/KnowledgeModel|KnowledgeModel.tsx]] | `ACTIVE` | Provides the reusable `KnowledgeModel` interaction surface used by one or more desktop workflows. | 4 | 5 |
 | [[Reference/Desktop/TypeScript/components/NativeMediaSettings|NativeMediaSettings.tsx]] | `ACTIVE` | Provides the reusable `NativeMediaSettings` interaction surface used by one or more desktop workflows. | 4 | 2 |
@@ -96,7 +96,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/RepairTrace|RepairTrace.tsx]] | `ACTIVE` | Provides the reusable `RepairTrace` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/RewordConfirms|RewordConfirms.tsx]] | `ACTIVE` | Provides the reusable `RewordConfirms` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/SessionElsewherePrompt|SessionElsewherePrompt.tsx]] | `ACTIVE` | Provides the reusable `SessionElsewherePrompt` interaction surface used by one or more desktop workflows. | 2 | 1 |
-| [[Reference/Desktop/TypeScript/components/SessionFinishHud|SessionFinishHud.tsx]] | `ACTIVE` | Provides the reusable `SessionFinishHud` interaction surface used by one or more desktop workflows. | 6 | 1 |
+| [[Reference/Desktop/TypeScript/components/SessionFinishHud|SessionFinishHud.tsx]] | `ACTIVE` | Provides the reusable `SessionFinishHud` interaction surface used by one or more desktop workflows. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/components/SessionMovedBanner|SessionMovedBanner.tsx]] | `ACTIVE` | Provides the reusable `SessionMovedBanner` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/ShellNav|ShellNav.tsx]] | `ACTIVE` | Provides the reusable `ShellNav` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|SourceLibrarySidebar.tsx]] | `ACTIVE` | Provides the reusable `SourceLibrarySidebar` interaction surface used by one or more desktop workflows. | 9 | 1 |

@@ -1774,6 +1774,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
+- [tests/test_held_topic_work_review.py](../../../../../../tests/test_held_topic_work_review.py) — direct import
 - [tests/test_help_assist_work_md_migration.py](../../../../../../tests/test_help_assist_work_md_migration.py) — direct import
   - `test_a_served_hint_keeps_the_draft_it_answered_and_the_grader_never_sees_it`
   - `test_an_authored_reveal_keeps_the_draft`

@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/reader/part_read.py"
   - "src/learnloop/reader/reader_progression.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/reader/section_generation.py"
 tags:
   - "learnloop/database/table"
@@ -96,6 +97,7 @@ Indexes and uniqueness:
 
 - `Repository.index_section_job_topics()`
 - `Repository.insert_topic_question_work()`
+- `Repository.settle_reviewed_topic_work()`
 - `Repository.topic_question_work_for()`
 - `Repository.topic_question_work_rows()`
 - `Repository.update_topic_question_work()`
@@ -113,6 +115,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/db/stores/content.py`
 - `src/learnloop/reader/part_read.py`
 - `src/learnloop/reader/section_generation.py`
 
@@ -128,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_section_done_before_build.py`
 - `tests/next_practice_helpers.py`
 - `tests/test_empty_first_build.py`
+- `tests/test_held_topic_work_review.py`
 - `tests/test_mobile_v4_reader.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

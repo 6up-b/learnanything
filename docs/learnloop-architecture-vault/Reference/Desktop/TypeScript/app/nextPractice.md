@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] · Jump to [[#Pu
 
 ## Why this module exists
 
-Provides `daysFrom`, `dayName`, `NextPracticeWordsOptions`, `nextPracticeLines` and related exports within the desktop's TypeScript/app ownership area.
+Provides `daysFrom`, `dayName`, `NextPracticeWordsOptions`, `keptForCheckLine` and related exports within the desktop's TypeScript/app ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/nextPractice.ts](../../../../../../apps/learnloop-tauri/src/app/nextPractice.ts) |
-| Source lines | 161 |
+| Source lines | 201 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -57,10 +57,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function daysFrom(today: string, date: string): number | null` — function, line 24
 - `export function dayName(date: string, today: string): string` — function, line 38
 - `export interface NextPracticeWordsOptions` — interface, line 64
-- `export function nextPracticeLines(next: NextPracticeDto | null | undefined, options: NextPracticeWordsOptions =` — function, line 79
-- `export function nextPracticeRowWhy(next: NextPracticeDto | null | undefined, item: Pick<ScheduledItemDto, "practiceItemId">): string | null` — function, line 124
-- `export function useLatestNextPractice(next: NextPracticeDto | null | undefined): NextPracticeDto | null` — function, line 141
-- `export function useNextDayRefresh(nextDayStartsAt: string | null | undefined, refresh: ()` — function, line 149
+- `export function keptForCheckLine(next: NextPracticeDto | null | undefined, keptItemIds: readonly string[] | null | undefined): string | null` — function, line 99
+- `export function nextPracticeLines(next: NextPracticeDto | null | undefined, options: NextPracticeWordsOptions =` — function, line 116
+- `export function nextPracticeRowWhy(next: NextPracticeDto | null | undefined, item: Pick<ScheduledItemDto, "practiceItemId">): string | null` — function, line 164
+- `export function useLatestNextPractice(next: NextPracticeDto | null | undefined): NextPracticeDto | null` — function, line 181
+- `export function useNextDayRefresh(nextDayStartsAt: string | null | undefined, refresh: ()` — function, line 189
 
 ## Internal implementation anchors
 
@@ -82,28 +83,36 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function count(n: number, one: string, many: string): string` — function, line 54
 - `function aboutMinutes(minutes: number | null | undefined): string` — function, line 58
 - `const whole = Math.max(1, Math.round(minutes))` — const, line 60
-- `function groupOn(groups: readonly NextPracticeGroupDto[], date: string): NextPracticeGroupDto | undefined` — function, line 73
-- `const lines: string[] = []` — const, line 82
-- `const dueToday = groupOn(next.reviews, today)` — const, line 83
-- `const dueTomorrow = groupOn(next.reviews, tomorrow)` — const, line 84
-- `const writing = options.writing !== false && next.writing.topicCount > 0` — const, line 85
-- `const waiting = options.writing !== false ? next.waiting?.sectionCount ?? 0 : 0` — const, line 89
-- `const laterCheck = next.checks.find((group)` — const, line 90
-- `const checkNow = groupOn(next.checks, today)` — const, line 91
-- `const more = dueToday ? "more " : ""` — const, line 96
-- `const group = groupOn(next.reviews, next.nextReviewDate)` — const, line 100
-- `const one = group?.count === 1` — const, line 101
-- `const from = `available from $` — const, line 110
-- `const today = next.calendar.today` — const, line 126
-- `const check = next.checks.find((group)` — const, line 127
-- `const days = daysFrom(today, check.date) ?? 0` — const, line 129
-- `const review = next.reviews.find((group)` — const, line 132
-- `const days = daysFrom(today, review.date) ?? 0` — const, line 134
-- `const latest = useRef<NextPracticeDto | null>(null)` — const, line 142
-- `const refreshRef = useRef(refresh)` — const, line 150
-- `const at = Date.parse(nextDayStartsAt)` — const, line 154
-- `const delay = Math.min(Math.max(at - Date.now(), 0) + 1000, 2_000_000_000)` — const, line 157
-- `const timer = window.setTimeout(()` — const, line 158
+- `function groupOn(groups: readonly NextPracticeGroupDto[], date: string): NextPracticeGroupDto | undefined` — function, line 77
+- `function laterChecks(next: NextPracticeDto): NextPracticeGroupDto[]` — function, line 81
+- `function keptIn(group: NextPracticeGroupDto, kept: ReadonlySet<string>): number` — function, line 85
+- `function keptWords(kept: number, from: string): string` — function, line 89
+- `const kept = new Set(keptItemIds ?? [])` — const, line 101
+- `const group = laterChecks(next).find((check)` — const, line 102
+- `function comeBack(n: number, more: string): string` — function, line 108
+- `const lines: string[] = []` — const, line 119
+- `const dueToday = groupOn(next.reviews, today)` — const, line 120
+- `const dueTomorrow = groupOn(next.reviews, tomorrow)` — const, line 121
+- `const writing = options.writing !== false && next.writing.topicCount > 0` — const, line 122
+- `const waiting = options.writing !== false ? next.waiting?.sectionCount ?? 0 : 0` — const, line 125
+- `const checkNow = groupOn(next.checks, today)` — const, line 126
+- `const more = dueToday ? "more " : ""` — const, line 131
+- `const kept = new Set(options.keptItemIds ?? [])` — const, line 142
+- `const later = laterChecks(next)` — const, line 143
+- `const keeping = later.find((group)` — const, line 144
+- `const from = `available from $` — const, line 146
+- `const own = group === keeping ? keptIn(group, kept) : 0` — const, line 147
+- `const rest = group.count - own` — const, line 148
+- `const today = next.calendar.today` — const, line 166
+- `const check = next.checks.find((group)` — const, line 167
+- `const days = daysFrom(today, check.date) ?? 0` — const, line 169
+- `const review = next.reviews.find((group)` — const, line 172
+- `const days = daysFrom(today, review.date) ?? 0` — const, line 174
+- `const latest = useRef<NextPracticeDto | null>(null)` — const, line 182
+- `const refreshRef = useRef(refresh)` — const, line 190
+- `const at = Date.parse(nextDayStartsAt)` — const, line 194
+- `const delay = Math.min(Math.max(at - Date.now(), 0) + 1000, 2_000_000_000)` — const, line 197
+- `const timer = window.setTimeout(()` — const, line 198
 
 ## Who imports or calls it
 
@@ -112,6 +121,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/todayPlan|src/app/todayPlan.ts]] — import-or-re-export: `dayName`, `daysFrom`, `nextPracticeRowWhy`; references `dayName`, `daysFrom`, `nextPracticeRowWhy`
 - [[Reference/Desktop/TypeScript/components/SessionFinishHud|src/components/SessionFinishHud.tsx]] — import-or-re-export: `nextPracticeLines`; references `nextPracticeLines`
+- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `keptForCheckLine`; references `keptForCheckLine`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `nextPracticeLines`, `useLatestNextPractice`, `useNextDayRefresh`; references `nextPracticeLines`, `useLatestNextPractice`, `useNextDayRefresh`
 
 ## Dependencies
