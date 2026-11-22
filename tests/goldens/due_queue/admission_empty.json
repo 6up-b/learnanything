@@ -778,6 +778,9 @@
    ]
   }
  },
+ "extra": {
+  "episode_reads": []
+ },
  "queue": [],
  "trace": {
   "base_propensity": {},

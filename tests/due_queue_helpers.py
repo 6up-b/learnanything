@@ -303,3 +303,17 @@ def build_unconsulted_episode_vault(root):
     apply_choice(vault, repository, Scope("learning_object", PROBE_LO), "pause",
                  clock=FrozenClock(NOW - timedelta(minutes=20)))
     return load_vault(vault.root), repository
+
+
+def build_waiting_check_episode_vault(root):
+    """``(vault, repository)``: :func:`build_rich_vault` with every item of the probe's LO paused but one, which has
+    a "Check once" set an hour ago: not due, so intent holds it after it passes the routine gate."""
+
+    from learnloop.intent.control import Scope, apply_choice
+
+    vault, repository = build_rich_vault(root)
+    at = FrozenClock(NOW - timedelta(hours=1))
+    for item_id in ("pi_svd_define_002", TEACH_BACK):
+        apply_choice(vault, repository, Scope("practice_item", item_id), "pause", clock=at)
+    apply_choice(vault, repository, Scope("practice_item", "pi_svd_define_001"), "check_once", clock=at)
+    return load_vault(vault.root), repository

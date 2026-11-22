@@ -59,6 +59,7 @@ from tests.due_queue_helpers import (
     build_probe_history_vault,
     build_rich_vault,
     build_unconsulted_episode_vault,
+    build_waiting_check_episode_vault,
 )
 
 GOLDEN_DIR = Path(__file__).parent / "goldens" / "due_queue"
@@ -318,19 +319,53 @@ def test_a_phone_build(tmp_path, seeded_ids):
                                       extra=lambda: {"deferred": sorted(holder["filter"].deferred)}))
 
 
-def test_a_phone_read_where_no_item_reaches_the_episode(tmp_path, seeded_ids):
+#: The probe episode's reads the scheduler makes through these names (the familiarity read aside), spied on so a
+#: record can say which episodes a build read.
+_EPISODE_READS = (
+    "administered_surface_exclusions", "episode_hypothesis_set", "eligible_instruments",
+    "qualifying_observation_count", "session_qualifying_total",
+)
+
+
+def _spy_episode_reads(monkeypatch) -> list[str]:
+    from learnloop.scheduling import scheduler
+
+    calls: list[str] = []
+    for name in _EPISODE_READS:
+        real = getattr(scheduler, name)
+
+        def spy(*args, _real=real, _name=name, **kwargs):
+            calls.append(_name)
+            return _real(*args, **kwargs)
+
+        monkeypatch.setattr(scheduler, name, spy)
+    return calls
+
+
+def test_a_phone_read_where_no_item_reaches_the_episode(tmp_path, seeded_ids, monkeypatch):
     """The probe's LO is paused, so no item of the in-progress episode reaches a gate that reads it, and the phone
-    is asked only about what the other gates admit."""
+    is asked only about what the other gates admit. ``episode_reads``: none, as the lazy build read none."""
 
     holder: dict[str, DeviceFilter] = {}
+    calls = _spy_episode_reads(monkeypatch)
 
     def build(vault, repository, trace):
         holder["filter"] = _phone(vault)
+        calls.clear()
         return read_due_queue(vault, repository, clock=CLOCK, offer_trace=trace, device_filter=holder["filter"])
 
     _check("admission_unconsulted_episode", _record(
         tmp_path, build, vault_builder=build_unconsulted_episode_vault,
-        extra=lambda: {"deferred": sorted(holder["filter"].deferred)}))
+        extra=lambda: {"deferred": sorted(holder["filter"].deferred), "episode_reads": sorted(calls)}))
+
+
+def test_a_read_where_an_item_of_the_probes_lo_waits_for_its_check(tmp_path, seeded_ids):
+    """Every item of the probe's LO is paused but one, whose "Check once" is not due: it passes the routine gate and
+    intent's exclusions, then intent holds it, so no item reaches the episode. The admission's reads gathered up
+    front read this episode (the lazy build did not); what the build returns and writes is unchanged."""
+
+    _check("admission_waiting_check_episode", _record(tmp_path, lambda vault, repository, trace: read_due_queue(
+        vault, repository, clock=CLOCK, offer_trace=trace), vault_builder=build_waiting_check_episode_vault))
 
 
 def _retire_everything(vault: Any) -> None:
@@ -338,10 +373,16 @@ def _retire_everything(vault: Any) -> None:
         item.status = "retired"
 
 
-def test_a_serving_build_with_nothing_to_serve(tmp_path, seeded_ids):
-    _check("admission_empty", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
-        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace),
-        prepare=_retire_everything))
+def test_a_serving_build_with_nothing_to_serve(tmp_path, seeded_ids, monkeypatch):
+    calls = _spy_episode_reads(monkeypatch)
+
+    def build(vault, repository, trace):
+        calls.clear()
+        return build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION),
+                               offer_trace=trace)
+
+    _check("admission_empty", _record(tmp_path, build, prepare=_retire_everything,
+                                      extra=lambda: {"episode_reads": sorted(calls)}))
 
 
 def _outside(tmp_path: Path, vault_builder: Any, prepare: Any = None) -> dict[str, Any]:

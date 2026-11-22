@@ -48,7 +48,8 @@
  "extra": {
   "deferred": [
    "pi_c1"
-  ]
+  ],
+  "episode_reads": []
  },
  "queue": [
   {
