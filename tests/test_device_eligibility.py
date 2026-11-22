@@ -726,6 +726,6 @@ def test_a_check_once_asks_the_same_gate(tmp_path):
     assert DEVICE_INELIGIBLE in ADMISSION_GATES
     item = SimpleNamespace(id=HUNT)
     gate = _BuildAdmission.device_gate
-    holder = SimpleNamespace(device_filter=SimpleNamespace(refuses=lambda _item: True))
+    holder = SimpleNamespace(reads=SimpleNamespace(device_refusals={HUNT: True}))
     assert gate(holder, item, None) == DEVICE_INELIGIBLE
-    assert gate(SimpleNamespace(device_filter=None), item, None) is None
+    assert gate(SimpleNamespace(reads=SimpleNamespace(device_refusals=None)), item, None) is None
