@@ -28,6 +28,7 @@ from learnloop.diagnosis.causal_reads import (
 from learnloop.diagnosis.content_ids import content_id
 from learnloop.vault.models import LoadedVault
 from learnloop.diagnosis.causal_cold_verification import sweep_expired_cold_retries
+from learnloop.diagnosis.remediation import end_untaken_episodes
 
 
 def _machine_check_id(obligation: Mapping[str, Any]) -> str:
@@ -228,6 +229,14 @@ def sweep_machine_checks(
     except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
         logging.getLogger(__name__).warning(
             "expired cold-retry reconciliation failed", exc_info=True
+        )
+    # The same hook ends a repair episode whose primed attempt was never taken once its item's next ordinary
+    # review is due (mvp-0.64); without it such an episode, and its cold item's reservation, never end.
+    try:
+        end_untaken_episodes(vault, repository, clock=clock)
+    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+        logging.getLogger(__name__).warning(
+            "untaken repair episode sweep failed", exc_info=True
         )
     # Bounded factor deferral rides the same per-attempt hook so abandoned
     # cases expire even when no attempt on their own learning object ever

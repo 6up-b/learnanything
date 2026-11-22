@@ -51,14 +51,19 @@ def test_the_cold_task_kinds_are_defined_once():
     assert learner_protection.COLD_TASK_KINDS is serve_eligibility.COLD_FOLLOWUP_TASK_KINDS
 
 
-def test_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending(world):
-    """Two strengths of one reservation. Today's queue withholds the item once a cold retry is open (practising
-    it first would spoil the check); an episode whose primed attempt is never taken has no lifetime, so it does
-    not take the item out of the queue."""
+def test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending(tmp_path):
+    """Two strengths of one reservation below ``mvp-0.64``. Today's queue withholds the item once a cold retry is
+    open (practising it first would spoil the check); an episode whose primed attempt is never taken has no lifetime
+    there, so it does not take the item out of the queue. From the tag the queue reads the wider set
+    (``tests/test_untaken_repair_episode.py``)."""
 
+    from learnloop.algorithm_versions import SECTION_END_ALGORITHM_VERSION
     from learnloop.scheduling.scheduler import build_due_queue
+    from tests.helpers import set_algorithm_version
 
-    vault, repository = world
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, SECTION_END_ALGORITHM_VERSION)
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
     cold_item = next(iter(vault.practice_items))
 
     def queued() -> bool:

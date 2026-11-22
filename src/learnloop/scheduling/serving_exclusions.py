@@ -13,7 +13,8 @@ These exclusions keep an item out of every routine selection, whatever ranks it:
 - **pending-variant holds**: the learner asked for an easier or harder sibling
   of this exact card and it is still being authored;
 - **pending cold checks**: ordinary practice would spend the question kept
-  for an open remediation retry or certification check;
+  for an open remediation retry or certification check (from ``mvp-0.64``,
+  for every open remediation episode that has chosen its cold item);
 - **staged-controller ownership**: during the dual-controller cutover the
   staged policy owns these commitments' items (design §A.2 rule 3).
 
@@ -67,6 +68,7 @@ from datetime import UTC, datetime, timedelta
 from collections.abc import Iterable
 from typing import Any, Protocol
 
+from learnloop.algorithm_versions import untaken_episode_end_on
 from learnloop.clock import Clock
 from learnloop.content.sources.exam_material import held_out_items, held_out_selection_active
 from learnloop.db.connection import connect
@@ -83,7 +85,8 @@ class ServingExclusions:
     reserved_exam_item_ids: frozenset[str]
     rung_variant_hold_ids: frozenset[str]
     staged_owned_item_ids: frozenset[str]
-    #: Routine serving holds pending remediation retries and unexpired open certification checks;
+    #: Routine serving holds pending remediation retries (from ``mvp-0.64`` every open episode's chosen cold item)
+    #: and unexpired open certification checks;
     #: :func:`out_of_timing_serving_exclusions` widens it to the open
     #: cold tasks' items and every live episode's chosen item (``open_remediation_cold_item_ids``).
     cold_check_reserved_item_ids: frozenset[str] = frozenset()
@@ -123,7 +126,13 @@ def routine_serving_exclusions(vault: Any, repository: Repository, *, now: datet
     closed, reserved = door_sets(repository)
     from learnloop.followup_serve.identity import generated_probe_ids as all_generated_probe_ids
 
-    cold_reserved = repository.pending_remediation_cold_item_ids() | {
+    # From mvp-0.64 an untaken episode has an end (the sweep's), so its cold item is withheld from the moment the
+    # episode chooses it; below the tag only an open cold retry withholds it, since nothing would ever release it.
+    remediation_reserved = (
+        repository.open_remediation_cold_item_ids() if untaken_episode_end_on(getattr(vault, "config", None))
+        else repository.pending_remediation_cold_item_ids()
+    )
+    cold_reserved = remediation_reserved | {
         str(task["selected_item_id"])
         for task in repository.open_followup_tasks_of_kind("certification_cold_probe")
         # Not yet due still reserves; past expiry cannot be administered, even before housekeeping.
