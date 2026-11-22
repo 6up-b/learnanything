@@ -1020,3 +1020,34 @@ describe("the live walk partread-3 on the phone: a kept question, one topic coun
       "Writing questions from what you’ve read in “Symmetric Matrices and Variance” · 2 topics written · 3 more being written. Keep reading meanwhile.");
   });
 });
+
+// The live walk sectionend-1 (2026-11-21), on the phone: the book read to its end while it is still being got ready
+// says so, with what comes and where LearnLoop must stay open, in one block; never "Keep reading meanwhile." (UX-70,
+// UX-82). The details then drop the line that no time is given: the block says the first time takes several minutes.
+describe("the live walk sectionend-1 on the phone: the whole book read during its first build", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  it("one calm block: all read, the questions come to Today, the first time takes several minutes, the desktop must stay open", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = {
+      sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1",
+        statusLine: { text: "Getting this article ready for questions", tone: "working", action: null, details: null, progress: { done: 1, total: 2 },
+          minutes: null,
+          buildDetail: { asOf: "2026-11-21T18:04:00Z", startedAt: "2026-11-21T18:00:00Z", stage: "planning", retry: false, measured: null,
+            synthesis: { part: 1, parts: 1, pass: "plan" }, delivery: null },
+          questions: { count: 0, itemIds: [], sections: [], writing: [], waiting: ["Document"], failed: [], toLookAt: 0, sectionCount: 1,
+            allRead: true } } }]
+    };
+    render(<App />);
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toBe(
+      "Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done. You’ve read all of “Symmetric Matrices and Variance”. "
+      + "Your questions from what you read will be written as soon as “Symmetric Matrices and Variance” is ready. They'll be on Today. "
+      + "You don’t need to do anything for them. The first time, this can take several minutes. "
+      + "Leave LearnLoop open on your desktop meanwhile: closing it there stops the work until you try again.");
+    const detail = screen.getByTestId("today-cause-detail");
+    expect(detail.textContent).toContain("Planning questions · part 1 of 1");
+    expect(detail.textContent).not.toContain("no time is given");
+    expect(findJargon(`${cause.textContent} ${detail.textContent}`)).toEqual([]);
+  });
+});

@@ -81,7 +81,7 @@ export function PlanToday({
   const cause = empty && library.data ? todayCause({ cards: library.data.sources, ai: null, listItems: 0, listUnknown: true }) : null;
   // While a book is got ready or its questions are written, what is happening now under the sentence, in the desktop's
   // words, with clock times: this Today is not read again on its own, so an age would grow false as it sat.
-  const detail = useWaitWords(waitDetailOf(cause), "at");
+  const detail = useWaitWords(waitDetailOf(cause, "phone"), "at");
   const causeLine = cause ? (
     <>
       <p className="dim" role="status" data-testid="today-cause">{causeSentence(cause)}</p>

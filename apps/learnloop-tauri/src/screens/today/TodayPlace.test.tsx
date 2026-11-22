@@ -2832,9 +2832,10 @@ describe("An honest wait (the first evening, step 6): what is happening now, in 
     expect(await within(screen.getByTestId("today-cause")).findByText("Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done")).toBeTruthy();
     expect(within(detail).getByText("Planning questions · part 1 of 1")).toBeTruthy();
     expect(within(detail).getByText("Started 2 minutes ago · asked 40 seconds ago, no reply yet")).toBeTruthy();
-    const more = screen.getByTestId("today-cause-detail-more") as HTMLDetailsElement;
-    expect(more.open).toBe(false);
-    expect(more.textContent).toContain("No book has finished getting ready in this library yet, so no time is given.");
+    // A first build: "The first time, this can take several minutes." is under the indicator, so "details" would only
+    // repeat it ("no time is given"): with nothing else to add, no details control (UX-83, the live walk sectionend-2).
+    expect(screen.queryByTestId("today-cause-detail-more")).toBeNull();
+    expect(detail.textContent).not.toContain("no time is given");
     expect(screen.getByTestId("today-cause").textContent).not.toMatch(/%|still writing|stall|left/);
     expect(findJargon(screen.getByTestId("today-cause").textContent ?? "")).toEqual([]);
   });
@@ -2982,5 +2983,40 @@ describe("The live walk partread-3: a kept question, one topic count, questions 
       "2 questions you answered come back on 30 November.1 question from your reading is kept for a check on your own, available from 5 December."
     ));
     expect(surface()).not.toMatch(/Nothing is due|next questions are due/);
+  });
+});
+
+// The live walk sectionend-1 (2026-11-21): the student read the one-section chapter to its end during its first build.
+// Today said "Keep reading meanwhile." with nothing left to read (UX-70), and its wait gave three scattered lines and
+// "no time is given" (UX-82). Now one block under the indicator says what is true, and the action opens the book.
+describe("the live walk sectionend-1: the whole book read during its first build", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const AS_OF = "2026-11-21T18:10:00Z";
+  const line: SourceStatusLineDto = {
+    text: "Getting this article ready for questions", tone: "working", action: null, details: null, progress: { done: 1, total: 2 },
+    buildDetail: { asOf: AS_OF, startedAt: "2026-11-21T18:06:00Z", stage: "planning", retry: false, measured: null,
+      synthesis: { part: 1, parts: 1, pass: "plan" },
+      delivery: { requestSentAt: "2026-11-21T18:09:20Z", replyReceivedAt: null, outputPieces: 0, lastOutputAt: null } },
+    questions: { count: 0, itemIds: [], sections: [], writing: [], waiting: ["Document"], failed: [], toLookAt: 0, sectionCount: 1, allRead: true },
+  };
+
+  it("one calm block: all read, the questions come to Today with nothing to press, the first time, keep LearnLoop open", async () => {
+    emptyToday([libraryCard(line, { unitCount: 1 })]);
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain("You’ve read all of “Symmetric Matrices and Variance”."));
+    expect(cause.textContent).toContain(
+      "You’ve read all of “Symmetric Matrices and Variance”. Your questions from what you read will be written as soon as "
+      + "“Symmetric Matrices and Variance” is ready. They'll be on Today. You don’t need to do anything for them. "
+      + "The first time, this can take several minutes. Leave LearnLoop open meanwhile: closing it stops the work until you try again.");
+    expect(cause.textContent).not.toMatch(/keep reading/i);
+    // What the build is doing stays under the indicator; its details no longer say that no time is given.
+    const detail = screen.getByTestId("today-cause-detail");
+    expect(within(detail).getByText("Planning questions · part 1 of 1")).toBeTruthy();
+    expect(detail.textContent).not.toContain("no time is given");
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+    // The one action opens the book: nothing is left to continue reading.
+    fireEvent.click(within(cause).getByRole("button", { name: "Open the book" }));
+    expect(props.onOpenBook).toHaveBeenCalledTimes(1);
   });
 });

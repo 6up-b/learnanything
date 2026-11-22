@@ -130,7 +130,7 @@ export type TodayCause =
       /** Books whose getting ready waits its turn behind this one's. */
       queued?: readonly string[];
       /** What the build is doing now, in recorded facts (`app/waitDetail`); absent where the line carries none. */
-      detail?: BuildDetailDto | null }
+      detail?: BuildDetailDto | null } & AllRead
   /** The questions of a section the learner finished are being written; `progress`: how many of its topics are done,
    *  where the fact says it for that section. `failedTopics`: some of its topics' questions could not be written while
    *  the rest still are; said beside the writing, with no Try again (a resume requeues nothing while the job runs). */
@@ -140,7 +140,7 @@ export type TodayCause =
       /** The writing is of sections the learner has not finished: questions from what they've read. */
       fromReading?: boolean;
       /** What the writing is doing now, in recorded facts (`app/waitDetail`); absent where the fact carries none. */
-      detail?: WritingDetailDto | null }
+      detail?: WritingDetailDto | null } & AllRead
   /** A section the learner finished waits for its book to be ready: its questions are written then. `fromReading`: it is
    *  a section they read part of. */
   | { kind: "section_waiting"; title: string; part: string | null; card: SourceLibraryCard; fromReading?: boolean }
@@ -158,6 +158,11 @@ export type TodayCause =
   | { kind: "finish_section"; card: SourceLibraryCard | null }
   /** A book's questions from reading exist and none is on today's list. */
   | { kind: "none_up"; title: string; card: SourceLibraryCard };
+
+/** Every section of the named book is finished (`allRead`, the book's fact): a wait for its questions then says it is all
+ *  read, never "Keep reading meanwhile." `phone`: said on the phone, where the work is the desktop's. Both present only
+ *  when the book is all read. */
+type AllRead = { allRead?: true; phone?: true };
 
 function shownLine(card: SourceLibraryCard, ai: AiConnectionDto | null): SourceStatusLineDto | null {
   // As the shelf shows it (BookCard): the no-AI version while no AI can write.
@@ -267,6 +272,11 @@ function placedDetail(detail: WritingDetailDto, topics: TopicCount | null): Writ
   const topic = detail.topic;
   if (!topics || !topic || topic.index === null || topic.total === null) return detail;
   return { ...detail, topic: { ...topic, index: topics.written + 1, total: topics.written + topics.writing } };
+}
+
+function allReadOf(questions: ReadingQuestionsDto | null, phone: boolean): AllRead {
+  if (questions?.allRead !== true) return {};
+  return phone ? { allRead: true, phone: true } : { allRead: true };
 }
 
 /** The questions written from the learner's reading, across the readable books (their `itemIds`): the questions Today
@@ -411,7 +421,8 @@ export function todayCause(input: {
         const behind = (first.line ?? line)?.waitingBehind ?? null;
         const queued = hits.slice(1).filter((hit) => (hit.line ?? hit.card?.statusLine)?.waitingBehind === first.title).map((hit) => hit.title);
         return { kind: "on_the_way", title: first.title, card: first.card, progress: line?.progress ?? null, minutes: line?.minutes ?? null, waiting, firstBuild,
-          ...(behind ? { behind } : {}), ...(queued.length ? { queued } : {}), ...(!behind && line?.buildDetail ? { detail: line.buildDetail } : {}) };
+          ...(behind ? { behind } : {}), ...(queued.length ? { queued } : {}), ...(!behind && line?.buildDetail ? { detail: line.buildDetail } : {}),
+          ...allReadOf(questions, unknown) };
       }
       case "section_writing": {
         // Where the list is not read (the phone), questions already written are said with the writing.
@@ -431,7 +442,8 @@ export function todayCause(input: {
           failedTopics: (questions?.failed.length ?? 0) > 0,
           ...(topics ? { topics } : {}),
           ...(questions && fromReading(questions, labels) ? { fromReading: true } : {}),
-          ...(questions?.writing.length && questions.writingDetail ? { detail: placedDetail(questions.writingDetail, topics) } : {})
+          ...(questions?.writing.length && questions.writingDetail ? { detail: placedDetail(questions.writingDetail, topics) } : {}),
+          ...allReadOf(questions, unknown)
         };
       }
       case "section_waiting": {
@@ -578,38 +590,72 @@ export function topicCountWords(topics: TopicCount): string {
     : `${topicsWord(topics.writing)} being written`;
 }
 
+/** Said when every section of a book is finished, in place of "Keep reading meanwhile." */
+export function allReadWords(title: string): string {
+  return `You’ve read all of “${title}”.`;
+}
+
+/** Where a book's questions go once written (the Reader's finished section says it too). */
+export const ON_TODAY = "They'll be on Today.";
+
+/** Beside it, for a learner with nothing left to read who might think something is asked of them. */
+export const NOTHING_TO_DO = "You don’t need to do anything for them.";
+
+/** What closing the app does to the work, said while a book read to its end waits for it. A running job's lease is
+ *  failed as interrupted when the app next opens (content/pipeline/runner.py `recover_stale_leases`), and nothing tries
+ *  it again on its own: the book's Try again (or Retry) does. "You can close it and come back" would be false. */
+export const KEEP_OPEN = "Leave LearnLoop open meanwhile: closing it stops the work until you try again.";
+/** The same on the phone, whose Today reads the desktop's work: closing the phone app stops nothing. */
+export const KEEP_OPEN_ON_DESKTOP = "Leave LearnLoop open on your desktop meanwhile: closing it there stops the work until you try again.";
+
+/** The action beside a wait for a book read to its end: nothing is left to continue reading in it. */
+export const OPEN_THE_BOOK = "Open the book";
+
+/** What to know while a book read to its end waits: all read, where its questions go (when its finished sections wait
+ *  for them, `promise`), the first build's time where it is the first, and what closing the app does. One block. */
+function allReadBlock(cause: { title: string; phone?: true }, said: { promise?: string | null; onToday: boolean; first?: boolean }): string {
+  return [allReadWords(cause.title), said.promise ?? null, said.onToday ? `${ON_TODAY} ${NOTHING_TO_DO}` : null,
+    said.first ? WAITING_COPY.firstBuildLater : null, cause.phone ? KEEP_OPEN_ON_DESKTOP : KEEP_OPEN].filter(Boolean).join(" ");
+}
+
 /** The words of a cause that is a wait: the waiting indicator's line, what to know meanwhile (`after`), and the
  *  indicator's quieter second line where something true can be said (`later`). */
 export function causeWait(cause: TodayCause): { line: string; after: string; later: string | null } | null {
   switch (cause.kind) {
     case "on_the_way": {
       if (cause.behind) {
-        return { line: `“${cause.title}” is waiting its turn behind “${cause.behind}”`, after: `${ONE_BOOK_AT_A_TIME} Keep reading meanwhile.`, later: null };
+        return { line: `“${cause.title}” is waiting its turn behind “${cause.behind}”`,
+          after: `${ONE_BOOK_AT_A_TIME} ${cause.allRead ? allReadBlock(cause, { onToday: false }) : "Keep reading meanwhile."}`, later: null };
       }
       const amount = cause.progress && cause.progress.total > 0 ? ` · ${cause.progress.done} of ${cause.progress.total} steps done` : "";
       const usually = cause.minutes !== null ? ` · ${minutesWords(cause.minutes)}` : "";
       const queued = cause.queued?.length ? `${cause.queued.map((title) => `“${title}”`).join(" and ")} ${cause.queued.length === 1 ? "is waiting its" : "are waiting their"} turn behind it. ` : "";
+      const promise = cause.waiting ? waitingWords(cause.title, cause.waiting.part, cause.waiting.fromReading === true) : null;
+      if (cause.allRead) {
+        // The first-time sentence is in the block: the indicator does not say it a second time.
+        return { line: `Getting “${cause.title}” ready for questions${amount}${usually}`,
+          after: queued + allReadBlock(cause, { promise, onToday: promise !== null, first: cause.firstBuild === true }), later: null };
+      }
       return {
         line: `Getting “${cause.title}” ready for questions${amount}${usually}`,
-        after: queued + (cause.waiting
-          ? `${waitingWords(cause.title, cause.waiting.part, cause.waiting.fromReading === true)} Keep reading meanwhile.`
-          : `${QUESTIONS_FROM_READING} Keep reading meanwhile.`),
+        after: queued + (promise ? `${promise} Keep reading meanwhile.` : `${QUESTIONS_FROM_READING} Keep reading meanwhile.`),
         later: cause.firstBuild ? WAITING_COPY.firstBuildLater : null
       };
     }
     case "section_writing": {
       const amount = cause.topics ? ` · ${topicCountWords(cause.topics)}`
         : cause.progress && cause.progress.total > 0 ? ` · ${topicsDone(cause.progress)}` : "…";
+      const after = cause.allRead ? allReadBlock(cause, { onToday: true }) : "Keep reading meanwhile.";
       if (cause.fromReading) {
         return {
           line: cause.part ? `Writing questions from what you’ve read of “${cause.part}”${amount}` : `Writing questions from what you’ve read in “${cause.title}”${amount}`,
-          after: "Keep reading meanwhile.",
+          after,
           later: null
         };
       }
       return {
         line: cause.part ? `Writing questions from “${cause.part}”, the part you read${amount}` : `Writing questions from what you read in “${cause.title}”${amount}`,
-        after: "Keep reading meanwhile.",
+        after,
         later: null
       };
     }
@@ -762,6 +808,7 @@ export function causeActionLabel(cause: TodayCause): string | null {
       return "Open Library";
     case "on_the_way":
     case "section_writing":
+      return cause.card ? (cause.allRead ? OPEN_THE_BOOK : "Continue reading") : null;
     case "section_waiting":
     case "finish_section":
     case "none_up":
