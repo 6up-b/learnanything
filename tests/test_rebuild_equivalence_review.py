@@ -218,7 +218,7 @@ def test_the_successor_is_one_constant_after_its_predecessor():
 
     # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the
     # cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 as the latest (all keep it).
-    assert REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34" == SUCCESSOR_CHAIN[-30] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.63"
+    assert REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34" == SUCCESSOR_CHAIN[-31] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.64"
     assert PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(REPLAY_LEDGER_ALGORITHM_VERSION) - 1]
 
 

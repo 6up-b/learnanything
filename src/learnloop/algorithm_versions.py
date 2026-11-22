@@ -969,6 +969,16 @@ COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION = "mvp-0.62"
 # ONE constant.
 SECTION_END_ALGORITHM_VERSION = "mvp-0.63"
 
+# mvp-0.64 (an untaken repair episode ends; docs/reviews/algorithm-mvp-0.64.md), on top of the section end's mvp-0.63.
+# A remediation episode in ``prescribed`` or ``treatment`` whose primed attempt was never taken had no end, so its
+# reserved cold item was withheld from Today's queue only while a cold retry stood open. At this tag the per-attempt
+# sweep ends such an episode as ``abandoned`` (an existing state) once the item of the miss it repairs has its next
+# ordinary review due, which frees the cold item as a withdrawn retry frees it, and the routine queue withholds the
+# cold item for as long as the episode is open. Episodes, tasks and outcomes already recorded keep their meaning; an
+# episode open at the upgrade is ended by the first sweep after it, never back-dated. Only new events move, so
+# activation is the idempotent projection. No kill switch (owner rule 2026-11-16). No migration. ONE constant.
+UNTAKEN_EPISODE_END_ALGORITHM_VERSION = "mvp-0.64"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1030,6 +1040,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     EVIDENCE_READING_FIX_ALGORITHM_VERSION,
     COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
+    UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
 )
 
 
@@ -1120,6 +1131,20 @@ def section_end_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in SECTION_END_VERSIONS
+
+# Versions where an untaken repair episode ends at its item's next ordinary review and the routine queue withholds its
+# cold item while it is open. Every later successor keeps it; gates must use this set, never equality, and read it
+# through :func:`untaken_episode_end_on`.
+UNTAKEN_EPISODE_END_VERSIONS: frozenset[str] = successors_from(UNTAKEN_EPISODE_END_ALGORITHM_VERSION)
+
+
+def untaken_episode_end_on(config: object) -> bool:
+    """An untaken repair episode ends (mvp-0.64), gated by the vault's tag alone (no kill switch): below it such an
+    episode stays open and the routine queue withholds its cold item only while a cold retry is open, exactly as at
+    mvp-0.63. ``config`` is a vault's config; the one predicate the sweep and the routine exclusions read."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in UNTAKEN_EPISODE_END_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it
