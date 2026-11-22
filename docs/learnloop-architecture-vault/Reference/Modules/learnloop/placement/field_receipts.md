@@ -102,6 +102,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
 - [tests/test_daily_plan_composition.py](../../../../../../tests/test_daily_plan_composition.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
@@ -113,7 +114,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_placement_signals.py](../../../../../../tests/test_placement_signals.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
 - [tests/test_placement_split_grades.py](../../../../../../tests/test_placement_split_grades.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
 - [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
-- [tests/test_reader_rw1b_review.py](../../../../../../tests/test_reader_rw1b_review.py) — imports consumer [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]]
 
 ## Modification guidance
 

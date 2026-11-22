@@ -161,6 +161,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phones_decision_names_the_rules_and_the_desktops_does_not`
   - `test_what_the_renderer_resolves_is_still_kept_for_the_desktop`
   - `test_what_the_renderer_shows_as_text_or_a_web_link_stays_eligible`
+- [tests/test_due_queue_golden.py](../../../../../../tests/test_due_queue_golden.py) — direct import
+  - `test_a_phone_build`
+  - `test_a_phone_read_where_no_item_reaches_the_episode`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_phone_decision_holds_no_offer_and_serves_what_it_can`
   - `test_a_phone_follow_up_stays_forced_beside_an_open_desktop_offer`

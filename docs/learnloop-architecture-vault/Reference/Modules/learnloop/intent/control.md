@@ -142,6 +142,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad23_fakes.py](../../../../../../tests/ad23_fakes.py) — direct import
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
 - [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — direct import
   - `test_f1_a_commitment_never_turns_the_slot_draw_off`

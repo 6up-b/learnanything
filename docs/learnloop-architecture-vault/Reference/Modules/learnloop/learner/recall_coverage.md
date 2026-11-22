@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `expected_facet_mass_gain`; statically calls `expected_facet_mass_gain`
 - [[Reference/Modules/learnloop/instructional/discriminating|learnloop.instructional.discriminating]] — imports `familiarity_discount`; statically calls `familiarity_discount`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `criterion_facet_weights_for_item`; statically calls `criterion_facet_weights_for_item`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `familiarity_discount`, `familiarity_discount_from_attempts`, `resolve_coverage`; statically calls `familiarity_discount`, `familiarity_discount_from_attempts`, `resolve_coverage`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `familiarity_discount_from_attempts`, `resolve_coverage`; statically calls `familiarity_discount_from_attempts`, `resolve_coverage`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `criterion_facet_weights_for_item`; statically calls `criterion_facet_weights_for_item`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `criterion_facet_weights_for_item`; statically calls `criterion_facet_weights_for_item`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `predicted_correctness`; statically calls `predicted_correctness`

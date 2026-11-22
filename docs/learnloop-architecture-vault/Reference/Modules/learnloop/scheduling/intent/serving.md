@@ -182,6 +182,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_pool_membership.py](../../../../../../../tests/test_ad23_pool_membership.py) — direct import
   - `test_h_a_due_check_once_leaves_ad_drawing`
 - [tests/test_data_capture_codex_rereview.py](../../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
+- [tests/test_due_queue_golden.py](../../../../../../../tests/test_due_queue_golden.py) — direct import
 - [tests/test_intent_fix_round4.py](../../../../../../../tests/test_intent_fix_round4.py) — direct import
   - `test_f13_every_contamination_class`
   - `test_f13_on_your_own_is_the_activity_policys_classification`

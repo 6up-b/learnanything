@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/voi_stopping.py](../../../../../../src/learnloop/diagnosis/voi_stopping.py) |
-| Source lines | 2496 |
+| Source lines | 2519 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -124,12 +124,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `not_in_plan_receipt(site: str, ref: str, why: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2096) — The receipt of a due check a plan refresh cannot take (Codex review of voi-v2, F10): ``why`` is ``skipped_in_this_plan``, ``answered_in_this_plan`` or ``outside_plan_universe``.
 - `label_conditionals(conditionals: Mapping[str, Mapping[Any, float]], slot_map: Mapping[str, str], labels: Iterable[str]) -> dict[str, dict[Any, float]]` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2114) — ``{label: P(E | slot(label))}``: a card's slot rows keyed by episode label.
 - `hypothesis_channel_body(belief_key: str, eligible: Any, posterior: Mapping[str, float], *, objective: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2130) — An in-episode probe's likelihood rows over its episode's hypotheses (``{belief_key, prior, likelihood, objective}``, plus ``targets`` on the predictive objective), the input of :meth:`HypothesisChannel.from_mapping`: the instrument's composed ``P(E | H)`` keyed by episode label,…
-- `probe_episode_decision(ctx: VoiContext, episode: Any, eligible: Sequence[Any], posterior: Mapping[str, float], *, session_id: str | None, familiarity: Mapping[str, float] | None=None, qualifying_observations: int, session_qualifying_observations: int) -> SiteDecision` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2167) — (a) Does this episode's next observation pay for its minutes?
-- `record_followup_decision(repository: Any, *, attempt_id: str, learning_object_id: str, session_id: str | None, outcome: str, decision: Mapping[str, Any] | None, manual_override: bool, need_id: str | None, algorithm_version: str, clock: Any=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2268) — Append one follow-up value decision to its immutable receipt table.
-- `record_offer_value_forecasts(vault: Any, repository: Any, *, slate_id: str, candidate_ids: Mapping[str, str], probe_decisions: Mapping[str, SiteDecision], teach_back_receipts: Sequence[Mapping[str, Any]], exploration_by_item: Mapping[str, Mapping[str, Any]] | None=None, clock: Any=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2316) — The value decisions a Today offer acted on, as EVSI calibration forecasts (``voi_forecasts``, behind ``evsi.forecast_logging``; logging only, never raises).
-- `record_plan_value_forecasts(vault: Any, repository: Any, receipts: Sequence[Mapping[str, Any]], *, block_id: str, decision_ref: str | None, clock: Any=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2374) — A daily-plan block decision's due project probe receipts as EVSI calibration forecasts (``project_probe_value_decision``; logging only).
-- `followup_receipts(repository: Any, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2410) — Every follow-up value decision on ``attempt_id``, in decision order.
-- `followup_receipt(repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2426) — The latest valued follow-up decision on ``attempt_id`` (its ``SiteDecision`` body), or None.
+- `read_pinned_channel(repository: Any, episode: Any) -> Any` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2171) — The episode's pinned channel as ``probe_episode_decision`` reads it, for a caller that reads it ahead and passes it as ``pinned_channel``.
+- `probe_episode_decision(ctx: VoiContext, episode: Any, eligible: Sequence[Any], posterior: Mapping[str, float], *, session_id: str | None, familiarity: Mapping[str, float] | None=None, qualifying_observations: int, session_qualifying_observations: int, pinned_channel: Any=READ_PINNED_CHANNEL) -> SiteDecision` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2180) — (a) Does this episode's next observation pay for its minutes?
+- `record_followup_decision(repository: Any, *, attempt_id: str, learning_object_id: str, session_id: str | None, outcome: str, decision: Mapping[str, Any] | None, manual_override: bool, need_id: str | None, algorithm_version: str, clock: Any=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2289) — Append one follow-up value decision to its immutable receipt table.
+- `record_offer_value_forecasts(vault: Any, repository: Any, *, slate_id: str, candidate_ids: Mapping[str, str], probe_decisions: Mapping[str, SiteDecision], teach_back_receipts: Sequence[Mapping[str, Any]], exploration_by_item: Mapping[str, Mapping[str, Any]] | None=None, clock: Any=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2337) — The value decisions a Today offer acted on, as EVSI calibration forecasts (``voi_forecasts``, behind ``evsi.forecast_logging``; logging only, never raises).
+- `record_plan_value_forecasts(vault: Any, repository: Any, receipts: Sequence[Mapping[str, Any]], *, block_id: str, decision_ref: str | None, clock: Any=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2395) — A daily-plan block decision's due project probe receipts as EVSI calibration forecasts (``project_probe_value_decision``; logging only).
+- `followup_receipts(repository: Any, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2431) — Every follow-up value decision on ``attempt_id``, in decision order.
+- `followup_receipt(repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2447) — The latest valued follow-up decision on ``attempt_id`` (its ``SiteDecision`` body), or None.
 
 ### Module constants
 
@@ -179,6 +180,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `REASON_ALREADY_PLANNED` ([src/learnloop/diagnosis/voi_stopping.py](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 1419)
 - `REASON_LEARNER_REQUEST` ([src/learnloop/diagnosis/voi_stopping.py](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 1423)
 - `REASON_NOT_IN_PLAN` ([src/learnloop/diagnosis/voi_stopping.py](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 1427)
+- `READ_PINNED_CHANNEL` ([src/learnloop/diagnosis/voi_stopping.py](../../../../../../src/learnloop/diagnosis/voi_stopping.py), line 2168)
 
 ### Explicit exports
 
@@ -192,6 +194,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `UNRESOLVED_NO_PROBLEM_LABELS`
 - `unresolved_scope_for_label`
 - `METHOD_LOOKAHEAD_PREFIX`
+- `READ_PINNED_CHANNEL`
+- `read_pinned_channel`
 - `REASON_EVSI_BATCH_CLEARS`
 - `REASON_LEARNER_REQUEST`
 - `REASON_NOT_IN_PLAN`
@@ -320,6 +324,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f3_a_build_with_no_valued_probe_keeps_no_forecasts`
   - `test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only`
+- [tests/test_due_queue_golden.py](../../../../../../tests/test_due_queue_golden.py) — direct import
+  - `test_the_probe_value_decision_reads_nothing_where_it_is_computed`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_f_with_no_plan_an_existing_presentation_is_served_with_no_new_value_admission`
   - `test_g_value_suppresses_a_followup_and_the_learners_request_overrides_it`
