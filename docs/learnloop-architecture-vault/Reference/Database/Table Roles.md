@@ -83,7 +83,7 @@ It also holds live overwritten state that rebuild must not clear wholesale: [[Re
 Examples:
 
 - actively preserved legacy projections: [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]], [[Reference/Database/Tables/elicitation_events|elicitation_events]], [[Reference/Database/Tables/learner_state_beliefs|learner_state_beliefs]], and [[Reference/Database/Tables/lo_probe_state|lo_probe_state]];
-- owner-gated dormant state: [[Reference/Database/Tables/source_exam_profiles|source_exam_profiles]], [[Reference/Database/Tables/source_locator_schemes|source_locator_schemes]], and [[Reference/Database/Tables/learner_theta|learner_theta]].
+- owner-gated dormant state: [[Reference/Database/Tables/source_exam_profiles|source_exam_profiles]], and [[Reference/Database/Tables/source_locator_schemes|source_locator_schemes]] (`learner_theta` was dropped by migration 260, refactor J2).
 
 [[Reference/Database/Tables/practice_item_state|practice_item_state]] left this role for `WORKFLOW` in J1 (Nov 11): it is live overwritten state, and no role consumer treats the two roles differently.
 
