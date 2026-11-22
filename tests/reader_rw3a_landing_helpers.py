@@ -11,6 +11,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import add_followup_item, create_daily_plan_vault

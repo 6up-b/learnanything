@@ -38,6 +38,7 @@ from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
+    UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
 )
 from learnloop.clock import Clock
 from learnloop.config import load_config
@@ -135,6 +136,9 @@ UPGRADES: tuple[Link, ...] = (
     # A section's end finishes it: only new reading events behave differently (no completion, end or exposure already
     # recorded is reinterpreted, and no end recorded before the upgrade finishes anything).
     Link(SECTION_END_ALGORITHM_VERSION, idempotent_projection),
+    # An untaken repair episode ends: only sweeps after the upgrade behave differently (no episode, task or outcome
+    # already recorded is reinterpreted; an episode open at the upgrade is ended by the first sweep after it).
+    Link(UNTAKEN_EPISODE_END_ALGORITHM_VERSION, idempotent_projection),
 )
 
 

@@ -32,13 +32,15 @@ whatever the anchor (the function returns ``due_at`` itself).
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
+from learnloop.params.fitted_params import resolve_fsrs_weights
+from learnloop.scheduling.intent.resolution import Resolution, load_snapshots
 
 #: The retention ``due_at`` is written at (``attempts.py``: ``interval_for_retention``'s default).
 STORED_RETENTION = 0.9
@@ -135,6 +137,71 @@ def effective_due(
     return EffectiveDue(anchor + (due - anchor) * multiplier, None, multiplier)
 
 
+def item_effective_due(
+    *,
+    target: float,
+    due_at: str | None,
+    anchor_at: Callable[[], str | None],
+    weights: tuple[float, ...],
+    has_state: bool,
+) -> EffectiveDue:
+    """One item's effective due as the plan and the queue read it: the stored ``due_at`` at the 0.90 target (no
+    anchor read), else :func:`effective_due`. ``anchor_at`` is called only when the scaling needs it."""
+
+    if target == 0.90:
+        parsed = parse_utc(due_at)
+        return EffectiveDue(parsed, None if parsed is not None else (FALLBACK_NO_STATE if not has_state else FALLBACK_NO_DUE))
+    return effective_due(
+        due_at=due_at,
+        anchor_at=anchor_at() if due_at is not None else None,
+        target=target,
+        weights=weights,
+        has_state=has_state,
+    )
+
+
+def ordinary_due_reader(vault: Any, repository: Any) -> Callable[[str, Any], datetime | None]:
+    """``read(item_id, state)``: one item's effective due as ``IntentServing.effective`` reads it, or None when it
+    has no review date, for a reader outside the queue build.
+
+    Building an ``IntentServing`` view imports the build (its checks reach the scheduler), which a diagnosis-side
+    caller may not do. This resolves the same inputs (the covering commitments' recall target, the fitted FSRS
+    weights, the anchor review) and computes through :func:`item_effective_due`. It leaves out only the build's fold
+    of answered "Check once" commitments to ``satisfied``, which moves a commitment's disposition, never the recall
+    target an item resolves to."""
+
+    with repository.connection() as connection:
+        snapshots = load_snapshots(connection)
+    resolution = Resolution(
+        [snapshot for snapshot in snapshots if not snapshot.retired and snapshot.covers_items],
+        dict(vault.config.intent.recall_targets),
+    )
+    weights = tuple(resolve_fsrs_weights(repository))
+    anchors: dict[str, tuple[str, str]] | None = None
+
+    def anchor(item_id: str) -> str | None:
+        nonlocal anchors
+        if anchors is None:
+            with repository.connection() as connection:
+                anchors = load_anchors(connection)
+        found = anchors.get(item_id)
+        return found[0] if found is not None else None
+
+    def read(item_id: str, state: Any) -> datetime | None:
+        item = vault.practice_items.get(item_id)
+        learning_object_id = getattr(item, "learning_object_id", None) if item is not None else None
+        target = resolution.for_item(item_id, str(learning_object_id) if learning_object_id else None).recall_target
+        return item_effective_due(
+            target=target,
+            due_at=getattr(state, "due_at", None) if state is not None else None,
+            anchor_at=lambda: anchor(item_id),
+            weights=weights,
+            has_state=state is not None,
+        ).due
+
+    return read
+
+
 __all__ = [
     "EffectiveDue",
     "FALLBACK_ANCHOR_NOT_BEFORE_DUE",
@@ -145,6 +212,8 @@ __all__ = [
     "anchors_from_attempts",
     "effective_due",
     "fsrs_eligible",
+    "item_effective_due",
     "load_anchors",
+    "ordinary_due_reader",
     "ratio",
 ]

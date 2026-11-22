@@ -81,7 +81,7 @@ fixture           | TE MR RA PS CK GU FI IP SC SQ MC | CI BS RI LF RF | RT OT PK
 6.whole-ref       | -  -  -  -  -  -  -  S  -  W  - | -  -  -  -  S | S  S  S  S  S  S  S  S  S  S | S  S  S  S | -  -  -  -  -  -  -  -  - | -  -  -  -  -  -  -  -  -  -  S  S  -  - | -  -  -
 6.exam-reserved   | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  W | W  W  R  R  S  S  S  S  W  S | W  W  W  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 6.cold-task       | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  S | S  W  S  S  S  S  S  S  W  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
-6.remediation     | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  S | S  W  S  S  S  S  S  S  W  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
+6.remediation     | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  S | W  W  S  S  S  S  S  S  W  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 6.assess-reserved | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 6.probe           | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  S | S  S  S  S  S  S  S  S  S  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 6.held-grade      | S  S  S  S  S  S  S  S  S  S  S | S  S  S  S  S | S  S  S  S  S  S  S  S  S  S | S  S  S  S | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -

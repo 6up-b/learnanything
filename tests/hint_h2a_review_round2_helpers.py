@@ -10,6 +10,7 @@ from learnloop.db.repositories import Repository
 from learnloop.hints import service as S
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, hint_vault, prefer, store_map

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.owner_vaults import owner_vault

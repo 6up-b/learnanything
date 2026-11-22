@@ -158,17 +158,37 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad1_attempt_columns_helpers.py](../../../../../../tests/ad1_attempt_columns_helpers.py) — direct import
+- [tests/daily_plan_kill_switch_helpers.py](../../../../../../tests/daily_plan_kill_switch_helpers.py) — direct import
 - [tests/device_eligibility_helpers.py](../../../../../../tests/device_eligibility_helpers.py) — direct import
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/facet_reword_paths_helpers.py](../../../../../../tests/facet_reword_paths_helpers.py) — direct import
+- [tests/figures_help_helpers.py](../../../../../../tests/figures_help_helpers.py) — direct import
+- [tests/followup_journey_helpers.py](../../../../../../tests/followup_journey_helpers.py) — direct import
+- [tests/followup_rival_factor_helpers.py](../../../../../../tests/followup_rival_factor_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — direct import
+- [tests/hint_h2a_review_helpers.py](../../../../../../tests/hint_h2a_review_helpers.py) — direct import
+- [tests/hint_h2a_review_round2_helpers.py](../../../../../../tests/hint_h2a_review_round2_helpers.py) — direct import
+- [tests/hint_h2b_review_helpers.py](../../../../../../tests/hint_h2b_review_helpers.py) — direct import
+- [tests/hint_telemetry_helpers.py](../../../../../../tests/hint_telemetry_helpers.py) — direct import
+- [tests/learner_pick_proposal_helpers.py](../../../../../../tests/learner_pick_proposal_helpers.py) — direct import
+- [tests/mobile_v2_plan_helpers.py](../../../../../../tests/mobile_v2_plan_helpers.py) — direct import
+- [tests/mobile_v3_probes_helpers.py](../../../../../../tests/mobile_v3_probes_helpers.py) — direct import
+- [tests/mobile_v4_reader_helpers.py](../../../../../../tests/mobile_v4_reader_helpers.py) — direct import
+- [tests/owner_capture_1025_helpers.py](../../../../../../tests/owner_capture_1025_helpers.py) — direct import
 - [tests/part_read_helpers.py](../../../../../../tests/part_read_helpers.py) — direct import
+- [tests/plan_determinism_helpers.py](../../../../../../tests/plan_determinism_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/probe_router_authority_helpers.py](../../../../../../tests/probe_router_authority_helpers.py) — direct import
+- [tests/reader_ca1_as_printed_helpers.py](../../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
+- [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
+- [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
 - [tests/reader_workbench_rw2a_helpers.py](../../../../../../tests/reader_workbench_rw2a_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — direct import
+- [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/router_offer_log_helpers.py](../../../../../../tests/router_offer_log_helpers.py) — direct import
+- [tests/router_r2a_serving_helpers.py](../../../../../../tests/router_r2a_serving_helpers.py) — direct import
 - [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — direct import
 - [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — direct import
 - [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — direct import

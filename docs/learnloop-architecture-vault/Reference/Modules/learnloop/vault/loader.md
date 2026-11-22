@@ -1228,7 +1228,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`
 - [tests/test_epp_receipt_repairs.py](../../../../../../tests/test_epp_receipt_repairs.py) — direct import
-  - `test_epp1_stop_condition_scorer_raises_on_unreadable_time`
+  - `test_epp1_unreadable_time_is_invalid_without_changing_other_scores`
 - [tests/test_epp_repeat_receipts.py](../../../../../../tests/test_epp_repeat_receipts.py) — direct import
   - `test_a_protected_item_gets_no_repeat_receipt`
   - `test_a_reopened_presentation_records_nothing_again`
@@ -1942,6 +1942,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
   - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`
 - [tests/test_k1_serve_door_reservation.py](../../../../../../tests/test_k1_serve_door_reservation.py) — direct import
 - [tests/test_k1_source_sets_gate.py](../../../../../../tests/test_k1_source_sets_gate.py) — direct import
   - `test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored`
@@ -3449,6 +3450,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tutor_qa.py](../../../../../../tests/test_tutor_qa.py) — direct import
   - `test_ask_question_library_context_and_daily_limit`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_untaken_repair_episode.py](../../../../../../tests/test_untaken_repair_episode.py) — direct import
+  - `test_an_episode_open_at_the_upgrade_is_ended_by_the_first_sweep_after_it`
+  - `test_the_sweeps_due_read_is_the_plans`
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_ux_phase1_add_source.py](../../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_the_whole_path_runs_with_the_queue_draining`

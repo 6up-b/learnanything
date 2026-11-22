@@ -47,38 +47,38 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py) |
-| Source lines | 366 |
+| Source lines | 375 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 82)
-  - `item_ids(self) -> frozenset[str]` (line 104; public) — What routine serving never offers.
-  - `out_of_timing_item_ids(self) -> frozenset[str]` (line 112; public) — What a selector outside the scheduler's timing never offers.
-- `routine_serving_exclusions(vault: Any, repository: Repository, *, now: datetime) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 118) — The shared exclusion sets, each read once at the caller's instant.
-- `routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 144) — Why routine serving never offers ``item`` now, or None.
-- `class BuildGates(Protocol)` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 250) — The build's per-item gates after the routine one.
-  - `freshness_gate(self, item: Any, state: Any) -> str | None` (line 255; public) — A diagnostic_probe surface outside an in-progress, unblocked episode.
-  - `device_gate(self, item: Any, state: Any) -> str | None` (line 258; public) — An item this build's device cannot answer (mobile PR-6, a phone's build).
-  - `placement_gate(self, item: Any, state: Any) -> str | None` (line 261; public) — Placement's withholding of an unrequested item (assumed, maintained).
-  - `cold_start_gate(self, item: Any, state: Any) -> str | None` (line 264; public) — An unrequested item on a never-practised LO with nothing to start it.
-  - `probe_gate(self, item: Any, state: Any) -> str | None` (line 267; public) — A diagnostic_probe surface of an in-progress episode that is not a probe this build (surface seen, no binding, its value below its minutes, no information).
-- `admission_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions, gates: BuildGates | None, *, requested: bool, intent_gate: Any=None) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 273) — Why the build does not serve ``item`` now, or None: THE per-item admission predicate (orchestrator ruling R1).
-- `out_of_timing_serving_exclusions(vault: Any, repository: Repository, *, cold_followup_kinds: Iterable[str], reveal_window: timedelta, clock: Clock, exclude_reveal_ids: Iterable[str] | None=None) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 324) — The routine sets plus the items reserved by unexpired open cold follow-up tasks of ``cold_followup_kinds`` and the items revealed within ``reveal_window`` (the cold retrieval delay), read once at the caller's clock.
+- `class ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 84)
+  - `item_ids(self) -> frozenset[str]` (line 107; public) — What routine serving never offers.
+  - `out_of_timing_item_ids(self) -> frozenset[str]` (line 115; public) — What a selector outside the scheduler's timing never offers.
+- `routine_serving_exclusions(vault: Any, repository: Repository, *, now: datetime) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 121) — The shared exclusion sets, each read once at the caller's instant.
+- `routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 153) — Why routine serving never offers ``item`` now, or None.
+- `class BuildGates(Protocol)` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 259) — The build's per-item gates after the routine one.
+  - `freshness_gate(self, item: Any, state: Any) -> str | None` (line 264; public) — A diagnostic_probe surface outside an in-progress, unblocked episode.
+  - `device_gate(self, item: Any, state: Any) -> str | None` (line 267; public) — An item this build's device cannot answer (mobile PR-6, a phone's build).
+  - `placement_gate(self, item: Any, state: Any) -> str | None` (line 270; public) — Placement's withholding of an unrequested item (assumed, maintained).
+  - `cold_start_gate(self, item: Any, state: Any) -> str | None` (line 273; public) — An unrequested item on a never-practised LO with nothing to start it.
+  - `probe_gate(self, item: Any, state: Any) -> str | None` (line 276; public) — A diagnostic_probe surface of an in-progress episode that is not a probe this build (surface seen, no binding, its value below its minutes, no information).
+- `admission_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions, gates: BuildGates | None, *, requested: bool, intent_gate: Any=None) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 282) — Why the build does not serve ``item`` now, or None: THE per-item admission predicate (orchestrator ruling R1).
+- `out_of_timing_serving_exclusions(vault: Any, repository: Repository, *, cold_followup_kinds: Iterable[str], reveal_window: timedelta, clock: Clock, exclude_reveal_ids: Iterable[str] | None=None) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 333) — The routine sets plus the items reserved by unexpired open cold follow-up tasks of ``cold_followup_kinds`` and the items revealed within ``reveal_window`` (the cold retrieval delay), read once at the caller's clock.
 
 ### Module constants
 
-- `ROUTINE_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 207)
-- `DEVICE_INELIGIBLE` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 226)
-- `BUILD_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 229)
-- `ADMISSION_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 244)
-- `PROBE_RESERVED_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 247)
+- `ROUTINE_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 216)
+- `DEVICE_INELIGIBLE` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 235)
+- `BUILD_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 238)
+- `ADMISSION_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 253)
+- `PROBE_RESERVED_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 256)
 
 ## Internal implementation anchors
 
-- `_iso(value: Any) -> str` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 320)
+- `_iso(value: Any) -> str` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 329)
 
 ## Who imports or calls it
 
@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `untaken_episode_end_on`; calls `untaken_episode_end_on`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `held_out_items`, `held_out_selection_active`; calls `held_out_items`, `held_out_selection_active`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`

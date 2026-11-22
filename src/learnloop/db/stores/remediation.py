@@ -644,6 +644,40 @@ class RemediationStoreMixin:
         )
         return cursor.rowcount > 0
 
+    def untaken_remediation_episodes(self) -> list[dict[str, Any]]:
+        """Episodes in ``prescribed`` or ``treatment`` whose primed attempt was never taken, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM remediation_episodes
+                WHERE state IN ('prescribed', 'treatment') AND primed_attempt_id IS NULL
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        return [_decode_remediation_episode(row) for row in rows]
+
+    def abandon_untaken_remediation_episode(self, episode_id: str, *, clock: Clock | None = None) -> bool:
+        """End an untaken episode as ``abandoned``, which frees its cold item as a withdrawn retry's release does.
+
+        The guard is re-read in the UPDATE: a primed attempt that bound the episode after the caller looked keeps
+        it, and an episode with a live cold retry is left to that retry."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE remediation_episodes SET state = 'abandoned', updated_at = ?
+                WHERE id = ? AND state IN ('prescribed', 'treatment') AND primed_attempt_id IS NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM followup_tasks
+                    WHERE remediation_episode_id = remediation_episodes.id AND kind = 'cold_retry'
+                      AND status IN ('pending', 'served'))
+                """,
+                (utc_now_iso(clock), episode_id),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
     def release_cold_reservation(self, episode_id: str, *, clock: Clock | None = None) -> bool:
         """:meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal)."""
 
@@ -680,9 +714,10 @@ class RemediationStoreMixin:
         return self._remediation_cold_item_ids(awaiting_primed=True)
 
     def pending_remediation_cold_item_ids(self) -> set[str]:
-        """The narrower reservation Today's routine queue honours: only an open cold retry. An episode whose
-        primed attempt is never taken has no lifetime (nothing ends it), and withholding the item from the
-        queue without one would take it out of practice indefinitely, so the queue waits for a real check."""
+        """The narrower reservation Today's routine queue honours below ``mvp-0.64``: only an open cold retry.
+        There an episode whose primed attempt is never taken has no lifetime (nothing ends it), and withholding the
+        item from the queue without one would take it out of practice indefinitely, so the queue waits for a real
+        check. From ``mvp-0.64`` the sweep ends such an episode and the queue reads the wider set."""
 
         return self._remediation_cold_item_ids(awaiting_primed=False)
 

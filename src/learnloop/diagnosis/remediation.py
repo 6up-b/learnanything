@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
-from datetime import UTC, timedelta
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from learnloop.algorithm_versions import untaken_episode_end_on
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.db.stores import intent_reads
+from learnloop.held_grades import held_for_review_attempts
 from learnloop.ingest.locators import parse_block_span
 from learnloop.content.sources.exam_material import exam_material, exposed_items
 from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop.reader.span_view import SpanViewError, build_span_view
+from learnloop.scheduling.intent.recall_targets import fsrs_eligible, ordinary_due_reader
 from learnloop.vault.models import LoadedVault
 
 logger = logging.getLogger(__name__)
@@ -1475,6 +1479,111 @@ def withdraw_cold_measurement(
         "cold %s task %s withdrawn: %s (%d reveal(s))", task.get("kind"), task_id, reason, len(reveal_event_ids),
     )
     return repository.followup_task(str(task["id"]))
+
+
+# -- An untaken episode ends (mvp-0.64) ----------------------------------------------------------------------------
+#
+# A remediation episode in ``prescribed`` or ``treatment`` waits for its primed attempt; if the learner never takes
+# it, nothing else ends it, and its reserved cold item stays out of practice while it is open. From ``mvp-0.64`` the
+# per-attempt sweep ends it as ``abandoned`` once its item's next ordinary review is due:
+#
+# - the item is the practice item of the miss the episode repairs (a diagnosis case's hypothesis attempt; a
+#   misconception case's newest attempt that fed it), at or before the episode opened: the only item every such
+#   episode has (a ``prescribed`` one has chosen no primed or cold item yet), the one the guided redo primes, and its
+#   miss gave it a review date the scheduler holds;
+# - due is the plan's and the queue's read (``recall_targets.ordinary_due_reader``, the computation of
+#   ``IntentServing.effective``) against the sweep's clock, or an FSRS-writing review of the item since the episode
+#   opened: the sweep runs only after attempts and would miss a review taken the moment it fell due;
+# - ending writes what a withdrawn retry's release writes (``abandoned``, ``updated_at``), which frees the cold item
+#   in every reservation reader; the guarded UPDATE leaves a taken episode alone and makes the sweep idempotent.
+#
+# An episode whose item cannot be resolved, or has no review date and no review since it opened, stays open.
+
+
+def episode_item_id(repository: Repository, episode: Mapping[str, Any]) -> str | None:
+    """The practice item of the miss ``episode`` repairs, or None when no diagnosing attempt resolves."""
+
+    opened = parse_utc(str(episode.get("created_at") or ""))
+    case_ref = str(episode.get("case_ref") or "")
+    if opened is None or not case_ref:
+        return None
+    attempt_ids: list[str] = []
+    if episode.get("case_kind") == "diagnosis":
+        hypothesis = repository.causal_hypothesis(case_ref)
+        if hypothesis is not None and hypothesis.get("attempt_id"):
+            attempt_ids = [str(hypothesis["attempt_id"])]
+    else:
+        misconception = repository.misconception(case_ref)
+        if misconception is not None:
+            attempt_ids = repository.attempt_ids_for_misconception(
+                case_ref, event_ids=list(misconception.source_error_event_ids or [])
+            )
+    for attempt_id in attempt_ids:  # newest first
+        attempt = repository.fetch_practice_attempt(attempt_id)
+        if attempt is None:
+            continue
+        created = parse_utc(str(attempt.get("created_at") or ""))
+        # A miss after the episode opened is a later diagnosis, not the one this episode repairs.
+        if created is not None and created <= opened:
+            return str(attempt["practice_item_id"])
+    return None
+
+
+def _reviewed_since(repository: Repository, item_id: str, since: str) -> bool:
+    opened = parse_utc(since)
+    if opened is None:
+        return False
+    with repository.connection() as connection:
+        rows = [row for row in intent_reads.attempts_since(connection, [item_id], since)
+                if (parse_utc(str(row["created_at"])) or opened) > opened and fsrs_eligible(row)]
+        if not rows:
+            return False
+        held = held_for_review_attempts(connection, [str(row["id"]) for row in rows])
+    return any(str(row["id"]) not in held for row in rows)
+
+
+def review_came_due(
+    repository: Repository, item_id: str, *, opened: str, now: datetime,
+    due_read: Callable[[str, Any], datetime | None],
+) -> bool:
+    """Whether ``item_id``'s next ordinary review since ``opened`` has come due by ``now``."""
+
+    due = due_read(item_id, repository.practice_item_state(item_id))
+    if due is not None and due <= now:
+        return True
+    return _reviewed_since(repository, item_id, opened)
+
+
+def end_untaken_episodes(
+    vault: LoadedVault, repository: Repository, *, clock: Clock | None = None
+) -> list[dict[str, Any]]:
+    """End every untaken episode whose item's next ordinary review is due; returns the episodes ended.
+
+    Nothing below ``mvp-0.64``."""
+
+    if not untaken_episode_end_on(vault.config):
+        return []
+    episodes = repository.untaken_remediation_episodes()
+    if not episodes:
+        return []
+    now = (clock or SystemClock()).now()
+    due_read = ordinary_due_reader(vault, repository)
+    ended: list[dict[str, Any]] = []
+    for episode in episodes:
+        item_id = episode_item_id(repository, episode)
+        if item_id is None:
+            continue
+        if not review_came_due(repository, item_id, opened=str(episode["created_at"]), now=now, due_read=due_read):
+            continue
+        if repository.abandon_untaken_remediation_episode(str(episode["id"]), clock=clock):
+            logger.info(
+                "untaken repair episode %s ended at item %s's ordinary review (state %s, cold item %s)",
+                episode["id"], item_id, episode.get("state"), episode.get("cold_item_id"),
+            )
+            stored = repository.remediation_episode(str(episode["id"]))
+            if stored is not None:
+                ended.append(stored)
+    return ended
 
 
 def misconception_status_history(repository: Repository, misconception_id: str) -> list[dict[str, Any]]:

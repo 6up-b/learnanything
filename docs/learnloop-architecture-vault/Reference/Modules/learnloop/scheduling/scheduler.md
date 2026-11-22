@@ -361,7 +361,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
   - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
   - `test_a_reserved_cold_item_is_named_and_counted_by_the_slate_and_why`
-  - `test_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`
+  - `test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
@@ -507,6 +507,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_stays_weakly_schedulable_on_solid_knowledge`
 - [tests/test_tui_today.py](../../../../../../tests/test_tui_today.py) — direct import
   - `test_today_queue_matches_scheduler_and_opens_practice`
+- [tests/test_untaken_repair_episode.py](../../../../../../tests/test_untaken_repair_episode.py) — direct import
+  - `test_at_the_tag_the_routine_queue_withholds_the_cold_item_while_the_episode_is_open`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1j_no_serve_path_serves_a_cold_check_submit_would_prime`
   - `test_f1k_a_future_task_never_masks_a_due_one`

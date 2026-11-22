@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/remediation.py](../../../../../../../src/learnloop/db/stores/remediation.py) |
-| Source lines | 964 |
+| Source lines | 999 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -77,22 +77,24 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `active_followup_task_for_item(self, practice_item_id: str, *, kind: str | None=None, at: str | None=None) -> dict[str, Any] | None` (line 578; public) — The due, unconsumed follow-up task selecting ``practice_item_id``.
   - `followup_task_for_case(self, *, kind: str, case_ref: str) -> dict[str, Any] | None` (line 609; public) — Any task of ``kind`` for ``case_ref``, whatever its status.
   - `_release_cold_reservation(connection: Any, episode_id: str, now: str) -> bool` (line 630; internal) — End a ``cold_scheduled`` episode whose cold retry has no open task left, so its cold item stops being reserved.
-  - `release_cold_reservation(self, episode_id: str, *, clock: Clock | None=None) -> bool` (line 647; public) — :meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal).
-  - `_remediation_cold_item_ids(self, *, awaiting_primed: bool) -> set[str]` (line 655; internal) — Cold items of live remediation episodes: those with a cold retry open, and (``awaiting_primed``) those still waiting for the primed attempt, before any task exists.
-  - `open_remediation_cold_item_ids(self) -> set[str]` (line 675; public) — The wider reservation, for the learner-initiated selectors and the tutor (``find_practice``, the quick check, practice admission, AD's slot check, ``cold_administration_open``, protection): the cold item is held from the moment the episode chooses it, while its primed attempt is…
-  - `pending_remediation_cold_item_ids(self) -> set[str]` (line 682; public) — The narrower reservation Today's routine queue honours: only an open cold retry.
-  - `open_followup_tasks_of_kind(self, kind: str, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 689; public) — Tasks of ``kind`` still awaiting an attempt (``pending`` or ``served``).
-  - `open_followup_tasks_for_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 709; public) — Every task of any kind still awaiting an attempt on this item, in ``active_followup_task_for_item``'s order (``serve_eligibility`` judges them all: the first due one is the task submit answers).
-  - `followup_tasks_of_kind(self, kind: str) -> list[dict[str, Any]]` (line 725; public) — Every task of ``kind``, any status — the metric's denominator read.
-  - `expire_followup_task(self, task_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 738; public) — Retire an un-taken task.
-  - `defer_followup_task(self, task_id: str, *, not_before: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 759; public) — Push an un-taken task's ``not_before`` later.
-  - `consume_followup_task(self, task_id: str, attempt_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 786; public)
-  - `followup_source_attempt(self, attempt_id: str) -> str | None` (line 802; public) — Gate-decision attempt whose queued follow-up this attempt answered.
-  - `upsert_followup_rating(self, *, attempt_id: str, gate_attempt_id: str | None, useful: bool, source: str='user', clock: Clock | None=None) -> None` (line 851; public)
-  - `followup_rating(self, attempt_id: str) -> dict[str, Any] | None` (line 876; public)
-  - `remediation_episodes_created_between(self, *, after: str, before: str) -> list[dict[str, Any]]` (line 888; public) — Episodes CREATED inside the interval, for the prepared-passages scan.
-  - `remediation_episodes_for_case_refs(self, case_refs: Sequence[str]) -> list[dict[str, Any]]` (line 911; public) — Remediation episodes (any state) whose case_ref is in ``case_refs``.
-  - `consumed_followup_task_for_attempt(self, attempt_id: str, *, kind: str | None=None) -> dict[str, Any] | None` (line 936; public) — The delayed task this attempt discharged, with its carried context.
+  - `untaken_remediation_episodes(self) -> list[dict[str, Any]]` (line 647; public) — Episodes in ``prescribed`` or ``treatment`` whose primed attempt was never taken, oldest first.
+  - `abandon_untaken_remediation_episode(self, episode_id: str, *, clock: Clock | None=None) -> bool` (line 660; public) — End an untaken episode as ``abandoned``, which frees its cold item as a withdrawn retry's release does.
+  - `release_cold_reservation(self, episode_id: str, *, clock: Clock | None=None) -> bool` (line 681; public) — :meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal).
+  - `_remediation_cold_item_ids(self, *, awaiting_primed: bool) -> set[str]` (line 689; internal) — Cold items of live remediation episodes: those with a cold retry open, and (``awaiting_primed``) those still waiting for the primed attempt, before any task exists.
+  - `open_remediation_cold_item_ids(self) -> set[str]` (line 709; public) — The wider reservation, for the learner-initiated selectors and the tutor (``find_practice``, the quick check, practice admission, AD's slot check, ``cold_administration_open``, protection): the cold item is held from the moment the episode chooses it, while its primed attempt is…
+  - `pending_remediation_cold_item_ids(self) -> set[str]` (line 716; public) — The narrower reservation Today's routine queue honours below ``mvp-0.64``: only an open cold retry.
+  - `open_followup_tasks_of_kind(self, kind: str, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 724; public) — Tasks of ``kind`` still awaiting an attempt (``pending`` or ``served``).
+  - `open_followup_tasks_for_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 744; public) — Every task of any kind still awaiting an attempt on this item, in ``active_followup_task_for_item``'s order (``serve_eligibility`` judges them all: the first due one is the task submit answers).
+  - `followup_tasks_of_kind(self, kind: str) -> list[dict[str, Any]]` (line 760; public) — Every task of ``kind``, any status — the metric's denominator read.
+  - `expire_followup_task(self, task_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 773; public) — Retire an un-taken task.
+  - `defer_followup_task(self, task_id: str, *, not_before: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 794; public) — Push an un-taken task's ``not_before`` later.
+  - `consume_followup_task(self, task_id: str, attempt_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 821; public)
+  - `followup_source_attempt(self, attempt_id: str) -> str | None` (line 837; public) — Gate-decision attempt whose queued follow-up this attempt answered.
+  - `upsert_followup_rating(self, *, attempt_id: str, gate_attempt_id: str | None, useful: bool, source: str='user', clock: Clock | None=None) -> None` (line 886; public)
+  - `followup_rating(self, attempt_id: str) -> dict[str, Any] | None` (line 911; public)
+  - `remediation_episodes_created_between(self, *, after: str, before: str) -> list[dict[str, Any]]` (line 923; public) — Episodes CREATED inside the interval, for the prepared-passages scan.
+  - `remediation_episodes_for_case_refs(self, case_refs: Sequence[str]) -> list[dict[str, Any]]` (line 946; public) — Remediation episodes (any state) whose case_ref is in ``case_refs``.
+  - `consumed_followup_task_for_attempt(self, attempt_id: str, *, kind: str | None=None) -> dict[str, Any] | None` (line 971; public) — The delayed task this attempt discharged, with its carried context.
 
 ## Internal implementation anchors
 

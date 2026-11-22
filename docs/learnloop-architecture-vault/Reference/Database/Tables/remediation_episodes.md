@@ -94,6 +94,7 @@ Indexes and uniqueness:
 
 - `Repository._release_cold_reservation()`
 - `Repository._remediation_cold_item_ids()`
+- `Repository.abandon_untaken_remediation_episode()`
 - `Repository.create_remediation_episode()`
 - `Repository.get_or_create_open_remediation_episode()`
 - `Repository.open_remediation_episode_for_case()`
@@ -102,6 +103,7 @@ Indexes and uniqueness:
 - `Repository.remediation_episode()`
 - `Repository.remediation_episodes_created_between()`
 - `Repository.remediation_episodes_for_case_refs()`
+- `Repository.untaken_remediation_episodes()`
 - `Repository.update_remediation_episode()`
 
 ### Direct SQL readers

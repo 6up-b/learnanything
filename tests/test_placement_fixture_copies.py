@@ -14,7 +14,11 @@ from datetime import UTC, datetime
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import (
+    LATEST_ALGORITHM_VERSION,
+    PHONE_PROBES_ALGORITHM_VERSION,
+    SECTION_END_ALGORITHM_VERSION,
+)
 from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
@@ -175,6 +179,12 @@ def test_no_lo_answered_without_a_due_time_leaves_the_queue_at_the_latest_tag(tm
     assert STRANDED_BELOW_THE_SUCCESSOR.get(fixture, frozenset()) <= returned
 
 
+#: The last tag whose due queue differs from the placement predecessor's only by the placement switch.
+#: mvp-0.64 (the untaken repair episode) withholds a reserved cold question while its episode is open, which
+#: changes the queue on its own; this test pins the placement hole, so it compares below that tag.
+_BEFORE_UNTAKEN_EPISODE_END = SECTION_END_ALGORITHM_VERSION
+
+
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_the_hole_stays_at_the_old_tag_and_with_the_switch_off(tmp_path, fixture):
     """The predecessor's behaviour, pinned: its queue (an older tag, served through the switch) is the switched-off
@@ -183,13 +193,13 @@ def test_the_hole_stays_at_the_old_tag_and_with_the_switch_off(tmp_path, fixture
     if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     old = _copy(tmp_path, fixture, "old", version=PHONE_PROBES_ALGORITHM_VERSION, placement_toml=HOLE_KEPT)
-    off = _copy(tmp_path, fixture, "off", version=LATEST_ALGORITHM_VERSION, placement_toml=HOLE_KEPT)
+    off = _copy(tmp_path, fixture, "off", version=_BEFORE_UNTAKEN_EPISODE_END, placement_toml=HOLE_KEPT)
     assert _fingerprint(*off) == _fingerprint(*old)
     answered = _answered_without_a_due_time(*old)
     served = {s.learning_object_id for s in read_due_queue(*old, clock=MOMENT)}
     assert answered - served == STRANDED_BELOW_THE_SUCCESSOR.get(fixture, frozenset())
     # And the switch back on takes in those LOs and nothing else.
-    on = _copy(tmp_path, fixture, "on", version=LATEST_ALGORITHM_VERSION)
+    on = _copy(tmp_path, fixture, "on", version=_BEFORE_UNTAKEN_EPISODE_END)
     on_served = {s.learning_object_id for s in read_due_queue(*on, clock=MOMENT)}
     assert on_served - served == STRANDED_BELOW_THE_SUCCESSOR.get(fixture, frozenset())
     assert served <= on_served

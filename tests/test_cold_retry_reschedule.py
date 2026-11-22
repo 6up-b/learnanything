@@ -336,6 +336,6 @@ def test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present(tmp_path):
 
 def test_mvp038_is_one_constant_after_mvp037():
     # Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-28:-25] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION) == (
+    assert SUCCESSOR_CHAIN[-29:-26] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION) == (
         "mvp-0.36", "mvp-0.37", "mvp-0.38")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.63"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.64"

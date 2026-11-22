@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `tests/test_ad_guard.py`
 - `tests/test_architecture.py`
 - `tests/test_epp_prediction_snapshots.py`
+- `tests/test_epp_receipt_repairs.py`
 - `tests/test_epp_repeat_receipts.py`
 - `tests/test_rebuild_orchestrator.py`
 

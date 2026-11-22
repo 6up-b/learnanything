@@ -60,7 +60,7 @@ def _at(minutes: float) -> FrozenClock:
 def test_the_successor_is_one_constant_after_its_predecessor_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(UNEVIDENCED_RETURN_ALGORITHM_VERSION) - 1] == OLD == "mvp-0.55"
     # Slip or gap's successor (mvp-0.57) follows it and keeps it.
-    assert UNEVIDENCED_RETURN_ALGORITHM_VERSION == "mvp-0.56" == SUCCESSOR_CHAIN[-8] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.63"
+    assert UNEVIDENCED_RETURN_ALGORITHM_VERSION == "mvp-0.56" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.64"
 
 
 @pytest.mark.parametrize(

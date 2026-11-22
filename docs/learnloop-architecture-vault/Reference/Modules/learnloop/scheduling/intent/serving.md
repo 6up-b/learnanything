@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/intent/serving.py](../../../../../../../src/learnloop/scheduling/intent/serving.py) |
-| Source lines | 742 |
+| Source lines | 738 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,21 +71,21 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `_anchor(self, item_id: str) -> str | None` (line 306; internal)
   - `last_review_at(self, item_id: str, state: Any) -> str | None` (line 312; public) — The review that set ``due_at`` (the anchor), for the review-load interval (§6.3, F5); an item with no qualifying attempt (imported state) falls back to its ``last_attempt_at``, as DL1 reads it.
   - `effective(self, item_id: str, state: Any) -> EffectiveDue` (line 322; public) — §5.3's effective due (the stored ``due_at`` at 0.90 or with recall targets off).
-  - `target_for(self, item_id: str) -> float` (line 343; public)
-  - `fallbacks(self) -> dict[str, int]` (line 347; public)
-  - `effective_due_or_none(self, item_id: str, state: Any) -> datetime | None` (line 350; public) — For ``_forgetting_risk``: an override only when it differs.
-  - `due(self, item_id: str, state: Any) -> bool` (line 357; public)
-  - `pushes(self, item_id: str, state: Any) -> bool` (line 361; public) — §6.1: an attempted item under Learn or Master that is not yet due.
-  - `intent_control_request_commitments(self) -> tuple[str, ...]` (line 373; public) — Intent-control ``help_me_remember`` commitments: choosing Master or Keep on an item is not a request (§5.3).
-  - `filter_requests(self, base: Sequence[str]) -> list[str]` (line 385; public) — The existing branches, minus excluded or pending items, plus every due check's candidates (trimmed to one per check after the sort).
-  - `due_checks(self) -> list[CheckState]` (line 402; public) — Every due, unanswered, unreplaced check, servable or not (round 6, F20: a check with nothing to serve is accounted for, never dropped); selection reads each one's ``servable``.
-  - `pick_checks(self, queue: Sequence[Any]) -> tuple[list[Any], list[str]]` (line 412; public) — One item per due check: the first (top-ranked) candidate in the built order; the other candidates leave this build.
-  - `check_item_ids(self, item_ids: Iterable[str]) -> dict[str, CheckState]` (line 432; public) — The due checks' items among ``item_ids`` (the plan's pool), one per check: the first in the given order.
-- `build_checks(resolution: Resolution, *, by_lo: Mapping[str, list[str]], item_los: Mapping[str, str], now: datetime, default_days: int, attempts_since: Any, cold_at: Any=None) -> tuple[dict[str, CheckState], Resolution]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 463) — Every pending "Check once" with its date and the items it decides; answered ones are folded to ``satisfied`` in the returned resolution.
-- `check_feasibility(item_id: str, gate: Any) -> Mapping[str, Any] | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 544) — THE "Check once" feasibility gate (DL2 fix round 6): why ``item_id`` can never be a check's item now, or None.
-- `check_feasibility_of(gate: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 553)
-- `split_check(check: CheckState, *, eligibility: Any=None, feasibility: Any=None, followup_gate: Any=None) -> CheckState` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 574) — A due, unanswered check's candidates split by the eligibility decision (``eligibility(item_id, check_created_at)``; None: every one eligible), among those the one check gate passes.
-- `intent_serving(vault: Any, repository: Any, *, now: datetime, weights: tuple[float, ...] | None=None, force: bool=False) -> IntentServing | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 623) — The build's intent view, or None when intent changes nothing.
+  - `target_for(self, item_id: str) -> float` (line 339; public)
+  - `fallbacks(self) -> dict[str, int]` (line 343; public)
+  - `effective_due_or_none(self, item_id: str, state: Any) -> datetime | None` (line 346; public) — For ``_forgetting_risk``: an override only when it differs.
+  - `due(self, item_id: str, state: Any) -> bool` (line 353; public)
+  - `pushes(self, item_id: str, state: Any) -> bool` (line 357; public) — §6.1: an attempted item under Learn or Master that is not yet due.
+  - `intent_control_request_commitments(self) -> tuple[str, ...]` (line 369; public) — Intent-control ``help_me_remember`` commitments: choosing Master or Keep on an item is not a request (§5.3).
+  - `filter_requests(self, base: Sequence[str]) -> list[str]` (line 381; public) — The existing branches, minus excluded or pending items, plus every due check's candidates (trimmed to one per check after the sort).
+  - `due_checks(self) -> list[CheckState]` (line 398; public) — Every due, unanswered, unreplaced check, servable or not (round 6, F20: a check with nothing to serve is accounted for, never dropped); selection reads each one's ``servable``.
+  - `pick_checks(self, queue: Sequence[Any]) -> tuple[list[Any], list[str]]` (line 408; public) — One item per due check: the first (top-ranked) candidate in the built order; the other candidates leave this build.
+  - `check_item_ids(self, item_ids: Iterable[str]) -> dict[str, CheckState]` (line 428; public) — The due checks' items among ``item_ids`` (the plan's pool), one per check: the first in the given order.
+- `build_checks(resolution: Resolution, *, by_lo: Mapping[str, list[str]], item_los: Mapping[str, str], now: datetime, default_days: int, attempts_since: Any, cold_at: Any=None) -> tuple[dict[str, CheckState], Resolution]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 459) — Every pending "Check once" with its date and the items it decides; answered ones are folded to ``satisfied`` in the returned resolution.
+- `check_feasibility(item_id: str, gate: Any) -> Mapping[str, Any] | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 540) — THE "Check once" feasibility gate (DL2 fix round 6): why ``item_id`` can never be a check's item now, or None.
+- `check_feasibility_of(gate: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 549)
+- `split_check(check: CheckState, *, eligibility: Any=None, feasibility: Any=None, followup_gate: Any=None) -> CheckState` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 570) — A due, unanswered check's candidates split by the eligibility decision (``eligibility(item_id, check_created_at)``; None: every one eligible), among those the one check gate passes.
+- `intent_serving(vault: Any, repository: Any, *, now: datetime, weights: tuple[float, ...] | None=None, force: bool=False) -> IntentServing | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 619) — The build's intent view, or None when intent changes nothing.
 
 ### Module constants
 
@@ -113,8 +113,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_items_by_learning_object(vault: Any) -> tuple[dict[str, str], dict[str, list[str]]]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 449)
-- `_admission_only(admission: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 557) — No gate (a view with no vault behind it): the admission alone.
+- `_items_by_learning_object(vault: Any) -> tuple[dict[str, str], dict[str, list[str]]]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 445)
+- `_admission_only(admission: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 553) — No gate (a view with no vault behind it): the admission alone.
 
 ## Who imports or calls it
 
@@ -146,7 +146,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]] — imports `CheckGate`; calls `CheckGate`
 - [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] — imports `followup_gate`; calls `followup_gate`
 - [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] — imports `CommitmentSnapshot`
-- [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `EffectiveDue`, `effective_due`, `load_anchors`; calls `EffectiveDue`, `effective_due`, `load_anchors`
+- [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `EffectiveDue`, `item_effective_due`, `load_anchors`; calls `item_effective_due`, `load_anchors`
 - [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] — imports `ItemIntent`, `Resolution`, `load_snapshots`; calls `Resolution`, `load_snapshots`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `check_admission`; calls `check_admission`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `module`; calls `check_once_at_attempt`, `decide`, `gather`
@@ -196,6 +196,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_followups_review.py](../../../../../../../tests/test_reader_followups_review.py) — direct import
   - `test_f2_an_automatic_follow_up_never_lands_in_a_scope_the_learner_chose`
 - [tests/test_reader_rw6b_landing.py](../../../../../../../tests/test_reader_rw6b_landing.py) — direct import
+- [tests/test_untaken_repair_episode.py](../../../../../../../tests/test_untaken_repair_episode.py) — direct import
+  - `test_the_sweeps_due_read_is_the_plans`
 
 ## Modification guidance
 

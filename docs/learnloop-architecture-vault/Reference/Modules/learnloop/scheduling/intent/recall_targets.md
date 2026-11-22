@@ -47,27 +47,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py) |
-| Source lines | 150 |
+| Source lines | 219 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `ratio(target: float, weights: tuple[float, ...]) -> float` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 52) — The interval multiplier for ``target`` against the stored 0.90.
-- `fsrs_eligible(row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 65)
-- `anchors_from_attempts(rows: Iterable[Mapping[str, Any]], *, held: frozenset[str]=frozenset()) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 75) — ``{item id: (anchor created_at, attempt id)}``: the latest attempt per item that wrote FSRS state (eligible, and not ``held`` for review).
-- `load_anchors(connection: Any) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 94)
-- `class EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 105)
-- `effective_due(*, due_at: str | None, anchor_at: str | None, target: float, weights: tuple[float, ...], has_state: bool=True) -> EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 112) — §5.3's effective due for one item.
+- `ratio(target: float, weights: tuple[float, ...]) -> float` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 54) — The interval multiplier for ``target`` against the stored 0.90.
+- `fsrs_eligible(row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 67)
+- `anchors_from_attempts(rows: Iterable[Mapping[str, Any]], *, held: frozenset[str]=frozenset()) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 77) — ``{item id: (anchor created_at, attempt id)}``: the latest attempt per item that wrote FSRS state (eligible, and not ``held`` for review).
+- `load_anchors(connection: Any) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 96)
+- `class EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 107)
+- `effective_due(*, due_at: str | None, anchor_at: str | None, target: float, weights: tuple[float, ...], has_state: bool=True) -> EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 114) — §5.3's effective due for one item.
+- `item_effective_due(*, target: float, due_at: str | None, anchor_at: Callable[[], str | None], weights: tuple[float, ...], has_state: bool) -> EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 140) — One item's effective due as the plan and the queue read it: the stored ``due_at`` at the 0.90 target (no anchor read), else :func:`effective_due`.
+- `ordinary_due_reader(vault: Any, repository: Any) -> Callable[[str, Any], datetime | None]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 163) — ``read(item_id, state)``: one item's effective due as ``IntentServing.effective`` reads it, or None when it has no review date, for a reader outside the queue build.
 
 ### Module constants
 
-- `STORED_RETENTION` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 44)
-- `FALLBACK_NO_STATE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 46)
-- `FALLBACK_NO_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 47)
-- `FALLBACK_NO_ANCHOR` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 48)
-- `FALLBACK_ANCHOR_NOT_BEFORE_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 49)
+- `STORED_RETENTION` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 46)
+- `FALLBACK_NO_STATE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 48)
+- `FALLBACK_NO_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 49)
+- `FALLBACK_NO_ANCHOR` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 50)
+- `FALLBACK_ANCHOR_NOT_BEFORE_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 51)
 
 ### Explicit exports
 
@@ -82,7 +84,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `anchors_from_attempts`
 - `effective_due`
 - `fsrs_eligible`
+- `item_effective_due`
 - `load_anchors`
+- `ordinary_due_reader`
 - `ratio`
 
 ## Internal implementation anchors
@@ -96,9 +100,10 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `effective_due`, `load_anchors`; statically calls `effective_due`, `load_anchors`
 - [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] — imports `load_anchors`; statically calls `load_anchors`
+- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `fsrs_eligible`, `ordinary_due_reader`; statically calls `fsrs_eligible`, `ordinary_due_reader`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `STORED_RETENTION`
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `effective_due`, `load_anchors`; statically calls `effective_due`, `load_anchors`
-- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `EffectiveDue`, `effective_due`, `load_anchors`; statically calls `EffectiveDue`, `effective_due`, `load_anchors`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `EffectiveDue`, `item_effective_due`, `load_anchors`; statically calls `item_effective_due`, `load_anchors`
 
 ## Dependencies
 
@@ -108,6 +113,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/stores/intent_reads|learnloop.db.stores.intent_reads]] — imports `module`; calls `attempts_for_anchor`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `classify_attempt_activity`; calls `classify_attempt_activity`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`; calls `held_for_review_attempts`
+- [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] — imports `Resolution`, `load_snapshots`; calls `Resolution`, `load_snapshots`
 
 ### Platform and third-party dependencies
 
@@ -121,7 +128,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]], [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]], [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]], [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -135,6 +142,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_anchor_reproduces_every_stored_due_at_on_fixture_copies`
   - `test_the_anchor_skips_primed_retries_and_diagnostic_attempts_but_an_ordinary_review_moves_it`
   - `test_the_ratio_is_the_fsrs_interval_ratio_and_exactly_one_at_090`
+- [tests/test_untaken_repair_episode.py](../../../../../../../tests/test_untaken_repair_episode.py) — direct import
+  - `test_the_sweeps_due_read_is_the_plans`
 
 ## Modification guidance
 

@@ -2239,6 +2239,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_question_event_repository_round_trip`
   - `test_question_raises_diagnostic_uncertainty_read_side`
 - [tests/test_unresolved_cause_gate.py](../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_untaken_repair_episode.py](../../../../../tests/test_untaken_repair_episode.py) — direct import
+  - `test_a_diagnosis_case_ends_at_its_hypothesis_attempts_item`
+  - `test_a_primed_answer_on_the_item_is_no_ordinary_review`
+  - `test_an_episode_in_any_other_state_is_untouched`
+  - `test_an_episode_whose_item_cannot_be_resolved_stays_open`
+  - `test_an_episode_whose_primed_attempt_was_taken_is_untouched`
+  - `test_an_ordinary_review_taken_the_moment_it_fell_due_ends_the_episode`
+  - `test_the_sweeps_due_read_is_the_plans`
 - [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_ux_phase1_landing.py](../../../../../tests/test_ux_phase1_landing.py) — direct import
   - `test_todays_plan_reads_mains_exam_predicate_for_the_reading_step`
