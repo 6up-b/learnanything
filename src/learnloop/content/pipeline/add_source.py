@@ -2841,6 +2841,16 @@ def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None
     later = _not_askable_now(repo, fact["item_ids"], utc_now_iso(clock))
     if later:
         fact["later_item_ids"] = later
+    return _note_all_read(fact, [str(row["unit_id"]) for row in units], finished)
+
+
+def _note_all_read(fact: dict[str, Any], unit_ids: Sequence[str], finished: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """``all_read``, present only when every section of the reading is finished: nothing is left to read in it, so
+    a wait for its questions does not say "Keep reading meanwhile". A section read in part is not finished."""
+
+    done = {str(row["section_id"]) for row in finished}
+    if unit_ids and all(unit_id in done for unit_id in unit_ids):
+        fact["all_read"] = True
     return fact
 
 

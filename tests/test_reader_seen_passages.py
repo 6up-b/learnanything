@@ -175,10 +175,11 @@ def test_the_passages_survive_a_restart_and_later_reports_union_with_them(world)
     _report(restarted, "u1", ids=["b0", "b1"], spansSeen=2, spanCount=3)
     after = _seen(world["repo"])
     assert sorted(after) == ["b0", "b1"] and after["b0"] == before["b0"]
-    # What the Reader reads back is the counts, as before: no reader is given the passages.
+    # What the Reader reads back is the counts, as before: no reader is given the passages (the completion's cause, a
+    # display fact for a section read to its end, is no passage).
     progress = call(restarted, "reader.get_progress", {"extractionId": EXTRACTION})["sections"][0]
     assert set(progress) == {"extractionId", "sectionId", "spansSeen", "spanCount", "revealedAt", "completedAt",
-                             "generationBatchId"}
+                             "completionCause", "generationBatchId"}
 
 
 def test_a_count_or_a_completion_is_never_turned_into_passages(world):

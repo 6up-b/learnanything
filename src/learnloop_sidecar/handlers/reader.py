@@ -2051,6 +2051,9 @@ def _progress_payload(row: dict[str, Any]) -> dict[str, Any]:
         "span_count": row.get("span_count") or 0,
         "revealed_at": row.get("revealed_at"),
         "completed_at": row.get("completed_at"),
+        # How it was finished (``reached_end`` or ``learner_said``; null below algorithm tag mvp-0.63): a section read
+        # to its end shows its position at the end and says the reading finished it, after a restart too. Display only.
+        "completion_cause": row.get("completion_cause"),
         "generation_batch_id": row.get("generation_batch_id"),
     }
 
