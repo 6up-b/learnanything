@@ -1,4 +1,4 @@
-# Refactor I2a: the due queue's admission reads, gathered up front (stopped twice at the query-count rule)
+# Refactor I2a: the due queue's admission reads, gathered up front
 
 Branch `refactor/i2a-admission-reads`, based on main `3018ac3f16`. This is the first of I2's three sub-steps
 (`docs/reviews/refactor-i2.md` §5 option A, approved by the owner on 2026-11-20: "superset reads, two pure stages,
@@ -18,7 +18,7 @@ One case still more than doubles the reads, so the step stops again. In that cas
 passes the routine gate and intent's exclusions, but a later gate withholds it: here, a "Check once" that is not
 due yet. With 100 or 300 instruments on the LO, SELECTs go from 437 to 969 and from 1,037 to 2,569. Time goes
 from 0.03 s to 0.06 s and from 0.07 s to 0.15 s. The remaining cost is `eligible_instruments`' reads for each
-item on the LO, with no valuation. The options are in §8.
+item on the LO, with no valuation. The options are in §8. The coordinator accepted this case for I2a and made its removal an I2b acceptance criterion (§8).
 
 ## 1. What the admission read, and where
 
@@ -280,6 +280,15 @@ Not reached:
      I2a.
   4. **Gather an episode's instruments lazily.** That keeps a read between the decisions, which is option B's
      boundary in `refactor-i2.md` §5.
+
+- **Decision on the second stop (coordinator, 2026-11-22): option 1 now, option 2 as an I2b obligation.**
+  - Why it can wait: the remaining case needs every item of an episode's LO to be withheld, with one item held by a
+    "Check once" that is not due yet. At 300 instruments it costs 0.07 s and runs no valuation. The value decision
+    is back at its consult, and every other row is within one query of the base.
+  - **I2b's acceptance criterion.** Once intent's view is frozen, `_reachable_episodes` filters on intent's whole
+    gate (`withhold_reason`, check holds included), not only on its exclusions. The two "large, unconsulted, one
+    item reachable" rows of §5 must then come back to the base's reads: 437 at n=100 and 1,037 at n=300, against
+    969 and 2,569 here. Those rows stay in §5 as I2b's before-numbers.
 
 ## 9. What this means for I2b and I2c
 
