@@ -20,6 +20,7 @@ from learnloop.db.records import (
     _decode_surprise,
     _projection_id,
 )
+from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder
 from learnloop.db.row_serialization import _json, _loads
 from learnloop.db.stores.diagnoses import merge_causal_view_into_feedback
 from learnloop.db.stores.observation_ledger import load_effective_assessment_contracts
@@ -370,38 +371,49 @@ class AttemptStoreMixin:
         *,
         until: str | None = None,
         before: tuple[str, str] | None = None,
+        order: AttemptOrder = LEGACY_ORDER,
     ) -> list[dict[str, Any]]:
         """The item's latest attempts, newest first. ``until`` (inclusive)
         bounds them at a historical writer's instant (``serve_eligibility``,
         Q33); without it the query is unchanged.
 
         ``before`` is a ledger position ``(created_at, id)``: only attempts
-        strictly earlier in the ledger's ``(created_at, id)`` order are read.
-        Replay passes the attempt it is recomputing, so it sees the ledger the
-        live write saw (that attempt's row did not exist yet, and no later
-        one did), never the attempts recorded after it."""
+        strictly earlier in the ledger's order (``order``,
+        :mod:`learnloop.db.attempt_order`) are read. Replay passes the attempt
+        it is recomputing, so it sees the ledger the live write saw (that
+        attempt's row did not exist yet, and no later one did), never the
+        attempts recorded after it. Under the application order the live
+        window (no ``before``) breaks a tie the same way, newest applied first."""
 
         if before is not None:
-            created_at, attempt_id = before
+            bound, bound_args = order.before_sql(before, attempt_id="practice_attempts.id")
+            terms = (
+                order.order_sql(attempt_id="practice_attempts.id", descending=True)
+                if order.by_sequence else "created_at DESC, id DESC"
+            )
             with self.connection() as connection:
                 rows = connection.execute(
-                    """
+                    f"""
                     SELECT * FROM practice_attempts
                     WHERE practice_item_id = ?
-                      AND (created_at < ? OR (created_at = ? AND id < ?))
-                    ORDER BY created_at DESC, id DESC
+                      AND {bound}
+                    ORDER BY {terms}
                     LIMIT ?
                     """,
-                    (practice_item_id, created_at, created_at, attempt_id, limit),
+                    (practice_item_id, *bound_args, limit),
                 ).fetchall()
             return [_decode_attempt(row) for row in rows]
         with self.connection() as connection:
             if until is None:
+                terms = (
+                    order.order_sql(attempt_id="practice_attempts.id", descending=True)
+                    if order.by_sequence else "created_at DESC"
+                )
                 rows = connection.execute(
-                    """
+                    f"""
                     SELECT * FROM practice_attempts
                     WHERE practice_item_id = ?
-                    ORDER BY created_at DESC
+                    ORDER BY {terms}
                     LIMIT ?
                     """,
                     (practice_item_id, limit),
@@ -424,9 +436,10 @@ class AttemptStoreMixin:
         limit: int = 10,
         *,
         before: tuple[str, str] | None = None,
+        order: AttemptOrder = LEGACY_ORDER,
     ) -> list[dict[str, Any]]:
         return self.list_recent_attempts_by_learning_objects(
-            (learning_object_id,), limit=limit, before=before
+            (learning_object_id,), limit=limit, before=before, order=order
         ).get(learning_object_id, [])
 
     def list_recent_attempts_by_learning_objects(
@@ -435,6 +448,7 @@ class AttemptStoreMixin:
         *,
         limit: int = 10,
         before: tuple[str, str] | None = None,
+        order: AttemptOrder = LEGACY_ORDER,
     ) -> dict[str, list[dict[str, Any]]]:
         """Load the latest ``limit`` attempts for each requested LO at once.
 
@@ -444,8 +458,8 @@ class AttemptStoreMixin:
         order deterministic for attempts sharing a timestamp.
 
         ``before`` (a ledger position ``(created_at, id)``) keeps only the
-        attempts strictly earlier in that order: what the ledger held when the
-        attempt at that position was recorded (see
+        attempts strictly earlier in the ledger's order (``order``): what the
+        ledger held when the attempt at that position was recorded (see
         :meth:`list_recent_attempts_by_practice_item`).
         """
 
@@ -465,8 +479,12 @@ class AttemptStoreMixin:
         bound = ""
         bound_args: tuple[str, ...] = ()
         if before is not None:
-            bound = "\n                      AND (created_at < ? OR (created_at = ? AND id < ?))"
-            bound_args = (before[0], before[0], before[1])
+            predicate, bound_args = order.before_sql(before, attempt_id="attempts.id")
+            bound = f"\n                      AND {predicate}"
+        terms = (
+            order.order_sql(attempt_id="attempts.id", descending=True)
+            if order.by_sequence else "created_at DESC, id DESC"
+        )
         with self.connection() as connection:
             rows = connection.execute(
                 f"""
@@ -474,7 +492,7 @@ class AttemptStoreMixin:
                     SELECT attempts.*,
                            ROW_NUMBER() OVER (
                                PARTITION BY learning_object_id
-                               ORDER BY created_at DESC, id DESC
+                               ORDER BY {terms}
                            ) AS recency_rank
                     FROM practice_attempts AS attempts
                     WHERE learning_object_id IN ({placeholders}){bound}
@@ -491,13 +509,18 @@ class AttemptStoreMixin:
             grouped[str(row["learning_object_id"])].append(attempt)
         return grouped
 
-    def list_attempts_by_learning_object(self, learning_object_id: str) -> list[dict[str, Any]]:
+    def list_attempts_by_learning_object(
+        self, learning_object_id: str, *, order: AttemptOrder = LEGACY_ORDER
+    ) -> list[dict[str, Any]]:
+        """The learning object's attempts in the ledger's order (``order``): the order replay applies them in."""
+
+        terms = order.order_sql(attempt_id="practice_attempts.id") if order.by_sequence else "created_at ASC, id ASC"
         with self.connection() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT * FROM practice_attempts
                 WHERE learning_object_id = ?
-                ORDER BY created_at ASC, id ASC
+                ORDER BY {terms}
                 """,
                 (learning_object_id,),
             ).fetchall()
@@ -514,8 +537,8 @@ class AttemptStoreMixin:
             ).fetchall()
         return [str(row["learning_object_id"]) for row in rows]
 
-    def list_attempt_history(self) -> list[dict[str, Any]]:
-        """Every attempt (time-ordered) with its posterior delta, if recorded.
+    def list_attempt_history(self, *, order: AttemptOrder = LEGACY_ORDER) -> list[dict[str, Any]]:
+        """Every attempt (in the ledger's order, ``order``) with its posterior delta, if recorded.
 
         One LEFT JOIN so the knowledge-map chronicle can reconstruct each
         learning object's mastery trajectory (``posterior_delta`` carries the
@@ -524,9 +547,13 @@ class AttemptStoreMixin:
         never update mastery) come back with ``posterior_delta`` = None.
         """
 
+        terms = (
+            order.order_sql(created_at="a.created_at", attempt_id="a.id")
+            if order.by_sequence else "a.created_at ASC, a.id ASC"
+        )
         with self.connection() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT a.id AS id,
                        a.practice_item_id AS practice_item_id,
                        a.learning_object_id AS learning_object_id,
@@ -540,7 +567,7 @@ class AttemptStoreMixin:
                        a.reference_status AS reference_status
                 FROM practice_attempts a
                 LEFT JOIN attempt_surprise s ON s.attempt_id = a.id
-                ORDER BY a.created_at ASC, a.id ASC
+                ORDER BY {terms}
                 """
             ).fetchall()
         history: list[dict[str, Any]] = []

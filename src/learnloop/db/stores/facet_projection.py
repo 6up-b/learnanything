@@ -19,6 +19,7 @@ from learnloop.db.records import (
     _facet_uncertainty_state,
     _projection_id,
 )
+from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder
 from learnloop.db.row_serialization import _json, _loads
 from learnloop.db.stores.facet_identity import settled_merge_rows
 from learnloop.db.stores.observation_ledger import (
@@ -491,7 +492,7 @@ class FacetProjectionStoreMixin:
                 connection.execute("BEGIN")
             return load_canonical_observation_ledger(connection)
 
-    def canonical_observation_ledger_v2(self) -> list[dict[str, Any]]:
+    def canonical_observation_ledger_v2(self, *, order: AttemptOrder = LEGACY_ORDER) -> list[dict[str, Any]]:
         """P0.3 (§4.3) authoritative-events ledger. Extends the mvp-0.7 row with the
         administration, the ACTIVE calibrated grade interpretation/adjudication, the
         grader/calibration lineage, the target-contract pin, and quarantine state.
@@ -505,7 +506,7 @@ class FacetProjectionStoreMixin:
         with self.connection() as connection:
             if not connection.in_transaction:
                 connection.execute("BEGIN")
-            return load_authoritative_observation_ledger(connection)
+            return load_authoritative_observation_ledger(connection, order=order)
 
     def replace_canonical_facet_state(
         self,
