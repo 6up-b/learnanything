@@ -92,10 +92,10 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/today/SomethingElse.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/SomethingElse.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/sectionEndRound.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/sectionEndRound.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/sectionDone.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/sectionDone.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/readerKeys.test.ts](../../../../../../apps/learnloop-tauri/src/screens/reader/readerKeys.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/intentNoteWords.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/intentNoteWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/reader/highlightNote.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/reader/highlightNote.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/ReaderScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/ReaderScreen.tsx) |
-| Source lines | 4779 |
+| Source lines | 4780 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -558,9 +558,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const active = railTab === tab` — const, line 4187
 - `const waiting = tab === "guide" && pendingQuickCheckCount > 0` — const, line 4191
 - `const marked = tab === "ask" && askTabMarked && !active` — const, line 4192
-- `const params = (action.params ??` — const, line 4342
-- `const run =` — const, line 4616
-- `const book = exchange?.about ?? render` — const, line 4625
+- `const params = (action.params ??` — const, line 4343
+- `const run =` — const, line 4617
+- `const book = exchange?.about ?? render` — const, line 4626
 
 ## Who imports or calls it
 

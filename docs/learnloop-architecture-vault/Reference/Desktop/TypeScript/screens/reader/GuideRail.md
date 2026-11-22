@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/GuideRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/GuideRail.tsx) |
-| Source lines | 996 |
+| Source lines | 1091 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,55 +54,67 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SECTION_DONE_WRITING = "Writing questions from this section. They'll be on Today."` — const, line 26
-- `export const SECTION_DONE_FAILED = "Couldn't save that. Try again."` — const, line 28
-- `export function sectionDoneWaiting(bookTitle?: string | null): string` — function, line 31
-- `export const QUESTION_CONTROLS: Array<` — const, line 36
-- `export interface GuideRailProps` — interface, line 44
-- `export function GuideRail(` — function, line 123
-- `export function SectionBoundaryOffer(` — function, line 458
-- `export function AuthoredQuestionCard(` — function, line 572
+- `export const SECTION_DONE_WRITING = `Writing questions from this section. $` — const, line 29
+- `export const SECTION_DONE_FAILED = "Couldn't save that. Try again."` — const, line 31
+- `export function sectionDoneWaiting(bookTitle?: string | null): string` — function, line 34
+- `export function nearTheEnd(bookTitle?: string | null): string` — function, line 40
+- `export const CHECK_COMES_UP = "A quick check on this section is ready. It comes up as you read on, near the end of the section."` — const, line 48
+- `export interface ClosedCheck` — interface, line 52
+- `export const QUESTION_CONTROLS: Array<` — const, line 60
+- `export interface GuideRailProps` — interface, line 68
+- `export function GuideRail(` — function, line 149
+- `export function SectionBoundaryOffer(` — function, line 503
+- `export function AuthoredQuestionCard(` — function, line 642
 
 ## Internal implementation anchors
 
-- `const book = bookTitle ? `“$` — const, line 32
-- `const peek = peekPassage ?? jumpToSpan` — const, line 175
-- `const sections = guidePlan?.sections ?? []` — const, line 179
-- `const currentIndex = currentGuideSection ? sections.findIndex((section)` — const, line 180
-- `const nextSection = currentIndex >= 0 ? sections[currentIndex + 1] ?? null : null` — const, line 181
-- `const currentFinished = currentGuideSection ? completedSections.includes(currentGuideSection.id) : false` — const, line 182
-- `const checks = boundaryChecksAvailable ? openQuestionSections.map((section)` — const, line 184
-- `const sectionRead = currentSectionRead ?? currentSectionProgress` — const, line 221
-- `const result = await completeSection(sectionId)` — const, line 305
-- `const finish: SectionFinish = result.enqueuedGeneration ? "writing" : result.waitingForBuild ? "waiting" : "done"` — const, line 307
-- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 328
-- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 330
-- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 331
-- `type SectionFinish = "writing" | "waiting" | "done"` — type, line 499
-- `function SectionDone(` — function, line 501
-- `const finished = completed || finishedHere !== null` — const, line 525
-- `const question = section.question` — const, line 591
-- `const questionId = question?.authoredQuestionId ?? null` — const, line 598
-- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 599
-- `const submit = useCallback(async ()` — const, line 604
-- `const dismissForever = useCallback(async ()` — const, line 618
-- `const escalate = useCallback(async ()` — const, line 631
-- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 635
-- `function SectionQuestionCard(` — function, line 731
-- `const question = section.question` — const, line 758
-- `const begin = useCallback(async ()` — const, line 766
-- `const opened = await api.readerPresentQuestion(` — const, line 770
-- `const submit = useCallback(async ()` — const, line 790
-- `const skip = useCallback(async ()` — const, line 809
-- `const control = useCallback(async (value: string)` — const, line 827
-- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 860
-- `function CheckActions(` — function, line 964
-- `const ref = useRef<HTMLDivElement>(null)` — const, line 965
-- `const element = ref.current` — const, line 967
-- `const frame = window.requestAnimationFrame(()` — const, line 969
-- `function FocusedButton(` — function, line 983
-- `const ref = useRef<HTMLSpanElement>(null)` — const, line 984
-- `const active = document.activeElement` — const, line 986
+- `const book = bookTitle ? `“$` — const, line 35
+- `const peek = peekPassage ?? jumpToSpan` — const, line 202
+- `const sections = guidePlan?.sections ?? []` — const, line 208
+- `const currentIndex = currentGuideSection ? sections.findIndex((section)` — const, line 209
+- `const nextSection = currentIndex >= 0 ? sections[currentIndex + 1] ?? null : null` — const, line 210
+- `const lastSection = currentIndex >= 0 && nextSection === null` — const, line 212
+- `const currentFinished = currentGuideSection ? completedSections.includes(currentGuideSection.id) : false` — const, line 213
+- `const closeCheck = (section: ReaderGuideSectionDto, kept: Omit<ClosedCheck, "sectionId" | "label"> | null)` — const, line 214
+- `const open = new Set(openQuestionSections.map((section)` — const, line 219
+- `const kept = Object.entries(closedChecks) .filter(([key, check])` — const, line 220
+- `const checks = boundaryChecksAvailable ? openQuestionSections.map((section)` — const, line 224
+- `const sectionRead = currentSectionRead ?? currentSectionProgress` — const, line 255
+- `const result = await completeSection(sectionId)` — const, line 349
+- `const finish: SectionFinish = result.enqueuedGeneration ? "writing" : result.waitingForBuild ? "waiting" : "done"` — const, line 351
+- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 372
+- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 374
+- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 375
+- `type SectionFinish = "writing" | "waiting" | "done"` — type, line 544
+- `function SectionDone(` — function, line 546
+- `const finished = completed || finishedHere !== null` — const, line 572
+- `const wasFinished = useRef<` — const, line 575
+- `const guardUntil = useRef(0)` — const, line 576
+- `const before = wasFinished.current` — const, line 577
+- `const wayOn = (go: ()` — const, line 582
+- `const question = section.question` — const, line 662
+- `const questionId = question?.authoredQuestionId ?? null` — const, line 669
+- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 670
+- `const submit = useCallback(async ()` — const, line 675
+- `const dismissForever = useCallback(async ()` — const, line 689
+- `const escalate = useCallback(async ()` — const, line 702
+- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 706
+- `function SectionQuestionCard(` — function, line 803
+- `const question = section.question` — const, line 831
+- `const begin = useCallback(async ()` — const, line 839
+- `const opened = await api.readerPresentQuestion(` — const, line 843
+- `const submit = useCallback(async ()` — const, line 863
+- `const skip = useCallback(async ()` — const, line 882
+- `const control = useCallback(async (value: string)` — const, line 900
+- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 933
+- `function ClosedCheckRecord(` — function, line 1035
+- `function CheckActions(` — function, line 1059
+- `const ref = useRef<HTMLDivElement>(null)` — const, line 1060
+- `const element = ref.current` — const, line 1062
+- `const frame = window.requestAnimationFrame(()` — const, line 1064
+- `function FocusedButton(` — function, line 1078
+- `const ref = useRef<HTMLSpanElement>(null)` — const, line 1079
+- `const active = document.activeElement` — const, line 1081
 
 ## Who imports or calls it
 
@@ -118,7 +130,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderDisposition`, `ReaderGuidePlanDto`, `ReaderGuideSectionDto`, `ReaderRenderBlockDto`
-- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `QUESTIONS_FROM_READING`, `readableTitle`
+- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `ON_TODAY`, `QUESTIONS_FROM_READING`, `readableTitle`
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export; imports `PassageAlign`
 - [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `WaitMark`
 - [[Reference/Desktop/TypeScript/components/goldenpath/shared|src/components/goldenpath/shared.tsx]] — import-or-re-export; imports `DispositionPicker`, `PrimaryButton`, `SecondaryButton`
@@ -126,7 +138,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
-- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `BACK_TO_TODAY`, `CHECK_DONE`, `READ_NEXT_SECTION`, `SECTION_DONE`, `SECTION_DONE_LINE`, `clip`, `sectionWords`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `BACK_TO_TODAY`, `CHECK_DONE`, `END_PRESS_GUARD_MS`, `READ_NEXT_SECTION`, `SECTION_DONE`, `SECTION_DONE_LINE`, `SECTION_ENDED_LINE`, `clip`, `closedCheckSummary`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `LearnerVoice`, `MeaningLabel`, `ModelVoice`, `SourceVoice`
 
 ### Assets, platform, and third-party dependencies
@@ -145,6 +157,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/sectionEndRound.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionEndRound.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/sectionDone.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionDone.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/findSection.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/findSection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/checkControls.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/checkControls.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

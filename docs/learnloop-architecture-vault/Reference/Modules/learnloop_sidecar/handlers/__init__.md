@@ -327,6 +327,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — direct import
+- [tests/ux_phase1_add_source_helpers.py](../../../../../../tests/ux_phase1_add_source_helpers.py) — direct import
 - [tests/ux_phase4_feedback_helpers.py](../../../../../../tests/ux_phase4_feedback_helpers.py) — direct import
 - [tests/workbench_help_fakes.py](../../../../../../tests/workbench_help_fakes.py) — direct import
 

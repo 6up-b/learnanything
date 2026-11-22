@@ -200,6 +200,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_finished_section_claims_its_topics_once_and_today_reads_their_work_as_before`
   - `test_a_section_finished_before_the_build_and_another_citing_its_topic_claim_it_once`
   - `test_a_section_the_phone_finished_before_the_build_waits_for_it_too`
+  - `test_the_fact_says_when_every_section_of_the_book_is_finished`
 - [tests/test_source_retrieval_search.py](../../../../../../../tests/test_source_retrieval_search.py) — direct import
   - `test_quick_add_ranks_units_by_their_text_not_only_their_labels`
   - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
