@@ -208,7 +208,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K6 | Map Reader Ask and retrieval side effects | landed | `99707376c7` | [refactor-k6.md](refactor-k6.md) | Fourteen ledger rows (K6-1 to K6-14, nine high). Fix round A landed K6-2 to K6-9 and K6-14 (`659772cde4`, [refactor-k6-fixes-a.md](refactor-k6-fixes-a.md)); K6-1 goes with the Decider's first stage and K6-10 to K6-13 with G6 |
 | K7 | Review AI transport and network boundaries | deferred | — | — | Terminal app rebuild or MCP v2 |
 | K8 | Review sidecar handlers as the application layer | deferred | — | — | Terminal app rebuild or MCP v2 |
-| K11 | Map the daily plan engine before moving code | not started | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: run the map now |
+| K11 | Map the daily plan engine before moving code | landed (map) | this commit | [k11-daily-plan-engine-map.md](k11-daily-plan-engine-map.md) | Four costs are named (K11-C1 to K11-C4); the map says they do not show that splitting the file would lower them. No step follows unless one is briefed against a named cost |
 
 ## Arc K: diagnosis
 
@@ -274,7 +274,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | L2b | Split five store groups from the repository | landed | `914145d0b9` | [refactor-l2b.md](refactor-l2b.md) | — |
 | L2c | Split attempt, grade and diagnostic store groups | landed | `f10dbf51ae` | [refactor-l2c.md](refactor-l2c.md) | — |
 | L2d | Split content, scheduling and other repository groups | landed | `f243c960e1` | [refactor-l2d.md](refactor-l2d.md) | — |
-| L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | — | Owner decided on 2026-11-20: the orchestrator produces the per-package list, the owner marks what stays |
+| L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | [l3-serving-reach-list.md](l3-serving-reach-list.md) | The owner marks the list (260 tooling-only modules, 98,157 lines; no serving-to-tooling import today). Then the import contract and the reach field |
 | L4 | Review which learned models need pure cores | landed (review) | `53f330c743` | [refactor-l4-review.md](refactor-l4-review.md) | Six extraction steps, in the order L4.1 claim priors, L4.2 cause slopes, L4.3 the episode posterior, L4.4 lesson-weight replay inputs, L4.5 the AD slot and commission decision, L4.6 the tail's fit-and-record assembly: not started, each under the stop rule. Five reproducibility gaps in the ledger (L4-1 to L4-5) |
 | L5 | Explain long functions that other steps missed | waiting on | — | — | Refactor close |
 | L6 | Make each extracted core return its record | waiting on | — | — | E2 and later core extraction briefs |
