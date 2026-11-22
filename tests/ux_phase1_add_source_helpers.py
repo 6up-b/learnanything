@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY: a file run alone found it empty
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
