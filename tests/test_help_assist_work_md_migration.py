@@ -31,6 +31,7 @@ from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ADDED_OBJECTS as T
 from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
 from tests.help_assist_work_md_migration_helpers import DR2_ALTERED_TABLES
+from tests.drop_dead_tables_migration_helpers import J2_DROPPED_OBJECTS
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
@@ -114,7 +115,7 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
     after = _schema(database)
     later_added, later_altered = _later()
     assert set(after) - set(before) == set(DR2_ADDED_OBJECTS) | set(later_added)
-    assert {name for name in before if before[name] != after.get(name)} == set(DR2_ALTERED_TABLES) | set(C5_ALTERED_TABLES) | set(later_altered) | set(C2B_ALTERED_TABLES) | set(UNLINKED_ALTERED_TABLES)
+    assert {name for name in before if before[name] != after.get(name)} - J2_DROPPED_OBJECTS == set(DR2_ALTERED_TABLES) | set(C5_ALTERED_TABLES) | set(later_altered) | set(C2B_ALTERED_TABLES) | set(UNLINKED_ALTERED_TABLES)
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
         assert columns[-2] == "work_md" and tuple(columns) == store.COLUMNS

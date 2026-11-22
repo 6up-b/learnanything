@@ -52,7 +52,7 @@ def test_public_role_helpers_partition_registry():
     assert role_for_table("learning_object_mastery") is TableRole.DERIVED
     assert role_for_table("derived_state_rebuilds") is TableRole.RECEIPT
     assert role_for_table("ingest_jobs") is TableRole.WORKFLOW
-    assert role_for_table("learner_theta") is TableRole.COMPAT
+    assert role_for_table("lo_probe_state") is TableRole.COMPAT
 
 
 def test_mixed_authoritative_artifacts_are_not_claimed_as_rebuildable():

@@ -73,11 +73,9 @@ EXPECTED_STATUS_OVERRIDES = {
     "practice_item_state": "active-historical-seam",
     "hypothesis_sets": "active",
     "controller_shadow_predictions": "dormant-shadow",
-    "controller_prequential_reports": "dormant-shadow",
     "shadow_component_events": "dormant-shadow",
     "source_exam_profiles": "dormant-owner-gated",
     "source_locator_schemes": "dormant-owner-gated",
-    "learner_theta": "dormant-owner-gated",
 }
 EXPECTED_LEGACY_TABLES = {
     "evidence_facet_recall_state",

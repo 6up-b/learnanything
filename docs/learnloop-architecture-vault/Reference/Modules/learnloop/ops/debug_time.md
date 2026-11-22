@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/debug_time.py](../../../../../../src/learnloop/ops/debug_time.py) |
-| Source lines | 75 |
+| Source lines | 74 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,8 +56,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `class DebugAdvanceResult` ([source](../../../../../../src/learnloop/ops/debug_time.py), line 16)
   - `as_dict(self) -> dict[str, object]` (line 21; public)
-- `class DebugAdvanceError(ValueError)` ([source](../../../../../../src/learnloop/ops/debug_time.py), line 48)
-- `advance_vault_days(root: Path, days: int) -> DebugAdvanceResult` ([source](../../../../../../src/learnloop/ops/debug_time.py), line 52)
+- `class DebugAdvanceError(ValueError)` ([source](../../../../../../src/learnloop/ops/debug_time.py), line 47)
+- `advance_vault_days(root: Path, days: int) -> DebugAdvanceResult` ([source](../../../../../../src/learnloop/ops/debug_time.py), line 51)
 
 ### Module constants
 

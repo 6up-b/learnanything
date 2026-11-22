@@ -51,6 +51,7 @@ from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
 from tests.help_assist_figures_migration_helpers import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
+from tests.drop_dead_tables_migration_helpers import J2_DROPPED_OBJECTS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 
@@ -107,7 +108,7 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
         assert [migration.version for migration in apply_migrations(database)] == list(range(232, migration_head() + 1))
     after = _schema(database)
     assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
-    assert {name for name in before if before[name] != after.get(name)} == set(P3_ALTERED_TABLES) | set(
+    assert {name for name in before if before[name] != after.get(name)} - J2_DROPPED_OBJECTS == set(P3_ALTERED_TABLES) | set(
         C2B_ALTERED_TABLES) | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES) | UNLINKED_ALTERED_TABLES | (
         TE2_ALTERED_TABLES & set(before))
     with closing(sqlite3.connect(database)) as connection:

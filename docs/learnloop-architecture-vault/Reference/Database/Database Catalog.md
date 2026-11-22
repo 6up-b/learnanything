@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 259
-table_count: 401
+schema_head: 260
+table_count: 396
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -19,13 +19,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-259"
+  - "learnloop/database/schema-head-260"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 401 user tables at migration head 259. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 396 user tables at migration head 260. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -36,20 +36,20 @@ This is the exhaustive map of the 401 user tables at migration head 259. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 167 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 165 |
 | [[Table Roles#Derived|`derived`]] | 27 |
-| [[Table Roles#Receipt|`receipt`]] | 96 |
+| [[Table Roles#Receipt|`receipt`]] | 94 |
 | [[Table Roles#Workflow|`workflow`]] | 104 |
-| [[Table Roles#Compat|`compat`]] | 7 |
+| [[Table Roles#Compat|`compat`]] | 6 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 390 |
+| `active` | 387 |
 | `active-historical-seam` | 1 |
-| `dormant-owner-gated` | 3 |
-| `dormant-shadow` | 3 |
+| `dormant-owner-gated` | 2 |
+| `dormant-shadow` | 2 |
 | `legacy-preserved` | 4 |
 
 ## DERIVED tables
@@ -154,7 +154,6 @@ Learner beliefs, mastery, recall, and capability projections. This is a navigati
 - [[Reference/Database/Tables/learner_text_gap_jobs|learner_text_gap_jobs]] — `workflow` · `active` · Coordinates leased, retryable work for learner text gap so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `source_kind`, `state`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_text_gap_reversals|learner_text_gap_reversals]] — `raw_ledger` · `active` · Gives learner text gap reversal a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `gap_id`, `reversal`, `actor`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learner_text_gaps|learner_text_gaps]] — `raw_ledger` · `active` · Gives learner text gap a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `source_id`, `attempt_id`, `practice_item_id`, making the operational relationship explicit.
-- [[Reference/Database/Tables/learner_theta|learner_theta]] — `compat` · `dormant-owner-gated` · Retains the legacy IRT theta table for compatibility and telemetry; it is not the canonical learner projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `algorithm_version`, `domain`, `evidence_family`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]] — `derived` · `active` · Materializes the current per-learning-object mastery posterior for learner-facing decisions. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `learning_object_id`, `algorithm_version`, `logit_mean`, making the operational relationship explicit.
 - [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]] — `derived` · `active` · Materializes replayed outcome labels consumed by learner and scheduling views. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `source_attempt_id`, `outcome_attempt_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/lo_probe_state|lo_probe_state]] — `compat` · `legacy-preserved` · Maintains the decision-facing current projection for lo probe so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `probe_phase_id`, `hypothesis_set_id`, making the operational relationship explicit.
@@ -228,12 +227,10 @@ Queue selection, sessions, controller decisions, and policy evaluation. This is 
 - [[Reference/Database/Tables/attention_blocks|attention_blocks]] — `workflow` · `active` · Gives attention block a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `session_id`, `commitment_id`, `daily_plan_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/composed_selector_telemetry_horizons|composed_selector_telemetry_horizons]] — `workflow` · `active` · Gives composed selector telemetry horizon a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `horizon_days`, `opened_at`, `retires_at`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_candidates|controller_candidates]] — `workflow` · `active` · Holds candidates for controller while policy selects or reviews one so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `decision_id`, `learning_object_id`, `comparator_score`, making the operational relationship explicit.
-- [[Reference/Database/Tables/controller_constraint_manifests|controller_constraint_manifests]] — `receipt` · `active` · Pins the complete input identity for controller constraint so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `manifest_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_decisions|controller_decisions]] — `receipt` · `active` · Gives controller decision a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `snapshot_id`, `session_id`, `commitment_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_outcome_windows|controller_outcome_windows]] — `workflow` · `active` · Gives controller outcome window a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `decision_id`, `assignment_id`, `commitment_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_ownership|controller_ownership]] — `workflow` · `active` · Gives controller ownership a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `commitment_id`, `receipt_id`, `ownership_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_ownership_events|controller_ownership_events]] — `receipt` · `active` · Preserves an append-only chronology of controller ownership so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `commitment_id`, `receipt_id`, `policy_version`, making the operational relationship explicit.
-- [[Reference/Database/Tables/controller_prequential_reports|controller_prequential_reports]] — `receipt` · `dormant-shadow` · Stores delayed evaluation reports over controller shadow predictions. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `target_kind`, `horizon_kind`, `report_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_shadow_predictions|controller_shadow_predictions]] — `receipt` · `dormant-shadow` · Stores non-authoritative controller predictions; a schema CHECK fixes authority to 'none'. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `scorer_kind`, `model_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_snapshots|controller_snapshots]] — `receipt` · `active` · Gives controller snapshot a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `snapshot_hash`, `param_manifest_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/daily_plans|daily_plans]] — `workflow` · `active` · Holds each local day's finite daily plan (daily-loop DL1, mvp-0.14): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `parent_plan_id`, `estimator_version`, `algorithm_version`, making the operational relationship explicit.
@@ -394,7 +391,6 @@ Goals, forecasts, exams, and cold certification. This is a navigational grouping
 
 Curricular commitments, depth progression, blueprints, and golden-path runs. This is a navigational grouping, not permission for cross-domain imports. ^family-curriculum
 
-- [[Reference/Database/Tables/angle_inventories|angle_inventories]] — `raw_ledger` · `active` · Gives angle inventorie a stable database identity so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It supplies replay-stable input rather than a disposable cache. Rows bind `family_version_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/commitment_arc_events|commitment_arc_events]] — `receipt` · `active` · Preserves an append-only chronology of commitment arc so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `arc_id`, `event_ordinal`, `kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/commitment_arc_versions|commitment_arc_versions]] — `raw_ledger` · `active` · Pins immutable versions of commitment arc so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It supplies replay-stable input rather than a disposable cache. Rows bind `arc_id`, `predecessor_version_id`, `depth_policy_version_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/commitment_arcs|commitment_arcs]] — `raw_ledger` · `active` · Gives commitment arc a stable database identity so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It supplies replay-stable input rather than a disposable cache. Rows bind `commitment_id`, `source_id`, making the operational relationship explicit.
@@ -408,7 +404,6 @@ Curricular commitments, depth progression, blueprints, and golden-path runs. Thi
 - [[Reference/Database/Tables/depth_envelope_versions|depth_envelope_versions]] — `raw_ledger` · `active` · Pins immutable versions of depth envelope so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It supplies replay-stable input rather than a disposable cache. Rows bind `envelope_version`, `content_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/depth_milestone_versions|depth_milestone_versions]] — `raw_ledger` · `active` · Pins immutable versions of depth milestone so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It supplies replay-stable input rather than a disposable cache. Rows bind `envelope_version_id`, `content_hash`, `milestone_slug`, making the operational relationship explicit.
 - [[Reference/Database/Tables/depth_policy_versions|depth_policy_versions]] — `raw_ledger` · `active` · Pins immutable versions of depth policy so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It supplies replay-stable input rather than a disposable cache. Rows bind `content_hash`, `policy`, making the operational relationship explicit.
-- [[Reference/Database/Tables/family_evidence_cap_policies|family_evidence_cap_policies]] — `raw_ledger` · `active` · Pins the policy definition used for family evidence cap so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It supplies replay-stable input rather than a disposable cache. Rows bind `content_hash`, `policy_slug`, `version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/golden_path_artifacts|golden_path_artifacts]] — `receipt` · `active` · Identifies durable output artifacts produced for golden path so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `run_id`, `administration_id`, `seq`, making the operational relationship explicit.
 - [[Reference/Database/Tables/golden_path_run_events|golden_path_run_events]] — `receipt` · `active` · Preserves an append-only chronology of golden path run so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `run_id`, `goal_contract_head_version_id`, `depth_policy_version_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/golden_path_runs|golden_path_runs]] — `workflow` · `active` · Tracks one execution, input identity, and result for golden path so curriculum progression is versioned and can explain which commitment, depth, and blueprint governed an activity. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `learner_id`, `goal_id`, `commitment_id`, making the operational relationship explicit.

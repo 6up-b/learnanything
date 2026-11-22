@@ -29,7 +29,6 @@ class DebugAdvanceResult:
 TIMESTAMP_FIELDS: dict[str, tuple[str, ...]] = {
     "practice_item_state": ("due_at", "last_attempt_at", "updated_at"),
     "learning_object_mastery": ("last_evidence_at", "updated_at"),
-    "learner_theta": ("updated_at",),
     "learner_claims": ("created_at",),
     "error_events": ("created_at", "updated_at"),
     "practice_attempts": ("created_at", "updated_at"),
