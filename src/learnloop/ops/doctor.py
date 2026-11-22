@@ -1238,7 +1238,6 @@ def _database_tables(repository: Repository) -> set[str]:
 _DEPRECATED_STATE_TABLES = (
     "source_exam_profiles",
     "source_locator_schemes",
-    "learner_theta",
 )
 
 

@@ -1,11 +1,26 @@
 # Migration-head fixture
 
-**Holds migration 259 (`259_reader_section_completion_cause.sql`), the head.** The directory's name carries no number (since
+**Holds migration 260 (`260_drop_dead_tables.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## Refactor J2 (migration 260), `refactor/j2-drop-dead-tables`, 2026-11-21
+
+Upgraded in place (no rename; base: main at `ef403d953d`, head 259) by the B1 procedure below:
+`260_drop_dead_tables.sql` (drops five empty tables no code reads or writes: `angle_inventories`,
+`family_evidence_cap_policies`, `controller_constraint_manifests`, `controller_prequential_reports` and
+`learner_theta`; the upgrade refuses a database in which any of them holds a row) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
+`upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[260]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
+and the copy written into its place with `backup_database`, no companion files. Compared with the 259 file: sixteen
+objects removed (the five tables, their seven autoindexes and their four indexes), none added, no remaining object's
+definition changed, and the only table whose rows changed is `schema_migrations` (gains 260). The five tables were
+empty here. The file stays 7,626,752 bytes (1,862 pages of 4,096): the sixteen freed pages are on the freelist, as
+nothing in the procedure vacuums.
 
 ## The first evening, step 5 (migration 259), `ux/first-evening-section-end`, 2026-11-21
 

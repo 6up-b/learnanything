@@ -897,7 +897,7 @@ def test_controller_snapshot_schema_is_available(tmp_path):
         }
 
     assert {
-        "controller_snapshots", "controller_constraint_manifests", "controller_decisions",
+        "controller_snapshots", "controller_decisions",
         "controller_candidates", "attention_blocks", "attention_block_events",
         "controller_shadow_predictions",
     } <= tables
