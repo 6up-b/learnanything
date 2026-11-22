@@ -3168,11 +3168,7 @@ def _episode_probe_reads(
             if session_qualifying is None:
                 session_qualifying = _attempted_read(session_qualifying_total, vault, repository, session_id)
             if getattr(episode, "calibration_model_hash", None) is not None:
-                from learnloop.diagnosis.probe_robust import load_pinned_channel
-
-                channels[episode.id] = _attempted_read(
-                    load_pinned_channel, repository, episode.calibration_model_hash
-                )
+                channels[episode.id] = _attempted_read(voi.read_pinned_channel, repository, episode)
             loaded = _attempted_read(_load_voi_reads, voi_context, eligible, context[1])
             if isinstance(loaded, _ReadFailed):
                 # Kept per episode: its decision raises this where the admission computes it.

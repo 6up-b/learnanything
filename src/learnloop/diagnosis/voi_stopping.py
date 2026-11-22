@@ -2168,6 +2168,15 @@ def hypothesis_channel_body(
 READ_PINNED_CHANNEL: Any = object()
 
 
+def read_pinned_channel(repository: Any, episode: Any) -> Any:
+    """The episode's pinned channel as ``probe_episode_decision`` reads it, for a caller that reads it ahead and
+    passes it as ``pinned_channel``."""
+
+    from learnloop.diagnosis.probe_robust import load_pinned_channel
+
+    return load_pinned_channel(repository, episode.calibration_model_hash)
+
+
 def probe_episode_decision(
     ctx: VoiContext,
     episode: Any,
@@ -2455,6 +2464,7 @@ __all__ = [
     "unresolved_scope_for_label",
     "METHOD_LOOKAHEAD_PREFIX",
     "READ_PINNED_CHANNEL",
+    "read_pinned_channel",
     "REASON_EVSI_BATCH_CLEARS",
     "REASON_LEARNER_REQUEST",
     "REASON_NOT_IN_PLAN",
