@@ -318,7 +318,7 @@ The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 1
 | Help shows what it gave away | P6 (owner's decision 2) on desktop and phone feedback; F24 | waiting on | — | — | The Decider's first stage; arc G |
 | Progress in words and the jargon sweep | P10, F28 | not started | — | — | — |
 | Web pages keep their equations | UX-11: a web page read into LearnLoop keeps every display equation, its headings' own words as titles and none of the page's furniture | landed | `5a7728283a` | [ux11-html-extraction.md](ux11-html-extraction.md) | New reads use extraction version 3; a page read before keeps its stored text and its card offers "Read it again" where equations are missing (a re-read re-pays the changed units' inventory later, so it is never automatic; marks are not carried: the new reading is held back until it is marked). Open: UX-34 (emphasis splits and glued paragraphs), UX-35 (figures and captions dropped), the chapter stays one section |
-| The Reader redo | Search, margin cues, syntopic reading; UX-34 and UX-35 | not started | — | — | Its cue model is a backend step |
+| The Reader redo | Search, margin cues, syntopic reading; UX-34 and UX-35. Now the Reader workbench v2 spec: see its own section below | not started | — | [spec_reader_workbench_v2.md](../specs/spec_reader_workbench_v2.md) | RD-spike and RD0 first |
 | Own notes as sources (spec first) | F27: a notes folder or a deck as one source, links between notes, the learner's wording kept | not started | — | — | — |
 | Settings cleared | F17 and the owner's Nov 8 item | not started | — | — | — |
 
@@ -331,6 +331,25 @@ The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 1
 | S3 | Reorder open lanes around cuts and reviews | landed | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Applied as a reordering: L1 and L2 ran ahead of the interior splits. L4's review has no slot yet. |
 | S4 | Name the next features and their prerequisites | landed | this commit | [owner-decisions-small-1.md](owner-decisions-small-1.md) | — |
 | P1 | Record what evidence each model call saw | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: approved as EP2, before EP3 |
+
+## Reader workbench v2 (the Reader redo; spec landed Nov 22)
+
+The spec is `docs/specs/spec_reader_workbench_v2.md` (desks, the companion, scratchpads, the goal lens, inline checks, pen and ink, lesson and notebook windows). It is the UX audit's "Reader redo" stage, taken whole: it runs after the refactor's open steps as a UX stage, and its first two stages may run beside the refactor because they touch no serving path. Each stage lands from a clean worktree through the landing gate and the real-webview harness (spec §18.3), carries a review file with its mockup comparison (the mockups themselves are private and are never committed), and closes with a Codex Astra adversarial review and one fix round. No stage ships a kill switch. Decisions D1 to D16 (spec §20) are built on their recommended defaults unless the owner overrides one; D14 (alt with vertical scroll zooms the overview) and D1 (criticality marks per section) are asked first.
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| RD-spike | Disposable packaged-app spike on WebKitGTK: the zoom engine, blur, IndexedDB durability, embeds; no product code kept | not started | — | — | A packaged app on carson |
+| RD0 | Foundations: migrations for desks, windows, pads, block versions, anchors and receipts; the write protocol; the two derived span tables with replayers; read-only `desk.*`, `pad.*`, `passage.union_range`, `companion.history`, `checks.due_for`; import fences | not started | — | — | RD-spike |
+| RD1 | The desk shell, the window lifecycle and the key router; source and video windows extracted from the Reader; the old panels as windows | not started | — | — | RD0 |
+| RD2, RD3 | The overview and gestures; the companion and search | not started | — | — | RD1 |
+| RD4 | Scratchpads (tag) | not started | — | — | RD1 (RD2 for the pill) |
+| RD5, RD6, RD9a | Menus; the goal lens (replaces the Guide and path panels); lesson windows | not started | — | — | RD4 |
+| RD-retire | The old Reader goes, every parity row demonstrated | not started | — | — | RD4, RD5, RD6, RD9a |
+| RD7 | Inline checks and veils (tag) | not started | — | — | RD-retire; the Decider's narrowing waits for the reveal adjudication judgment |
+| RD8a, RD8b | Pen and ink; freeform ink help (tag) | not started | — | — | RD7; RD8b also the hint service's freeform context |
+| RD9b | Notebook lessons and marimo cells in pads | not started | — | — | Notebook activities' native runtime contract, RD9a |
+| RD9c | Lesson redo and amendment | not started | — | — | Teacher v2, RD9a |
+| RD10 | Video and carried polish | not started | — | — | RD1, RD4 |
 
 ## Notebook activities (queued by the owner on Nov 20; track H and NA0 run beside the queue)
 
