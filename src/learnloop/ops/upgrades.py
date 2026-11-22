@@ -31,6 +31,7 @@ from pathlib import Path
 
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
+    APPLICATION_ORDER_ALGORITHM_VERSION,
     COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION,
     EVIDENCE_READING_FIX_ALGORITHM_VERSION,
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
@@ -40,8 +41,9 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
 )
-from learnloop.clock import Clock
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
+from learnloop.db.attempt_order import rank_legacy_attempts
 from learnloop.db.repositories import Repository
 from learnloop.ops.settings_store import updated_config_text
 from learnloop.params import parameter_registry as registry_service
@@ -110,6 +112,27 @@ idempotent_projection = Activation("its projection activation", _project, _proje
 whole_vault_rebuild = Activation("a whole-vault rebuild under it", _rebuild, _rebuild_committed)
 
 
+def _rank_then_rebuild(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None:
+    # The replay under the tag folds by the application sequence, so every attempt needs one before it starts; the
+    # attempts applied before the upgrade keep the predecessor's (created_at, id) order, which is all that is known.
+    with repository.connection() as connection:
+        rank_legacy_attempts(
+            connection,
+            algorithm_version=vault.config.algorithms.algorithm_version,
+            recorded_at=utc_now_iso(clock),
+        )
+    rebuild_all_derived_state(vault, repository, clock=clock)
+
+
+#: mvp-0.65: rank the legacy attempts' application order, then a whole-vault rebuild under the tag. Both run in the
+#: activation's one transaction, and the rebuild's receipt is the completion record, so a re-run after a committed
+#: activation does nothing and one after a death before the commit ranks from an empty table again.
+legacy_order_then_rebuild = Activation(
+    "the legacy attempts' application order, then a whole-vault rebuild under it", _rank_then_rebuild,
+    _rebuild_committed,
+)
+
+
 @dataclass(frozen=True)
 class Link:
     tag: str
@@ -139,6 +162,10 @@ UPGRADES: tuple[Link, ...] = (
     # An untaken repair episode ends: only sweeps after the upgrade behave differently (no episode, task or outcome
     # already recorded is reinterpreted; an episode open at the upgrade is ended by the first sweep after it).
     Link(UNTAKEN_EPISODE_END_ALGORITHM_VERSION, idempotent_projection),
+    # Same-second grades fold in the order they were applied: every prefix reader's order moves for tied attempts,
+    # so what a rebuild derives moves. The attempts applied before the upgrade are ranked first, in the
+    # predecessor's order.
+    Link(APPLICATION_ORDER_ALGORITHM_VERSION, legacy_order_then_rebuild),
 )
 
 
@@ -432,6 +459,7 @@ __all__ = [
     "UpgradeResult",
     "complete_interrupted_activation",
     "idempotent_projection",
+    "legacy_order_then_rebuild",
     "publish_algorithm_version",
     "published_algorithm_version",
     "rewrite_algorithm_version",

@@ -146,6 +146,22 @@ LEGACY_ORDER = AttemptOrder(LEGACY_POLICY)
 APPLICATION_ORDER = AttemptOrder(APPLICATION_POLICY)
 
 
+def attempt_order_for_version(algorithm_version: str | None) -> AttemptOrder:
+    """The order a vault at ``algorithm_version`` folds its ledger in."""
+
+    from learnloop.algorithm_versions import APPLICATION_ORDER_VERSIONS
+
+    return APPLICATION_ORDER if algorithm_version in APPLICATION_ORDER_VERSIONS else LEGACY_ORDER
+
+
+def attempt_order_for(config: Any) -> AttemptOrder:
+    """The order a vault folds its ledger in, by its config's tag (``algorithm_versions.application_order_on``)."""
+
+    from learnloop.algorithm_versions import application_order_on
+
+    return APPLICATION_ORDER if application_order_on(config) else LEGACY_ORDER
+
+
 # -- the table ----------------------------------------------------------------------------------------------
 
 
@@ -208,6 +224,8 @@ __all__ = [
     "Position",
     "UNBOUND_SEQUENCE",
     "application_sequences",
+    "attempt_order_for",
+    "attempt_order_for_version",
     "rank_legacy_attempts",
     "reserve_application_sequence",
 ]
