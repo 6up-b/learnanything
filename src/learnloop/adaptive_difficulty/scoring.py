@@ -7,7 +7,8 @@ is §5.3's event, read exactly as the update reads it: any help, or a reveal
 during the presentation, makes it 0; a presentation exposed before it was
 served is not scored; a pending presentation (or a skipped or abandoned one) is
 right-censored, never a failure. A receipt whose inputs postdate the serve is
-invalid for scoring (§8.1).
+invalid for scoring (§8.1). An unreadable time on a bound receipt is invalid
+with reason ``unreadable_time``; it never aborts the other receipts' scores.
 
 Splits: field's first-attempt split (the first attempt on a never-seen LO, the
 primary score, D17) and the first surface in a never-seen cell.
@@ -85,7 +86,12 @@ def score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, A
         if presentation is None or presentation not in served:
             rows.append({**row, "status": "pending", "detail": {"why": "no_bound_presentation"}})
             continue
-        if not valid_for_serve(receipt, served[presentation]):
+        try:
+            valid_time = valid_for_serve(receipt, served[presentation])
+        except (ValueError, OverflowError):
+            rows.append({**row, "status": "invalid", "detail": {"why": "unreadable_time"}})
+            continue
+        if not valid_time:
             rows.append({**row, "status": "invalid", "detail": {"why": "inputs_after_serve"}})
             continue
         if presentation in pre_exposed:

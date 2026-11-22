@@ -10,6 +10,7 @@ from learnloop.db.repositories import Repository
 from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import create_basic_vault

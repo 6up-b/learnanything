@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_run import jobs
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.followup_serve_helpers import LIVE_ITEM, AuthorFake, author_clients

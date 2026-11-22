@@ -12,6 +12,7 @@ from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_serve import workflow as wf
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from learnloop_sidecar.request_origin import RequestOrigin
 
