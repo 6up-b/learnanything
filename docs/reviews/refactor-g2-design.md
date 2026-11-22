@@ -254,7 +254,7 @@ Old configuration flags must not reactivate a second worth gate for a G2-owned d
 - A router no-intervention result is a decision for this boundary, not proof that the factor is resolved.
 - Diagnosis belief updates, the two existing locks and discriminating-observation semantics do not become G4 under this change.
 
-**Proposed learner-lane change at mvp-0.64:**
+**Proposed learner-lane change at mvp-0.65:**
 
 1. `causal_repair_status` becomes a facts/status read for this path. It must not independently mint a new worth verdict or reroll on component remount.
 2. Return the existing status payload plus a router-owned disposition:
@@ -277,11 +277,11 @@ An explicit repair request without a plan needs a minimal router context and a d
 
 ## 3. PERSISTED MEANING AND THE TAG
 
-**Proposed tag:** one `PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.64"` constant, appended to `SUCCESSOR_CHAIN`, with one tag predicate. Existing chain/head mechanics are at `src/learnloop/algorithm_versions.py:947`, `:1007`, `:1075`.
+**Proposed tag:** one `PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.65"` constant, appended to `SUCCESSOR_CHAIN`, with one tag predicate. Existing chain/head mechanics are at `src/learnloop/algorithm_versions.py:947`, `:1007`, `:1075`.
 
 **No kill switch.** The Nov 16 playbook supersedes G2’s older switch language: `docs/algorithm-change-playbook.md:156`.
 
-### At mvp-0.64
+### At mvp-0.65
 
 New decisions may change:
 
@@ -302,7 +302,7 @@ New records must freeze:
 
 Use existing `router_decisions`, `router_objective_traces`, `decision_state_receipts`, decision records and bindings where possible. If a separate snapshot table is necessary, classify it as an immutable `RECEIPT`; the playbook requires table roles and rebuild ownership (`docs/algorithm-change-playbook.md:33`).
 
-### Below mvp-0.64
+### Below mvp-0.65
 
 Keep the predecessor’s:
 
@@ -318,7 +318,7 @@ Keep the predecessor’s:
 
 **Recommendation: `Link(PROBE_ROUTER_ALGORITHM_VERSION, idempotent_projection)`, not a whole-vault rebuild.**
 
-G2 changes future decisions, not the interpretation of already-recorded answers or historical decisions. Existing beliefs retain the predecessor's (mvp-0.63's) semantics. The standard projection activation is still an upgrade action; “no rebuild” here means **no whole-vault evidence replay**. See `src/learnloop/ops/upgrades.py:101`.
+G2 changes future decisions, not the interpretation of already-recorded answers or historical decisions. Existing beliefs retain the predecessor's (mvp-0.64's) semantics. The standard projection activation is still an upgrade action; “no rebuild” here means **no whole-vault evidence replay**. See `src/learnloop/ops/upgrades.py:101`.
 
 This depends on a required test: historical completion/episode reconstruction must not newly run G2 policy during replay. If implementation changes what replay derives from old observations, this recommendation becomes false: select `whole_vault_rebuild` and document the additional semantic change before landing.
 
@@ -353,14 +353,14 @@ Must not move at fixed predecessor inputs:
 - Instrument/card/lock identity algorithms, grading identities, substrate identities and unrelated prompts.
 - `OBJECTIVE_VERSION`/`TERMINAL_VERSION` merely because probe transition dynamics change. Prefer a scoped probe-policy version.
 
-Default-tag movements and a changed function at a fixed tag are separate assertions. Add explicit mvp-0.63 pins/replay cases so head-default regeneration cannot hide predecessor drift.
+Default-tag movements and a changed function at a fixed tag are separate assertions. Add explicit mvp-0.64 pins/replay cases so head-default regeneration cannot hide predecessor drift.
 
 ### Proof without a switch
 
 On identical stored history:
 
-1. Base checkout at mvp-0.63 versus implementation at mvp-0.63: identical served values and records under fixed inputs, clocks, IDs, model answers and draws.
-2. Implementation at mvp-0.63 versus mvp-0.64: only approved behavior differences.
+1. Base checkout at mvp-0.64 versus implementation at mvp-0.64: identical served values and records under fixed inputs, clocks, IDs, model answers and draws.
+2. Implementation at mvp-0.64 versus mvp-0.65: only approved behavior differences.
 3. Rebuild each tag twice; compare semantic projections and immutable receipts.
 4. P-draw reproduces recorded component distributions, support order, seed, chosen arm and propensity. Full numeric replay additionally needs the newly frozen input snapshot.
 5. Upgrade interruption/recovery/idempotence tests run through the new `EXPECTED_ACTIVATIONS` row: `tests/test_upgrades.py:59`.
@@ -376,7 +376,7 @@ All test execution below is for the implementer; none was run for this design.
 | **3. Extract diagnostic proposal reads** | Factor `_status_for_factor` gathers into a value object; old verdict consumes the same values. Reuse `ProbeFacts`; separate missing-channel status from numeric zeros. Files: `causal_orchestrator.py`, `probe_facts.py`, channel/repair adapters. First test: old receipt inputs, parameter manifests and resulting status identical. | All old persisted output identical. New constructor-only tests, no new live receipts. | **M, structural.** Stop if extraction changes query-time availability, lock selection or prior normalization. |
 | **4. Build the pure successor evaluator, unserved** | Add diagnostic payload and pure branch evaluator; retain old `Action` serialization/behavior when payload absent. Tests first: informative channel changes preferred repair; flat channel does not; open arm retained; no clairvoyance; duration charged once; sequence/lesson-decline parity; exposure gives no information; missing channel explicit. Extend `test_action_kinds_complete.py`. | Existing goldens/pins identical. New isolated tests only. No production shadow computation, which could alter deadline behavior. | **M.** Stop until channel and conditional repair-effect contracts are explicit; do not invent probabilities during adapter coding. |
 | **5. Prepare the comparison and landing report** | Add a read-only replay/report driver consuming copied ledgers or exported frozen inputs. Capture real successor snapshots on controlled copies with fixed model outputs. Implement coverage classifications in §5. | No served behavior changes. Report artifacts only. | **M.** Stop on future leakage, fabricated missing inputs, or a report unable to distinguish exact from reconstructed rows. |
-| **6. G2 behavior landing, alone** | Add mvp-0.64 constant, upgrade row/test row; wire candidate gathering, new evaluator, router-owned continuation, sidecar disposition and no-plan logging. Remove A–K’s competing worth control **only at the tag and G2 origin**. Update `router.py`, `jobs.py`, `admission.py`, `serving.py`, objective inputs/chooser/card/trace, followups, scheduler, presentations/blocks/completion, remediation handlers and Feedback component DTOs. | Approved successor journey rows/cards/values/support/propensities and head defaults/pins move. Predecessor snapshots remain identical. | **L.** Stop on any remaining worth veto, duplicate draw, feedback leak, unsupported likelihood, predecessor difference, or unread owner report. |
+| **6. G2 behavior landing, alone** | Add mvp-0.65 constant, upgrade row/test row; wire candidate gathering, new evaluator, router-owned continuation, sidecar disposition and no-plan logging. Remove A–K’s competing worth control **only at the tag and G2 origin**. Update `router.py`, `jobs.py`, `admission.py`, `serving.py`, objective inputs/chooser/card/trace, followups, scheduler, presentations/blocks/completion, remediation handlers and Feedback component DTOs. | Approved successor journey rows/cards/values/support/propensities and head defaults/pins move. Predecessor snapshots remain identical. | **L.** Stop on any remaining worth veto, duplicate draw, feedback leak, unsupported likelihood, predecessor difference, or unread owner report. |
 | **7. Landing verification record** | Record both-tags results, copy rebuild results, report coverage, latency distributions, changed identities and owner rulings. No additional policy cleanup in this commit. | Documentation only. | **S.** Stop rather than declare success with missing parity or unclassified deltas. |
 
 Step 6 must include the whole authority transfer. Do not land “router decides” while leaving follow-up suppression, scheduler zero-EIG admission or continuation VOI active.
@@ -504,7 +504,7 @@ These are the decisions the code and recorded history do not settle.
    **Recommendation:** decide from the fresh-copy report: disagreement rates, missing-channel coverage, flat-channel behavior and measured Next latency. The owner has already accepted somewhat slower simulation; no new arbitrary speed cutoff is needed.  
    **Changes:** whether this concrete model is ready to serve, not the agreed architecture.
 
-Already settled and not reopened: mvp-0.64, no new kill switch, held post-miss Next, no hand-set worth margins, no shrinking locked sets, no new hypothesis-list UI, and exposed answers contributing no belief update.
+Already settled and not reopened: mvp-0.65, no new kill switch, held post-miss Next, no hand-set worth margins, no shrinking locked sets, no new hypothesis-list UI, and exposed answers contributing no belief update.
 
 ## 8. WHAT READING COULD NOT SETTLE
 
@@ -514,13 +514,13 @@ Each item has one bounded verification.
   One production `build → evaluate` test comparing standalone probe, probe-first sequence, probe-last sequence and lesson decline.
 
 - **Can replay call completion policy in a way that changes old episode state?**  
-  One same-history mvp-0.63/mvp-0.64 rebuild test with a stored value-stopped episode. This settles the upgrade activation choice.
+  One same-history mvp-0.64/mvp-0.65 rebuild test with a stored value-stopped episode. This settles the upgrade activation choice.
 
 - **Can every planless door persist an idempotent router decision using the generalized builder?**  
   One no-plan repair/status/retry journey, including crash between decision and binding.
 
 - **Does a selected candidate survive all downstream worth gates?**  
-  One sentinel test that makes every legacy worth function raise, then serves and continues a mvp-0.64 post-miss probe through scheduler, sidecar and TUI.
+  One sentinel test that makes every legacy worth function raise, then serves and continues a mvp-0.65 post-miss probe through scheduler, sidecar and TUI.
 
 - **How much real history is exactly replayable?**  
   One read-only coverage report on fresh copies, grouped by the row sources in §5.
