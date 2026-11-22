@@ -166,6 +166,7 @@ def build_rich_vault(root):
 UNBOUND_PROBE = "pi_svd_probe_unbound"
 MICROPROBE = "pi_a_microprobe"
 ORPHAN = "pi_a_orphan"
+SEEN_ON_PROBE_LO = "pi_svd_recall_seen"
 FIGURE_ITEM = "pi_c_figure"
 #: The item a phone build's session left for the desktop (``DeviceFilter.left_for_desktop``).
 LEFT_FOR_DESKTOP = "pi_c1"
@@ -269,6 +270,26 @@ def build_figure_vault(root):
     # item set a review, so placement does not start it as new material and nothing else does either.
     seed_due(repository, "pi_c2", due=NOW + timedelta(days=30), last=NOW - timedelta(days=1))
     seed_due(repository, "pi_spec_easy", due=NOW + timedelta(days=30), last=NOW - timedelta(days=1))
+    return load_vault(paths.root), repository
+
+
+def build_probe_history_vault(root):
+    """``(vault, repository)``: :func:`build_rich_vault` with an answer two hours ago on another item of the probe's
+    LO that shares the instruments' facet, so the probes' familiarity discounts them."""
+
+    from tests.daily_plan_fakes import record_attempt
+
+    vault, repository = build_rich_vault(root)
+    paths = VaultPaths(vault.root, vault.config)
+    write_yaml(paths.practice_item_path("linear-algebra", SEEN_ON_PROBE_LO), _extra_item(
+        SEEN_ON_PROBE_LO, PROBE_LO, mode="short_answer", prompt="Recall the SVD's factors."))
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=CLOCK)
+    attempt_id = record_attempt(repository, SEEN_ON_PROBE_LO, PROBE_LO, NOW - timedelta(hours=2))
+    with repository.connection() as connection:
+        connection.execute("UPDATE practice_attempts SET evidence_facets_json = ? WHERE id = ?",
+                           ('["recall"]', attempt_id))
+        connection.commit()
     return load_vault(paths.root), repository
 
 

@@ -56,6 +56,7 @@ from tests.due_queue_helpers import (
     SESSION,
     build_figure_vault,
     build_gate_vault,
+    build_probe_history_vault,
     build_rich_vault,
     build_unconsulted_episode_vault,
 )
@@ -294,11 +295,12 @@ def _value_stopping_off(vault: Any) -> None:
 
 def test_a_serving_build_that_values_the_episodes_probes(tmp_path, seeded_ids):
     """Value stopping off: the probes score their information, each read once for the episode (its context,
-    instruments and the items' familiarity); a new session's build records the probe selection."""
+    instruments and the items' familiarity, which an answer on the LO discounts); a new session's build records the
+    probe selection."""
 
     _check("admission_probe_reads", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
         vault, repository, clock=CLOCK, session=SchedulerSession(session_id="sess_probe_reads"), offer_trace=trace),
-        prepare=_value_stopping_off))
+        vault_builder=build_probe_history_vault, prepare=_value_stopping_off))
 
 
 def test_a_phone_build(tmp_path, seeded_ids):
@@ -389,9 +391,11 @@ def test_the_admission_goldens_reach_their_paths(tmp_path, seeded_ids):
     } <= set(gates)
     probe = _record(tmp_path / "probe", lambda vault, repository, trace: build_due_queue(
         vault, repository, clock=CLOCK, session=SchedulerSession(session_id="sess_probe_reads"), offer_trace=trace),
-        prepare=_value_stopping_off)
+        vault_builder=build_probe_history_vault, prepare=_value_stopping_off)
     assert any(item["components"].get("probe_eig", 0.0) > 0 for item in probe["queue"]), "a probe is valued"
-    assert any("probe_eig_familiarity_discount" in item["components"] for item in probe["queue"])
+    assert any(
+        0 < item["components"].get("probe_eig_familiarity_discount", 1.0) < 1 for item in probe["queue"]
+    ), "an answer on the probe's LO discounts its probes"
     assert "elicitation_events" in probe["database"], "the probe selection is recorded"
     phone = _record(tmp_path / "phone", lambda vault, repository, trace: build_due_queue(
         vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace,
