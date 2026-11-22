@@ -80,7 +80,7 @@ from learnloop.clock import parse_utc
 from learnloop.diagnosis.causal_activity_policy import attempt_counts_as_assisted
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.scheduling.intent.model import CommitmentSnapshot
-from learnloop.scheduling.intent.recall_targets import EffectiveDue, effective_due, load_anchors
+from learnloop.scheduling.intent.recall_targets import EffectiveDue, item_effective_due, load_anchors
 from learnloop.scheduling.intent.resolution import ItemIntent, Resolution, load_snapshots
 
 DATE_FROM_DUE_HINT = "due_hint"
@@ -324,18 +324,14 @@ class IntentServing:
         targets off)."""
 
         target = self.target_for(item_id)
-        due_at = getattr(state, "due_at", None) if state is not None else None
-        if target == 0.90:
-            parsed = parse_utc(due_at)
-            return EffectiveDue(parsed, None if parsed is not None else ("no_state" if state is None else "no_due_at"))
-        result = effective_due(
-            due_at=due_at,
-            anchor_at=self._anchor(item_id) if due_at is not None else None,
+        result = item_effective_due(
             target=target,
+            due_at=getattr(state, "due_at", None) if state is not None else None,
+            anchor_at=lambda: self._anchor(item_id),
             weights=self.weights,
             has_state=state is not None,
         )
-        if result.fallback is not None:
+        if target != 0.90 and result.fallback is not None:
             # Counted once per item (``learnloop plan report``).
             self._fallback_items.setdefault(result.fallback, set()).add(item_id)
         return result
