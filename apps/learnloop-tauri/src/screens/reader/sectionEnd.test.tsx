@@ -233,3 +233,31 @@ it("finishOf reads the backend's answer, never a guess", () => {
   expect(finishOf(FINISHED({ enqueuedGeneration: false, waitingForBuild: true }) as never)).toBe("waiting");
   expect(finishOf(FINISHED({ enqueuedGeneration: false }) as never)).toBe("done");
 });
+
+// UX-78 and UX-81 (the live walk sectionend-1): a section finished by its end is told apart from one the learner said
+// they read, from the backend's stored cause: its position reads the end and its control's place says the reading
+// finished it, in this visit and after a restart. One finished by the learner's word half-way keeps its real position.
+it("a section finished by its end is known as such from the backend's answer, and after a restart from its progress", async () => {
+  api.readerNoteReadingProgress.mockImplementation(async (input: Report) => (input.reachedEnd
+    ? FINISHED({ progress: { completedAt: "2026-11-21T10:00:00Z", completionCause: "reached_end" } }) : UNFINISHED));
+  const live = renderHook(() => useHarness());
+  await readToTheEndOfU1(live.result);
+  expect(live.result.current.endedSections).toEqual(["u1"]);
+  live.unmount();
+
+  const { result } = renderHook(() => useHarness());
+  act(() => result.current.hydrateProgress(view.extractionId, {
+    extractionId: view.extractionId,
+    sections: [
+      { extractionId: view.extractionId, sectionId: "u1", spansSeen: 4, spanCount: 5, revealedAt: null, completedAt: "2026-11-21T10:00:00Z",
+        completionCause: "reached_end", generationBatchId: null },
+      { extractionId: view.extractionId, sectionId: "u2", spansSeen: 1, spanCount: 3, revealedAt: null, completedAt: "2026-11-21T10:05:00Z",
+        completionCause: "learner_said", generationBatchId: null },
+    ],
+  } as never));
+  expect(result.current.endedSections).toEqual(["u1"]);
+  await markerAt(result, "s1");
+  expect(result.current.currentSectionRead).toBe(1);
+  await markerAt(result, "s5");
+  expect(result.current.currentSectionRead).toBeCloseTo(1 / 3);
+});

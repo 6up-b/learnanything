@@ -12,7 +12,8 @@ import { Waiting } from "../components/Waiting";
 import { MathMacrosProvider } from "@desktop/render/mathMacros";
 import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
 import {
-  BACK_TO_TODAY, CHECK_DONE, READ_NEXT_SECTION, SECTION_DONE, SECTION_DONE_LINE, sectionWords,
+  BACK_TO_TODAY, CHECK_DONE, closedCheckSummary, END_PRESS_GUARD_MS, READ_NEXT_SECTION, SECTION_DONE, SECTION_DONE_LINE,
+  SECTION_ENDED_LINE, sectionWords,
 } from "@desktop/screens/reader/readerShared";
 import { selectionQuote } from "@desktop/render/mathSnippet";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
@@ -67,6 +68,11 @@ export function ReaderScreen({
   const [pageOf, setPageOf] = useState<string | null>(null);
   const [dose, setDose] = useState<ReaderDoseOfferDto["offer"] | null>(null);
   const [leaving, setLeaving] = useState(false);
+  // The quick check closed with "Done with this check" in this section: what it showed stays, folded (held here only).
+  const [closedCheck, setClosedCheck] = useState<{ prompt: string; response: string; expected: string } | null>(null);
+  // The end finished the section under the learner's thumb: the first tap on the way on, this soon, was meant for
+  // "I've read this section", which just went, and does nothing.
+  const endGuard = useRef(0);
   const visitId = useMemo(() => newUlid(), [extractionId]);
   const seen = useRef<Set<string>>(new Set());
   const reported = useRef<Record<string, number>>({});
@@ -179,6 +185,7 @@ export function ReaderScreen({
     observed.current = new Set();
     moved.current = false;
     setDose(null);
+    setClosedCheck(null);
     // §4.5: the copy on this phone at once, then the host's (which replaces it, and drops it if a mark changed).
     void cachedSection(extractionId, sectionId).then((cached) => {
       if (cancelled || !cached) return;
@@ -223,6 +230,8 @@ export function ReaderScreen({
   const readable = useMemo(() => new Set(current?.spanIds ?? []), [current]);
   // Finished as far as this phone knows: the learner's word, queued durably, or the host's progress.
   const finished = Boolean(current && progress?.sections.find((one) => one.sectionId === current.id)?.completedAt);
+  // Finished by the learner's own reading reaching its end (the host's stored cause): said so, where the control was.
+  const ended = finished && progress?.sections.find((one) => one.sectionId === current?.id)?.completionCause === "reached_end";
 
   /** §3.4: progress as the desktop reports it: how many of the section's spans were seen, debounced, monotonic; and
    *  which passages the learner's own reading had on screen and whether the section's last one was among them, each
@@ -271,9 +280,13 @@ export function ReaderScreen({
       setProgress((list) => {
         const rows = list?.sections ?? [];
         const before = rows.find((one) => one.sectionId === sectionId);
-        return { extractionId, sections: [...rows.filter((one) => one.sectionId !== sectionId), { ...(before ?? row), completedAt: row.completedAt }] };
+        return { extractionId, sections: [...rows.filter((one) => one.sectionId !== sectionId),
+          { ...(before ?? row), completedAt: row.completedAt, completionCause: row.completionCause ?? null }] };
       });
-      if (sectionId === current?.id) void offerDose(sectionId);
+      if (sectionId === current?.id) {
+        endGuard.current = Date.now() + END_PRESS_GUARD_MS;
+        void offerDose(sectionId);
+      }
     });
   };
 
@@ -396,6 +409,10 @@ export function ReaderScreen({
   /** Navigation only (finishing has its own event): the next section, or back to Today at the book's end; under the
    *  plan, back to the plan (its reading ended with the section: the host records `section_completed`). */
   function goOn() {
+    if (Date.now() < endGuard.current) {
+      endGuard.current = 0;
+      return;
+    }
     setDose(null);
     if (target.plan || !following) {
       onPlanBack();
@@ -467,11 +484,12 @@ export function ReaderScreen({
         </div>
       ) : null}
       {section && current && finished ? (
-        <p className="dim" role="status" data-testid="section-finished">{SECTION_DONE_LINE}</p>
+        <p className="dim" role="status" data-testid="section-finished">{ended ? SECTION_ENDED_LINE : SECTION_DONE_LINE}</p>
       ) : null}
       {dose ? (
-        <DoseOffer offer={dose} onTake={() => takeDose(dose)} onDismiss={() => { doseEvent(dose.drawId, "dismissed"); setDose(null); }}
-          onDone={() => setDose(null)} onError={onError} />
+        <DoseOffer offer={dose} onTake={() => { endGuard.current = 0; takeDose(dose); }}
+          onDismiss={() => { endGuard.current = 0; doseEvent(dose.drawId, "dismissed"); setDose(null); }}
+          onDone={(kept) => { setDose(null); if (kept) setClosedCheck(kept); }} onError={onError} />
       ) : section && current ? (
         <div className="actions">
           {finished ? null : (
@@ -483,6 +501,16 @@ export function ReaderScreen({
             </button>
           )}
         </div>
+      ) : null}
+      {closedCheck && current ? (
+        <details className="dim closed-check" data-testid="closed-check">
+          <summary>{closedCheckSummary(current.label)}</summary>
+          <div className="markdown"><PhoneMarkdown value={closedCheck.prompt} /></div>
+          <p className="dim">› your answer</p>
+          <p className="learner-words">{closedCheck.response}</p>
+          <p className="dim">◇ the intended answer · compare, don't grade</p>
+          <div className="markdown"><PhoneMarkdown value={closedCheck.expected} /></div>
+        </details>
       ) : null}
       {listOpen && guide ? (
         <SectionList sections={sections} progress={progress} current={sectionId}
@@ -503,11 +531,14 @@ type OfferedQuestion = NonNullable<DoseOfferContent["question"]>;
 /** §3.4: the dose arm's offer, as the desktop words it, with its glass-box line. Help, never evidence. The offer
  *  comes first and shows nothing of the extra; a taken question is then the desktop's quick check (Codex review F9:
  *  `DoseOffer` opens `AuthoredQuestionCard`), answered in the learner's words before the intended answer shows. */
+type KeptCheck = { prompt: string; response: string; expected: string };
+
 function DoseOffer({ offer, onTake, onDismiss, onDone, onError }: {
   offer: DoseOfferContent;
   onTake: () => void;
   onDismiss: () => void;
-  onDone: () => void;
+  /** The check closed; with what it showed when the learner compared (skipped: nothing). */
+  onDone: (kept?: KeptCheck) => void;
   onError: (error: unknown) => void;
 }) {
   const [taken, setTaken] = useState(false);
@@ -532,7 +563,7 @@ function DoseOffer({ offer, onTake, onDismiss, onDone, onError }: {
  *  `answered`) and only then shows the intended one beside it; *Skip* records nothing, as the desktop's does. */
 function ExtraQuestion({ question, onDone, onError }: {
   question: OfferedQuestion;
-  onDone: () => void;
+  onDone: (kept?: KeptCheck) => void;
   onError: (error: unknown) => void;
 }) {
   const [response, setResponse] = useState("");
@@ -564,7 +595,7 @@ function ExtraQuestion({ question, onDone, onError }: {
             <button className="primary" type="button" disabled={busy || !response.trim()} onClick={() => void compare()}>
               Compare with the source
             </button>
-            <button className="plain" type="button" disabled={busy} onClick={onDone}>Skip</button>
+            <button className="plain" type="button" disabled={busy} onClick={() => onDone()}>Skip</button>
           </div>
         </>
       ) : (
@@ -573,7 +604,10 @@ function ExtraQuestion({ question, onDone, onError }: {
           <p className="learner-words">{response.trim()}</p>
           <p className="dim">◇ the intended answer · compare, don't grade</p>
           <div className="markdown"><PhoneMarkdown value={question.expectedAnswer} /></div>
-          <div className="actions"><button className="primary block" type="button" onClick={onDone}>{CHECK_DONE}</button></div>
+          <div className="actions">
+            <button className="primary block" type="button"
+              onClick={() => onDone({ prompt: question.prompt, response: response.trim(), expected: question.expectedAnswer })}>{CHECK_DONE}</button>
+          </div>
         </>
       )}
     </div>

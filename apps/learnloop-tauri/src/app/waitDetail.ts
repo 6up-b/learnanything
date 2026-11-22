@@ -16,10 +16,16 @@ import type { TodayCause } from "./todayCause";
 
 /** The detail a wait carries: a book being got ready, or a section's questions being written; null for any other cause
  *  or where the sidecar sent none. */
-export type WaitDetail = { kind: "build"; value: BuildDetailDto } | { kind: "writing"; value: WritingDetailDto };
+export type WaitDetail = { kind: "build"; value: BuildDetailDto; firstTimeSaid?: boolean } | { kind: "writing"; value: WritingDetailDto };
 
-export function waitDetailOf(cause: TodayCause | null): WaitDetail | null {
-  if (cause?.kind === "on_the_way" && cause.detail) return { kind: "build", value: cause.detail };
+/** `where`: the desktop shows a first build's "The first time, this can take several minutes." under the waiting
+ *  indicator; the phone says it only in the block for a book read to its end. Where it is said, the details do not
+ *  repeat it as "no time is given", and with nothing else to add the details control is not shown at all. */
+export function waitDetailOf(cause: TodayCause | null, where: "desktop" | "phone" = "desktop"): WaitDetail | null {
+  if (cause?.kind === "on_the_way" && cause.detail) {
+    const firstTimeSaid = cause.firstBuild === true && (where === "desktop" || cause.allRead === true);
+    return { kind: "build", value: cause.detail, ...(firstTimeSaid ? { firstTimeSaid } : {}) };
+  }
   if (cause?.kind === "section_writing" && cause.detail) return { kind: "writing", value: cause.detail };
   return null;
 }
@@ -147,7 +153,7 @@ function buildStage(detail: BuildDetailDto): string {
 
 /** A book being got ready: its stage, then how long and what its request is doing; details hold what was reused, what
  *  a further pass is, and this library's measured time with its sample count (or that none was measured). */
-export function buildWaitWords(detail: BuildDetailDto, options: { clock: WaitClock; grew: boolean }): WaitDetailWords {
+export function buildWaitWords(detail: BuildDetailDto, options: { clock: WaitClock; grew: boolean; firstTimeSaid?: boolean }): WaitDetailWords {
   const stage = buildStage(detail);
   const lines = [detail.retry ? `Trying again · ${stage}` : stage];
   const time = timeLine(detail.startedAt, detail.asOf, detail.delivery, options.clock, options.grew);
@@ -164,7 +170,9 @@ export function buildWaitWords(detail: BuildDetailDto, options: { clock: WaitClo
   if (detail.stage === "checking" && typeof detail.draftedTopics === "number") {
     details.push("The topics you get can differ once the checks are done.");
   }
-  details.push(buildMeasured(detail.measured));
+  // Before any build was measured, the line on screen already says the first time takes several minutes: "no time is
+  // given" under details would add nothing (the live walk opened it twice and found nothing new).
+  if (detail.measured || !options.firstTimeSaid) details.push(buildMeasured(detail.measured));
   return { lines, details };
 }
 
@@ -214,5 +222,7 @@ export function useWaitWords(detail: WaitDetail | null, clock: WaitClock): WaitD
     previous.current = { kind: detail.kind, delivery };
   }
   const grew = shown.current.grew;
-  return detail.kind === "build" ? buildWaitWords(detail.value, { clock, grew }) : writingWaitWords(detail.value, { clock, grew });
+  return detail.kind === "build"
+    ? buildWaitWords(detail.value, { clock, grew, firstTimeSaid: detail.firstTimeSaid === true })
+    : writingWaitWords(detail.value, { clock, grew });
 }

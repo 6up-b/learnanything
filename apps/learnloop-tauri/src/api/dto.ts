@@ -3849,6 +3849,9 @@ export interface ReadingQuestionsDto {
    *  again with each wave): `written`, topics whose questions were written so far (held for a look or not), and
    *  `writing`, those still being written. Present only while some are being written (absent from an older sidecar). */
   topics?: { written: number; writing: number };
+  /** Every section of the reading is finished: nothing is left to read in it. Present only then (absent from an older
+   *  sidecar too). */
+  allRead?: boolean;
 }
 
 /** A link an Add is still fetching: it has no library card yet. */
@@ -7452,6 +7455,9 @@ export interface ReaderSectionProgressDto {
   spanCount: number;
   revealedAt: string | null;
   completedAt: string | null;
+  /** How it was finished: by the learner's reading reaching its end, or by their word ("I've read this section"); null
+   *  below algorithm tag mvp-0.63 and before it was finished. Absent from an older sidecar. Display only. */
+  completionCause?: "reached_end" | "learner_said" | null;
   generationBatchId: string | null;
 }
 

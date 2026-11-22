@@ -398,6 +398,41 @@ def test_the_status_lines_fact_tells_waiting_from_nothing_finished(tmp_path):
     assert waiting["questions"]["writing"] == [] and waiting["questions"]["count"] == 0
 
 
+def _units(ctx, source_id):
+    with ctx.repository.connection() as connection:
+        return [str(row["unit_id"]) for row in connection.execute(
+            "SELECT unit_id FROM source_document_units WHERE extraction_id = ? ORDER BY ordinal",
+            (resolve_extraction_id(ctx.repository, source_id),),
+        )]
+
+
+def test_the_fact_says_when_every_section_of_the_book_is_finished(tmp_path):
+    """The live walk's state: the learner reads the book to its end while it is still being got ready. Today then
+    says it is all read instead of "Keep reading meanwhile." (``all_read``, present only when every section of the
+    reading is finished; a section read in part or not at all leaves it out), while the book is got ready and while
+    its questions are written."""
+
+    ctx, source_id = _book(tmp_path)
+    _until_synthesis_is_next(ctx)
+    units = _units(ctx, source_id)
+    assert len(units) > 1
+    for unit in units[:-1]:
+        _finish(ctx, source_id, unit)
+    extraction_id = resolve_extraction_id(ctx.repository, source_id)
+    call(ctx, "reader.mark_section_progress", {"extractionId": extraction_id, "sectionId": units[-1], "spansSeen": 2,
+                                              "spanCount": 3})
+    building = _card(ctx, source_id)["statusLine"]
+    assert building["tone"] == "working" and "allRead" not in building["questions"]
+
+    _finish(ctx, source_id, units[-1])
+    building = _card(ctx, source_id)["statusLine"]
+    assert building["tone"] == "working" and building["questions"]["allRead"] is True
+
+    assert _drain(ctx) == 1  # the build applies: the finished sections' questions are being written
+    writing = _card(ctx, source_id)["statusLine"]["questions"]
+    assert writing["writing"] and writing["allRead"] is True
+
+
 # -- "Build questions for the whole book at once" ---------------------------------------------------
 
 

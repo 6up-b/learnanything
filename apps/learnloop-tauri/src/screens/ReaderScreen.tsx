@@ -609,7 +609,7 @@ export function ReaderScreen({
     authoringSections, timedOutSections, guideSectionByEnd, currentGuideSection, currentSectionProgress,
     currentSectionRead, pdfSurfaceActive, offeredCheckSections, openQuestionSections, pendingQuickCheckCount,
     currentQuestionOpen, pdfOfferSection, readingProgress, retryQuickCheck, openQuickCheck, revealSection,
-    completeSection, sectionFinishes, jumpToSpan, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleOpening, placeAtOpen,
+    completeSection, sectionFinishes, endedSections, jumpToSpan, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleOpening, placeAtOpen,
     hydrateProgress, resetProgress,
   } = progress;
 
@@ -4289,6 +4289,7 @@ export function ReaderScreen({
             revealSection={revealSection}
             completeSection={completeSection}
             sectionFinishes={sectionFinishes}
+            endedSections={endedSections}
             {...(onOpenToday ? { onOpenToday } : {})}
             bookTitle={sourceTitle}
             onError={onError}

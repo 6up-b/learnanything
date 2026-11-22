@@ -84,18 +84,20 @@ async function openBook(endFinishes: boolean) {
   FakeObserver.all = [];
   FakeObserver.options = [];
   vi.stubGlobal("IntersectionObserver", FakeObserver);
-  const finished = new Set<string>();
+  const finished = new Map<string, string>();
   Object.assign(answers, {
     get_source_library: { sources: [{ sourceId: "src1", title: "Linear Algebra Done Right", extractionId: "ext1", readerEnabled: true }] },
     "reader.guide_plan": guide,
     "reader.render_view": (call: { params: Record<string, unknown> }) => SECTIONS[String(call.params.sectionId)],
     "reader.get_progress": () => ({
       version: 1, extractionId: "ext1",
-      sections: [...finished].map((sectionId) => ({ extractionId: "ext1", sectionId, spansSeen: 3, spanCount: 3, revealedAt: null,
-        completedAt: "2026-11-21T10:00:00Z", generationBatchId: null }))
+      sections: [...finished].map(([sectionId, cause]) => ({ extractionId: "ext1", sectionId, spansSeen: 3, spanCount: 3, revealedAt: null,
+        completedAt: "2026-11-21T10:00:00Z", completionCause: cause, generationBatchId: null }))
     }),
     "reader.mark_section_progress": (call: { params: Record<string, unknown> }) => {
-      if (call.params.completed === true || (endFinishes && call.params.reachedEnd === true)) finished.add(String(call.params.sectionId));
+      const id = String(call.params.sectionId);
+      if (!finished.has(id) && call.params.completed === true) finished.set(id, "learner_said");
+      else if (!finished.has(id) && endFinishes && call.params.reachedEnd === true) finished.set(id, "reached_end");
       return { progress: {}, enqueuedGeneration: false, batchId: null };
     },
     "reader.log_activity": { recorded: 1 },
@@ -120,7 +122,8 @@ describe("the phone Reader's section end", () => {
   it("reading to the end finishes the section once the host has it: 'Section finished' and the dose, once, with no move", async () => {
     await openBook(true);
     await readToTheEnd();
-    expect(await screen.findByText("Section finished", undefined, WAIT)).toBeTruthy();
+    // Finished by the reading's end, and said so (UX-81).
+    expect(await screen.findByText("Section finished: you read to the end.", undefined, WAIT)).toBeTruthy();
     expect(await screen.findByText("One quick question on this?")).toBeTruthy();
     expect(called("reader.dose_offer").map((call) => call.params.sectionId)).toEqual(["u1"]);
     // The end went alone: no completion was sent for it, and the phone stayed on the section.
@@ -154,7 +157,9 @@ describe("the phone Reader's section end", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Your answer" }), { target: { value: "Order doesn't matter." } });
     fireEvent.click(screen.getByRole("button", { name: "Compare with the source" }));
     fireEvent.click(await screen.findByRole("button", { name: "Done with this check" }));
-    expect(screen.queryByText("What does addition do with order?")).toBeNull();
+    // The check closes; what the learner wrote and what it was compared with stay, folded (UX-79, below).
+    expect(screen.queryByRole("group", { name: "Quick check" })).toBeNull();
+    expect((screen.getByTestId("closed-check") as HTMLDetailsElement).open).toBe(false);
     expect(screen.getByText("Every space has a zero.")).toBeTruthy();
     await waitFor(() => expect(progressSent().filter((one) => one.completed)).toHaveLength(1));
   }, 15000);
@@ -175,5 +180,46 @@ describe("the phone Reader's section end", () => {
     screenShows(["b0"]);
     await waitFor(() => expect(progressSent()).toHaveLength(1), WAIT);
     expect(progressSent()[0]).toMatchObject({ sectionId: "u1", spansSeen: 1, spanCount: 3 });
+  }, 15000);
+});
+
+// The live walk sectionend-1 (2026-11-21), on the phone.
+describe("the phone Reader's section end, after the walk", () => {
+  it("UX-81: a tap meant for 'I've read this section' as the end finishes it does not move the reading on", async () => {
+    await openBook(true);
+    answers["reader.dose_offer"] = { version: 1, eligible: false, reason: "not_drawn", drawId: null, offer: null };
+    await readToTheEnd();
+    const ended = await screen.findByText("Section finished: you read to the end.", undefined, WAIT);
+    expect(screen.queryByRole("button", { name: "I’ve read this section" })).toBeNull();
+    // The tap arrives as the foot changes: it lands on "Read the next section", which lets it pass.
+    fireEvent.click(screen.getByRole("button", { name: "Read the next section" }));
+    expect(screen.getByText("Every space has a zero.")).toBeTruthy();
+    expect(screen.queryByText("The span of a list.")).toBeNull();
+    expect(ended.isConnected).toBe(true);
+    // The learner's next press is theirs.
+    fireEvent.click(screen.getByRole("button", { name: "Read the next section" }));
+    expect(await screen.findByText("The span of a list.")).toBeTruthy();
+  }, 15000);
+
+  it("UX-79: closing the quick check keeps what the learner wrote and the intended answer, folded, one press to open", async () => {
+    await openBook(false);
+    fireEvent.click(screen.getByRole("button", { name: "I’ve read this section" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Try it" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Your answer" }), { target: { value: "Order doesn't matter." } });
+    fireEvent.click(screen.getByRole("button", { name: "Compare with the source" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Done with this check" }));
+    const kept = screen.getByTestId("closed-check") as HTMLDetailsElement;
+    const summary = kept.querySelector("summary") as HTMLElement;
+    expect(summary.textContent).toBe("Your answer to the quick check on “1 Vectors”");
+    fireEvent.click(summary);
+    expect(kept.textContent).toContain("Order doesn't matter.");
+    expect(kept.textContent).toContain("It commutes.");
+    expect(kept.textContent).toContain("What does addition do with order?");
+    // Shown from what the phone holds: the answer was recorded once, when it was compared.
+    expect(called("reader.authored_question_action")).toHaveLength(1);
+    // Another section starts clean.
+    fireEvent.click(screen.getByRole("button", { name: "Read the next section" }));
+    expect(await screen.findByText("The span of a list.")).toBeTruthy();
+    expect(screen.queryByTestId("closed-check")).toBeNull();
   }, 15000);
 });

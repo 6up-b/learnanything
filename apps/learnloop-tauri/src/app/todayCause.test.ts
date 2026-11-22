@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ReadingQuestionsDto, SourceLibraryCard } from "../api/dto";
+import type { ReadingQuestionsDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
+import { findJargon } from "../copy/denyList";
+import { WAITING_COPY } from "../copy/waiting";
 import {
+  allReadWords, causeWait, KEEP_OPEN, KEEP_OPEN_ON_DESKTOP, NOTHING_TO_DO, ON_TODAY, ONE_BOOK_AT_A_TIME, OPEN_THE_BOOK,
   causeActionLabel, causeSentence, causeUnderway, goalCauseSentence, heldLine, MORE_AS_YOU_READ, NO_QUESTIONS_YET, notAskableOnList,
   QUESTIONS_FROM_READING, READING_SAVED, readingItemIds, todayCause, type TodayCause
 } from "./todayCause";
@@ -231,5 +234,78 @@ describe("one topic count across the waves of a book's writing (UX-75)", () => {
     expect(readingItemIds([card(facts({ count: 2, itemIds: ["pi_1", "pi_2"] })), { ...card(facts({ count: 1, itemIds: ["pi_3"] })), sourceId: "src_2" }]))
       .toEqual(["pi_1", "pi_2", "pi_3"]);
     expect(readingItemIds(null)).toEqual([]);
+  });
+});
+
+// The live walk sectionend-1 (2026-11-21): a student read a one-section chapter to its end while it was still being got
+// ready, and Today kept saying "Keep reading meanwhile." with nothing left to read (UX-70); the first build's wait
+// told her only to wait, in three scattered lines, and she gave up (UX-82).
+describe("a book read to its end while it is got ready or its questions are written (UX-70, UX-82)", () => {
+  const BOOK = "Symmetric Matrices and Variance";
+  const detail = { asOf: "2026-11-21T18:04:00Z", startedAt: "2026-11-21T18:00:00Z", stage: "planning" as const, retry: false,
+    delivery: null, measured: null, synthesis: { part: 1, parts: 1, pass: "plan" as const } };
+  function building(questions: ReadingQuestionsDto, line: Partial<SourceStatusLineDto> = {}): SourceLibraryCard {
+    return { ...card(questions), title: BOOK, unitCount: 1,
+      statusLine: { text: "Getting this article ready for questions", tone: "working", action: null, details: null,
+        progress: { done: 1, total: 2 }, minutes: null, buildDetail: detail, questions, ...line } };
+  }
+  const read = (overrides: Partial<ReadingQuestionsDto> = {}) => facts({ waiting: ["Document"], sectionCount: 1, allRead: true, ...overrides });
+
+  it("the first build: one calm block says it is all read, what comes and that LearnLoop must stay open, never 'keep reading'", () => {
+    const cause = todayCause({ cards: [building(read())], ai: null, listItems: 0 });
+    expect(cause).toMatchObject({ kind: "on_the_way", firstBuild: true, allRead: true });
+    const wait = causeWait(cause!)!;
+    expect(wait.line).toBe(`Getting “${BOOK}” ready for questions · 1 of 2 steps done`);
+    expect(wait.after).toBe(
+      `${allReadWords(BOOK)} Your questions from what you read will be written as soon as “${BOOK}” is ready. ${ON_TODAY} ` +
+      `${NOTHING_TO_DO} ${WAITING_COPY.firstBuildLater} ${KEEP_OPEN}`);
+    // The first-time sentence is in the block, so the indicator does not say it a second time.
+    expect(wait.later).toBeNull();
+    expect(allReadWords(BOOK)).toBe(`You’ve read all of “${BOOK}”.`);
+    expect(ON_TODAY).toBe("They'll be on Today.");
+    expect(NOTHING_TO_DO).toBe("You don’t need to do anything for them.");
+    expect(KEEP_OPEN).toBe("Leave LearnLoop open meanwhile: closing it stops the work until you try again.");
+    expect(causeSentence(cause!)).not.toMatch(/keep reading/i);
+    // Nothing is left to read: the action opens the book, it does not ask to continue reading it.
+    expect(causeActionLabel(cause!)).toBe(OPEN_THE_BOOK);
+    expect(findJargon(causeSentence(cause!))).toEqual([]);
+  });
+
+  it("on the phone the work is the desktop's: the same block, saying where LearnLoop must stay open", () => {
+    const cause = todayCause({ cards: [building(read())], ai: null, listItems: 0, listUnknown: true });
+    expect(causeSentence(cause!)).toBe(
+      `Getting “${BOOK}” ready for questions · 1 of 2 steps done. ${allReadWords(BOOK)} Your questions from what you read will be ` +
+      `written as soon as “${BOOK}” is ready. ${ON_TODAY} ${NOTHING_TO_DO} ${WAITING_COPY.firstBuildLater} ${KEEP_OPEN_ON_DESKTOP}`);
+    expect(KEEP_OPEN_ON_DESKTOP).toBe("Leave LearnLoop open on your desktop meanwhile: closing it there stops the work until you try again.");
+  });
+
+  it("a later build (a time measured here) says it is all read, without the first-time sentence", () => {
+    const cause = todayCause({ cards: [building(read(), { minutes: 4 })], ai: null, listItems: 0 });
+    const wait = causeWait(cause!)!;
+    expect(wait.after).toBe(
+      `${allReadWords(BOOK)} Your questions from what you read will be written as soon as “${BOOK}” is ready. ${ON_TODAY} ${NOTHING_TO_DO} ${KEEP_OPEN}`);
+    expect(wait.later).toBeNull();
+  });
+
+  it("its questions being written: all read, they come to Today, never 'keep reading'", () => {
+    const cause = todayCause({ cards: [{ ...card(read({ waiting: [], writing: ["Document"] })), title: BOOK }], ai: null, listItems: 0 });
+    expect(cause).toMatchObject({ kind: "section_writing", allRead: true });
+    expect(causeSentence(cause!)).toBe(
+      `Writing questions from what you read in “${BOOK}”… ${allReadWords(BOOK)} ${ON_TODAY} ${NOTHING_TO_DO} ${KEEP_OPEN}`);
+    expect(causeActionLabel(cause!)).toBe(OPEN_THE_BOOK);
+  });
+
+  it("waiting its turn behind another book: all read, and no 'keep reading'", () => {
+    const cause = todayCause({ cards: [building(read(), { waitingBehind: "Probability" })], ai: null, listItems: 0 });
+    expect(causeWait(cause!)?.after).toBe(`${ONE_BOOK_AT_A_TIME} ${allReadWords(BOOK)} ${KEEP_OPEN}`);
+  });
+
+  it("with something left to read the words are as before: keep reading meanwhile, and the first-time line under the indicator", () => {
+    const cause = todayCause({ cards: [building(facts({ waiting: ["Document"], sectionCount: 1 }))], ai: null, listItems: 0 });
+    expect(cause).not.toHaveProperty("allRead");
+    const wait = causeWait(cause!)!;
+    expect(wait.after).toBe(`Your questions from what you read will be written as soon as “${BOOK}” is ready. Keep reading meanwhile.`);
+    expect(wait.later).toBe(WAITING_COPY.firstBuildLater);
+    expect(causeActionLabel(cause!)).toBe("Continue reading");
   });
 });

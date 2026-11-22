@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/readerShared.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/readerShared.ts) |
-| Source lines | 179 |
+| Source lines | 190 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -59,31 +59,34 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const READ_NEXT_SECTION = "Read the next section"` — const, line 11
 - `export const BACK_TO_TODAY = "Back to Today"` — const, line 13
 - `export const CHECK_DONE = "Done with this check"` — const, line 15
-- `export const ANSWER_MODE_OPTIONS = [` — const, line 17
-- `export function answerModeLabel(mode: string): string` — function, line 25
-- `export function clip(text: string, max: number): string` — function, line 29
-- `export function sectionWords(label: string): string` — function, line 41
-- `export function citationWords(label: string): string` — function, line 54
-- `export interface SelectionNode` — interface, line 66
-- `export interface ReaderSelection` — interface, line 83
-- `export function passageKeys(reading: string, spanIds: ReadonlyArray<string | null | undefined>): string[]` — function, line 100
-- `export function selectionNodes(sel:` — function, line 104
-- `export interface AnnotationSegment` — interface, line 112
-- `export interface MarginAnnotation` — interface, line 122
-- `export function placedSpanIds(annotation: MarginAnnotation): string[]` — function, line 137
-- `export function groundingProtected(protection: ReaderProtectionDto | null | undefined, spanIds: readonly string[]): boolean` — function, line 150
-- `export function selectionProtected( protection: ReaderProtectionDto | null | undefined, selection:` — function, line 160
-- `export function askGroundingSpans( parent:` — function, line 171
+- `export const SECTION_ENDED_LINE = "Section finished: you read to the end."` — const, line 18
+- `export const END_PRESS_GUARD_MS = 1000` — const, line 22
+- `export function closedCheckSummary(sectionLabel: string): string` — function, line 24
+- `export const ANSWER_MODE_OPTIONS = [` — const, line 28
+- `export function answerModeLabel(mode: string): string` — function, line 36
+- `export function clip(text: string, max: number): string` — function, line 40
+- `export function sectionWords(label: string): string` — function, line 52
+- `export function citationWords(label: string): string` — function, line 65
+- `export interface SelectionNode` — interface, line 77
+- `export interface ReaderSelection` — interface, line 94
+- `export function passageKeys(reading: string, spanIds: ReadonlyArray<string | null | undefined>): string[]` — function, line 111
+- `export function selectionNodes(sel:` — function, line 115
+- `export interface AnnotationSegment` — interface, line 123
+- `export interface MarginAnnotation` — interface, line 133
+- `export function placedSpanIds(annotation: MarginAnnotation): string[]` — function, line 148
+- `export function groundingProtected(protection: ReaderProtectionDto | null | undefined, spanIds: readonly string[]): boolean` — function, line 161
+- `export function selectionProtected( protection: ReaderProtectionDto | null | undefined, selection:` — function, line 171
+- `export function askGroundingSpans( parent:` — function, line 182
 
 ## Internal implementation anchors
 
-- `const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/` — const, line 33
-- `const trimmed = label.trim()` — const, line 42
-- `const words = trimmed.replace(/-/g, " ")` — const, line 45
-- `const at = label.lastIndexOf(" · ")` — const, line 55
-- `const title = label.slice(0, at)` — const, line 57
-- `const section = label.slice(at + 3).trim()` — const, line 58
-- `const held = new Set(protection.heldOutSpanIds)` — const, line 154
+- `const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/` — const, line 44
+- `const trimmed = label.trim()` — const, line 53
+- `const words = trimmed.replace(/-/g, " ")` — const, line 56
+- `const at = label.lastIndexOf(" · ")` — const, line 66
+- `const title = label.slice(0, at)` — const, line 68
+- `const section = label.slice(at + 3).trim()` — const, line 69
+- `const held = new Set(protection.heldOutSpanIds)` — const, line 165
 
 ## Who imports or calls it
 
@@ -95,7 +98,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/AlsoInBooks|src/screens/reader/AlsoInBooks.tsx]] — import-or-re-export: `clip`, `sectionWords`; references `clip`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `ANSWER_MODE_OPTIONS`, `ReaderSelection`, `answerModeLabel`, `clip`; references `ANSWER_MODE_OPTIONS`, `ReaderSelection`, `answerModeLabel`, `clip`
 - [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export: `clip`, `sectionWords`; references `clip`, `sectionWords`
-- [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `BACK_TO_TODAY`, `CHECK_DONE`, `READ_NEXT_SECTION`, `SECTION_DONE`, `SECTION_DONE_LINE`, `clip`, `sectionWords`; references `BACK_TO_TODAY`, `CHECK_DONE`, `READ_NEXT_SECTION`, `SECTION_DONE`, `SECTION_DONE_LINE`, `clip`, `sectionWords`
+- [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `BACK_TO_TODAY`, `CHECK_DONE`, `END_PRESS_GUARD_MS`, `READ_NEXT_SECTION`, `SECTION_DONE`, `SECTION_DONE_LINE`, `SECTION_ENDED_LINE`, `clip`, `closedCheckSummary`, `sectionWords`; references `BACK_TO_TODAY`, `CHECK_DONE`, `END_PRESS_GUARD_MS`, `READ_NEXT_SECTION`, `SECTION_DONE`, `SECTION_DONE_LINE`, `SECTION_ENDED_LINE`, `clip`, `closedCheckSummary`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|src/screens/reader/LibraryAnswer.tsx]] — import-or-re-export: `citationWords`; references `citationWords`
 - [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]] — import-or-re-export: `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`; references `MarginAnnotation`, `ReaderSelection`, `clip`, `selectionNodes`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export: `answerModeLabel`, `citationWords`; references `answerModeLabel`, `citationWords`

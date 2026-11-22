@@ -13,6 +13,17 @@ export const READ_NEXT_SECTION = "Read the next section";
 export const BACK_TO_TODAY = "Back to Today";
 /** Closes a quick check, keeping its answer and comparison; it finishes nothing. */
 export const CHECK_DONE = "Done with this check";
+/** The finished state of a section the learner's own reading finished by reaching its end (the backend's stored cause):
+ *  said where "I've read this section" was, so the control vanishing is explained. */
+export const SECTION_ENDED_LINE = "Section finished: you read to the end.";
+/** How long after the end finishes a section, under the learner's pointer, the first press on the way on (Read the
+ *  next section, Back to Today) is taken as the press meant for "I've read this section", which just went: it does
+ *  nothing, instead of moving the reading on. About a hand's reaction time. */
+export const END_PRESS_GUARD_MS = 1000;
+/** The folded record of a closed quick check: what the learner wrote and what it was compared with, one press away. */
+export function closedCheckSummary(sectionLabel: string): string {
+  return `Your answer to the quick check on “${sectionWords(sectionLabel)}”`;
+}
 
 export const ANSWER_MODE_OPTIONS = [
   { value: "answer_directly", label: "answer directly" },

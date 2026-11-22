@@ -190,6 +190,24 @@ def test_the_end_and_the_explicit_completion_are_one_completion(world, started, 
     assert [note["completed"] for note in told] == [True, False, False]
 
 
+@BOTH
+def test_the_reply_and_the_progress_read_say_how_the_section_was_finished(world, tag, started):
+    """The Reader shows a section finished by its end as read to its end (its position reaches the end, and the
+    control's place says the reading finished it), after a restart too: the reply and ``reader.get_progress`` carry the
+    stored cause. Below the tag nothing is stored, so nothing is said."""
+
+    ctx = desktop(world["root"])
+    ended = _report(ctx, ids=["b0", "b1", "b2"], end=True, spansSeen=3, spanCount=3)
+    said = _report(ctx, "u2", completed=True)
+    listed = {row["sectionId"]: row for row in call(ctx, "reader.get_progress", {"extractionId": EXTRACTION})["sections"]}
+    if tag == NEW:
+        assert ended["progress"]["completionCause"] == listed["u1"]["completionCause"] == "reached_end"
+        assert said["progress"]["completionCause"] == listed["u2"]["completionCause"] == "learner_said"
+    else:
+        assert ended["progress"]["completionCause"] is None and listed["u1"]["completionCause"] is None
+        assert said["progress"]["completionCause"] is None and listed["u2"]["completionCause"] is None
+
+
 def test_the_learner_first_then_the_end_keeps_the_learners_completion(world, started):
     ctx = desktop(world["root"])
     _report(ctx, completed=True)
