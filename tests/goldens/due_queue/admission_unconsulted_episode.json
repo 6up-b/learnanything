@@ -1,0 +1,1743 @@
+{
+ "database": {
+  "followup_tasks": {
+   "changed": [
+    {
+     "after": {
+      "<rowid>": 1,
+      "case_kind": "misconception",
+      "case_ref": "mc_due_queue",
+      "consumed_attempt_id": null,
+      "context_json": null,
+      "created_at": "2026-10-10T09:00:00Z",
+      "expires_at": "2026-10-17T09:00:00Z",
+      "id": "<ulid:0>",
+      "kind": "cold_retry",
+      "learning_object_id": "lo_b",
+      "measurement_opportunity_id": null,
+      "not_before": "2026-10-11T09:00:00Z",
+      "remediation_episode_id": null,
+      "selected_item_id": "pi_b1",
+      "source_attempt_id": null,
+      "status": "served",
+      "updated_at": "2026-10-12T09:00:00Z"
+     },
+     "before": {
+      "<rowid>": 1,
+      "case_kind": "misconception",
+      "case_ref": "mc_due_queue",
+      "consumed_attempt_id": null,
+      "context_json": null,
+      "created_at": "2026-10-10T09:00:00Z",
+      "expires_at": "2026-10-17T09:00:00Z",
+      "id": "<ulid:0>",
+      "kind": "cold_retry",
+      "learning_object_id": "lo_b",
+      "measurement_opportunity_id": null,
+      "not_before": "2026-10-11T09:00:00Z",
+      "remediation_episode_id": null,
+      "selected_item_id": "pi_b1",
+      "source_attempt_id": null,
+      "status": "pending",
+      "updated_at": "2026-10-10T09:00:00Z"
+     }
+    }
+   ]
+  }
+ },
+ "extra": {
+  "deferred": [
+   "pi_c1"
+  ]
+ },
+ "queue": [
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01228,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.28,
+    "goal_frontier_exposure_discount": 0.35,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.07,
+    "overload_penalty": 0.0,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.35735,
+    "targeted_boundary_fit": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_a",
+   "plain_english": [
+    "requested: you asked to chase this",
+    "goal frontier weight 0.28",
+    "selection reward 0.36"
+   ],
+   "practice_item_id": "pi_a1",
+   "priority": 0.07,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_a",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_a",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.35735
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.009865,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.1541153549,
+    "goal_frontier": 0.8,
+    "goal_frontier_exposure_discount": 1.0,
+    "gradient_fit": 0.858125,
+    "legacy_priority": 0.3541153549,
+    "overload_penalty": 0.0,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.49325,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.434779321,
+    "targeted_boundary_fit": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_c",
+   "plain_english": [
+    "forgetting risk 0.15",
+    "goal frontier weight 0.80",
+    "selection reward 0.43"
+   ],
+   "practice_item_id": "pi_pair_first",
+   "priority": 0.3541153549,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.009865,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "f_applicability"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_c",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.009865,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.858125,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "f_applicability": 1.0
+     },
+     "learning_object_id": "lo_c",
+     "misconception_targets": [],
+     "repair_targets": [
+      "f_applicability"
+     ],
+     "retrieval_demand": 0.9,
+     "scaffold_level": 0.0,
+     "surface_family": "matrix_symbolic",
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.49325,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.434779321
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "constructed_response"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01228,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.1541153549,
+    "goal_frontier": 0.28,
+    "goal_frontier_exposure_discount": 0.35,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.2241153549,
+    "overload_penalty": 0.0,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.388173071,
+    "targeted_boundary_fit": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_b",
+   "plain_english": [
+    "forgetting risk 0.15",
+    "goal frontier weight 0.28",
+    "selection reward 0.39"
+   ],
+   "practice_item_id": "pi_b1",
+   "priority": 0.2241153549,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_b",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_b",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.388173071
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01228,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.1541153549,
+    "goal_frontier": 0.28,
+    "goal_frontier_exposure_discount": 0.35,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.2241153549,
+    "overload_penalty": 0.0,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.388173071,
+    "targeted_boundary_fit": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_c",
+   "plain_english": [
+    "forgetting risk 0.15",
+    "goal frontier weight 0.28",
+    "selection reward 0.39"
+   ],
+   "practice_item_id": "pi_c2",
+   "priority": 0.2241153549,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_c",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_c",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.388173071
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.00862147,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.1541153549,
+    "goal_frontier": 0.8,
+    "goal_frontier_exposure_discount": 1.0,
+    "gradient_fit": 0.7026837478,
+    "legacy_priority": 0.3541153549,
+    "overload_penalty": 0.0420588909,
+    "practice_information": 0.246,
+    "predicted_correctness": 0.4310734991,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.3600777671,
+    "targeted_boundary_fit": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_c",
+   "plain_english": [
+    "forgetting risk 0.15",
+    "goal frontier weight 0.80",
+    "selection reward 0.36"
+   ],
+   "practice_item_id": "pi_pair_second",
+   "priority": 0.3541153549,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.00862147,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "f_applicability"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_c",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.00862147,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.7026837478,
+     "overload_penalty": 0.0420588909,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.25,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "f_applicability": 1.0
+     },
+     "learning_object_id": "lo_c",
+     "misconception_targets": [],
+     "repair_targets": [
+      "f_applicability"
+     ],
+     "retrieval_demand": 0.9,
+     "scaffold_level": 0.0,
+     "surface_family": "matrix_verbal",
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.4310734991,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.3600777671
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "constructed_response"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.0186314895,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 0.5460638095,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.8175744762,
+    "practice_information": 0.149,
+    "predicted_correctness": 0.9315744762,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.2325021238,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_eigen_basics",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.23"
+   ],
+   "practice_item_id": "pi_eig_easy",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.0186314895,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_eigen_basics",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.0186314895,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.5460638095,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": -1.5,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_eigen_basics",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.9315744762,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.2325021238
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.0178259972,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 0.6467503471,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.7772998612,
+    "practice_information": 0.173,
+    "predicted_correctness": 0.8912998612,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.2516325659,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_diag",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.25"
+   ],
+   "practice_item_id": "pi_diag_easy",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.0178259972,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_diag",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.0178259972,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.6467503471,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": -1.25,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_diag",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.8912998612,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.2516325659
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01352353,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.5621765009,
+    "practice_information": 0.246,
+    "predicted_correctness": 0.6761765009,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.3169044125,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_diag",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.32"
+   ],
+   "practice_item_id": "pi_diag_mid",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01352353,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_diag",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01352353,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": -0.25,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_diag",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.6761765009,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.3169044125
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01228,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.31535,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_eigen_basics",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.32"
+   ],
+   "practice_item_id": "pi_eig_mid",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_eigen_basics",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_eigen_basics",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.31535
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.0067340028,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 0.4667503471,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.2517774693,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.2227001388,
+    "practice_information": 0.173,
+    "predicted_correctness": 0.3367001388,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": -0.0500098964,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_diag",
+   "plain_english": [
+    "new material: starts as learning, no opening probe"
+   ],
+   "practice_item_id": "pi_diag_hard",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.0067340028,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_diag",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.0067340028,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.4667503471,
+     "overload_penalty": 0.2517774693,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 1.25,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_diag",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.3367001388,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": -0.0500098964
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.0059285105,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 0.3660638095,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.3412766138,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.1824255238,
+    "practice_information": 0.149,
+    "predicted_correctness": 0.2964255238,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": -0.1606532138,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_eigen_basics",
+   "plain_english": [
+    "new material: starts as learning, no opening probe"
+   ],
+   "practice_item_id": "pi_eig_hard",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.0059285105,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_eigen_basics",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.0059285105,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.3660638095,
+     "overload_penalty": 0.3412766138,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 1.5,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_eigen_basics",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.2964255238,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": -0.1606532138
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.0169011716,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 0.7623535534,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 1.0,
+    "placement_predicted_success": 0.7310585786,
+    "practice_information": 0.197,
+    "predicted_correctness": 0.8450585786,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.2735971752,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_spectral",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.27"
+   ],
+   "practice_item_id": "pi_spec_easy",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.0169011716,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_spectral",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.0169011716,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.7623535534,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": -1.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_spectral",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.8450585786,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.2735971752
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.0076588284,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 0.5823535534,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.1490190636,
+    "placement_layer": 1.0,
+    "placement_predicted_success": 0.2689414214,
+    "practice_information": 0.197,
+    "predicted_correctness": 0.3829414214,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.0770251826,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_spectral",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.08"
+   ],
+   "practice_item_id": "pi_spec_hard",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.0076588284,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_spectral",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.0076588284,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.5823535534,
+     "overload_penalty": 0.1490190636,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 1.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_spectral",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.3829414214,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.0770251826
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  }
+ ],
+ "trace": {
+  "base_propensity": {
+   "pi_a1": 0.0,
+   "pi_b1": 0.0,
+   "pi_c2": 0.0,
+   "pi_diag_easy": 0.0,
+   "pi_diag_hard": 0.0,
+   "pi_diag_mid": 0.0,
+   "pi_eig_easy": 0.0,
+   "pi_eig_hard": 0.0,
+   "pi_eig_mid": 0.0,
+   "pi_pair_first": 1.0,
+   "pi_pair_second": 0.0,
+   "pi_spec_easy": 0.0,
+   "pi_spec_hard": 0.0
+  },
+  "cold_deferrals": [
+   {
+    "beyond_expiry": false,
+    "deferred_to": "2026-10-13T08:00:00Z",
+    "delay_seconds": 86400.0,
+    "expires_at": "2026-10-17T09:00:00Z",
+    "followup_task_id": "<ulid:0>",
+    "kind": "cold_retry",
+    "last_reveal_at": "2026-10-12T08:00:00Z",
+    "practice_item_id": "pi_b1",
+    "reason": "cold_check_revealed_since_scheduled",
+    "remediation_episode_id": null,
+    "reveal_amount": 0.3,
+    "reveal_event_ids": [
+     "<ulid:1>"
+    ],
+    "served_as_practice": false,
+    "withdrawn": false
+   }
+  ],
+  "considered_item_ids": [
+   "pi_a1",
+   "pi_pair_first",
+   "pi_b1",
+   "pi_c2",
+   "pi_pair_second",
+   "pi_eig_easy",
+   "pi_diag_easy",
+   "pi_diag_mid",
+   "pi_eig_mid",
+   "pi_diag_hard",
+   "pi_eig_hard",
+   "pi_spec_easy",
+   "pi_spec_hard"
+  ],
+  "exclusions": {
+   "device_ineligible": [
+    "pi_c1"
+   ],
+   "intent_paused": [
+    "pi_svd_define_001",
+    "pi_svd_define_002",
+    "pi_svd_teach_due"
+   ]
+  },
+  "exploration": {
+   "alternative_item_ids": [],
+   "best_item_id": "pi_pair_first",
+   "mechanism": "scheduler_seeded_exploration",
+   "probe_ties_admitted": true,
+   "rate": 0.5,
+   "realized_item_id": null,
+   "reward_window": 1.0
+  },
+  "greedy_item_ids": [
+   "pi_pair_first",
+   "pi_b1",
+   "pi_c2",
+   "pi_pair_second",
+   "pi_a1",
+   "pi_eig_easy",
+   "pi_diag_easy",
+   "pi_diag_mid",
+   "pi_eig_mid",
+   "pi_diag_hard",
+   "pi_eig_hard",
+   "pi_spec_easy",
+   "pi_spec_hard"
+  ],
+  "outcomes": [
+   {
+    "composed": [
+     "pi_a1",
+     "pi_pair_first",
+     "pi_b1",
+     "pi_c2",
+     "pi_pair_second",
+     "pi_eig_easy",
+     "pi_diag_easy",
+     "pi_diag_mid",
+     "pi_eig_mid",
+     "pi_diag_hard",
+     "pi_eig_hard",
+     "pi_spec_easy",
+     "pi_spec_hard"
+    ],
+    "explored_item_id": null,
+    "probability": 1.0
+   }
+  ],
+  "pinned_item_id": null,
+  "placement_active": true,
+  "probe_block_reason": null,
+  "realized": 0,
+  "slate_id": null,
+  "teach_back_exclusion_reason": "teach_back_value_below_minutes_cost",
+  "voi_decisions": []
+ }
+}

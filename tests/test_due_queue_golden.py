@@ -6,6 +6,12 @@ record holds the returned queue (ids, order, scores, components, explanations, s
 exploration draw (its support, roll, choice and every outcome's composed order, from the offer trace), the trace's
 exclusions, cold deferrals and pin, and every row the build added, changed or removed, table by table.
 
+The admission's paths have their own records, each recorded before the admission's reads were gathered up front:
+a vault that withholds items for most of the admission's reasons (a serving and a sessionless read build), the
+probe episode's reads with value stopping off (context, instruments, familiarity), a phone's build (its device
+gate and what it defers), a phone read where no item reaches the in-progress episode, a build with nothing to
+serve, and the two admissions built outside a queue (``pool_admission``, ``check_admission``), every item asked.
+
 Ids read ``<ulid:n>`` in order of first appearance in the record (the process's ULID stream is also seeded and its
 clock held, setup included, but how many ids the setup mints can vary with the hash seed). Stamps from the wall clock read
 ``<wall>``, the vault's algorithm tag ``<head tag>``, and floats are rounded to ten places.
@@ -33,9 +39,26 @@ from typing import Any
 import pytest
 
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
-from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, build_due_queue, read_due_queue
+from learnloop.scheduling.device_eligibility import PHONE, DeviceFilter
+from learnloop.scheduling.intent.serving import intent_serving
+from learnloop.scheduling.scheduler import (
+    OfferTrace,
+    SchedulerSession,
+    build_due_queue,
+    check_admission,
+    pool_admission,
+    read_due_queue,
+)
 
-from tests.due_queue_helpers import CLOCK, SESSION, build_rich_vault
+from tests.due_queue_helpers import (
+    CLOCK,
+    LEFT_FOR_DESKTOP,
+    SESSION,
+    build_figure_vault,
+    build_gate_vault,
+    build_rich_vault,
+    build_unconsulted_episode_vault,
+)
 
 GOLDEN_DIR = Path(__file__).parent / "goldens" / "due_queue"
 WRITE = os.environ.get("DUE_QUEUE_GOLDEN_WRITE") == "1"
@@ -183,13 +206,19 @@ def _trace(trace: OfferTrace) -> dict[str, Any]:
     }
 
 
-def _record(tmp_path: Path, build: Any) -> dict[str, Any]:
-    vault, repository = build_rich_vault(tmp_path / "vault")
+def _record(tmp_path: Path, build: Any, *, vault_builder: Any = build_rich_vault, prepare: Any = None,
+            extra: Any = None) -> dict[str, Any]:
+    vault, repository = vault_builder(tmp_path / "vault")
+    if prepare is not None:
+        prepare(vault)
     before = _database(repository.sqlite_path)
     trace = OfferTrace()
     queue = build(vault, repository, trace)
     changes = _database_changes(before, _database(repository.sqlite_path))
-    return _clean({"queue": [_scheduled(item) for item in queue], "trace": _trace(trace), "database": changes}, _Ids())
+    record = {"queue": [_scheduled(item) for item in queue], "trace": _trace(trace), "database": changes}
+    if extra is not None:
+        record["extra"] = extra()
+    return _clean(record, _Ids())
 
 
 def _check(name: str, record: dict[str, Any]) -> None:
@@ -239,3 +268,139 @@ def test_the_vault_reaches_every_stage(tmp_path, seeded_ids):
     assert "pi_a1" in [item["practice_item_id"] for item in queue] and "pi_a2" not in [
         item["practice_item_id"] for item in queue
     ], "the due check serves one of its candidates"
+
+
+# -- the admission's paths: each gate, the probe episode's reads, a phone's device, the readers outside a build ------
+
+
+def _phone(vault: Any) -> DeviceFilter:
+    return DeviceFilter(vault, PHONE, left_for_desktop=frozenset({LEFT_FOR_DESKTOP}))
+
+
+def test_a_serving_build_that_withholds_for_each_gate(tmp_path, seeded_ids):
+    _check("admission_gates_serving", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace),
+        vault_builder=build_gate_vault))
+
+
+def test_a_read_build_with_no_session_that_withholds_for_each_gate(tmp_path, seeded_ids):
+    _check("admission_gates_read", _record(tmp_path, lambda vault, repository, trace: read_due_queue(
+        vault, repository, clock=CLOCK, offer_trace=trace), vault_builder=build_gate_vault))
+
+
+def _value_stopping_off(vault: Any) -> None:
+    vault.config.voi_stopping.enabled = False
+
+
+def test_a_serving_build_that_values_the_episodes_probes(tmp_path, seeded_ids):
+    """Value stopping off: the probes score their information, each read once for the episode (its context,
+    instruments and the items' familiarity); a new session's build records the probe selection."""
+
+    _check("admission_probe_reads", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id="sess_probe_reads"), offer_trace=trace),
+        prepare=_value_stopping_off))
+
+
+def test_a_phone_build(tmp_path, seeded_ids):
+    """A phone holds back a picture, a teach-back and the item its session left for the desktop; one answered item
+    is never started and one is not due."""
+
+    holder: dict[str, DeviceFilter] = {}
+
+    def build(vault, repository, trace):
+        holder["filter"] = _phone(vault)
+        return build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION),
+                               offer_trace=trace, device_filter=holder["filter"])
+
+    _check("admission_phone", _record(tmp_path, build, vault_builder=build_figure_vault,
+                                      extra=lambda: {"deferred": sorted(holder["filter"].deferred)}))
+
+
+def test_a_phone_read_where_no_item_reaches_the_episode(tmp_path, seeded_ids):
+    """The probe's LO is paused, so no item of the in-progress episode reaches a gate that reads it, and the phone
+    is asked only about what the other gates admit."""
+
+    holder: dict[str, DeviceFilter] = {}
+
+    def build(vault, repository, trace):
+        holder["filter"] = _phone(vault)
+        return read_due_queue(vault, repository, clock=CLOCK, offer_trace=trace, device_filter=holder["filter"])
+
+    _check("admission_unconsulted_episode", _record(
+        tmp_path, build, vault_builder=build_unconsulted_episode_vault,
+        extra=lambda: {"deferred": sorted(holder["filter"].deferred)}))
+
+
+def _retire_everything(vault: Any) -> None:
+    for item in vault.practice_items.values():
+        item.status = "retired"
+
+
+def test_a_serving_build_with_nothing_to_serve(tmp_path, seeded_ids):
+    _check("admission_empty", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace),
+        prepare=_retire_everything))
+
+
+def _outside(tmp_path: Path, vault_builder: Any, prepare: Any = None) -> dict[str, Any]:
+    """Every item asked of the two admissions built outside a queue, each over its own lazy reads."""
+
+    vault, repository = vault_builder(tmp_path / "vault")
+    if prepare is not None:
+        prepare(vault)
+    before = _database(repository.sqlite_path)
+    now = CLOCK.now()
+    refusal = pool_admission(vault, repository, now=now)
+    pool = {item_id: refusal(item_id) for item_id in sorted(vault.practice_items)}
+    check = check_admission(vault, repository, now=now, intent_view=intent_serving(vault, repository, now=now),
+                            reasons=True)
+    checks = {item_id: check(item_id) for item_id in sorted(vault.practice_items)}
+    one_item = check_admission(vault, repository, now=now, intent_view=None, reasons=True)
+    changes = _database_changes(before, _database(repository.sqlite_path))
+    return _clean({"pool": pool, "check": checks, "one_item_only": one_item("pi_a1"), "database": changes}, _Ids())
+
+
+def test_the_readers_outside_a_build_on_each_gate(tmp_path, seeded_ids):
+    _check("outside_admission_gates", _outside(tmp_path, build_gate_vault))
+
+
+def _a_valued_probe_surface(vault: Any) -> None:
+    """Value stopping off and one of the episode's instruments a diagnostic surface (in memory: state sync would
+    not change it, but a reload would), so the probe gate reads the episode for it."""
+
+    _value_stopping_off(vault)
+    vault.practice_items["pi_svd_define_002"].practice_mode = "diagnostic_probe"
+
+
+def test_the_readers_outside_a_build_in_a_probe_episode(tmp_path, seeded_ids):
+    _check("outside_admission_probe", _outside(tmp_path, build_rich_vault, _a_valued_probe_surface))
+
+
+def test_the_admission_goldens_reach_their_paths(tmp_path, seeded_ids):
+    """What the admission goldens are for: if a vault stops reaching a gate or a read, they stop pinning it."""
+
+    gates = _record(tmp_path / "gates", lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace),
+        vault_builder=build_gate_vault)["trace"]["exclusions"]
+    assert {
+        "retired", "inactive_state", "reserved_exam", "cold_check_reserved", "diagnostic_microprobe",
+        "diagnostic_probe_administered", "no_learning_object", "lifecycle_put_away", "intent_paused",
+        "diagnostic_freshness_reserve", "placement_assumed_withheld", "diagnostic_reserved",
+    } <= set(gates)
+    probe = _record(tmp_path / "probe", lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id="sess_probe_reads"), offer_trace=trace),
+        prepare=_value_stopping_off)
+    assert any(item["components"].get("probe_eig", 0.0) > 0 for item in probe["queue"]), "a probe is valued"
+    assert any("probe_eig_familiarity_discount" in item["components"] for item in probe["queue"])
+    assert "elicitation_events" in probe["database"], "the probe selection is recorded"
+    phone = _record(tmp_path / "phone", lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace,
+        device_filter=_phone(vault)), vault_builder=build_figure_vault)["trace"]["exclusions"]
+    assert {"device_ineligible", "cold_start_unattempted"} <= set(phone)
+    unconsulted = _record(tmp_path / "unconsulted", lambda vault, repository, trace: read_due_queue(
+        vault, repository, clock=CLOCK, offer_trace=trace), vault_builder=build_unconsulted_episode_vault)
+    assert unconsulted["trace"]["voi_decisions"] == [], "no item reached the episode's value decision"
+    empty = _record(tmp_path / "empty", lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace),
+        prepare=_retire_everything)
+    assert empty["queue"] == []

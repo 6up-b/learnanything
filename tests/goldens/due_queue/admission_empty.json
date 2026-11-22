@@ -1,0 +1,852 @@
+{
+ "database": {
+  "decision_features": {
+   "added": [
+    {
+     "<rowid>": 16,
+     "ability_vector_json": {
+      "<json>": {
+       "facet_independent_evidence_mass_by_facet": {},
+       "facet_recall_mean_by_facet": {},
+       "facet_recall_variance_by_facet": {},
+       "learning_object_id": "lo_b",
+       "lo_mastery": 0.5,
+       "lo_mastery_variance": 1.0,
+       "mastery": {
+        "evidence_count": 1,
+        "last_evidence_at": "2026-10-02T09:00:00Z",
+        "logit_mean": 0.0,
+        "logit_variance": 1.0
+       },
+       "misconception_posterior_by_error_type": {}
+      }
+     },
+     "algorithm_version": "<head tag>",
+     "context_json": {
+      "<json>": {
+       "error_events": "diagnosis_overlay",
+       "feature_schema": "selection_features_v1"
+      }
+     },
+     "created_at": "2026-10-12T09:00:00Z",
+     "decision_id": "<ulid:4>",
+     "decision_type": "selection",
+     "id": "<ulid:3>",
+     "item_demand_vector_json": {
+      "<json>": {
+       "bad_item_suspicion": 0.0,
+       "content_hash": "48e1f7cd8be16b45e1dc676df6d7314a3e16a787c730a353bca4362f0e9d3a2b",
+       "difficulty_b": 0.0,
+       "discrimination_a": 1.0,
+       "evidence_weights": {
+        "recall": 1.0
+       },
+       "learning_object_id": "lo_b",
+       "misconception_targets": [],
+       "practice_item_id": "pi_b1",
+       "repair_targets": [
+        "recall"
+       ],
+       "retrieval_demand": 0.8,
+       "scaffold_level": 1.0,
+       "surface_family": null,
+       "transfer_distance": 0.0
+      }
+     }
+    }
+   ]
+  },
+  "decision_records": {
+   "added": [
+    {
+     "<rowid>": 2,
+     "alternatives_json": {
+      "<json>": []
+     },
+     "chosen_ref": null,
+     "created_at": "<wall>",
+     "decided_by": "composed_offer_v2",
+     "detail_id": "<ulid:2>",
+     "detail_table": "scheduler_slates",
+     "error_type": null,
+     "error_where": null,
+     "facts_json": {
+      "<json>": {
+       "considered_n": 0,
+       "excluded_n": 19,
+       "exclusions": {
+        "cold_followup_deferred": {
+         "ids": [
+          "pi_b1"
+         ],
+         "n": 1
+        },
+        "retired": {
+         "ids": [
+          "pi_a1",
+          "pi_a2",
+          "pi_b1",
+          "pi_c1",
+          "pi_c2",
+          "pi_diag_easy",
+          "pi_diag_hard",
+          "pi_diag_mid",
+          "pi_eig_easy",
+          "pi_eig_hard"
+         ],
+         "n": 18
+        }
+       },
+       "limit": null,
+       "served_n": 0,
+       "session_id": "sess_due_queue"
+      }
+     },
+     "id": "<ulid:5>",
+     "kind": "slate",
+     "parent_id": null,
+     "rule": "empty_slate",
+     "status": "chosen",
+     "subject_id": "<ulid:2>",
+     "subject_kind": "slate",
+     "trace_id": "<ulid:6>",
+     "versions_json": {
+      "<json>": {
+       "algorithm_version": "<head tag>",
+       "selection_policy": "composed_offer_v2"
+      }
+     }
+    }
+   ]
+  },
+  "followup_tasks": {
+   "changed": [
+    {
+     "after": {
+      "<rowid>": 1,
+      "case_kind": "misconception",
+      "case_ref": "mc_due_queue",
+      "consumed_attempt_id": null,
+      "context_json": null,
+      "created_at": "2026-10-10T09:00:00Z",
+      "expires_at": "2026-10-17T09:00:00Z",
+      "id": "<ulid:0>",
+      "kind": "cold_retry",
+      "learning_object_id": "lo_b",
+      "measurement_opportunity_id": null,
+      "not_before": "2026-10-13T08:00:00Z",
+      "remediation_episode_id": null,
+      "selected_item_id": "pi_b1",
+      "source_attempt_id": null,
+      "status": "served",
+      "updated_at": "2026-10-12T09:00:00Z"
+     },
+     "before": {
+      "<rowid>": 1,
+      "case_kind": "misconception",
+      "case_ref": "mc_due_queue",
+      "consumed_attempt_id": null,
+      "context_json": null,
+      "created_at": "2026-10-10T09:00:00Z",
+      "expires_at": "2026-10-17T09:00:00Z",
+      "id": "<ulid:0>",
+      "kind": "cold_retry",
+      "learning_object_id": "lo_b",
+      "measurement_opportunity_id": null,
+      "not_before": "2026-10-11T09:00:00Z",
+      "remediation_episode_id": null,
+      "selected_item_id": "pi_b1",
+      "source_attempt_id": null,
+      "status": "pending",
+      "updated_at": "2026-10-10T09:00:00Z"
+     }
+    }
+   ]
+  },
+  "maintenance_notices": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "action_json": {
+      "<json>": {
+       "action": "generate_diagnostic_surfaces",
+       "label": "Generate fresh diagnostic surfaces",
+       "learning_object_id": "lo_svd_definition"
+      }
+     },
+     "aging_policy": "auto_resolution",
+     "dedup_key": "lo_svd_definition",
+     "detail_json": {
+      "<json>": {
+       "auto_queued_need_id": null,
+       "fresh_surfaces": 0,
+       "pending_diagnostic_need_ids": [],
+       "probe_episode_id": "<ulid:8>",
+       "probe_episode_status": "in_progress",
+       "provider_available": false,
+       "reason": "never_existed",
+       "total_surfaces": 0
+      }
+     },
+     "entity_id": "lo_svd_definition",
+     "entity_type": "learning_object",
+     "first_seen_at": "2026-10-12T09:00:00Z",
+     "id": "<ulid:7>",
+     "last_seen_at": "2026-10-12T09:00:00Z",
+     "notice_type": "probe_pool_empty",
+     "resolved_at": null,
+     "severity": "action_needed",
+     "snooze_count": 0,
+     "snoozed_until": null,
+     "status": "active",
+     "subject_id": "linear-algebra",
+     "title": "Probe pool empty for 'SVD definition' — no probe-capable surface exists"
+    }
+   ]
+  },
+  "practice_item_snapshots": {
+   "added": [
+    {
+     "<rowid>": 16,
+     "content_hash": "48e1f7cd8be16b45e1dc676df6d7314a3e16a787c730a353bca4362f0e9d3a2b",
+     "created_at": "2026-10-12T09:00:00Z",
+     "item_json": {
+      "<json>": {
+       "attempt_types_allowed": [
+        "independent_attempt",
+        "hinted_attempt",
+        "dont_know"
+       ],
+       "capability": null,
+       "contrast_of": null,
+       "created_at": "2026-05-19T12:00:00Z",
+       "criterion_facet_weights": {},
+       "differing_component": null,
+       "difficulty": 0.5,
+       "difficulty_source": null,
+       "discrimination_profiles": [],
+       "error_hunt": null,
+       "evidence_facets": [
+        "recall"
+       ],
+       "evidence_fingerprint": {
+        "answer_structure": null,
+        "representation": null,
+        "shared_stimulus_id": null,
+        "solution_recipe_family": null,
+        "source_family": null
+       },
+       "evidence_weights": {
+        "recall": 1.0
+       },
+       "expected_answer": "Answer pi_b1.",
+       "expected_minutes": 2.0,
+       "grading_rubric": {
+        "criteria": [
+         {
+          "correlation_group": null,
+          "depends_on": [],
+          "description": "Correct.",
+          "id": "correctness",
+          "measurement_status": null,
+          "points": 4.0,
+          "recipe_ids": [],
+          "targets": [],
+          "tier": "core"
+         }
+        ],
+        "fatal_errors": [],
+        "max_points": 4
+       },
+       "hint_policy": {
+        "coverage_surface_dampening_by_hint": {},
+        "fsrs_rating_cap_by_hint": {
+         "1": "good"
+        },
+        "mastery_alpha_dampening_by_hint": {
+         "1": 0.5
+        },
+        "max_useful_hints": 1
+       },
+       "hints": [
+        "A hint."
+       ],
+       "id": "pi_b1",
+       "laddered_stem": null,
+       "learning_object_id": "lo_b",
+       "misconception_consistent_answer": null,
+       "practice_mode": "short_answer",
+       "prompt": "Question pi_b1.",
+       "provenance": {
+        "origin": "human",
+        "source_refs": []
+       },
+       "repair_targets": [],
+       "retrieval_demand": null,
+       "scaffold_level": null,
+       "schema_version": 1,
+       "status": "retired",
+       "status_reason": null,
+       "subjects": null,
+       "surface_family": null,
+       "tags": [],
+       "task_feature_schema": null,
+       "task_features": null,
+       "teach_back_source": null,
+       "trace_contract": null,
+       "transfer_distance": null,
+       "updated_at": "2026-05-19T12:00:00Z",
+       "variant_contract": null
+      }
+     },
+     "practice_item_id": "pi_b1"
+    }
+   ]
+  },
+  "probe_presentations": {
+   "changed": [
+    {
+     "after": {
+      "<rowid>": 1,
+      "created_at": "2026-10-12T08:00:00Z",
+      "end_reason": "invalidated",
+      "ended_at": "2026-10-12T09:00:00Z",
+      "entropy_at_selection": 1.2911378265,
+      "expected_information_gain": 0.3907346693,
+      "expires_at": "2026-10-12T12:00:00Z",
+      "id": "<ulid:9>",
+      "instrument_card_id": "card_svd_contrast",
+      "instrument_card_snapshot_json": {
+       "<json>": {
+        "card_id": "card_svd_contrast",
+        "card_version": 1,
+        "compiled_likelihood_hash": "e7cd385f85df030c5339e75fb9f0bcfd7421f24eac24edc5700ca55ea69572dc",
+        "expected_seconds": 45.0,
+        "family_template_id": "contrast_confusable",
+        "family_template_version": 1,
+        "grader_policy": "diagnostic_microprobe_v1",
+        "instructional_actions": {},
+        "outcome_alphabet": [
+         "correct_target_reason",
+         "correct_weak_reason",
+         "confusable_signature",
+         "other_systematic_error",
+         "hedge",
+         "unanswered"
+        ],
+        "provenance": "instrument_card",
+        "pseudo_count": 8.0,
+        "resolved_slot_map": {
+         "other_or_unknown": "other_or_unknown",
+         "recall_without_mechanism": "other_or_unknown",
+         "robust_initial_grasp": "robust_initial_grasp",
+         "unfamiliar": "unfamiliar"
+        },
+        "rows": {
+         "confuses_with_neighbor": {
+          "confusable_signature": 0.75,
+          "correct_target_reason": 0.05,
+          "correct_weak_reason": 0.05,
+          "hedge": 0.05,
+          "other_systematic_error": 0.05,
+          "unanswered": 0.05
+         },
+         "other_or_unknown": {
+          "confusable_signature": 0.0196078431,
+          "correct_target_reason": 0.0196078431,
+          "correct_weak_reason": 0.0784313725,
+          "hedge": 0.1960784314,
+          "other_systematic_error": 0.4901960784,
+          "unanswered": 0.1960784314
+         },
+         "robust_initial_grasp": {
+          "confusable_signature": 0.0135135135,
+          "correct_target_reason": 0.8108108108,
+          "correct_weak_reason": 0.1351351351,
+          "hedge": 0.0135135135,
+          "other_systematic_error": 0.0135135135,
+          "unanswered": 0.0135135135
+         },
+         "surface_only": {
+          "confusable_signature": 0.0961538462,
+          "correct_target_reason": 0.0961538462,
+          "correct_weak_reason": 0.5769230769,
+          "hedge": 0.0961538462,
+          "other_systematic_error": 0.0961538462,
+          "unanswered": 0.0384615385
+         },
+         "unfamiliar": {
+          "confusable_signature": 0.0208333333,
+          "correct_target_reason": 0.0208333333,
+          "correct_weak_reason": 0.0208333333,
+          "hedge": 0.2083333333,
+          "other_systematic_error": 0.2083333333,
+          "unanswered": 0.5208333333
+         }
+        },
+        "signature_error_types": {
+         "confusable_signature": [
+          "conceptual_slip"
+         ]
+        },
+        "slot_aliases": {},
+        "target_facets": [
+         "recall"
+        ],
+        "total_task_evidence_mass": 1.0
+       }
+      },
+      "instrument_card_version": 1,
+      "posterior_at_selection_json": {
+       "<json>": {
+        "other_or_unknown": 0.1,
+        "recall_without_mechanism": 0.2076923077,
+        "robust_initial_grasp": 0.3461538462,
+        "unfamiliar": 0.3461538462
+       }
+      },
+      "practice_item_id": "pi_svd_define_001",
+      "probe_episode_id": "<ulid:8>",
+      "probe_family_template_id": "contrast_confusable",
+      "probe_family_template_version": 1,
+      "scheduler_candidate_id": "<ulid:10>",
+      "selection_components_json": {
+       "<json>": {
+        "actual_hypothesis_eig": 0.3907346693,
+        "channel_pin": {
+         "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
+         "calibration_model_id": "<ulid:12>",
+         "decision_context_hash": "5c4c99a98e473cfcbab2e0ea3a53b040",
+         "ensemble_seed": 5325997029763902742,
+         "mapping_version": "probe_coarse_v1",
+         "projection_algorithm_version": "<head tag>",
+         "robust_eig_per_second": 0.0061340729
+        },
+        "expected_seconds": 45.0,
+        "predictive_eig": 0.2152953804,
+        "predictive_information_rate": 0.0039144615,
+        "predictive_prior_entropy": 1.6400123309,
+        "predictive_target_count": 1,
+        "redundancy_penalty": 1.0,
+        "selection_objective": "hypothesis_eig",
+        "shadow_rankings": {
+         "hypothesis_eig": [
+          "pi_svd_define_001",
+          "pi_svd_define_002"
+         ],
+         "predictive_eig": [
+          "pi_svd_define_001",
+          "pi_svd_define_002"
+         ],
+         "predictive_rate": [
+          "pi_svd_define_001",
+          "pi_svd_define_002"
+         ]
+        }
+       }
+      },
+      "selection_policy_version": "probe_episode_v2",
+      "served_at": null,
+      "state_segment_id": "<ulid:11>",
+      "status": "ended",
+      "submitted_at": null,
+      "target_facets_json": {
+       "<json>": [
+        "recall"
+       ]
+      },
+      "target_hypothesis_pairs_json": {
+       "<json>": [
+        [
+         "robust_initial_grasp",
+         "unfamiliar"
+        ],
+        [
+         "robust_initial_grasp",
+         "recall_without_mechanism"
+        ],
+        [
+         "unfamiliar",
+         "recall_without_mechanism"
+        ]
+       ]
+      },
+      "updated_at": "2026-10-12T09:00:00Z"
+     },
+     "before": {
+      "<rowid>": 1,
+      "created_at": "2026-10-12T08:00:00Z",
+      "end_reason": null,
+      "ended_at": null,
+      "entropy_at_selection": 1.2911378265,
+      "expected_information_gain": 0.3907346693,
+      "expires_at": "2026-10-12T12:00:00Z",
+      "id": "<ulid:9>",
+      "instrument_card_id": "card_svd_contrast",
+      "instrument_card_snapshot_json": {
+       "<json>": {
+        "card_id": "card_svd_contrast",
+        "card_version": 1,
+        "compiled_likelihood_hash": "e7cd385f85df030c5339e75fb9f0bcfd7421f24eac24edc5700ca55ea69572dc",
+        "expected_seconds": 45.0,
+        "family_template_id": "contrast_confusable",
+        "family_template_version": 1,
+        "grader_policy": "diagnostic_microprobe_v1",
+        "instructional_actions": {},
+        "outcome_alphabet": [
+         "correct_target_reason",
+         "correct_weak_reason",
+         "confusable_signature",
+         "other_systematic_error",
+         "hedge",
+         "unanswered"
+        ],
+        "provenance": "instrument_card",
+        "pseudo_count": 8.0,
+        "resolved_slot_map": {
+         "other_or_unknown": "other_or_unknown",
+         "recall_without_mechanism": "other_or_unknown",
+         "robust_initial_grasp": "robust_initial_grasp",
+         "unfamiliar": "unfamiliar"
+        },
+        "rows": {
+         "confuses_with_neighbor": {
+          "confusable_signature": 0.75,
+          "correct_target_reason": 0.05,
+          "correct_weak_reason": 0.05,
+          "hedge": 0.05,
+          "other_systematic_error": 0.05,
+          "unanswered": 0.05
+         },
+         "other_or_unknown": {
+          "confusable_signature": 0.0196078431,
+          "correct_target_reason": 0.0196078431,
+          "correct_weak_reason": 0.0784313725,
+          "hedge": 0.1960784314,
+          "other_systematic_error": 0.4901960784,
+          "unanswered": 0.1960784314
+         },
+         "robust_initial_grasp": {
+          "confusable_signature": 0.0135135135,
+          "correct_target_reason": 0.8108108108,
+          "correct_weak_reason": 0.1351351351,
+          "hedge": 0.0135135135,
+          "other_systematic_error": 0.0135135135,
+          "unanswered": 0.0135135135
+         },
+         "surface_only": {
+          "confusable_signature": 0.0961538462,
+          "correct_target_reason": 0.0961538462,
+          "correct_weak_reason": 0.5769230769,
+          "hedge": 0.0961538462,
+          "other_systematic_error": 0.0961538462,
+          "unanswered": 0.0384615385
+         },
+         "unfamiliar": {
+          "confusable_signature": 0.0208333333,
+          "correct_target_reason": 0.0208333333,
+          "correct_weak_reason": 0.0208333333,
+          "hedge": 0.2083333333,
+          "other_systematic_error": 0.2083333333,
+          "unanswered": 0.5208333333
+         }
+        },
+        "signature_error_types": {
+         "confusable_signature": [
+          "conceptual_slip"
+         ]
+        },
+        "slot_aliases": {},
+        "target_facets": [
+         "recall"
+        ],
+        "total_task_evidence_mass": 1.0
+       }
+      },
+      "instrument_card_version": 1,
+      "posterior_at_selection_json": {
+       "<json>": {
+        "other_or_unknown": 0.1,
+        "recall_without_mechanism": 0.2076923077,
+        "robust_initial_grasp": 0.3461538462,
+        "unfamiliar": 0.3461538462
+       }
+      },
+      "practice_item_id": "pi_svd_define_001",
+      "probe_episode_id": "<ulid:8>",
+      "probe_family_template_id": "contrast_confusable",
+      "probe_family_template_version": 1,
+      "scheduler_candidate_id": "<ulid:10>",
+      "selection_components_json": {
+       "<json>": {
+        "actual_hypothesis_eig": 0.3907346693,
+        "channel_pin": {
+         "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
+         "calibration_model_id": "<ulid:12>",
+         "decision_context_hash": "5c4c99a98e473cfcbab2e0ea3a53b040",
+         "ensemble_seed": 5325997029763902742,
+         "mapping_version": "probe_coarse_v1",
+         "projection_algorithm_version": "<head tag>",
+         "robust_eig_per_second": 0.0061340729
+        },
+        "expected_seconds": 45.0,
+        "predictive_eig": 0.2152953804,
+        "predictive_information_rate": 0.0039144615,
+        "predictive_prior_entropy": 1.6400123309,
+        "predictive_target_count": 1,
+        "redundancy_penalty": 1.0,
+        "selection_objective": "hypothesis_eig",
+        "shadow_rankings": {
+         "hypothesis_eig": [
+          "pi_svd_define_001",
+          "pi_svd_define_002"
+         ],
+         "predictive_eig": [
+          "pi_svd_define_001",
+          "pi_svd_define_002"
+         ],
+         "predictive_rate": [
+          "pi_svd_define_001",
+          "pi_svd_define_002"
+         ]
+        }
+       }
+      },
+      "selection_policy_version": "probe_episode_v2",
+      "served_at": null,
+      "state_segment_id": "<ulid:11>",
+      "status": "selected",
+      "submitted_at": null,
+      "target_facets_json": {
+       "<json>": [
+        "recall"
+       ]
+      },
+      "target_hypothesis_pairs_json": {
+       "<json>": [
+        [
+         "robust_initial_grasp",
+         "unfamiliar"
+        ],
+        [
+         "robust_initial_grasp",
+         "recall_without_mechanism"
+        ],
+        [
+         "unfamiliar",
+         "recall_without_mechanism"
+        ]
+       ]
+      },
+      "updated_at": "2026-10-12T08:00:00Z"
+     }
+    }
+   ]
+  },
+  "scheduler_explanations": {
+   "added": [
+    {
+     "<rowid>": 16,
+     "algorithm_version": "<head tag>",
+     "components_json": {
+      "<json>": {
+       "base_selection_propensity": 0.0,
+       "cold_followup_deferred_reveal": 1.0,
+       "cold_followup_reveal_amount": 0.3,
+       "selected": 0.0
+      }
+     },
+     "created_at": "2026-10-12T09:00:00Z",
+     "expected_information_gain": 0.0,
+     "id": "<ulid:13>",
+     "plain_english_json": {
+      "<json>": {
+       "reasons": [
+        "cold check held back: its answer was shown since it was scheduled",
+        "deferred until 2026-10-13T08:00:00Z"
+       ]
+      }
+     },
+     "practice_item_id": "pi_b1",
+     "priority": 0.0,
+     "readiness_factor": null,
+     "selected_mode": "short_answer",
+     "session_id": "sess_due_queue",
+     "target_scope_json": {
+      "<json>": {
+       "learning_object_id": "lo_b",
+       "selection_reward": null
+      }
+     }
+    }
+   ]
+  },
+  "scheduler_slate_candidates": {
+   "added": [
+    {
+     "<rowid>": 16,
+     "algorithm_version": "<head tag>",
+     "chosen_at": null,
+     "chosen_attempt_id": null,
+     "components_json": {
+      "<json>": {
+       "base_selection_propensity": 0.0,
+       "cold_followup_deferred_reveal": 1.0,
+       "cold_followup_reveal_amount": 0.3,
+       "selected": 0.0
+      }
+     },
+     "created_at": "2026-10-12T09:00:00Z",
+     "expected_information_gain": 0.0,
+     "exploration_flag": 0,
+     "id": "<ulid:4>",
+     "learning_object_id": "lo_b",
+     "legacy_priority": null,
+     "plain_english_json": {
+      "<json>": {
+       "reasons": [
+        "cold check held back: its answer was shown since it was scheduled",
+        "deferred until 2026-10-13T08:00:00Z"
+       ]
+      }
+     },
+     "practice_item_id": "pi_b1",
+     "predicted_correctness": null,
+     "priority": 0.0,
+     "propensity_kind": "unavailable_composed_offer",
+     "rank": 1,
+     "readiness_factor": null,
+     "returned_rank": null,
+     "reward_debug_json": null,
+     "selected_mode": "short_answer",
+     "selection_propensity": null,
+     "selection_reward": null,
+     "selection_temperature": null,
+     "slate_id": "<ulid:2>",
+     "target_scope_json": {
+      "<json>": {
+       "learning_object_id": "lo_b",
+       "selection_reward": null
+      }
+     },
+     "was_returned": 0
+    }
+   ]
+  },
+  "scheduler_slates": {
+   "added": [
+    {
+     "<rowid>": 2,
+     "algorithm_version": "<head tag>",
+     "candidate_count": 1,
+     "chosen_attempt_id": null,
+     "chosen_practice_item_id": null,
+     "collection_version": "learnloop-events-v1",
+     "config_snapshot_json": {
+      "<json>": {
+       "algorithm_version": "<head tag>",
+       "forgetting_risk_weight": 1.0,
+       "goal_frontier_weight": 0.25,
+       "goal_quota_floor_max": 0.7,
+       "goal_quota_floor_min": 0.3,
+       "goal_quota_ramp_days": 28,
+       "probe_eig_weight": 0.25,
+       "recent_error_weight": 0.5,
+       "selection_exploration_rate": 0.5,
+       "selection_exploration_reward_window": 1.0,
+       "short_session_minutes": 20
+      }
+     },
+     "created_at": "2026-10-12T09:00:00Z",
+     "generated_at": "2026-10-12T09:00:00Z",
+     "id": "<ulid:2>",
+     "requested_limit": null,
+     "returned_count": 0,
+     "selection_policy": "composed_offer_v2",
+     "session_context_json": {
+      "<json>": {
+       "available_minutes": null,
+       "energy": null,
+       "readiness_factor": null,
+       "session_id": "sess_due_queue",
+       "short_session": false
+      }
+     },
+     "session_id": "sess_due_queue",
+     "updated_at": "2026-10-12T09:00:00Z"
+    }
+   ]
+  }
+ },
+ "queue": [],
+ "trace": {
+  "base_propensity": {},
+  "cold_deferrals": [
+   {
+    "beyond_expiry": false,
+    "deferred_to": "2026-10-13T08:00:00Z",
+    "delay_seconds": 86400.0,
+    "expires_at": "2026-10-17T09:00:00Z",
+    "followup_task_id": "<ulid:0>",
+    "kind": "cold_retry",
+    "last_reveal_at": "2026-10-12T08:00:00Z",
+    "practice_item_id": "pi_b1",
+    "reason": "cold_check_revealed_since_scheduled",
+    "remediation_episode_id": null,
+    "reveal_amount": 0.3,
+    "reveal_event_ids": [
+     "<ulid:1>"
+    ],
+    "served_as_practice": false,
+    "withdrawn": false
+   }
+  ],
+  "considered_item_ids": [],
+  "exclusions": {
+   "retired": [
+    "pi_a1",
+    "pi_a2",
+    "pi_b1",
+    "pi_c1",
+    "pi_c2",
+    "pi_diag_easy",
+    "pi_diag_hard",
+    "pi_diag_mid",
+    "pi_eig_easy",
+    "pi_eig_hard",
+    "pi_eig_mid",
+    "pi_pair_first",
+    "pi_pair_second",
+    "pi_spec_easy",
+    "pi_spec_hard",
+    "pi_svd_define_001",
+    "pi_svd_define_002",
+    "pi_svd_teach_due"
+   ]
+  },
+  "exploration": {
+   "alternative_item_ids": [],
+   "best_item_id": null,
+   "mechanism": "scheduler_seeded_exploration",
+   "probe_ties_admitted": true,
+   "rate": 0.5,
+   "realized_item_id": null,
+   "reward_window": 1.0
+  },
+  "greedy_item_ids": [],
+  "outcomes": [
+   {
+    "composed": [],
+    "explored_item_id": null,
+    "probability": 1.0
+   }
+  ],
+  "pinned_item_id": null,
+  "placement_active": true,
+  "probe_block_reason": null,
+  "realized": 0,
+  "slate_id": "<ulid:2>",
+  "teach_back_exclusion_reason": "teach_back_value_below_minutes_cost",
+  "voi_decisions": []
+ }
+}
