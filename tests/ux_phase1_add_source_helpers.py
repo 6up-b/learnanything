@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY: a file run alone found it empty
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.ux_phase1_support import CLOCK, fake_services

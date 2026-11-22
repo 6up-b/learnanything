@@ -11,6 +11,7 @@ import learnloop.clock as clock_module
 import learnloop.scheduling.scheduler as scheduler_module
 from learnloop.db.stores.practice_index import insert_proposal
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import create_daily_plan_vault

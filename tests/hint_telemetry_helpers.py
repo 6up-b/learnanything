@@ -18,6 +18,7 @@ from learnloop.hints import telemetry
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.post_attempt_worker import KINDS
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import append_config_toml, create_basic_vault

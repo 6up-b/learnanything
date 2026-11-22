@@ -18,6 +18,7 @@ from learnloop.ingest.hashing import asset_hash, extraction_request_hash, extrac
 from learnloop.ingest.ir import IR_SCHEMA_VERSION, DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.vault.models import SourceRef
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.ux_phase1_support import fake_services, fresh_library

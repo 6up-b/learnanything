@@ -9,6 +9,7 @@ from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.km2_write_path_helpers import KM2_OLD_TAG

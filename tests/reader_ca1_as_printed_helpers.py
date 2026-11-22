@@ -15,6 +15,7 @@ from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, Extract
 from learnloop.ingest.originals import store_original_bytes
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop_sidecar.context import SidecarContext
+import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.helpers import create_basic_vault

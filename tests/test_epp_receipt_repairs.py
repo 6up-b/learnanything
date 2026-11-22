@@ -171,8 +171,8 @@ def test_redraw_frozen_journey_keeps_served_items_ids_and_every_seed(tmp_path, m
     assert table_rows(new, "router_objective_traces")
 
 
-def test_epp1_stop_condition_scorer_raises_on_unreadable_time(tmp_path, monkeypatch):
-    """Do not repair the clamp until the reader contract has been reviewed (user stop condition)."""
+def test_epp1_unreadable_time_is_invalid_without_changing_other_scores(tmp_path, monkeypatch):
+    """An unusable receipt cannot prevent readable receipts from being scored or rebuilt."""
     from learnloop.adaptive_difficulty import scoring
 
     result = journey(tmp_path, monkeypatch)
@@ -181,11 +181,28 @@ def test_epp1_stop_condition_scorer_raises_on_unreadable_time(tmp_path, monkeypa
     with repository.atomic(), repository.connection() as connection:
         readable = scoring.score_rows(connection, vault, repository)
         assert any(row["status"] == "scored" for row in readable)
+        stored_before = table_rows(result["paths"].sqlite_path, "item_forecast_scores")
         # Append a synthetic historical receipt; no old row or trigger is modified.
         row = dict(connection.execute("SELECT * FROM forecast_receipts WHERE "
                                       "plan_presentation_id IS NOT NULL LIMIT 1").fetchone())
         row.update(id="unreadable_receipt", receipt_key="unreadable_receipt", inputs_as_of="!not a time")
         connection.execute(f"INSERT INTO forecast_receipts ({','.join(row)}) "
                            f"VALUES ({','.join('?' for _ in row)})", tuple(row.values()))
-        with pytest.raises(ValueError, match="Invalid isoformat string"):
-            scoring.score_rows(connection, vault, repository)
+        mixed = scoring.score_rows(connection, vault, repository)
+        [invalid] = [score for score in mixed if score["receipt_id"] == row["id"]]
+        assert invalid["status"] == "invalid"
+        assert invalid["detail"] == {"why": "unreadable_time"}
+        assert not {"outcome", "log_loss", "brier"} & invalid.keys()
+        # Compare the complete serialized rows, including order and all details.
+        assert json.dumps([score for score in mixed if score["receipt_id"] != row["id"]]).encode() == \
+            json.dumps(readable).encode()
+    assert scoring.rebuild(vault, repository) == {"written": len(readable) + 1}
+    stored_after = table_rows(result["paths"].sqlite_path, "item_forecast_scores")
+    assert json.dumps([score for score in stored_after if score["receipt_id"] != row["id"]]).encode() == \
+        json.dumps(stored_before).encode()
+    [stored_invalid] = [score for score in stored_after if score["receipt_id"] == row["id"]]
+    assert stored_invalid["status"] == "invalid"
+    assert json.loads(stored_invalid["detail_json"]) == {"why": "unreadable_time"}
+    assert all(stored_invalid[key] is None for key in ("outcome", "log_loss", "brier"))
+    assert scoring.rebuild(vault, repository) == {"written": len(readable) + 1}
+    assert table_rows(result["paths"].sqlite_path, "item_forecast_scores") == stored_after
