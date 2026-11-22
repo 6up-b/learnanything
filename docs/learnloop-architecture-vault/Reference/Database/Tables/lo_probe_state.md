@@ -118,6 +118,7 @@ Indexes and uniqueness:
 - `tests/test_probe_belief_posterior.py`
 - `tests/test_probe_migration.py`
 - `tests/test_state_sync.py`
+- `tests/test_table_roles.py`
 - `tests/ad23_contract_helpers.py`
 - `tests/cli_generate_practice_helpers.py`
 - `tests/test_agent_runs.py`

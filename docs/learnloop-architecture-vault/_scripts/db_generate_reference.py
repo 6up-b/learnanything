@@ -158,9 +158,7 @@ PURPOSE_OVERRIDES: dict[str, str] = {
     "source_document_units": "Stores normalized semantic units assembled from source blocks.",
     "source_exam_profiles": "Retains a dormant proposed cache of aggregated exam profiles; retirement remains owner-gated.",
     "source_locator_schemes": "Retains dormant locator-to-scheme detection state; retirement remains owner-gated.",
-    "learner_theta": "Retains the legacy IRT theta table for compatibility and telemetry; it is not the canonical learner projection.",
     "controller_shadow_predictions": "Stores non-authoritative controller predictions; a schema CHECK fixes authority to 'none'.",
-    "controller_prequential_reports": "Stores delayed evaluation reports over controller shadow predictions.",
     "shadow_component_events": "Records the lifecycle of deliberately firewalled shadow scoring components.",
     "queue_state": "Stores the mutable practice queue head and its workflow position.",
     "sessions": "Tracks learning-session lifecycle state.",
@@ -185,11 +183,9 @@ STATUS_OVERRIDES: dict[str, tuple[str, str]] = {
     "practice_item_state": ("active-historical-seam", "Still read and written while activity_card_state is only a partial successor."),
     "hypothesis_sets": ("active", "The probe paths write locked hypothesis sets and read them back. Rebuild preserves these raw records. The collection dataset and adjudication evidence keep their existing scope."),
     "controller_shadow_predictions": ("dormant-shadow", "Executable telemetry only; schema-enforced authority is always none."),
-    "controller_prequential_reports": ("dormant-shadow", "Evaluation over shadow telemetry; it has no live selection authority."),
     "shadow_component_events": ("dormant-shadow", "Deliberately firewalled component lifecycle telemetry."),
     "source_exam_profiles": ("dormant-owner-gated", "No live caller was established; telemetry and owner review gate any retirement."),
     "source_locator_schemes": ("dormant-owner-gated", "No live caller was established; telemetry and owner review gate any retirement."),
-    "learner_theta": ("dormant-owner-gated", "Legacy state is retained pending decisive production-vault telemetry."),
 }
 
 
@@ -244,7 +240,7 @@ def table_domain(table: str) -> str:
         return "diagnosis"
     if table.startswith(("scheduler_", "controller_", "attention_", "daily_plans", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector", "router_")):
         return "scheduling"
-    if table.startswith(("commitment", "depth_", "task_blueprint", "golden_path", "progression_", "angle_inventor", "p2_ladder", "lapse_episode", "family_evidence", "target_exemplar")):
+    if table.startswith(("commitment", "depth_", "task_blueprint", "golden_path", "progression_", "p2_ladder", "lapse_episode", "target_exemplar")):
         return "curriculum"
     if table.startswith(("goal_", "exam_", "forecast", "certification_", "cold_measurement")):
         return "goals-and-exams"

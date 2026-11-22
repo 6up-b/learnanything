@@ -36,7 +36,6 @@ def test_doctor_clean_fresh_vault(tmp_path):
     assert report.error_count == 0
     assert report.warning_count == 0
     assert report.deprecated_table_row_counts == {
-        "learner_theta": 0,
         "source_exam_profiles": 0,
         "source_locator_schemes": 0,
     }
@@ -65,20 +64,10 @@ def test_doctor_escalates_nonempty_deprecated_tables_without_mutating_them(tmp_p
             """,
             (NOW_ISO,),
         )
-        connection.execute(
-            """
-            INSERT INTO learner_theta(
-              id, domain, evidence_family, practice_mode, theta_mean,
-              theta_variance, algorithm_version, updated_at
-            ) VALUES ('theta', 'linear-algebra', 'recall', NULL, 0.0, 1.0, 'mvp-0.6', ?)
-            """,
-            (NOW_ISO,),
-        )
 
     report = run_doctor(vault_root)
 
     assert report.deprecated_table_row_counts == {
-        "learner_theta": 1,
         "source_exam_profiles": 1,
         "source_locator_schemes": 1,
     }
@@ -88,7 +77,6 @@ def test_doctor_escalates_nonempty_deprecated_tables_without_mutating_them(tmp_p
         if issue.code == "sqlite:deprecated_table_not_empty"
     ]
     assert {issue.entity_id for issue in deprecated} == {
-        "learner_theta",
         "source_exam_profiles",
         "source_locator_schemes",
     }

@@ -98,7 +98,6 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("activity_surface_reservations", TableRole.WORKFLOW),
     ("activity_surfaces", TableRole.RAW_LEDGER),
     ("agent_runs", TableRole.RECEIPT),
-    ("angle_inventories", TableRole.RAW_LEDGER),
     ("apply_intents", TableRole.WORKFLOW),
     # Adaptive hints H1: approach maps (migration 211), one immutable row per
     # map version. Paid output: never cleared, rebuilt or regenerated; replay
@@ -162,12 +161,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("content_events", TableRole.RAW_LEDGER),
     ("contrast_pair_servings", TableRole.RECEIPT),
     ("controller_candidates", TableRole.WORKFLOW),
-    ("controller_constraint_manifests", TableRole.RECEIPT),
     ("controller_decisions", TableRole.RECEIPT),
     ("controller_outcome_windows", TableRole.WORKFLOW),
     ("controller_ownership", TableRole.WORKFLOW),
     ("controller_ownership_events", TableRole.RECEIPT),
-    ("controller_prequential_reports", TableRole.RECEIPT),
     ("controller_shadow_predictions", TableRole.RECEIPT),
     ("controller_snapshots", TableRole.RECEIPT),
     # Daily-loop DL1: the finite daily plan (workflow state; its block
@@ -281,7 +278,6 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("familiarity_kernel_events", TableRole.RECEIPT),
     ("familiarity_kernel_features", TableRole.RECEIPT),
     ("familiarity_kernel_models", TableRole.RAW_LEDGER),
-    ("family_evidence_cap_policies", TableRole.RAW_LEDGER),
     # Reader workbench RW5a (migration 216; spec §8.4, W1): a learner's
     # prediction on a figure, its observed readout and the optional "what
     # changed?" text. Formative, never evidence; append-only by trigger (the
@@ -436,7 +432,6 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("learner_text_gap_reversals", TableRole.RAW_LEDGER),
     ("learner_text_gaps", TableRole.RAW_LEDGER),
     ("learner_state_beliefs", TableRole.COMPAT),
-    ("learner_theta", TableRole.COMPAT),
     ("learning_object_mastery", TableRole.DERIVED),
     ("learning_outcome_labels", TableRole.DERIVED),
     # Reader workbench RW4a (migration 209): library questions, their

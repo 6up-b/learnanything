@@ -20,6 +20,9 @@ _FOREIGN_KEYS_OFF_RE = re.compile(
     r"^\s*PRAGMA\s+foreign_keys\s*=\s*OFF\s*;?\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
+# A migration that drops a table names it on such a line. A DROP alone cannot be the signal: the temp-then-rename
+# rebuilds drop tables whose rows they have just copied.
+_REFUSE_IF_ROWS_RE = re.compile(r"^--\s*refuse-upgrade-if-rows:\s*(\w+)\s*$", re.MULTILINE)
 
 # SQLite files that belong to a database named ``<name>``.  Beside a missing
 # database they are orphans, and SQLite would replay an orphaned ``-wal`` or
@@ -51,6 +54,27 @@ class UncoordinatedMigrationError(RuntimeError):
             f"{self.sqlite_path} is at migration {current} and this LearnLoop needs migration "
             f"{self.pending[-1]}. Open the vault with LearnLoop to upgrade it (the desktop app, or "
             "`learnloop doctor --fix-state --vault <vault>`)."
+        )
+
+
+class NonEmptyDropError(RuntimeError):
+    """A pending migration drops a table that holds rows in this database.
+
+    LearnLoop never empties a table by dropping it: the whole upgrade is
+    refused before anything opens the file for writing, so the database is
+    left byte-identical at its current migration.
+    """
+
+    def __init__(self, sqlite_path: Path, migration: Migration, row_counts: dict[str, int]) -> None:
+        self.sqlite_path = Path(sqlite_path)
+        self.version = migration.version
+        self.row_counts = dict(row_counts)
+        held = ", ".join(f"{table} ({count} row{'s' if count != 1 else ''})" for table, count in row_counts.items())
+        super().__init__(
+            f"{self.sqlite_path} was not upgraded: migration {migration.version} ({migration.name}) removes tables "
+            f"that no LearnLoop code uses any more, and in this database they still hold rows: {held}. Nothing was "
+            "changed and no row was deleted. Keep the rows by staying on the LearnLoop version you have, and report "
+            "this with the table names above so the rows can be kept before the tables go."
         )
 
 
@@ -198,6 +222,9 @@ def _migrate(sqlite_path: Path, migrations: list[Migration], clock: Clock | None
         # an uncoordinated upgrade leaves the database byte-identical.
         if pending and (not upgrade or _UPGRADE_AUTHORITY.get() is None):
             raise UncoordinatedMigrationError(sqlite_path, max(already_applied), pending)
+        # Also before any write: refusing at the dropping migration itself would
+        # leave the migrations before it committed.
+        _refuse_dropping_rows(sqlite_path, pending)
     applied: list[Migration] = []
     creating = _CREATING.set(not already_applied)
     try:
@@ -365,6 +392,35 @@ def _refuse_unauthorized(connection: sqlite3.Connection, migration: Migration) -
         return
     path = next((row[2] for row in connection.execute("PRAGMA database_list") if row[1] == "main"), "") or ""
     raise UncoordinatedMigrationError(Path(path), int(current), [migration])
+
+
+def _refuse_dropping_rows(sqlite_path: Path, pending: list[Migration]) -> None:
+    """Raise :class:`NonEmptyDropError` for the first pending migration that
+    drops a table holding rows, reading the database read-only."""
+
+    guarded = [(migration, _REFUSE_IF_ROWS_RE.findall(migration.path.read_text(encoding="utf-8"))) for migration in pending]
+    guarded = [(migration, tables) for migration, tables in guarded if tables]
+    if not guarded:
+        return
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        for migration, tables in guarded:
+            held = _rows_held(connection, tables)
+            if held:
+                raise NonEmptyDropError(sqlite_path, migration, held)
+
+
+def _rows_held(connection: sqlite3.Connection, tables: list[str]) -> dict[str, int]:
+    """Row counts of the named tables that exist and hold rows, in the order named. A table an older database does
+    not have yet is created empty by an earlier pending migration, so it is skipped."""
+
+    present = {str(row[0]) for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    held: dict[str, int] = {}
+    for table in tables:
+        if table in present:
+            count = int(connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
+            if count:
+                held[table] = count
+    return held
 
 
 def _migration_is_applied(connection: sqlite3.Connection, version: int) -> bool:

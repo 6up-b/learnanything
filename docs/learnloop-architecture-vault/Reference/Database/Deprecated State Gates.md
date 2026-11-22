@@ -25,16 +25,17 @@ tags:
 
 # Deprecated State Gates
 
-Three tables have no established production caller after the refactor, but they remain schema- and code-compatible until production-vault telemetry and an explicit owner decision justify a later step. ^deprecated-state-gate
+Two tables have no established production caller after the refactor, but they remain schema- and code-compatible until production-vault telemetry and an explicit owner decision justify a later step. ^deprecated-state-gate
 
 | Table | Intended function | Current evidence | Current action |
 |---|---|---|---|
 | [[Reference/Database/Tables/source_exam_profiles\|source_exam_profiles]] | Materialized deterministic exam-profile cache | CRUD retained; no upstream caller found | Preserve and report row count |
 | [[Reference/Database/Tables/source_locator_schemes\|source_locator_schemes]] | Cached locator-scheme detection | CRUD retained; no upstream caller found | Preserve and report row count |
-| [[Reference/Database/Tables/learner_theta\|learner_theta]] | Legacy learner IRT theta state | Superseded as canonical projection, but old-vault meaning may remain | Preserve and report row count |
 
 > [!warning] Zero is a stop gate, not deletion permission
 > All ten repository fixture databases had zero rows where these tables existed. No owner production vault was available. The refactor therefore performed no schema drop, archive rename, or code detachment.
+
+A third, `learner_theta` (legacy learner IRT theta state), went through this sequence: the owner approved dropping it with the table review's dead group (Nov 20), and migration 260 (refactor J2) dropped it. That upgrade refuses, unchanged, any database in which it still holds a row, so its rows are never deleted silently; doctor no longer counts it.
 
 ## Doctor behavior
 
