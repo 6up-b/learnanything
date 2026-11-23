@@ -22,8 +22,35 @@ from learnloop.db.records import (
     _decode_scheduler_slate,
     _decode_scheduler_slate_candidate,
 )
+from learnloop.db.mastery_seed_inputs import MASTERY_SEED_TABLE, MasterySeedInputs
 from learnloop.db.row_serialization import _json, _loads
 from learnloop.ids import new_ulid
+
+
+def insert_mastery_seed_inputs(connection: Any, inputs: MasterySeedInputs, *, recorded_at: str) -> bool:
+    """Record ``inputs`` unless the learning object has a record already; whether it was written.
+
+    The first persistence wins and a record is never replaced: a later writer that found no row (another process
+    materialized it meanwhile) seeded from what it read, but the record names the seed the row started from."""
+
+    cursor = connection.execute(
+        f"INSERT INTO {MASTERY_SEED_TABLE}(learning_object_id, claims_made_json, selected_claim_id, materialized_at, "
+        "basis, policy_version, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(learning_object_id) DO NOTHING",
+        (inputs.learning_object_id, inputs.claims_made_json(), inputs.selected_claim_id, inputs.materialized_at,
+         inputs.basis, inputs.policy_version, recorded_at),
+    )
+    return cursor.rowcount == 1
+
+
+def record_legacy_mastery_seeds(
+    connection: Any, seeds_by_learning_object: Mapping[str, MasterySeedInputs], *, recorded_at: str
+) -> int:
+    """Record the upgrade's reconstructed seeds for learning objects that have none, in id order; how many."""
+
+    return sum(
+        insert_mastery_seed_inputs(connection, seeds_by_learning_object[learning_object_id], recorded_at=recorded_at)
+        for learning_object_id in sorted(seeds_by_learning_object)
+    )
 
 
 @dataclass(frozen=True)
@@ -322,6 +349,23 @@ class PracticeStateStoreMixin:
                 ),
             )
             connection.commit()
+
+    def mastery_seed_inputs(self, learning_object_id: str) -> MasterySeedInputs | None:
+        """The claims the learning object's mastery was first seeded from (mvp-0.67), or None."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                f"SELECT * FROM {MASTERY_SEED_TABLE} WHERE learning_object_id = ?", (learning_object_id,)
+            ).fetchone()
+        return MasterySeedInputs.from_row(row) if row is not None else None
+
+    def record_mastery_seed_inputs(self, inputs: MasterySeedInputs, *, recorded_at: str) -> bool:
+        """Record the seed unless the learning object has one already (the first persistence wins); whether it did."""
+
+        with self.connection() as connection:
+            written = insert_mastery_seed_inputs(connection, inputs, recorded_at=recorded_at)
+            connection.commit()
+        return written
 
     def answer_confidence_presence(self, *, exclude_attempt_ids: Iterable[str] = ()) -> dict[str, int]:
         """How often an ordinary graded attempt carries a pre-answer confidence tap.

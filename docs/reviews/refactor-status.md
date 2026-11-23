@@ -88,7 +88,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | D8 | Fix the four replay gaps pinned by tests | in progress | — | — | One landing per gap, in the design's order: same-second grades, retired items, the mastery seed, provenance |
 | D8 retired items | Replay retirement at the correct point in history | landed | this commit | [algorithm-mvp-0.66.md](algorithm-mvp-0.66.md) | mvp-0.66, migration 263: each live application records the facet set it read in `attempt_lifecycle_inputs`, and replay uses it. Attempts from before the tag carry a labelled reconstruction from the predecessor's own replay |
 | D8 same-second grades | Preserve commit order for grades sharing a timestamp | landed | this commit | [algorithm-mvp-0.65.md](algorithm-mvp-0.65.md) | mvp-0.65, migration 261: each new application records its sequence in `attempt_application_order`, and every prefix reader breaks a same-second tie by it. Attempts recorded before the tag keep their old order, labelled unknown |
-| D8 claims | Re-anchor claims created after replay materializes state | not started | — | — | Design for re-anchoring |
+| D8 claims | Re-anchor claims created after replay materializes state | landed | this commit | [algorithm-mvp-0.67.md](algorithm-mvp-0.67.md) | mvp-0.67, migration 265: the claims a learning object's mastery was first seeded from are recorded in `mastery_seed_inputs` where its row is first persisted, and replay starts from them. A starting-level change still affects only topics created afterwards (the profile setter's contract). Topics from before the tag carry a labelled reconstruction |
 | D8 provenance | Fix the two reopened input provenance gaps | waiting on | — | — | One capture point for diagnosis inputs |
 | D close fix 1 | Fix arc close serving and test gaps | landed | `7131b464c5` | [refactor-adfix1.md](refactor-adfix1.md) | — |
 | D close fix 2 | Fix diagnosis stops, clocks and vault switching | landed | `6fffbc20c8` | [refactor-adfix2.md](refactor-adfix2.md) | — |
@@ -151,7 +151,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | H1 | Distinguish the old scalar from FSRS difficulty | landed | `ece7907885` | [refactor-h1.md](refactor-h1.md) | Six callers read item parameters through the one seam (`resolve_item_irt_params`); a guard test (`tests/test_difficulty_kinds_apart.py`: 54 modules, 161 sites) fails on a crossing read; 24 caller cases give the same numbers. Left: the lesson weight's reconstruction (ledger L4-2). Found: H1-1 (the terminal app's scalar bar can show FSRS D; with H5) |
-| H2 | Compare four ways to use difficulty in replay | not started | — | — | Owner decided on 2026-11-20: run H2 now; H3 to H6 are decided from its report |
+| H2 | Compare four ways to use difficulty in replay | landed | this commit | [difficulty-four-way.md](difficulty-four-way.md) | Run on copies of the owner's vaults on 2026-11-23; the numbers went to the owner. H3 to H6 wait on the owner's decision from them |
 | H3 | Retire scalar difficulty from mastery and surprise | waiting on | — | — | H2 and owner's call with the [AD memory spec](../specs/spec_ad_memory_v1.md) |
 | H4 | Retire the model-estimated difficulty signal from AD | waiting on | — | — | Owner's call with the AD memory spec |
 | H5 | Update exam strata, retrieval filters and authoring | waiting on | — | — | Owner's call with the AD memory spec |

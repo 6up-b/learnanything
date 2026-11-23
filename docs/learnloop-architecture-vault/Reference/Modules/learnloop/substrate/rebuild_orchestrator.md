@@ -47,33 +47,33 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py) |
-| Source lines | 839 |
+| Source lines | 874 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class DerivedStateReplayer` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 33) — One ordered replay unit and the derived tables it exclusively owns.
-- `class ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 42) — Observable accounting from one replay unit.
-  - `as_dict(self) -> dict[str, Any]` (line 51; public)
-- `class OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 62) — Whole-vault rebuild result plus the R3 completeness evidence.
-  - `as_dict(self) -> dict[str, Any]` (line 75; public)
-- `class ReplayerRegistryError(ValueError)` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 91) — The declarative replayer registry is incomplete or ambiguous.
-- `class ReplayCompletenessError(RuntimeError)` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 95) — At least one raw attempt was not observed by any registered replayer.
-  - `__init__(self, attempt_ids: Sequence[str])` (line 98; internal)
-- `derived_table_owners(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> dict[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 230) — Return all declared owners, retaining duplicates for validation.
-- `validate_replayer_registry(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> None` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 242) — Require exact, unique DERIVED ownership and valid dependency order.
-- `rebuild_all_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, require_complete_attempt_coverage: bool=True) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 701) — Run all registered replayers and append exactly one rebuild receipt.
-- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 796) — Rebuild a vault's live database, then truncate the WAL it grew.
+- `class DerivedStateReplayer` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 40) — One ordered replay unit and the derived tables it exclusively owns.
+- `class ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 49) — Observable accounting from one replay unit.
+  - `as_dict(self) -> dict[str, Any]` (line 58; public)
+- `class OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 69) — Whole-vault rebuild result plus the R3 completeness evidence.
+  - `as_dict(self) -> dict[str, Any]` (line 82; public)
+- `class ReplayerRegistryError(ValueError)` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 98) — The declarative replayer registry is incomplete or ambiguous.
+- `class ReplayCompletenessError(RuntimeError)` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 102) — At least one raw attempt was not observed by any registered replayer.
+  - `__init__(self, attempt_ids: Sequence[str])` (line 105; internal)
+- `derived_table_owners(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> dict[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 237) — Return all declared owners, retaining duplicates for validation.
+- `validate_replayer_registry(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> None` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 249) — Require exact, unique DERIVED ownership and valid dependency order.
+- `rebuild_all_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, require_complete_attempt_coverage: bool=True) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 736) — Run all registered replayers and append exactly one rebuild receipt.
+- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 831) — Rebuild a vault's live database, then truncate the WAL it grew.
 
 ### Module constants
 
-- `COLD_MASTERY_BASELINE_AT` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 108)
-- `DERIVED_STATE_REPLAYERS` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 114)
-- `REPLAYER_REGISTRY` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 227)
-- `_RUNNERS` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 648)
-- `MAX_RECURRENCE_RECONCILIATION_PASSES` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 675)
+- `COLD_MASTERY_BASELINE_AT` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 115)
+- `DERIVED_STATE_REPLAYERS` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 121)
+- `REPLAYER_REGISTRY` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 234)
+- `_RUNNERS` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 683)
+- `MAX_RECURRENCE_RECONCILIATION_PASSES` ([src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 710)
 
 ### Explicit exports
 
@@ -94,28 +94,29 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ## Internal implementation anchors
 
-- `class _ReplayContext` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 286)
-- `_rows_in(repository: Repository, table_names: Sequence[str]) -> int` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 294)
-- `_clear_tables(repository: Repository, table_names: Sequence[str]) -> dict[str, int]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 302) — Delete a replayer's whole declared projection family atomically.
-- `_run_activity_substrate(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 310) — Backfill the authoritative activity ledger before learner replay.
-- `_run_recurrence_groups(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 337) — Clear and recompute the recurrence-group projection (no model call).
-- `_run_learning_state(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 359)
-- `_run_canonical_projection(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 420)
-- `_run_identifiability(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 440)
-- `_run_field_outcomes(spec, context)` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 470)
-- `_run_family_memory(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 480)
-- `_run_item_fingerprints(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 507)
-- `_run_source_block_fts(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 518)
-- `_run_router_outcomes(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 530)
-- `_run_retrieval_intervention_outcomes(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 578)
-- `_run_adaptive_difficulty(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 588)
-- `_run_item_forecast_scores(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 598)
-- `_run_retrieval_fusion_posteriors(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 608)
-- `_run_lesson_weight(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 619)
-- `_run_question_event_spans(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 627)
-- `_run_learner_text_gap_spans(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 638)
-- `_run_replayers(context: _ReplayContext) -> list[ReplayerResult]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 678)
-- `_reconcile_recurrence_groups(context: _ReplayContext) -> bool` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 682) — Refresh the recurrence projection on the inputs learner replay left.
+- `class _ReplayContext` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 293)
+- `_rows_in(repository: Repository, table_names: Sequence[str]) -> int` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 301)
+- `_clear_tables(repository: Repository, table_names: Sequence[str]) -> dict[str, int]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 309) — Delete a replayer's whole declared projection family atomically.
+- `_run_activity_substrate(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 317) — Backfill the authoritative activity ledger before learner replay.
+- `_run_recurrence_groups(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 344) — Clear and recompute the recurrence-group projection (no model call).
+- `_run_learning_state(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 366)
+- `_seed_attempt_free(context: _ReplayContext, learning_object_id: str) -> None` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 430) — An attempt-free learning object's row at mvp-0.67: the seed recorded where it was first persisted, then every re-anchoring claim made after it at its own point, as live applied them (the same claim stream the attempts' replay opens).
+- `_run_canonical_projection(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 455)
+- `_run_identifiability(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 475)
+- `_run_field_outcomes(spec, context)` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 505)
+- `_run_family_memory(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 515)
+- `_run_item_fingerprints(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 542)
+- `_run_source_block_fts(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 553)
+- `_run_router_outcomes(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 565)
+- `_run_retrieval_intervention_outcomes(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 613)
+- `_run_adaptive_difficulty(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 623)
+- `_run_item_forecast_scores(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 633)
+- `_run_retrieval_fusion_posteriors(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 643)
+- `_run_lesson_weight(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 654)
+- `_run_question_event_spans(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 662)
+- `_run_learner_text_gap_spans(spec: DerivedStateReplayer, context: _ReplayContext) -> ReplayerResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 673)
+- `_run_replayers(context: _ReplayContext) -> list[ReplayerResult]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 713)
+- `_reconcile_recurrence_groups(context: _ReplayContext) -> bool` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 717) — Refresh the recurrence projection on the inputs learner replay left.
 
 ## Who imports or calls it
 
@@ -136,7 +137,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `rebuild`; calls `rebuild`
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `rebuild`; calls `rebuild`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `mastery_seed_on`; calls `mastery_seed_on`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; calls `for_version`
 - [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] — imports `checkpoint_wal`; calls `checkpoint_wal`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `REBUILD_STAMPED_TABLES`, `Repository`
@@ -147,7 +149,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `coverage_denominator_version`; calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/learner/identifiability|learnloop.learner.identifiability]] — imports `graph_identifiability_report`; calls `graph_identifiability_report`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `rebuild_lesson_weight_state`; calls `rebuild_lesson_weight_state`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`; calls `initial_mastery_state_for_learning_object`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `live_seed_inputs`, `recorded_seed_state`, `seed_for_learning_object`; calls `initial_mastery_state_for_learning_object`, `live_seed_inputs`, `recorded_seed_state`, `seed_for_learning_object`
+- [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `note_rebuilt_seed`, `recorded_seed_for_replay`; calls `note_rebuilt_seed`, `recorded_seed_for_replay`
 - [[Reference/Modules/learnloop/local_embeddings/fusion|learnloop.local_embeddings.fusion]] — imports `refit_posteriors`; calls `refit_posteriors`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`; calls `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`; calls `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`
@@ -158,7 +161,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]] — imports `rebuild_learner_text_gap_spans`, `rebuild_question_event_spans`; calls `rebuild_learner_text_gap_spans`, `rebuild_question_event_spans`
 - [[Reference/Modules/learnloop/substrate/projection_switches|learnloop.substrate.projection_switches]] — imports `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `active_group_map`, `refresh_recurrence_groups`; calls `active_group_map`, `refresh_recurrence_groups`
-- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `rebuild_derived_state`; calls `rebuild_derived_state`
+- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `_ClaimStream`, `rebuild_derived_state`; calls `rebuild_derived_state`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
@@ -276,6 +279,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_off_is_the_predecessor_on_a_tracked_fixture_copy`
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
+- [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
+  - `test_a_reanchoring_claim_that_materializes_the_row_is_in_its_seed_and_never_applied_again`
+  - `test_an_lo_no_writer_materialized_is_materialized_and_recorded_by_the_rebuild`
+  - `test_the_golden_values_live_and_rebuilt`
 - [tests/test_mvp017_route_check_replay.py](../../../../../../tests/test_mvp017_route_check_replay.py) — direct import
   - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
   - `test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing`

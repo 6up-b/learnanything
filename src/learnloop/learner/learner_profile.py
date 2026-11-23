@@ -71,7 +71,13 @@ def seed_global_learner_claim(
 
     The earlier claim stays as a replaced row (the successor mvp-0.36), so
     replay seeds an LO first practised before the change from the level in
-    force then; a new vault's first seed (``bootstrap``) has none to keep."""
+    force then; a new vault's first seed (``bootstrap``) has none to keep.
+
+    The new level seeds only learning objects materialized after it: an
+    existing mastery row is never re-seeded. From mvp-0.67 each row's seed is
+    recorded where it was first persisted (``mastery_seed_inputs``), so a
+    rebuild keeps that promise too, for practised and attempt-free learning
+    objects alike."""
 
     claimed_level = STARTING_LEVEL_CLAIMS.get(starting_level)
     if claimed_level is None:

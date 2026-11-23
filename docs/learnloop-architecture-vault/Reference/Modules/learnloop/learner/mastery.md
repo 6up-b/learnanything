@@ -47,59 +47,65 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/mastery.py](../../../../../../src/learnloop/learner/mastery.py) |
-| Source lines | 1031 |
+| Source lines | 1100 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class MasteryObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 36)
-- `class MasteryDisplay` ([source](../../../../../../src/learnloop/learner/mastery.py), line 75)
-- `class IrtObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 84) — The 2PL link linearized at the prior mean (spec_irt_difficulty.md §4.1).
-- `class MasteryObservationTrace` ([source](../../../../../../src/learnloop/learner/mastery.py), line 100) — Full IRT picture of one mastery update, for debug logging (spec §7.1).
-- `sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 129)
-- `logit(value: float) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 133)
-- `display_mastery(state: MasteryState) -> MasteryDisplay` ([source](../../../../../../src/learnloop/learner/mastery.py), line 138)
-- `initial_mastery_state(learning_object_id: str, algorithm_version: str, now_iso: str, *, logit_variance: float=1.0) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 156)
-- `claim_fixes_live(vault) -> bool` ([source](../../../../../../src/learnloop/learner/mastery.py), line 174) — LP-min (a): the claim-fixes successor's kill switch.
-- `after_what_they_replaced(claims: list[dict[str, Any]], keys: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 198) — ``keys`` (claim id -> order key, or None for an unordered claim) with each replacing claim after what it replaced.
-- `initial_mastery_state_for_learning_object(vault, repository, learning_object_id: str, now_iso: str, *, claims_made: Collection[str] | None=None) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 273) — The LO's prior: the cold start, or the covering claim's re-anchor.
-- `apply_claim_evidence(state: MasteryState, *, claimed_level: float, prior_pseudo_count: float, now_iso: str, mean_only: bool=False) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 407) — Precision-weighted merge of a learner claim into an existing state.
-- `reanchor_mastery_from_claim(vault, repository, learning_object_id: str, *, claimed_level: float, prior_pseudo_count: float, now_iso: str, claims_made: Collection[str] | None=None, claim_id: str | None=None) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 453) — Make a newly written claim take effect on an already-materialized LO.
-- `replace_claim_and_reanchor(vault, repository, claim: dict[str, Any], *, clock=None) -> str` ([source](../../../../../../src/learnloop/learner/mastery.py), line 504) — The replace seam and the re-anchor of an LO-scoped learner report, as one write; the claim's id.
-- `covering_learner_claim(vault, repository, learning_object_id: str, *, claims_made: Collection[str] | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 563) — The one claim that seeds ``learning_object_id``'s prior, or None.
-- `covering_claims(vault, repository, learning_object_id: str, *, include_superseded: bool=False) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 601) — Every learner claim in force that covers ``learning_object_id`` (any scope).
-- `learning_objects_with_covering_claims(vault, repository, learning_object_ids) -> list[str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 622) — The given LOs that at least one learner claim covers, sorted.
-- `observation_weight(observation: MasteryObservation) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 702) — Reliability weight of an observation (spec §4.1).
-- `predicted_logit_variance(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 723) — ``P_pred = min(P + sigma2_drift * days_since, p_max)`` — prior variance grown by drift.
-- `item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 737) — Resolve ``(a, b)`` from the **static** authored/LLM scalar (spec §4.3).
-- `resolve_item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig, item_state: 'ItemParameterState | None'=None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 762) — ``(a, b)`` with the EB scalar/IRT posterior b when enabled, else authored.
-- `update_item_difficulty(prior: 'ItemParameterState | None', *, practice_item_id: str, authored_b: float, item_a: float, learner_mu_posterior: float, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, updated_at: str) -> 'ItemParameterState'` ([source](../../../../../../src/learnloop/learner/mastery.py), line 782) — Alternating conditional EKF step on scalar/IRT item difficulty b.
-- `irt_observation(item_a: float, item_b: float, prior: MasteryState, observation: MasteryObservation, config: MasteryConfig) -> IrtObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 832) — Linearize the 2PL link at the prior mean (spec §4.1).
-- `update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 868)
-- `update_mastery_traced(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0, item_id: str='') -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 883) — Difficulty-aware mastery update returning the posterior plus an IRT trace.
+- `class MasteryObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 38)
+- `class MasteryDisplay` ([source](../../../../../../src/learnloop/learner/mastery.py), line 77)
+- `class IrtObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 86) — The 2PL link linearized at the prior mean (spec_irt_difficulty.md §4.1).
+- `class MasteryObservationTrace` ([source](../../../../../../src/learnloop/learner/mastery.py), line 102) — Full IRT picture of one mastery update, for debug logging (spec §7.1).
+- `sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 131)
+- `logit(value: float) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 135)
+- `display_mastery(state: MasteryState) -> MasteryDisplay` ([source](../../../../../../src/learnloop/learner/mastery.py), line 140)
+- `initial_mastery_state(learning_object_id: str, algorithm_version: str, now_iso: str, *, logit_variance: float=1.0) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 158)
+- `claim_fixes_live(vault) -> bool` ([source](../../../../../../src/learnloop/learner/mastery.py), line 176) — LP-min (a): the claim-fixes successor's kill switch.
+- `after_what_they_replaced(claims: list[dict[str, Any]], keys: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 200) — ``keys`` (claim id -> order key, or None for an unordered claim) with each replacing claim after what it replaced.
+- `initial_mastery_state_for_learning_object(vault, repository, learning_object_id: str, now_iso: str, *, claims_made: Collection[str] | None=None) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 275) — The LO's prior: the cold start, or the covering claim's re-anchor.
+- `class MasterySeed` ([source](../../../../../../src/learnloop/learner/mastery.py), line 311) — A learning object's zero-evidence seed and what it read (mvp-0.67 records the reading where a row is first persisted): every covering claim considered (``considered``, replaced ones included where the variance bound reads them), the ones in force among them, and the claim whose…
+- `seed_for_learning_object(vault, repository, learning_object_id: str, now_iso: str, *, claims_made: Collection[str] | None=None) -> MasterySeed` ([source](../../../../../../src/learnloop/learner/mastery.py), line 322) — :func:`initial_mastery_state_for_learning_object`'s state together with the claims it read.
+- `seed_from_recorded_claims(vault, learning_object_id: str, now_iso: str, claims: Collection[dict[str, Any]], in_force_ids: Collection[str]) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 342) — The seed a recorded reading gives (mvp-0.67): the same rule as :func:`seed_for_learning_object`, over the claims the first persistence considered instead of the claims on record now.
+- `apply_claim_evidence(state: MasteryState, *, claimed_level: float, prior_pseudo_count: float, now_iso: str, mean_only: bool=False) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 449) — Precision-weighted merge of a learner claim into an existing state.
+- `reanchor_mastery_from_claim(vault, repository, learning_object_id: str, *, claimed_level: float, prior_pseudo_count: float, now_iso: str, claims_made: Collection[str] | None=None, claim_id: str | None=None) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 495) — Make a newly written claim take effect on an already-materialized LO.
+- `replace_claim_and_reanchor(vault, repository, claim: dict[str, Any], *, clock=None) -> str` ([source](../../../../../../src/learnloop/learner/mastery.py), line 546) — The replace seam and the re-anchor of an LO-scoped learner report, as one write; the claim's id.
+- `live_seed_inputs(vault, learning_object_id: str, seed: MasterySeed, *, materialized_at: str) -> MasterySeedInputs | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 612) — The record a live first persistence of ``learning_object_id``'s mastery writes with its row (mvp-0.67): every claim ``seed`` considered; None below the tag, where nothing is recorded.
+- `recorded_seed_state(vault, inputs: MasterySeedInputs, now_iso: str) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 626) — The zero-evidence state a recorded seed gives (mvp-0.67).
+- `covering_learner_claim(vault, repository, learning_object_id: str, *, claims_made: Collection[str] | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 632) — The one claim that seeds ``learning_object_id``'s prior, or None.
+- `covering_claims(vault, repository, learning_object_id: str, *, include_superseded: bool=False) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 670) — Every learner claim in force that covers ``learning_object_id`` (any scope).
+- `learning_objects_with_covering_claims(vault, repository, learning_object_ids) -> list[str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 691) — The given LOs that at least one learner claim covers, sorted.
+- `observation_weight(observation: MasteryObservation) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 771) — Reliability weight of an observation (spec §4.1).
+- `predicted_logit_variance(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 792) — ``P_pred = min(P + sigma2_drift * days_since, p_max)`` — prior variance grown by drift.
+- `item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 806) — Resolve ``(a, b)`` from the **static** authored/LLM scalar (spec §4.3).
+- `resolve_item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig, item_state: 'ItemParameterState | None'=None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 831) — ``(a, b)`` with the EB scalar/IRT posterior b when enabled, else authored.
+- `update_item_difficulty(prior: 'ItemParameterState | None', *, practice_item_id: str, authored_b: float, item_a: float, learner_mu_posterior: float, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, updated_at: str) -> 'ItemParameterState'` ([source](../../../../../../src/learnloop/learner/mastery.py), line 851) — Alternating conditional EKF step on scalar/IRT item difficulty b.
+- `irt_observation(item_a: float, item_b: float, prior: MasteryState, observation: MasteryObservation, config: MasteryConfig) -> IrtObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 901) — Linearize the 2PL link at the prior mean (spec §4.1).
+- `update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 937)
+- `update_mastery_traced(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0, item_id: str='') -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 952) — Difficulty-aware mastery update returning the posterior plus an IRT trace.
 
 ### Module constants
 
-- `REANCHORING_CLAIM_SOURCES` ([src/learnloop/learner/mastery.py](../../../../../../src/learnloop/learner/mastery.py), line 268)
+- `REANCHORING_CLAIM_SOURCES` ([src/learnloop/learner/mastery.py](../../../../../../src/learnloop/learner/mastery.py), line 270)
 
 ## Internal implementation anchors
 
-- `_in_force(claims: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 186) — The claims among ``claims`` that no claim among them replaced (successor mvp-0.36).
-- `_claim_seed(vault, claim: dict[str, Any], cold: MasteryState, now_iso: str, *, fixes: bool) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 334) — The zero-evidence state ``claim`` seeds.
-- `_retained_cold_variance(vault, claims: list[dict[str, Any]], learning_object_id: str, cold: MasteryState, now_iso: str) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 364) — The largest variance a re-anchoring claim's seed left on the zero-evidence row (re-review F8).
-- `_made_order(claim: dict[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 400) — A claim's place in the ``(created_at, id)`` order; an unparseable stamp sorts first.
-- `_reanchor_in_transaction(vault, repository, learning_object_id: str, *, claimed_level: float, prior_pseudo_count: float, now_iso: str, claims_made: Collection[str] | None) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 534)
-- `_claims_made(vault, repository, learning_object_id: str, claims_made: Collection[str] | None, *, fixes: bool) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 582) — The covering claims made by the caller's point: replay's ``claims_made``, else those in force now.
-- `_winning_claim(claims: list[dict[str, Any]], *, fixes: bool) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 616)
-- `_claim_covers_learning_object(claim: dict[str, Any], learning_object) -> bool` ([source](../../../../../../src/learnloop/learner/mastery.py), line 642)
-- `_claim_rank(claim: dict[str, Any]) -> tuple[int, float, float, str, str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 656)
-- `_parse_instant(value: Any) -> datetime | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 673)
-- `_claim_rank_by_recency(claim: dict[str, Any]) -> tuple[int, float, float, str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 680) — The claim-fixes successor's order: specificity, recency, pseudo-count.
-- `_iso(value: datetime) -> str` ([source](../../../../../../src/learnloop/learner/mastery.py), line 698)
-- `_ekf_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 904)
-- `_legacy_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 979) — The pre-IRT logit-space Kalman update, reproduced bit-for-bit (spec §6.2).
+- `_in_force(claims: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 188) — The claims among ``claims`` that no claim among them replaced (successor mvp-0.36).
+- `_seed_from(vault, learning_object_id: str, now_iso: str, made: list[dict[str, Any]], claims: list[dict[str, Any]], *, fixes: bool) -> MasterySeed` ([source](../../../../../../src/learnloop/learner/mastery.py), line 353)
+- `_claim_seed(vault, claim: dict[str, Any], cold: MasteryState, now_iso: str, *, fixes: bool) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 376) — The zero-evidence state ``claim`` seeds.
+- `_retained_cold_variance(vault, claims: list[dict[str, Any]], learning_object_id: str, cold: MasteryState, now_iso: str) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 406) — The largest variance a re-anchoring claim's seed left on the zero-evidence row (re-review F8).
+- `_made_order(claim: dict[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 442) — A claim's place in the ``(created_at, id)`` order; an unparseable stamp sorts first.
+- `_reanchor_in_transaction(vault, repository, learning_object_id: str, *, claimed_level: float, prior_pseudo_count: float, now_iso: str, claims_made: Collection[str] | None) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 576)
+- `_claims_made(vault, repository, learning_object_id: str, claims_made: Collection[str] | None, *, fixes: bool) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 651) — The covering claims made by the caller's point: replay's ``claims_made``, else those in force now.
+- `_winning_claim(claims: list[dict[str, Any]], *, fixes: bool) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 685)
+- `_claim_covers_learning_object(claim: dict[str, Any], learning_object) -> bool` ([source](../../../../../../src/learnloop/learner/mastery.py), line 711)
+- `_claim_rank(claim: dict[str, Any]) -> tuple[int, float, float, str, str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 725)
+- `_parse_instant(value: Any) -> datetime | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 742)
+- `_claim_rank_by_recency(claim: dict[str, Any]) -> tuple[int, float, float, str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 749) — The claim-fixes successor's order: specificity, recency, pseudo-count.
+- `_iso(value: datetime) -> str` ([source](../../../../../../src/learnloop/learner/mastery.py), line 767)
+- `_ekf_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 973)
+- `_legacy_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 1048) — The pre-IRT logit-space Kalman update, reproduced bit-for-bit (spec §6.2).
 
 ## Who imports or calls it
 
@@ -107,7 +113,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]] — imports `resolve_item_irt_params`; statically calls `resolve_item_irt_params`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `MasteryObservation`, `MasteryObservationTrace`, `display_mastery`, `initial_mastery_state_for_learning_object`, `item_irt_params`, `resolve_item_irt_params`, `update_item_difficulty`, `update_mastery_traced`; statically calls `MasteryObservation`, `display_mastery`, `initial_mastery_state_for_learning_object`, `item_irt_params`, `resolve_item_irt_params`, `update_item_difficulty`, `update_mastery_traced`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `MasteryObservation`, `MasteryObservationTrace`, `MasterySeed`, `display_mastery`, `item_irt_params`, `resolve_item_irt_params`, `seed_for_learning_object`, `update_item_difficulty`, `update_mastery_traced`; statically calls `MasteryObservation`, `display_mastery`, `item_irt_params`, `resolve_item_irt_params`, `seed_for_learning_object`, `update_item_difficulty`, `update_mastery_traced`
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `MasteryObservation`, `irt_observation`, `logit`, `observation_weight`, `sigmoid`; statically calls `irt_observation`, `logit`, `observation_weight`, `sigmoid`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `replace_claim_and_reanchor`; statically calls `replace_claim_and_reanchor`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `covering_learner_claim`, `display_mastery`; statically calls `covering_learner_claim`, `display_mastery`
@@ -124,6 +130,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `covering_learner_claim`; statically calls `covering_learner_claim`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `display_mastery`; statically calls `display_mastery`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `MasteryObservation`, `item_irt_params`, `update_mastery`; statically calls `MasteryObservation`, `item_irt_params`, `update_mastery`
+- [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `MasterySeed`, `live_seed_inputs`, `recorded_seed_state`, `seed_for_learning_object`; statically calls `live_seed_inputs`, `recorded_seed_state`, `seed_for_learning_object`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `display_mastery`; statically calls `display_mastery`
 - [[Reference/Modules/learnloop/placement/claim_check|learnloop.placement.claim_check]] — imports `claim_fixes_live`; statically calls `claim_fixes_live`
 - [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] — imports `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`; statically calls `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`
@@ -133,8 +140,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] — imports `MasteryObservation`, `display_mastery`, `initial_mastery_state`, `update_mastery`; statically calls `MasteryObservation`, `display_mastery`, `initial_mastery_state`, `update_mastery`
 - [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] — imports `display_mastery`; statically calls `display_mastery`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `display_mastery`; statically calls `display_mastery`
-- [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `initial_mastery_state_for_learning_object`; statically calls `initial_mastery_state_for_learning_object`
-- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `module`; statically calls `after_what_they_replaced`, `claim_fixes_live`, `covering_claims`, `initial_mastery_state_for_learning_object`, `reanchor_mastery_from_claim`
+- [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `initial_mastery_state_for_learning_object`, `live_seed_inputs`, `recorded_seed_state`, `seed_for_learning_object`; statically calls `initial_mastery_state_for_learning_object`, `live_seed_inputs`, `recorded_seed_state`, `seed_for_learning_object`
+- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `module`; statically calls `after_what_they_replaced`, `claim_fixes_live`, `covering_claims`, `reanchor_mastery_from_claim`, `recorded_seed_state`, `seed_for_learning_object`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `initial_mastery_state_for_learning_object`; statically calls `initial_mastery_state_for_learning_object`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`; statically calls `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`; statically calls `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`
@@ -152,9 +159,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `mastery_seed_on`; calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] — imports `attempt_evidence_mass`; calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `MasteryConfig`
+- [[Reference/Modules/learnloop/db/mastery_seed_inputs|learnloop.db.mastery_seed_inputs]] — imports `BASIS_CAPTURED`, `MasterySeedInputs`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ItemParameterState`, `MasteryState`; calls `ItemParameterState`, `MasteryState`
 - [[Reference/Modules/learnloop/numeric|learnloop.numeric]] — imports `clamp`; calls `clamp`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `PracticeItem`
@@ -171,7 +180,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] and 36 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] and 37 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -234,6 +243,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_low_confidence_moves_mean_less_than_high_confidence`
   - `test_positive_score_raises_mean`
   - `test_zero_score_does_not_raise_mean`
+- [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
+  - `test_a_reanchoring_claim_that_materializes_the_row_is_in_its_seed_and_never_applied_again`
+  - `test_asking_for_a_hypothetical_prior_records_nothing`
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_primed_attempts.py](../../../../../../tests/test_primed_attempts.py) — direct import

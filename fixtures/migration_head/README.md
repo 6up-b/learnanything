@@ -1,11 +1,25 @@
 # Migration-head fixture
 
-**Holds migration 264 (`264_reader_workbench_guards.sql`), the head.** The directory's name carries no number (since
+**Holds migration 265 (`265_mastery_seed_inputs.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## Refactor D8 gap 3 (migration 265), `refactor/d8-mastery-seed`, 2026-11-22
+
+Upgraded in place (no rename; base: main at `54be27df69`, head 264, after the merge that brought the Reader workbench
+v2 fix round's 264 under it) by the B1 procedure below: `265_mastery_seed_inputs.sql` (one new table, `mastery_seed_inputs`, RAW_LEDGER,
+one row per learning object with the claims its mastery was first seeded from, empty here: nothing is backfilled by
+the migration, and the fixture is at `mvp-0.6`, below the tag whose upgrade reconstructs legacy rows) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
+`upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[265]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
+and the copy written into its place with `backup_database`, no companion files. Compared with the 264 file: two
+objects added (the table and the autoindex of its TEXT primary key), no existing object's definition changed, and the
+only existing table whose rows changed is `schema_migrations` (gains 265). Redone on main's 264 file after the fix
+round landed first. The file grows from 7,729,152 to 7,737,344 bytes (two pages).
 
 ## Reader workbench v2 fix round (migration 264), `reader/rd0-fix-round`, 2026-11-22
 
