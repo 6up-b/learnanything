@@ -669,7 +669,7 @@ difference until it is fixed.
 | VR-26 | visual reference, RD3 | History day headers lack the mockup's 1 px top rule | `visual_reference.py --state hist` | RD3's fix round | open |
 | VR-27 | visual reference, RD3 | Search footer has no band of its own; the mockup's sits on `#111113` between 1 px rules | `visual_reference.py --state 'spot=softmax'` | RD3's fix round | open |
 | VR-28 | visual reference, RD3 | Search input text `#eeeeee` (mockup `#ffffff`); selected row text `#ffffff` (mockup `#d8d8e0`) | `visual_reference.py --state 'spot=softmax'` | RD3's fix round | open |
-| VR-29 | visual reference, RD4 | The shelf has no TODAY · RUNNING PAD section above CARRIED | `visual_reference.py --state 's11=run'` | RD4's fix round | open |
+| VR-29 | visual reference, RD4 | The shelf has no TODAY · RUNNING PAD section above CARRIED | `visual_reference.py --state 's11=run'`; `DeskShell.menu.test.tsx > TODAY · RUNNING PAD shows the running pad's last three blocks of today…` | RD5b: the shelf's lower part shows "today · running pad" with `open` and the running pad's last three blocks of today, each marked by where it came from (`◇ fig`, `§`, `◇`, `›`), above CARRIED; `open` focuses the stack and scrolls it to the running pad (`shelf_lower_head` now matches) | fixed |
 | VR-30 | visual reference, RD4 | Carried questions in the shelf `#a8a8b8`, upright, normal line; mockup `#d8d8e0`, italic, 15.4 px line | `visual_reference.py --stage rd1` | RD4's fix round | open |
 | VR-31 | visual reference, RD4 | Pad paper and tab borders `#4a4740`; mockup `#2a2825` | `visual_reference.py --stage rd4` | RD4's fix round | open |
 | VR-32 | visual reference, RD4 | Pad gutter marks are bare glyphs; the mockup's are chips (3 px radius, 3/2/1/2 padding) | `visual_reference.py --stage rd4` | RD4's fix round | open |
@@ -682,3 +682,10 @@ difference until it is fixed.
 | VR-39 | visual reference, RD4 | Arrange is a floating panel (`#181818`, border, radius 4, shadow, padding 6); the mockup's covers the pad window (`#0c0c0df5`, no border, padding 14) | `visual_reference.py --state 's11=arrange'` | RD4's fix round | open |
 | VR-40 | visual reference, RD4 | Pad menu frame 340 px wide (mockup 360), text `#d8d8e0` (`#eeeeee`), heading `#8b8b9d` 10.5 px over a rule (`#a8a8b8` 10 px, none), rows on the normal line (16.8 px) | `visual_reference.py --state 's11=menu'` | RD4's fix round | open |
 | VR-41 | visual reference, RD4 | A passage's ✎ mark has 3 px side padding on the normal line; mockup none, 18 px line | `visual_reference.py --state markback` | RD4's fix round | open |
+
+## From the Reader workbench v2 context menu frontend (RD5b, 2026-11-23)
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| RD5b-1 | RD5b, the layout carried from RD4's frontend round | A pad stack's window was titled "notes", and its ⓘ sat as "ⓘ yours" in a bar above the pads; the mockup's title bar reads "Scratchpads ⓘ yours" with the ⓘ circled after the title | `DeskShell.menu.test.tsx > a pad stack's title bar reads Scratchpads ⓘ yours…` (fails with the old title) | The title bar reads "Scratchpads", then the circled ⓘ (17 px, 1 px `#3a3a3a`, `#8b8b9d`, as measured) opening "where your words go" under it, then "yours" as the window's place; the stack's own bar shows only where no desk holds it (a stack mounted alone) | fixed |
+| RD5b-2 | RD5b, the vitest run | The DeskShell suite's pads fake answered `passage.union_range` with no `spans`: the passage marks' read threw inside its promise, six unhandled rejections, and vitest exits 1 on the suite (also on RD4's frontend fix round's tip) | `npx vitest run src/screens/desks/DeskShell.test.tsx` (exit 1, "Errors 6 errors") | The fake answers in the contract's shape (`spans: []`) | fixed |
