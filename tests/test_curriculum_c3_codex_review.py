@@ -328,7 +328,7 @@ def test_a_syllabus_made_during_the_import_writes_nothing(tmp_path):
 def test_the_reader_s_own_import_refuses_a_syllabus_before_any_model_call(tmp_path, monkeypatch, unit_override):
     from learnloop.clock import FrozenClock
     from learnloop.content.authoring.source_exercise_import import selection_for_region
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext, RunnerServices
     from tests.source_service_fakes import FakeServiceLLM
 

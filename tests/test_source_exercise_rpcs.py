@@ -127,7 +127,7 @@ def _proposal_row(repository, *, proposal_id, constraints, intent, exercise, cal
 
 
 def _run_import_job(paths, repository, queued, llm):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import JobContext, RunnerServices
 
     ctx = JobContext(repo=repository, vault_root=paths.root,
