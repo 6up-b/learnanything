@@ -40,20 +40,29 @@ identity change, and no model call.
    `_optional_int` (import_jobs, read by `handle_inventory`), `_routed_task_client` (synthesis jobs, read by the
    authoring clients), `_reader_source_sets` (authoring jobs, read by the host's Reader enqueues). They are
    imported where read rather than copied or renamed, so every body stays byte-identical.
-7. **The table names its handlers; the cycle ratchet rises by 3.** Each row's `handler` is a `module:function`
-   string that `resolve_handler` imports when the runner builds its default handlers (the runner, not only the
-   host, resolves them: the CLI and the tests construct `IngestRunner` directly and rely on the defaults).
-   `job_types.py` imports no LearnLoop module at run time (`Handler` only under `TYPE_CHECKING`), so the sidecar's
-   reload checks and the runner's flag reads take a row's facts without loading any feature job module (a
-   subprocess test checks it). An earlier version imported the handlers into the table; that put the table and
-   all five job modules in the runner's import cycle (221 → 226). With the names, `job_types.py` and
-   `figures/jobs.py` stay out, and `modules_in_an_import_cycle` is 224, set by hand with its reason beside it.
-   What still closes the cycle (ledger K2-22): the runner's services fall back on defaults in `import_jobs`,
-   `synthesis/jobs` and `authoring/jobs` (function-local imports in `_import_jobs`, `_synthesis_jobs`,
-   `_authoring_jobs`), each of which imports the runner at module level for `IngestRunnerError`, `JobContext`,
-   `JobCancelled` and `JobSpec`; `import_jobs` imports `source_retrieval/jobs` (`queue_source_vectors`), which
-   imports the runner too. Before K2.7 one module (`jobs.py`) closed it; `jobs.py`, now only the host, leaves it.
-   Breaking it needs the job contracts in a leaf module the runner re-exports, which is not a move. The only
+7. **The table names its handlers; the job contracts are a leaf; the cycle ratchet rises by 2.** Each row's
+   `handler` is a `module:function` string that `resolve_handler` imports when the runner builds its default
+   handlers (the runner, not only the host, resolves them: the CLI and the tests construct `IngestRunner` directly
+   and rely on the defaults). `job_types.py` imports no LearnLoop module at run time (`Handler` only under
+   `TYPE_CHECKING`), so the sidecar's reload checks and the runner's flag reads take a row's facts without loading
+   any feature job module (a subprocess test checks it).
+   The contracts a job module needs (`IngestRunnerError`, `JobCancelled`, `WaitingForInput`, `JobSpec`,
+   `FetchedBytes`) moved from the runner to the leaf `content/pipeline/job_contracts.py`, bodies unchanged; the
+   runner re-exports them, so every existing import keeps working and the classes are one set of objects (an
+   identity test checks the runner's, the leaf's and every job module's names). The five job modules import the
+   leaf, and `JobContext`, which they use only in annotations, under `TYPE_CHECKING`, so none imports the runner at
+   run time. The runner loads the three job modules its services fall back on by module path
+   (`runner._job_module`), as the table names its handlers.
+   Measured `modules_in_an_import_cycle`: 226 with handlers imported into the table, 224 with handler names, 223
+   with the contracts leaf (`source_retrieval/jobs.py` leaves), and 223 still with the defaults loaded by name;
+   221 at the base. Set by hand with its reason beside it. What still closes the cycle (ledger K2-22) is no longer
+   the runner but two back-imports from the pipeline into job modules: `add_source → authoring.jobs`
+   (`start_waiting_sections`, function-local) while `authoring.jobs → add_source`, `synthesis.jobs → add_source`
+   and `authoring.jobs → synthesis.jobs`; and `reread → import_jobs` (`_pdf_page_count`, function-local) while
+   `import_jobs → reread`. With those two edges removed the measure gives 219 (simulated); that needs two more pure
+   moves (`start_waiting_sections` and `practice_expansion_payload` into `add_source`, `_pdf_page_count` into
+   `reread`), which this step stops short of. Loading the defaults by name changes the number only together with
+   those moves: with the runner importing the job modules function-locally, the same cut still leaves 223. The only
    other members edited: `jobs.py`'s stage-comment count (32 → 13) and `handle_inventory`'s over-200 line, which
    names its new module. The new modules' stage-comment counts (import_jobs 9, authoring jobs 11) are not added
    to `[stage_comments_by_file]`; the ratchet's total fell (2,351 → 2,346).
@@ -163,7 +172,10 @@ calls of `applying_job_types()` / `parallel_job_types()`, which return the same 
 top-level functions and classes, every global name a body reads resolves at the tip to the same object as at the
 base (sets compared as sets; a moved definition's own module mapped back). 0 differences at the move commit; at
 the tip the only two are `DurableIngestJobs`'s reads of the deleted `APPLYING_JOB_TYPES` and
-`_PARALLEL_JOB_TYPES`, which it now gets from the table's functions (P1). As designed,
+`_PARALLEL_JOB_TYPES`, which it now gets from the table's functions (P1). After the contracts leaf, the moved
+bodies' reads of the five contracts resolve to the same classes, now defined in `job_contracts` (the runner's
+names are those objects), and their `JobContext` names are annotations only (imported under `TYPE_CHECKING`; no
+moved body reads it at run time, checked by an AST scan); nothing else differs. As designed,
 `__name__` follows the new module in seven moved bodies that log through `logging.getLogger(__name__)`
 (`_record_commission_skip`, `_record_reader_import_keys`, `_record_step`, `_verify_quietly`, `handle_import`,
 `queue_coverage_on_extract`, `start_waiting_sections`); nothing in `src/`, `tests/` or `scripts/` selects a logger
@@ -199,8 +211,8 @@ the host no longer has): none left apart from four local variables that happen t
   ("these jobs can add or replace scheduler-visible practice") covered them, but it named neither, and their
   batches are not build workflows. A Today poll still reloads after them (`get_queue_revision` reloads after any
   applying job and answers `reloaded`). Kept as it ran: the rows say `affects_queue=False`.
-- **K2-22** (ledger, queued, before arc K closes): four job modules sit in the runner's import cycle
-  (judgment call 7, with the chains).
+- **K2-22** (ledger, queued, before arc K closes): three job modules sit in the add-source planner's import cycle
+  through two back-imports (judgment call 7, with the chains and the measured fix).
 - **K2-21** (ledger, fixed here): `KNOWN_JOB_TYPES` named `extract`, which no handler runs, and missed ten of
   the 21 types; `KNOWN_WORKFLOW_TYPES` was read by nothing. Only one test read the first, so nothing ran
   differently. Both are deleted.
@@ -229,6 +241,9 @@ All through the scratch wrapper (isolated home, config and temp dir), tests memo
 | then the 7 test files that read the sidecar's reload after an applying job (`get_queue_revision`, `needs_reload`, `completed_jobs_awaiting_reload`) | 255 passed, 5 skipped |
 | then pins, ratchets, defaults golden, CLI snapshot, kill switches, SQLite copies; layout alone; architecture alone; `ruff check`; `lint-imports` | 398 passed; 3 passed; 18 passed; all checks passed; 52 kept |
 | AST check at the tip | 134/134 moves AST-identical and verbatim; only `DurableIngestJobs` differs in the host (the table's functions) |
+| after the contracts leaf and the defaults loaded by name (K2-22): the same 165-file affected set (the name filter extended with `IngestRunnerError`, `JobCancelled`, `WaitingForInput`, `FetchedBytes`, `JobSpec`, `job_contracts`, which added no file), 5 chunks, `-m "not arc_close"` | 728 passed; 861 passed; 814 passed, 11 skipped; 624 passed, 6 skipped; 63 passed |
+| then pins, ratchets, defaults golden, CLI snapshot, kill switches, SQLite copies; layout alone; architecture alone; ratchets and pins with the 223 golden; `check_gate_partition.py`; `ruff check`; `lint-imports` | 398 passed; 3 passed; 18 passed; 360 passed; collected 33456 (landing 33390 + arc_close 66); all checks passed; 52 kept |
+| AST check after K2-22 | 134/134 moves still AST-identical and verbatim |
 | `module_validate.py` | the five new modules have no module note yet (the landing regenerates) |
 
 ## Not verified

@@ -6,11 +6,11 @@
 
 [ratchet]
 largest_import_component = 84
-modules_in_an_import_cycle = 224
-# 224: the ingest job modules. The runner's services fall back on defaults that now live in three job modules
-# (import_jobs, synthesis/jobs, authoring/jobs) instead of jobs.py, each importing the runner's contracts, and
-# import_jobs imports source_retrieval/jobs: those four join the runner's cycle, which jobs.py, now only the host,
-# leaves (ledger K2-22). The table names its handlers by module path, so it and figures/jobs stay out.
+modules_in_an_import_cycle = 223
+# 223: two ingest job modules beyond the base. The pipeline's planner and its re-read call back into them
+# (add_source imports authoring/jobs' start_waiting_sections, reread imports import_jobs' _pdf_page_count) while
+# both job modules call the planner, so import_jobs, synthesis/jobs and authoring/jobs sit in the add-source
+# cycle where jobs.py alone sat before (ledger K2-22).
 # 221: learnloop.scheduling.intent.recall_targets, which joins the diagnosis repair lane's existing cycle (it already
 # imports diagnosis.causal_activity_policy) once diagnosis.remediation reads the plan's effective due from it (mvp-0.64).
 # 47: learnloop.notebook_authoring, the owner-side notebook harness the owner queued on 2026-11-20. It is its own
