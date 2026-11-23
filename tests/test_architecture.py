@@ -207,6 +207,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/pads.py",
         # Migration 266: the pads' submissions, carried questions, proposals and labels.
         "src/learnloop/db/stores/pad_ledgers.py",
+        # Migration 267: the learner's ink saves and erases, and each reading of them (both append-only).
+        "src/learnloop/db/stores/ink_strokes.py",
         "src/learnloop/db/stores/workspace_batches.py",
         "src/learnloop/db/stores/span_projections.py",
         "src/learnloop/substrate/replay.py",

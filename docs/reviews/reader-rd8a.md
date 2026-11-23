@@ -231,6 +231,7 @@ See the step's report for the command log. New: `tests/test_reader_rd8a_migratio
 `test_reader_rd8a_render.py`, `test_reader_rd8a_transcribe.py`, `test_reader_rd8a_rpcs.py`; helpers
 `tests/ink_helpers.py`, `tests/reader_rd8a_migration_helpers.py`. Edited: the earlier migrations' upgrade diffs (admit
 `RD8A_ADDED_OBJECTS`), `test_mobile_allowlist.py` (the five RPCs pinned desktop-only), `test_judge_routes.py` (the
-settings' judgment routes gain `ink_transcription` and its disclosure), `identity_pins_helpers.py` (site RD8a: the
+settings' judgment routes gain `ink_transcription` and its disclosure), `test_architecture.py` (the new SQL owner
+`db/stores/ink_strokes.py`), `identity_pins_helpers.py` (site RD8a: the
 strokes hash, the prompt, the result schema; three new pins, none moved), `model.test.ts` (the pad model's
 `erase_ink`).
