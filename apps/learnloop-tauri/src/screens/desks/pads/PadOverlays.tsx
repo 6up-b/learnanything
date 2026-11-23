@@ -323,15 +323,23 @@ interface TeachBackTurn {
   questionMd: string;
 }
 
-/** The pending follow-up question of a checkpointed teach-back on this item, if its last turn is the tutor's. */
+type StoredTeachBackState = { practice_item_id?: string; practiceItemId?: string; turns?: Array<{ role?: string; content_md?: string; contentMd?: string }> };
+
+/** The pending follow-up question of a teach-back's stored state (keys as stored), if its last turn is the tutor's. */
+export function stateQuestion(state: StoredTeachBackState | null | undefined, practiceItemId: string): string | null {
+  if (!state) return null;
+  const item = state.practice_item_id ?? state.practiceItemId;
+  if (item !== undefined && item !== practiceItemId) return null;
+  const last = state.turns?.[state.turns.length - 1];
+  return last && last.role === "ai" ? last.content_md ?? last.contentMd ?? null : null;
+}
+
+/** The same, from a session checkpoint's current answer (an older sidecar's only record of it). */
 export function pendingTeachBackQuestion(currentAnswer: string | null | undefined, practiceItemId: string): string | null {
   if (!currentAnswer) return null;
   try {
-    const envelope = JSON.parse(currentAnswer) as { mode?: string; state?: { practice_item_id?: string; practiceItemId?: string; turns?: Array<{ role?: string; content_md?: string; contentMd?: string }> } };
-    if (envelope.mode !== "teach_back" || !envelope.state) return null;
-    if ((envelope.state.practice_item_id ?? envelope.state.practiceItemId) !== practiceItemId) return null;
-    const last = envelope.state.turns?.[envelope.state.turns.length - 1];
-    return last && last.role === "ai" ? last.content_md ?? last.contentMd ?? null : null;
+    const envelope = JSON.parse(currentAnswer) as { mode?: string; state?: StoredTeachBackState };
+    return envelope.mode === "teach_back" ? stateQuestion(envelope.state, practiceItemId) : null;
   } catch {
     return null;
   }
@@ -403,8 +411,10 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
       if (as === "teach_back") {
         const entry = answered.entry as { done?: boolean; questionMd?: string } | null;
         let question: string | null = entry && entry.done === false ? entry.questionMd ?? null : null;
-        // Recorded before (its reply was lost): the conversation, if it goes on, is in the session's checkpoint.
-        if (!entry && answered.duplicate) {
+        // Recorded before (its reply was lost): the conversation the submission reserved says whether it goes on.
+        if (!question && answered.teachBack?.status === "ongoing") question = stateQuestion(answered.teachBack.state as StoredTeachBackState | null, answered.practiceItemId);
+        // An older sidecar without it: the session's checkpoint.
+        if (!question && !entry && answered.duplicate && answered.teachBack === undefined) {
           const session = await host.api.getSession(sessionId).catch(() => null);
           question = pendingTeachBackQuestion(session?.checkpoint?.currentAnswer, answered.practiceItemId);
         }

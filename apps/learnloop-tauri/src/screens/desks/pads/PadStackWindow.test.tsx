@@ -400,7 +400,19 @@ describe("the fix round (RD4 review)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "submit this block" })).toBeNull());
   });
 
-  it("a duplicate reply (the submission was recorded before) resumes the conversation from the session's checkpoint", async () => {
+  it("a duplicate reply resumes the conversation the submission reserved (its stored state's open question)", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.padSubmitBlock = (async (input: { submissionId: string; blockId: string; versionId: string; as: string; target: { practiceItemId: string } }) => ({
+      version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId,
+      attemptId: null, teachBackId: "tb1", duplicate: true, entry: null,
+      teachBack: { status: "ongoing", conversationId: "conv1", state: { practice_item_id: "tb_item", turns: [{ role: "learner", content_md: "mine" }, { role: "ai", content_md: "what if all scores are equal?" }] } },
+    })) as never;
+    fireEvent.click(await openTeachBack(api));
+    expect(await screen.findByText("what if all scores are equal?")).toBeTruthy();
+    expect(api.calls.some(([name]) => name === "getSession")).toBe(false);
+  });
+
+  it("a duplicate reply from an older sidecar (no conversation in it) resumes from the session's checkpoint", async () => {
     const { api } = mount({ server: anchoredRunning() });
     api.padSubmitBlock = (async (input: { submissionId: string; blockId: string; versionId: string; as: string; target: { practiceItemId: string } }) => ({
       version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId,
