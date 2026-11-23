@@ -68,7 +68,7 @@ window.addEventListener("message", (event) => {
 # The screenshot tolerance for the commit-identity check (spec §6.3, §18.3): rasterising text and 1 px
 # borders under a transform and after a layout differs a little; anything larger is a different frame.
 PIXEL_THRESHOLD = 24
-MAX_CHANGED_SHARE = 0.005
+MAX_CHANGED_SHARE = 0.001
 
 # The two fixture videos report different times, so each panel's clock shows whose messages it took.
 STUB_TIMES = {"fxSoftmax01": 75, "fxMasks0002": 42}

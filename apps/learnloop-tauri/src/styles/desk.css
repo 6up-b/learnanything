@@ -142,9 +142,14 @@
    the commit's layout must land at once on the zoom's last frame. */
 .desk-shell.zooming .desk-window, .desk-shell.overview .desk-window { transition: none; animation: none; }
 .desk-shell.overview .desk-slot-inner { visibility: hidden; }
-.desk-shell.overview .desk-window { cursor: pointer; background: #202024; box-shadow: 0 0 0 2.94px #000; }
-.desk-shell.overview .desk-window.ov-selected { box-shadow: 0 0 0 8.82px rgba(227, 160, 99, 1), 0 0 0 20.59px rgba(227, 160, 99, .18), 0 0 0 1px rgba(107, 85, 52, 0), 0 10px 40px rgba(0, 0, 0, 0); }
+.desk-shell.overview .desk-window { cursor: pointer; background: #202024; box-shadow: 0 0 0 1px rgba(107, 85, 52, 0), 0 0 0 1px #000, 0 10px 40px rgba(0, 0, 0, 0); }
 .desk-shell.overview .desk-window.ov-recede { opacity: .38; }
+/* The rings: the selection's 3k amber with a 7k halo, its related cards' cyan (the top four, an attention
+   limit), k = 1 / 0.34 world px per screen px. */
+.desk-ov-ring { position: absolute; pointer-events: none; border-radius: 6px; transform-origin: 0 0; opacity: 0; }
+.desk-shell.overview .desk-ov-ring { opacity: 1; }
+.desk-ov-ring.sel { box-shadow: 0 0 0 8.82px rgba(227, 160, 99, 1), 0 0 0 20.59px rgba(227, 160, 99, .18); }
+.desk-ov-ring.rel { box-shadow: 0 0 0 5.88px rgba(106, 208, 224, 1); }
 
 /* The card face: laid out at its overview size in world px (three times what it reads on screen). */
 .desk-card { position: absolute; left: 0; top: 0; transform-origin: 0 0; opacity: 0; visibility: hidden; pointer-events: none; background: #202024; }

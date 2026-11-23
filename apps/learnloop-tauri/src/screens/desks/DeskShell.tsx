@@ -298,9 +298,12 @@ export function DeskShell({
   const boxEls = useRef(new Map<string, HTMLElement>());
   const innerEls = useRef(new Map<string, HTMLElement>());
   const cardEls = useRef(new Map<string, HTMLElement>());
+  const ringEls = useRef(new Map<string, HTMLElement>());
   const slotElements = useCallback((): Map<string, SlotElements> => {
     const out = new Map<string, SlotElements>();
-    for (const [key, box] of boxEls.current) out.set(key, { box, inner: innerEls.current.get(key) ?? null, card: cardEls.current.get(key) ?? null });
+    for (const [key, box] of boxEls.current) {
+      out.set(key, { box, inner: innerEls.current.get(key) ?? null, card: cardEls.current.get(key) ?? null, ring: ringEls.current.get(key) ?? null });
+    }
     return out;
   }, []);
   const lateEls = useRef(new Map<string, HTMLElement>());
@@ -565,6 +568,7 @@ export function DeskShell({
         live: visitedRef.current.has(each.deskId) && each.deskId === readingDeskId && intersects(a, st),
         recede: recedes(slot, selected, related, showRelationsRef.current),
         focus: selected !== null && slot.includes(selected),
+        related: showRelationsRef.current && slot.some((id) => related.some((relation) => relation.windowId === id)),
       });
     }));
     return { base, A: IDENTITY, B, items };
@@ -1573,6 +1577,7 @@ export function DeskShell({
                 const slotPaused = slot.every((id) => isPaused(lifecycles[id]?.state ?? "hidden"));
                 const panes = full ? slot.filter((id) => id === focusId) : slot;
                 const first = ws.windows[slot.find((id) => ws.windows[id]?.active) ?? slot[0]];
+                // `ov-selected` marks the selection (its ring is a sibling element; tests and the harness find it by this).
                 const selected = overview && selection !== null && slot.includes(selection.windowId);
                 const receding = overview && recedes(slot, selection?.windowId ?? null, selectedRelations, showRelations);
                 const firstKind = first?.kind ?? "source";
@@ -1710,6 +1715,27 @@ export function DeskShell({
                     <LinkLayer links={links} rects={linkRects} />
                   </div>
                 ) : null}
+                {/* Rings around the selection (amber) and its related cards (cyan, the top four): siblings laid
+                    out at the cards' rects, so a zoom's last frame draws them exactly as the overview does. */}
+                {ws.desks.flatMap((each, rowIndex) => each.slots.map((slot, index) => {
+                  const ringId = linkedFrom;
+                  const isSel = ringId !== null && slot.includes(ringId);
+                  const isRel = !isSel && showRelations && slot.some((id) => selectedRelations.some((relation) => relation.windowId === id));
+                  const rect = ovLayout?.cards[rowIndex]?.[index];
+                  if ((!isSel && !isRel) || !rect) return null;
+                  const key = slotKey(each.deskId, slot);
+                  return (
+                    <div
+                      key={`ring-${key}`}
+                      className={`desk-ov-ring ${isSel ? "sel" : "rel"}`}
+                      ref={(node) => {
+                        if (node) ringEls.current.set(key, node);
+                        else ringEls.current.delete(key);
+                      }}
+                      style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+                    />
+                  );
+                }))}
                 {overview && gatherPreview ? ghosts.map((ghost) => (
                   <div key={ghost.key} className="desk-ov-ghost" style={{ left: ghost.rect.x, top: ghost.rect.y, width: ghost.rect.w, height: ghost.rect.h }} />
                 )) : null}

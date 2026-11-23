@@ -6,6 +6,9 @@ import { frameAt, release, settleNow, step, type Camera, type Frame, type Motion
 
 export interface SlotElements {
   box: HTMLElement;
+  /** The overview's ring around this card (the selection's amber, a relation's cyan), a sibling in the
+   * world laid out at the card's rect: it follows the box's morph and fades in with q. */
+  ring?: HTMLElement | null;
   /** The window's content (absent for a desk never opened: only its card shows). */
   inner: HTMLElement | null;
   card: HTMLElement | null;
@@ -15,7 +18,7 @@ export interface ZoomPlan {
   base: 0 | 1;
   A: Camera;
   B: Camera;
-  items: Array<ZoomItem & { key: string; focus?: boolean }>;
+  items: Array<ZoomItem & { key: string; focus?: boolean; related?: boolean }>;
 }
 
 export interface ZoomTargets {
@@ -36,18 +39,11 @@ export const ANIMATION_FRAMES: FrameClock = {
   cancel: (handle) => window.cancelAnimationFrame(handle),
 };
 
-/** The selected window's edge through the zoom: the reading view's focus edge fades over the first third
- * while the overview's selection ring (3 screen px of amber and a 7 px halo, in world px) fades in. At
- * q = 1 it is the committed `.ov-selected` ring; at q = 0, the reading view's `.focus` edge. */
-export function selectionShadow(q: number): string {
+/** The focused window's edge through the zoom: the reading view's amber edge and shadow fade over the
+ * first third, leaving the plain 1 px edge every window has (at q = 0 the reading view's `.focus`). */
+export function focusEdge(q: number): string {
   const edge = Math.max(0, 1 - 3 * q);
-  const k = 1 / 0.34;
-  return [
-    `0 0 0 ${(3 * k).toFixed(2)}px rgba(227, 160, 99, ${q.toFixed(3)})`,
-    `0 0 0 ${(7 * k).toFixed(2)}px rgba(227, 160, 99, ${(0.18 * q).toFixed(3)})`,
-    `0 0 0 1px rgba(107, 85, 52, ${edge.toFixed(3)})`,
-    `0 10px 40px rgba(0, 0, 0, ${(0.5 * edge).toFixed(3)})`,
-  ].join(", ");
+  return `0 0 0 1px rgba(107, 85, 52, ${edge.toFixed(3)}), 0 0 0 1px #000, 0 10px 40px rgba(0, 0, 0, ${(0.5 * edge).toFixed(3)})`;
 }
 
 export function cameraTransform(camera: Camera): string {
@@ -101,6 +97,7 @@ export class ZoomController {
         slot.inner.style.visibility = item.live ? "visible" : "hidden";
       }
       if (slot.card) slot.card.style.visibility = "visible";
+      if (slot.ring) slot.ring.style.transformOrigin = "0 0";
     }
     this.write(frameAt(plan.base, plan.A, plan.B, plan.items));
   }
@@ -147,6 +144,10 @@ export class ZoomController {
         slot.box.style.transformOrigin = "";
         slot.box.style.opacity = "";
         slot.box.style.boxShadow = "";
+        if (slot.ring) {
+          slot.ring.style.transform = "";
+          slot.ring.style.opacity = "";
+        }
         if (slot.inner) {
           slot.inner.style.transform = "";
           slot.inner.style.transformOrigin = "";
@@ -216,7 +217,12 @@ export class ZoomController {
       if (!slot || !values) return;
       slot.box.style.transform = `translate(${values.tx}px, ${values.ty}px) scale(${values.sx}, ${values.sy})`;
       if (item.recede) slot.box.style.opacity = String(values.opacity);
-      if (item.focus) slot.box.style.boxShadow = selectionShadow(frame.q);
+      if (item.focus) slot.box.style.boxShadow = focusEdge(frame.q);
+      if (slot.ring) {
+        const r = values.rect;
+        slot.ring.style.transform = `translate(${r.x - item.b.x}px, ${r.y - item.b.y}px) scale(${r.w / item.b.w}, ${r.h / item.b.h})`;
+        slot.ring.style.opacity = String(frame.q);
+      }
       if (slot.inner) {
         slot.inner.style.transform = `scale(${values.innerSx}, ${values.innerSy})`;
         if (item.live) slot.inner.style.opacity = String(values.contentOpacity);

@@ -2,7 +2,7 @@
 // exact frame, a cancel or a commit removes every style the zoom wrote, and a key or press settles.
 import { describe, expect, it, vi } from "vitest";
 import { IDENTITY, OVERVIEW } from "./engine";
-import { ZoomController, cameraTransform, selectionShadow, type FrameClock, type ZoomPlan } from "./controller";
+import { ZoomController, cameraTransform, focusEdge, type FrameClock, type ZoomPlan } from "./controller";
 import { cloneForMiniature, MiniatureBook } from "./miniature";
 
 class ManualClock implements FrameClock {
@@ -62,7 +62,7 @@ describe("the zoom's writer", () => {
     expect(643 * sx).toBeCloseTo(760, 6);
     expect(880 * sy).toBeCloseTo(656, 6);
     expect(card.style.opacity).toBe("1");
-    expect(box.style.boxShadow).toBe(selectionShadow(1));
+    expect(box.style.boxShadow).toBe(focusEdge(1));
     expect(controller.frameTimes.length).toBeGreaterThan(5);
   });
 
