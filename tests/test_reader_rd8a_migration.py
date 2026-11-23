@@ -89,6 +89,10 @@ def test_the_constraints_hold(tmp_path):
                     readings.replace("'may_be_wrong'", "'certain'"), readings.replace("'block'", "'pad'")):
             with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
                 connection.execute(bad)
+        # Ink on a source's page has an owner of its own (the reading), and is never read: no reading row can name it.
+        connection.execute(strokes.replace("'ink_1', 'block', 'blk_1'", "'ink_2', 'source', 'ext_1'"))
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            connection.execute(readings.replace("'block'", "'source'"))
         connection.execute(readings)
         with pytest.raises(sqlite3.IntegrityError, match="UNIQUE"):
             # One reading per owner and strokes.

@@ -4,10 +4,13 @@
 -- Two new tables:
 --   ink_strokes          RAW_LEDGER, append-only by trigger: one row per ink save (a group of strokes the client
 --                        flushed) or per erase (a tombstone over earlier strokes' ids), owned by a pad block of kind
---                        'ink' or by a source annotation (a handwritten margin note). An owner's ink as it stands is
---                        every 'strokes' row in write order without the strokes an 'erase' row names.
+--                        'ink', by a source annotation (a handwritten margin note), or by a reading of a source
+--                        ('source': the reading's extraction id; ink drawn on the page that became no mark). An
+--                        owner's ink as it stands is every 'strokes' row in write order without the strokes an
+--                        'erase' row names.
 --   ink_transcriptions   RECEIPT, append-only by trigger: the reading of one owner's standing strokes (its content
 --                        hash), written once, so the same strokes are never read twice and a retry spends nothing.
+--                        A block's or an annotation's only: ink on a page is the learner's marks, never read.
 --                        A block owner's reading also becomes the block's next version (provenance
 --                        'ink_transcription'); a learner's correction is a block version, never a row here.
 --
@@ -22,7 +25,7 @@
 -- pointer_meta is the client's pointer description (pointer type, device pixel ratio) as JSON.
 CREATE TABLE ink_strokes (
   ink_id TEXT PRIMARY KEY,
-  owner_kind TEXT NOT NULL CHECK (owner_kind IN ('block', 'annotation')),
+  owner_kind TEXT NOT NULL CHECK (owner_kind IN ('block', 'annotation', 'source')),
   owner_id TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('strokes', 'erase')),
   encoding TEXT NOT NULL CHECK (encoding IN ('zlib-json-v1')),
