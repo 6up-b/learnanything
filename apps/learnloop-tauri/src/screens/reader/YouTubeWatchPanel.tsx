@@ -105,6 +105,17 @@ function groupTranscriptCues(cues: TranscriptCue[]): TranscriptSection[] {
   return sections;
 }
 
+/** The desks' goal lens over a transcript (RD6): a group's classes and gutter mark by its cues, a head at the top of
+ *  the transcript, and the path's ranges as segments on a track under the player. Absent, the panel is as before. */
+export interface WatchLens {
+  className?: (spanIds: string[]) => string | undefined;
+  mark?: (spanIds: string[]) => ReactNode;
+  /** The head, given each passage's times: where the video sits on the goal's path. */
+  head?: (timeOf: (spanIds: string[]) => { start: number; end: number } | null) => ReactNode;
+  /** The path's ranges in this video, each as its cues' span ids. */
+  segments?: string[][];
+}
+
 export interface WatchPanelHandle {
   /** Seek the video (and transcript) to the cue backing a span id. */
   seekToSpan: (spanId: string) => boolean;
@@ -136,6 +147,8 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
    *  the learner tries, under ``line`` (the dotted rule with "show"), as in the
    *  text view (spec §4.2, UX S5: every source kind; review F9). */
   fold?: { spans: ReadonlySet<string>; line: ReactNode } | null;
+  /** The goal lens (the desks' RD6), or none. */
+  lens?: WatchLens | null;
 }>(function YouTubeWatchPanel({
   plan,
   blocks,
@@ -150,6 +163,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   inlineNote = null,
   marks = null,
   fold = null,
+  lens = null,
 }, ref) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -217,6 +231,13 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   cuesRef.current = transcriptCues;
 
   const transcriptSections = useMemo(() => groupTranscriptCues(transcriptCues), [transcriptCues]);
+  // The goal lens's times: a passage group's start and end, and the video's length as its cues reach.
+  const duration = transcriptCues.length ? transcriptCues[transcriptCues.length - 1].end : 0;
+  const timeOf = useCallback((spanIds: string[]) => {
+    const wanted = new Set(spanIds);
+    const cues = transcriptCues.filter((cue) => wanted.has(cue.block.spanId ?? ""));
+    return cues.length ? { start: cues[0].start, end: cues[cues.length - 1].end } : null;
+  }, [transcriptCues]);
   const firstFolded = fold ? transcriptCues.find((cue) => fold.spans.has(cue.block.spanId ?? ""))?.block.spanId ?? null : null;
 
   const activeCue = useMemo(() => cueAt(transcriptCues, currentTime), [transcriptCues, currentTime]);
@@ -406,6 +427,17 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     togglePlay: () => post(playingRef.current ? "pauseVideo" : "playVideo"),
   }), [transcriptCues, post, noteSeek]);
 
+  const player = (
+    <iframe
+      ref={iframeRef}
+      src={plan.embedUrl}
+      title={`watch ${plan.videoId}`}
+      style={{ width: "100%", aspectRatio: "16 / 9", border: 0, background: "#000", display: "block" }}
+      allow="encrypted-media; picture-in-picture"
+      onLoad={handshake}
+    />
+  );
+
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -417,14 +449,21 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
         </span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 10, alignItems: "start" }}>
-        <iframe
-          ref={iframeRef}
-          src={plan.embedUrl}
-          title={`watch ${plan.videoId}`}
-          style={{ width: "100%", aspectRatio: "16 / 9", border: 0, background: "#000" }}
-          allow="encrypted-media; picture-in-picture"
-          onLoad={handshake}
-        />
+        {/* One cell for the player and, with the goal lens, the track under it (so the lens arriving never
+            remounts the player). */}
+        <div>
+            {player}
+            {lens?.segments && duration > 0 ? (
+              <div className="vtrack" data-goal-track="">
+                <div className="ln" />
+                {lens.segments.map((spanIds) => timeOf(spanIds)).filter((range): range is { start: number; end: number } => range !== null).map((range) => (
+                  <div key={`${range.start}-${range.end}`} className="gseg" title="on your path"
+                    style={{ left: `${(range.start / duration * 100).toFixed(2)}%`, width: `${((range.end - range.start) / duration * 100).toFixed(2)}%` }} />
+                ))}
+                <div className="pl" style={{ left: `${Math.min(100, currentTime / duration * 100).toFixed(2)}%` }} />
+              </div>
+            ) : null}
+        </div>
         <div style={{ border: `1px solid ${COLOR.border}`, background: COLOR.bgInput }}>
         <div style={{ height: 30, padding: "0 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${COLOR.border}` }}>
           <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>TRANSCRIPT</Faint>
@@ -490,6 +529,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
           style={{ maxHeight: 230, overflowY: "auto", scrollBehavior: "smooth", padding: "8px 0" }}
           aria-live="off"
         >
+          {lens?.head ? lens.head(timeOf) : null}
           {transcriptCues.length === 0 ? (
             <Faint style={{ display: "block", padding: "10px 12px", fontSize: 11 }}>No timestamped transcript was extracted for this video.</Faint>
           ) : transcriptSections.map((section) => {
@@ -498,9 +538,11 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
             const annotated = section.cues.some((cue) => annotatedSpans.has(cue.block.spanId ?? ""));
             const guided = section.cues.some((cue) => guidanceSpans.has(cue.block.spanId ?? ""));
             const sectionKey = section.cues[0].block.spanId ?? `t-${section.start}`;
+            const groupSpans = section.cues.map((cue) => cue.block.spanId ?? "").filter(Boolean);
             return (
               <div
                 key={sectionKey}
+                className={lens?.className ? lens.className(groupSpans) : undefined}
                 aria-label={`Transcript from ${formatClock(section.start)} to ${formatClock(section.end)}`}
                 style={{ display: "grid", gridTemplateColumns: "48px minmax(0, 1fr)", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${active ? COLOR.amber : annotated ? COLOR.greenSoft : guided ? COLOR.purplePill : "transparent"}`, background: guided && !active ? COLOR.washPurple : "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, lineHeight: 1.65 }}
               >
@@ -510,7 +552,8 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                   )) : null}
                   {formatClock(section.start)}
                 </span>
-                <span>
+                <span className={lens ? "tx" : undefined} style={lens?.mark ? { position: "relative" } : undefined}>
+                  {lens?.mark ? lens.mark(groupSpans) : null}
                   {section.cues.map((cue, index) => {
                     const spanId = cue.block.spanId ?? "";
                     if (fold && fold.spans.has(spanId)) {
@@ -539,6 +582,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                         <span
                           data-span-id={spanId}
                           data-transcript-span={spanId}
+                          className={lens && cueAnnotated ? "gl-keep" : undefined}
                           onClick={() => seekToCue(cue)}
                           onContextMenu={(event) => {
                             event.preventDefault();

@@ -71,7 +71,7 @@ import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
 import { useReaderInquiry } from "./reader/useReaderInquiry";
-import { YouTubeWatchPanel, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
+import { YouTubeWatchPanel, type WatchLens, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
 import { CUE_COPY, type PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
@@ -296,8 +296,11 @@ export interface ReaderLens {
   before?: (spanId: string) => ReactNode;
   /** A mark in the passage's left gutter; the passage becomes its offset parent. */
   mark?: (spanId: string) => ReactNode;
-  /** Classes for the passage (dimmed for the goal). */
-  className?: (spanId: string) => string | undefined;
+  /** Classes for the passage (dimmed for the goal); `state` says what the Reader marks on it (the learner's
+   *  annotation, the passage being read), which stays at full colour. */
+  className?: (spanId: string, state: { annotated: boolean; active: boolean }) => string | undefined;
+  /** The same lens over a video's transcript. */
+  watch?: WatchLens | null;
 }
 
 /** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
@@ -3950,6 +3953,7 @@ export function ReaderScreen({
               onTagMenu={openDomTagMenu}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
               marks={cueMarksFor("watch")}
+              lens={windowed?.lens?.watch ?? null}
               {...(activeCtl.folded.size ? { fold: { spans: activeCtl.folded, line: <NextStepFoldLine ctl={activeCtl} /> } } : {})}
             />
           ) : watchLoading ? (
@@ -4060,7 +4064,7 @@ export function ReaderScreen({
                 data-span-id={block.spanId ?? undefined}
                 {...(folded ? { "data-folded": "" } : {})}
                 data-extraction-id={render?.extractionId}
-                className={block.spanId ? windowed?.lens?.className?.(block.spanId) : undefined}
+                className={block.spanId ? windowed?.lens?.className?.(block.spanId, { annotated: annotatedSpans.has(block.spanId), active }) : undefined}
                 onContextMenu={(e) => {
                   if (!block.spanId) return;
                   e.preventDefault();
