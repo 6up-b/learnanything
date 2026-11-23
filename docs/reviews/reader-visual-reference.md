@@ -334,6 +334,7 @@ rows are the same differences at other values, all already accounted for:
 - the sheet's 12 px less left padding (the passages carry those 12 px, so the text sits where the mockup's does),
   at two padding values.
 
-RD2's 22 (against 21) adds the far selection's card at the second viewport; RD3's 7 (against 5) the anchored
+RD2's 22 (against 21) is the first card's opacity at two values (it recedes in `#ovn=down` and is mid-fade in the
+`#scrub=0.5` frame: which card is first on screen differs with the fixture); RD3's 7 (against 5) is the anchored
 panel's place at two viewports (it follows the fixture's passage). No real difference was missing from §9.
 
