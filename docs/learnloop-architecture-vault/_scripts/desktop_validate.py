@@ -211,8 +211,10 @@ def main() -> int:
     # Reader workbench v2 RD4b (the scratchpads): screens/desks/pads/ model.ts, stickyTabs.ts, host.ts,
     # PadStackWindow.tsx, PadOverlays.tsx, SketchCanvas.tsx, DrainPanel.tsx, PassageMarks.tsx and
     # screens/desks/fitMath.tsx (entry-reachable through DeskShell); fixtures/desks/pads.ts (vitest-support).
-    if len(ts_sources) != 378:
-        errors.append(f"source inventory drift: expected 378 TypeScript/TSX files, found {len(ts_sources)}")
+    # Reader workbench v2 RD5b (the context menu): screens/desks/menu/ model.ts, ContextMenu.tsx, verbs.ts and
+    # KnowsPanel.tsx (entry-reachable through DeskShell).
+    if len(ts_sources) != 382:
+        errors.append(f"source inventory drift: expected 382 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -315,7 +317,8 @@ def main() -> int:
         # RD1: the ten screens/desks modules and api/poller.ts; api/sourceKinds.ts (a source kind is one row).
         # RD2: the five screens/desks/overview modules.
         # RD4b: the seven screens/desks/pads modules and screens/desks/fitMath.tsx.
-        "entry-reachable build graph": 361,
+        # RD5b: the four screens/desks/menu modules.
+        "entry-reachable build graph": 365,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
