@@ -938,8 +938,9 @@ id = "graders-never-read-the-workbench-v2"
 name = "The grader never reads pads, ink, threads, desks, veils or the goal lens (Reader workbench v2 fence 2, spec 3.3)"
 type = "forbidden"
 # Extends the grader contracts above: every grading prompt builder lives in learnloop.attempts. Threads
-# and the companion's history are learnloop.companion; the union read is learnloop.passage_union. The
-# goal lens and the veil sets are declared before they exist.
+# and the companion's history are learnloop.companion; the union read is learnloop.passage_union; the goal
+# lens is curriculum.goal_lens with its reads and choices in source_retrieval. The veil sets are declared
+# before they exist.
 source_modules = ["learnloop.attempts"]
 forbidden_modules = [
     "learnloop.desks",
@@ -953,6 +954,8 @@ forbidden_modules = [
     "learnloop.db.stores.span_projection_reads",
     "learnloop.intent.inline_veils",
     "learnloop.curriculum.goal_lens",
+    "learnloop.source_retrieval.goal_lens_reads",
+    "learnloop.source_retrieval.goal_lens_choices",
 ]
 allow_indirect_imports = true
 
@@ -989,6 +992,8 @@ forbidden_modules = [
     "learnloop.db.stores.workspace_batches",
     "learnloop.intent.inline_veils",
     "learnloop.curriculum.goal_lens",
+    "learnloop.source_retrieval.goal_lens_reads",
+    "learnloop.source_retrieval.goal_lens_choices",
 ]
 allow_indirect_imports = false
 
@@ -1018,10 +1023,16 @@ id = "passage-projections-are-read-only"
 name = "The passage union and the goal lens are read-only projections (Reader workbench v2 fence 4, spec 3.3)"
 type = "forbidden"
 # They write only receipts and caches: neither imports an evidence writer. The union read reads through
-# other readers (annotations, notes, due checks), so only its direct imports are fenced. A source module
-# must exist, so the goal lens (learnloop.curriculum.goal_lens) joins this list when it is built
-# (tests/test_reader_rd0_fences.py checks it does not exist yet).
-source_modules = ["learnloop.passage_union"]
+# other readers (annotations, notes, due checks), so only its direct imports are fenced. The goal lens is
+# its pure level rules (curriculum.goal_lens), the reads they are computed from (source_retrieval's
+# goal_lens_reads, over the deliverable path and coverage) and its one write, the learner's section choice
+# as a judgment-ledger verdict (goal_lens_choices).
+source_modules = [
+    "learnloop.passage_union",
+    "learnloop.curriculum.goal_lens",
+    "learnloop.source_retrieval.goal_lens_reads",
+    "learnloop.source_retrieval.goal_lens_choices",
+]
 forbidden_modules = [
     "learnloop.attempts",
     "learnloop.substrate",

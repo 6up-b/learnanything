@@ -171,6 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/facet_authority_review_helpers.py](../../../../../../tests/facet_authority_review_helpers.py) — direct import
 - [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
 - [tests/goal_decay_projection_helpers.py](../../../../../../tests/goal_decay_projection_helpers.py) — direct import
+- [tests/goal_lens_helpers.py](../../../../../../tests/goal_lens_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/mobile_rpc_helpers.py](../../../../../../tests/mobile_rpc_helpers.py) — direct import

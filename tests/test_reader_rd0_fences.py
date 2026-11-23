@@ -16,8 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 #: Modules a fence names before they exist, each with the stage that adds it.
 DECLARED = {
     "learnloop.intent.inline_veils": "the veil sets of an inline check",
-    "learnloop.curriculum.goal_lens": "the goal lens",
 }
+#: The goal lens's modules (RD6): its pure rules, its reads and its one write.
+GOAL_LENS = ("learnloop.curriculum.goal_lens", "learnloop.source_retrieval.goal_lens_reads",
+             "learnloop.source_retrieval.goal_lens_choices")
 #: Each fence: the contract, and one import the fence must refuse (importer, imported).
 FENCES = {
     "evidence-never-reads-desks-or-pads": ("learnloop.attempts.attempts", "learnloop.pads.blocks"),
@@ -64,8 +66,9 @@ def test_every_fence_is_declared_and_names_modules_that_exist_or_are_declared(gr
         assert contract["type"] == "forbidden"
         for module in [*contract["source_modules"], *contract["forbidden_modules"]]:
             assert module in graph.modules or module in DECLARED, (fence, module)
-    # A source module must exist: the goal lens joins the read-only fence's sources in the stage that adds it.
-    assert "learnloop.curriculum.goal_lens" not in graph.modules
+    # The goal lens exists and its modules are the read-only fence's sources beside the union read.
+    assert set(GOAL_LENS) <= graph.modules
+    assert set(GOAL_LENS) <= set(contracts["passage-projections-are-read-only"]["source_modules"])
 
 
 @pytest.mark.parametrize("fence", sorted(FENCES))
@@ -78,6 +81,19 @@ def test_each_fence_holds_and_a_forbidden_import_breaks_it(graph, fence):
     broken.add_import(importer=importer, imported=imported, line_number=1, line_contents=f"import {imported}")
     assert not _check(contract, broken), fence
 
+
+@pytest.mark.parametrize("importer", GOAL_LENS)
+def test_each_goal_lens_module_breaks_the_read_only_fence_with_an_evidence_import(graph, importer):
+    contract = _contracts()["passage-projections-are-read-only"]
+    broken = copy.deepcopy(graph)
+    broken.add_import(importer=importer, imported="learnloop.attempts.attempts", line_number=1,
+                      line_contents="import learnloop.attempts.attempts")
+    assert not _check(contract, broken), importer
+    grader = _contracts()["graders-never-reach-the-workbench-v2"]
+    reached = copy.deepcopy(graph)
+    reached.add_import(importer="learnloop.attempts.grading", imported=importer, line_number=1,
+                       line_contents=f"import {importer}")
+    assert not _check(grader, reached), importer
 
 def test_the_fences_cover_the_specs_six_rules():
     contracts = _contracts()
@@ -96,7 +112,8 @@ def test_the_fences_cover_the_specs_six_rules():
     assert desks["source_modules"] == ["learnloop.desks"] and desks["allow_indirect_imports"] is False
     assert {"learnloop.scheduling", "learnloop.router", "learnloop.attempts"} <= set(desks["forbidden_modules"])
     # 4: the union read (and its span projections) import no evidence writer.
-    assert contracts["passage-projections-are-read-only"]["source_modules"] == ["learnloop.passage_union"]
+    assert contracts["passage-projections-are-read-only"]["source_modules"] == ["learnloop.passage_union",
+                                                                                *GOAL_LENS]
     assert contracts["passage-spans-reach-only-the-stores"]["allow_indirect_imports"] is False
     # 5: the Reader's hint rule still holds, and the workbench's packages join it.
     assert set(contracts["workbench-calls-the-one-hint-service"]["source_modules"]) == {"learnloop.reader",

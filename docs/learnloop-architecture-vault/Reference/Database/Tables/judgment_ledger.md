@@ -156,6 +156,7 @@ Database triggers:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/source_retrieval/compare_scope.py`
+- `src/learnloop/source_retrieval/goal_lens_choices.py`
 - `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/source_retrieval/reading_paths.py`
 - `src/learnloop/source_retrieval/role_labeller.py`

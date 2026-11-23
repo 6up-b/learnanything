@@ -80,6 +80,14 @@ def learning_objects_named(connection: sqlite3.Connection, extraction_id: str, s
         "GROUP BY learning_object_id ORDER BY MIN(created_at), learning_object_id", (extraction_id, section_id))]
 
 
+
+def learning_objects_in_reading(connection: sqlite3.Connection, extraction_id: str) -> list[str]:
+    """Every LO any row (judge or learner) names for a section of this reading."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT DISTINCT learning_object_id FROM section_coverage WHERE extraction_id = ? ORDER BY learning_object_id",
+        (extraction_id,))]
+
 def corrections(connection: sqlite3.Connection, *, learning_object_ids: Iterable[str] | None = None,
                 sections: Iterable[tuple[str, str]] | None = None) -> dict[tuple[str, str, str], dict[str, Any]]:
     """The newest learner row per (reading, section, LO) (``none`` is a cleared one),

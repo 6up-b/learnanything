@@ -28,6 +28,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     followup,
     figures,
     first_run,
+    goal_lens,
     goals,
     graph,
     graph_edit,

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/section_coverage.py](../../../../../../../src/learnloop/db/stores/section_coverage.py) |
-| Source lines | 125 |
+| Source lines | 133 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -60,8 +60,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `judged(connection: sqlite3.Connection, learning_object_id: str, state_key: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 47) — The judge's rows for exactly this LO and state (the cache hit).
 - `judged_states(connection: sqlite3.Connection, learning_object_ids: Iterable[str]) -> dict[str, list[list[dict[str, Any]]]]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 55) — Per LO, every judgment's judge rows (one list per state key), newest judgment first; each list in candidate order.
 - `learning_objects_named(connection: sqlite3.Connection, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 75) — Every LO any row (judge or learner) names for this section, oldest first.
-- `corrections(connection: sqlite3.Connection, *, learning_object_ids: Iterable[str] | None=None, sections: Iterable[tuple[str, str]] | None=None) -> dict[tuple[str, str, str], dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 83) — The newest learner row per (reading, section, LO) (``none`` is a cleared one), for these LOs or these sections.
-- `counts(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 106) — Aggregates only (for reports): judge rows, learner rows, LOs judged.
+- `learning_objects_in_reading(connection: sqlite3.Connection, extraction_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 84) — Every LO any row (judge or learner) names for a section of this reading.
+- `corrections(connection: sqlite3.Connection, *, learning_object_ids: Iterable[str] | None=None, sections: Iterable[tuple[str, str]] | None=None) -> dict[tuple[str, str, str], dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 91) — The newest learner row per (reading, section, LO) (``none`` is a cleared one), for these LOs or these sections.
+- `counts(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/section_coverage.py), line 114) — Aggregates only (for reports): judge rows, learner rows, LOs judged.
 
 ### Module constants
 
@@ -91,6 +92,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; statically calls `learning_objects_named`, `table_present`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `judged_states`, `table_present`
+- [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `learning_objects_in_reading`, `table_present`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; statically calls `corrections`, `insert`, `judged`, `judged_states`, `learning_objects_named`, `table_present`
 
 ## Dependencies
@@ -111,7 +113,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]].
+Static participation evidence comes from [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]], [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

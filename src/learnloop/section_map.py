@@ -177,6 +177,41 @@ def extraction_sections(ir: Any) -> tuple[list[dict[str, Any]], dict[str, Any], 
     return section_rows, block_by_span, span_to_section
 
 
+
+_CUE_TIME_RE = re.compile(r"^t=([0-9.]+)-([0-9.]+)$")
+
+
+class RangeError(ValueError):
+    """A visible range this reading cannot answer (``code``: ``span_not_found`` or ``validation_error``)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def range_span_ids(ir: Any, *, from_span_id: str | None = None, to_span_id: str | None = None,
+                   t0: float | None = None, t1: float | None = None) -> list[str]:
+    """The passages of one visible range, in reading order: two passages (inclusive, either order), or two
+    times over a transcript's ``t=start-end`` cues (every cue overlapping them). The Reader's batched reads
+    (the per-span union, the goal lens) share it, so a range means the same passages to both."""
+
+    blocks = sorted(ir.blocks, key=lambda block: block.ordinal)
+    if from_span_id is not None and to_span_id is not None:
+        index = {block.span_id: position for position, block in enumerate(blocks)}
+        if from_span_id not in index or to_span_id not in index:
+            raise RangeError("span_not_found", "The range names a passage this reading does not have.")
+        start, end = sorted((index[from_span_id], index[to_span_id]))
+        return [block.span_id for block in blocks[start:end + 1]]
+    if t0 is None or t1 is None:
+        raise RangeError("validation_error", "A range is two passages or two times.")
+    low, high = sorted((float(t0), float(t1)))
+    spans = []
+    for block in blocks:
+        match = _CUE_TIME_RE.match(str(getattr(block, "extractor_block_id", "") or ""))
+        if match and float(match.group(1)) <= high and float(match.group(2)) >= low:
+            spans.append(block.span_id)
+    return spans
+
 # The mapping comes in two forms (RO2 landing ruling R6). The ``*_in_ir`` functions take the
 # extraction's document IR from their caller: adaptive difficulty passes the one its material view
 # hands out (``MaterialView.document_ir``, the reading chokepoint, after the withheld rule), because
