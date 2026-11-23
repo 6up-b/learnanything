@@ -52,6 +52,7 @@ import type { CueCheckPhase, CueReceipt } from "./MarginMark";
 import { useCueDiscovery } from "./useCueDiscovery";
 import { useCueImpressions } from "./useCueImpressions";
 import { screenLeavesKey } from "../../app/keymap";
+import { useListenerHub } from "../desks/lifecycle";
 
 /** What "check me" hands the shell: the item to open, as a learner pick. */
 export interface CueCheckMeRequest {
@@ -231,11 +232,11 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     setPreferenceReceipt(null);
   }, [extractionId]);
 
+  const hub = useListenerHub();
   useEffect(() => {
     const onResize = () => setResizeTick((tick) => tick + 1);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    return hub.listen("window", "resize", onResize);
+  }, [hub]);
 
   // Which marks are drawn: computed when the text is laid out (a layout
   // effect, before paint), never while scrolling.
@@ -403,9 +404,8 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
       event.preventDefault();
       focusMark(shown[next]);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [cues, render, spanOrder, readingSpan, focusMark, ownsKey]);
+    return hub.listen("window", "keydown", onKey);
+  }, [cues, render, spanOrder, readingSpan, focusMark, ownsKey, hub]);
 
   const tap = useCallback(async (cue: ReaderCueDto, action: "opened" | "check_me" | "not_relevant" | "not_relevant_undone", text?: string) => {
     if (!render) throw new Error("no source");

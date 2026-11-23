@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
 import type { AcquisitionPreviewItem, CommandError, IngestBatchDto, IngestJobDto, IngestJobPhase, IngestMode, PdfEngine, SourceLibraryCard, StartingLevel } from "../api/dto";
+import { SOURCE_KINDS, sourceKindRow, type SourceCategory } from "../api/sourceKinds";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
 import { STARTING_LEVELS } from "../components/StudyMapBriefWizard";
 import { IngestActivityStack } from "../components/IngestActivity";
@@ -23,7 +24,8 @@ import { screenLeavesKey } from "../app/keymap";
 // exists. Left column is the source library; batch progress renders inline as
 // Activity cards — there are no sub-tabs.
 
-type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio" | "image";
+// The backend's source categories, so the classifier's answer is used as it comes.
+type Kind = SourceCategory;
 
 // What reading a document with text recognition (GLM-OCR) may cost, plainly.
 function recognitionCostLabel(estimate: NonNullable<AcquisitionPreviewItem["extractionEstimate"]>): string {
@@ -33,33 +35,38 @@ function recognitionCostLabel(estimate: NonNullable<AcquisitionPreviewItem["extr
   return `Text recognition ≈ $${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(2)}`;
 }
 
-// Source-kind preview; backend classification is in learnloop/ingest/resolution.py.
+// An offline guess, shown until the classifier answers (and for a staged row
+// the acquisition preview has not read yet): the suffixes are the kinds' own
+// rows (learnloop/ingest/source_kinds.py); the arXiv and YouTube host checks
+// guess at learnloop/ingest/resolution.py, which decides.
 function detectKind(source: string): Kind | null {
   const s = (source || "").trim();
   if (!s) return null;
   if (/^https?:\/\/([\w-]+\.)?arxiv\.org\//i.test(s) || /^arxiv:/i.test(s)) return "arxiv";
   if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(s)) return "arxiv"; // bare id
-  // Mirror resolution._YOUTUBE_HOSTS: youtube.com, www./m. subdomains, youtu.be.
   if (/^https?:\/\/([\w-]+\.)?(youtube\.com|youtu\.be)\//i.test(s)) return "youtube";
-  if (/\.(png|jpe?g)(\?|$)/i.test(s)) return "image";
-  if (/\.pdf(\?|$)/i.test(s)) return "pdf";
-  if (/^https?:\/\//i.test(s)) return "web";
-  if (/\.(mp3|wav|m4a|flac|ogg|oga|opus|aac)$/i.test(s)) return "audio";
-  if (/\.(md|markdown|txt|vtt|srt)$/i.test(s)) return "local";
-  return null;
+  const url = /^https?:\/\//i.test(s);
+  const path = (url ? s.replace(/[?#].*$/, "") : s).toLowerCase();
+  const kind = SOURCE_KINDS.find((row) =>
+    (url ? row.urlExtensions : row.extensions).some((extension) => path.endsWith(extension))
+  );
+  return kind ? kind.category : url ? "web" : null;
 }
 
-type KindMeta = { color: PillColor; label: string; icon: string };
-
-const KIND_META: Record<Kind, KindMeta> = {
-  web: { color: "cyan", label: "web page", icon: "🌐" },
-  arxiv: { color: "green", label: "arXiv paper", icon: "📄" },
-  pdf: { color: "amber", label: "PDF", icon: "📕" },
-  image: { color: "amber", label: "image", icon: "🖼" },
-  youtube: { color: "red", label: "YouTube transcript", icon: "▶" },
-  local: { color: "purple", label: "local file", icon: "📁" },
-  audio: { color: "pink", label: "audio file", icon: "🎙" }
+// How each kind looks; what it is called is its row's label.
+const KIND_STYLE: Record<Kind, { color: PillColor; icon: string }> = {
+  web: { color: "cyan", icon: "🌐" },
+  arxiv: { color: "green", icon: "📄" },
+  pdf: { color: "amber", icon: "📕" },
+  image: { color: "amber", icon: "🖼" },
+  youtube: { color: "red", icon: "▶" },
+  textfile: { color: "purple", icon: "📁" },
+  audio: { color: "pink", icon: "🎙" }
 };
+
+function kindLabel(kind: Kind): string {
+  return sourceKindRow(kind)?.label ?? kind;
+}
 
 type Mode = IngestMode;
 
@@ -90,15 +97,16 @@ function Card({ children, style = {} }: { children: ReactNode; style?: CSSProper
 
 // ── Kind chips above input ──────────────────────────────────────────────
 function KindChips({ active }: { active: Kind | null }) {
-  const order: Kind[] = ["web", "arxiv", "pdf", "youtube", "local", "audio"];
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {order.map((k) => {
+      {SOURCE_KINDS.map(({ category: k, label }) => {
         const sel = k === active;
-        const meta = KIND_META[k];
+        const meta = { ...KIND_STYLE[k], label };
         return (
           <span
             key={k}
+            data-kind-chip={k}
+            data-active={sel ? "true" : "false"}
             style={{
               padding: "3px 10px",
               fontSize: 11,
@@ -591,18 +599,20 @@ function IngestHome({
   const [previews, setPreviews] = useState<Record<string, AcquisitionPreviewItem>>({});
   const [pageSelection, setPageSelection] = useState("");
   const [pdfEngine, setPdfEngine] = useState<PdfEngine>("auto");
-  // The vault's own [ingest.pdf] engine: "auto (vault default)" may mean the
-  // native engine, and the page-range control must know before the sidecar
-  // refuses the batch.
+  // The vault's own [ingest.pdf] engine, and the engines under which the
+  // sidecar refuses a page range ("auto" resolved through the vault): the
+  // page-range control must know before the sidecar refuses the batch.
   const [vaultPdfEngine, setVaultPdfEngine] = useState<PdfEngine>("auto");
-  const effectivePdfEngine: PdfEngine = pdfEngine === "auto" ? vaultPdfEngine : pdfEngine;
-  const nativePdf = effectivePdfEngine === "native";
+  const [enginesRefusingRanges, setEnginesRefusingRanges] = useState<PdfEngine[]>([]);
+  const nativePdf = enginesRefusingRanges.includes(pdfEngine);
   useEffect(() => {
     let cancelled = false;
     api
       .getSettings()
       .then((settings) => {
-        if (!cancelled) setVaultPdfEngine(settings.ingest.pdfEngine);
+        if (cancelled) return;
+        setVaultPdfEngine(settings.ingest.pdfEngine);
+        setEnginesRefusingRanges(settings.ingest.pdfEnginesRefusingPageRanges ?? []);
       })
       .catch(() => {});
     return () => {
@@ -713,15 +723,7 @@ function IngestHome({
       api.classifyIngestSource(candidate)
         .then((classification) => {
           if (cancelled) return;
-          const mapped: Record<string, Kind> = {
-            web: "web",
-            arxiv: "arxiv",
-            pdf: "pdf",
-            youtube: "youtube",
-            textfile: "local",
-            audio: "audio"
-          };
-          setAuthoritativeKind(mapped[classification.kind] ?? null);
+          setAuthoritativeKind(sourceKindRow(classification.kind)?.category ?? null);
         })
         .catch(() => {
           if (!cancelled) setAuthoritativeKind(null);
@@ -1204,9 +1206,9 @@ function IngestHome({
                   onChange={(value) => {
                     const next = value as PdfEngine;
                     setPdfEngine(next);
-                    if (next === "native") {
-                      // The native path sends the whole document; a staged
-                      // range would be silently ignored, so drop it here.
+                    if (enginesRefusingRanges.includes(next)) {
+                      // The native path sends the whole document and the
+                      // sidecar refuses a range with it, so drop them here.
                       setPageSelection("");
                       setStagedPageRanges({});
                     }
@@ -1313,8 +1315,8 @@ function IngestHome({
               </Faint>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
                 {staged.map((src) => {
-                  const rowKind = detectKind(src);
-                  const meta = rowKind ? KIND_META[rowKind] : null;
+                  const rowKind = sourceKindRow(previews[src]?.category)?.category ?? detectKind(src);
+                  const meta = rowKind ? { ...KIND_STYLE[rowKind], label: kindLabel(rowKind) } : null;
                   const preview = previews[src];
                   const stagedRange = stagedPageRanges[src] ?? "";
                   return (
@@ -1366,7 +1368,7 @@ function IngestHome({
                               ...prev,
                               [src]: value
                             }))}
-                            disabled={running || importing}
+                            disabled={running || importing || nativePdf}
                             compact
                           />
                         </div>
@@ -1465,7 +1467,7 @@ function IngestHome({
                   <div style={{ marginTop: 6, color: COLOR.text, fontSize: 12, lineHeight: 1.6 }}>
                     <Faint>staged note</Faint> <span style={{ color: COLOR.amberLink }}>{result.sourceNoteId}</span>
                     {"  ·  "}
-                    <Faint>kind</Faint> <Dim>{kind ? KIND_META[kind].label : result.sourceKind}</Dim>
+                    <Faint>kind</Faint> <Dim>{kind ? kindLabel(kind) : result.sourceKind}</Dim>
                   </div>
                   <div style={{ marginTop: 6, color: COLOR.textDim, fontSize: 12 }}>
                     next: <Dim>review the authoring proposal.</Dim>{" "}

@@ -46,24 +46,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py) |
-| Source lines | 80 |
+| Source lines | 84 |
 | Owning package | [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ResolvedSource` ([source](../../../../../../src/learnloop/ingest/resolution.py), line 21) — One authoritative classification plus a fetchable source value.
-- `is_arxiv_id(source: str) -> bool` ([source](../../../../../../src/learnloop/ingest/resolution.py), line 28)
-- `resolve_source(source: str) -> ResolvedSource` ([source](../../../../../../src/learnloop/ingest/resolution.py), line 32)
+- `class ResolvedSource` ([source](../../../../../../src/learnloop/ingest/resolution.py), line 25) — One authoritative classification plus a fetchable source value.
+- `is_arxiv_id(source: str) -> bool` ([source](../../../../../../src/learnloop/ingest/resolution.py), line 32)
+- `resolve_source(source: str) -> ResolvedSource` ([source](../../../../../../src/learnloop/ingest/resolution.py), line 36)
 
 ### Module constants
 
-- `_ARXIV_NEW` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 13)
-- `_ARXIV_OLD` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 14)
-- `_YOUTUBE_HOSTS` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 15)
-- `_TEXT_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 16)
-- `_AUDIO_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 17)
+- `_ARXIV_NEW` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 11)
+- `_ARXIV_OLD` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 12)
+- `_YOUTUBE_HOSTS` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 13)
+- `_IMAGE_URL_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 15)
+- `_PDF_URL_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 16)
+- `_IMAGE_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 17)
+- `_PDF_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 18)
+- `_WEB_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 19)
+- `_TEXT_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 20)
+- `_AUDIO_SUFFIXES` ([src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py), line 21)
 
 ### Explicit exports
 
@@ -87,8 +92,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `resolve_source`; statically calls `resolve_source`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `resolve_source`; statically calls `resolve_source`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `ResolvedSource`, `resolve_source`; statically calls `resolve_source`
-- [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]] — imports `resolve_source`; statically calls `resolve_source`
-- [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] — imports `resolve_source`; statically calls `resolve_source`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `resolve_source`; statically calls `resolve_source`
 
 ## Dependencies
@@ -96,10 +99,11 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] — imports `UnsupportedSourceError`; calls `UnsupportedSourceError`
+- [[Reference/Modules/learnloop/ingest/source_kinds|learnloop.ingest.source_kinds]] — imports `SOURCE_KINDS`, `SourceCategory`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `pathlib`, `re`, `typing`, `urllib`
+- Standard library: `__future__`, `dataclasses`, `pathlib`, `re`, `urllib`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -108,7 +112,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -117,11 +121,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/sidecar_quick_add_helpers.py](../../../../../../tests/sidecar_quick_add_helpers.py) — direct import
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_an_image_import_needs_glm_and_reads_with_it`
+- [tests/test_ingest_detect.py](../../../../../../tests/test_ingest_detect.py) — direct import
 - [tests/test_ingest_transcripts.py](../../../../../../tests/test_ingest_transcripts.py) — direct import
   - `test_resolution_classifies_caption_files_as_textfile`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
   - `test_e1_the_reread_hands_the_import_the_stored_bytes_never_a_store_path`
+- [tests/test_source_kinds.py](../../../../../../tests/test_source_kinds.py) — direct import
+  - `test_each_suffix_classifies_as_its_kind`
 - [tests/test_source_retrieval_search.py](../../../../../../tests/test_source_retrieval_search.py) — direct import
   - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
 

@@ -37,6 +37,7 @@ from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
 from learnloop.ids import new_ulid
+from learnloop.ingest.source_kinds import source_kind
 from learnloop.reader import part_read as PART_READ
 from learnloop.reader import reader_progression as RPROG
 from learnloop.reader import reader_quick_check as RQC
@@ -110,11 +111,10 @@ def default_fetch(source: str, category: str, ctx: JobContext) -> FetchedBytes:
         )
     from learnloop.content.pipeline import source_ingestion
 
-    kind = "youtube_video" if category == "youtube" else "website_page"
     fetched = source_ingestion.fetch_source(
         ctx.vault_root,
         source,
-        kind=kind,
+        kind=source_kind(category).fetch_as,
         allow_auto_captions=True,
         raw_only=True,
         clock=ctx.clock,
@@ -139,10 +139,10 @@ def _fetch_metadata(source: str, category: str) -> tuple[str | None, tuple[str, 
     so it adds one small extra egress (oEmbed) and never a new phase. Any failure
     degrades to ``(None, ())`` so the import proceeds with a URL title."""
 
-    if category != "youtube":
+    if source_kind(category).fetch_as != "youtube_video":
         return None, ()
     try:
-        from learnloop.ingest.fetchers import youtube_oembed_metadata, youtube_video_id
+        from learnloop.ingest.youtube import youtube_oembed_metadata, youtube_video_id
 
         video_title, author = youtube_oembed_metadata(youtube_video_id(source))
     except Exception:  # pragma: no cover - metadata is strictly best-effort
@@ -243,7 +243,7 @@ def _is_document(fetched: FetchedBytes, category: str) -> bool:
 
     content_type = (fetched.content_type or "").split(";")[0].strip().lower()
     return (
-        category in {"pdf", "image"}
+        source_kind(category).document
         or content_type in {"application/pdf", "image/png", "image/jpeg"}
         or fetched.raw_bytes[:5] == b"%PDF-"
     )
@@ -416,7 +416,8 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     from learnloop.ingest.extractors import markdown_to_ir
     from learnloop.ingest.extractors.base import ExtractionContext
 
-    if category == "audio":
+    reader = source_kind(category).reader
+    if reader == "audio":
         _guard_file_upload(ctx, "audio_transcription")
         return _extract_audio(fetched, ctx)
 
@@ -468,7 +469,7 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
 
     text = fetched.raw_bytes.decode("utf-8", errors="replace")
 
-    if category == "youtube":
+    if reader == "captions":
         from learnloop.ingest.extractors import captions_to_ir
 
         cues = _caption_cues(text)
@@ -478,7 +479,7 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     looks_like_html = (fetched.content_type or "").lower().startswith("text/html") or bool(
         re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
     )
-    if category in ("web", "arxiv") or looks_like_html:
+    if reader == "html" or looks_like_html:
         from learnloop.ingest.extractors.web_page import WEB_PAGE_EXTRACTOR_VERSION, page_markdown
 
         markdown = page_markdown(text)
@@ -506,7 +507,8 @@ def default_extraction_identity(
 ) -> Mapping[str, Any]:
     """Describe the chosen extractor before running it, making cache hits cheap."""
 
-    if category == "audio":
+    reader = source_kind(category).reader
+    if reader == "audio":
         _guard_file_upload(ctx, "audio_transcription")
         # Lock-step with _extract_audio: the same pure route decision picks
         # native vs routed-chat vs endpoint transcription, and the identity
@@ -585,7 +587,7 @@ def default_extraction_identity(
             "model_versions": extractor.model_versions(),
             "config": {**config, "native_fallback": native_fallback} if native_fallback else config,
         }
-    if category == "youtube":
+    if reader == "captions":
         # Captions normalizer (captions_to_ir) v2 stamps per-cue t= timing onto
         # extractor_block_id; must match captions_to_ir's default.
         return {"extractor": "youtube", "extractor_version": "2", "model_versions": {}, "config": {}}
@@ -593,7 +595,7 @@ def default_extraction_identity(
     looks_html = (fetched.content_type or "").lower().startswith("text/html") or bool(
         re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
     )
-    if category in ("web", "arxiv") or looks_html:
+    if reader == "html" or looks_html:
         # The version is in the request hash: a page read with an earlier one
         # is never served this reading from cache, and keeps its own until it
         # is imported again (the card's "Read it again").
@@ -1769,6 +1771,16 @@ def _effective_inventory_inputs(
     return effective_specs
 
 
+def _build_trace_id(ctx: JobContext) -> str:
+    """The trace a synthesis job's decision records (and model receipts) join: the automatic build's planner job
+    when there is one, so its scope, the inventory rows the run read and what it applied answer as one trace in
+    ``learnloop why``; the job itself otherwise. The ingest drain opens no trace of its own."""
+
+    auto = ctx.payload.get("auto_build")
+    planner = auto.get("planner_job_id") if isinstance(auto, Mapping) else None
+    return str(planner or ctx.job_id)
+
+
 def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     """bootstrap_synthesis: N-way study-map synthesis over a source set (ING M6).
 
@@ -1778,6 +1790,13 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     through the existing pipeline; the manifest hash is the agent-run cache seam
     so an identical manifest re-drains at zero tokens."""
 
+    from learnloop import provenance
+
+    with provenance.trace_scope(_build_trace_id(ctx)):
+        return _bootstrap_synthesis(ctx)
+
+
+def _bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     from learnloop.content.synthesis.source_set_synthesis import (
         StudyMapError,
         create_study_map,
@@ -1788,7 +1807,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     source_set_id = str(payload.get("source_set_id") or "").strip()
     if not source_set_id:
         raise IngestRunnerError("bootstrap_synthesis job requires a 'source_set_id'.")
-    from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
+    from learnloop.content.pipeline.add_source import AutoApplyGate, admit_auto_build_job, after_auto_build
 
     if not payload.get("reuse_candidate"):
         # A model run: automatic builds are admitted again (kill switch, Undo
@@ -1805,7 +1824,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
         vault = load_vault(ctx.vault_root)
         source_set = next((item for item in vault.source_sets if item.id == source_set_id), None)
         if source_set is not None and subject_has_applied_study_map(vault, source_set.subject_id):
-            return handle_append_synthesis(ctx)
+            return _append_synthesis(ctx)
 
     ctx.report("inventoried", message="Preparing study-map synthesis")
     try:
@@ -1817,7 +1836,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
                 ctx.vault_root,
                 str(payload["synthesis_run_id"]),
                 apply=bool(payload.get("apply", False)),
-                apply_gate=lambda: auto_apply_allowed(ctx),
+                apply_gate=AutoApplyGate(ctx),
                 create_goal=bool(payload.get("create_goal", False)),
                 repair=bool(payload.get("repair_candidate", False)),
                 repair_ops=[dict(op) for op in payload.get("repair_ops") or []],
@@ -1834,7 +1853,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
                 brief=payload.get("brief") or {},
                 mode=str(payload.get("mode") or "auto"),
                 apply=bool(payload.get("apply", False)),
-                apply_gate=lambda: auto_apply_allowed(ctx),
+                apply_gate=AutoApplyGate(ctx),
                 create_goal=bool(payload.get("create_goal", False)),
                 repository=ctx.repo,
                 clock=ctx.clock,
@@ -1921,10 +1940,17 @@ def _record_step(ctx: JobContext, **facts: Any) -> None:
 def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
     """append_synthesis: bounded reconciliation against an existing study map."""
 
+    from learnloop import provenance
+
+    with provenance.trace_scope(_build_trace_id(ctx)):
+        return _append_synthesis(ctx)
+
+
+def _append_synthesis(ctx: JobContext) -> dict[str, Any]:
     from learnloop.content.synthesis.source_append import APPEND_INPUT_OVER_CEILING, append_source
     from learnloop.content.synthesis.source_set_synthesis import StudyMapError
 
-    from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
+    from learnloop.content.pipeline.add_source import AutoApplyGate, admit_auto_build_job, after_auto_build
 
     payload = ctx.payload
     source_set_id = str(payload.get("source_set_id") or payload.get("set_id") or "").strip()
@@ -1951,7 +1977,7 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             revision_diff=dict(payload.get("revision_diff") or {}),
             brief=dict(payload.get("brief") or {}),
             auto_apply=bool(payload.get("apply", payload.get("auto_apply", True))),
-            apply_gate=lambda: auto_apply_allowed(ctx),
+            apply_gate=AutoApplyGate(ctx),
             repository=ctx.repo,
             clock=ctx.clock,
             budget_overrides=dict(payload.get("synthesis_budgets") or {}),
@@ -4090,9 +4116,12 @@ def handle_auto_study_map(ctx: JobContext) -> dict[str, Any]:
     ledger entry the book card's status line reads; see
     ``learnloop.content.pipeline.add_source``."""
 
+    from learnloop import provenance
     from learnloop.content.pipeline.add_source import run_auto_study_map
 
-    return run_auto_study_map(ctx)
+    # The planner's job id is its build's trace (``_build_trace_id``): the scope it chose joins the run it caused.
+    with provenance.trace_scope(ctx.job_id):
+        return run_auto_study_map(ctx)
 
 
 DEFAULT_HANDLERS: dict[str, Handler] = {
@@ -5594,17 +5623,10 @@ class DurableIngestJobs:
 
         runner = self._require_runner()
         jobs = runner.repo.ingest_jobs_for_batch(batch_id)
-        synthesis_jobs = [
-            job for job in jobs
-            if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
-            and job["status"] in {"failed", "blocked", "cancelled"}
-        ]
-        if len(synthesis_jobs) != 1:
-            raise ValueError("batch must contain exactly one unfinished synthesis job")
-        if any(job["job_type"] == "inventory" and job["status"] != "completed" for job in jobs):
-            raise ValueError("all inventory jobs must be completed before retrying synthesis")
+        synthesis_job, refusal = retryable_synthesis_job(jobs)
+        if synthesis_job is None:
+            raise ValueError(SYNTHESIS_RECOVERY_REFUSALS[refusal])
 
-        synthesis_job = synthesis_jobs[0]
         payload = dict(synthesis_job.get("payload") or {})
         payload.pop("reuse_candidate", None)
         payload.pop("synthesis_run_id", None)
@@ -5614,17 +5636,9 @@ class DurableIngestJobs:
         if (repair_candidate or repair_ops) and not reuse_candidate:
             raise ValueError("candidate repair requires reuse_candidate")
         if reuse_candidate:
-            details = ((synthesis_job.get("error") or {}).get("details")) or {}
-            synthesis_run_id = str(details.get("synthesis_run_id") or "")
-            if not details.get("candidate_preserved") or not synthesis_run_id:
-                raise ValueError(
-                    "the failed synthesis attempt preserved no candidate; retry synthesis instead"
-                )
-            run = runner.repo.synthesis_run(synthesis_run_id)
-            if run is None or not run.get("candidate_output"):
-                raise ValueError(
-                    "the preserved candidate is no longer available; retry synthesis instead"
-                )
+            synthesis_run_id, refusal = preserved_candidate_run(synthesis_job, runner.repo.synthesis_run)
+            if synthesis_run_id is None:
+                raise ValueError(SYNTHESIS_RECOVERY_REFUSALS[refusal])
             payload["reuse_candidate"] = True
             payload["synthesis_run_id"] = synthesis_run_id
             if repair_candidate:
@@ -6033,6 +6047,68 @@ def _job_view(
     }
 
 
+#: Why a batch's synthesis cannot be retried, or its preserved candidate not reused (code constants the batch
+#: view carries), each with the words :meth:`DurableIngestJobs.retry_synthesis` refuses with.
+SYNTHESIS_RECOVERY_REFUSALS: dict[str, str] = {
+    "no_unfinished_synthesis": "batch must contain exactly one unfinished synthesis job",
+    "inventory_incomplete": "all inventory jobs must be completed before retrying synthesis",
+    "no_preserved_candidate": "the failed synthesis attempt preserved no candidate; retry synthesis instead",
+    "candidate_gone": "the preserved candidate is no longer available; retry synthesis instead",
+}
+
+
+def retryable_synthesis_job(jobs: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, str | None]:
+    """The batch's one unfinished synthesis job a retry reruns, or ``None`` and the refusal's code.
+
+    A cancelled or blocked synthesis is retried like a failed one; every inventory it reads must be complete,
+    since a retry reruns synthesis alone."""
+
+    synthesis_jobs = [
+        job for job in jobs
+        if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
+        and job["status"] in {"failed", "blocked", "cancelled"}
+    ]
+    if len(synthesis_jobs) != 1:
+        return None, "no_unfinished_synthesis"
+    if any(job["job_type"] == "inventory" and job["status"] != "completed" for job in jobs):
+        return None, "inventory_incomplete"
+    return synthesis_jobs[0], None
+
+
+def preserved_candidate_run(
+    synthesis_job: Mapping[str, Any], synthesis_run: Callable[[str], Mapping[str, Any] | None]
+) -> tuple[str | None, str | None]:
+    """The synthesis run whose preserved candidate a retry may revalidate (and repair) with no model call, or
+    ``None`` and the refusal's code."""
+
+    details = ((synthesis_job.get("error") or {}).get("details")) or {}
+    synthesis_run_id = str(details.get("synthesis_run_id") or "")
+    if not details.get("candidate_preserved") or not synthesis_run_id:
+        return None, "no_preserved_candidate"
+    run = synthesis_run(synthesis_run_id)
+    if run is None or not run.get("candidate_output"):
+        return None, "candidate_gone"
+    return synthesis_run_id, None
+
+
+def synthesis_recovery(jobs: list[dict[str, Any]], repo: Repository) -> dict[str, Any]:
+    """What :meth:`DurableIngestJobs.retry_synthesis` would accept for this batch, from its own checks, so the
+    desktop offers exactly the retries the host takes."""
+
+    synthesis_job, retry_refusal = retryable_synthesis_job(jobs)
+    run_id, reuse_refusal = (
+        preserved_candidate_run(synthesis_job, repo.synthesis_run) if synthesis_job is not None
+        else (None, retry_refusal)
+    )
+    return {
+        "can_retry_synthesis": synthesis_job is not None,
+        "retry_synthesis_job_id": synthesis_job["id"] if synthesis_job is not None else None,
+        "retry_synthesis_refusal": retry_refusal,
+        "can_reuse_candidate": run_id is not None,
+        "reuse_candidate_refusal": reuse_refusal,
+    }
+
+
 def _batch_view(
     batch: dict[str, Any],
     jobs: list[dict[str, Any]],
@@ -6070,6 +6146,7 @@ def _batch_view(
             )
             for job in jobs
         ],
+        **synthesis_recovery(jobs, repo),
     }
 
 

@@ -98,6 +98,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — imports consumer [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]]
+- [tests/test_ingest_decision_records.py](../../../../../../tests/test_ingest_decision_records.py) — imports consumer [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]]
 - [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — imports consumer [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]]
 
 ## Modification guidance

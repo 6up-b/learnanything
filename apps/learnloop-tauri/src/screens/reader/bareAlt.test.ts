@@ -66,3 +66,19 @@ it("a held Alt's auto-repeat does not count as a chord", () => {
   key("keyup", "Alt");
   expect(onClear).toHaveBeenCalledTimes(1);
 });
+
+// Workbench v2 (spec §5.4): a tap under 400 ms clears as before; Alt held 400 ms or more shows the
+// desks' which-key panel and never clears.
+it("Alt held 400 ms or more never clears; a tap just under it does", () => {
+  let now = 1_000;
+  const onClear = vi.fn();
+  renderHook(() => useBareAltClear(onClear, () => now));
+  key("keydown", "Alt", { altKey: true });
+  now += 400;
+  key("keyup", "Alt");
+  expect(onClear).not.toHaveBeenCalled();
+  key("keydown", "Alt", { altKey: true });
+  now += 399;
+  key("keyup", "Alt");
+  expect(onClear).toHaveBeenCalledTimes(1);
+});

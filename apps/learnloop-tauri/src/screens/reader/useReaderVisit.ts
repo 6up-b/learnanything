@@ -18,6 +18,7 @@ import {
   takeReaderVisitInitiator,
 } from "./activity";
 import { accrueVisit, visitSeconds } from "./visitClock";
+import { useReadingActivityAllowed } from "../desks/lifecycle";
 
 // The visit's clock is one definition with the phone's Reader (mobile v2 V4): `visitClock.ts`.
 export { VISIT_IDLE_MS } from "./visitClock";
@@ -66,8 +67,11 @@ export function useReaderVisit({ render, offline, inquiry, pdfView }: ReaderVisi
   // One visit per opened source: opened, then closed with its active and idle
   // seconds (a gap of two minutes or more without scrolling, selecting or
   // typing counts as idle).
+  // On a desk a visit is the time a window is in view: none opens for an offscreen, hidden or preview
+  // window, and one closes when its window leaves the view (desks/lifecycle.tsx).
+  const activityAllowed = useReadingActivityAllowed();
   useEffect(() => {
-    if (!render || offline || !inquiry) return;
+    if (!render || offline || !inquiry || !activityAllowed) return;
     const now = Date.now();
     const visit = { id: newActivityId(), extractionId: render.extractionId, openedAt: now, lastActive: now, active: 0, idle: 0 };
     visitRef.current = visit;
@@ -90,7 +94,7 @@ export function useReaderVisit({ render, offline, inquiry, pdfView }: ReaderVisi
     };
     // pdfView only labels the surface; a new visit starts per opened source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [render?.renderViewId, offline, inquiry]);
+  }, [render?.renderViewId, offline, inquiry, activityAllowed]);
 
   const touchVisit = useCallback(() => {
     const visit = visitRef.current;

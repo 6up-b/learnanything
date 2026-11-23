@@ -98,6 +98,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `ShadowRebuildError`, `shadow_rebuild`
 
+### Repository tooling consumers
+
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `shadow_rebuild`
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -140,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_iii_a_shadow_rebuild_is_zero_with_the_checks_present`
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
   - `test_a_shadow_rebuild_is_zero_and_never_reads_a_deliverable_path`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
+  - `test_arm_a_equals_a_plain_shadow_rebuild`
 - [tests/test_followup_fg1d_probe_shadow.py](../../../../../../tests/test_followup_fg1d_probe_shadow.py) — direct import
   - `test_a_generated_probes_answer_on_its_presentation_reads_zero_in_the_shadow`
   - `test_an_answer_without_its_presentation_is_incidental_on_both_sides`

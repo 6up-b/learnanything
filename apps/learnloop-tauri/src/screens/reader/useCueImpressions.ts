@@ -28,6 +28,7 @@ import type { ReaderCueDto, ReaderCueImpressionInput, ReaderCuesDto } from "../.
 import type { CuePlacement } from "./cues";
 import { newActivityId } from "./activity";
 import { observerGeneration } from "./observerGeneration";
+import { useListenerHub, useReadingActivityAllowed } from "../desks/lifecycle";
 
 /** Impressions are sent this long after the last one queued. */
 export const IMPRESSION_FLUSH_MS = 800;
@@ -246,8 +247,12 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const pendingKey = pending.map(({ cue, entry }) => `${cue.cueId}:${cue.spanId}:${entry.shown ? 1 : 0}:${entry.reason ?? ""}`).join("|");
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
+  const hub = useListenerHub();
+  // A margin mark is shown only on a window the learner can see: an offscreen, hidden or preview window
+  // on a desk records no impression.
+  const activityAllowed = useReadingActivityAllowed();
   useEffect(() => {
-    if (!discovery || surface === "pdf" || surface === "none" || typeof IntersectionObserver === "undefined") return;
+    if (!activityAllowed || !discovery || surface === "pdf" || surface === "none" || typeof IntersectionObserver === "undefined") return;
     const body = bodyRef.current;
     const items = pendingRef.current;
     if (!body || items.length === 0) return;
@@ -328,10 +333,10 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
       resizes.observe(body);
       for (const element of elements) resizes.observe(element);
     }
-    window.addEventListener("resize", scheduleRecheck);
+    const offResize = hub.listen("window", "resize", scheduleRecheck);
     return () => {
       if (settle !== null) clearTimeout(settle);
-      window.removeEventListener("resize", scheduleRecheck);
+      offResize();
       resizes?.disconnect();
       generation.disconnectAll();
     };
@@ -342,7 +347,7 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     // generation's late callbacks are discarded (F21). Receipts already
     // queued keep the plan they were seen on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingKey, surface, discovery ? discovery.targetsKey : null, servedPlanId, textAttribute]);
+  }, [pendingKey, surface, discovery ? discovery.targetsKey : null, servedPlanId, textAttribute, activityAllowed, hub]);
 
   return { visitId: currentVisit, planFor, noteShown, noteFewer };
 }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { CommandError, SourceSetDto, SourceSetSummaryDto } from "../api/dto";
+import type { CommandError, SourceRoleDto, SourceSetDto, SourceSetSummaryDto } from "../api/dto";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import { COLOR, Faint, FONT_MONO, TermSelect } from "./term";
 import { NewSubjectControl } from "./NewSubjectControl";
 
@@ -12,18 +14,18 @@ import { NewSubjectControl } from "./NewSubjectControl";
 // source). upsert_source_set replaces the whole member list, so adding to an
 // existing set re-sends its members with the new one appended.
 
-// The canonical source-role vocabulary (role_authority.KNOWN_ROLES / §4.2).
-const SOURCE_ROLES = [
-  "primary_textbook",
-  "lecture",
-  "paper",
-  "reference",
-  "alternate_explanation",
-  "problem_set",
-  "exam",
-  "notes",
-  "syllabus"
-] as const;
+// The source-role vocabulary and its authority matrix are the sidecar's
+// (`get_source_roles`, role_authority §4.2): a copy here once disagreed with it.
+export function useSourceRoles(): SourceRoleDto[] {
+  const query = useCachedQuery(["get_source_roles"], () => api.getSourceRoles(), { tags: [TAG.settings] });
+  return query.data?.roles ?? [];
+}
+
+// The roles to offer, keeping the current one selectable while the vocabulary loads.
+export function roleOptions(roles: SourceRoleDto[], current: string): string[] {
+  const names = roles.map((row) => row.role);
+  return current && !names.includes(current) ? [current, ...names] : names;
+}
 
 // Curriculum C3 (spec §9.1): what a role does, said where it is chosen. A syllabus only
 // scopes your deliverables; given the exam role it would be hidden whole instead.
@@ -65,6 +67,8 @@ export function AddToCollectionPanel({
   const [newName, setNewName] = useState("");
   const [newSubjectId, setNewSubjectId] = useState<string>("");
   const [role, setRole] = useState<string>(seedRole || "reference");
+  const roles = useSourceRoles();
+  const scopeOnly = roles.find((row) => row.role === role)?.scopeOnly ?? false;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -223,9 +227,9 @@ export function AddToCollectionPanel({
             >
               role
             </span>
-            <TermSelect value={role} options={SOURCE_ROLES as unknown as string[]} onChange={setRole} width={200} />
+            <TermSelect value={role} options={roleOptions(roles, role)} onChange={setRole} width={200} />
           </div>
-          {role === "syllabus" && (
+          {scopeOnly && (
             <span data-role-hint="syllabus" style={{ color: COLOR.textFaint, fontSize: 11 }}>{SYLLABUS_ROLE_HINT}</span>
           )}
 

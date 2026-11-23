@@ -147,10 +147,10 @@ Indexes and uniqueness:
 - `tests/test_synthesis_tail_golden.py`
 - `tests/ux_phase1_round2_review_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ingest_decision_records.py`
 - `tests/test_retired_config_identities.py`
 - `tests/test_source_append.py`
 - `tests/test_source_set_synthesis.py`
-- `tests/test_ux_phase1_round2_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

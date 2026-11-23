@@ -117,7 +117,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_first_questions_today.py](../../../../../../../tests/test_first_questions_today.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 - [tests/test_followups_batch7_note_titles.py](../../../../../../../tests/test_followups_batch7_note_titles.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 - [tests/test_glm_ocr.py](../../../../../../../tests/test_glm_ocr.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
-- [tests/test_inventory_output_allowance.py](../../../../../../../tests/test_inventory_output_allowance.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
+- [tests/test_ingest_decision_records.py](../../../../../../../tests/test_ingest_decision_records.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 
 ## Modification guidance
 

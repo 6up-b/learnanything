@@ -27,6 +27,7 @@ proposed_patch_items -> apply_accepted_items.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from contextlib import nullcontext
@@ -83,7 +84,11 @@ from learnloop.content.synthesis.source_unit_selection import (
     compute_effective_units,
     effective_scope_groups,
 )
-from learnloop.content.synthesis.source_unit_inventory import choose_unit_inventory, current_inventory_identity
+from learnloop.content.synthesis.source_unit_inventory import (
+    InventoryChoice,
+    choose_unit_inventory_with_reasons,
+    current_inventory_identity,
+)
 from learnloop.content.synthesis.synthesis_gates import (
     GateContext,
     GateDiagnostic,
@@ -250,6 +255,9 @@ class _SynthesisInputs:
     # revision -> its asset's hash; extraction -> "extractor@version".
     asset_hashes: dict[str, str] = field(default_factory=dict)
     extractor_versions: dict[str, str] = field(default_factory=dict)
+    # "revision:unit" -> why that inventory row (or none) was read, for the run's decision record only
+    # (:func:`inventory_choice_record`): never in the manifest or the prompt.
+    inventory_choices: dict[str, InventoryChoice] = field(default_factory=dict)
 
 
 def _assessment_signal_spans(inventory: dict[str, Any], *, held_out_only: bool) -> set[str]:
@@ -273,6 +281,7 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
     membership: list[dict[str, Any]] = []
     unit_inventory_versions: dict[str, str] = {}
     inventory_rows: dict[str, dict[str, str]] = {}
+    inventory_choices: dict[str, InventoryChoice] = {}
     span_origin: dict[str, dict[str, str]] = {}
     inventory_route = current_inventory_identity(vault.config)
     # The one exam predicate over every source set of the vault: a unit held
@@ -373,14 +382,14 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
                 # a generation source, so no inventory of it reaches a study map (bootstrap or
                 # append), whatever inventory a manual run made.
                 continue
-            row = choose_unit_inventory(rows, unit_id, source_unit_ids, ir=ir, route=inventory_route)
+            row = _choose_inventory(inventory_choices, member.revision_id, rows, unit_id, source_unit_ids, ir,
+                                    inventory_route)
             if row is None and len(source_unit_ids) > 1:
                 # Transition-safe fallback: an existing per-member cache remains
                 # usable until the explicit composite inventory has been generated.
                 for source_unit_id in source_unit_ids:
-                    member_row = choose_unit_inventory(
-                        rows, source_unit_id, [source_unit_id], ir=ir, route=inventory_route
-                    )
+                    member_row = _choose_inventory(inventory_choices, member.revision_id, rows, source_unit_id,
+                                                   [source_unit_id], ir, inventory_route)
                     if member_row is None:
                         continue
                     inventory = member_row["inventory"]
@@ -459,7 +468,139 @@ def _collect_inputs(repo: Repository, vault: LoadedVault, source_set: SourceSet)
         inventory_rows=inventory_rows,
         asset_hashes=asset_hashes,
         extractor_versions=extractor_versions,
+        inventory_choices=inventory_choices,
     )
+
+
+def _choose_inventory(choices: dict[str, InventoryChoice], revision_id: str, rows: list[dict[str, Any]],
+                      unit_id: str, unit_ids: list[str], ir: Any, route: tuple[str, str] | None) -> dict[str, Any] | None:
+    """The unit's inventory row (``choose_unit_inventory``), its reasons kept in ``choices`` for the run's record."""
+
+    choice = choose_unit_inventory_with_reasons(rows, unit_id, unit_ids, ir=ir, route=route)
+    choices[f"{revision_id}:{unit_id}"] = choice
+    return choice.row
+
+
+#: The decision record of the inventory rows a synthesis run read: one per run, a row per unit.
+INGEST_INVENTORY_CHOICE = "ingest_inventory_choice"
+
+
+def inventory_choice_record(choices: Mapping[str, InventoryChoice], *, synthesis_run_id: str, mode: str) -> Any:
+    """Which inventory row each scope unit's synthesis read and the preference that chose it (pure); the rows that
+    lost are its alternatives, each with the preference it lost on. A unit with no row is named too: synthesis
+    reads nothing of it. Exam material and a syllabus never reach the choice, so they are not here."""
+
+    from learnloop import provenance
+
+    units = []
+    lost: list[dict[str, Any]] = []
+    for key, choice in sorted(choices.items()):
+        units.append({
+            "unit": provenance.ref(key),
+            "row": provenance.ref(choice.row.get("id")) if choice.row is not None else None,
+            "rule": choice.rule,
+            "candidates": choice.candidates,
+            "profile_satisfied": choice.profile_satisfied,
+        })
+        lost += [{"ref": provenance.ref(row_id), "unit": provenance.ref(key), "lost_by": reason}
+                 for row_id, reason in choice.lost]
+    return provenance.DecisionRecord(
+        kind=INGEST_INVENTORY_CHOICE,
+        status="chosen",
+        chosen_ref=provenance.ref(synthesis_run_id),
+        decided_by="synthesis_inputs",
+        rule="best_inventory",
+        alternatives=tuple(lost),
+        facts={"mode": mode, "units": units,
+               "units_without_row": sum(1 for choice in choices.values() if choice.row is None)},
+        detail_table="synthesis_runs",
+        detail_id=provenance.ref(synthesis_run_id),
+    )
+
+
+#: The decision record of what a run's apply step did: applied, or kept for review, and why for each item kept.
+INGEST_AUTO_APPLY = "ingest_auto_apply"
+
+
+def gate_refusal(apply_gate: Callable[[], bool] | None) -> str:
+    """Why ``apply_gate`` (already asked) kept a build unapplied: an automatic build's gate names the switch or
+    the Undo (``add_source.AutoApplyGate``); any other gate is only closed."""
+
+    return str(getattr(apply_gate, "refusal", None) or "gate_closed")
+
+
+def auto_apply_record(*, proposal_id: str, synthesis_run_id: str | None, mode: str, applied: Sequence[str],
+                      waiting: Sequence[tuple[str, str]], rule: str) -> Any:
+    """What the apply step did with a run's proposal (pure): ``chosen`` when it applied items, ``deferred`` when it
+    left them all for review. Each item left waiting is an alternative with why it waits (``lost_by``)."""
+
+    from learnloop import provenance
+
+    return provenance.DecisionRecord(
+        kind=INGEST_AUTO_APPLY,
+        status="chosen" if applied else "deferred",
+        chosen_ref=provenance.ref(proposal_id),
+        decided_by="synthesis_apply",
+        rule=rule,
+        alternatives=tuple({"ref": provenance.ref(item_id), "lost_by": why} for item_id, why in waiting),
+        facts={"mode": mode, "applied_count": len(applied), "waiting_count": len(waiting)},
+        detail_table="synthesis_runs" if synthesis_run_id else None,
+        detail_id=provenance.ref(synthesis_run_id),
+    )
+
+
+def record_auto_apply(repository: Repository, outcome: Any, synthesis_run_id: str | None, *, mode: str,
+                      applied: Sequence[str], waiting: Sequence[tuple[str, str]], rule: str) -> None:
+    """Write :func:`auto_apply_record` for a run that left a proposal; never raises."""
+
+    if not getattr(outcome, "proposal_id", None):
+        return
+    _write_record(repository, INGEST_AUTO_APPLY, lambda: auto_apply_record(
+        proposal_id=outcome.proposal_id, synthesis_run_id=synthesis_run_id, mode=mode,
+        applied=applied, waiting=waiting, rule=rule))
+
+
+def _map_apply_rule(apply: bool, nothing_new: bool, apply_gate: Callable[[], bool] | None) -> str:
+    """Why a bootstrap's whole map was applied or not (the gate is asked only when the rest allow it)."""
+
+    if not apply:
+        return "apply_not_requested"
+    if nothing_new:
+        return "nothing_new"
+    return "applied" if _gate_open(apply_gate) else gate_refusal(apply_gate)
+
+
+def _record_map_apply(repository: Repository, proposal_id: str | None, synthesis_run_id: str | None,
+                      rule: str) -> None:
+    """A bootstrap applies its whole map or none of it: when none, every item waiting has the run's reason."""
+
+    if not proposal_id:
+        return
+
+    def build() -> Any:
+        waiting = [] if rule == "applied" else [
+            (item["id"], rule) for item in repository.proposal_items(proposal_id) if item["decision"] == "pending"
+        ]
+        applied = [] if rule != "applied" else [item["id"] for item in repository.proposal_items(proposal_id)]
+        return auto_apply_record(proposal_id=proposal_id, synthesis_run_id=synthesis_run_id, mode="bootstrap",
+                                 applied=applied, waiting=waiting, rule=rule)
+
+    _write_record(repository, INGEST_AUTO_APPLY, build)
+
+
+def _write_record(repository: Repository, kind: str, build: Callable[[], Any]) -> None:
+    """Build a decision record and write it in a short transaction of its own; never raises."""
+
+    from learnloop import provenance
+    from learnloop.db.stores.provenance import write_decision
+
+    try:
+        record = build()
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        logging.getLogger(__name__).warning("decision record %r not built (trace %s): %s", kind,
+                                            provenance.current_trace(), type(exc).__name__)
+        return
+    write_decision(repository, record)
 
 
 def _chosen_row(row: Mapping[str, Any]) -> dict[str, str]:
@@ -816,12 +957,15 @@ def _create_study_map(
     def apply_map(outcome: SynthesisOutcome) -> dict[str, Any]:
         # Acceptance and goal wiring, when asked (a learnable map requires mvp-0.7;
         # the compilers enforce the bootstrap evidence refusal on a legacy vault).
-        if not (apply and not outcome.nothing_new and _gate_open(apply_gate)):
+        rule = _map_apply_rule(apply, outcome.nothing_new, apply_gate)
+        if rule != "applied":
+            _record_map_apply(repository, outcome.proposal_id, run.synthesis_run_id, rule)
             return {}
         goal_id = _apply_map(
             root, repository, outcome.proposal_id, brief=run.brief, create_goal=create_goal, clock=clock,
             facet_ids=outcome.normalized.facet_ids, progress=progress,
         )
+        _record_map_apply(repository, outcome.proposal_id, run.synthesis_run_id, rule)
         return {"applied": True, "goal_id": goal_id}
 
     outcome = finish_synthesis_run(run, BOOTSTRAP, apply=apply_map)
@@ -1279,6 +1423,8 @@ def open_synthesis_run(
     synthesis_run_id = repository.insert_synthesis_run(
         manifest_id=manifest_id, mode=mode.name, agent_run_id=agent_run_id,
     )
+    _write_record(repository, INGEST_INVENTORY_CHOICE, lambda: inventory_choice_record(
+        inputs.inventory_choices, synthesis_run_id=synthesis_run_id, mode=mode.name))
     return SynthesisRun(
         vault=vault, repository=repository, root=root, source_set=source_set, inputs=inputs, brief=resolved_brief,
         now=now, clock=clock, agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id, client=client,
@@ -1720,11 +1866,13 @@ def revalidate_synthesis_candidate(
         item_counts=_count_items(normalized.rows), gate_diagnostics=diagnostics,
         generation_needs=generation_needs, candidate_repairs=repair_log,
     )
-    if apply and not result.nothing_new and _gate_open(apply_gate):
+    rule = _map_apply_rule(apply, result.nothing_new, apply_gate)
+    if rule == "applied":
         _apply_and_wire_goal(
             root, repository, result, brief=dict(manifest.get("brief") or {}), create_goal=create_goal,
             clock=clock, facet_ids=normalized.facet_ids, progress=progress,
         )
+    _record_map_apply(repository, patch_id, synthesis_run_id, rule)
     result.facet_identity = facet_identity_result(root, repository, stored_plan, synthesis_run_id)
     return result
 

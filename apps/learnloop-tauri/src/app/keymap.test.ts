@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { setAlgoConfig } from "./algoConfig";
+import { DESK_BINDINGS } from "../screens/desks/keys/router";
 import {
   CLASSIC_REPLACEMENTS,
   SCOPED_OVERRIDES,
@@ -227,7 +228,9 @@ function windowListenersIgnoringModifiers(files: Array<{ file: string; source: s
   const keys = chordBaseKeys();
   const found: string[] = [];
   for (const { file, source } of files) {
-    for (const match of source.matchAll(/window\.addEventListener\(\s*"keydown"\s*,\s*([^,)]+)/g)) {
+    // A window listener registered through a desk window's listener hub (screens/desks/lifecycle.tsx) is
+    // still a window keydown listener: the scan reads both forms.
+    for (const match of source.matchAll(/(?:window\.addEventListener\(|\.listen\(\s*"window"\s*,)\s*"keydown"\s*,\s*([^,)]+)/g)) {
       const name = match[1].trim();
       if (!/^\w+$/.test(name)) {
         found.push(`${file}: an inline keydown listener (name it so this scan can read it)`);
@@ -307,7 +310,7 @@ it("requires screenLeavesKey in every window and document keydown listener", () 
   for (const file of sourceFiles(SRC)) {
     if (SHELL_FILES.has(file)) continue;
     const source = readFileSync(join(SRC, file), "utf8");
-    for (const match of source.matchAll(/(?:window|document)\.addEventListener\(\s*"keydown"\s*,\s*([^,)]+)/g)) {
+    for (const match of source.matchAll(/(?:(?:window|document)\.addEventListener\(|\.listen\(\s*"(?:window|document)"\s*,)\s*"keydown"\s*,\s*([^,)]+)/g)) {
       listeners += 1;
       const name = match[1].trim();
       const body = /^\w+$/.test(name) ? handlerBody(source, name, match.index) : null;
@@ -366,4 +369,20 @@ describe("screenLeavesKey's target rule (fix round 5)", () => {
       setAlgoConfig({});
     }
   });
+});
+
+// Reader workbench v2 (spec §5.4): the desks' chords join the collision table. No Alt or Ctrl chord of the
+// desks is a shell chord in either shell (Alt+S stays Settings, so arranging pads is alt+a). Each chord's
+// owner per scope is checked beside the matrix (screens/desks/keys/router.test.ts).
+it("collides with none of the desks' chords", () => {
+  for (const shell of ["simple", "classic"] as const) {
+    const taken = new Set(shellBindings(shell).filter((binding) => binding.chord.alt || binding.chord.mod)
+      .map((binding) => `${binding.chord.alt ? "alt" : "ctrl"}+${binding.chord.key.toLowerCase()}`));
+    for (const binding of DESK_BINDINGS) {
+      if (!binding.chord.alt && !binding.chord.ctrl) continue;
+      const key = binding.chord.code ? binding.chord.code.replace(/^Key/, "").replace(/^Digit/, "").toLowerCase() : (binding.chord.key ?? "").toLowerCase();
+      const chord = `${binding.chord.alt ? "alt" : "ctrl"}+${key}`;
+      expect(taken.has(chord), `${shell}: ${binding.keys}`).toBe(false);
+    }
+  }
 });

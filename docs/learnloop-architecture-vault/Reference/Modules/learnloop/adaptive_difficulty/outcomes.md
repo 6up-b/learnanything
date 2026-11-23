@@ -106,6 +106,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] — imports `module`; statically calls `unassisted_success`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; statically calls `AttemptFacts`, `category`, `unassisted_success`
 
+### Repository tooling consumers
+
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `unassisted_success`
+
 ## Dependencies
 
 ### LearnLoop dependencies

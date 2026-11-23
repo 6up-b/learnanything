@@ -106,6 +106,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_build_study_map_routing.py](../../../../../../tests/test_build_study_map_routing.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 - [tests/test_collection_append_units.py](../../../../../../tests/test_collection_append_units.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
+- [tests/test_ingest_eligibility_contract.py](../../../../../../tests/test_ingest_eligibility_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 - [tests/test_ingest_latency_journey.py](../../../../../../tests/test_ingest_latency_journey.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]

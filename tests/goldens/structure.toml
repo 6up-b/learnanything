@@ -40,11 +40,8 @@ source_text_assertions = 23
 # unanchored rows naming the case's LO; no existing value moved).
 # 281654: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
 # golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
-# 281804: from mvp-0.67 the writer that first persists a learning object's mastery records its seed in
-# mastery_seed_inputs (the journey, grade-application and three synthesis-tail goldens gain those rows), and the
-# grade-application golden records the application's new mastery_seed_inputs field (150 lines; no existing value moved).
-# 281809: mvp-0.67's own golden, tests/goldens/mastery_seed_replay.json (three histories, one per line; 5 lines).
-golden_json_lines = 281809
+# 283566: the synthesis-tail goldens record ingest's three decision records and the normalizer goldens its empty auto-apply refusals (K2.12; 1,757 lines, additions only).
+golden_json_lines = 283566
 
 [members]
 import_component = [

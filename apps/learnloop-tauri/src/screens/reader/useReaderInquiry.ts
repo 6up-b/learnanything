@@ -67,6 +67,7 @@ import {
   type ReturnEntry,
   type ReturnStack,
 } from "./returnStack";
+import { useListenerHub, useWindowPaused } from "../desks/lifecycle";
 
 // The passage quick check's poll (F4): every 3 s for at most 10 minutes (the
 // Codex turn timeout is 8), then it fails as timed out.
@@ -660,6 +661,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   }, [railTab]);
 
   // Alt+← / Alt+→ walk the return stack (UX §3.5; K7 keeps the capture).
+  const hub = useListenerHub();
   useEffect(() => {
     if (!inquiry || !render) return;
     const onKey = (event: KeyboardEvent) => {
@@ -672,9 +674,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       event.preventDefault();
       void restoreEntry(moved.stack, moved.target, event.key === "ArrowLeft" ? "alt_back" : "alt_forward");
     };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [inquiry, render, restoreEntry]);
+    return hub.listen("window", "keydown", onKey, true);
+  }, [inquiry, render, restoreEntry, hub]);
 
   // Ask (and, with reader_inquiry on, a follow-up in a branch). The learner's
   // words stay in the composer until the answer lands; a failure keeps them.
@@ -1216,8 +1217,10 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   // model unreachable, refused), is cancelled or times out. A sidecar that
   // stops answering shows as offline and the poll carries on, so the check
   // still lands when it comes back (F4).
+  // A window offscreen on a desk polls nothing; the wait resumes when it is shown again.
+  const paused = useWindowPaused();
   useEffect(() => {
-    if (!render || offline) return;
+    if (!render || offline || paused) return;
     const watching = Object.entries(inquiryChecks).filter(
       ([, check]) => check.batchId && check.waitId && (check.phase === "pending" || check.phase === "offline"),
     );
@@ -1280,7 +1283,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       }
     }, INQUIRY_CHECK_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [render, offline, inquiryChecks, settleInquiryJob, extractionOf]);
+  }, [render, offline, paused, inquiryChecks, settleInquiryJob, extractionOf]);
 
   const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string) => {
     const check = inquiryChecks[rootId];
@@ -1351,9 +1354,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         setAskFindQuery("");
       }
     };
-    window.addEventListener("keydown", onFind, { capture: true });
-    return () => window.removeEventListener("keydown", onFind, { capture: true });
-  }, [railTab, askFindOpen]);
+    return hub.listen("window", "keydown", onFind, true);
+  }, [railTab, askFindOpen, hub]);
 
   return {
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,

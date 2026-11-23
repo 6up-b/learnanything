@@ -28,7 +28,7 @@ Deterministic renderer fixtures used to demonstrate or restore known states.
 
 ## Child areas
 
-No nested ownership area.
+- [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] — The Reader workbench's synthetic workspace (project-authored sources, desks, an in-memory desk server) and its visual harness page (test support, outside the Vite build).
 
 ## Direct modules
 

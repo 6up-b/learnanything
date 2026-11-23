@@ -35,6 +35,7 @@ import { logReaderAction, newActivityId } from "./activity";
 import { logCorrespondentAct } from "./correspondenceEvents";
 import { crumbLabel, firstCorrespondent, firstJudgedIn, isNarrowWindow, targetOf, type Pane, type PaneTarget } from "./sideBySide";
 import type { PaneSelection } from "./SideBySidePane";
+import { useListenerHub } from "../desks/lifecycle";
 
 /** Reader CA6b fix round 6 (verify finding 3): the second pane's own
  *  selection and unfinished note (CA6's bar, with the intent box off), kept
@@ -165,13 +166,13 @@ export interface SideBySide {
 
 function useNarrow(active: boolean): boolean {
   const [narrow, setNarrow] = useState(() => isNarrowWindow(window.innerWidth));
+  const hub = useListenerHub();
   useEffect(() => {
     if (!active) return undefined;
     const onResize = () => setNarrow(isNarrowWindow(window.innerWidth));
     onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [active]);
+    return hub.listen("window", "resize", onResize);
+  }, [active, hub]);
   return narrow;
 }
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/IngestScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/IngestScreen.tsx) |
-| Source lines | 1606 |
+| Source lines | 1608 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -54,122 +54,122 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function IngestScreen(` — function, line 434
+- `export function IngestScreen(` — function, line 442
 
 ## Internal implementation anchors
 
-- `type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio" | "image"` — type, line 26
-- `function recognitionCostLabel(estimate: NonNullable<AcquisitionPreviewItem["extractionEstimate"]>): string` — function, line 29
-- `const usd = estimate.estimatedUsd` — const, line 32
-- `function detectKind(source: string): Kind | null` — function, line 37
-- `const s = (source || "").trim()` — const, line 38
-- `type KindMeta =` — type, line 52
-- `const KIND_META: Record<Kind, KindMeta> =` — const, line 54
-- `type Mode = IngestMode` — type, line 64
-- `function kebabCase(value: string): string` — function, line 66
-- `function Card(` — function, line 74
-- `function KindChips(` — function, line 92
-- `const order: Kind[] = ["web", "arxiv", "pdf", "youtube", "local", "audio"]` — const, line 93
-- `const sel = k === active` — const, line 97
-- `const meta = KIND_META[k]` — const, line 98
-- `function LearnerLevelChip()` — function, line 124
-- `const profileQuery = useCachedQuery(["get_learner_profile"], ()` — const, line 130
-- `const profileError = saveError ?? (profileQuery.error ? errorMessage(profileQuery.error, "Could not load your learner level.") : null)` — const, line 136
-- `const pick = async (next: StartingLevel)` — const, line 139
-- `const profile = await api.setLearnerProfile(` — const, line 144
-- `const label = STARTING_LEVELS.find((s)` — const, line 155
-- `function SubjectPicker(` — function, line 228
-- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 243
-- `async function submit()` — function, line 249
-- `const trimmed = title.trim()` — const, line 250
-- `const created = await onCreate(trimmed)` — const, line 252
-- `const sel = s === value` — const, line 261
-- `const SPINNER_FRAMES = ["◐", "◓", "◑", "◒"]` — const, line 351
-- `const INGEST_PHASES: Array<` — const, line 353
-- `function RunningCard(` — function, line 361
-- `const frame = SPINNER_FRAMES[Math.floor(elapsed * 2) % SPINNER_FRAMES.length]` — const, line 362
-- `const minutes = Math.floor(elapsed / 60)` — const, line 363
-- `const seconds = Math.floor(elapsed % 60)` — const, line 364
-- `const clock = minutes > 0 ? `$` — const, line 365
-- `const activeIndex = INGEST_PHASES.findIndex((item)` — const, line 366
-- `const cancelling = job.phase === "cancelling"` — const, line 367
-- `const complete = activeIndex > index` — const, line 387
-- `const active = activeIndex === index` — const, line 388
-- `const overlayActive = outlineTarget !== null` — const, line 457
-- `const card = lib.sources.find((c)` — const, line 485
-- `function IngestHome(` — function, line 541
-- `const vaultQuery = useCachedQuery(["load_vault"], ()` — const, line 573
-- `const subjects: string[] = useMemo(()` — const, line 574
-- `const effectivePdfEngine: PdfEngine = pdfEngine === "auto" ? vaultPdfEngine : pdfEngine` — const, line 598
-- `const nativePdf = effectivePdfEngine === "native"` — const, line 599
-- `let cancelled = false` — let, line 601
-- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 612
-- `const activityRef = useRef<HTMLDivElement>(null)` — const, line 613
-- `const runningRef = useRef(false)` — const, line 614
-- `const kind = authoritativeKind ?? detectKind(source)` — const, line 616
-- `const running = job?.status === "queued" || job?.status === "running"` — const, line 617
-- `const result = job?.status === "completed" ? job.result : null` — const, line 618
-- `const error = localError ?? (job?.status === "failed" || job?.status === "cancelled" ? job.error?.message ?? job.message : null)` — const, line 619
-- `const stagingVisible = mode === "canonical"` — const, line 623
-- `const hasStaged = staged.length > 0` — const, line 624
-- `const canRun = (source.trim().length > 0 || (stagingVisible && hasStaged)) && !running && !importing && (mode === "canonical" || subject !== null) && (mode !== "canonical" || pageSelectionError(pageSelection) === null) && Object.values(stagedPageRanges).every…` — const, line 625
-- `const importCount = staged.length + (source.trim() ? 1 : 0)` — const, line 632
-- `const subjectTooltip = mode === "canonical" ? "imports land in the vault-global source library — no subject needed. A subject chosen here just pre-tags the import batch` — const, line 633
-- `const refreshVault = vaultQuery.refetch` — const, line 638
-- `const refreshSubjects = useCallback(async ()` — const, line 639
-- `let cancelled = false` — let, line 655
-- `const active = snapshot.jobs.find((candidate)` — const, line 658
-- `let cancelled = false` — let, line 669
-- `let timer: number | undefined` — let, line 670
-- `const poll = async ()` — const, line 671
-- `const next = await api.getIngestJob(jobId)` — const, line 673
-- `const commandError = e as CommandError` — const, line 685
-- `const candidate = source.trim()` — const, line 704
-- `let cancelled = false` — let, line 710
-- `const timer = window.setTimeout(()` — const, line 712
-- `const mapped: Record<string, Kind> =` — const, line 716
-- `let cancelled = false` — let, line 746
-- `const timer = window.setTimeout(()` — const, line 747
-- `const next: Record<string, AcquisitionPreviewItem> =` — const, line 751
-- `const parsed = Date.parse(job.startedAt ?? job.createdAt)` — const, line 768
-- `const started = Number.isNaN(parsed) ? Date.now() : parsed` — const, line 769
-- `const id = window.setInterval(()` — const, line 771
-- `async function createSubject(title: string): Promise<boolean>` — function, line 775
-- `const id = kebabCase(title)` — const, line 776
-- `const res = await api.runCliCommand(["add-subject", id, title])` — const, line 781
-- `function clearFinishedJob()` — function, line 798
-- `function stageCurrent()` — function, line 804
-- `const src = source.trim()` — const, line 805
-- `const next =` — const, line 809
-- `function stageDropped(paths: string[])` — function, line 819
-- `const unique = paths.filter((path, index)` — const, line 822
-- `const next =` — const, line 829
-- `const fileDragging = useSourceFileDrop(` — const, line 835
-- `function removeStaged(src: string)` — function, line 841
-- `const next =` — const, line 844
-- `const next =` — const, line 849
-- `async function startCanonicalImport(entries: Array<` — function, line 855
-- `const batch = await api.startImportBatch(` — const, line 858
-- `async function startExamSeeding(src: string)` — function, line 887
-- `const started = await api.startIngest(` — const, line 892
-- `const commandError = e as CommandError` — const, line 896
-- `const activeJobId = (commandError.details as` — const, line 897
-- `async function startRun()` — function, line 908
-- `const trimmed = source.trim()` — const, line 910
-- `const entries = [ ...staged.map((stagedSource)` — const, line 913
-- `async function cancelIngest()` — function, line 938
-- `async function chooseLocalSource()` — function, line 947
-- `const selected = await openDialog(` — const, line 949
-- `function onKey(event: KeyboardEvent)` — function, line 965
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 970
-- `const isInput = tag === "input" || tag === "textarea"` — const, line 971
-- `const modeChip = (m: Mode, icon: string, label: string)` — const, line 999
-- `const sel = mode === m` — const, line 1000
-- `const next = value as PdfEngine` — const, line 1205
-- `const rowKind = detectKind(src)` — const, line 1316
-- `const meta = rowKind ? KIND_META[rowKind] : null` — const, line 1317
-- `const preview = previews[src]` — const, line 1318
-- `const stagedRange = stagedPageRanges[src] ?? ""` — const, line 1319
+- `type Kind = SourceCategory` — type, line 28
+- `function recognitionCostLabel(estimate: NonNullable<AcquisitionPreviewItem["extractionEstimate"]>): string` — function, line 31
+- `const usd = estimate.estimatedUsd` — const, line 34
+- `function detectKind(source: string): Kind | null` — function, line 42
+- `const s = (source || "").trim()` — const, line 43
+- `const url = /^https?:\/\//i.test(s)` — const, line 48
+- `const path = (url ? s.replace(/[?#].*$/, "") : s).toLowerCase()` — const, line 49
+- `const kind = SOURCE_KINDS.find((row)` — const, line 50
+- `const KIND_STYLE: Record<Kind,` — const, line 57
+- `function kindLabel(kind: Kind): string` — function, line 67
+- `type Mode = IngestMode` — type, line 71
+- `function kebabCase(value: string): string` — function, line 73
+- `function Card(` — function, line 81
+- `function KindChips(` — function, line 99
+- `const sel = k === active` — const, line 103
+- `const meta =` — const, line 104
+- `function LearnerLevelChip()` — function, line 132
+- `const profileQuery = useCachedQuery(["get_learner_profile"], ()` — const, line 138
+- `const profileError = saveError ?? (profileQuery.error ? errorMessage(profileQuery.error, "Could not load your learner level.") : null)` — const, line 144
+- `const pick = async (next: StartingLevel)` — const, line 147
+- `const profile = await api.setLearnerProfile(` — const, line 152
+- `const label = STARTING_LEVELS.find((s)` — const, line 163
+- `function SubjectPicker(` — function, line 236
+- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 251
+- `async function submit()` — function, line 257
+- `const trimmed = title.trim()` — const, line 258
+- `const created = await onCreate(trimmed)` — const, line 260
+- `const sel = s === value` — const, line 269
+- `const SPINNER_FRAMES = ["◐", "◓", "◑", "◒"]` — const, line 359
+- `const INGEST_PHASES: Array<` — const, line 361
+- `function RunningCard(` — function, line 369
+- `const frame = SPINNER_FRAMES[Math.floor(elapsed * 2) % SPINNER_FRAMES.length]` — const, line 370
+- `const minutes = Math.floor(elapsed / 60)` — const, line 371
+- `const seconds = Math.floor(elapsed % 60)` — const, line 372
+- `const clock = minutes > 0 ? `$` — const, line 373
+- `const activeIndex = INGEST_PHASES.findIndex((item)` — const, line 374
+- `const cancelling = job.phase === "cancelling"` — const, line 375
+- `const complete = activeIndex > index` — const, line 395
+- `const active = activeIndex === index` — const, line 396
+- `const overlayActive = outlineTarget !== null` — const, line 465
+- `const card = lib.sources.find((c)` — const, line 493
+- `function IngestHome(` — function, line 549
+- `const vaultQuery = useCachedQuery(["load_vault"], ()` — const, line 581
+- `const subjects: string[] = useMemo(()` — const, line 582
+- `const nativePdf = enginesRefusingRanges.includes(pdfEngine)` — const, line 607
+- `let cancelled = false` — let, line 609
+- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 622
+- `const activityRef = useRef<HTMLDivElement>(null)` — const, line 623
+- `const runningRef = useRef(false)` — const, line 624
+- `const kind = authoritativeKind ?? detectKind(source)` — const, line 626
+- `const running = job?.status === "queued" || job?.status === "running"` — const, line 627
+- `const result = job?.status === "completed" ? job.result : null` — const, line 628
+- `const error = localError ?? (job?.status === "failed" || job?.status === "cancelled" ? job.error?.message ?? job.message : null)` — const, line 629
+- `const stagingVisible = mode === "canonical"` — const, line 633
+- `const hasStaged = staged.length > 0` — const, line 634
+- `const canRun = (source.trim().length > 0 || (stagingVisible && hasStaged)) && !running && !importing && (mode === "canonical" || subject !== null) && (mode !== "canonical" || pageSelectionError(pageSelection) === null) && Object.values(stagedPageRanges).every…` — const, line 635
+- `const importCount = staged.length + (source.trim() ? 1 : 0)` — const, line 642
+- `const subjectTooltip = mode === "canonical" ? "imports land in the vault-global source library — no subject needed. A subject chosen here just pre-tags the import batch` — const, line 643
+- `const refreshVault = vaultQuery.refetch` — const, line 648
+- `const refreshSubjects = useCallback(async ()` — const, line 649
+- `let cancelled = false` — let, line 665
+- `const active = snapshot.jobs.find((candidate)` — const, line 668
+- `let cancelled = false` — let, line 679
+- `let timer: number | undefined` — let, line 680
+- `const poll = async ()` — const, line 681
+- `const next = await api.getIngestJob(jobId)` — const, line 683
+- `const commandError = e as CommandError` — const, line 695
+- `const candidate = source.trim()` — const, line 714
+- `let cancelled = false` — let, line 720
+- `const timer = window.setTimeout(()` — const, line 722
+- `let cancelled = false` — let, line 748
+- `const timer = window.setTimeout(()` — const, line 749
+- `const next: Record<string, AcquisitionPreviewItem> =` — const, line 753
+- `const parsed = Date.parse(job.startedAt ?? job.createdAt)` — const, line 770
+- `const started = Number.isNaN(parsed) ? Date.now() : parsed` — const, line 771
+- `const id = window.setInterval(()` — const, line 773
+- `async function createSubject(title: string): Promise<boolean>` — function, line 777
+- `const id = kebabCase(title)` — const, line 778
+- `const res = await api.runCliCommand(["add-subject", id, title])` — const, line 783
+- `function clearFinishedJob()` — function, line 800
+- `function stageCurrent()` — function, line 806
+- `const src = source.trim()` — const, line 807
+- `const next =` — const, line 811
+- `function stageDropped(paths: string[])` — function, line 821
+- `const unique = paths.filter((path, index)` — const, line 824
+- `const next =` — const, line 831
+- `const fileDragging = useSourceFileDrop(` — const, line 837
+- `function removeStaged(src: string)` — function, line 843
+- `const next =` — const, line 846
+- `const next =` — const, line 851
+- `async function startCanonicalImport(entries: Array<` — function, line 857
+- `const batch = await api.startImportBatch(` — const, line 860
+- `async function startExamSeeding(src: string)` — function, line 889
+- `const started = await api.startIngest(` — const, line 894
+- `const commandError = e as CommandError` — const, line 898
+- `const activeJobId = (commandError.details as` — const, line 899
+- `async function startRun()` — function, line 910
+- `const trimmed = source.trim()` — const, line 912
+- `const entries = [ ...staged.map((stagedSource)` — const, line 915
+- `async function cancelIngest()` — function, line 940
+- `async function chooseLocalSource()` — function, line 949
+- `const selected = await openDialog(` — const, line 951
+- `function onKey(event: KeyboardEvent)` — function, line 967
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 972
+- `const isInput = tag === "input" || tag === "textarea"` — const, line 973
+- `const modeChip = (m: Mode, icon: string, label: string)` — const, line 1001
+- `const sel = mode === m` — const, line 1002
+- `const next = value as PdfEngine` — const, line 1207
+- `const rowKind = sourceKindRow(previews[src]?.category)?.category ?? detectKind(src)` — const, line 1318
+- `const meta = rowKind ?` — const, line 1319
+- `const preview = previews[src]` — const, line 1320
+- `const stagedRange = stagedPageRanges[src] ?? ""` — const, line 1321
 
 ## Who imports or calls it
 
@@ -185,6 +185,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AcquisitionPreviewItem`, `CommandError`, `IngestBatchDto`, `IngestJobDto`, `IngestJobPhase`, `IngestMode`, `PdfEngine`, `SourceLibraryCard`, `StartingLevel`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
+- [[Reference/Desktop/TypeScript/api/sourceKinds|src/api/sourceKinds.ts]] — import-or-re-export; imports `SOURCE_KINDS`, `SourceCategory`, `sourceKindRow`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/AsciiLoadingBar|src/components/AsciiLoadingBar.tsx]] — import-or-re-export; imports `AsciiLoadingBar`
@@ -211,6 +212,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/IngestScreen.eligibility.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/IngestScreen.eligibility.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_source_ingestion.py](../../../../../../tests/test_source_ingestion.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

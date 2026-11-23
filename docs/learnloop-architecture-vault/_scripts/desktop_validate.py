@@ -200,8 +200,14 @@ def main() -> int:
     # The one OK to use AI: app/aiOk.ts (requests waiting for the sheet's answer; entry-reachable).
     # What comes next, dated: app/nextPractice.ts (what comes next, dated; entry-reachable, shared with the phone).
     # An honest wait: app/waitDetail.ts (a wait's lines from recorded facts; entry-reachable, shared with the phone).
-    if len(ts_sources) != 337:
-        errors.append(f"source inventory drift: expected 337 TypeScript/TSX files, found {len(ts_sources)}")
+    # Reader workbench v2 RD1 (the desks): screens/desks/ DeskShell.tsx, Shelf.tsx, geometry.ts, lifecycle.tsx,
+    # outbox.ts, keys/router.ts, keys/listeners.ts, model/workspace.ts, windows/SourceWindow.tsx,
+    # windows/PanelWindow.tsx and api/poller.ts (entry-reachable through the Reader place's lazy DeskShell);
+    # fixtures/desks/ sources.ts, workspace.ts, fakeCore.ts and harness.tsx (the synthetic workspace and the
+    # visual harness page; vitest-support).
+    # A source kind is one row: api/sourceKinds.ts (generated from SOURCE_KINDS; entry-reachable).
+    if len(ts_sources) != 353:
+        errors.append(f"source inventory drift: expected 353 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -301,11 +307,13 @@ def main() -> int:
         # IH6: QuestionInProgress.tsx. RE0: attemptClock.ts, useAttemptClock.ts. C5: the six Golden Path files left.
         # Waiting you can see: components/Waiting.tsx, copy/waiting.ts. Reader scrolls: components/scrollWithin.ts.
         # The one OK to use AI: app/aiOk.ts. What comes next, dated: app/nextPractice.ts. An honest wait: app/waitDetail.ts.
-        "entry-reachable build graph": 326,
+        # RD1: the ten screens/desks modules and api/poller.ts; api/sourceKinds.ts (a source kind is one row).
+        "entry-reachable build graph": 338,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
-        "vitest-support": 7,
+        # RD1: fixtures/desks (sources, workspace, fakeCore, harness).
+        "vitest-support": 11,
         "native-entry-reachable": 6,
     }
     if dict(activation_counts) != expected_activation_counts:
@@ -315,7 +323,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 343}:
+    if dict(status_counts) != {"ACTIVE": 359}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

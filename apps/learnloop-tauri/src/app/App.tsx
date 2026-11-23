@@ -43,15 +43,18 @@ import {
   placeOfTab,
   rememberBook,
   rememberPlace,
+  rememberReaderSurface,
   rememberTool,
   rememberedBook,
   rememberedPlace,
+  rememberedReaderSurface,
   rememberedTool,
   tabForPlace,
   uthTool,
   uthToolOfTab,
   visibleUthTools,
   type Place,
+  type ReaderSurface,
   type ShellMode,
   type UthToolId
 } from "./shell";
@@ -113,6 +116,7 @@ type OpenSourceTarget = {
 };
 
 const ReaderScreen = lazy(() => import("../screens/ReaderScreen").then((module) => ({ default: module.ReaderScreen })));
+const DeskShell = lazy(() => import("../screens/desks/DeskShell").then((module) => ({ default: module.DeskShell })));
 const LessonScreen = lazy(() => import("../screens/LessonScreen").then((module) => ({ default: module.LessonScreen })));
 const GraphScreen = lazy(() => import("../screens/GraphScreen").then((module) => ({ default: module.GraphScreen })));
 const IngestScreen = lazy(() => import("../screens/IngestScreen").then((module) => ({ default: module.IngestScreen })));
@@ -167,6 +171,13 @@ export function App() {
   // The Reader unmounts on every tab switch; the open source is kept here so
   // returning to the tab resumes it (its reads come from the query cache).
   const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
+  // Reader workbench v2: the desks or the old Reader, remembered on this machine. The old Reader stays the
+  // default until the desks carry everything it does (spec §21.1's parity matrix).
+  const [readerSurface, setReaderSurface] = useState<ReaderSurface>(rememberedReaderSurface);
+  const chooseReaderSurface = useCallback((surface: ReaderSurface) => {
+    rememberReaderSurface(surface);
+    setReaderSurface(surface);
+  }, []);
   // The book open now, for the startup restore (it must not replace a book
   // the learner opened while the library list was loading).
   const readerSourceRef = useRef<ReaderOpenSource | null>(null);
@@ -2429,7 +2440,19 @@ export function App() {
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />;
+      if (readerSurface === "desks" && vaultRoot) {
+        return (
+          <DeskShell
+            key={vaultRoot}
+            vaultKey={vaultRoot}
+            onError={onError}
+            onLeave={() => chooseReaderSurface("reader")}
+            firstSourceId={readerSource?.card.sourceId ?? null}
+            reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
+          />
+        );
+      }
+      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} {...(vaultRoot ? { onOpenDesks: () => chooseReaderSurface("desks") } : {})} />;
     }
     if (tab === "maintain") {
       return renderMaintain();

@@ -3,18 +3,22 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 from urllib.parse import urlparse
 
 from learnloop.ingest.models import UnsupportedSourceError
-
-SourceCategory = Literal["web", "arxiv", "pdf", "youtube", "textfile", "audio", "image"]
+from learnloop.ingest.source_kinds import SOURCE_KINDS, SourceCategory
 
 _ARXIV_NEW = re.compile(r"^(arxiv:)?\d{4}\.\d{4,5}(v\d+)?$", re.IGNORECASE)
 _ARXIV_OLD = re.compile(r"^(arxiv:)?[a-z\-]+(\.[a-z]{2})?/\d{7}(v\d+)?$", re.IGNORECASE)
 _YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"}
-_TEXT_SUFFIXES = {".md", ".markdown", ".mdown", ".txt", ".text", ".rst", ".vtt", ".srt"}
-_AUDIO_SUFFIXES = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac"}
+# The suffixes are the kinds' (``SOURCE_KINDS``); the order they are tried in is this module's.
+_IMAGE_URL_SUFFIXES = SOURCE_KINDS["image"].url_extensions
+_PDF_URL_SUFFIXES = SOURCE_KINDS["pdf"].url_extensions
+_IMAGE_SUFFIXES = frozenset(SOURCE_KINDS["image"].extensions)
+_PDF_SUFFIXES = frozenset(SOURCE_KINDS["pdf"].extensions)
+_WEB_SUFFIXES = frozenset(SOURCE_KINDS["web"].extensions)
+_TEXT_SUFFIXES = frozenset(SOURCE_KINDS["textfile"].extensions)
+_AUDIO_SUFFIXES = frozenset(SOURCE_KINDS["audio"].extensions)
 
 
 @dataclass(frozen=True)
@@ -42,9 +46,9 @@ def resolve_source(source: str) -> ResolvedSource:
             return ResolvedSource("youtube", candidate)
         if host == "arxiv.org" or host.endswith(".arxiv.org"):
             return ResolvedSource("arxiv", candidate)
-        if path.endswith((".png", ".jpg", ".jpeg")):
+        if path.endswith(_IMAGE_URL_SUFFIXES):
             return ResolvedSource("image", candidate)
-        if path.endswith(".pdf"):
+        if path.endswith(_PDF_URL_SUFFIXES):
             return ResolvedSource("pdf", candidate)
         return ResolvedSource("web", candidate)
 
@@ -54,11 +58,11 @@ def resolve_source(source: str) -> ResolvedSource:
 
     path = Path(candidate).expanduser()
     suffix = path.suffix.lower()
-    if suffix in {".png", ".jpg", ".jpeg"}:
+    if suffix in _IMAGE_SUFFIXES:
         return ResolvedSource("image", str(path))
-    if suffix == ".pdf":
+    if suffix in _PDF_SUFFIXES:
         return ResolvedSource("pdf", str(path))
-    if suffix in {".html", ".htm"}:
+    if suffix in _WEB_SUFFIXES:
         return ResolvedSource("web", str(path))
     if suffix in _TEXT_SUFFIXES:
         return ResolvedSource("textfile", str(path))

@@ -1,3 +1,4 @@
+import type { SourceCategory } from "./sourceKinds";
 export type IsoTimestamp = string;
 export type Ulid = string;
 
@@ -97,8 +98,9 @@ export interface IngestBudgetsDto {
 export type IngestBudgetField = keyof IngestBudgetsDto;
 
 // Accepted range per ceiling, served by the backend so the UI validates with the
-// same numbers the handler enforces.
-export type IngestBudgetBoundsDto = Record<IngestBudgetField, { min: number; max: number }>;
+// same numbers the handler enforces: the plan's five and the failed-synthesis
+// retry panel's merged-output ceiling.
+export type IngestBudgetBoundsDto = Record<IngestBudgetField | "synthesisOutputTokens", { min: number; max: number }>;
 
 // `[ingest.providers.<routed>]`. Null limits mean the block is absent, which
 // silently disables the build plan's context-overflow checks.
@@ -155,6 +157,8 @@ export interface SettingsIngestDto {
   textRecognition: TextRecognitionStateDto;
   budgets: IngestBudgetsDto;
   budgetBounds: IngestBudgetBoundsDto;
+  /** The engines ("auto" resolved through the vault) under which an import with a page range is refused. */
+  pdfEnginesRefusingPageRanges: PdfEngine[];
   providerLimits: IngestProviderLimitsDto;
 }
 
@@ -3348,10 +3352,31 @@ export type IngestJobPhase =
   | "failed"
   | "cancelled";
 
+// learnloop.ingest.source_kinds.SourceCategory, generated from its table.
+export type { SourceCategory } from "./sourceKinds";
+
 export interface IngestSourceClassification {
   version: number;
-  kind: "web" | "arxiv" | "pdf" | "youtube" | "textfile";
+  kind: SourceCategory;
   normalizedSource: string;
+  /** The kind's display row (``SOURCE_KINDS``). */
+  label: string;
+  noun: string;
+}
+
+// One row of role_authority's matrix (`get_source_roles`).
+export interface SourceRoleDto {
+  role: string;
+  semanticContract: boolean;
+  assessmentAlignment: boolean;
+  assessmentOnly: boolean;
+  scopeOnly: boolean;
+  defaultInventoryProfile: string;
+}
+
+export interface SourceRolesDto {
+  version: number;
+  roles: SourceRoleDto[];
 }
 
 export interface IngestJobResult {
@@ -3608,6 +3633,12 @@ export interface IngestBatchDto {
   startedAt: string | null;
   finishedAt: string | null;
   jobs: IngestJobView[];
+  // What retry_synthesis would accept now, from the host's own checks; a refusal is a code constant.
+  canRetrySynthesis: boolean;
+  retrySynthesisJobId: string | null;
+  retrySynthesisRefusal: string | null;
+  canReuseCandidate: boolean;
+  reuseCandidateRefusal: string | null;
   // Present on build_study_map results: which routing was chosen for the
   // collection — "bootstrap" creates the map, "append" reconciles new material
   // into an existing one via the bounded neighborhood.

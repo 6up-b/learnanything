@@ -242,6 +242,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `attempt_graded_contract`; statically calls `attempt_graded_contract`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `AttemptValidationError`
 
+### Repository tooling consumers
+
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py)
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -508,6 +512,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_discriminating_search.py](../../../../../../tests/test_discriminating_search.py) — direct import
   - `test_item_filters_and_the_required_estimator`
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import

@@ -1330,6 +1330,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_submit_eliciting_response_records_a_factor_response`
 - [tests/test_difficulty_band_guards.py](../../../../../../tests/test_difficulty_band_guards.py) — direct import
   - `test_diagnostic_plan_band_is_never_degenerate`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
+  - `test_the_prefix_replay_predicts_as_ads_own_observer_does`
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
   - `test_a_discriminating_profile_passes_and_plants_every_profile`
   - `test_profile_whose_signature_equals_the_answer_key_is_blocked`
@@ -1596,6 +1598,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pre_first_practice_doctor_watermark`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
+- [tests/test_ingest_eligibility_contract.py](../../../../../../tests/test_ingest_eligibility_contract.py) — direct import
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_a_build_asked_for_its_goal_carries_create_goal_to_the_synthesis_job`
   - `test_background_reader_drain_records_model_call_receipts`
@@ -2044,6 +2047,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_history_pages_by_cursor_and_reaches_every_exchange`
 - [tests/test_reader_rd0_rpcs.py](../../../../../../tests/test_reader_rd0_rpcs.py) — direct import
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
+- [tests/test_reader_rd1_model_parity.py](../../../../../../tests/test_reader_rd1_model_parity.py) — direct import
+  - `test_the_sidecar_gives_the_scripts_results_and_final_state`
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
   - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`
