@@ -275,6 +275,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `CoverageError`, `read_protection`; statically calls `read_protection`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `CoverageGuard`, `Library`, `_active`, `lo_hash`, `standing`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; statically calls `CoverageGuard`, `Library`, `correct`, `enabled`, `read_protection`
+- [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `Library`, `_active`, `standing`
 - [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] — imports `module`; statically calls `Library`, `peek`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `CoverageGuard`, `Library`, `peek`, `published_snapshot`, `still_published`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `module`; statically calls `read_protection`
@@ -330,7 +331,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -386,6 +387,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_hits_are_grouped_by_book_unchecked_and_write_nothing`
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — direct import
   - `test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there`
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
+- [tests/test_reader_rd6a_goal_lens_core.py](../../../../../../tests/test_reader_rd6a_goal_lens_core.py) — direct import
+  - `test_the_cores_vocabulary_is_coverages`
 - [tests/test_section_coverage.py](../../../../../../tests/test_section_coverage.py) — direct import
   - `test_a_big_book_never_crowds_out_a_small_one`
   - `test_a_changed_section_drops_its_row`

@@ -16,6 +16,7 @@ source_paths:
   - "src/learnloop/curriculum/depth_envelopes.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
+  - "src/learnloop/curriculum/goal_lens.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_fixture.py"
@@ -65,7 +66,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/__init__|learnloop.curriculum]] | [[Reference/Modules/learnloop/curriculum/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/curriculum/ai_contracts|learnloop.curriculum.ai_contracts]] | [[Reference/Modules/learnloop/curriculum/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] | [[Reference/Modules/learnloop/curriculum/commitment_arcs#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] | [[Reference/Modules/learnloop/curriculum/commitments#^module-purpose|purpose]] | `ACTIVE` | 24 | 45 |
+| [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] | [[Reference/Modules/learnloop/curriculum/commitments#^module-purpose|purpose]] | `ACTIVE` | 24 | 46 |
 | [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] | [[Reference/Modules/learnloop/curriculum/concepts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]] | [[Reference/Modules/learnloop/curriculum/confusable_concepts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] | [[Reference/Modules/learnloop/curriculum/curriculum_locks#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
@@ -73,6 +74,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/depth_envelopes|learnloop.curriculum.depth_envelopes]] | [[Reference/Modules/learnloop/curriculum/depth_envelopes#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] | [[Reference/Modules/learnloop/curriculum/depth_rungs#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
 | [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] | [[Reference/Modules/learnloop/curriculum/depth_transition#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/curriculum/goal_lens|learnloop.curriculum.goal_lens]] | [[Reference/Modules/learnloop/curriculum/goal_lens#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] | [[Reference/Modules/learnloop/curriculum/golden_path_assessment#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] | [[Reference/Modules/learnloop/curriculum/golden_path_confirm#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] | [[Reference/Modules/learnloop/curriculum/golden_path_fixture#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
@@ -111,6 +113,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 3 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 3 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 2 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 1 static module edge
@@ -118,7 +121,6 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 1 static module edge
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 
 ### Dependency neighborhood

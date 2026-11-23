@@ -32,10 +32,10 @@ source_paths:
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/followup_serve_helpers.py"
+  - "tests/goal_lens_helpers.py"
   - "tests/identity_pins_helpers.py"
   - "tests/katex_meaning.py"
   - "tests/live_dialogue_contract_helpers.py"
-  - "tests/local_embeddings_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/teacher"
@@ -86,10 +86,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/followup_serve_helpers.py`
+- `tests/goal_lens_helpers.py`
 - `tests/identity_pins_helpers.py`
 - `tests/katex_meaning.py`
 - `tests/live_dialogue_contract_helpers.py`
-- `tests/local_embeddings_fakes.py`
 
 ## Extension and modification guidance
 

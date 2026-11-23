@@ -75,7 +75,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]] | [[Reference/Modules/learnloop/ai/disclosures#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/ai/embedding|learnloop.ai.embedding]] | [[Reference/Modules/learnloop/ai/embedding#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
 | [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 111 | 103 |
-| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 136 | 121 |
+| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 137 | 121 |
 | [[Reference/Modules/learnloop/ai/isolation|learnloop.ai.isolation]] | [[Reference/Modules/learnloop/ai/isolation#^module-purpose|purpose]] | `ACTIVE` | 3 | 20 |
 | [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] | [[Reference/Modules/learnloop/ai/model_use#^module-purpose|purpose]] | `ACTIVE` | 17 | 3 |
 | [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] | [[Reference/Modules/learnloop/ai/multimodal#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -111,7 +111,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 86 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 87 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 56 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 42 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 42 static module edges
@@ -175,7 +175,7 @@ flowchart LR
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_diagnosis_recurrence["learnloop.diagnosis.recurrence"]
     n_learnloop_hints["learnloop.hints"]
-    n_learnloop_source_retrieval -->|86| center
+    n_learnloop_source_retrieval -->|87| center
     n_learnloop_cli -->|56| center
     n_learnloop_ops -->|42| center
     n_learnloop_sidecar_handlers -->|42| center

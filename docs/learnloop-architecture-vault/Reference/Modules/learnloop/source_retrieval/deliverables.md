@@ -225,10 +225,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `ChatRoute`, `DeliverableError`, `_is_plan_type`, `daily_envelope`, `deliverable_goals`, `depth_of`, `goal_of`, `kind_of`, `latest_resolution`, `needed_learning_objects`
+- [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `depth_of`, `goal_of`, `kind_of`, `latest_resolution`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `ChatRoute`, `daily_envelope`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `enabled`, `latest_resolution`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `module`; statically calls `create_lesson_topic`, `resolve_typed_goal`, `typed_goal_key`, `typed_goal_subject`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `add_input`, `admission_problem`, `also_about`, `create_deliverable`, `decide_unmatched`, `deliverable_goals`, `depth_of`, `enabled`, `recover_publications`, `resolve`, `scope_view`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `module`; statically calls `goal_of`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `module`; statically calls `enabled`
 
 ## Dependencies
@@ -272,7 +274,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]], [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -280,6 +282,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
 - [tests/curriculum_c3_exam_scoping_helpers.py](../../../../../../tests/curriculum_c3_exam_scoping_helpers.py) — direct import
+- [tests/goal_lens_helpers.py](../../../../../../tests/goal_lens_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
 - [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
   - `test_i_a_dismissal_and_an_also_about_on_one_section_coexist_through_path_rejudgments`
@@ -365,6 +368,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context`
 - [tests/test_notes_vault_search.py](../../../../../../tests/test_notes_vault_search.py) — direct import
   - `test_c2b_r3_f4_several_named_subjects_send_the_grouped_form_for_those`
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
+  - `test_the_empty_and_thin_states`
 - [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
   - `test_lesson_goal_and_open_lessons_through_the_handlers`
 

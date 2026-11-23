@@ -1269,11 +1269,13 @@ PATH_STATUSES: tuple[str, ...] = ("ask_depth", "no_scope", "no_sections", "pendi
 
 def path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapping[str, Any] | None = None,
               covering: bool = False, coverage_failure: Mapping[str, Any] | None = None,
-              clock: Clock | None = None) -> dict[str, Any]:
+              clock: Clock | None = None, inputs: PathInputs | None = None) -> dict[str, Any]:
     """What the deliverable's path shows. ``judging``: the background judgment's state
     for the current key; ``covering``: coverage is being checked for its topics now;
     ``coverage_failure``: that check failed (Codex review F6): a path that is not current
-    shows ``failed`` with its reason and *try again*, never a quiet "no sections"."""
+    shows ``failed`` with its reason and *try again*, never a quiet "no sections".
+    ``inputs``: the path's inputs when the caller already read them now (the goal lens reads
+    them once for the band and its levels)."""
 
     goal = DL.goal_of(vault, goal_id)
     depth = DL.depth_of(repository, goal_id)
@@ -1288,10 +1290,11 @@ def path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapp
         return {**base, "status": "no_scope"}
     if depth is None:
         return {**base, "status": "ask_depth"}
-    try:
-        inputs = path_inputs(vault, repository, goal_id, clock=clock)
-    except SC.CoverageError as exc:
-        return {**base, "status": "withheld", "message": str(exc)}
+    if inputs is None:
+        try:
+            inputs = path_inputs(vault, repository, goal_id, clock=clock)
+        except SC.CoverageError as exc:
+            return {**base, "status": "withheld", "message": str(exc)}
     assert inputs is not None
     uncovered = [{"learning_object_id": entry.learning_object_id, "title": entry.title, "phrase": entry.phrase}
                  for entry in inputs.los if entry.kind == "needed" and not any(t.primary_eligible
@@ -1332,8 +1335,15 @@ def coverage_owed(vault: Any, repository: Repository, goal_id: str) -> list[str]
         ids = [str(entry["learning_object_id"]) for entry in needed]
     else:
         ids = [entry.learning_object_id for entry in inputs.los]
+    return owed_among(vault, repository, ids)
+
+
+def owed_among(vault: Any, repository: Repository, ids: Sequence[str]) -> list[str]:
+    """Those of these LOs with no coverage judgment of their current statement."""
+
     from learnloop.db.stores import section_coverage as coverage_store
 
+    ids = list(ids)
     with repository.connection() as connection:
         if not coverage_store.table_present(connection):
             return ids

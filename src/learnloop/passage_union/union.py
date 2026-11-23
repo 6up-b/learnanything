@@ -18,7 +18,6 @@ Goal-independent: the goal level is ``goal.lens``'s, a separate read. Read only:
 from __future__ import annotations
 
 import json
-import re
 from contextlib import closing
 from collections.abc import Iterable, Mapping
 from typing import Any
@@ -30,9 +29,8 @@ from learnloop.db.stores import pad_reads
 from learnloop.db.stores import span_projection_reads as spans_store
 from learnloop.intent.inline_checks import due_checks
 from learnloop.reader.annotations import annotation_placements
-from learnloop.section_map import extraction_sections
+from learnloop.section_map import RangeError, extraction_sections, range_span_ids
 
-_CUE_TIME = re.compile(r"^t=([0-9.]+)-([0-9.]+)$")
 EXACT = "exact"
 
 
@@ -63,22 +61,10 @@ def _in(values: Iterable[str]) -> tuple[str, list[str]]:
 
 def _range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None,
            t1: float | None) -> list[str]:
-    blocks = sorted(ir.blocks, key=lambda block: block.ordinal)
-    if from_span_id is not None and to_span_id is not None:
-        index = {block.span_id: position for position, block in enumerate(blocks)}
-        if from_span_id not in index or to_span_id not in index:
-            raise UnionError("span_not_found", "The range names a passage this reading does not have.")
-        start, end = sorted((index[from_span_id], index[to_span_id]))
-        return [block.span_id for block in blocks[start:end + 1]]
-    if t0 is None or t1 is None:
-        raise UnionError("validation_error", "A range is two passages or two times.")
-    low, high = sorted((float(t0), float(t1)))
-    spans = []
-    for block in blocks:
-        match = _CUE_TIME.match(str(getattr(block, "extractor_block_id", "") or ""))
-        if match and float(match.group(1)) <= high and float(match.group(2)) >= low:
-            spans.append(block.span_id)
-    return spans
+    try:
+        return range_span_ids(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
+    except RangeError as exc:
+        raise UnionError(exc.code, str(exc)) from exc
 
 
 class _Placer:
