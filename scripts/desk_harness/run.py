@@ -73,7 +73,7 @@ class Results:
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - the base class's name
+    def log_message(self, format: str, *args: Any) -> None:
         return
 
 

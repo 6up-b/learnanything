@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { setAlgoConfig } from "./algoConfig";
+import { DESK_BINDINGS } from "../screens/desks/keys/router";
 import {
   CLASSIC_REPLACEMENTS,
   SCOPED_OVERRIDES,
@@ -368,4 +369,20 @@ describe("screenLeavesKey's target rule (fix round 5)", () => {
       setAlgoConfig({});
     }
   });
+});
+
+// Reader workbench v2 (spec §5.4): the desks' chords join the collision table. No Alt or Ctrl chord of the
+// desks is a shell chord in either shell (Alt+S stays Settings, so arranging pads is alt+a). Each chord's
+// owner per scope is checked beside the matrix (screens/desks/keys/router.test.ts).
+it("collides with none of the desks' chords", () => {
+  for (const shell of ["simple", "classic"] as const) {
+    const taken = new Set(shellBindings(shell).filter((binding) => binding.chord.alt || binding.chord.mod)
+      .map((binding) => `${binding.chord.alt ? "alt" : "ctrl"}+${binding.chord.key.toLowerCase()}`));
+    for (const binding of DESK_BINDINGS) {
+      if (!binding.chord.alt && !binding.chord.ctrl) continue;
+      const key = binding.chord.code ? binding.chord.code.replace(/^Key/, "").replace(/^Digit/, "").toLowerCase() : (binding.chord.key ?? "").toLowerCase();
+      const chord = `${binding.chord.alt ? "alt" : "ctrl"}+${key}`;
+      expect(taken.has(chord), `${shell}: ${binding.keys}`).toBe(false);
+    }
+  }
 });
