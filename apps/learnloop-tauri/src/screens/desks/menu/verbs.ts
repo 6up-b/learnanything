@@ -13,7 +13,7 @@ import type {
   ReaderImportExerciseInput,
 } from "../../../api/dto";
 import type { LessonEntry } from "../../LessonView";
-import { objectInput, verbsFor, type MenuObject, type MenuRow, type VerbId } from "./model";
+import { captureNodes, objectInput, verbsFor, type MenuObject, type MenuRow, type VerbId } from "./model";
 
 /** The server entries the verbs call. */
 export interface MenuApi {
@@ -105,12 +105,13 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
         const note = await ctx.askNote(object);
         if (!note) return;
         const who = await ctx.api.readingIdentity(anchor.extractionId);
-        await ctx.api.readerCapture({
+        const receipt = await ctx.api.readerCapture({
           sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId,
           action: "annotate", clientIdempotencyKey: ctx.mintId("note"), learnerText: note,
-          rawSelection: { extractionId: anchor.extractionId, nodes: (object.spanIds?.length ? object.spanIds : [anchor.spanId]).map((spanId) => ({ spanId, ...(object.selection ? { quote: object.selection } : {}) })) },
+          rawSelection: { extractionId: anchor.extractionId, nodes: captureNodes(object) },
         });
-        ctx.toast("noted in the margin");
+        // Where it landed is the capture's own answer: a note that could not be placed says so.
+        ctx.toast(receipt.anchorStatus === "needs_reanchor" ? "noted, but its place in the passage needs re-anchoring" : "noted in the margin");
         return;
       }
       case "open_beside": {
@@ -162,7 +163,7 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
           const who = await ctx.api.readingIdentity(anchor.extractionId);
           await ctx.api.readerImportExercise({
             sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId, clientIdempotencyKey: ctx.mintId("import"),
-            rawSelection: { extractionId: anchor.extractionId, nodes: (object.spanIds?.length ? object.spanIds : [anchor.spanId]).map((spanId) => ({ spanId })) },
+            rawSelection: { extractionId: anchor.extractionId, nodes: captureNodes(object) },
           });
           ctx.toast("importing the exercise · it joins your queue when it is ready");
           return;

@@ -99,7 +99,7 @@ import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
-import { headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
+import { captureNodes, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
 import { promotedRef, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
@@ -2768,9 +2768,11 @@ export function DeskShell({
         const receipt = await menuTransport.readerCapture({
           sourceId: who.sourceId, revisionId: who.revisionId, extractionId: object.extractionId, renderViewId: who.renderViewId,
           action: "highlight", clientIdempotencyKey: mintId("hl"),
-          rawSelection: { extractionId: object.extractionId, nodes: (object.spanIds?.length ? object.spanIds : [object.spanId]).map((spanId) => ({ spanId, ...(object.selection ? { quote: object.selection } : {}) })) },
+          rawSelection: { extractionId: object.extractionId, nodes: captureNodes(object) },
         });
-        annotationId = receipt.annotationId;
+        // A highlight that could not be placed is not linked from the block (the block still links its passages).
+        if (receipt.anchorStatus === "needs_reanchor") toastNow("the highlight's place needs re-anchoring: the line links to the passages without it");
+        else annotationId = receipt.annotationId;
       } catch {
         // The block still links to the passage; only the highlight is missing.
       }
@@ -2783,7 +2785,8 @@ export function DeskShell({
       { op: "insert_block", blockId, versionId: mintId("ver"), kind: "source_quote", provenance: "source", positionKey: keyAfterLast(pad.blocks),
         day: pad.pad.kind === "running" ? localDay() : null, bodyMd: body,
         payload: { source_id: object.sourceId ?? null, source_title: titleOf(window), extraction_id: object.extractionId, span_id: object.spanId, ...(object.t !== undefined ? { t: object.t } : {}) } },
-      { op: "link_anchor", blockId, extractionId: object.extractionId, spanId: object.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId },
+      // Every passage the selection touches links back to the line (each with its own ✎ mark).
+      ...captureNodes(object).map((node) => ({ op: "link_anchor" as const, blockId, extractionId: object.extractionId as string, spanId: node.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId })),
     ]);
     if (refused) toastNow(`couldn't append it · ${refused.message}`);
     else toastNow(`appended to “${pad.pad.title || "running"}”`);

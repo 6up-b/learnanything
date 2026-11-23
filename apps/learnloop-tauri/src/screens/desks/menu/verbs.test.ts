@@ -63,12 +63,21 @@ describe("each verb calls its server entry", () => {
 
   it("Note in margin asks for the words, then writes an annotation on the passage through the capture", async () => {
     const { ctx, toasts } = context();
-    await runVerb("note", passage({ selection: "some words" }), ctx);
+    await runVerb("note", passage({ selection: "some words", slices: [{ spanId: "s1", quote: "some words" }] }), ctx);
     expect(ctx.api.readerCapture).toHaveBeenCalledWith({
       sourceId: "src1", revisionId: "rev1", extractionId: "ext1", renderViewId: "rv1", action: "annotate", clientIdempotencyKey: "note_1", learnerText: "my note",
       rawSelection: { extractionId: "ext1", nodes: [{ spanId: "s1", quote: "some words" }] },
     });
     expect(toasts).toEqual(["noted in the margin"]);
+  });
+
+  it("Note in margin on a selection across passages quotes each passage's own words, and says when it could not be placed", async () => {
+    const { ctx, toasts } = context({}, { readerCapture: vi.fn(async () => ({ annotationId: "a1", anchorStatus: "needs_reanchor" }) as never) });
+    await runVerb("note", passage({ selection: "end of one start of two", spanIds: ["s1", "s2"], slices: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] }), ctx);
+    expect(ctx.api.readerCapture).toHaveBeenCalledWith(expect.objectContaining({
+      rawSelection: { extractionId: "ext1", nodes: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] },
+    }));
+    expect(toasts).toEqual(["noted, but its place in the passage needs re-anchoring"]);
   });
 
   it("Note in margin left empty writes nothing", async () => {

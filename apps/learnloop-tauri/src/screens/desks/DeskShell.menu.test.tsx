@@ -381,3 +381,30 @@ describe("RD5 fix round: the menu's rows and actions", () => {
     window.removeEventListener("learnloop:pad-flash", onFlash);
   });
 });
+
+describe("RD5 fix round: a selection across passages", () => {
+  it("Append links the line to every passage the selection touches, each highlighted with its own words", async () => {
+    const { transport, server } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    const first = passage("fx_w_book_s1").firstChild as Node;
+    const second = passage("fx_w_book_s2").firstChild as Node;
+    const range = document.createRange();
+    range.setStart(first, 4);
+    range.setEnd(second, 10);
+    const selection = window.getSelection() as Selection;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    fireEvent.click(screen.getByText(/^Append to “/));
+    fireEvent.click(within(screen.getByRole("menu", { name: "append to" })).getAllByRole("menuitem")[0]);
+    await waitFor(() => expect(transport.readerCapture).toHaveBeenCalled());
+    const capture = (transport.readerCapture as ReturnType<typeof vi.fn>).mock.calls[0][0] as { rawSelection: { nodes: Array<{ spanId: string; quote?: string }> } };
+    expect(capture.rawSelection.nodes).toEqual([{ spanId: "fx_w_book_s1", quote: "first passage of fx_w_book" }, { spanId: "fx_w_book_s2", quote: "the second" }]);
+    await flush();
+    await flush();
+    const ops = server.padBatches.flatMap((batch) => batch.ops as PadOpDto[]);
+    const links = ops.filter((op) => op.op === "link_anchor") as Array<Extract<PadOpDto, { op: "link_anchor" }>>;
+    expect(links.map((op) => op.spanId)).toEqual(["fx_w_book_s1", "fx_w_book_s2"]);
+    selection.removeAllRanges();
+  });
+});

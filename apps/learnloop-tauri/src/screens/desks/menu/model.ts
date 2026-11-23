@@ -19,6 +19,8 @@ export interface MenuObject {
   spanIds?: string[];
   /** The selection's words, when there is one (Ask and Append take them). */
   selection?: string;
+  /** The selection cut at each passage it touches: each passage's own words of it (a capture's node quotes). */
+  slices?: Array<{ spanId: string; quote: string }>;
   t?: number;
   annotationId?: string;
   padId?: string;
@@ -27,6 +29,13 @@ export interface MenuObject {
   sourceId?: string;
   /** Where it was opened: the pointer, or the object's own box for a key. */
   at: { x: number; y: number };
+}
+
+/** A capture's nodes for the object: each passage with its own words of the selection (none: the whole passage). */
+export function captureNodes(object: MenuObject): Array<{ spanId: string; quote?: string }> {
+  if (object.slices?.length) return object.slices.map((slice) => ({ spanId: slice.spanId, quote: slice.quote }));
+  const ids = object.spanIds?.length ? object.spanIds : object.spanId ? [object.spanId] : [];
+  return ids.map((spanId) => ({ spanId }));
 }
 
 /** The server's view of the object (passage.promoted, passage.knows). */
@@ -179,8 +188,11 @@ export function objectAt(target: Element, kindOf: (windowId: string) => string |
     const isNote = annotation.getAttribute("data-annotation-kind") === "note";
     return {
       kind: isNote ? "note" : "highlight", windowId, annotationId: annotation.getAttribute("data-annotation-id") ?? undefined,
-      spanId: annotationSpan, spanIds: [annotationSpan], extractionId: source?.extractionId, sourceId: source?.sourceId,
+      spanId: annotationSpan, extractionId: source?.extractionId, sourceId: source?.sourceId,
       text: (annotation.textContent || passage?.textContent || "").replace(/\s+/g, " ").trim(), at,
+      // A selection inside the marked passage stays the words the verbs act on.
+      ...(selection ? { selection: selection.text, slices: selection.slices } : {}),
+      spanIds: selection?.spanIds.length ? selection.spanIds : [annotationSpan],
     };
   }
   if (!passage) return null;
@@ -191,7 +203,7 @@ export function objectAt(target: Element, kindOf: (windowId: string) => string |
     kind: cue ? "cue" : "passage", windowId, spanId, extractionId: source?.extractionId, sourceId: source?.sourceId,
     spanIds: selection?.spanIds.length ? selection.spanIds : spanId ? [spanId] : [],
     text: (passage.textContent ?? "").replace(/\s+/g, " ").trim(),
-    ...(selection ? { selection: selection.text } : {}),
+    ...(selection ? { selection: selection.text, slices: selection.slices } : {}),
     ...(tAttr && Number.isFinite(Number(tAttr)) ? { t: Number(tAttr) } : {}),
     at,
   };
@@ -201,7 +213,7 @@ function spanOf(element: Element): string | undefined {
   return element.getAttribute("data-span-id") ?? element.getAttribute("data-transcript-span") ?? undefined;
 }
 
-function selectionWithin(host: Element | null, doc: Document): { text: string; spanIds: string[] } | null {
+function selectionWithin(host: Element | null, doc: Document): { text: string; spanIds: string[]; slices: Array<{ spanId: string; quote: string }> } | null {
   const selection = doc.getSelection?.();
   if (!host || !selection || selection.isCollapsed || selection.rangeCount === 0) return null;
   const range = selection.getRangeAt(0);
@@ -209,9 +221,19 @@ function selectionWithin(host: Element | null, doc: Document): { text: string; s
   const text = selection.toString().replace(/\s+/g, " ").trim();
   if (!text) return null;
   const spanIds: string[] = [];
+  const slices: Array<{ spanId: string; quote: string }> = [];
   for (const element of host.querySelectorAll("[data-span-id], [data-transcript-span]")) {
     const id = spanOf(element);
-    if (id && !spanIds.includes(id) && range.intersectsNode(element)) spanIds.push(id);
+    if (!id || spanIds.includes(id) || !range.intersectsNode(element)) continue;
+    // The part of the selection inside this passage: a passage's capture quotes its own words, never the whole run.
+    const part = doc.createRange();
+    part.selectNodeContents(element);
+    if (range.compareBoundaryPoints(Range.START_TO_START, part) > 0) part.setStart(range.startContainer, range.startOffset);
+    if (range.compareBoundaryPoints(Range.END_TO_END, part) < 0) part.setEnd(range.endContainer, range.endOffset);
+    const quote = part.toString().replace(/\s+/g, " ").trim();
+    if (!quote) continue;
+    spanIds.push(id);
+    slices.push({ spanId: id, quote });
   }
-  return { text, spanIds };
+  return { text, spanIds, slices };
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 import type { PromotedRowDto } from "../../../api/dto";
-import { headerLine, objectAt, objectInput, placeMenu, placeSubmenu, promotedReason, shownPromoted, verbsFor } from "./model";
+import { captureNodes, headerLine, objectAt, objectInput, placeMenu, placeSubmenu, promotedReason, shownPromoted, verbsFor, type MenuObject } from "./model";
 
 const row = (rowId: string, extra: Partial<PromotedRowDto> = {}): PromotedRowDto => ({
   rowId, kind: "question", glyph: "?", label: rowId, reason: "you asked about this", action: { verb: "open" }, learnerAt: null,
@@ -91,6 +91,21 @@ describe("what was right-clicked", () => {
     const selected = objectAt(document.querySelector("[data-span-id=s1]") as Element, () => "source", source, at);
     expect(selected?.selection).toBe("words second");
     expect(selected?.spanIds).toEqual(["s1", "s2"]);
+    // Each passage's own words of the selection: what a capture quotes for it.
+    expect(selected?.slices).toEqual([{ spanId: "s1", quote: "words" }, { spanId: "s2", quote: "second" }]);
+    expect(captureNodes(selected as MenuObject)).toEqual([{ spanId: "s1", quote: "words" }, { spanId: "s2", quote: "second" }]);
+  });
+
+  it("a selection inside a highlighted passage stays the selection (the verbs act on those words)", () => {
+    mountHtml(`<div data-desk-window="w1"><div data-span-id="s1" data-annotation-id="a1" data-annotation-kind="highlight">marked words here</div></div>`);
+    const text = document.querySelector("[data-span-id=s1]")?.firstChild as Node;
+    const range = document.createRange();
+    range.setStart(text, 7);
+    range.setEnd(text, 12);
+    window.getSelection()?.addRange(range);
+    const object = objectAt(document.querySelector("[data-span-id=s1]") as Element, () => "source", source, at);
+    expect(object).toMatchObject({ kind: "highlight", annotationId: "a1", selection: "words", spanIds: ["s1"], slices: [{ spanId: "s1", quote: "words" }] });
+    expect(headerLine(object as MenuObject)).toBe("your highlight · “words”");
   });
 
   it("reads a transcript cue with its time", () => {
