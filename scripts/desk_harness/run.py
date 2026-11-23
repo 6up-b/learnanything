@@ -787,6 +787,13 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
     pill = await page.evaluate("() => { const p = document.querySelector('[data-desk-companion-pill]'); return p ? { on: p.classList.contains('on'), o: getComputedStyle(p).opacity } : null; }")
     results.check("in the overview the companion is its pill (#ov)", pill is not None and pill["on"] and float(pill["o"]) > 0.95, pill)
     await shot(page, shots, "companion-pill")
+    # Away, the faded panel is inert: Tab never reaches its controls.
+    inside = []
+    for _ in range(12):
+        await page.keyboard.press("Tab")
+        inside.append(await page.evaluate("() => Boolean(document.activeElement?.closest('[data-desk-companion], [data-desk-companion-tab]'))"))
+    inert = await page.evaluate("() => [...document.querySelectorAll('[data-desk-companion], [data-desk-companion-tab]')].every((e) => e.hasAttribute('inert'))")
+    results.check("in the overview the hidden companion is inert: Tab never lands in it", not any(inside) and inert, [inside, inert])
     await page.keyboard.press("Escape")
     await settle(page, 900)
     errors = await page.evaluate("() => window.__deskHarnessErrors")
