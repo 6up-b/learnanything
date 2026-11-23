@@ -57,6 +57,7 @@ from learnloop.substrate.activities import (
     resolve_legacy_item,
 )
 from learnloop.attempts.salience_firewall import salience_payload
+from learnloop.substrate.passage_spans import exchange_places, write_through_question_events
 from learnloop.reader.span_view import SpanViewError, build_span_view
 from learnloop.vault.models import LoadedVault
 
@@ -934,6 +935,10 @@ def ask(
             question_type=result.get("question_type"),
         )
 
+    # The exchange's passages (its selection and the answer's citations, the cold link's item) are
+    # projected now, by the recipe the rebuild replays.
+    write_through_question_events(repository, vault, [str(result["event_id"]), cold_hint_event_id or ""])
+
     response: dict[str, Any] = {
         "event_id": result["event_id"],
         "reader_answer_event_id": submitted_event_id,
@@ -1048,17 +1053,6 @@ def ask_provenance(repository: Repository, *, extraction_id: str) -> dict[str, l
 
     prefix = f"span:{extraction_id}/"
     found: dict[str, list[tuple[str, str]]] = {}
-
-    def located(value: Any) -> tuple[str, str] | None:
-        if not isinstance(value, dict):
-            return None
-        span = value.get("span_id")
-        reading = value.get("extraction_id") or extraction_id
-        locator = str(value.get("locator") or value.get("href") or "")
-        if not span and locator.startswith("span:") and "/" in locator:
-            reading, span = locator[len("span:"):].split("/", 1)
-        return (str(reading), str(span)) if span else None
-
     for event in repository.reader_interaction_events(kind="reader_answer_submitted"):
         subject_id = str(event.get("subject_id") or "")
         if not subject_id.startswith(prefix):
@@ -1066,23 +1060,10 @@ def ask_provenance(repository: Repository, *, extraction_id: str) -> dict[str, l
         payload = event.get("payload") or {}
         if str(payload.get("extraction_id") or "") != extraction_id:
             continue
-        manifest = payload.get("manifest") or {}
-        selection = manifest.get("selection") or {}
-        tutor = payload.get("tutor") if isinstance(payload.get("tutor"), dict) else {}
-        places = [(extraction_id, str(span)) for span in
-                  [payload.get("span_id") or subject_id[len(prefix):], *(selection.get("span_ids") or [])] if span]
         # K6-4: every passage the tutor was given (the manifest's spans: neighbours, the blocks
         # they cite, retrieved ones) is named too, since the stored answer may quote any of them.
-        for value in [*(payload.get("citations") or []), tutor.get("excerpt"), *(tutor.get("explorable") or []),
-                      *(manifest.get("source_spans") or [])]:
-            place = located(value)
-            if place is not None:
-                places.append(place)
-        for key in (tutor.get("retrieval") or {}).get("span_keys") or []:
-            reading, _, span = str(key).partition(":")  # as ``reader_tutor.shown_span_keys`` reads them
-            if reading and span:
-                places.append((reading, span))
-        found[str(event["id"])] = places
+        found[str(event["id"])] = [(reading, span) for reading, span, _role in
+                                   exchange_places(payload, subject_id=subject_id, extraction_id=extraction_id)]
     return found
 
 

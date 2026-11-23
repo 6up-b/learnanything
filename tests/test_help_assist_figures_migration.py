@@ -45,6 +45,7 @@ from tests.reader_seen_spans_migration_helpers import SEEN_SPANS_ADDED_OBJECTS
 from tests.reader_topic_question_work_migration_helpers import TOPIC_WORK_ADDED_OBJECTS
 from tests.ingest_job_progress_migration_helpers import JOB_PROGRESS_ADDED_OBJECTS
 from tests.attempt_application_order_migration_helpers import APPLICATION_ORDER_ADDED_OBJECTS
+from tests.reader_rd0_migration_helpers import RD0_ADDED_OBJECTS
 from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
 from tests.teacher_te2_migration_helpers import TE2_ALTERED_TABLES
@@ -108,7 +109,7 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
         # Follow-ups Nov 2's 235 (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), not read here, follow too.
         assert [migration.version for migration in apply_migrations(database)] == list(range(232, migration_head() + 1))
     after = _schema(database)
-    assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
+    assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - RD0_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
     assert {name for name in before if before[name] != after.get(name)} - J2_DROPPED_OBJECTS == set(P3_ALTERED_TABLES) | set(
         C2B_ALTERED_TABLES) | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES) | UNLINKED_ALTERED_TABLES | (
         TE2_ALTERED_TABLES & set(before))

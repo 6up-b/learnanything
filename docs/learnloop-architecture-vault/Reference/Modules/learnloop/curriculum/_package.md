@@ -65,7 +65,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/__init__|learnloop.curriculum]] | [[Reference/Modules/learnloop/curriculum/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/curriculum/ai_contracts|learnloop.curriculum.ai_contracts]] | [[Reference/Modules/learnloop/curriculum/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] | [[Reference/Modules/learnloop/curriculum/commitment_arcs#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] | [[Reference/Modules/learnloop/curriculum/commitments#^module-purpose|purpose]] | `ACTIVE` | 24 | 44 |
+| [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] | [[Reference/Modules/learnloop/curriculum/commitments#^module-purpose|purpose]] | `ACTIVE` | 24 | 45 |
 | [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] | [[Reference/Modules/learnloop/curriculum/concepts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]] | [[Reference/Modules/learnloop/curriculum/confusable_concepts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] | [[Reference/Modules/learnloop/curriculum/curriculum_locks#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |

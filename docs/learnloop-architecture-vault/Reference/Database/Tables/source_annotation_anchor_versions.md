@@ -114,6 +114,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/desk_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_annotations.py`
 - `tests/test_p3_journeys.py`

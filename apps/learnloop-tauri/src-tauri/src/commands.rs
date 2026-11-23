@@ -1356,6 +1356,16 @@ sidecar_passthrough!(notes_decide, "notes.decide");
 sidecar_passthrough!(notes_hidden, "notes.hidden");
 // Curriculum C5: the opt-in for your linked notes to steer suggestions (Settings; desktop only).
 sidecar_passthrough!(notes_set_gaps, "notes.set_gaps");
+// Reader workbench v2: desks, pads, the union read, the companion's history and the due checks
+// (desktop only; no component calls them yet).
+sidecar_passthrough!(desk_state, "desk.state");
+sidecar_passthrough!(desk_apply, "desk.apply");
+sidecar_passthrough!(pad_get, "pad.get");
+sidecar_passthrough!(pad_list, "pad.list");
+sidecar_passthrough!(pad_apply, "pad.apply");
+sidecar_passthrough!(passage_union_range, "passage.union_range");
+sidecar_passthrough!(companion_history, "companion.history");
+sidecar_passthrough!(checks_due_for, "checks.due_for");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");

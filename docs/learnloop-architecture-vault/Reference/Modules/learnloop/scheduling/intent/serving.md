@@ -131,6 +131,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `CheckState`, `intent_serving`; statically calls `intent_serving`
+- [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `intent_serving`; statically calls `intent_serving`
 
 ### Repository tooling consumers
@@ -165,7 +166,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/next_practice|learnloop.daily_plan.next_practice]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

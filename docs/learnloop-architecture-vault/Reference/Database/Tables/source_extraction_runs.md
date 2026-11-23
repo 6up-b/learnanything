@@ -160,6 +160,7 @@ Indexes and uniqueness:
 - `tests/test_ux2_source_macros.py`
 - `tests/test_ux_phase1_landing.py`
 - `tests/daily_plan_reading_helpers.py`
+- `tests/desk_helpers.py`
 - `tests/exam_scope_fixtures.py`
 - `tests/facet_reword_confirm_helpers.py`
 - `tests/helpers.py`
@@ -171,7 +172,6 @@ Indexes and uniqueness:
 - `tests/source_inventory_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad_protected_readings.py`
-- `tests/test_exam_protection_identity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

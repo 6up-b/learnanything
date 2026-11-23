@@ -202,6 +202,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] — imports `module`; statically calls `available`, `effective_rows`
 - [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `module`; statically calls `available`, `effective`, `enabled`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `module`; statically calls `available`, `decide`, `enabled`, `for_goal`, `for_passages`, `hidden`, `link_by_hand`, `link_goal`, `marks`, `notes_settings`, `path_targets`, `search`, `take_text`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `enabled`, `marks`
 
 ## Dependencies
 
@@ -235,7 +236,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]], [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]], [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]], [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]], [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]], [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

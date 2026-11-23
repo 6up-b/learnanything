@@ -113,6 +113,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/cli/project|learnloop.cli.project]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `utc_now_iso`
+- [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -217,6 +218,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/delayed_completion|learnloop.delayed_completion]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `Clock`
@@ -329,6 +331,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `Clock`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
@@ -529,7 +532,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 428 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 431 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -551,6 +554,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/compare_methods_helpers.py](../../../../../tests/compare_methods_helpers.py) — direct import
 - [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/daily_plan_reading_helpers.py](../../../../../tests/daily_plan_reading_helpers.py) — direct import
+- [tests/desk_helpers.py](../../../../../tests/desk_helpers.py) — direct import
 - [tests/device_eligibility_helpers.py](../../../../../tests/device_eligibility_helpers.py) — direct import
 - [tests/diagnosis_identity_helpers.py](../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/diagnosis_journey_helpers.py](../../../../../tests/diagnosis_journey_helpers.py) — direct import
@@ -1746,6 +1750,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_claim_left_by_a_crashed_job_is_taken_over_by_the_next_job_at_once`
   - `test_a_crashed_claim_from_another_job_is_taken_over_after_its_lease`
   - `test_a_late_completion_never_replaces_the_check_the_learner_saw`
+- [tests/test_reader_rd0_reads.py](../../../../../tests/test_reader_rd0_reads.py) — direct import
+  - `test_due_checks_name_their_host_and_nothing_of_the_item`
+  - `test_the_union_returns_every_kind_for_a_passage_across_readings`
+- [tests/test_reader_rd0_spans.py](../../../../../tests/test_reader_rd0_spans.py) — direct import
+  - `test_a_practice_question_is_projected_as_the_tutor_records_it`
+  - `test_the_umbrella_rebuild_runs_both_replayers`
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_claims_needing_an_independent_check_are_assisted_only_facets`
 - [tests/test_reader_recap_review.py](../../../../../tests/test_reader_recap_review.py) — direct import

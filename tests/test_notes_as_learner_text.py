@@ -57,6 +57,8 @@ GAP_TABLES = {"learner_text_gaps", "learner_text_gap_jobs", "judgment_ledger", "
 # A receipt, never learner state: at the head the gap reader asks the tier-1 Decider (mvp-0.22 on), and its
 # exclusion while the Decider is not ready leaves a decision record (arc B, ``learnloop.provenance``).
 GAP_TABLES = GAP_TABLES | {"decision_records"}
+# A derived display row, never learner state: a written gap's passages (the passage the note is linked to by hand).
+GAP_TABLES = GAP_TABLES | {"learner_text_gap_spans"}
 #: Evidence, mastery, grading, scheduling and claims: never written by a note's reading.
 NEVER_TABLES = ("practice_attempts", "grading_evidence", "facet_recall_state", "facet_capability_evidence",
                 "probe_observations", "fsrs_states", "learner_claims", "learner_gap_check_advances",

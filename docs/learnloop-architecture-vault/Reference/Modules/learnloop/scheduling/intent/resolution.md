@@ -107,6 +107,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `Resolution`, `load_snapshots`; statically calls `Resolution`, `load_snapshots`
 - [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `ItemIntent`, `Resolution`, `load_snapshots`; statically calls `Resolution`, `load_snapshots`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `load_snapshots`; statically calls `load_snapshots`
+- [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `load_snapshots`; statically calls `load_snapshots`
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `Resolution`, `load_snapshots`; statically calls `Resolution`, `load_snapshots`
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `Resolution`, `load_snapshots`; statically calls `Resolution`, `load_snapshots`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `ItemIntent`, `Resolution`, `load_snapshots`; statically calls `Resolution`, `load_snapshots`
@@ -132,7 +133,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]], [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]], [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/check_delivery|learnloop.daily_plan.check_delivery]], [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]], [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

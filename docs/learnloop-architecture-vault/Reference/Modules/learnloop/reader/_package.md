@@ -78,7 +78,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/__init__|learnloop.reader]] | [[Reference/Modules/learnloop/reader/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] | [[Reference/Modules/learnloop/reader/active_reading#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/reader/ai_contracts|learnloop.reader.ai_contracts]] | [[Reference/Modules/learnloop/reader/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 2 | 12 |
-| [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] | [[Reference/Modules/learnloop/reader/annotations#^module-purpose|purpose]] | `ACTIVE` | 5 | 12 |
+| [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] | [[Reference/Modules/learnloop/reader/annotations#^module-purpose|purpose]] | `ACTIVE` | 6 | 12 |
 | [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]] | [[Reference/Modules/learnloop/reader/as_printed#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] | [[Reference/Modules/learnloop/reader/part_read#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] | [[Reference/Modules/learnloop/reader/phone_media#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
@@ -121,7 +121,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 16 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 12 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 10 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 11 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 8 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 3 static module edges
@@ -153,6 +153,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 1 static module edge
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 1 static module edge
+- [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -180,7 +181,7 @@ flowchart LR
     center -->|16| n_learnloop_db_stores
     center -->|16| n_learnloop_vault
     center -->|12| n_learnloop_ingest
-    center -->|10| n_learnloop_substrate
+    center -->|11| n_learnloop_substrate
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

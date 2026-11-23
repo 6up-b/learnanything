@@ -273,6 +273,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_round8_a_row_that_keeps_changing_is_left_for_the_next_pass`
   - `test_round8_a_scalar_licensing_is_unreadable_not_a_crash`
   - `test_round8_sols_interleaving_keeps_the_shared_check_live`
+- [tests/test_reader_rd0_reads.py](../../../../../../tests/test_reader_rd0_reads.py) — direct import
+  - `test_due_checks_name_their_host_and_nothing_of_the_item`
+  - `test_the_union_returns_every_kind_for_a_passage_across_readings`
 - [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
   - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`
   - `test_undo_retires_the_commitment_and_the_item`

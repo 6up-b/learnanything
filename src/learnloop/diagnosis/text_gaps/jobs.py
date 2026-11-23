@@ -32,6 +32,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
+from learnloop.substrate.passage_spans import write_through_gap
 from learnloop.db.stores import provenance as decision_store
 from learnloop.diagnosis.text_gaps.contract import (
     NOTE_SOURCE_KINDS,
@@ -680,8 +681,9 @@ def _retry_or_fail(
             if store.holds_job(connection, job_id, owner=owner, epoch=epoch) and store.gap_for_source(
                 connection, text.source_kind, text.source_id
             ) is None:
-                store.insert_gap(connection, failed_row(text, vault=load_vault(vault.root), error=error,
-                                                        now_iso=utc_now_iso(clock), progress=progress))
+                gap_id = store.insert_gap(connection, failed_row(text, vault=load_vault(vault.root), error=error,
+                                                                 now_iso=utc_now_iso(clock), progress=progress))
+                write_through_gap(connection, vault, gap_id)
             store.finish_job(connection, job_id, state="failed", owner=owner, epoch=epoch,
                              now=utc_now_iso(clock), error=error)
         outcome.state, outcome.error = "failed", error
@@ -735,6 +737,7 @@ def _skip(
             connection, outcome.source_kind, outcome.source_id
         ) is None:
             outcome.gap_id, outcome.action = store.insert_gap(connection, row), "failed"
+            write_through_gap(connection, vault, outcome.gap_id)
             logged_failed = True
         finished = store.finish_job(connection, job_id, state="failed" if logged_failed else "skipped",
                                     owner=owner, epoch=epoch, now=now, error=reason)

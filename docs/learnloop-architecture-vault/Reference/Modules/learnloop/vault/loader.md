@@ -2584,6 +2584,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_practice_plan_uses_blueprint_facets_before_first_item`
 - [tests/test_reader_quick_check.py](../../../../../../tests/test_reader_quick_check.py) — direct import
   - `test_escalate_mints_practice_item_with_span_provenance`
+- [tests/test_reader_rd0_reads.py](../../../../../../tests/test_reader_rd0_reads.py) — direct import
+  - `test_a_same_place_alias_is_flagged_never_shown_as_the_cited_text`
+  - `test_a_time_range_reads_a_transcripts_cues_and_a_bad_range_is_refused`
+- [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
+  - `test_a_practice_question_is_projected_as_the_tutor_records_it`
+  - `test_the_umbrella_rebuild_runs_both_replayers`
 - [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_typed_summary_is_deterministic_from_the_ledgers`
