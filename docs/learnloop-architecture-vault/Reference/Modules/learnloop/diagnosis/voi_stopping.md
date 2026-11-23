@@ -326,6 +326,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only`
 - [tests/test_due_queue_golden.py](../../../../../../tests/test_due_queue_golden.py) — direct import
   - `test_the_probe_value_decision_reads_nothing_where_it_is_computed`
+- [tests/test_frozen_intent_view.py](../../../../../../tests/test_frozen_intent_view.py) — direct import
+  - `test_the_teach_back_site_values_from_a_context_that_reads_nothing`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_f_with_no_plan_an_existing_presentation_is_served_with_no_new_value_admission`
   - `test_g_value_suppresses_a_followup_and_the_learners_request_overrides_it`

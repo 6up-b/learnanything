@@ -56,6 +56,7 @@ from tests.due_queue_helpers import (
     SESSION,
     build_figure_vault,
     build_gate_vault,
+    build_intent_targets_vault,
     build_probe_history_vault,
     build_rich_vault,
     build_unconsulted_episode_vault,
@@ -383,6 +384,26 @@ def test_a_serving_build_with_nothing_to_serve(tmp_path, seeded_ids, monkeypatch
 
     _check("admission_empty", _record(tmp_path, build, prepare=_retire_everything,
                                       extra=lambda: {"episode_reads": sorted(calls)}))
+
+
+def _instrument_as_surface(vault: Any) -> None:
+    """One of the episode's instruments a diagnostic surface (in memory), so the check split asks the probe gate."""
+
+    vault.practice_items["pi_svd_define_002"].practice_mode = "diagnostic_probe"
+
+
+def test_a_serving_build_under_recall_targets_and_a_check_on_the_probes_lo(tmp_path, seeded_ids):
+    """Master and Light touch move the effective due (the forgetting risk) away from the stored one, and the due
+    check on the probe's LO is split over candidates the probe gate decides."""
+
+    _check("intent_targets_serving", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace),
+        vault_builder=build_intent_targets_vault, prepare=_instrument_as_surface))
+
+
+def test_a_read_build_under_recall_targets(tmp_path, seeded_ids):
+    _check("intent_targets_read", _record(tmp_path, lambda vault, repository, trace: read_due_queue(
+        vault, repository, clock=CLOCK, offer_trace=trace), vault_builder=build_intent_targets_vault))
 
 
 def _outside(tmp_path: Path, vault_builder: Any, prepare: Any = None) -> dict[str, Any]:

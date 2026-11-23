@@ -466,18 +466,62 @@ def _due_queue(
         voi_probe_active=voi_probe_active,
         device_filter=device_filter,
         intent_view=intent_view,
+        # With an intent view, only the episodes its check split can consult; the rest once the split is done.
+        episodes=_reachable_episodes(
+            vault,
+            _probing_episodes(open_episodes, probe_block_reason),
+            _reachable_items(
+                vault,
+                item_states=item_states,
+                exclusions=exclusions,
+                intent_gate=None,
+                item_ids=_check_split_candidates(intent_view) if intent_view is not None else None,
+            ),
+        ),
     )
     admission = _BuildAdmission(
         vault,
         reads=reads,
         now=now,
         session=session,
-        intent_view=intent_view,
         voi_probe_active=voi_probe_active,
         carry_hypothesis_channels=carry_hypothesis_channels,
         short_session=short_session,
         voi_probe_decisions=voi_probe_decisions,
     )
+    if intent_view is not None:
+        intent_view.bind_admission(admission.check_candidate_refusal)
+        requested_item_ids = intent_view.filter_requests(requested_item_ids)
+    # What can pass the routine gate and intent's whole gate (the split is done, so intent answers without reading).
+    reachable = _reachable_items(
+        vault,
+        item_states=item_states,
+        exclusions=exclusions,
+        intent_gate=intent_view.withhold_reason if intent_view is not None else None,
+    )
+    if intent_view is not None:
+        # The check split was the one read left in intent; everything after it reads the view as the split left it.
+        # Only a reachable item's effective due is ever asked (the ranking's), so only theirs may need the anchors.
+        intent_view = intent_view.frozen(anchors_for=[
+            item.id for item in reachable
+            if (state := item_states.get(item.id)) is not None and state.due_at is not None
+        ])
+    admission.reads = reads = _after_check_split(
+        reads, vault, repository, session=session, voi_context=voi_context, voi_probe_active=voi_probe_active,
+        intent_view=intent_view, reachable=reachable,
+    )
+    if intent_view is not None:
+        # DL2 (Codex review F1): follow-up insertion is a second door that
+        # rebuilds an item by id after the ranked loop, so the intent gate
+        # applies here too: a paused, referenced, let-go or answered-check
+        # item, or one a "Check once" still holds, is never resurrected. The
+        # task stays pending (nothing is written) and serves once intent
+        # allows it again.
+        pending_followups = [
+            pending
+            for pending in pending_followups
+            if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
+        ]
     # The head probe's presentation (the persist step) reads its episode from these; that episode is always one
     # the admission consulted, so a failed read here was already raised.
     episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {
@@ -490,20 +534,6 @@ def _due_queue(
         for episode_id, eligible in reads.episode_eligibles.items()
         if not isinstance(eligible, _ReadFailed)
     }
-    if intent_view is not None:
-        intent_view.bind_admission(admission.check_candidate_refusal)
-        requested_item_ids = intent_view.filter_requests(requested_item_ids)
-        # DL2 (Codex review F1): follow-up insertion is a second door that
-        # rebuilds an item by id after the ranked loop, so the intent gate
-        # applies here too: a paused, referenced, let-go or answered-check
-        # item, or one a "Check once" still holds, is never resurrected. The
-        # task stays pending (nothing is written) and serves once intent
-        # allows it again.
-        pending_followups = [
-            pending
-            for pending in pending_followups
-            if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
-        ]
     if device_filter is not None:
         # Mobile PR-6: the follow-up door again; the task stays pending for the desktop.
         pending_followups = [
@@ -680,7 +710,7 @@ def _due_queue(
     # admission and kept by the cap without counting toward it.
     teach_back_admitted, teach_back_voi_decisions = _teach_back_value_admission(
         vault,
-        voi_context,
+        reads.voi_context,
         [scheduled for scheduled in greedy_queue if scheduled.practice_item_id not in check_item_ids]
         if check_item_ids
         else greedy_queue,
@@ -3038,6 +3068,9 @@ class AdmissionReads:
     errors_by_lo: Mapping[str, list[ActiveErrorEvent]]
     fsrs_weights: Any
     recent_attempts_by_lo: Mapping[str, list[dict[str, Any]]]
+    #: DL2's intent view (None when intent changes nothing): the live view while the build splits its checks, then
+    #: the view after the split (``IntentServing.frozen``), which reads nothing.
+    intent_view: Any
     #: ``(attempted item ids, attempted surface groups)``; None when no episode can probe.
     administered_surfaces: Any
     #: ``(hypothesis set, posterior, entropy)`` or None, per probing episode.
@@ -3189,48 +3222,72 @@ def _episode_probe_reads(
                     _prospective_familiarity, vault, entry.item, recent
                 )
             )
-    decision_context = None
-    if voi_loaded:
-        decision_context = copy.copy(voi_context)
-        decision_context.repository = _NoRepository()
     return {
         "episode_contexts": contexts,
         "episode_eligibles": eligibles,
         "probe_familiarity": familiarity,
-        "voi_context": decision_context,
+        "voi_context": _decision_context(voi_context) if voi_loaded else None,
         "qualifying_observations": qualifying,
         "session_qualifying_observations": session_qualifying,
         "pinned_channels": channels,
     }
 
 
-def _reachable_episodes(
+def _reachable_items(
     vault: LoadedVault,
-    episodes: list[Any],
     *,
     item_states: Mapping[str, PracticeItemState],
     exclusions: Any,
-    intent_view: Any,
-) -> list[Any]:
-    """The probing episodes an item could still reach: one with an item on its LO that passes the routine gate
-    (``routine_withhold_reason``) and that intent does not exclude (Pause, Reference, Let go:
-    ``ItemIntent.excluded``, the part of intent's gate that does not wait on the check split). The admission
-    scores an item's probe only after both gates, so an episode none of whose items passes them is never read."""
+    intent_gate: Any,
+    item_ids: Any = None,
+) -> list[PracticeItem]:
+    """The items that pass the routine gate (``routine_withhold_reason``) and ``intent_gate`` (intent's whole gate,
+    ``IntentServing.withhold_reason``, or None), among ``item_ids`` (None: every item). The admission scores an
+    item's probe, and ranks it, only past both gates."""
+
+    items = (
+        vault.practice_items.values()
+        if item_ids is None
+        else [vault.practice_items[item_id] for item_id in item_ids if item_id in vault.practice_items]
+    )
+    return [
+        item
+        for item in items
+        if routine_withhold_reason(vault, item, item_states.get(item.id), exclusions) is None
+        and (intent_gate is None or intent_gate(item.id) is None)
+    ]
+
+
+def _reachable_episodes(vault: LoadedVault, episodes: list[Any], items: list[PracticeItem]) -> list[Any]:
+    """The probing episodes with one of ``items`` on their LO: an episode none of them is on is never consulted."""
 
     if not episodes:
         return []
-    by_lo = {episode.learning_object_id: episode for episode in episodes}
-    reachable: set[str] = set()
-    for item in vault.practice_items.values():
-        learning_object = vault.learning_object_for_item(item)
-        if learning_object is None or learning_object.id not in by_lo or learning_object.id in reachable:
-            continue
-        if routine_withhold_reason(vault, item, item_states.get(item.id), exclusions) is not None:
-            continue
-        if intent_view is not None and intent_view.intent(item.id).excluded:
-            continue
-        reachable.add(learning_object.id)
+    reachable = {
+        learning_object.id
+        for item in items
+        if (learning_object := vault.learning_object_for_item(item)) is not None
+    }
     return [episode for episode in episodes if episode.learning_object_id in reachable]
+
+
+def _check_split_candidates(intent_view: Any) -> list[str]:
+    """The candidates the check split asks the build's admission about: every due, unanswered check's."""
+
+    return [
+        item_id
+        for check in intent_view.raw_checks.values()
+        if check.due and check.answered_by is None
+        for item_id in check.candidates
+    ]
+
+
+def _decision_context(voi_context: Any) -> Any:
+    """A copy of the build's value context after the gather loaded it, reading no repository."""
+
+    context = copy.copy(voi_context)
+    context.repository = _NoRepository()
+    return context
 
 
 def _gather_admission_reads(
@@ -3252,22 +3309,18 @@ def _gather_admission_reads(
     voi_probe_active: bool,
     device_filter: DeviceFilter | None,
     intent_view: Any,
+    episodes: list[Any],
 ) -> AdmissionReads:
     """The build's admission reads: its own, already made, and the ones the admission used to make on first use.
 
-    Reads more than the lazy admission did: an episode an item can reach past
-    the routine gate and intent's exclusions but none does (a later gate
-    withholds them all), and the device's refusal of items another gate
-    withholds. Nothing between this and the candidate loop writes, so the
-    values are the ones the lazy reads returned."""
+    ``episodes``: the probing episodes to read now (the caller's choice: the
+    ones the check split can consult, or with no intent view every reachable
+    one); :func:`_after_check_split` adds the rest. Reads more than the lazy
+    admission did: an episode an item reaches past the routine and intent
+    gates though a later gate withholds it, and the device's refusal of items
+    another gate withholds. Nothing between this and the candidate loop
+    writes, so the values are the ones the lazy reads returned."""
 
-    episodes = _reachable_episodes(
-        vault,
-        _probing_episodes(open_episodes, probe_block_reason),
-        item_states=item_states,
-        exclusions=exclusions,
-        intent_view=intent_view,
-    )
     return AdmissionReads(
         exclusions=exclusions,
         item_states=item_states,
@@ -3279,6 +3332,7 @@ def _gather_admission_reads(
         errors_by_lo=errors_by_lo,
         fsrs_weights=fsrs_weights,
         recent_attempts_by_lo=recent_attempts_by_lo,
+        intent_view=intent_view,
         administered_surfaces=(
             _attempted_read(administered_surface_exclusions, vault, repository) if episodes else None
         ),
@@ -3295,6 +3349,61 @@ def _gather_admission_reads(
             if device_filter is None
             else {item.id: _attempted_read(device_filter.refuses, item) for item in vault.practice_items.values()}
         ),
+    )
+
+
+def _after_check_split(
+    reads: AdmissionReads,
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    session: SchedulerSession,
+    voi_context: Any,
+    voi_probe_active: bool,
+    intent_view: Any,
+    reachable: list[PracticeItem],
+) -> AdmissionReads:
+    """The admission's reads once the check split is done: ``intent_view`` (the view after the split, or None), the
+    episodes of ``reachable`` (the items past the routine gate and intent's whole gate) that the split did not
+    read, and the teach-back site's latencies when a reachable teach-back can be valued; one value context, loaded,
+    for both value sites."""
+
+    episodes = [
+        episode
+        for episode in _reachable_episodes(
+            vault, _probing_episodes(reads.open_episodes, reads.probe_block_reason), reachable
+        )
+        if episode.id not in reads.episode_contexts
+    ]
+    more = _episode_probe_reads(
+        vault, repository, episodes, session_id=session.session_id, voi_context=voi_context,
+        voi_probe_active=voi_probe_active,
+    )
+    # The teach-back site values with the latencies alone (an empty prior: no routes, durations or channel).
+    teach_back = next(
+        (item for item in reachable if item.practice_mode == "teach_back"), None
+    ) if voi.voi_stopping_active(vault.config, voi.SITE_TEACH_BACK) else None
+    if teach_back is not None:
+        _attempted_read(voi_context.item_minutes, teach_back)
+    loaded = reads.voi_context is not None or more["voi_context"] is not None or teach_back is not None
+    session_qualifying = reads.session_qualifying_observations
+    if session_qualifying is None:
+        session_qualifying = more["session_qualifying_observations"]
+    return replace(
+        reads,
+        intent_view=intent_view,
+        administered_surfaces=(
+            reads.administered_surfaces
+            if reads.administered_surfaces is not None or not episodes
+            else _attempted_read(administered_surface_exclusions, vault, repository)
+        ),
+        episode_contexts={**reads.episode_contexts, **more["episode_contexts"]},
+        episode_eligibles={**reads.episode_eligibles, **more["episode_eligibles"]},
+        probe_familiarity={**reads.probe_familiarity, **more["probe_familiarity"]},
+        qualifying_observations={**reads.qualifying_observations, **more["qualifying_observations"]},
+        session_qualifying_observations=session_qualifying,
+        pinned_channels={**reads.pinned_channels, **more["pinned_channels"]},
+        voi_context=_decision_context(voi_context) if loaded else None,
     )
 
 
@@ -3315,6 +3424,7 @@ class _LazyAdmissionReads:
         now: datetime,
         item_states: Any,
         voi_probe_active: bool,
+        intent_view: Any,
     ) -> None:
         from learnloop.clock import FrozenClock
 
@@ -3324,6 +3434,8 @@ class _LazyAdmissionReads:
         self.clock = FrozenClock(now)
         self._given_item_states = item_states
         self.voi_probe_active = voi_probe_active
+        #: The live view: an admission outside a build splits nothing first, so it reads intent as it goes.
+        self.intent_view = intent_view
 
     @cached_property
     def item_states(self) -> Any:
@@ -3486,7 +3598,6 @@ class _BuildAdmission:
         reads: Any,
         now: datetime,
         session: SchedulerSession,
-        intent_view: Any,
         voi_probe_active: bool,
         carry_hypothesis_channels: bool,
         short_session: bool,
@@ -3498,7 +3609,6 @@ class _BuildAdmission:
         self.config = vault.config
         self.now = now
         self.session = session
-        self.intent_view = intent_view
         self.voi_probe_active = voi_probe_active
         self.carry_hypothesis_channels = carry_hypothesis_channels
         self.short_session = short_session
@@ -3666,7 +3776,7 @@ class _BuildAdmission:
         episode = self.reads.open_episodes.get(learning_object.id)
         in_probe = self.in_probe(item)
         frontier_entry = self.reads.frontier.by_lo.get(learning_object.id)
-        intent_view = self.intent_view
+        intent_view = self.reads.intent_view
         goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
         components: dict[str, float] = {
             "forgetting_risk": _forgetting_risk(
@@ -3890,11 +4000,11 @@ def _outside_build_admission(
     return _BuildAdmission(
         vault,
         reads=_LazyAdmissionReads(
-            vault, repository, now=now, item_states=item_states, voi_probe_active=voi_probe_active
+            vault, repository, now=now, item_states=item_states, voi_probe_active=voi_probe_active,
+            intent_view=intent_view,
         ),
         now=now.astimezone(UTC),
         session=SchedulerSession(),
-        intent_view=intent_view,
         voi_probe_active=voi_probe_active,
         carry_hypothesis_channels=False,
         short_session=False,

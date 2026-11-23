@@ -27,10 +27,10 @@ source_paths:
   - "tests/test_diagnosis_input_provenance.py"
   - "tests/test_e0_credentials.py"
   - "tests/test_followup_successor.py"
+  - "tests/test_frozen_intent_view.py"
   - "tests/test_mobile_doctor.py"
   - "tests/test_mobile_https.py"
   - "tests/test_mobile_rpc.py"
-  - "tests/test_plan_first_transport.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ui"
@@ -70,10 +70,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_e0_credentials.py`
 - `tests/test_followup_successor.py`
+- `tests/test_frozen_intent_view.py`
 - `tests/test_mobile_doctor.py`
 - `tests/test_mobile_https.py`
 - `tests/test_mobile_rpc.py`
-- `tests/test_plan_first_transport.py`
 
 ## Extension and modification guidance
 
