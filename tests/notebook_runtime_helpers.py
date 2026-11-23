@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import re
 import shutil
 import tempfile
 import time
@@ -205,11 +206,13 @@ def wait_state(runtime: Any, vault_key: str, session_id: str, state: str, timeou
 
 async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[str],
                            set_value: tuple[str, Any] | None = None, then_wanted: tuple[str, ...] = (),
-                           during: Any = None, after_during: tuple[str, ...] = ()) -> dict[str, Any]:
+                           during: Any = None, after_during: tuple[str, ...] = (),
+                           pattern: str | None = None) -> dict[str, Any]:
     """Load the page, open the WebSocket, instantiate, wait for ``wanted`` in the cells' output; then optionally set
     a UI element's value (object id from a cell name) or call ``during()`` in a thread, and wait for
     ``then_wanted`` (with both, ``during()`` runs after the value is set, and ``after_during`` is waited for).
-    What a browser frame would do, through the proxy."""
+    ``pattern``: a regular expression whose matches in any message are kept in ``out["matches"]``. What a browser
+    frame would do, through the proxy."""
 
     import httpx
     import websockets
@@ -240,6 +243,8 @@ async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[
                         data = json.loads(message)["data"]
                         out["cells"] = dict(zip(data["names"], data["cell_ids"], strict=True))
                     seen.update(needle for needle in needles if needle in message)
+                    if pattern is not None:
+                        out.setdefault("matches", []).extend(re.findall(pattern, message))
 
             await wait_for(wanted)
             if set_value is not None:

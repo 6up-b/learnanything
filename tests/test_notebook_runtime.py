@@ -507,7 +507,7 @@ def test_the_launch_uses_the_shared_hardened_profile_and_the_servers_mounts(tmp_
     layout = Layout(run_dir=tmp_path / "run", notebook=tmp_path / "nb.py", config_dir=tmp_path / "cfg",
                     hosts_file=tmp_path / "hosts")
     argv, env = launch_command(layout, Limits(memory_mib=2048, scratch_mib=256), base_url="/s/x", unit="u",
-                               scoped=True, bwrap="/usr/bin/bwrap")
+                               scoped=True, socket_fd=9, bwrap="/usr/bin/bwrap")
     cut = argv.index("--", argv.index("/usr/bin/bwrap"))
     flags, inner = argv[argv.index("/usr/bin/bwrap"):cut], argv[cut + 1:]
     for flag in ("--unshare-all", "--die-with-parent", "--unshare-user", "--disable-userns", "--cap-drop"):
@@ -517,10 +517,13 @@ def test_the_launch_uses_the_shared_hardened_profile_and_the_servers_mounts(tmp_
     assert ["--ro-bind", str(layout.hosts_file), "/etc/hosts"] == flags[flags.index(str(layout.hosts_file)) - 1:][:3]
     assert flags[flags.index("--tmpfs", flags.index("--size")) - 2:][:4] == ["--size", str(256 * 1024 * 1024),
                                                                           "--tmpfs", "/scratch"]
-    assert ["--bind", str(layout.run_dir), str(layout.run_dir)] == flags[flags.index("--bind"):][:3]
+    # No writable host path: the server listens on the socket trusted code made (descriptor 9 here) and reads its
+    # token through a read-only mount.
+    assert "--bind" not in flags and str(layout.run_dir) not in flags
+    assert ["--ro-bind", str(layout.token_file), "/ll/token"] == flags[flags.index(str(layout.token_file)) - 1:][:3]
     assert "--dev-bind" not in flags  # CPU only: no device node beyond the profile's minimal /dev
-    assert inner[2:4] == ["-B", "/ll/launcher.py"] and inner[4] == str(layout.socket)
-    assert "--token-password-file" in inner and inner[inner.index("--base-url") + 1] == "/s/x"
+    assert inner[2:4] == ["-B", "/ll/launcher.py"] and inner[4] == "9"
+    assert inner[inner.index("--token-password-file") + 1] == "/ll/token" and inner[inner.index("--base-url") + 1] == "/s/x"
     assert env["HOME"] == "/scratch" and env["XDG_CONFIG_HOME"] == "/ll/config"
     assert flags[flags.index("--unsetenv") + 1] == "DBUS_SESSION_BUS_ADDRESS"
     assert argv[:argv.index("/usr/bin/bwrap")][-1] == "--"
@@ -624,9 +627,14 @@ def test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket(tmp_path, 
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", Transport)
     monkeypatch.setattr(httpx, "AsyncClient", Client)
-    held = session(tmp_path)
-    supervisor_module.SandboxBackend(scoped=False)._client(held)
-    proxy.FrameProxy(held)._upstream()
+    from learnloop.notebook_runtime import hostfiles
+
+    with short_base_dir() as base:  # a socket's path must be short
+        held = session(base)
+        hostfiles.private_dir(held.layout.run_dir)
+        hostfiles.listening_socket(held.layout.run_dir, held.layout.socket.name).close()
+        supervisor_module.SandboxBackend(scoped=False)._client(held)
+        proxy.FrameProxy(held)._upstream()
     assert len(built) == 2 and len(transports) == 2
     assert all(kwargs["base_url"] == "http://127.0.0.1" for kwargs in built)
     assert all(set(kwargs) == {"uds"} and kwargs["uds"] == str(held.layout.socket) for kwargs in transports)

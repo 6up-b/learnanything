@@ -25,7 +25,7 @@ import logging
 import socket
 from typing import Any, Callable
 
-from learnloop.notebook_runtime import adapter, settings, theme
+from learnloop.notebook_runtime import adapter, hostfiles, settings, theme
 from learnloop.notebook_runtime.supervisor import READY, Session, note_cell_progress, note_commits
 
 LOG = logging.getLogger(__name__)
@@ -221,6 +221,8 @@ class FrameProxy:
         import httpx
 
         session = self.session
+        # Only ever the socket trusted code made (a link or anything else in its place is refused).
+        hostfiles.check_socket(session.layout.socket)
         if self._client is None or self._client_generation != session.generation:
             old = self._client
             if old is not None:
@@ -346,6 +348,7 @@ class FrameProxy:
                 session.marimo_session_id = value
         uri = f"ws://127.0.0.1{scope['path']}" + (f"?{query}" if query else "")
         try:
+            hostfiles.check_socket(session.layout.socket)
             upstream = await websockets.unix_connect(str(session.layout.socket), uri,
                                                      additional_headers={"Authorization": f"Bearer {session.token}"},
                                                      max_size=None, ping_interval=None)

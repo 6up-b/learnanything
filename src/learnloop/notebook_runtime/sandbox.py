@@ -1,9 +1,11 @@
 """How one marimo server is launched: the shared hardened profile, the server's own mounts, and its scope.
 
 Inside the sandbox the server sees: the system and interpreter read-only (the profile), the notebook read-only at
-a fixed path, this package's launcher read-only, marimo's config read-only, a two-line hosts file, the run
-directory (its socket and token) as the one writable host path, and a size-capped tmpfs as its home and working
-directory. The root is remounted read-only last. No network namespace but its own loopback, no session bus, no GPU.
+a fixed path, this package's launcher read-only, marimo's config read-only, a two-line hosts file, its token
+read-only, and a size-capped tmpfs as its home and working directory. No host path is writable: the server
+listens on a socket trusted code created and handed to it as a descriptor (``hostfiles``), so nothing the
+unsandboxed side reads, writes or connects to lies in a directory the sandbox can change. The root is remounted
+read-only last. No network namespace but its own loopback, no session bus, no GPU.
 
 Outside it, a ``systemd-run --user --scope`` caps memory (no swap), CPU and tasks, with ``OOMPolicy=continue``:
 under systemd's default policy one cell's child passing the memory cap stops the whole scope, server and kernel
@@ -19,7 +21,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from learnloop.notebook_runtime import adapter, settings
+from learnloop.notebook_runtime import adapter, hostfiles, settings
 from learnloop.sandbox_profile import bwrap_path, sandboxed_command
 
 #: What ``systemd-run --user`` needs to reach the user manager; bubblewrap unsets them before marimo runs.
@@ -33,6 +35,7 @@ SANDBOX_NOTEBOOK = "/nb/notebook.py"
 SANDBOX_LAUNCHER = "/ll/launcher.py"
 SANDBOX_CONFIG = "/ll/config"
 SANDBOX_SCRATCH = "/scratch"
+SANDBOX_TOKEN = "/ll/token"
 
 
 class RuntimeUnavailable(RuntimeError):
@@ -51,7 +54,8 @@ class Limits:
 
 @dataclass(frozen=True)
 class Layout:
-    """A session's host paths. ``run_dir`` is the only one the sandbox may write."""
+    """A session's host paths, all in private directories the sandbox never sees (``run_dir`` holds the socket
+    trusted code listens on and the token mounted read-only into the sandbox)."""
 
     run_dir: Path
     notebook: Path
@@ -108,16 +112,15 @@ def runtime_base_dir() -> Path:
 
 
 def write_shared_files(base: Path) -> tuple[Path, Path]:
-    """marimo's config directory and the hosts file, written once under ``base`` (both mounted read-only)."""
+    """marimo's config directory and the hosts file, written once under ``base`` (both mounted read-only). ``base``
+    may sit in the shared temporary directory: it is made or checked as this user's private directory."""
 
-    base.mkdir(parents=True, exist_ok=True)
-    os.chmod(base, 0o700)
+    hostfiles.private_dir(base)
     config_dir = base / "config"
-    (config_dir / "marimo").mkdir(parents=True, exist_ok=True)
-    (config_dir / "marimo" / "marimo.toml").write_text(adapter.MARIMO_TOML, encoding="utf-8")
-    hosts = base / "hosts"
-    hosts.write_text(HOSTS_FILE_TEXT, encoding="utf-8")
-    return config_dir, hosts
+    hostfiles.private_dir(config_dir / "marimo")
+    hostfiles.write_private(config_dir / "marimo", "marimo.toml", adapter.MARIMO_TOML.encode("utf-8"))
+    hostfiles.write_private(base, "hosts", HOSTS_FILE_TEXT.encode("utf-8"))
+    return config_dir, base / "hosts"
 
 
 _SCOPE_PROBE: dict[str, bool] = {}
@@ -151,26 +154,27 @@ def scope_prefix(unit: str, limits: Limits, *, scoped: bool) -> list[str]:
     return [prlimit, f"--as={memory}", "--"] if prlimit else []
 
 
-def launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, scoped: bool,
+def launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, scoped: bool, socket_fd: int,
                    python: str | None = None, bwrap: str | None = None) -> tuple[list[str], dict[str, str]]:
-    """The argv and environment that start one marimo server on ``layout.socket``."""
+    """The argv and environment that start one marimo server on the listening socket ``socket_fd`` (inherited)."""
 
     bwrap = bwrap or bwrap_path()
     if bwrap is None:
         raise RuntimeUnavailable("bubblewrap (bwrap) is not installed; notebooks run only inside it")
     python = python or sys.executable
-    inner = [python, "-I", "-B", SANDBOX_LAUNCHER, str(layout.socket), "--",
-             *adapter.marimo_edit_args(SANDBOX_NOTEBOOK, str(layout.token_file), base_url)]
+    inner = [python, "-I", "-B", SANDBOX_LAUNCHER, str(socket_fd), "--",
+             *adapter.marimo_edit_args(SANDBOX_NOTEBOOK, SANDBOX_TOKEN, base_url)]
     extra = ["--ro-bind", str(layout.notebook), SANDBOX_NOTEBOOK,
+             "--ro-bind", str(layout.token_file), SANDBOX_TOKEN,
              "--ro-bind", adapter.__file__, SANDBOX_LAUNCHER,
              "--ro-bind", str(layout.config_dir), SANDBOX_CONFIG,
              "--ro-bind", str(layout.hosts_file), "/etc/hosts",
              "--size", str(limits.scratch_mib * 1024 * 1024), "--tmpfs", SANDBOX_SCRATCH,
              "--chdir", SANDBOX_SCRATCH,
-             # Last: nothing outside the run directory, /tmp and the scratch is writable, including the root's
-             # own mount points.
+             # Last: nothing but /tmp and the scratch (both tmpfs) is writable, including the root's own mount
+             # points.
              "--remount-ro", "/"]
-    argv = sandboxed_command(inner, layout.run_dir, bwrap, hardened=True, unset_env=SESSION_BUS_VARS,
+    argv = sandboxed_command(inner, None, bwrap, hardened=True, unset_env=SESSION_BUS_VARS,
                              extra_args=extra)
     env = {
         "PATH": "/usr/bin:/bin",

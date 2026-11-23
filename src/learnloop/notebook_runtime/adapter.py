@@ -311,8 +311,8 @@ def interface_problems() -> list[str]:
             problems.append(f"`marimo edit` has no --{option.replace('_', '-')} option")
     if "uvicorn.Config(" not in inspect.getsource(start.start):
         problems.append("marimo's start() no longer builds uvicorn.Config, which the socket launcher patches")
-    if "uds" not in inspect.signature(uvicorn.Config.__init__).parameters:
-        problems.append("uvicorn.Config has no `uds` parameter")
+    if "fd" not in inspect.signature(uvicorn.Config.__init__).parameters:
+        problems.append("uvicorn.Config has no `fd` parameter")
     paths = set(_route_paths(router.build_routes(base_url="")))
     for endpoint in (HEALTH, INSTANTIATE, SET_UI_ELEMENT_VALUE, SET_MODEL_VALUE, FUNCTION_CALL, SET_CELL_CONFIG,
                      RUN, SHUTDOWN, RESTART_SESSION, WEBSOCKET):
@@ -386,24 +386,21 @@ def _route_paths(routes: Any, prefix: str = "") -> Any:
 # -- the launcher (runs inside the sandbox) -------------------------------------------------------------------------
 
 def launch(argv: list[str]) -> None:
-    """``argv``: ``[this file, SOCKET, "--", *marimo-args]``. Serves marimo on the Unix socket."""
+    """``argv``: ``[this file, FD, "--", *marimo-args]``. Serves marimo on the listening Unix socket ``FD``, which
+    trusted code outside the sandbox created and passed down; the server never creates or names a socket path."""
 
     import uvicorn
 
-    socket_path = argv[1]
-    if len(argv) < 3 or argv[2] != "--":
-        raise SystemExit("usage: launcher SOCKET -- marimo-args")
+    if len(argv) < 3 or argv[2] != "--" or not argv[1].isdigit():
+        raise SystemExit("usage: launcher FD -- marimo-args")
+    socket_fd = int(argv[1])
     original = uvicorn.Config.__init__
 
     def on_the_socket(self: Any, app: Any, *args: Any, **kwargs: Any) -> None:
-        kwargs["uds"] = socket_path
+        kwargs["fd"] = socket_fd
         original(self, app, *args, **kwargs)
 
     uvicorn.Config.__init__ = on_the_socket  # type: ignore[method-assign]
-    try:
-        os.unlink(socket_path)
-    except FileNotFoundError:
-        pass
     from marimo._cli.cli import main as marimo_main
 
     sys.argv = ["marimo", *argv[3:]]

@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from learnloop.notebook_runtime import adapter, settings
+from learnloop.notebook_runtime import adapter, hostfiles, settings
 from learnloop.notebook_runtime.sandbox import Layout, Limits, launch_command
 
 LOG = logging.getLogger(__name__)
@@ -339,29 +339,34 @@ class SandboxBackend:
     def _client(self, session: Session, timeout: float = 5.0) -> Any:
         import httpx
 
+        # Only ever the socket trusted code made (a link or anything else in its place is refused).
+        hostfiles.check_socket(session.layout.socket)
         return httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(uds=str(session.layout.socket)),
                                  base_url="http://127.0.0.1", timeout=timeout,
                                  headers={"Authorization": f"Bearer {session.token}"})
 
     async def spawn(self, session: Session) -> Process:
+        """Start the server: the token written afresh and the socket created and listening, both by this trusted
+        side in the session's private run directory (the sandbox never sees it); the server inherits the socket as
+        a descriptor and reads the token through a read-only mount."""
+
         layout = session.layout
-        layout.run_dir.mkdir(parents=True, exist_ok=True)
-        os.chmod(layout.run_dir, 0o700)
-        if layout.socket.exists():
-            layout.socket.unlink()
-        layout.token_file.write_text(session.token, encoding="utf-8")
-        os.chmod(layout.token_file, 0o600)
-        argv, env = launch_command(layout, session.limits, base_url=session.base_url, unit=session.unit,
-                                   scoped=self.scoped, python=self.python)
-        process = await asyncio.create_subprocess_exec(*argv, env=env, stdin=subprocess.DEVNULL,
-                                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                                       start_new_session=True)
+        hostfiles.private_dir(layout.run_dir)
+        hostfiles.write_private(layout.run_dir, layout.token_file.name, session.token.encode("utf-8"))
+        listener = hostfiles.listening_socket(layout.run_dir, layout.socket.name)
+        try:
+            argv, env = launch_command(layout, session.limits, base_url=session.base_url, unit=session.unit,
+                                       scoped=self.scoped, socket_fd=listener.fileno(), python=self.python)
+            process = await asyncio.create_subprocess_exec(*argv, env=env, stdin=subprocess.DEVNULL,
+                                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                                           start_new_session=True, pass_fds=(listener.fileno(),))
+        finally:
+            # The server holds its own copy; this side only ever connects by the path.
+            listener.close()
         asyncio.get_running_loop().create_task(_drain(process, session))
         return process
 
     async def ready(self, session: Session) -> bool:
-        if not session.layout.socket.exists():
-            return False
         async with self._client(session, timeout=2.0) as client:
             response = await client.get(f"{session.base_url}/{adapter.HEALTH}")
             return response.status_code == 200
@@ -392,10 +397,7 @@ class SandboxBackend:
         """A stale socket goes; a scope systemd keeps listed as failed (a server killed by a signal) is reset by
         its own name, so nothing of a stopped session stays registered."""
 
-        try:
-            session.layout.socket.unlink()
-        except FileNotFoundError:
-            pass
+        hostfiles.remove_private(session.layout.run_dir, session.layout.socket.name)
         if self.scoped and session.unit:
             process = await asyncio.create_subprocess_exec(
                 "systemctl", "--user", "reset-failed", f"{session.unit}.scope", stdin=subprocess.DEVNULL,

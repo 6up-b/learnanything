@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import secrets
 import threading
 import time
@@ -24,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
 
-from learnloop.notebook_runtime import adapter, settings
+from learnloop.notebook_runtime import adapter, hostfiles, settings
 from learnloop.notebook_runtime.proxy import FrameProxy
 from learnloop.notebook_runtime.sandbox import (
     Layout,
@@ -244,7 +243,8 @@ class NotebookRuntime:
                     await self._make_room(max_sessions, keep=entry)
                     entry.session.limits = limits
                     # The same notebook may have new code since it stopped (a pad's cells edited meanwhile).
-                    entry.session.layout.notebook.write_bytes(source)
+                    hostfiles.write_private(entry.session.layout.notebook.parent, entry.session.layout.notebook.name,
+                                            source)
                     asyncio.get_running_loop().create_task(entry.supervisor.start())
                     entry.session.state = STARTING
                 entry.session.touch()
@@ -254,14 +254,11 @@ class NotebookRuntime:
         base = self._base()
         assert self._shared is not None
         session_id = f"nbs_{secrets.token_hex(8)}"
-        notebook = base / "nb" / f"{session_id}.py"
-        notebook.parent.mkdir(parents=True, exist_ok=True)
-        os.chmod(notebook.parent, 0o700)
-        notebook.write_bytes(source)
+        notebook = hostfiles.write_private(base / "nb", f"{session_id}.py", source)
         layout = Layout(run_dir=base / "run" / session_id[4:], notebook=notebook, config_dir=self._shared[0],
                         hosts_file=self._shared[1])
         if len(str(layout.socket).encode()) > SOCKET_PATH_MAX_BYTES:
-            notebook.unlink()
+            hostfiles.remove_private(notebook.parent, notebook.name)
             raise RuntimeUnavailable(f"the runtime directory {base} is too deep for a Unix socket's path")
         session = Session(session_id=session_id, owner=owner, vault_key=vault_key, revision=revision,
                           layout=layout, limits=limits, view=view, epoch=self._epoch, contract=contract, review=review)
@@ -300,15 +297,14 @@ class NotebookRuntime:
         await entry.supervisor.stop(reason)
         await entry.proxy.stop()
         self._entries.pop(entry.session.session_id, None)
-        for path in (entry.session.layout.notebook, entry.session.layout.token_file):
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
+        layout = entry.session.layout
         try:
-            entry.session.layout.run_dir.rmdir()
-        except OSError:
-            pass
+            hostfiles.remove_private(layout.notebook.parent, layout.notebook.name)
+            hostfiles.remove_private(layout.run_dir, layout.token_file.name)
+            hostfiles.remove_private(layout.run_dir, layout.socket.name)
+            hostfiles.remove_private_dir(layout.run_dir)
+        except hostfiles.UnsafePath:
+            LOG.warning("a notebook session's host files were not as made; left in place")
 
     async def _stop_where(self, select: Callable[[_Entry], bool], reason: str, *, forget: bool = False) -> None:
         self._epoch += 1
