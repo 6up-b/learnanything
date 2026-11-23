@@ -1,0 +1,45 @@
+{
+  "about": "One desk.apply script run by both the client's workspace model (screens/desks/model/workspace.ts, through the harness's version-checking server) and the sidecar (tests/test_reader_rd1_model_parity.py): both must give these results and this final state.",
+  "batches": [
+    [{ "op": "create_desk", "deskId": "d1", "title": "first", "position": "a" }],
+    [
+      { "op": "open_window", "deskId": "d1", "windowId": "w1", "expectedVersion": 1, "content": { "kind": "source", "sourceId": "s1", "extractionId": "e1", "view": "render" } },
+      { "op": "open_window", "deskId": "d1", "windowId": "w2", "expectedVersion": 2, "afterWindowId": "w1", "content": { "kind": "video", "sourceId": "s2", "extractionId": "e2" } },
+      { "op": "open_window", "deskId": "d1", "windowId": "w3", "expectedVersion": 3, "afterWindowId": "w2", "content": { "kind": "source", "sourceId": "s3", "extractionId": "e3", "view": "render" } },
+      { "op": "open_window", "deskId": "d1", "windowId": "w4", "expectedVersion": 4, "afterWindowId": "w1", "content": { "kind": "panel", "panel": "guide", "extractionId": "e1" } }
+    ],
+    [
+      { "op": "set_focus", "deskId": "d1", "windowId": "w2", "expectedVersion": 5 },
+      { "op": "pair", "deskId": "d1", "windowId": "w2", "expectedVersion": 6 },
+      { "op": "set_active_pane", "deskId": "d1", "windowId": "w3", "expectedVersion": 7 },
+      { "op": "move_window", "deskId": "d1", "windowId": "w1", "toSlot": 2, "expectedVersion": 8 }
+    ],
+    [
+      { "op": "unpair", "deskId": "d1", "windowId": "w3", "expectedVersion": 9 },
+      { "op": "close_window", "deskId": "d1", "windowId": "w2", "expectedVersion": 10 },
+      { "op": "reopen_window", "deskId": "d1", "windowId": "w2", "slot": 1, "expectedVersion": 11 },
+      { "op": "set_focus", "deskId": "d1", "windowId": "w4", "expectedVersion": 12 }
+    ],
+    [
+      { "op": "create_desk", "deskId": "d2", "title": "second", "position": "b" },
+      { "op": "move_to_desk", "deskId": "d1", "windowId": "w4", "toDeskId": "d2", "expectedVersion": 13, "toExpectedVersion": 1 },
+      { "op": "set_view", "deskId": "d1", "windowId": "w1", "view": { "spanId": "x" }, "expectedVersion": 14 },
+      { "op": "rename_desk", "deskId": "d1", "title": "renamed", "expectedVersion": 15 },
+      { "op": "pair", "deskId": "d1", "windowId": "w3", "expectedVersion": 16 },
+      { "op": "pair", "deskId": "d1", "windowId": "w3", "expectedVersion": 17 },
+      { "op": "set_focus", "deskId": "d1", "windowId": "w1", "expectedVersion": 3 },
+      { "op": "pair", "deskId": "d2", "windowId": "w4", "expectedVersion": 2 }
+    ]
+  ],
+  "results": [
+    ["ok"],
+    ["ok", "ok", "ok", "ok"],
+    ["ok", "ok", "ok", "ok"],
+    ["ok", "ok", "ok", "ok"],
+    ["ok", "ok", "ok", "ok", "ok", "refused", "conflict", "refused"]
+  ],
+  "final": [
+    { "deskId": "d1", "title": "renamed", "focusWindowId": null, "version": 17, "slots": [[["w2", true]], [["w3", true], ["w1", false]]] },
+    { "deskId": "d2", "title": "second", "focusWindowId": null, "version": 2, "slots": [[["w4", true]]] }
+  ]
+}
