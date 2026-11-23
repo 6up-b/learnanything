@@ -440,7 +440,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
 
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div className="watch-head" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Pill color="cyan">watch mode</Pill>
         <Meta>{plan.videoId}</Meta>
         <Faint style={{ fontSize: 11 }}>{formatClock(currentTime)}</Faint>
@@ -448,10 +448,10 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
           <SecondaryButton onClick={pauseAndAsk}>pause &amp; ask about this moment</SecondaryButton>
         </span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 10, alignItems: "start" }}>
+      <div className="watch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 10, alignItems: "start" }}>
         {/* One cell for the player and, with the goal lens, the track under it (so the lens arriving never
-            remounts the player). */}
-        <div>
+            remounts the player). The class names let the desks lay the panel out as their video window. */}
+        <div className="watch-player">
             {player}
             {lens?.segments && duration > 0 ? (
               <div className="vtrack" data-goal-track="">
@@ -464,8 +464,8 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
               </div>
             ) : null}
         </div>
-        <div style={{ border: `1px solid ${COLOR.border}`, background: COLOR.bgInput }}>
-        <div style={{ height: 30, padding: "0 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${COLOR.border}` }}>
+        <div className="watch-transcript" style={{ border: `1px solid ${COLOR.border}`, background: COLOR.bgInput }}>
+        <div className="watch-thead" style={{ height: 30, padding: "0 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${COLOR.border}` }}>
           <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>TRANSCRIPT</Faint>
           <Faint style={{ fontSize: 10 }}>{transcriptSections.length} passages</Faint>
           {findOpen ? (
