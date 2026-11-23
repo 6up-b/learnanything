@@ -214,6 +214,12 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
         frozenset({"lesson_weight_state", "lesson_weight_trace", "confidence_calibration_state"}),
         ("learning_state",),
     ),
+    # Reader workbench v2 RD0 (migration 262; spec §7.6): the passages each tutor exchange and each
+    # read learner text are tied to, from the exchanges' recorded Reader events, the gap ledger and
+    # their sources (authored questions, workbench sessions, note links, items' source passages), with
+    # each row's anchor quality. Zero model calls; display and protection only, never evidence.
+    DerivedStateReplayer("question_event_spans", frozenset({"question_event_spans"})),
+    DerivedStateReplayer("learner_text_gap_spans", frozenset({"learner_text_gap_spans"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -618,6 +624,27 @@ def _run_lesson_weight(
                           details=report)
 
 
+def _run_question_event_spans(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.passage_spans.projection import rebuild_question_event_spans
+
+    # Whole-vault: an exchange's passages never depend on the requested LO subset.
+    report = rebuild_question_event_spans(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=report["written"],
+                          details=report)
+
+
+def _run_learner_text_gap_spans(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.passage_spans.projection import rebuild_learner_text_gap_spans
+
+    report = rebuild_learner_text_gap_spans(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=report["written"],
+                          details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -634,6 +661,8 @@ _RUNNERS = {
     "item_forecast_scores": _run_item_forecast_scores,
     "retrieval_fusion_posteriors": _run_retrieval_fusion_posteriors,
     "lesson_weight": _run_lesson_weight,
+    "question_event_spans": _run_question_event_spans,
+    "learner_text_gap_spans": _run_learner_text_gap_spans,
 }
 
 

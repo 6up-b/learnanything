@@ -74,6 +74,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
+from learnloop.passage_spans.projection import write_through_gap
 from learnloop.decider_judgments import enabled as decider_enabled
 from learnloop.diagnosis.text_gaps import actions
 from learnloop.diagnosis.text_gaps.candidates import belief_candidates, prerequisite_candidates
@@ -1030,6 +1031,7 @@ def _log(
             before_write()
         connection = repository.connection()
         gap_id = store.insert_gap(connection, row)
+        write_through_gap(connection, vault, gap_id)
         _record_written_texts(connection, vault, text, outcome, gap_id=gap_id, learner_words=row["learner_text"],
                               clock=clock)
         # A holding-pen candidate or a sighting commits with its ledger row:
