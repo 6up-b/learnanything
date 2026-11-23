@@ -330,8 +330,10 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
     if not sections:
         return SuggestResult("no_sections", message="This video has no transcript sections to divide.")
     problem = SC.admission_problem(vault, repository, client=client, clock=clock)
-    if problem is not None:
-        return SuggestResult("capped" if problem[0] == "capped" else "unavailable", reason=problem[0], message=problem[1])
+    # Today's budget spent refuses a paid request, not a replay: a video judged before is answered from the ledger
+    # (the daily envelope below refuses the request itself when one is needed).
+    if problem is not None and problem[0] != "capped":
+        return SuggestResult("unavailable", reason=problem[0], message=problem[1])
     learning_objects = SC.source_learning_objects(vault, repository, library, extraction_id)
     prompt = build_prompt(vault, library, extraction_id, sections, learning_objects)
     route = plan_route(vault, SC.ROUTE_TASK, client)
@@ -371,6 +373,8 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
             raise AIInterrupted("chapter judgment cancelled")
         status = "capped" if outcome.status == "over_budget" else (
             "unavailable" if outcome.status.startswith(("unavailable", "skipped")) else "failed")
+        if status == "capped" and problem is not None:
+            return SuggestResult("capped", reason="capped", message=problem[1])
         return SuggestResult(status, reason=outcome.reason or outcome.status,
                              message="Couldn't suggest chapters just now. Try again." if status == "failed"
                              else outcome.reason or outcome.status)

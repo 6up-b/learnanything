@@ -190,3 +190,29 @@ def test_the_curriculum_switched_off_while_a_suggestion_runs_stores_nothing(tmp_
     assert (result.status, result.reason) == ("unavailable", "curriculum_disabled")
     with repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM video_chapters").fetchone()[0] == 0
+
+
+# -- a judged video replays from the ledger even with today's budget spent -----------------------------------------
+
+class _MeteredJudge(ChaptersJudgeFake):
+    provider_type = "openai_compatible"
+
+
+def test_a_judged_video_replays_from_the_ledger_with_the_budget_spent_and_an_unjudged_one_is_capped(tmp_path):
+    from learnloop.source_retrieval import video_chapters as VC
+    from learnloop.vault.loader import load_vault
+    from tests.ux_phase1_support import set_config
+
+    paths, repository = build_video_vault(tmp_path / "vault")
+    set_config(paths.root, {("source_retrieval", "llm_price_per_million"): 1.0})
+    judge = _MeteredJudge()
+    assert VC.suggest(load_vault(paths.root), repository, VIDEO, client=judge).status == "ready" and judge.calls == 1
+    set_config(paths.root, {("curriculum", "max_daily_cost_usd"): 0.0})
+    again = VC.suggest(load_vault(paths.root), repository, VIDEO, client=judge)
+    assert (again.status, judge.calls) == ("ready", 1)
+    # Never judged, with the budget spent: capped, and nothing is sent.
+    paths2, repository2 = build_video_vault(tmp_path / "vault2")
+    set_config(paths2.root, {("source_retrieval", "llm_price_per_million"): 1.0, ("curriculum", "max_daily_cost_usd"): 0.0})
+    fresh = _MeteredJudge()
+    capped = VC.suggest(load_vault(paths2.root), repository2, VIDEO, client=fresh)
+    assert (capped.status, capped.reason, fresh.calls) == ("capped", "capped", 0)
