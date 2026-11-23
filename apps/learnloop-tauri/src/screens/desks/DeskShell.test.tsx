@@ -1297,10 +1297,12 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     fireEvent.change(input, { target: { value: "why does it cancel?" } });
     fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     expect(panel()?.textContent).toContain("why does it cancel?");
-    expect(panel()?.querySelector('[data-exchange-status="asking"]')).not.toBeNull();
+    // Shown at once, waiting while the desk's writes are acknowledged (none are queued here), then asking.
+    expect(panel()?.querySelector('[data-exchange-status="waiting"]')).not.toBeNull();
     await act(async () => {
-      await Promise.resolve();
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
     });
+    expect(panel()?.querySelector('[data-exchange-status="asking"]')).not.toBeNull();
     expect(transport.companionAsk).toHaveBeenCalledWith(expect.objectContaining({ surface: "desk", deskId: "fx_desk_softmax", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", question: "why does it cancel?", selectionQuote: "the first passage of fx_w_book" }));
     await act(async () => {
       await poller.tick();
@@ -1315,6 +1317,88 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     await flush();
     // The cited passage's source is the book, already on the desk: it takes the focus (no second window).
     expect(server.state().desks[0].focusWindowId).toBe("fx_w_book");
+  });
+
+  it("a question waits until the desk writes it depends on are acknowledged, shown as waiting, and is asked after them", async () => {
+    const { transport, answer: _answer, server } = mountCompanion();
+    const order: string[] = [];
+    const deskApply = server.apply.bind(server);
+    server.apply = (input) => {
+      order.push(`apply:${input.ops.map((op) => op.op).join(",")}`);
+      return deskApply(input);
+    };
+    transport.companionAsk.mockImplementation(async (input: { requestId: string }) => {
+      order.push("ask");
+      return { version: 1, requestId: input.requestId, status: "queued", done: false, partialMd: "", citations: [], streamedPieces: 0, questionEventId: null, kept: false, answer: null, error: null };
+    });
+    await screen.findByTestId("pane-fx_w_book");
+    // The focus moves (a desk write, queued for the idle flush) and the learner asks at once.
+    alt("KeyL", "l");
+    alt("KeyH", "h");
+    selectIn("fx_w_book", 1);
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "right away?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(panel()?.querySelector('[data-exchange-status="waiting"]')).not.toBeNull();
+    expect(order).toEqual([]);
+    await act(async () => {
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(order.length).toBeGreaterThan(1);
+    expect(order[order.length - 1]).toBe("ask");
+    expect(order.slice(0, -1).every((entry) => entry.startsWith("apply:"))).toBe(true);
+  });
+
+  it("a question whose window closes is read no more; nor is any once the shell detaches", async () => {
+    const { poller, reads, view } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "a question" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await flush();
+    await act(async () => {
+      await poller.tick();
+    });
+    const before = reads.length;
+    expect(before).toBeGreaterThan(0);
+    // Close the window it was asked from (alt+w closes the focus).
+    alt("KeyW", "w");
+    await flush();
+    expect(screen.queryByTestId("pane-fx_w_book")).toBeNull();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads.length).toBe(before);
+    view.unmount();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads.length).toBe(before);
+    expect(poller.size).toBe(0);
+  });
+
+  it("detached, the shell's threads stop polling; mounted again, they are followed again", async () => {
+    const { poller, reads, view } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "still there?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await flush();
+    expect(poller.size).toBe(1);
+    view.unmount();
+    expect(poller.size).toBe(0);
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads).toHaveLength(0);
   });
 
   it("a question from a window whose desk is left is not read until the learner comes back (paused windows ask nothing)", async () => {

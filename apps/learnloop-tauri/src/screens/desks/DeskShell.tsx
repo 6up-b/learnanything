@@ -99,7 +99,7 @@ import { keyAfter } from "./pads/model";
 import { PadsHostContext, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
-import { CompanionAsks, companionAsksFor, type CompanionApi, type CompanionExchange } from "./companion/asks";
+import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
 import type { SearchRow } from "./search/model";
@@ -213,7 +213,7 @@ export const LIVE_PADS_TRANSPORT: PadsTransport = {
 
 /** The companion's and search's calls (spec §3.4; RD3a's jobs). */
 export interface CompanionTransport extends CompanionApi, SearchApi {
-  companionHistory(input: { query?: string; deskId?: string }): Promise<CompanionHistoryDto>;
+  companionHistory(input: { query?: string; deskId?: string; cursor?: string }): Promise<CompanionHistoryDto>;
 }
 
 export const LIVE_COMPANION_TRANSPORT: CompanionTransport = {
@@ -621,9 +621,17 @@ export function DeskShell({
   lifecyclesRef.current = lifecycles;
   const focusIdRef = useRef(focusId);
   focusIdRef.current = focusId;
+  // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
+  // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
+  const knownOwners = useRef(new Set<string>());
   useEffect(() => {
     for (const [id, lifecycle] of Object.entries(lifecycles)) poller.setOwnerPaused(id, isPaused(lifecycle.state));
-  }, [lifecycles]);
+    for (const id of knownOwners.current) if (!(id in lifecycles)) poller.setOwnerPaused(id, true);
+    for (const id of Object.keys(lifecycles)) knownOwners.current.add(id);
+  }, [lifecycles, poller]);
+  useEffect(() => () => {
+    for (const id of knownOwners.current) poller.setOwnerPaused(id, true);
+  }, [poller]);
 
   // -- actions -------------------------------------------------------------------------------------
 
@@ -1611,6 +1619,17 @@ export function DeskShell({
     [vaultKey, companionTransport, poller, mintId],
   );
   useSyncExternalStore(asks.subscribe, asks.getVersion);
+  // The threads are followed while this shell shows them; another vault's store is gone for good.
+  useEffect(() => {
+    asks.resume();
+    return () => asks.suspend();
+  }, [asks]);
+  const shownVault = useRef<{ vaultKey: string; transport: object } | null>(null);
+  useEffect(() => {
+    const before = shownVault.current;
+    if (before && (before.vaultKey !== vaultKey || before.transport !== companionTransport)) forgetCompanionAsks(before.vaultKey, before.transport);
+    shownVault.current = { vaultKey, transport: companionTransport };
+  }, [vaultKey, companionTransport]);
   const statusRef = useRef(status);
   statusRef.current = status;
   const companionStateRef = useRef(companionState);
@@ -1759,11 +1778,12 @@ export function DeskShell({
       spanId,
       selectionSpanIds: selected?.spanIds,
       quote: selected?.quote ?? null,
-    });
+    // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
+    }, store.settled());
     setChip(null);
-  }, [asks, toastNow]);
+  }, [asks, store, toastNow]);
 
-  const loadHistory = useCallback((query: string) => companionTransport.companionHistory(query ? { query } : {}), [companionTransport]);
+  const loadHistory = useCallback((query: string, cursor?: string) => companionTransport.companionHistory({ ...(query ? { query } : {}), ...(cursor ? { cursor } : {}) }), [companionTransport]);
 
   const deskTitle = useCallback((id: string | null) => (id ? deskById(wsRef.current, id)?.title ?? "an archived desk" : "no desk"), []);
 
