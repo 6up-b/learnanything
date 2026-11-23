@@ -238,3 +238,60 @@ mockup's facts for the new parts without re-running it.
   reference has resting frames only.
 - The 41 differences were read from measured facts and the side-by-side images; each was not separately confirmed
   against the source of the rule that draws it.
+
+## 9. Fix round (2026-11-23, branch `reader/visual-parity-fixes`)
+
+The owner's rule for this round: the workbench recreates the mockup, so where the spec's text and the mockup disagree
+on looks the mockup wins and the spec is corrected in the same commit (VR-1: §4.2's interface face; VR-23: §4.3's
+laptop docks; §4.3 also gains the 34 px top bar on a short window). Behaviour stays as it was, except VR-25, which
+was a product bug. Styles live in `styles/desk.css`; markup changed in three places only (the selection chip's label
+in its own span, ⓘ in its own ring, the overview's link labels' paint).
+
+**Counts** (grouped rows from `findings__all.json`, both viewports, before and after; the rows left are the excused
+ones and the ones listed below):
+
+| Stage | Before | After |
+|---|---|---|
+| RD1 | 79 (colour 25, type 25, geometry 26, missing 3) | 21 (colour 3, type 2, geometry 13, missing 3) |
+| RD2 | 102 (37, 38, 21, 6) | 27 (8, 2, 11, 6) |
+| RD3 | 68 (20, 30, 16, 2) | 5 (1, 0, 2, 2) |
+| RD4 | 90 (37, 11, 25, 17) | 20 (0, 3, 1, 16) |
+
+| Row | Outcome |
+|---|---|
+| VR-1 | Fixed: `--desk-ui` is JetBrains Mono; §4.2 corrected. Reading text stays Literata. The Inter package is still imported by the shell (the harness's font check loads it); dropping it is a later cleanup |
+| VR-2, VR-4..VR-11, VR-30 | Fixed (window heads, prose 16.5 px on 1.66, cues 15 px Literata in ink, shelf rows, dots, the zoom badge's bottom-centre pill, chips, "/ switch", the 34 px top bar under 820 px, carried questions) |
+| VR-3 | The book: fixed (the Reader's scroller is the page sheet, 22 px of the window's dark round it, the mockup's padding and shadow). The transcript's sheet: open, it needs §7.4's player and transcript layout (the watch panel's inline-styled card), not a style change |
+| VR-12 | Owner (the first-load state is behaviour) |
+| VR-13..VR-19 | Fixed (overview labels, card names and glyph, the minimap bar, the selection's warm face, link labels with their halo, rings; the card face's padding and gap too) |
+| VR-20, VR-21, VR-24, VR-26..VR-28 | Fixed (the companion's 1.6 line, the 1 px tab underline, the chip, history day rules, the search footer band, search text colours; the context line kept to one line) |
+| VR-22, VR-23 | Fixed: the companion's narrow summon and laptop docks go by the window's width (`Stage.viewport`, optional, read only by the companion's rules); §4.3 corrected |
+| VR-25 | A product bug, fixed: shift+c dropped a selection, so a question asked at the dock carried no passage (§8.6). Fail-first test in `DeskShell.test.tsx` |
+| VR-29 | Moved to the menus frontend worker, with the pad window's title |
+| VR-31, VR-33..VR-41 | Fixed (pad borders, tab titles, quotes and back-link chips, the tutor's block, the submitted tag, ⓘ, the lifted stub, the ✎ mark, the pad menu's frame and selection, arrange covering the pad window, the sketch's tool row) |
+| VR-32 | Withdrawn: the mockup's measured "chip" was its gutter cell, transparent and borderless; nothing differs on screen |
+| VR-42 (new) | Fixed: the DeskShell tests' `passage.union_range` double answered the wrong shape (six unhandled rejections per run) |
+| VR-43 (new) | Owner: the mockup sets a source window's prose to 15 px when it is beside the focus; doing so reflows the book on every focus change |
+| VR-44 (new) | Owner: the mockup's 558 px slots (34 px left, 44 right) were built and backed out in this round: the third window's edge then counts as visible (a lifecycle change). RD1's 563 px stays |
+| VR-45 (new) | Open: the mockup's opened strip covers the rail with its ☰ inside; that needs markup and a way to close, not a style |
+
+**Still excused** (unchanged from §5): focus mode is truly full screen (§4.4 row 1); the companion's input is a real
+input (§4.4 row 12); fixture differences (which card is first on screen, the attention desk's two windows, the Guide
+panel's missing location, the anchored panel's place); the mockup's own timing (its badge has faded when captured);
+day headings measure `text-transform: none` but their text is already capitals; the passages' 12 px reading-bar
+padding (the sheet's padding is 12 px less, so the text sits where the mockup's does).
+
+**What the comparison learned this round** (in the script, tracked): a border in a transparent colour is no border;
+values within 0.05 px are equal (the mockup works out 1/0.34 to more digits); the book's paper is the page sheet;
+the selected overview card's face is measured; the pad menu's rows exclude the selected one; the gutter marks
+compare colour and type; the pointer leaves a control the driver clicked before measuring.
+
+**Assertions and expectations changed:** the desk harness's anchored-summon check now scrolls the book so its
+passage is near the top before selecting (at the new reading size the panel no longer fit below it); the expectation
+itself (10 px below the selection) is unchanged. The geometry test's slot sum was changed for the 558 px slots and
+changed back with them (net unchanged). No snapshot or style assertion encoded the old values.
+
+**Tests:** vitest (4 workers) 362 files, 4057 tests passed; `npm run typecheck` clean; the desk harness 97 passed, 0
+failed (every display-math check included: pads at three widths, the hover card, the companion's answer, after a
+resize); no new TypeScript file, so `desktop_validate.py`'s three counts are unchanged (its reproducibility check
+lists the generated notes the landing regenerates).
