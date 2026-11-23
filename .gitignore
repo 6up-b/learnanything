@@ -236,6 +236,7 @@ __marimo__/
 apps/learnloop-tauri/node_modules
 apps/learnloop-tauri/dist/
 apps/learnloop-tauri/dist-browser/
+apps/learnloop-tauri/dist-desk-harness/
 apps/learnloop-tauri/src-tauri/target/
 apps/learnloop-tauri/src-tauri/gen/
 apps/learnloop-tauri/*debug*.jsonl
