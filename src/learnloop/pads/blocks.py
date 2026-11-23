@@ -156,6 +156,9 @@ class EraseInk(_Op):
     block_id: str = Field(min_length=1)
     stroke_ids: list[str] = Field(min_length=1)
     erase_id: str | None = Field(default=None, min_length=1)
+    #: The version that takes LearnLoop's reading off the line when the strokes it read change (client-minted, as
+    #: every version is, so the client's head stays the server's).
+    version_id: str | None = Field(default=None, min_length=1)
 
 
 PadOp = Annotated[
@@ -484,6 +487,11 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
                         connection, event_id=new_ulid(), block_id=block_id, extraction_id=anchor["extraction_id"],
                         span_id=anchor["span_id"], anchor=anchor["anchor"] if action == "link" else {},
                         annotation_id=anchor["annotation_id"] if action == "link" else None, action=action, now=now)
+            if head["kind"] == "ink":
+                # The handwriting goes with its line: the lifted block holds its standing strokes (and the reading of
+                # them), so listing, drawing, erasing and reading follow it.
+                ink_core.copy_to_lifted(connection, from_block_id=op.block_id, to_block_id=op.new_block_id,
+                                        client_id=client_id, now=now)
             heads[op.new_block_id] = lifted_version
             versions[op.new_pad_id] = 1
         heads[op.block_id] = version_id
@@ -511,6 +519,18 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
     if isinstance(op, EraseInk):
         result = ink_core.erase_in_batch(connection, pad_id=pad_id, block_id=op.block_id, erase_id=op.erase_id,
                                          stroke_ids=list(op.stroke_ids), client_id=client_id, now=now)
+        head = reads.head(connection, op.block_id)
+        if result["standing"] == 0 and head is not None and head["provenance"] == "ink_transcription" and (
+                str(head["body_md"] or "").strip() or "ink_transcription" in (head["payload"] or {})):
+            # Every stroke erased: LearnLoop's reading of them goes with them (a blank version, so what was read from
+            # its words is set aside by the emission). The learner's own words are never touched; after a partial
+            # erase the words stay until the line is read again (its reading names the strokes it read).
+            payload = {key: value for key, value in (head["payload"] or {}).items() if key != "ink_transcription"}
+            version_id = _version_id(connection, op.version_id)
+            store.insert_version(connection, _successor(head, version_id, client_id, now, body_md="", payload=payload))
+            heads[op.block_id] = version_id
+            result = {**result, "head_version_id": version_id}
+        result.pop("standing")
         store.touch_pad(connection, pad_id, now)
         return result
     raise OpRefused("unknown_op", f"Unknown pad op {getattr(op, 'op', None)!r}.")  # pragma: no cover

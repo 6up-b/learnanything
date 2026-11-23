@@ -200,9 +200,9 @@ def _result(connection: Any, row: dict[str, Any], *, applied: bool | None = None
         head = pad_reads.head(connection, row["owner_id"])
         head_version_id = head["version_id"] if head is not None else None
         if applied is None:
-            reading = ((head or {}).get("payload") or {}).get("ink_transcription") or {}
-            applied = (head is not None and head["provenance"] == "ink_transcription"
-                       and reading.get("transcription_id") == row["transcription_id"])
+            # A reading answered again (kept, or raced): what it does to the block now, and why not.
+            decision, reason = ink_core.reading_decision(connection, row)
+            applied = decision == "applied"
     return {
         "transcription_id": row["transcription_id"], "owner_kind": row["owner_kind"], "owner_id": row["owner_id"],
         "content_hash": row["content_hash"], "latex_md": row["latex_md"],
@@ -214,17 +214,10 @@ def _result(connection: Any, row: dict[str, Any], *, applied: bool | None = None
 def _apply_to_block(connection: Any, row: dict[str, Any], now: str) -> tuple[bool, str | None]:
     """Write the reading as the block's next version, or say why not (the caller's transaction)."""
 
+    decision, reason = ink_core.reading_decision(connection, row)
+    if decision != "write":
+        return decision == "applied", reason
     head = pad_reads.head(connection, row["owner_id"])
-    if head is None or head["tombstone"]:
-        return False, "block_removed"
-    reading = (head.get("payload") or {}).get("ink_transcription") or {}
-    if reading.get("content_hash") == row["content_hash"]:
-        if head["provenance"] == "learner_correction":
-            return False, "kept_your_correction"
-        return True, None
-    if head["provenance"] == "learner_correction":
-        # The learner's words stand; the new reading is kept and returned for the client to offer.
-        return False, "kept_your_correction"
     pad_store.insert_version(connection, {
         "version_id": new_ulid(), "block_id": head["block_id"], "supersedes_id": head["version_id"],
         "pad_id": head["pad_id"], "position_key": head["position_key"], "day": head["day"], "kind": head["kind"],
