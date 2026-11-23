@@ -124,10 +124,10 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | I1 | Extract the pure core of grade application | landed | `67a5364df0` | [refactor-i1.md](refactor-i1.md) | — |
-| I2 | Extract pure due queue ranking from persistence | not started | — | [refactor-i2.md](refactor-i2.md) | Owner decided on 2026-11-20: superset reads, two pure stages (I2a, I2b, I2c) |
+| I2 | Extract pure due queue ranking from persistence | landed | I2a-I2c | [refactor-i2.md](refactor-i2.md) | Owner decided on 2026-11-20: superset reads, two pure stages (I2a, I2b, I2c). I2-2 (the read build's follow-up marks) stays open to arc I's close |
 | I2a | The due queue's admission reads are gathered once before its decisions; each probe episode's value decision is computed at its consult from gathered values, with no repository | landed | this commit | [refactor-i2a.md](refactor-i2a.md) | Reads are within one SELECT of base on every build but one: an episode whose only reachable item is held by a not-yet-due check still costs about 2.2 to 2.5 times base reads (0.07 s at 300 items). I2b removes it by filtering on intent's whole gate once intent is frozen |
 | I2b | Intent's view is frozen after the check split, the one intent read left; the teach-back site's value context has no repository; probe episodes are gathered only when an item past every gate could reach them | landed | this commit | [refactor-i2b.md](refactor-i2b.md) | Every measured build reads what the base reads; the corner case I2a left (an episode reachable only through an item a not-yet-due check holds) is back to base reads |
-| I2c | The two pure stages, the persist call, `serve_due_queue` and `read_due_queue` replacing the flag | not started | — | — | I2b |
+| I2c | The two pure stages, the persist call, `serve_due_queue` and `read_due_queue` replacing the flag | landed | this commit | [refactor-i2c.md](refactor-i2c.md) | `admit_due` and `rank_due` over gathered reads and frozen inputs, one persist call, `build_due_queue` renamed `serve_due_queue` (the flag had already gone with I2-1). Serving builds read far less; two gate-heavy builds read up to 14% more (a superset by design). The shell is still one function over 200 lines |
 | I2-1 | Split serving writes from due queue reads | landed | `e1df438a03` | [refactor-i2.md](refactor-i2.md) | — |
 
 ## Arc G
