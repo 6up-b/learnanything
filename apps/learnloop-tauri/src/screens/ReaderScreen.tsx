@@ -66,7 +66,7 @@ import { PreparingView } from "./reader/PreparingView";
 import { readerKeyBarKeys } from "./reader/readerKeys";
 import { type ReadingPosition } from "./reader/readingPosition";
 import { useBareAltClear } from "./reader/bareAlt";
-import { useListenerHub, useScopeClaim, useWindowPaused } from "./desks/lifecycle";
+import { useListenerHub, useScopeClaim, useWindowLifecycle, useWindowPaused } from "./desks/lifecycle";
 import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
@@ -1510,6 +1510,14 @@ export function ReaderScreen({
   const [notePicker, setNotePicker] = useState<{ spanId: string; x: number; y: number } | null>(null);
   // An open tag menu or note picker owns the keys (esc closes it) before the desk's bindings.
   useScopeClaim("menu", tagMenu !== null || notePicker !== null);
+  // They are portaled over the whole desk: when this window stops being the active one (another window,
+  // another desk, the overview) they close, so no backdrop or action of a hidden source stays on screen.
+  const windowActive = useWindowLifecycle().state === "active";
+  useEffect(() => {
+    if (windowActive) return;
+    setTagMenu(null);
+    setNotePicker(null);
+  }, [windowActive]);
   // RW4d on the original PDF (Codex review F10): the ⇄ marks join the page's
   // overlay gutter beside the cue marks. They are the learner's own marks:
   // added after the cue placement, so the density setting never counts them.
@@ -4769,7 +4777,7 @@ export function ReaderScreen({
         )}
       </div>
 
-      {tagMenu ? overDesk(
+      {tagMenu && windowActive ? overDesk(
         <div
           style={{ position: "fixed", inset: 0, zIndex: 320 }}
           onClick={() => setTagMenu(null)}
@@ -4838,7 +4846,7 @@ export function ReaderScreen({
         </div>
       ) : null}
 
-      {notePicker && render && notesCtl.enabled ? overDesk(
+      {notePicker && windowActive && render && notesCtl.enabled ? overDesk(
         // Curriculum C2: link one of your notes to this passage (by hand: yours, never re-judged).
         <div style={{ position: "fixed", left: Math.min(notePicker.x, window.innerWidth - 440), top: Math.min(notePicker.y, window.innerHeight - 360), width: 420, maxHeight: 340, overflowY: "auto", zIndex: 320, boxShadow: "0 16px 48px rgba(0,0,0,0.55)" }}>
           <NoteLinkPicker extractionId={render.extractionId} spanId={notePicker.spanId} onClose={() => setNotePicker(null)} onError={onError} />
