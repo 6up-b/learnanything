@@ -165,8 +165,8 @@ cards unwritten until an admit call, which is new persisted state (a draft held 
 import's rows). Options: (a) a prepare/admit split in the backend with that state, the menu showing the draft's
 question, parts and answer with keep / not now; (b) keep the import as it is and show its written cards after it
 finishes, each with the existing retire control, so a wrong one leaves the queue at once; (c) keep it as it is. The
-record's earlier "review sheet" was wrong: it is a confirmation (judgment call 5), and the client now says so only
-as a confirmation.
+record's earlier "review sheet" was wrong: the sheet is a confirmation of what the import does (judgment call 5),
+not a review of its draft.
 
 **Assumed of the backend half** (the client is ready, or reads them when present): a client key on
 `passage.promoted` (sent once named); `passage.knows` returning `notes` as `passage.union_range` does (the panel
