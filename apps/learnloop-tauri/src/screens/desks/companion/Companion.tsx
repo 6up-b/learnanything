@@ -397,7 +397,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           </div>
           {props.chip ? (
             <div className="chip">
-              <span className="g">§</span> asking about <span className="q">“{props.chip.quote.length > 120 ? `${props.chip.quote.slice(0, 119)}…` : props.chip.quote}”</span>
+              <span className="g">§</span> <span className="lab">asking about</span> <span className="q">“{props.chip.quote.length > 120 ? `${props.chip.quote.slice(0, 119)}…` : props.chip.quote}”</span>
               <button type="button" aria-label="stop asking about the selection" onClick={props.onClearChip}>✕</button>
             </div>
           ) : null}

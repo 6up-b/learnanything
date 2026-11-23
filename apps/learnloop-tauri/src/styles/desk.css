@@ -257,7 +257,7 @@
 .desk-shelf .lower { flex: none; margin-top: auto; border-top: 1px solid var(--desk-line); padding-top: 8px; }
 .desk-shelf .undo { display: block; margin: 0 14px 6px; color: var(--desk-amber); font: 11px var(--desk-mono); text-align: left; }
 .desk-shelf .quiet { margin: 0 14px 6px; color: var(--desk-t3); font: 11px var(--desk-mono); }
-.desk-shelf-rail { display: flex; flex-direction: column; align-items: center; padding-top: 10px; border-right: 1px solid var(--desk-line); background: #0e0e10; }
+.desk-shelf-rail { display: flex; flex-direction: column; align-items: center; padding: 10px 0 8px; border-right: 1px solid var(--desk-line); background: #0e0e10; }
 .desk-shelf-overlay { position: absolute; left: 44px; top: 38px; bottom: 26px; width: 260px; z-index: 60; box-shadow: 12px 0 30px rgba(0, 0, 0, .6); }
 
 /* ── which-key: Alt held 400 ms ── */
@@ -302,7 +302,7 @@
 .desk-companion {
   position: absolute; z-index: 60; display: flex; flex-direction: column; min-height: 0;
   background: #181818; border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 14px 40px rgba(0, 0, 0, .6);
-  font: 12px var(--desk-mono); color: var(--desk-t);
+  font: 12px/1.6 var(--desk-mono); color: var(--desk-t);
   /* Avoid slides it sideways (its own property, so FLIPs and the zoom keep the transform). */
   translate: var(--companion-avoid, 0px) 0;
   transition: transform .28s var(--desk-focus-ease), opacity .28s var(--desk-focus-ease), filter .28s cubic-bezier(.4, 0, .2, 1), translate .28s var(--desk-focus-ease);
@@ -323,16 +323,16 @@
 .desk-companion .grab::after { content: ""; position: absolute; left: 50%; top: 5px; width: 30px; height: 2px; margin-left: -15px; border-radius: 1px; background: #3a3a3a; }
 .desk-companion .ctabs { flex: none; display: flex; align-items: center; gap: 2px; padding: 0 10px 6px; border-bottom: 1px solid #2a2a2a; font-size: 11px; }
 .desk-companion .ctabs button { padding: 3px 7px; border-radius: 2px; color: var(--desk-t3); }
-.desk-companion .ctabs button.on { color: var(--desk-t); box-shadow: inset 0 -2px 0 var(--desk-amber); }
+.desk-companion .ctabs button.on { color: var(--desk-t); box-shadow: inset 0 -1px 0 var(--desk-amber); }
 .desk-companion .grow { flex: 1; }
-.desk-companion .ctx { flex: none; display: flex; align-items: baseline; gap: 8px; padding: 6px 12px 4px; font-size: 10px; color: var(--desk-t3); }
+.desk-companion .ctx { flex: none; display: flex; align-items: baseline; gap: 8px; padding: 6px 12px 4px; font-size: 10px; line-height: normal; color: var(--desk-t3); white-space: nowrap; overflow: hidden; }
 .desk-companion .ctx .goal { color: var(--desk-amber); }
 .desk-companion .ctx .earlier { color: #f0b878; font-size: 10px; }
 .desk-companion .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 2px 12px 6px; }
 .desk-companion .empty { color: var(--desk-t3); font-size: 11.5px; line-height: 1.6; padding: 14px 0; }
-.desk-companion .bub, .desk-thread .bub { margin: 8px 0; padding: 8px 11px; border-radius: 12px; line-height: 1.55; }
+.desk-companion .bub, .desk-thread .bub { margin: 8px 0; padding: 8px 11px; border-radius: 12px; line-height: 1.6; }
 .desk-companion .bub p, .desk-thread .bub p { margin: 4px 0 0; }
-.desk-companion .bub .who, .desk-thread .bub .who { display: block; font-size: 10px; }
+.desk-companion .bub .who, .desk-thread .bub .who { display: block; font-size: 10px; line-height: normal; }
 .desk-companion .bub.you, .desk-thread .bub.you { color: #f0c890; border-left: 2px solid #9a6f3a; }
 .desk-companion .bub.you .who, .desk-thread .bub.you .who { color: var(--desk-amber); }
 .desk-companion .bub.ai, .desk-thread .bub.ai { color: var(--desk-t); font-size: 12.5px; border-left: 1px dotted #7d6fb8; padding: 9px 11px; }
@@ -343,8 +343,10 @@
 .desk-companion .claims, .desk-thread .claims { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .desk-companion .claim, .desk-thread .claim { color: #f0b878; border: 1px solid #5a4630; border-radius: 2px; padding: 1px 6px; font-size: 11px; }
 .desk-companion .act { margin-top: 6px; color: #f0c890; border: 1px solid #9a6f3a; border-radius: 2px; padding: 4px 10px; font-size: 11.5px; }
-.desk-companion .chip { flex: none; margin: 0 12px 6px; padding: 6px 8px; border-left: 2px solid #9a6f3a; color: var(--desk-t3); font-size: 10.5px; display: flex; gap: 6px; align-items: baseline; }
-.desk-companion .chip .q { color: #f0c890; font: italic 12px var(--desk-book); flex: 1; }
+.desk-companion .chip { flex: none; margin: 0 12px 6px; padding: 3px 0 3px 8px; border-left: 1px solid #3a3a3a; color: var(--desk-t); font-size: 10.5px; display: flex; gap: 7px; align-items: baseline; }
+.desk-companion .chip .g { color: var(--desk-t2); }
+.desk-companion .chip .lab { color: var(--desk-t3); white-space: nowrap; }
+.desk-companion .chip .q { color: var(--desk-t); font: italic 12.5px/1.4 var(--desk-book); flex: 1; min-width: 0; }
 .desk-companion .cin { flex: none; padding: 0 12px 12px; }
 .desk-companion .cin .cannot { color: var(--desk-t3); font-size: 10.5px; margin: 0 0 6px; line-height: 1.5; }
 .desk-companion .input { width: 100%; box-sizing: border-box; background: #080808; color: var(--desk-t); border: 1px solid #3a3a3a; border-radius: 2px; padding: 8px 10px; font: 12px var(--desk-mono); outline: none; }
@@ -352,9 +354,9 @@
 .desk-companion .input::placeholder { color: var(--desk-t3); }
 .desk-companion .history .hnote { color: var(--desk-t3); font-size: 10.5px; line-height: 1.6; margin: 6px 0; }
 .desk-companion .history .hsearch { width: 100%; box-sizing: border-box; background: #080808; color: var(--desk-t); border: 1px solid #2a2a2a; border-radius: 2px; padding: 4px 8px; font: 11px var(--desk-mono); margin-bottom: 4px; }
-.desk-companion .history .hday { padding-top: 8px; color: var(--desk-t2); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+.desk-companion .history .hday { margin: 12px 0 4px; padding-top: 8px; border-top: 1px solid #2a2a2a; color: var(--desk-t2); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
 .desk-companion .history .hdesk { color: var(--desk-t3); font-size: 10.5px; margin-top: 4px; }
-.desk-companion .history .hitem { font-size: 11.5px; margin: 4px 0 10px; }
+.desk-companion .history .hitem { font-size: 11.5px; line-height: 1.5; margin: 4px 0 10px; }
 .desk-companion .history .hitem.dim { color: var(--desk-t3); }
 .desk-companion .history .hq { color: #f0c890; border-left: 2px solid #9a6f3a; padding-left: 8px; }
 .desk-companion .history .ha { border-left: 1px dotted #7d6fb8; padding-left: 8px; margin-top: 3px; }
@@ -408,7 +410,7 @@
 .desk-search-backdrop.still, .desk-search.still { animation: none; backdrop-filter: none; }
 .desk-search.still .desk-search-sel { transition: none; }
 @media (max-width: 700px) { .desk-search { left: 16px; right: 16px; width: auto; margin-left: 0; } }
-.desk-search-in { flex: none; display: flex; align-items: center; gap: 8px; background: #080808; border: 1px solid #3a3a3a; border-radius: 2px; padding: 7px 10px; font-size: 14px; }
+.desk-search-in { flex: none; display: flex; align-items: center; gap: 8px; color: #fff; background: #080808; border: 1px solid #3a3a3a; border-radius: 2px; padding: 7px 10px; font-size: 14px; }
 .desk-search-in .g { color: var(--desk-t3); }
 .desk-search-in input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--desk-t); font: 13px var(--desk-mono); }
 .desk-search-in input::placeholder { color: var(--desk-t3); }
@@ -422,8 +424,9 @@
 .desk-search .r { position: relative; display: flex; gap: 12px; align-items: baseline; padding: 5px 8px; border-radius: 2px; cursor: pointer; }
 .desk-search .r .t { flex: 1; min-width: 0; color: var(--desk-t); line-height: 1.45; }
 .desk-search .r .w { flex: none; color: var(--desk-t3); font-size: 10.5px; }
-.desk-search .r.sel .t, .desk-search .r.sel .w { color: #fff; }
-.desk-search-foot { flex: none; display: flex; justify-content: space-between; gap: 12px; padding: 8px 8px 2px; color: var(--desk-t3); font-size: 10px; line-height: 1.5; }
+.desk-search .r.sel .t { color: var(--desk-t); }
+.desk-search .r.sel .w { color: #fff; }
+.desk-search-foot { flex: none; display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; padding: 8px 8px 2px; background: #111113; border-top: 1px solid #2a2a2a; border-bottom: 1px solid #222; color: var(--desk-t3); font-size: 10px; }
 .desk-search-foot .why { text-align: right; }
 
 @media (prefers-reduced-motion: reduce) {
