@@ -49,7 +49,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`, `266_reader_workbench_pads.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -110,6 +110,8 @@ None found by exact static reference scan.
 
 - `tests/learner_gap_unlinked_migration_helpers.py`
 - `tests/mcp_world.py`
+- `tests/reader_rd4_helpers.py`
+- `tests/reader_rd4_migration_helpers.py`
 - `tests/test_followups_nov2_note_gap_unlinked.py`
 - `tests/test_help_assist_figures_migration.py`
 - `tests/test_help_assist_work_md_migration.py`
@@ -118,6 +120,7 @@ None found by exact static reference scan.
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_notes_vault_origin_migration.py`
 - `tests/test_learner_text_source_widening.py`
+- `tests/test_reader_rd4_migration.py`
 - `tests/test_router_reader_activity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -138,7 +141,9 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE "learner_text_gap_reversals" (
   id TEXT PRIMARY KEY,
   gap_id TEXT NOT NULL REFERENCES learner_text_gaps(id),
-  reversal TEXT NOT NULL CHECK (reversal IN ('undo_edge', 'undo_creation', 'not_this_belief', 'unlinked')),
+  reversal TEXT NOT NULL CHECK (reversal IN (
+    'undo_edge', 'undo_creation', 'not_this_belief', 'unlinked', 'superseded', 'retracted'
+  )),
   actor TEXT NOT NULL CHECK (actor IN ('learner', 'owner')),
   detail_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,

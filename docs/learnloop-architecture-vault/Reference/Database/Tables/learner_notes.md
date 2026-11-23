@@ -46,7 +46,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/229_learner_notes.sql`.
-- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`, `233_learner_notes_vault_origin.sql`, `248_teacher_te2_sources.sql`.
+- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`, `233_learner_notes_vault_origin.sql`, `248_teacher_te2_sources.sql`, `266_reader_workbench_pads.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

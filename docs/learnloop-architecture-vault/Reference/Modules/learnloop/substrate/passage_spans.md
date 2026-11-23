@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/passage_spans.py](../../../../../../src/learnloop/substrate/passage_spans.py) |
-| Source lines | 434 |
+| Source lines | 440 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,11 +61,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `project_question_event(connection: Any, vault: Any, question_event_id: str) -> int` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 236) — Write (or rewrite) one exchange's rows; returns how many were written.
 - `rebuild_question_event_spans(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 247) — The replayer: clear the table, then project every exchange through the live recipe.
 - `gap_rows(connection: Any, vault: Any, gap: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 275) — One read learner text's rows, by its source kind's recipe (spec §7.6's table).
-- `project_gap(connection: Any, vault: Any, gap_id: str) -> int` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 340) — Write (or rewrite) one read learner text's rows; returns how many were written.
-- `rebuild_learner_text_gap_spans(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 349) — The replayer: clear the table, then project every gap through the live recipe.
-- `initialize_on_open(vault: Any, repository: Any, *, clock: Any=None) -> dict[str, int] | None` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 368) — Project every exchange and gap once, the first time a vault opens with these tables.
-- `write_through_question_events(repository: Any, vault: Any, question_event_ids: Iterable[str]) -> None` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 400) — Project new or answered exchanges at once.
-- `write_through_gap(connection: Any, vault: Any, gap_id: str | None) -> None` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 415) — Project a gap just written, in its writer's transaction (a savepoint of it: ``connection`` is the repository's atomic connection), so a failure leaves the gap row and is only logged.
+- `project_gap(connection: Any, vault: Any, gap_id: str) -> int` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 346) — Write (or rewrite) one read learner text's rows; returns how many were written.
+- `rebuild_learner_text_gap_spans(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 355) — The replayer: clear the table, then project every gap through the live recipe.
+- `initialize_on_open(vault: Any, repository: Any, *, clock: Any=None) -> dict[str, int] | None` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 374) — Project every exchange and gap once, the first time a vault opens with these tables.
+- `write_through_question_events(repository: Any, vault: Any, question_event_ids: Iterable[str]) -> None` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 406) — Project new or answered exchanges at once.
+- `write_through_gap(connection: Any, vault: Any, gap_id: str | None) -> None` ([source](../../../../../../src/learnloop/substrate/passage_spans.py), line 421) — Project a gap just written, in its writer's transaction (a savepoint of it: ``connection`` is the repository's atomic connection), so a failure leaves the gap row and is only logged.
 
 ### Module constants
 
@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `QUESTION_EVENT_SPANS` ([src/learnloop/substrate/passage_spans.py](../../../../../../src/learnloop/substrate/passage_spans.py), line 97)
 - `LEARNER_TEXT_GAP_SPANS` ([src/learnloop/substrate/passage_spans.py](../../../../../../src/learnloop/substrate/passage_spans.py), line 98)
 - `_ITEM_PLACED_GAP_KINDS` ([src/learnloop/substrate/passage_spans.py](../../../../../../src/learnloop/substrate/passage_spans.py), line 101)
-- `_GAP_COLUMNS` ([src/learnloop/substrate/passage_spans.py](../../../../../../src/learnloop/substrate/passage_spans.py), line 337)
+- `_GAP_COLUMNS` ([src/learnloop/substrate/passage_spans.py](../../../../../../src/learnloop/substrate/passage_spans.py), line 343)
 
 ### Explicit exports
 
@@ -179,6 +179,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_live_projection_equals_a_rebuild_for_every_adapter`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_the_exchange_context_is_recorded_and_its_passages_equal_a_rebuild`
+- [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — direct import
+  - `test_the_passages_a_block_is_linked_to_place_its_gap_and_live_equals_rebuild`
 
 ## Modification guidance
 

@@ -114,6 +114,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `TeachBackError`, `request_teach_back_authoring`, `teach_back_authoring_context`, `validate_teach_back_authoring`; statically calls `request_teach_back_authoring`, `teach_back_authoring_context`, `validate_teach_back_authoring`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `TEACH_BACK_PRACTICE_MODE`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `TEACH_BACK_ATTEMPT_TYPE`, `TEACH_BACK_PRACTICE_MODE`, `begin_teach_back`, `finish_teach_back`, `next_question`, `record_answer`; statically calls `begin_teach_back`, `finish_teach_back`, `next_question`, `record_answer`
+- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `TeachBackState`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `TEACH_BACK_PRACTICE_MODE`, `TeachBackError`, `TeachBackState`, `asked_criterion_ids`, `begin_teach_back`, `ensure_teach_back_item`, `finish_teach_back`, `next_question`, `plan_followups`, `record_answer`, `render_transcript_md`; statically calls `TeachBackError`, `TeachBackState`, `asked_criterion_ids`, `begin_teach_back`, `ensure_teach_back_item`, `finish_teach_back`, `next_question`, `plan_followups`, `record_answer`, `render_transcript_md`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `TEACH_BACK_PRACTICE_MODE`
 
@@ -149,7 +150,7 @@ Use this module in context through:
 
 - [[Tutor and Teach-Back Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]], [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]], [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -160,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_initial_deadline_and_cancellation`
   - `test_sanitized_empty_teach_back_baseline_stays_stopped`
   - `test_surfaces_without_recovery_admission`
+- [tests/test_reader_rd4_submission.py](../../../../../../tests/test_reader_rd4_submission.py) — direct import
+  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
 - [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
   - `test_f4_the_teach_back_author_reads_the_task_as_it_was_set`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import

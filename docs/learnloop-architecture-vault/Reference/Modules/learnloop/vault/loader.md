@@ -331,6 +331,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — direct import
 - [tests/reader_followups_round4_helpers.py](../../../../../../tests/reader_followups_round4_helpers.py) — direct import
 - [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
+- [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
 - [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — direct import

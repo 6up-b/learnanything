@@ -205,3 +205,25 @@ unchanged.
   that rule (§10.11 "During an open check").
 - The quote check is lexical (a whole sentence, word for word): a paraphrased source sentence is the learner's.
 - Carried questions do not reach the router or the Teacher yet (an open design question, `reader-rd4a.md` §5).
+
+## Owner copies (run by the orchestrator)
+
+The procedure above on backup-API copies of the owner's three vaults (vault A from `mvp-0.61`, B and C from
+`mvp-0.58`, each upgraded to `mvp-0.67` first). Counts only.
+
+| Step | A | B | C |
+|---|---|---|---|
+| 1. Pads, block versions, standing learner words, carried questions, proposals at `mvp-0.67` | 0 each | 0 each | 0 each |
+| 2. Shadow at `mvp-0.67`: mastery, facet, schedule changed | 0, 0, 0 | 0, 0, 0 | 0, 0, 0 |
+| 3. Upgrade to `mvp-0.68`; migration head; `integrity_check`; foreign-key violations | ok; 266; ok; 0 | ok; 266; ok; 0 | ok; 266; ok; 0 |
+| 4. `pad_text_on`; would queue on first open; `pad_text` gaps, jobs, reversals | true; 0; 0, 0, 0 | true; 0; 0, 0, 0 | true; 0; 0, 0, 0 |
+| 5. Shadow at `mvp-0.68`: mastery rows differing | 37, the tag stamp only | 21, the tag stamp only | 18, the tag stamp only |
+| 6. Live database unchanged | yes | yes | yes |
+
+Step 5 differs from the expected "0, 0, 0" only in the rows' algorithm-tag stamp: this tag's upgrade row is an
+idempotent projection with no whole-vault rebuild, so live rows keep the stamp they were written under, while the shadow
+rebuild stamps `mvp-0.68`. No value differs. No vault holds a pad yet, so the first open queues nothing.
+
+The landing gate first failed one test: `tests/test_learner_text_source_widening.py` lists every migration allowed to
+widen the learner-text gap tables' source kinds, and now names 266 beside 212, 231 and 248.
+

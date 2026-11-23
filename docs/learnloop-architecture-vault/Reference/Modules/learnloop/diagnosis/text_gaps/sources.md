@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py) |
-| Source lines | 1164 |
+| Source lines | 1238 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -92,8 +92,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `learner_note_ids(vault: LoadedVault, repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 991) — Curriculum C5: the linked notes' current snapshots, oldest link first: what the backlog sweep may queue (empty while switched off; no note row is read then).
 - `learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1002) — Curriculum C5 (spec §10.2, §12 C5): a note the learner linked, read by the gap reader like any other learner text (C2b), tier 2 (``NON_SERVING_SOURCE_KINDS``).
 - `learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: str, *, prepared: LearnerText | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1037) — Curriculum C5 (Codex review F3): why the linked snapshot ``note_id`` may not be read for gaps now (None: it may), from ``vault`` as configured now.
-- `lesson_gap_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1063) — A teacher's ``propose_gap`` (spec_teacher_v1 §11.7): the learner's own words it names (their reply, an answer and its "your thinking" note), read in context by the teacher as the tutor reads a question (its reading names the gap), about the node's LO.
-- `learner_text(vault: LoadedVault, repository: Repository, source_kind: str, source_id: str, *, stuck_source: StuckTextSource | None=None) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1106)
+- `pad_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1063) — A committed block version of the learner's own words in a scratchpad (``pad_text``, spec §10.11), read by the gap reader like a note (free writing, never an answer, never graded), tier 2 (``NON_SERVING_SOURCE_KINDS``).
+- `lesson_gap_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1134) — A teacher's ``propose_gap`` (spec_teacher_v1 §11.7): the learner's own words it names (their reply, an answer and its "your thinking" note), read in context by the teacher as the tutor reads a question (its reading names the gap), about the node's LO.
+- `learner_text(vault: LoadedVault, repository: Repository, source_kind: str, source_id: str, *, stuck_source: StuckTextSource | None=None) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1177)
 
 ### Module constants
 
@@ -135,6 +136,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `learner_notes_enabled`
 - `learner_text`
 - `missed_formative_ids`
+- `pad_text`
 - `reader_formative_text`
 - `reading_from_diagnosis`
 - `resolve_prerequisite_ref`
@@ -175,6 +177,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `spans_withheld`; calls `spans_withheld`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `module`; calls `job_for_source`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `lesson`, `turns`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] — imports `GapReading`, `LearnerText`; calls `GapReading`, `LearnerText`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/figure_inputs|learnloop.diagnosis.text_gaps.figure_inputs]] — imports `FIGURE_PREDICTION_PREFIX`, `figure_input_keys`, `figure_input_manifest`, `figure_prediction_id`; calls `figure_input_keys`, `figure_input_manifest`, `figure_prediction_id`
@@ -262,6 +265,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_c2b_r5_f2_the_note_gate_refuses_once_a_bound_source_is_protected`
 - [tests/test_reader_formative_texts.py](../../../../../../../tests/test_reader_formative_texts.py) — direct import
   - `test_the_dispatcher_reads_the_answer_with_its_question_passage_and_expected_answer`
+- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — direct import
+  - `test_a_reading_that_finished_after_its_words_were_replaced_is_set_aside_by_the_reconcile`
+  - `test_ink_transcriptions_and_corrections_are_emitted_as_transcribed`
+  - `test_the_pipeline_reads_it_as_the_learners_own_words_and_writes_a_pad_text_gap`
 - [tests/test_reader_rw1b_review.py](../../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
 - [tests/test_ro2_history_protection.py](../../../../../../../tests/test_ro2_history_protection.py) — direct import

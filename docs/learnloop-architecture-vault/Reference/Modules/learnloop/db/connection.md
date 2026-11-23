@@ -329,6 +329,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/plan_follows_path_helpers.py](../../../../../../tests/plan_follows_path_helpers.py) — direct import
 - [tests/query_student_fakes.py](../../../../../../tests/query_student_fakes.py) — direct import
+- [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/reference_gate_imports_helpers.py](../../../../../../tests/reference_gate_imports_helpers.py) — direct import
 - [tests/required_method_authority_helpers.py](../../../../../../tests/required_method_authority_helpers.py) — direct import
 - [tests/required_method_rereview_helpers.py](../../../../../../tests/required_method_rereview_helpers.py) — direct import

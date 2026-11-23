@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
+- `src/learnloop_sidecar/handlers/pads.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/queue.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
@@ -132,6 +133,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_jobs.py`
 - `tests/test_owner_capture_1025.py`
 - `tests/test_placement_sidecar.py`
+- `tests/test_reader_rd4_submission.py`
 - `tests/test_repositories.py`
 - `tests/test_request_origin.py`
 - `tests/test_session_ownership.py`
@@ -140,7 +142,6 @@ Indexes and uniqueness:
 - `tests/test_sidecar_item_authoring.py`
 - `tests/test_sidecar_teach_back.py`
 - `tests/test_source_ingestion.py`
-- `tests/test_ux_phase4_feedback.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

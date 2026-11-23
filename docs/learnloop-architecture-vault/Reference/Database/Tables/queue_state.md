@@ -101,13 +101,13 @@ Indexes and uniqueness:
 - `src/learnloop/intent/control.py`
 - `src/learnloop/intent/deadline.py`
 - `src/learnloop/ops/pf_publish.py`
+- `src/learnloop/pads/emission.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/reader/part_read.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_mobile/host.py`
 - `src/learnloop_sidecar/context.py`
-- `src/learnloop_sidecar/handlers/deliverables.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

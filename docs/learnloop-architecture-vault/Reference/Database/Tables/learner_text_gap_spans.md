@@ -102,6 +102,7 @@ None found by exact static reference scan.
 - `tests/test_reader_formative_texts.py`
 - `tests/test_reader_rd0_migration.py`
 - `tests/test_reader_rd0_spans.py`
+- `tests/test_reader_rd4_emission.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_workbench_text_gaps.py`
 

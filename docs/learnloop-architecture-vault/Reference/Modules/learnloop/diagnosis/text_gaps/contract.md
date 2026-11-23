@@ -47,68 +47,68 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py) |
-| Source lines | 409 |
+| Source lines | 415 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class GapReading` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 119) — One reading of a learner text: the kind and the gap as named.
-  - `from_gap(cls, gap: LearnerGap | Mapping[str, Any], **extra: Any) -> 'GapReading'` (line 139; public)
-  - `named(self) -> dict[str, Any]` (line 150; public)
-  - `as_progress(self) -> dict[str, Any]` (line 157; public) — JSON for the job's progress: a retry acts on this reading, never a second one (re-review F1).
-  - `from_progress(cls, data: Mapping[str, Any]) -> 'GapReading'` (line 169; public)
-  - `names(self, kind: str) -> bool` (line 179; public) — Does this reading name a gap of ``kind`` (so it can be matched)?
-- `class LearnerText` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 195) — One learner text the pipeline reads.
-  - `anchor(self) -> str | None` (line 237; public)
-  - `subject_key(self) -> str` (line 241; public)
-- `class NeededVerdict(WireModel)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 291) — "Is this prerequisite needed to do this item?" (one isolated call).
-- `class PrerequisiteDraft(WireModel)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 298) — The missing prerequisite as a concept, one learning objective and its edge.
+- `class GapReading` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 125) — One reading of a learner text: the kind and the gap as named.
+  - `from_gap(cls, gap: LearnerGap | Mapping[str, Any], **extra: Any) -> 'GapReading'` (line 145; public)
+  - `named(self) -> dict[str, Any]` (line 156; public)
+  - `as_progress(self) -> dict[str, Any]` (line 163; public) — JSON for the job's progress: a retry acts on this reading, never a second one (re-review F1).
+  - `from_progress(cls, data: Mapping[str, Any]) -> 'GapReading'` (line 175; public)
+  - `names(self, kind: str) -> bool` (line 185; public) — Does this reading name a gap of ``kind`` (so it can be matched)?
+- `class LearnerText` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 201) — One learner text the pipeline reads.
+  - `anchor(self) -> str | None` (line 243; public)
+  - `subject_key(self) -> str` (line 247; public)
+- `class NeededVerdict(WireModel)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 297) — "Is this prerequisite needed to do this item?" (one isolated call).
+- `class PrerequisiteDraft(WireModel)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 304) — The missing prerequisite as a concept, one learning objective and its edge.
 
 ### Module constants
 
 - `PIPELINE_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 29)
 - `PROVENANCE_MECHANISM` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 32)
 - `SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 33)
-- `READABLE_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 51)
-- `NON_SERVING_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 66)
-- `NOTE_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 75)
-- `NOTE_UNCHECKPOINTED_FIELDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 82)
-- `KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 85)
-- `UNREAD` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 86)
-- `CHOOSERS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 87)
-- `KIND_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 90)
-- `SAME_PREREQUISITE_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 91)
-- `SAME_BELIEF_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 92)
-- `NEEDED_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 93)
-- `DECIDER_KIND_QUESTION_SET` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 96)
-- `DECIDER_PAIR_QUESTION_SET` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 97)
-- `DECIDER_NEEDED_QUESTION_SET` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 98)
-- `READER_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 99)
-- `READER_FORMATIVE_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 101)
-- `READER_NOTE_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 103)
-- `NEEDED_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 104)
-- `DRAFT_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 105)
-- `READER_PURPOSE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 108)
-- `NEEDED_PURPOSE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 109)
-- `DRAFT_PURPOSE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 110)
-- `JUDGE_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 111)
-- `READER_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 112)
-- `DECIDER_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 113)
-- `DRAFT_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 114)
-- `EMBEDDING_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 115)
-- `KIND_OPTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 247)
-- `KIND_QUESTION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 255)
-- `PAIR_QUESTION_INSTRUCTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 264)
-- `PAIR_OPTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 268)
-- `NEEDED_OPTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 274)
-- `NEEDED_QUESTION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 279)
-- `READER_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 312)
-- `READER_FORMATIVE_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 322)
-- `READER_NOTE_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 335)
-- `NEEDED_TASK_TEXT` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 346)
-- `DRAFT_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 353)
+- `READABLE_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 54)
+- `NON_SERVING_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 72)
+- `NOTE_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 81)
+- `NOTE_UNCHECKPOINTED_FIELDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 88)
+- `KINDS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 91)
+- `UNREAD` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 92)
+- `CHOOSERS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 93)
+- `KIND_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 96)
+- `SAME_PREREQUISITE_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 97)
+- `SAME_BELIEF_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 98)
+- `NEEDED_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 99)
+- `DECIDER_KIND_QUESTION_SET` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 102)
+- `DECIDER_PAIR_QUESTION_SET` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 103)
+- `DECIDER_NEEDED_QUESTION_SET` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 104)
+- `READER_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 105)
+- `READER_FORMATIVE_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 107)
+- `READER_NOTE_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 109)
+- `NEEDED_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 110)
+- `DRAFT_PROMPT_VERSION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 111)
+- `READER_PURPOSE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 114)
+- `NEEDED_PURPOSE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 115)
+- `DRAFT_PURPOSE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 116)
+- `JUDGE_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 117)
+- `READER_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 118)
+- `DECIDER_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 119)
+- `DRAFT_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 120)
+- `EMBEDDING_ROUTE` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 121)
+- `KIND_OPTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 253)
+- `KIND_QUESTION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 261)
+- `PAIR_QUESTION_INSTRUCTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 270)
+- `PAIR_OPTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 274)
+- `NEEDED_OPTIONS` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 280)
+- `NEEDED_QUESTION` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 285)
+- `READER_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 318)
+- `READER_FORMATIVE_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 328)
+- `READER_NOTE_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 341)
+- `NEEDED_TASK_TEXT` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 352)
+- `DRAFT_TASK` ([src/learnloop/diagnosis/text_gaps/contract.py](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 359)
 
 ### Explicit exports
 
@@ -162,7 +162,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_clean(value: Any) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 189)
+- `_clean(value: Any) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/contract.py), line 195)
 
 ## Who imports or calls it
 
@@ -230,6 +230,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_formative_texts.py](../../../../../../../tests/test_reader_formative_texts.py) — direct import
   - `test_reading_it_writes_only_gap_rows_and_names_the_observations_hypothesis`
   - `test_the_widened_kinds_reach_the_salience_firewall_unchanged`
+- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — direct import
+  - `test_the_tag_and_the_kind`
 - [tests/test_t6_followup_composition.py](../../../../../../../tests/test_t6_followup_composition.py) — direct import
   - `test_the_seed_unit_is_admitted_at_the_policy_budget`
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import

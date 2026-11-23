@@ -46,7 +46,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `248_teacher_te2_sources.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `248_teacher_te2_sources.sql`, `266_reader_workbench_pads.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -109,6 +109,8 @@ None found by exact static reference scan.
 - `tests/figures_codex_review_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/learner_note_source_kind_migration_helpers.py`
+- `tests/reader_rd4_helpers.py`
+- `tests/reader_rd4_migration_helpers.py`
 - `tests/teacher_te2_migration_helpers.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_figures_fix_round3.py`
@@ -122,8 +124,6 @@ None found by exact static reference scan.
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_text_gaps_composition.py`
 - `tests/test_learner_text_gaps_rereview.py`
-- `tests/test_learner_text_source_widening.py`
-- `tests/test_notes_as_learner_text.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -144,7 +144,7 @@ CREATE TABLE "learner_text_gap_jobs" (
   id TEXT PRIMARY KEY,
   source_kind TEXT NOT NULL CHECK (source_kind IN (
     'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note',
-    'lesson', 'external_chat'
+    'lesson', 'external_chat', 'pad_text'
   )),
   source_id TEXT NOT NULL,
   state TEXT NOT NULL DEFAULT 'queued'

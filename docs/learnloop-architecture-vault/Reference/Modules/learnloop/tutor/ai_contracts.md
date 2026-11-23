@@ -188,6 +188,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/question_context_helpers.py](../../../../../../tests/question_context_helpers.py) — direct import
 - [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
+- [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/reader_tutor_fakes.py](../../../../../../tests/reader_tutor_fakes.py) — direct import
 - [tests/source_retrieval_tutor_helpers.py](../../../../../../tests/source_retrieval_tutor_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
@@ -267,6 +268,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reading_it_writes_only_gap_rows_and_names_the_observations_hypothesis`
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
+- [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — direct import
 - [tests/test_required_method_items.py](../../../../../../tests/test_required_method_items.py) — direct import
   - `test_authoring_prompts_carry_the_rule_and_moved_their_versions`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import

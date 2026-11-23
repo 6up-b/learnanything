@@ -705,6 +705,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_fixtures.py](../../../../../../tests/reader_fixtures.py) — direct import
 - [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
 - [tests/reader_inquiry_status_helpers.py](../../../../../../tests/reader_inquiry_status_helpers.py) — direct import
+- [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/reader_requests_helpers.py](../../../../../../tests/reader_requests_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
 - [tests/reader_source_identity_guard_helpers.py](../../../../../../tests/reader_source_identity_guard_helpers.py) — direct import
@@ -2051,6 +2052,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sidecar_gives_the_scripts_results_and_final_state`
 - [tests/test_reader_rd3a_search.py](../../../../../../tests/test_reader_rd3a_search.py) — direct import
   - `test_searching_by_words_writes_nothing`
+- [tests/test_reader_rd4_carried_and_proposals.py](../../../../../../tests/test_reader_rd4_carried_and_proposals.py) — direct import
+  - `test_a_carried_question_comes_back_beside_its_passage_in_the_union_read`
+  - `test_a_committed_note_under_a_linked_quote_gets_one_proposal_from_the_passage_links`
+- [tests/test_reader_rd4_submission.py](../../../../../../tests/test_reader_rd4_submission.py) — direct import
+  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
   - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`

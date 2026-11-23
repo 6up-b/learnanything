@@ -48,43 +48,45 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py) |
-| Source lines | 432 |
+| Source lines | 450 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `gap_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 38)
-- `insert_gap(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 68) — Append one read learner text (``id`` minted when absent).
-- `gap(connection: sqlite3.Connection, gap_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 83)
-- `gap_for_source(connection: sqlite3.Connection, source_kind: str, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 88)
-- `gaps_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 98) — The learner texts read from one attempt (its answer, a stuck answer), in written order.
-- `gaps(connection: sqlite3.Connection, *, since: str | None=None, before: str | None=None, source_kind: str | None=None, learning_object_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 107) — Gaps in written order, optionally windowed and scoped to target/anchor LOs.
-- `insert_reversal(connection: sqlite3.Connection, *, gap_id: str, reversal: str, actor: str, created_at: str, detail: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 146) — Append one reversal; None when this gap already has it (a repeated tap).
-- `reversals(connection: sqlite3.Connection, gap_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 165)
-- `insert_check_advance(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 184)
-- `check_advances(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 197)
-- `insert_commitment(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 203)
-- `commitments(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 216) — Light commitments whose creation the learner has not undone.
-- `enqueue_job(connection: sqlite3.Connection, *, source_kind: str, source_id: str, now: str, payload: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 232) — Queue one learner text; None when it is already queued or read.
-- `requeue_skipped_job(connection: sqlite3.Connection, job_id: str, *, now: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 253) — Queue a skipped job again (curriculum C5: a note skipped while it was hidden or switched off, linked again); False when it is not skipped (read, queued, leased).
-- `jobs(connection: sqlite3.Connection, *, states: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 273)
-- `job_for_source(connection: sqlite3.Connection, source_kind: str, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 285)
-- `lease_next_job(connection: sqlite3.Connection, *, owner: str, now: str, lease_seconds: float, source: tuple[str, str] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 295) — Claim the oldest runnable job (or the one for ``source``), or None.
-- `job(connection: sqlite3.Connection, job_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 332)
-- `holds_job(connection: sqlite3.Connection, job_id: str, *, owner: str, epoch: int) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 337)
-- `save_job_payload(connection: sqlite3.Connection, job_id: str, payload: Mapping[str, Any], *, owner: str, epoch: int, now: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 344)
-- `finish_job(connection: sqlite3.Connection, job_id: str, *, state: str, owner: str, epoch: int, now: str, error: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 355)
-- `release_job(connection: sqlite3.Connection, job_id: str, *, owner: str, epoch: int, now: str, not_before: str | None, error: str | None, refund_attempt: bool=False) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 367) — Back to ``queued``; ``refund_attempt`` when the job itself did not fail (a spend stop or the daily cap), so it never uses up its retries.
-- `pipeline_calls_since(connection: sqlite3.Connection, since: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 393) — This pipeline's logical model calls on the live path (receipt roots) started at or after ``since``; a command's calls are not counted.
+- `gap_tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 41)
+- `insert_gap(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 71) — Append one read learner text (``id`` minted when absent).
+- `gap(connection: sqlite3.Connection, gap_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 86)
+- `gap_for_source(connection: sqlite3.Connection, source_kind: str, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 91)
+- `gaps_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 101) — The learner texts read from one attempt (its answer, a stuck answer), in written order.
+- `gaps(connection: sqlite3.Connection, *, since: str | None=None, before: str | None=None, source_kind: str | None=None, learning_object_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 110) — Gaps in written order, optionally windowed and scoped to target/anchor LOs.
+- `insert_reversal(connection: sqlite3.Connection, *, gap_id: str, reversal: str, actor: str, created_at: str, detail: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 149) — Append one reversal; None when this gap already has it (a repeated tap).
+- `reversals(connection: sqlite3.Connection, gap_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 168)
+- `insert_check_advance(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 187)
+- `check_advances(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 200)
+- `insert_commitment(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 206)
+- `commitments(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 219) — Light commitments whose creation the learner has not undone.
+- `enqueue_job(connection: sqlite3.Connection, *, source_kind: str, source_id: str, now: str, payload: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 235) — Queue one learner text; None when it is already queued or read.
+- `requeue_skipped_job(connection: sqlite3.Connection, job_id: str, *, now: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 256) — Queue a skipped job again (curriculum C5: a note skipped while it was hidden or switched off, linked again); False when it is not skipped (read, queued, leased).
+- `skip_queued_job(connection: sqlite3.Connection, *, source_kind: str, source_id: str, now: str, reason: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 276) — Set a still-queued job aside unread (its text no longer stands); False when it is not queued (leased, read, finished or absent: a reading already under way finishes, and its gap is set aside instead).
+- `jobs(connection: sqlite3.Connection, *, states: Iterable[str] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 289)
+- `job_for_source(connection: sqlite3.Connection, source_kind: str, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 301)
+- `lease_next_job(connection: sqlite3.Connection, *, owner: str, now: str, lease_seconds: float, source: tuple[str, str] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 311) — Claim the oldest runnable job (or the one for ``source``), or None.
+- `job(connection: sqlite3.Connection, job_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 348)
+- `holds_job(connection: sqlite3.Connection, job_id: str, *, owner: str, epoch: int) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 353)
+- `save_job_payload(connection: sqlite3.Connection, job_id: str, payload: Mapping[str, Any], *, owner: str, epoch: int, now: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 360)
+- `finish_job(connection: sqlite3.Connection, job_id: str, *, state: str, owner: str, epoch: int, now: str, error: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 371)
+- `release_job(connection: sqlite3.Connection, job_id: str, *, owner: str, epoch: int, now: str, not_before: str | None, error: str | None, refund_attempt: bool=False) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 383) — Back to ``queued``; ``refund_attempt`` when the job itself did not fail (a spend stop or the daily cap), so it never uses up its retries.
+- `pipeline_calls_since(connection: sqlite3.Connection, since: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 409) — This pipeline's logical model calls on the live path (receipt roots) started at or after ``since``; a command's calls are not counted.
 
 ### Module constants
 
 - `GAP_COLUMNS` ([src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 22)
 - `_JSON_COLUMNS` ([src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 29)
-- `PIPELINE_RECEIPT_OWNER` ([src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 386)
-- `COMMAND_RECEIPT_OWNER` ([src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 390)
+- `PAD_TEXT_SNAPSHOT` ([src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 32)
+- `PIPELINE_RECEIPT_OWNER` ([src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 402)
+- `COMMAND_RECEIPT_OWNER` ([src/learnloop/db/stores/learner_gaps.py](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 406)
 
 ### Explicit exports
 
@@ -92,6 +94,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `COMMAND_RECEIPT_OWNER`
 - `GAP_COLUMNS`
+- `PAD_TEXT_SNAPSHOT`
 - `PIPELINE_RECEIPT_OWNER`
 - `check_advances`
 - `commitments`
@@ -114,13 +117,14 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `release_job`
 - `reversals`
 - `save_job_payload`
+- `skip_queued_job`
 
 ## Internal implementation anchors
 
-- `_table_present(connection: sqlite3.Connection, name: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 32)
-- `_dumps(value: Any) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 42)
-- `_decode(row: sqlite3.Row | Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 46)
-- `_rows(connection: sqlite3.Connection, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 59)
+- `_table_present(connection: sqlite3.Connection, name: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 35)
+- `_dumps(value: Any) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 45)
+- `_decode(row: sqlite3.Row | Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 49)
+- `_rows(connection: sqlite3.Connection, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_gaps.py), line 62)
 
 ## Who imports or calls it
 
@@ -134,7 +138,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] — imports `COMMAND_RECEIPT_OWNER`, `PIPELINE_RECEIPT_OWNER`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `module`; statically calls `gap`, `gap_for_source`, `gaps`, `insert_commitment`, `insert_gap`, `reversals`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/report|learnloop.diagnosis.text_gaps.report]] — imports `module`; statically calls `gaps`, `jobs`, `reversals`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `module`; statically calls `job_for_source`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `module`; statically calls `gaps`, `reversals`
+- [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `module`; statically calls `enqueue_job`, `gap_tables_present`, `gaps`, `insert_reversal`, `job_for_source`, `reversals`, `skip_queued_job`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `check_advances`, `commitments`; statically calls `check_advances`, `commitments`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `module`; statically calls `gaps`, `reversals`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `module`; statically calls `gaps`, `reversals`
@@ -161,7 +167,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]], [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates|learnloop.diagnosis.text_gaps.candidates]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]], [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates|learnloop.diagnosis.text_gaps.candidates]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -191,6 +197,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_several_same_verdicts_are_ambiguous_and_target_nothing`
 - [tests/test_library_ask_review.py](../../../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
+- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — direct import
+  - `test_a_committed_text_block_is_queued_once_with_its_snapshot`
+  - `test_a_quote_pasted_into_the_learners_block_is_kept_but_never_read_for_a_gap`
+  - `test_a_reading_that_finished_after_its_words_were_replaced_is_set_aside_by_the_reconcile`
+  - `test_the_passages_a_block_is_linked_to_place_its_gap_and_live_equals_rebuild`
+  - `test_the_tag_and_the_kind`
 - [tests/test_reader_rw1b_review.py](../../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
   - `test_f1_a_formative_gap_is_not_a_weak_prerequisite_signal`

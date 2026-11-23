@@ -107,6 +107,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [tests/test_hint_feedback_texts.py](../../../../../../tests/test_hint_feedback_texts.py) — cross-boundary name contract: references uniquely owned exported name `SOURCE_KINDS`; it does **not** directly execute this source module.
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — cross-boundary name contract: references uniquely owned exported name `SOURCE_KINDS`; it does **not** directly execute this source module.
 - [tests/test_reader_formative_texts.py](../../../../../../tests/test_reader_formative_texts.py) — cross-boundary name contract: references uniquely owned exported name `SOURCE_KINDS`; it does **not** directly execute this source module.
+- [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — cross-boundary name contract: references uniquely owned exported name `SOURCE_KINDS`; it does **not** directly execute this source module.
 - [tests/test_source_kinds.py](../../../../../../tests/test_source_kinds.py) — direct source contract: references the exact source path.
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_source_ingestion.py](../../../../../../tests/test_source_ingestion.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
