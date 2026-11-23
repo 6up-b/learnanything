@@ -59,7 +59,8 @@ INTERNAL_MESSAGE = "LearnLoop couldn't finish this. Try again."
 class PolledJob:
     job_id: str
     kind: str
-    request_hash: str | None
+    #: What the request asked, compared when the same id comes again (never persisted, never hashed).
+    request_key: Any
     started: float
     status: str = QUEUED
     result: Any = None
@@ -109,7 +110,7 @@ class Receipt:
 
     job_id: str
     kind: str
-    request_hash: str | None
+    request_key: Any
     status: str
     notes: dict[str, Any]
 
@@ -219,13 +220,13 @@ class PolledJobs:
         for job in finished[:max(0, excess)]:
             self._jobs.pop(job.job_id, None)
             state = job.state()
-            self._receipts[job.job_id] = Receipt(job.job_id, job.kind, job.request_hash, state["status"],
+            self._receipts[job.job_id] = Receipt(job.job_id, job.kind, job.request_key, state["status"],
                                                  state["notes"])
         while len(self._receipts) > self._receipt_limit:
             self._receipts.popitem(last=False)
 
     def start(self, ctx: Any, *, kind: str, job_id: str, work: Callable[[PolledJob], Any],
-              request_hash: str | None = None, foreground_kind: str | None = None,
+              request_key: Any = None, foreground_kind: str | None = None,
               supersede_key: str | None = None) -> PolledJob:
         """Start ``work(job)`` on a thread the context owns; its return value is the job's result.
 
@@ -234,7 +235,7 @@ class PolledJobs:
         from learnloop.ai import plan_fallback
 
         vault, repository = ctx.require_vault()
-        job = PolledJob(job_id, kind, request_hash, time.monotonic(), supersede_key=supersede_key)
+        job = PolledJob(job_id, kind, request_key, time.monotonic(), supersede_key=supersede_key)
         with self._lock:
             if job_id in self._jobs or job_id in self._receipts:
                 raise ValueError(f"job {job_id!r} exists")  # callers answer a repeat before starting

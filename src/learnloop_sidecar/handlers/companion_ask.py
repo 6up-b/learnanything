@@ -29,8 +29,6 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
 """
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 from typing import Any, Literal
 
@@ -77,8 +75,10 @@ def _jobs(ctx: SidecarContext) -> PJ.PolledJobs:
     return PJ.registry(ctx, _REGISTRY)
 
 
-def _digest(params: CompanionAskInput) -> str:
-    return hashlib.sha256(json.dumps(params.model_dump(mode="json"), sort_keys=True).encode()).hexdigest()
+def _request_key(params: CompanionAskInput) -> dict[str, Any]:
+    """What a repeat of the request id must ask again to be the same request (compared in memory only)."""
+
+    return params.model_dump(mode="json")
 
 
 def _reader_params(params: CompanionAskInput) -> ReaderAskInput:
@@ -127,10 +127,10 @@ def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, A
     """Ask the companion; answers at once with the job (see the module docstring)."""
 
     jobs = _jobs(ctx)
-    digest = _digest(params)
+    key = _request_key(params)
     known = jobs.get(params.request_id) or jobs.receipt(params.request_id)
     if known is not None:
-        if known.request_hash != digest:
+        if known.request_key != key:
             raise SidecarError("request_reused", "That request id was already used for another question.",
                                details={"request_id": params.request_id})
         return _job_payload(known) if isinstance(known, PJ.PolledJob) else _receipt_payload(known)
@@ -152,7 +152,7 @@ def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, A
             LOG.warning("could not record where exchange %s was asked", question_event_id, exc_info=True)
         return reader_ask_reply(ctx, call, result)
 
-    job = jobs.start(ctx, kind=KIND, job_id=params.request_id, work=work, request_hash=digest,
+    job = jobs.start(ctx, kind=KIND, job_id=params.request_id, work=work, request_key=key,
                      foreground_kind="tutor")
     return _job_payload(job)
 
