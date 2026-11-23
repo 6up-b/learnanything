@@ -422,7 +422,14 @@ export function DeskShell({
   useEffect(() => {
     const node = stageRef.current;
     const measure = () => {
-      if (node && node.clientWidth > 0 && node.clientHeight > 0) setStage({ width: node.clientWidth, height: node.clientHeight });
+      if (node && node.clientWidth > 0 && node.clientHeight > 0) {
+        const next = { width: node.clientWidth, height: node.clientHeight };
+        const now = stageNow.current;
+        // A zoom's plan holds the rects of the stage it began on: a new size settles it first, so the new
+        // layout is laid out at rest and never under transforms computed for the old one.
+        if (controller.active && (next.width !== now.width || next.height !== now.height)) controller.settle();
+        setStage(next);
+      }
       // The shelf folds by the desks' own width (the Reader place), not the window's.
       const shell = node?.closest(".desk-shell") as HTMLElement | null;
       if (shell && shell.clientWidth > 0) setViewportWidth(shell.clientWidth);

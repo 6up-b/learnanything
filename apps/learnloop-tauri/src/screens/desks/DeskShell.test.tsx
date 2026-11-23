@@ -1067,3 +1067,23 @@ describe("RD2 fix round: miniatures (finding 13)", () => {
     expect(host("fx_w_book").textContent).not.toContain("count fx_w_book");
   });
 });
+
+describe("RD2 fix round: a resize during a zoom (finding 3)", () => {
+  it("settles the zoom first, so the new layout is laid out at rest, never under the old plan's transforms", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    frames.run(3);
+    expect(shellHas("zooming")).toBe(true);
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    Object.defineProperty(stage, "clientWidth", { value: 1200, configurable: true });
+    Object.defineProperty(stage, "clientHeight", { value: 800, configurable: true });
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(shellHas("zooming")).toBe(false);
+    const boxes = [...document.querySelectorAll<HTMLElement>("[data-desk-slot]")];
+    expect(boxes.every((box) => box.style.transform === "")).toBe(true);
+  });
+});
