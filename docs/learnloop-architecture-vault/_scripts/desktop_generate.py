@@ -56,6 +56,7 @@ AREA_RESPONSIBILITIES = {
     "TypeScript/screens/desks/windows": "Desk windows: the Reader's source pane as a scoped source or video window, thread windows, and the panel windows hosting v1 Reader surfaces.",
     "TypeScript/screens/desks/companion": "The app-wide companion: its docks, summon, dissolve, hand-off and pill (geometry and state machine), its questions as polled companion.ask jobs, the panel with the desk's thread and the history, and previewed diffs.",
     "TypeScript/screens/desks/pads": "The scratchpads: pad stack windows (sticky tabs, the running pad, the live editor writing through pad.apply), provenance, gutter marks and hover cards, the pad menu, arrange and split, sketch blocks, submitting a block, passage marks for links and carried questions, and the desk drain.",
+    "TypeScript/screens/desks/goal": "The goal lens on the desks: the goal band under the top bar, criticality marks with their why card, dimming, section callouts, a pad stack's goal line and the path view, all read from goal.band and goal.lens.",
     "TypeScript/screens/desks/search": "Search in context: the groups of search.everything with the client's open-on-this-desk group, the meaning job, insert mode and the panel.",
     "TypeScript/screens/reader": "Reader request-state coordination extracted from the main reader screen.",
     "TypeScript/screens/reader/figures": "Reader \"show me\" figures: the figure grammar and spec, inline figures, panels, predictions, and their state.",

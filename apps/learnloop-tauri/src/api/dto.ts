@@ -11157,3 +11157,180 @@ export interface SearchJobDto {
   unavailable?: { group: SearchScope; reason: string }[];
   error: PolledJobErrorDto | null;
 }
+
+// -- Reader workbench v2 RD6 (spec §12.2-§12.5, §12.8): the goal band, the goal lens and read it anyway on a
+// section. The typed calls only; no component calls them yet. Display of the real model: nothing here is
+// evidence, and while a cold check is due on an LO its name and purpose text are withheld (`held`, §12.6.1).
+
+/** curriculum.path: the deliverable's path view (the band carries the same view as `path`). */
+export interface DeliverablePathViewDto {
+  version?: number;
+  goalId: string;
+  title: string;
+  sentence: string | null;
+  kind: "exam" | "quest";
+  dueAt: string | null;
+  depth: ReadingPathDepth | null;
+  depthLabel: string | null;
+  depths: Array<{ id: ReadingPathDepth; label: string; means: string }>;
+  status: "no_scope" | "ask_depth" | "no_sections" | "pending" | "judging" | "failed" | "stale" | "ready" | "withheld";
+  /** Rows of an LO with a due check carry `held: true`, `reason: null` and empty alternate differences. */
+  lines: Array<Omit<DeliverableLineDto, "reason"> & { held?: boolean; reason: string | null }>;
+  uncovered: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  stateKey: string | null;
+  message: string | null;
+  reason: string | null;
+  covering: boolean;
+  /** Minutes of the unread core and prerequisite sections, at DL1's reading pace. */
+  minutes: number;
+}
+
+/** Where a goal stands: the path's status, or a goal the learner did not set (nothing to map). */
+export type GoalLensStatus = DeliverablePathViewDto["status"] | "not_a_deliverable";
+
+export interface GoalLensGoalDto {
+  id: string;
+  title: string;
+  /** The learner's sentence (the title when they gave none). */
+  sentence: string;
+  /** Shown, never stored: "project" stays display-only until projects become a goal subset. */
+  kind: "exam" | "quest";
+  dueAt: string | null;
+  /** When the learner set it: "(your words, <date set>)". */
+  setAt: string;
+}
+
+export type GoalLensDepth = ReadingPathDepth;
+
+/** A section to open: a click on an LO's dot opens its primary section. */
+export interface GoalSectionRefDto {
+  extractionId: string;
+  sectionId: string;
+  startSpanId: string;
+  title: string;
+  book: string;
+}
+
+/** One dot of the band, in path order. */
+export interface GoalBandLoDto {
+  learningObjectId: string;
+  /** Null while a cold check is due on it (no name beside the ◇). */
+  title: string | null;
+  /** later: needed only at a deeper depth than the one chosen (a dimmed dot). */
+  kind: "needed" | "prerequisite" | "later";
+  ordinal: number;
+  /** demonstrated (lo_certification) | likely (AD's labelled prediction) | untested. */
+  readiness: "demonstrated" | "likely" | "untested";
+  readinessLine: string | null;
+  beyondDepth: boolean;
+  primary: GoalSectionRefDto | null;
+  /** The ◇ after the dot: a due check (hollow), or one answered on the learner's own today (filled). */
+  check: "due" | "answered" | null;
+  held: boolean;
+}
+
+export interface GoalBandDto {
+  version: number;
+  goalId: string;
+  goal: GoalLensGoalDto;
+  status: GoalLensStatus;
+  message: string | null;
+  reason?: string | null;
+  depth?: GoalLensDepth | null;
+  depthLabel?: string | null;
+  /** Each depth with the size of its path: its LOs, and the distinct primary sections they read with their
+   *  minutes at DL1's reading pace (null before the path's inputs exist). */
+  depths?: Array<{ id: GoalLensDepth; label: string; means: string; learningObjects: number | null;
+    sections: number | null; minutes: number | null }>;
+  learningObjects?: GoalBandLoDto[];
+  /** "N LEARNING OBJECTS · a LIKELY · b UNTESTED": the LOs within the chosen depth. */
+  counts?: { learningObjects: number; demonstrated: number; likely: number; untested: number };
+  /** The phrases of the goal sentence not in the library yet (curriculum.scope_decide's add it / no). */
+  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string } & Record<string, unknown>>;
+  /** No LO is named beside a due check. */
+  checks?: { dueToday: number; answeredToday: number;
+    first: { commitmentId: string; host: { extractionId: string; sectionId: string | null; spanId: string | null } | null } | null };
+  next?: { kind: "checks"; count: number; check: { commitmentId: string; host: unknown } | null }
+    | { kind: "section"; learningObjectId: string; section: GoalSectionRefDto }
+    | { kind: "path_read" } | { kind: "none" };
+  /** goals.goal_pace (the real rate); null when unreadable. */
+  pace?: { attemptsPerDay: number; attemptsLast14d: number; daysLeft: number | null; attemptsRemaining: number | null;
+    neededPerDay: number | null; onPace: boolean | null; attemptsLogged: number; paceKind: string } | null;
+  /** The goal's topics whose coverage is not judged yet (their sections read partial), and the background
+   *  coverage's state (curriculumPath with judge: true starts it). */
+  coverage?: { unjudged: string[]; covering: boolean; failure: { reason: string | null; message: string | null } | null };
+  /** The path view's rows (curriculum.path's own view). */
+  path?: DeliverablePathViewDto | null;
+}
+
+export type GoalLensInput =
+  | { goalId: string; extractionId: string }
+  | { goalId: string; extractionId: string; fromSpanId: string; toSpanId: string }
+  | { goalId: string; extractionId: string; t0: number; t1: number };
+
+export type GoalLensLevel = "core" | "supporting" | "later" | "already_shown" | "skippable" | "partial" | "unmapped";
+
+export type GoalLensReasonKey =
+  | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about"
+  | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "not_about"
+  | "unmapped" | "withheld" | "left_out" | "partial_unsettled" | "partial_unplaced";
+
+/** One section's level for the goal; its passages inherit it (decision D1: judged per section). */
+export interface GoalLensSectionDto {
+  sectionId: string;
+  title: string;
+  startSpanId: string;
+  /** The passages of the requested range in this section (all of them without a range). */
+  spanIds: string[];
+  level: GoalLensLevel;
+  mapping: "mapped" | "partial" | "unmapped";
+  reasonKey: GoalLensReasonKey;
+  /** The why card's "For <goal>: <why>": the path's own reason where it places the section. */
+  reasonMd: string;
+  /** Partial only: the highest-need level known so far. */
+  knownLevel: Exclude<GoalLensLevel, "skippable" | "partial" | "unmapped"> | null;
+  loIds: string[];
+  learningObjects: Array<{ learningObjectId: string; title: string | null; kind: "needed" | "prerequisite" | "later";
+    level: "core" | "supporting" | "later" | "already_shown" | "out"; reasonKey: GoalLensReasonKey; treatment: string;
+    pathLabel: DeliverablePathLabel | null; override: Exclude<DeliverablePathChoice, "none"> | null; held: boolean;
+    answeredToday: boolean }>;
+  determiningLoId: string | null;
+  /** "You chose “…”", "You answered its cold check on your own today." */
+  learnerLine: string | null;
+  /** "coverage: introduces “<LO>” · a goal LO · its primary section · core" */
+  coverageLine: string | null;
+  held: boolean;
+  /** Skippable or later, and not read anyway: dimmed while dimming is on (never hidden). */
+  dim: boolean;
+  choice: "read_anyway" | null;
+  judgedPer: "section";
+}
+
+export interface GoalLensDto {
+  version: number;
+  goalId: string;
+  extractionId: string;
+  status: GoalLensStatus;
+  message: string | null;
+  depth?: GoalLensDepth | null;
+  depthLabel?: string | null;
+  /** unmapped: no section of this reading is mapped for the goal ("not mapped for this goal yet"). */
+  mapping: "mapped" | "unmapped";
+  levels: GoalLensSectionDto[];
+  goal?: GoalLensGoalDto;
+}
+
+export interface GoalSectionChoiceInput {
+  goalId: string;
+  extractionId: string;
+  sectionId: string;
+  choice: "read_anyway" | "none";
+  /** Client-minted (8-80 letters, digits, - or _): a retry returns the stored choice. */
+  operationId: string;
+}
+
+export interface GoalSectionChoiceDto {
+  version: number;
+  choice: { operationId: string; goalId: string; extractionId: string; sectionId: string;
+    choice: "read_anyway" | "none"; replayed: boolean; createdAt: string };
+}

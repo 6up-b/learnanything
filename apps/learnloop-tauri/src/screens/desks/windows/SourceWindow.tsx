@@ -5,7 +5,7 @@
 // logs reading activity only while it is active or visible (desks/lifecycle.tsx).
 import { useCallback, useMemo, type ComponentProps } from "react";
 import type { ContentRefDto, SourceLibraryCard } from "../../../api/dto";
-import { ReaderScreen, type ReaderWindowing } from "../../ReaderScreen";
+import { ReaderScreen, type ReaderLens, type ReaderWindowing } from "../../ReaderScreen";
 
 export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">;
 
@@ -27,6 +27,7 @@ export function SourceWindow({
   onMediaReady,
   onError,
   reader,
+  lens = null,
 }: {
   content: Extract<ContentRefDto, { kind: "source" | "video" }>;
   card: SourceLibraryCard | null;
@@ -39,6 +40,8 @@ export function SourceWindow({
   onMediaReady: (toggle: (() => void) | null) => void;
   onError: (message: string) => void;
   reader?: ReaderPassThrough;
+  /** The goal lens over this reading (marks, callouts, dimming), or none. */
+  lens?: ReaderLens | null;
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
@@ -46,8 +49,8 @@ export function SourceWindow({
     [onStatus],
   );
   const windowing = useMemo<ReaderWindowing>(
-    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus }),
-    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus],
+    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens }),
+    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens],
   );
   // The Reader opens its first source once, on mount: a window opens one book for its life.
   const initialSource = useMemo(

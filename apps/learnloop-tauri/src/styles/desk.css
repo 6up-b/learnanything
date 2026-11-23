@@ -27,6 +27,12 @@
   --desk-cyan: #6ad0e0;
   --desk-search: #2563eb;
   --desk-pen: #2b4fa8;
+  /* the goal lens (§12.3; the goal variant's five tokens) */
+  --desk-gl: #5b4a9a;
+  --desk-gl-sup: rgba(91,74,154,.34);
+  --desk-gl-skip: #b9b2cc;
+  --desk-gdim: #8e897f;
+  --desk-gband: #0f0e12;
   /* fonts (§4.2), local only */
   --desk-ui: "JetBrains Mono Variable", "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
   --desk-book: "Literata Variable", "Literata", Georgia, serif;

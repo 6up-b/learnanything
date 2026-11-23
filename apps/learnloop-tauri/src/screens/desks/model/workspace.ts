@@ -661,6 +661,13 @@ export function setCompanionShown(ws: Workspace, deskId: string, shown: boolean)
   return push(start(ws), { op: "set_companion_shown", deskId, shown });
 }
 
+/** The desk's goal (spec §12.1): the band's goal label switches it; null is "no goal" (the lens off). */
+export function setGoal(ws: Workspace, deskId: string, goalId: string | null): Step {
+  const desk = requireDesk(ws, deskId);
+  if (desk.goalId === goalId) return start(ws);
+  return push(start(ws), { op: "set_goal", deskId, goalId });
+}
+
 export function setView(ws: Workspace, deskId: string, windowId: string, view: Record<string, unknown>): Step {
   const desk = requireDesk(ws, deskId);
   if (slotIndexOf(desk, windowId) < 0) return start(ws);

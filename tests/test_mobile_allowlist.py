@@ -989,6 +989,21 @@ def test_the_pinned_rd4a_rpcs_are_all_of_them():
     assert set(READER_RD4A_RPCS) == set(PAD_RD4_RPCS)
 
 
+# Reader workbench v2 RD6 (spec §3.4, §12): the goal band, the goal lens and the learner's section choice.
+# Desktop only, as RD0's.
+READER_RD6A_RPCS = (
+    "goal.band",
+    "goal.lens",
+    "goal.section_choice",
+)
+
+
+def test_the_pinned_rd6a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.goal_lens import GOAL_LENS_RPCS
+
+    assert set(READER_RD6A_RPCS) == set(GOAL_LENS_RPCS)
+
+
 # RD4's fix round: a passage's canonical content for "a piece of another source". Desktop only.
 READER_RD4FIX_RPCS = ("passage.content",)
 
@@ -1011,7 +1026,7 @@ def test_the_pinned_rd4_fix_rpcs_are_all_of_them():
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
     + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS + WHY_B9_RPCS
-    + READER_RD0_RPCS + READER_RD3A_RPCS + READER_RD4A_RPCS + READER_RD4FIX_RPCS,
+    + READER_RD0_RPCS + READER_RD3A_RPCS + READER_RD4A_RPCS + READER_RD6A_RPCS + READER_RD4FIX_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
