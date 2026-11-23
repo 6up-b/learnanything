@@ -193,21 +193,21 @@ describe("the fix round's contract (RD3 review)", () => {
     const id = asks.ask(REQUEST);
     await Promise.resolve();
     await Promise.resolve();
-    setNext((rid) => job(rid, { status: "running", questionEventId: "q1" }));
+    setNext((rid) => job(rid, { status: "running", questionEventId: "q1", sent: true }));
     await poller.tick();
     asks.cancel(id);
     expect(asks.thread("d1")[0]).toMatchObject({ status: "asking", stopping: true });
     await Promise.resolve();
     await Promise.resolve();
     expect(asks.thread("d1")[0]).toMatchObject({ status: "asking", stopping: true });
-    setNext((rid) => job(rid, { status: "cancelled", done: true, kept: false, questionEventId: "q1" }));
+    setNext((rid) => job(rid, { status: "cancelled", done: true, kept: false, questionEventId: "q1", sent: true }));
     await poller.tick();
     expect(asks.thread("d1")[0]).toMatchObject({ status: "cancelled", sent: true, kept: false });
   });
 
-  it("a question stopped before any worker took it was not sent", async () => {
+  it("a question stopped before its model request went out was not sent, though the question was recorded", async () => {
     const { asks, api } = setup();
-    vi.mocked(api.companionAskCancel).mockResolvedValueOnce(job("req1", { status: "cancelled", done: true, kept: false }));
+    vi.mocked(api.companionAskCancel).mockResolvedValueOnce(job("req1", { status: "cancelled", done: true, kept: false, questionEventId: "q1", sent: false }));
     const id = asks.ask(REQUEST);
     await Promise.resolve();
     await Promise.resolve();

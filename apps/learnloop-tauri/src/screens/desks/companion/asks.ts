@@ -273,8 +273,9 @@ export class CompanionAsks {
 
   private apply(job: CompanionAskJobDto): void {
     this.update(job.requestId, (current) => {
-      // Sent once a worker took it or the question was recorded; never inferred from `kept`.
-      const sent = current.sent || job.status === "running" || job.status === "done" || job.questionEventId !== null || job.kept;
+      // Sent once the sidecar says a model request went out (an older sidecar: once a worker ran it or an answer
+      // was kept); the recorded question alone is not a sent request, and nothing is inferred from `kept` missing.
+      const sent = current.sent || (job.sent ?? (job.status === "running" || job.status === "done" || job.kept));
       const base = { ...current, jobStatus: job.status, streamedPieces: job.streamedPieces, kept: job.kept, sent };
       // A cancel the sidecar has not resolved yet: still stopping.
       if (!job.done && (job.status === "cancelled" || current.stopping)) return { ...base, status: "asking", stopping: true };
