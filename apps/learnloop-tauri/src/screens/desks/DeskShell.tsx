@@ -1214,7 +1214,9 @@ export function DeskShell({
       const open = claimed.current.get(focusIdRef.current ?? "");
       const has = (scope: ClaimedScope) => (open?.get(scope)?.size ?? 0) > 0;
       const resolution = resolveKey(event, {
-        typing: isTypingTarget(event.target) || has("typing"),
+        typing: isTypingTarget(event.target),
+        // A claim with the focus on the page (the Reader's intent box): the selection's shortcuts still pass.
+        typingClaim: has("typing"),
         // Search in context or the drain is open: its keys are its own (as an open menu owns them).
         menu: has("menu") || searchOpenRef.current || drainingRef.current,
         check: has("check"),

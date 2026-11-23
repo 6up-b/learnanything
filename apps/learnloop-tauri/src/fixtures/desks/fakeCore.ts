@@ -60,6 +60,15 @@ const CONTRACT = {
   version: "fixture", context: "reader", readerEnabled: true, notSocraticByDefault: true, defaultAnswerMode: "answer_directly",
   answerModes: ["answer_directly"], mayReveal: [], manifestIncludes: [], manifestNeverIncludes: [], citations: "spans",
   exposureOnCommit: "none", inquiryEnabled: true, readingPaths: { enabled: true, depths: [] },
+  // `?intent=1`: the Reader's intent box over a selection is on (its key claim against the desks' shortcuts).
+  ...(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("intent") === "1"
+    ? { intent: {
+      palette: [{ group: "understand", label: "understand", intention: "understand", actions: [
+        { id: "ask", group: "understand", intention: "understand", label: "Ask", effect: { kind: "ask", answerMode: "answer_directly" }, model: true },
+      ] }],
+      notesPalette: [], speculative: false, speculateAfterMs: 0, timeoutSeconds: 30,
+    } }
+    : {}),
 };
 
 function answer(command: string, input: Record<string, unknown>): unknown {

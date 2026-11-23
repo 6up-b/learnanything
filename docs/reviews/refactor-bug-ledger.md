@@ -564,3 +564,9 @@ Found by three independent reviews of the teacher v2 design (spec `docs/specs/sp
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|
 | RD4b-1 | RD4b, testing a pad edit's reconcile | The desk store let two flushes run at once: the idle timer's flush and another could overlap, and while the first was reconciling a conflict the second sent the batches queued after the conflicting one with heads that no longer held, before they were rebased (they then conflicted or were refused instead of landing). | `store.test.ts > pads in the store > an edit whose head moved elsewhere is rebased…` (two notices instead of one: the queued edit was sent stale) | `DeskStore.flush` chains: one flush at a time, each with its reconcile | fixed |
+
+## From the Reader workbench v2 companion and search review (RD3, frontend fix round, 2026-11-23)
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| RD3-20 | RD3 review (#3) | With the Reader's intent box on, a selection arms the box, which claims the typing scope with the focus still on the page: `c`, `shift+c` and `/`, the keys a selection invites on the desks, never reached the desk (the box typed them instead). | `keys/router.test.ts > a typing scope a window claims with the focus still on the page…`; the harness's intent run (a real Reader selection by mouse drag: c and / reach the desk, typing in the box keeps them) | The router tells a claimed typing scope from DOM-focus typing: through a claim, the selection's shortcuts (`SELECTION_SHORTCUTS`) still pass; every other key stays the claim's, and a field with the focus keeps all of them | fixed |
