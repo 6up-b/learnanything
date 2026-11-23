@@ -48,23 +48,23 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/state_sync.py](../../../../../../src/learnloop/substrate/state_sync.py) |
-| Source lines | 292 |
+| Source lines | 299 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 14)
-  - `as_dict(self) -> dict[str, int]` (line 20; public)
-- `practice_item_activatable(item_id: str, item, *, review_parked: set[str], measurement_superseded: set[str], state=None, generated_probe_closed: frozenset[str]=frozenset()) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 29) — The one lifecycle gate shared by full and incremental vault sync.
-- `reconcile_practice_item_state(repository: Repository, item_id: str, item, *, state: PracticeItemState | None, review_parked: set[str], measurement_superseded: set[str], content_hash: str | None=None, generated_probe_closed: frozenset[str] | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 64) — Bring one item's ``active`` flag and content hash in line with its YAML.
-- `sync_vault_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 144) — Reconcile YAML-owned entities with derived SQLite rows.
+- `class StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 16)
+  - `as_dict(self) -> dict[str, int]` (line 22; public)
+- `practice_item_activatable(item_id: str, item, *, review_parked: set[str], measurement_superseded: set[str], state=None, generated_probe_closed: frozenset[str]=frozenset()) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 31) — The one lifecycle gate shared by full and incremental vault sync.
+- `reconcile_practice_item_state(repository: Repository, item_id: str, item, *, state: PracticeItemState | None, review_parked: set[str], measurement_superseded: set[str], content_hash: str | None=None, generated_probe_closed: frozenset[str] | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 66) — Bring one item's ``active`` flag and content hash in line with its YAML.
+- `sync_vault_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 146) — Reconcile YAML-owned entities with derived SQLite rows.
 
 ## Internal implementation anchors
 
-- `_enter_initial_probes(vault: LoadedVault, repository: Repository, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 245) — Open initial diagnostic episodes (probe redesign §5/§10).
-- `_has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 284)
+- `_enter_initial_probes(vault: LoadedVault, repository: Repository, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 252) — Open initial diagnostic episodes (probe redesign §5/§10).
+- `_has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 291)
 
 ## Who imports or calls it
 
@@ -97,6 +97,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `mastery_seed_on`; calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `PracticeItemState`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `enter_episode`, `enter_stale_uncertainty_reprobes`; calls `enter_episode`, `enter_stale_uncertainty_reprobes`
@@ -104,6 +105,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `closed_probe_ids`; calls `closed_probe_ids`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`; calls `initial_mastery_state_for_learning_object`
+- [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `materialize_mastery`; calls `materialize_mastery`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `initial_probes_enabled`; calls `initial_probes_enabled`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `retire_expired_telemetry`; calls `retire_expired_telemetry`
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `refresh_recurrence_groups`; calls `refresh_recurrence_groups`
@@ -305,6 +307,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
+- [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
+  - `test_a_starting_level_changed_after_materialization_leaves_live_mastery_as_it_was`
+  - `test_an_interrupted_materialization_leaves_neither_the_row_nor_its_record`
 - [tests/test_measurement_corrections.py](../../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
   - `test_historical_reinterpretation_rejects_a_changed_task`

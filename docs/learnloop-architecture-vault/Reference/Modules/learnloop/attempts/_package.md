@@ -117,12 +117,12 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 47 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 22 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 23 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 18 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 15 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 14 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 6 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges
@@ -192,9 +192,9 @@ flowchart LR
     n_learnloop_diagnosis -->|24| center
     center -->|22| n_learnloop_diagnosis
     n_learnloop_sidecar_handlers -->|30| center
-    center -->|22| n_learnloop_db
+    center -->|23| n_learnloop_db
     n_learnloop_learner -->|5| center
-    center -->|14| n_learnloop_learner
+    center -->|15| n_learnloop_learner
     n_learnloop_substrate -->|5| center
     center -->|14| n_learnloop_substrate
     center -->|18| n_learnloop_vault

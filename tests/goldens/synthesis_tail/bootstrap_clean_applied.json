@@ -580,6 +580,22 @@
     }
    ]
   },
+  "mastery_seed_inputs": {
+   "added": [
+    {
+     "<rowid>": 1,
+     "basis": "captured_at_materialization",
+     "claims_made_json": {
+      "<json>": []
+     },
+     "learning_object_id": "lo_diagonalize_symmetric",
+     "materialized_at": "2026-07-13T12:00:00Z",
+     "policy_version": "covering_claims_seed_v1",
+     "recorded_at": "2026-07-13T12:00:00Z",
+     "selected_claim_id": null
+    }
+   ]
+  },
   "model_work_checkpoints": {
    "added": [
     {

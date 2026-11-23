@@ -26,7 +26,10 @@ source_text_assertions = 23
 # 5833: from mvp-0.66 a grade application reads its required facets through the lifecycle-inputs seam, records a live
 # one with its attempt and replays the recorded one (two fields, the seam call, the replay's read; the logic itself
 # lives in attempts/lifecycle_inputs.py).
-"src/learnloop/attempts/attempts.py" = 5833
+# 5840: from mvp-0.67 an attempt's prior keeps the seed it was built from when its learning object had no mastery
+# row, and a live application records it with the row (two fields, the prior's seed read, the capture call and its
+# persistence keyword; the logic lives in learner/mastery_seed.py).
+"src/learnloop/attempts/attempts.py" = 5840
 "src/learnloop/db/repositories.py" = 3025
 "src/learnloop/scheduling/scheduler.py" = 4196
 "src/learnloop_sidecar/handlers/reader.py" = 2980
@@ -37,7 +40,11 @@ source_text_assertions = 23
 # unanchored rows naming the case's LO; no existing value moved).
 # 281654: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
 # golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
-golden_json_lines = 281654
+# 281804: from mvp-0.67 the writer that first persists a learning object's mastery records its seed in
+# mastery_seed_inputs (the journey, grade-application and three synthesis-tail goldens gain those rows), and the
+# grade-application golden records the application's new mastery_seed_inputs field (150 lines; no existing value moved).
+# 281809: mvp-0.67's own golden, tests/goldens/mastery_seed_replay.json (three histories, one per line; 5 lines).
+golden_json_lines = 281809
 
 [members]
 import_component = [

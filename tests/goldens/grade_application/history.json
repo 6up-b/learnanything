@@ -924,7 +924,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -1931,7 +1932,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -2845,7 +2847,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -3761,7 +3764,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -4820,7 +4824,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -5820,7 +5825,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -6653,7 +6659,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -7214,7 +7221,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -8214,7 +8222,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -9213,7 +9222,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -10308,7 +10318,8 @@
      ],
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
-    }
+    },
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -11261,7 +11272,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-02T17:02:03Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -12141,7 +12153,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-09T18:05:39Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -13095,7 +13108,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-02T21:02:03Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -14051,7 +14065,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-10T02:05:39Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -14935,7 +14950,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-12T07:07:43Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -15819,7 +15835,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-14T18:26:16Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -16703,7 +16720,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-15T18:26:16Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -17589,7 +17607,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-15T18:26:16Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -18612,7 +18631,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-07T17:27:15Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -19582,7 +19602,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-08T17:27:15Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -20385,7 +20406,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-09T17:27:15Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -20925,7 +20947,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-09T20:21:13Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -21895,7 +21918,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-14T02:32:09Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -22864,7 +22888,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-08-13T03:48:06Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -23904,7 +23929,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-12T04:13:01Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   }
  ],
@@ -25250,7 +25276,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-02T20:02:03Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -26203,7 +26230,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-02T17:02:03Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -27083,7 +27111,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-09T18:05:39Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -28037,7 +28066,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-02T21:02:03Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -28993,7 +29023,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-10T02:05:39Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -29877,7 +29908,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-03T19:02:03Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -30761,7 +30793,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-05T08:24:48Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -31645,7 +31678,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-06T08:24:48Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -32531,7 +32565,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-06T08:24:48Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -33554,7 +33589,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-06T22:52:49Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -34524,7 +34560,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-07T22:52:49Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -35327,7 +35364,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-08T22:52:49Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -35867,7 +35905,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-09T16:10:27Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -36837,7 +36876,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-13T05:18:10Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -37806,7 +37846,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-08-13T03:48:06Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -38846,7 +38887,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-06-12T01:45:59Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -39648,7 +39690,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-01T14:05:16Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   },
   {
@@ -40440,7 +40483,8 @@
      "interval_factor": 1.0,
      "due_at": "2026-05-01T17:05:16Z"
     },
-    "lifecycle_inputs": null
+    "lifecycle_inputs": null,
+    "mastery_seed_inputs": null
    }
   }
  ],
@@ -40699,6 +40743,12 @@
     "{\"algorithm_version\": \"<head tag>\", \"created_at\": \"2026-06-11T00:00:00Z\", \"elapsed_seconds\": 734400, \"id\": \"lol_54ca3d36eb6f2b7a84c5238e08\", \"intervening_attempt_count\": 8, \"label_type\": \"same_learning_object_transfer\", \"label_value\": 0.75, \"learning_object_id\": \"lo_svd_compute\", \"metadata_json\": \"{\\\"label_version\\\":\\\"learnloop-outcomes-v1\\\",\\\"outcome\\\":{\\\"attempt_id\\\":\\\"att_i1_sibling\\\",\\\"attempt_type\\\":\\\"independent_attempt\\\",\\\"collection_version\\\":\\\"learnloop-events-v1\\\",\\\"correctness\\\":0.75,\\\"created_at\\\":\\\"2026-06-11T00:00:00Z\\\",\\\"entry_surface\\\":\\\"unspecified\\\",\\\"evidence_origin\\\":\\\"unknown\\\",\\\"hints_used\\\":0,\\\"latency_seconds\\\":null,\\\"learning_object_id\\\":\\\"lo_svd_compute\\\",\\\"manual_review\\\":0,\\\"practice_item_id\\\":\\\"pi_svd_compute_002\\\",\\\"primed\\\":0,\\\"rubric_score\\\":3,\\\"scheduler_candidate_id\\\":null,\\\"scheduler_slate_id\\\":null,\\\"session_id\\\":null},\\\"source\\\":{\\\"attempt_id\\\":\\\"att_i1_self\\\",\\\"attempt_type\\\":\\\"independent_attempt\\\",\\\"collection_version\\\":\\\"learnloop-events-v1\\\",\\\"correctness\\\":0.75,\\\"created_at\\\":\\\"2026-06-02T12:00:00Z\\\",\\\"entry_surface\\\":\\\"unspecified\\\",\\\"evidence_origin\\\":\\\"unknown\\\",\\\"hints_used\\\":0,\\\"latency_seconds\\\":null,\\\"learning_object_id\\\":\\\"lo_svd_compute\\\",\\\"manual_review\\\":0,\\\"practice_item_id\\\":\\\"pi_svd_compute_001\\\",\\\"primed\\\":0,\\\"rubric_score\\\":3,\\\"scheduler_candidate_id\\\":null,\\\"scheduler_slate_id\\\":null,\\\"session_id\\\":null}}\", \"outcome_attempt_id\": \"att_i1_sibling\", \"outcome_attempt_type\": \"independent_attempt\", \"outcome_correctness\": 0.75, \"outcome_hints_used\": 0, \"outcome_latency_seconds\": null, \"outcome_rubric_score\": 3, \"practice_item_id\": \"pi_svd_compute_001\", \"source_attempt_id\": \"att_i1_self\"}",
     "{\"algorithm_version\": \"<head tag>\", \"created_at\": \"2026-06-11T12:00:00Z\", \"elapsed_seconds\": 777600, \"id\": \"lol_067a81ca8cf4d4f1d6313edcd5\", \"intervening_attempt_count\": 9, \"label_type\": \"same_item_retention\", \"label_value\": 0.0, \"learning_object_id\": \"lo_svd_compute\", \"metadata_json\": \"{\\\"label_version\\\":\\\"learnloop-outcomes-v1\\\",\\\"outcome\\\":{\\\"attempt_id\\\":\\\"<ulid:0>\\\",\\\"attempt_type\\\":\\\"independent_attempt\\\",\\\"collection_version\\\":\\\"learnloop-events-v1\\\",\\\"correctness\\\":0.0,\\\"created_at\\\":\\\"2026-06-11T12:00:00Z\\\",\\\"entry_surface\\\":\\\"unspecified\\\",\\\"evidence_origin\\\":\\\"unknown\\\",\\\"hints_used\\\":0,\\\"latency_seconds\\\":null,\\\"learning_object_id\\\":\\\"lo_svd_compute\\\",\\\"manual_review\\\":1,\\\"practice_item_id\\\":\\\"pi_svd_compute_001\\\",\\\"primed\\\":0,\\\"rubric_score\\\":0,\\\"scheduler_candidate_id\\\":null,\\\"scheduler_slate_id\\\":null,\\\"session_id\\\":null},\\\"source\\\":{\\\"attempt_id\\\":\\\"att_i1_self\\\",\\\"attempt_type\\\":\\\"independent_attempt\\\",\\\"collection_version\\\":\\\"learnloop-events-v1\\\",\\\"correctness\\\":0.75,\\\"created_at\\\":\\\"2026-06-02T12:00:00Z\\\",\\\"entry_surface\\\":\\\"unspecified\\\",\\\"evidence_origin\\\":\\\"unknown\\\",\\\"hints_used\\\":0,\\\"latency_seconds\\\":null,\\\"learning_object_id\\\":\\\"lo_svd_compute\\\",\\\"manual_review\\\":0,\\\"practice_item_id\\\":\\\"pi_svd_compute_001\\\",\\\"primed\\\":0,\\\"rubric_score\\\":3,\\\"scheduler_candidate_id\\\":null,\\\"scheduler_slate_id\\\":null,\\\"session_id\\\":null}}\", \"outcome_attempt_id\": \"<ulid:0>\", \"outcome_attempt_type\": \"independent_attempt\", \"outcome_correctness\": 0.0, \"outcome_hints_used\": 0, \"outcome_latency_seconds\": null, \"outcome_rubric_score\": 0, \"practice_item_id\": \"pi_svd_compute_001\", \"source_attempt_id\": \"att_i1_self\"}"
    ]
+  },
+  "mastery_seed_inputs": {
+   "added": [
+    "{\"basis\": \"captured_at_materialization\", \"claims_made_json\": \"[]\", \"learning_object_id\": \"lo_svd_definition\", \"materialized_at\": \"2026-06-14T12:00:00Z\", \"policy_version\": \"covering_claims_seed_v1\", \"recorded_at\": \"2026-06-14T12:00:00Z\", \"selected_claim_id\": null}"
+   ],
+   "removed": []
   },
   "measurement_events": {
    "added": [

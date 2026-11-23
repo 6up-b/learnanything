@@ -168,6 +168,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("learner_text_gaps", PROTECTED),
     ("learning_object_mastery", DENIED),
     ("lo_probe_state", DENIED),
+    # mvp-0.67 (migration 265): the incumbent's mastery seed, the claims its first mastery row read.
+    ("mastery_seed_inputs", DENIED),
     ("measurement_contract_corrections", NEUTRAL),
     ("misconception_disposition_events", DENIED),
     ("misconceptions", DENIED),

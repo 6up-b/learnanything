@@ -51,9 +51,9 @@ BOTH = pytest.mark.parametrize("tag", [OLD, NEW])
 def test_the_tag():
     # An untaken repair episode's end (mvp-0.64), the application order (mvp-0.65) and the lifecycle inputs (mvp-0.66)
     # landed after it and keep it.
-    assert NEW == "mvp-0.63" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.66"
-    assert SUCCESSOR_CHAIN[-5] == OLD == "mvp-0.62"
-    assert SECTION_END_VERSIONS == frozenset({NEW, "mvp-0.64", "mvp-0.65", "mvp-0.66"})
+    assert NEW == "mvp-0.63" == SUCCESSOR_CHAIN[-5] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.67"
+    assert SUCCESSOR_CHAIN[-6] == OLD == "mvp-0.62"
+    assert SECTION_END_VERSIONS == frozenset({NEW, "mvp-0.64", "mvp-0.65", "mvp-0.66", "mvp-0.67"})
     for version, on in ((OLD, False), (NEW, True)):
         assert section_end_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=version))) is on
     assert section_end_on(SimpleNamespace()) is False
