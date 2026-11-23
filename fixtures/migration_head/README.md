@@ -1,11 +1,27 @@
 # Migration-head fixture
 
-**Holds migration 265 (`265_mastery_seed_inputs.sql`), the head.** The directory's name carries no number (since
+**Holds migration 266 (`266_reader_workbench_pads.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## Reader workbench v2 scratchpads (migration 266), `reader/rd4a-pads-backend`, 2026-11-23
+
+Upgraded in place (no rename; base: main at `b495b1e67f`, head 265) by the B1 procedure below:
+`266_reader_workbench_pads.sql` (five new tables, `pad_block_submissions` RAW_LEDGER, `carried_questions` WORKFLOW,
+`carried_question_events` RAW_LEDGER, `pad_proposals` RECEIPT and `proposal_labels` RAW_LEDGER, the append-only ones
+refusing UPDATE, DELETE and a replacing INSERT by trigger, all empty here; `learner_text_gaps.source_kind` and
+`learner_text_gap_jobs.source_kind` gain `pad_text` and `learner_text_gap_reversals.reversal` gains `superseded` and
+`retracted`, each table rebuilt with every row, index and trigger kept) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
+`upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[266]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
+and the copy written into its place with `backup_database`, no companion files. Compared with the 265 file: 28 objects
+added (the five tables, six autoindexes, five indexes and twelve triggers), three existing definitions changed (the
+three rebuilt tables, in their CHECK alone), and the only table whose rows changed is `schema_migrations` (gains 266).
+The file grows from 7,737,344 to 7,831,552 bytes.
 
 ## Refactor D8 gap 3 (migration 265), `refactor/d8-mastery-seed`, 2026-11-22
 
