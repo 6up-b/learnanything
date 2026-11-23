@@ -140,7 +140,7 @@ Each pytest run: `-n 1 -p no:cacheprovider` through the scratch wrapper in a 3G 
 | `uv run ruff check` / `uv run lint-imports --no-cache` | All checks passed! / Contracts: 52 kept, 0 broken. |
 | `uv run python scripts/check_gate_partition.py` | collected 33486: landing 33420 + arc_close 66 |
 | `npm run typecheck` / `cargo check --offline` | exit 0, no errors / Finished |
-| `generate_all.py`, then the four vault validators | VALIDATORS |
+| `generate_all.py`, then the four vault validators | `uncommitted_inputs` 0; `validate_vault` passed (2432 notes); `module_validate` PASS; `desktop_validate` passed (378/378 + 6/6); `db_validate_reference` `errors` []. The regenerated notes are their own commit |
 
 No identity pin, golden or structure number moved; no ledger row (no defect found in existing code).
 
