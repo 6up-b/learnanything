@@ -45,7 +45,7 @@ then, from the worktree root:
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd1
 
-`--stage` is `rd1`, `rd2`, `rd3` or `rd4`; `--state '<deep link>'` re-checks one state (for example
+`--stage` is `rd1`, `rd2`, `rd3`, `rd4` or `rd6` (the goal lens, on the harness's `?goal=1` page); `--state '<deep link>'` re-checks one state (for example
 `--state 'cur=sel'`); `--viewport design|laptop|both`. Each state starts from a fresh page, so states are independent.
 It prints one line per state and viewport, and writes into `<ref>/compare/`: `result__<stage>.json` (every difference
 per state, the harness's own measurements, the tokens), `findings__<stage>.json` (one row per distinct difference,

@@ -117,7 +117,7 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   bare("reading.menu-key", "menu key", "the menu on the hovered object", "ContextMenu", { kind: "menu" }, READING),
   { id: "reading.next-pad", keys: "ctrl+tab", label: "next pad", chord: { key: "Tab", ctrl: true, shift: false }, action: { kind: "nextPad", direction: 1 }, scopes: READING },
   { id: "reading.prev-pad", keys: "ctrl+shift+tab", label: "previous pad", chord: { key: "Tab", ctrl: true, shift: true }, action: { kind: "nextPad", direction: -1 }, scopes: READING },
-  bare("reading.path", "p", "your path", "p", { kind: "path" }, READING, { later: "RD6" }),
+  bare("reading.path", "p", "your path", "p", { kind: "path" }, READING),
   bare("reading.note", "n", "a margin note on the hovered passage", "n", { kind: "marginNote" }, READING, { later: "RD5" }),
   bare("reading.promoted", "b", "the first promoted action", "b", { kind: "promoted" }, READING, { later: "RD5" }),
   bare("reading.follow", "u", "follow along", "u", { kind: "follow" }, READING, { later: "RD10" }),

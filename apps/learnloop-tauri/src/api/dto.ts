@@ -11240,7 +11240,7 @@ export interface DeliverablePathViewDto {
   depths: Array<{ id: ReadingPathDepth; label: string; means: string }>;
   status: "no_scope" | "ask_depth" | "no_sections" | "pending" | "judging" | "failed" | "stale" | "ready" | "withheld";
   /** Rows of an LO with a due check carry `held: true`, `reason: null` and empty alternate differences. */
-  lines: Array<DeliverableLineDto & { held?: boolean; reason: string | null }>;
+  lines: Array<Omit<DeliverableLineDto, "reason"> & { held?: boolean; reason: string | null }>;
   uncovered: Array<{ learningObjectId: string; title: string; phrase: string }>;
   stateKey: string | null;
   message: string | null;

@@ -26,6 +26,11 @@ opacities, visibility and the selection's edge, inserting no element and touchin
 previews logging nothing; the laptop rail. It records the zoom's frame times as information (the owner
 deferred the frame budget). Pillow compares the screenshots (`--with pillow`).
 
+The goal run (RD6, `?goal=1`) adds the RD6 deep links' equivalents: the band under the top bar, the marks'
+colours, widths and their gap to the text, dimming and nodim, the why on core, supporting, skippable and later passages,
+the depth set through curriculum.set_depth, the path view opened with `p` and read it anyway stored, a paper's marks and
+head, a pad stack's goal line, and one whole-reading goal.lens per reading in view.
+
 The pads' run (RD4) adds the RD4 deep links' equivalents (the running pad, the sticky tabs' merge and
 fillets, the § row's hover fade, the submitted tag, ⓘ, the editor writing through pad.apply, the pad menu,
 lift out, a sketch block's tools, arrange and split, a passage's ✎ link, the carried ◌, the drain) and display
@@ -1167,6 +1172,160 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
     results.check("with the focus in the intent box, c and / are typed into it and summon nothing", value.endswith("cc/") and rect is None and await page.locator("[data-desk-search]").count() == 0, [value, rect])
 
 
+GOAL_BOOK = "[data-desk-window='fx_w_book']"
+GOAL_PAPER = "[data-desk-window='fx_w_paper']"
+
+
+async def mark_facts(page: Page, selector: str) -> dict[str, Any] | None:
+    """The first matching mark's colours, width and the gap between it and its passage's text."""
+    return await page.evaluate("""(sel) => { const m = document.querySelector(sel); if (!m) return null;
+      const cs = getComputedStyle(m), r = m.getBoundingClientRect(), host = m.parentElement, hs = getComputedStyle(host), hr = host.getBoundingClientRect();
+      return { bg: cs.backgroundColor, border: cs.borderLeftStyle + ' ' + cs.borderLeftWidth + ' ' + cs.borderLeftColor, w: r.width,
+        gap: Math.round((hr.left + parseFloat(hs.borderLeftWidth) + parseFloat(hs.paddingLeft) - r.right) * 10) / 10,
+        inset: [Math.round(r.top - hr.top), Math.round(hr.bottom - r.bottom)] }; }""", selector)
+
+
+async def why_after_hover(page: Page, selector: str) -> dict[str, Any] | None:
+    mark = page.locator(selector).first
+    await mark.scroll_into_view_if_needed()
+    await settle(page, 300)
+    await mark.hover()
+    await settle(page, 450)
+    return await page.evaluate("""() => { const w = document.querySelector('.gwhy.on'); if (!w) return null; const cs = getComputedStyle(w);
+      return { head: w.querySelector('.gwh').textContent, body: w.querySelector('.gwr').textContent,
+        coverage: w.querySelector('.gwc')?.textContent ?? null, edge: cs.borderLeftStyle, width: w.getBoundingClientRect().width,
+        bg: cs.backgroundColor }; }""")
+
+
+async def run_goal(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """The goal lens (RD6, spec §12): the RD6 deep links' equivalents on the synthetic goal (`?goal=1`)."""
+    await page.goto(f"{base}/desk-harness.html?goal=1")
+    await page.wait_for_selector(".goalband")
+    await settle(page, 2000)
+    await shot(page, shots, "goal-frame")
+    band = await page.evaluate("() => document.querySelector('.goalband').getBoundingClientRect().toJSON()")
+    results.check("#goal=frame: the band sits under the top bar, 50 px high", band["y"] == 38 and band["height"] == 50, band)
+    core = await mark_facts(page, f"{GOAL_BOOK} .gm.gl-core")
+    results.check("#goal=frame: a core passage has a solid 3 px purple bar 8 px left of its text",
+                  bool(core) and core["bg"] == "rgb(91, 74, 154)" and core["w"] == 3 and core["gap"] == 8 and core["inset"] == [5, 5], core)
+    sup = await mark_facts(page, f"{GOAL_BOOK} .gm.gl-sup")
+    results.check("#goal=frame: a supporting passage has the bar at 34 %", bool(sup) and sup["bg"] == "rgba(91, 74, 154, 0.34)", sup)
+    skip = await mark_facts(page, f"{GOAL_BOOK} .gm.gl-skip")
+    results.check("#goal=frame: a skippable passage has a dotted 1 px line", bool(skip) and skip["border"] == "dotted 1px rgb(185, 178, 204)", skip)
+    dimmed = await page.evaluate(f"() => [...document.querySelectorAll(\"{GOAL_BOOK} [data-span-id].gl-dim\")].map((el) => getComputedStyle(el).color)")
+    results.check("#goal=frame: skippable text is dimmed (never hidden)", bool(dimmed) and set(dimmed) == {"rgb(142, 137, 127)"}, dimmed[:3])
+    callout = await page.evaluate(f"() => {{ const c = document.querySelector(\"{GOAL_BOOK} .callout.gcall\"); return c ? {{ lab: c.querySelector('.lab').textContent, bg: getComputedStyle(c).backgroundColor }} : null; }}")
+    results.check("#goal=frame: a core section opens with a dark callout in LearnLoop's voice",
+                  bool(callout) and callout["lab"] == "◎ for your goal · core" and callout["bg"] == "rgb(29, 29, 32)", callout)
+    lens_calls = await calls(page, "goal_lens")
+    asked = sorted(call["input"]["extractionId"] for call in lens_calls)
+    results.check("one whole-reading goal.lens per reading in view, none for a paused window",
+                  asked == sorted(set(asked)) and "fx_ext_attention" not in asked and all(set(call["input"]) == {"goalId", "extractionId"} for call in lens_calls), asked)
+    judged = await calls(page, "curriculum_path")
+    results.check("opening the goal starts what it owes once (curriculum.path, judge: true)", [call["input"].get("judge") for call in judged] == [True], judged)
+    await page.locator(f"{GOAL_BOOK} [data-span-id='fx_ext_softmax_s1_2']").scroll_into_view_if_needed()
+    await settle(page, 800)
+    here = await page.evaluate("() => document.querySelector('[data-goal-here]').textContent")
+    results.check("#goal=frame: you are reading maps the focused window's passage through the lens", "Turn scores into softmax weights" in here, here)
+
+    shelf = await page.evaluate("""() => { const row = document.querySelector("[data-shelf-window='fx_w_book']"); if (!row) return null;
+      const mark = row.querySelector('.gm.sh'); return { cls: row.className, bg: mark ? getComputedStyle(mark).backgroundColor : null,
+        line: row.querySelector('.gwl')?.textContent ?? null, ranges: row.querySelectorAll('.bar .gr').length }; }""")
+    results.check("#goal=frame: the book's shelf row carries the bar at its right edge, what it is for, and the path's ranges",
+                  bool(shelf) and shelf["bg"] == "rgb(169, 159, 208)" and shelf["line"] == "◎ primary for 2 of your LOs" and shelf["ranges"] >= 1, shelf)
+    video = await page.evaluate("""() => { const w = document.querySelector("[data-desk-window='fx_w_video']"); if (!w) return null;
+      const group = w.querySelector('.tp.g-sup'); const mark = group?.querySelector('.tx > .gm.gl-tx'); const tx = group?.querySelector('.tx');
+      const dim = w.querySelector('.tp.gl-dim [data-transcript-span]');
+      return { mark: mark ? { bg: getComputedStyle(mark).backgroundColor, gap: Math.round((tx.getBoundingClientRect().left - mark.getBoundingClientRect().right) * 10) / 10 } : null,
+        head: w.querySelector('[data-goal-head]')?.textContent ?? null, segments: w.querySelectorAll('[data-goal-track] .gseg').length,
+        segColour: w.querySelector('[data-goal-track] .gseg') ? getComputedStyle(w.querySelector('[data-goal-track] .gseg')).backgroundColor : null,
+        dimmed: dim ? getComputedStyle(dim).color : null }; }""")
+    results.check("#goal=video: transcript passages carry the marks, the head says where the video sits, the track draws the path's ranges",
+                  bool(video) and bool(video["mark"]) and video["mark"]["bg"] == "rgba(91, 74, 154, 0.34)" and video["mark"]["gap"] == 5
+                  and (video["head"] or "").startswith("◎ on your path") and video["segments"] == 3
+                  and video["segColour"] == "rgba(169, 159, 208, 0.45)" and video["dimmed"] == "rgb(142, 137, 127)", video)
+    await page.keyboard.press("Shift+C")
+    await settle(page, 700)
+    context = await page.evaluate("() => { const g = document.querySelector('.desk-companion .ctx .gctx'); return g ? { text: g.textContent, colour: getComputedStyle(g).color } : null; }")
+    results.check("the companion keeps the goal in view", bool(context) and context["text"] == "◎ goal in context" and context["colour"] == "rgb(169, 159, 208)", context)
+    await page.keyboard.press("Shift+C")
+    await settle(page, 500)
+
+    why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-core")
+    await shot(page, shots, "goal-why")
+    results.check("#goal=why: the why on a core passage: the level, For <goal>: the reason, the coverage line",
+                  bool(why) and why["head"] == "core for your goal" and why["body"].startswith("For softmax for attention:")
+                  and (why["coverage"] or "").startswith("coverage: introduces") and why["width"] <= 330, why)
+    await page.mouse.move(5, 600)
+    await settle(page, 400)
+    why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-sup")
+    await shot(page, shots, "goal-whysup")
+    results.check("#goal=whysup: the why on a supporting passage", bool(why) and why["head"] == "supporting" and why["edge"] == "solid", why)
+    await page.mouse.move(5, 600)
+    await settle(page, 400)
+    why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-skip")
+    await shot(page, shots, "goal-whyskip")
+    results.check("#goal=whyskip: the why on a skippable passage, its edge dotted",
+                  bool(why) and why["head"] == "skippable for now" and why["edge"] == "dotted", why)
+    await page.keyboard.press("Escape")
+    await page.mouse.move(5, 600)
+    await settle(page, 400)
+
+    await page.click("[data-gdepth='get_the_idea']")
+    await settle(page, 1200)
+    depth = await calls(page, "curriculum_set_depth")
+    later = await page.evaluate("() => document.querySelectorAll('.gb-stops .gs.later').length")
+    results.check("#goal=basics: get the idea is set through curriculum.set_depth; deeper LOs dim on the band",
+                  [call["input"].get("depth") for call in depth] == ["get_the_idea"] and later == 2, {"depth": depth, "later": later})
+    why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-later")
+    await shot(page, shots, "goal-basics")
+    results.check("#goal=basics: a prerequisite's passage is later, kept at the deeper depth",
+                  bool(why) and why["head"] == "later · kept at learn to use it" and why["edge"] == "dotted", why)
+    await page.mouse.move(5, 600)
+    await page.click("[data-gdepth='learn_to_use_it']")
+    await settle(page, 1200)
+
+    await page.mouse.click(800, 600)
+    await page.keyboard.press("p")
+    await settle(page, 600)
+    await shot(page, shots, "goal-path")
+    path = await page.evaluate("() => { const o = document.querySelector('[data-goal-path]'); if (!o) return null; const r = o.getBoundingClientRect();"
+                               " return { rows: o.querySelectorAll('[data-gp-lo]').length, box: [r.x, r.y, r.width, r.height], focused: document.activeElement === o }; }")
+    results.check("#goal=path: p opens the path view (one row per LO, the reference's frame)",
+                  bool(path) and path["rows"] == 5 and path["box"] == [300, 70, 1240, 770] and path["focused"], path)
+    await page.click("[data-gp-skip] .gp-anyway")
+    await settle(page, 900)
+    chosen = await calls(page, "goal_section_choice")
+    lit = await page.evaluate(f"() => document.querySelectorAll(\"{GOAL_BOOK} [data-span-id^='fx_ext_softmax_s6_'].gl-dim\").length")
+    results.check("#goal=path: read it anyway is stored (goal.section_choice) and the section stays lit",
+                  [call["input"].get("choice") for call in chosen] == ["read_anyway"] and lit == 0, {"chosen": chosen, "dimmed": lit})
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    closed = await page.evaluate("() => !document.querySelector('[data-goal-path]')")
+    results.check("#goal=path: esc closes the path view", closed)
+
+    await page.click(".desk-shelf >> text=Attention as averaging (a note)")
+    await settle(page, 1800)
+    await shot(page, shots, "goal-paper")
+    paper = await mark_facts(page, f"{GOAL_PAPER} .gm.gl-core")
+    head = await page.evaluate(f"() => document.querySelector(\"{GOAL_PAPER} .gpcall\")?.textContent ?? null")
+    results.check("#goal=paper: the paper's marks keep 11 px from the text and its head says what it is for",
+                  bool(paper) and paper["gap"] == 11 and bool(head) and "for your goal · core:" in head, {"mark": paper, "head": head})
+
+    await page.click(".desk-shelf >> text=notes")
+    await settle(page, 1800)
+    await shot(page, shots, "goal-pads")
+    line = await page.evaluate("() => document.querySelector('[data-goal-padline]')?.textContent ?? null")
+    results.check("#goal=pads: a pad stack says what it is for, from its pads' anchors", bool(line) and "for your goal" in line, line)
+
+    await page.click("[data-gdim]")
+    await page.mouse.move(800, 600)
+    await settle(page, 500)
+    await shot(page, shots, "goal-nodim")
+    undimmed = await page.evaluate("() => ({ dims: document.querySelectorAll('.gl-dim').length, label: document.querySelector('[data-gdim]').textContent })")
+    results.check("nodim: dimming off shows every passage at full colour", undimmed["dims"] == 0 and undimmed["label"].endswith("shown"), undimmed)
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -1188,7 +1347,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
-    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, preview); all by default")
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, goal, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -1204,7 +1363,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex") else browser).new_context(viewport=VIEWPORT)
@@ -1225,6 +1384,8 @@ async def main() -> int:
                         await run_menus(page, base, results, args.shots)
                     elif runner == "latex":
                         await run_latex(page, base, results, args.shots)
+                    elif runner == "goal":
+                        await run_goal(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints

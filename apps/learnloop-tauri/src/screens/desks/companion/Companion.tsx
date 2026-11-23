@@ -359,7 +359,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           </div>
           <div className="ctx">
             <span>{props.context.following ? `following ${props.context.following.glyph} ${props.context.following.title}` : "following nothing yet"}</span>
-            {props.context.goalInContext ? <span className="goal">◎ goal in context</span> : null}
+            {props.context.goalInContext ? <span className="goal gctx" title="the tutor answers with your goal and its LOs in mind">◎ goal in context</span> : null}
             <span className="grow" />
             {earlier.length && tab === "tutor" ? (
               <button type="button" className="earlier" onClick={() => setTab("history")}>earlier · {earlier.map(dayLabel).join(" · ")} ›</button>

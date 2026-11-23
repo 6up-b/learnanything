@@ -6,6 +6,7 @@ import { fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_SOURCES, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
+import { FixtureGoal } from "./goal";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -37,6 +38,7 @@ function harnessPads(): PadViewDto[] {
 
 const server = new FixtureDeskServer(harnessDeskState(), harnessPads());
 const companion = new FixtureCompanion();
+const goal = new FixtureGoal();
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -68,10 +70,10 @@ const calls: HarnessCall[] = [];
 
 declare global {
   interface Window {
-    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion };
+    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal };
   }
 }
-window.__deskHarness = { calls, server, companion };
+window.__deskHarness = { calls, server, companion, goal };
 
 function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
@@ -243,6 +245,25 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return companion.search(input as { query: string });
     case "search_job":
       return companion.searchJob(String(input.jobId));
+    // The goal lens (RD6): one goal over the book and the note; the desks' default goal is its primary.
+    case "goals_list":
+      // The goal lens is the harness's `?goal=1` page; without it the desks have no goal, as before.
+      return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("goal") === "1" ? goal.goals() : { version: 1, goals: [] };
+    case "goal_band":
+      return goal.band();
+    case "goal_lens":
+      return goal.lens(String(input.extractionId));
+    case "goal_section_choice":
+      return goal.sectionChoice(input as never);
+    case "curriculum_path":
+      return goal.band().path;
+    case "curriculum_set_depth":
+      return goal.setDepth(input.depth as never);
+    case "curriculum_path_override":
+      return goal.override(input as never);
+    case "curriculum_set_scope":
+    case "curriculum_scope_decide":
+      return { status: "ready", created: null, scope: null };
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }
