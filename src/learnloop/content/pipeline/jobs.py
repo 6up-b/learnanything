@@ -5594,17 +5594,10 @@ class DurableIngestJobs:
 
         runner = self._require_runner()
         jobs = runner.repo.ingest_jobs_for_batch(batch_id)
-        synthesis_jobs = [
-            job for job in jobs
-            if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
-            and job["status"] in {"failed", "blocked", "cancelled"}
-        ]
-        if len(synthesis_jobs) != 1:
-            raise ValueError("batch must contain exactly one unfinished synthesis job")
-        if any(job["job_type"] == "inventory" and job["status"] != "completed" for job in jobs):
-            raise ValueError("all inventory jobs must be completed before retrying synthesis")
+        synthesis_job, refusal = retryable_synthesis_job(jobs)
+        if synthesis_job is None:
+            raise ValueError(SYNTHESIS_RECOVERY_REFUSALS[refusal])
 
-        synthesis_job = synthesis_jobs[0]
         payload = dict(synthesis_job.get("payload") or {})
         payload.pop("reuse_candidate", None)
         payload.pop("synthesis_run_id", None)
@@ -5614,17 +5607,9 @@ class DurableIngestJobs:
         if (repair_candidate or repair_ops) and not reuse_candidate:
             raise ValueError("candidate repair requires reuse_candidate")
         if reuse_candidate:
-            details = ((synthesis_job.get("error") or {}).get("details")) or {}
-            synthesis_run_id = str(details.get("synthesis_run_id") or "")
-            if not details.get("candidate_preserved") or not synthesis_run_id:
-                raise ValueError(
-                    "the failed synthesis attempt preserved no candidate; retry synthesis instead"
-                )
-            run = runner.repo.synthesis_run(synthesis_run_id)
-            if run is None or not run.get("candidate_output"):
-                raise ValueError(
-                    "the preserved candidate is no longer available; retry synthesis instead"
-                )
+            synthesis_run_id, refusal = preserved_candidate_run(synthesis_job, runner.repo.synthesis_run)
+            if synthesis_run_id is None:
+                raise ValueError(SYNTHESIS_RECOVERY_REFUSALS[refusal])
             payload["reuse_candidate"] = True
             payload["synthesis_run_id"] = synthesis_run_id
             if repair_candidate:
@@ -6033,6 +6018,68 @@ def _job_view(
     }
 
 
+#: Why a batch's synthesis cannot be retried, or its preserved candidate not reused (code constants the batch
+#: view carries), each with the words :meth:`DurableIngestJobs.retry_synthesis` refuses with.
+SYNTHESIS_RECOVERY_REFUSALS: dict[str, str] = {
+    "no_unfinished_synthesis": "batch must contain exactly one unfinished synthesis job",
+    "inventory_incomplete": "all inventory jobs must be completed before retrying synthesis",
+    "no_preserved_candidate": "the failed synthesis attempt preserved no candidate; retry synthesis instead",
+    "candidate_gone": "the preserved candidate is no longer available; retry synthesis instead",
+}
+
+
+def retryable_synthesis_job(jobs: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, str | None]:
+    """The batch's one unfinished synthesis job a retry reruns, or ``None`` and the refusal's code.
+
+    A cancelled or blocked synthesis is retried like a failed one; every inventory it reads must be complete,
+    since a retry reruns synthesis alone."""
+
+    synthesis_jobs = [
+        job for job in jobs
+        if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
+        and job["status"] in {"failed", "blocked", "cancelled"}
+    ]
+    if len(synthesis_jobs) != 1:
+        return None, "no_unfinished_synthesis"
+    if any(job["job_type"] == "inventory" and job["status"] != "completed" for job in jobs):
+        return None, "inventory_incomplete"
+    return synthesis_jobs[0], None
+
+
+def preserved_candidate_run(
+    synthesis_job: Mapping[str, Any], synthesis_run: Callable[[str], Mapping[str, Any] | None]
+) -> tuple[str | None, str | None]:
+    """The synthesis run whose preserved candidate a retry may revalidate (and repair) with no model call, or
+    ``None`` and the refusal's code."""
+
+    details = ((synthesis_job.get("error") or {}).get("details")) or {}
+    synthesis_run_id = str(details.get("synthesis_run_id") or "")
+    if not details.get("candidate_preserved") or not synthesis_run_id:
+        return None, "no_preserved_candidate"
+    run = synthesis_run(synthesis_run_id)
+    if run is None or not run.get("candidate_output"):
+        return None, "candidate_gone"
+    return synthesis_run_id, None
+
+
+def synthesis_recovery(jobs: list[dict[str, Any]], repo: Repository) -> dict[str, Any]:
+    """What :meth:`DurableIngestJobs.retry_synthesis` would accept for this batch, from its own checks, so the
+    desktop offers exactly the retries the host takes."""
+
+    synthesis_job, retry_refusal = retryable_synthesis_job(jobs)
+    run_id, reuse_refusal = (
+        preserved_candidate_run(synthesis_job, repo.synthesis_run) if synthesis_job is not None
+        else (None, retry_refusal)
+    )
+    return {
+        "can_retry_synthesis": synthesis_job is not None,
+        "retry_synthesis_job_id": synthesis_job["id"] if synthesis_job is not None else None,
+        "retry_synthesis_refusal": retry_refusal,
+        "can_reuse_candidate": run_id is not None,
+        "reuse_candidate_refusal": reuse_refusal,
+    }
+
+
 def _batch_view(
     batch: dict[str, Any],
     jobs: list[dict[str, Any]],
@@ -6070,6 +6117,7 @@ def _batch_view(
             )
             for job in jobs
         ],
+        **synthesis_recovery(jobs, repo),
     }
 
 

@@ -190,6 +190,7 @@ import type {
   IngestJobDto,
   IngestJobsSnapshot,
   IngestSourceClassification,
+  SourceRolesDto,
   StartIngestInput,
   IngestBatchDto,
   IngestBatchesSnapshot,
@@ -832,6 +833,7 @@ export const api = {
   getVaultTree: () => call<VaultTreeSnapshot>("get_vault_tree"),
   classifyIngestSource: (source: string) =>
     call<IngestSourceClassification>("classify_ingest_source", { input: { source } }),
+  getSourceRoles: () => call<SourceRolesDto>("get_source_roles"),
   startIngest: (input: StartIngestInput) => mutating(INGEST_TAGS, call<IngestJobDto>("start_ingest", { input })),
   getIngestJob: (jobId: string) => call<IngestJobDto>("get_ingest_job", { jobId }),
   getIngestJobs: () => call<IngestJobsSnapshot>("get_ingest_jobs"),

@@ -58,8 +58,9 @@ function settings(enabled: boolean): SettingsDto {
       },
       budgetBounds: {
         inventoryInputTokens: bounds, inventoryOutputTokens: bounds, synthesisShardInputTokens: bounds,
-        synthesisShardOutputTokens: bounds, synthesisTotalInputCeiling: bounds
+        synthesisShardOutputTokens: bounds, synthesisTotalInputCeiling: bounds, synthesisOutputTokens: bounds
       },
+      pdfEnginesRefusingPageRanges: [],
       providerLimits: { provider: "codex", contextTokens: null, maxOutputTokens: null }
     },
     animation: {
