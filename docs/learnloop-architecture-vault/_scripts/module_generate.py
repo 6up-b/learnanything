@@ -92,6 +92,7 @@ PACKAGE_DESCRIPTIONS = {
     "learnloop.companion": "The Reader workbench's companion: the tutor's history by day and desk, and the context each exchange was asked in. Read-only over exchanges.",
     "learnloop.desks": "The Reader workbench's desks: workspace persistence, the write protocol desks and scratchpads share (client sequence, expected heads, stored receipts) and the one content reference. Workflow data, never evidence.",
     "learnloop.pads": "The Reader workbench's scratchpads: pads, their append-only block versions and anchors. The learner's own writing, never evidence; its exits to learner-text gaps and attempts are explicit.",
+    "learnloop.notebook_runtime": "The notebook runtime: one supervised, sandboxed marimo server per pad or lesson, the frame proxy in front of it, and the one adapter that holds marimo's private interfaces. Serving code; the authoring harness never imports it and it never imports the harness.",
     "learnloop.passage_union": "The Reader workbench's per-span union read over a visible range: a read-only projection of what LearnLoop holds for each passage.",
     "learnloop.notebook_authoring": "The owner-side notebook harness, imported by no serving package: a parser adapter over marimo's non-executing loader and the structural check behind `learnloop notebook check`.",
     "learnloop.data_capture": "What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them.",
