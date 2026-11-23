@@ -122,3 +122,18 @@ describe("miniatures", () => {
     expect(book.needs("w1")).toBe(true);
   });
 });
+
+describe("a wheel taking over a spring (RD2 fix round, finding 5)", () => {
+  it("the gesture's target starts from where the spring has carried p, so a small step the same way keeps going", () => {
+    const { clock, controller } = setup();
+    controller.go(1);
+    for (let i = 0; i < 4; i += 1) clock.frame();
+    const p = controller.progress;
+    expect(p).toBeGreaterThan(0.3);
+    expect(controller.target).toBeCloseTo(p, 6);
+    // A small step further out, from that target: p never chases back toward the reading view.
+    controller.setTarget(controller.target + 0.02);
+    clock.frame();
+    expect(controller.progress).toBeGreaterThanOrEqual(p);
+  });
+});

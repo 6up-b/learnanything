@@ -953,6 +953,23 @@ def test_the_pinned_rd0_rpcs_are_all_of_them():
     assert set(READER_RD0_RPCS) == set(DESK_RPCS + PAD_RPCS + PASSAGE_UNION_RPCS + COMPANION_RPCS + INLINE_CHECK_RPCS)
 
 
+# Reader workbench v2 RD3 (spec §3.4): the companion's ask as a polled job and search in context. Desktop only.
+READER_RD3A_RPCS = (
+    "companion.ask",
+    "companion.ask_job",
+    "companion.ask_cancel",
+    "search.everything",
+    "search.job",
+)
+
+
+def test_the_pinned_rd3a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.companion_ask import COMPANION_ASK_RPCS
+    from learnloop_sidecar.handlers.search import SEARCH_RPCS
+
+    assert set(READER_RD3A_RPCS) == set(COMPANION_ASK_RPCS + SEARCH_RPCS)
+
+
 # Reader workbench v2 RD4 (spec §3.4, §10): submitting a block, proposals and their labels, the desk drain and
 # carried questions. Desktop only, as RD0's.
 READER_RD4A_RPCS = (
@@ -984,7 +1001,7 @@ def test_the_pinned_rd4a_rpcs_are_all_of_them():
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
     + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS + WHY_B9_RPCS
-    + READER_RD0_RPCS + READER_RD4A_RPCS,
+    + READER_RD0_RPCS + READER_RD3A_RPCS + READER_RD4A_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

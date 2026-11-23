@@ -131,6 +131,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]] — imports `READER_ANSWER_QUESTION_KEY`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `write_through_gap`; statically calls `write_through_gap`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `write_through_gap`; statically calls `write_through_gap`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `exchange_places`, `write_through_question_events`; statically calls `exchange_places`, `write_through_question_events`
@@ -157,7 +158,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]], [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]], [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]], [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]], [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]], [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -176,6 +177,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_projecting_a_practice_question_reads_no_reader_answer`
   - `test_the_explanation_suffix_is_the_gap_pipelines`
   - `test_the_live_projection_equals_a_rebuild_for_every_adapter`
+- [tests/test_reader_rd3a_companion_ask.py](../../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
+  - `test_the_exchange_context_is_recorded_and_its_passages_equal_a_rebuild`
 
 ## Modification guidance
 

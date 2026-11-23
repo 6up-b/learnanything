@@ -16,13 +16,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
+  - "src/learnloop/companion/search.py"
   - "src/learnloop/db/stores/pad_reads.py"
   - "src/learnloop/db/stores/pads.py"
   - "src/learnloop/desks/content_ref.py"
   - "src/learnloop/desks/workspace.py"
   - "src/learnloop/experiments/contextual_embeddings/e1/pins.py"
   - "src/learnloop/figures/spec.py"
-  - "src/learnloop/figures/verify.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -87,6 +87,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/companion/search.py`
 - `src/learnloop/db/stores/pad_reads.py`
 - `src/learnloop/db/stores/pads.py`
 
@@ -112,6 +113,7 @@ None found by exact static reference scan.
 - `tests/test_reader_rd0_migration.py`
 - `tests/test_reader_rd0_protocol.py`
 - `tests/test_reader_rd0_rpcs.py`
+- `tests/test_reader_rd3a_search.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
