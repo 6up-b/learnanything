@@ -15,20 +15,29 @@ export interface ChaptersState {
 }
 
 /** A video window's chapters: read once the window is live, suggested on the learner's ask, decided once. */
-export function useVideoChapters({ extractionId, transport, poller, onChapters }: {
+export function useVideoChapters({ extractionId, transport, poller, onChapters, onDecided, decisions = 0 }: {
   extractionId: string;
   transport: VideoTransport;
   poller: Poller;
   onChapters: (chapters: VideoChapterDto[]) => void;
+  /** A decision stored here: every window showing this video reads its chapters again. */
+  onDecided?: () => void;
+  /** How many decisions the desk has seen on this video: a new one (here or in another window) reads again. */
+  decisions?: number;
 }): ChaptersState {
   const [chapters, setChapters] = useState<VideoChapterDto[] | null>(null);
+  // The chapters as shown now: a decision's reply merges into these, never into the list it was asked from.
+  const current = useRef<VideoChapterDto[]>([]);
   const [job, setJob] = useState<{ jobId: string } | null>(null);
   const [line, setLine] = useState<string | null>(null);
   const whenLive = useWhenLive();
   const { windowId } = useWindowLifecycle();
   const onChaptersRef = useRef(onChapters);
   onChaptersRef.current = onChapters;
+  const onDecidedRef = useRef(onDecided);
+  onDecidedRef.current = onDecided;
   const show = useCallback((next: VideoChapterDto[]) => {
+    current.current = next;
     setChapters(next);
     onChaptersRef.current(next);
   }, []);
@@ -48,7 +57,7 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters }
       () => { if (live) setChapters([]); },
     );
     return () => { live = false; if (timer !== undefined) window.clearTimeout(timer); };
-  }, [extractionId, transport, whenLive, show, readAgain]);
+  }, [extractionId, transport, whenLive, show, readAgain, decisions]);
 
   const settle = useCallback((out: ChaptersJobDto) => {
     if (!out.done) return false;
@@ -90,10 +99,17 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters }
 
   const decide = useCallback((chapter: VideoChapterDto, decision: "accept" | "dismiss") => {
     void transport.chaptersDecide({ chapterId: chapter.chapterId, decision }).then(
-      (out) => show((chapters ?? []).flatMap((each) => (each.chapterId !== chapter.chapterId ? [each] : out.chapter.state === "dismissed" ? [] : [out.chapter]))),
-      (error: unknown) => setLine((error as { message?: string })?.message ?? "couldn't keep that just now"),
+      (out) => {
+        show(current.current.flatMap((each) => (each.chapterId !== chapter.chapterId ? [each] : out.chapter.state === "dismissed" ? [] : [out.chapter])));
+        onDecidedRef.current?.();
+      },
+      (error: unknown) => {
+        setLine((error as { message?: string })?.message ?? "couldn't keep that just now");
+        // Decided otherwise elsewhere (another window, another device): read what is stored.
+        setReadAgain((value) => value + 1);
+      },
     );
-  }, [chapters, transport, show]);
+  }, [transport, show]);
 
   const list = useMemo(() => chapters ?? [], [chapters]);
   // Made again only when what it shows changes: the window's Reader re-renders with it.

@@ -5,6 +5,7 @@
 // carried question beside related passages. No model is called: every transport is a fake.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useSyncExternalStore } from "react";
 import type { ChaptersJobDto, CorrespondentsDto, FollowAlongDto, ReaderRenderBlockDto, VideoChapterDto } from "../../../api/dto";
 import { Poller } from "../../../api/poller";
 import { YouTubeWatchPanel } from "../../reader/YouTubeWatchPanel";
@@ -260,5 +261,73 @@ describe("a carried question beside related passages", () => {
       "": { carried: [question], cursor: "p2" }, p2: { carried: [{ ...(question as object), carriedId: "cq2" } as never], cursor: null } };
     const all = await allCarried(async (cursor) => pages[cursor ?? ""]);
     expect(all.map((each) => each.carriedId)).toEqual(["cq1", "cq2"]);
+  });
+});
+
+describe("the driver per desk", () => {
+  it("is the video this desk played last, whatever another desk played since", () => {
+    const desk = new VideoDesk({} as VideoTransport, () => undefined);
+    const deskA = { videos: [{ windowId: "a1", extractionId: "ext_a1", title: "A1" }, { windowId: "a2", extractionId: "ext_a2", title: "A2" }], books: [] };
+    const deskB = { videos: [{ windowId: "b1", extractionId: "ext_b1", title: "B1" }], books: [] };
+    desk.setLayout(deskA);
+    desk.clock("a2", "ext_a2", { t: 5, playing: true, spanId: "c1", duration: 60 });
+    desk.clock("a2", "ext_a2", { t: 6, playing: false, spanId: "c1", duration: 60 });
+    desk.setLayout(deskB);
+    desk.clock("b1", "ext_b1", { t: 9, playing: true, spanId: "c1", duration: 60 });
+    expect(desk.driver()?.windowId).toBe("b1");
+    desk.setLayout(deskA);
+    expect(desk.driver()?.windowId).toBe("a2");
+  });
+});
+
+describe("chapter decisions", () => {
+  function Shared({ desk, transport, poller }: { desk: VideoDesk; transport: VideoTransport; poller: Poller }) {
+    const decisions = useSyncExternalStore(desk.subscribe, () => desk.decisionsOn("ext_vid"));
+    const { side } = useVideoChapters({ extractionId: "ext_vid", transport, poller, onChapters: () => undefined, onDecided: () => desk.decided("ext_vid"), decisions });
+    return <>{side}</>;
+  }
+
+  it("merge into what is shown now, whatever order their replies come back in", async () => {
+    const replies: Array<(value: { chapter: VideoChapterDto }) => void> = [];
+    const transport = {
+      chaptersList: vi.fn(async () => ({ extractionId: "ext_vid", chapters: [chapter("a", "suggested", 0, 20, "alpha"), chapter("b", "suggested", 20, 40, "beta")] })),
+      chaptersDecide: vi.fn(() => new Promise((resolve) => replies.push(resolve))),
+    } as unknown as VideoTransport;
+    mountChapters("active", transport);
+    await screen.findByText("alpha");
+    fireEvent.click(within(document.querySelector('[data-chapter="a"]') as HTMLElement).getByText("accept"));
+    fireEvent.click(within(document.querySelector('[data-chapter="b"]') as HTMLElement).getByText("not this"));
+    await act(async () => { replies[1]({ chapter: chapter("b", "dismissed", 20, 40, "beta") }); });
+    await act(async () => { replies[0]({ chapter: chapter("a", "accepted", 0, 20, "alpha") }); });
+    expect(document.querySelector('[data-chapter="b"]')).toBeNull();
+    expect(document.querySelector('[data-chapter="a"]')?.textContent).toContain("✓ accepted");
+  });
+
+  it("a decision refused as decided elsewhere reads the stored chapters again; one stored here reads them in every window", async () => {
+    let stored: VideoChapterDto[] = [chapter("a", "suggested", 0, 20, "alpha")];
+    const transport = {
+      chaptersList: vi.fn(async () => ({ extractionId: "ext_vid", chapters: stored })),
+      chaptersDecide: vi.fn(async () => { throw { code: "already_decided", message: "This chapter was decided already." }; }),
+    } as unknown as VideoTransport;
+    const desk = new VideoDesk(transport, () => undefined);
+    const poller = new Poller({ tickMs: 10 });
+    render(<WindowScope lifecycle={{ windowId: "w1", state: "active" }} hub={DIRECT_HUB}><Shared desk={desk} transport={transport} poller={poller} /></WindowScope>);
+    await screen.findByText("alpha");
+    stored = [chapter("a", "accepted", 0, 20, "alpha")];
+    fireEvent.click(screen.getByText("accept"));
+    await waitFor(() => expect(document.querySelector('[data-chapter="a"]')?.textContent).toContain("✓ accepted"));
+    cleanup();
+    // Two windows on one video: a decision in one is read by the other.
+    stored = [chapter("a", "suggested", 0, 20, "alpha")];
+    const decide = vi.fn(async () => ({ chapter: chapter("a", "accepted", 0, 20, "alpha") }));
+    const shared = { ...transport, chaptersDecide: decide } as unknown as VideoTransport;
+    render(<>
+      <WindowScope lifecycle={{ windowId: "w1", state: "active" }} hub={DIRECT_HUB}><div data-testid="one"><Shared desk={desk} transport={shared} poller={poller} /></div></WindowScope>
+      <WindowScope lifecycle={{ windowId: "w2", state: "active" }} hub={DIRECT_HUB}><div data-testid="two"><Shared desk={desk} transport={shared} poller={poller} /></div></WindowScope>
+    </>);
+    await waitFor(() => expect(screen.getAllByText("alpha")).toHaveLength(2));
+    stored = [chapter("a", "accepted", 0, 20, "alpha")];
+    fireEvent.click(within(screen.getByTestId("one")).getByText("accept"));
+    await waitFor(() => expect(within(screen.getByTestId("two")).getByText("✓ accepted")).toBeTruthy());
   });
 });
