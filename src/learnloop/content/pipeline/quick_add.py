@@ -31,19 +31,8 @@ from typing import Any
 from learnloop.content.pipeline.acquisition_preview import build_acquisition_preview
 from learnloop.content.pipeline.build_plan import build_build_plan
 from learnloop.content.sources.source_outline import OutlineNotFound, build_source_outline
+from learnloop.ingest.source_kinds import source_kind
 
-# Acquisition category (learnloop.ingest.resolution.SourceCategory) -> a suggested
-# source-set role (source_set_synthesis role vocabulary).
-_ROLE_BY_CATEGORY: dict[str, str] = {
-    "pdf": "primary_textbook",
-    "youtube": "lecture",
-    "arxiv": "paper",
-    "web": "reference",
-    "textfile": "reference",
-}
-# Categories whose role is a confident guess; the rest proceed flagged (§1: role
-# ambiguity proceeds flagged, not blocked).
-_CONFIDENT_ROLE_CATEGORIES = frozenset({"pdf", "youtube", "arxiv"})
 _STOPWORDS = frozenset(
     {"the", "a", "an", "of", "and", "or", "to", "in", "on", "for", "with", "into", "intro"}
 )
@@ -370,8 +359,11 @@ def plan_quick_add(
         suggested_role = "reference"
         role_ambiguous = False
     else:
-        suggested_role = _ROLE_BY_CATEGORY.get(category or "", "reference")
-        role_ambiguous = category not in _CONFIDENT_ROLE_CATEGORIES
+        # The kind's role guess; an unconfident one proceeds flagged (§1: role
+        # ambiguity proceeds flagged, not blocked).
+        kind = source_kind(category)
+        suggested_role = kind.suggested_role
+        role_ambiguous = not kind.confident_role
 
     plan_estimate = build_build_plan(
         repo,

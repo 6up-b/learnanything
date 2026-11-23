@@ -37,6 +37,7 @@ from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
 from learnloop.ids import new_ulid
+from learnloop.ingest.source_kinds import source_kind
 from learnloop.reader import part_read as PART_READ
 from learnloop.reader import reader_progression as RPROG
 from learnloop.reader import reader_quick_check as RQC
@@ -110,11 +111,10 @@ def default_fetch(source: str, category: str, ctx: JobContext) -> FetchedBytes:
         )
     from learnloop.content.pipeline import source_ingestion
 
-    kind = "youtube_video" if category == "youtube" else "website_page"
     fetched = source_ingestion.fetch_source(
         ctx.vault_root,
         source,
-        kind=kind,
+        kind=source_kind(category).fetch_as,
         allow_auto_captions=True,
         raw_only=True,
         clock=ctx.clock,
@@ -139,7 +139,7 @@ def _fetch_metadata(source: str, category: str) -> tuple[str | None, tuple[str, 
     so it adds one small extra egress (oEmbed) and never a new phase. Any failure
     degrades to ``(None, ())`` so the import proceeds with a URL title."""
 
-    if category != "youtube":
+    if source_kind(category).fetch_as != "youtube_video":
         return None, ()
     try:
         from learnloop.ingest.fetchers import youtube_oembed_metadata, youtube_video_id
@@ -243,7 +243,7 @@ def _is_document(fetched: FetchedBytes, category: str) -> bool:
 
     content_type = (fetched.content_type or "").split(";")[0].strip().lower()
     return (
-        category in {"pdf", "image"}
+        source_kind(category).document
         or content_type in {"application/pdf", "image/png", "image/jpeg"}
         or fetched.raw_bytes[:5] == b"%PDF-"
     )
@@ -416,7 +416,8 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     from learnloop.ingest.extractors import markdown_to_ir
     from learnloop.ingest.extractors.base import ExtractionContext
 
-    if category == "audio":
+    reader = source_kind(category).reader
+    if reader == "audio":
         _guard_file_upload(ctx, "audio_transcription")
         return _extract_audio(fetched, ctx)
 
@@ -468,7 +469,7 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
 
     text = fetched.raw_bytes.decode("utf-8", errors="replace")
 
-    if category == "youtube":
+    if reader == "captions":
         from learnloop.ingest.extractors import captions_to_ir
 
         cues = _caption_cues(text)
@@ -478,7 +479,7 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     looks_like_html = (fetched.content_type or "").lower().startswith("text/html") or bool(
         re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
     )
-    if category in ("web", "arxiv") or looks_like_html:
+    if reader == "html" or looks_like_html:
         from learnloop.ingest.extractors.web_page import WEB_PAGE_EXTRACTOR_VERSION, page_markdown
 
         markdown = page_markdown(text)
@@ -506,7 +507,8 @@ def default_extraction_identity(
 ) -> Mapping[str, Any]:
     """Describe the chosen extractor before running it, making cache hits cheap."""
 
-    if category == "audio":
+    reader = source_kind(category).reader
+    if reader == "audio":
         _guard_file_upload(ctx, "audio_transcription")
         # Lock-step with _extract_audio: the same pure route decision picks
         # native vs routed-chat vs endpoint transcription, and the identity
@@ -585,7 +587,7 @@ def default_extraction_identity(
             "model_versions": extractor.model_versions(),
             "config": {**config, "native_fallback": native_fallback} if native_fallback else config,
         }
-    if category == "youtube":
+    if reader == "captions":
         # Captions normalizer (captions_to_ir) v2 stamps per-cue t= timing onto
         # extractor_block_id; must match captions_to_ir's default.
         return {"extractor": "youtube", "extractor_version": "2", "model_versions": {}, "config": {}}
@@ -593,7 +595,7 @@ def default_extraction_identity(
     looks_html = (fetched.content_type or "").lower().startswith("text/html") or bool(
         re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
     )
-    if category in ("web", "arxiv") or looks_html:
+    if reader == "html" or looks_html:
         # The version is in the request hash: a page read with an earlier one
         # is never served this reading from cache, and keeps its own until it
         # is imported again (the card's "Read it again").

@@ -58,6 +58,7 @@ from learnloop.content.sources.source_outline import title_from_file_name, title
 from learnloop.ids import kebab_case
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
+from learnloop.ingest.source_kinds import source_kind
 from learnloop.reader import part_read as part_read_rule
 
 AUTO_STUDY_MAP_JOB = "auto_study_map"
@@ -99,25 +100,6 @@ TEXT_RECOGNITION_UNAVAILABLE_MESSAGE = (
 # much text, so it is never one page; never past the scope cap.
 FLOOR_TOKENS = 4000
 
-_KIND_NOUN = {
-    # A PDF is a "PDF" until its text says it is a book or a paper (UX Phase 1
-    # finishing pass: a paper's hand-over said "Getting this book ready", and a
-    # two-page handout was a "book").
-    "pdf": "PDF",
-    "image": "image",
-    "arxiv": "paper",
-    "web": "article",
-    "youtube": "video",
-    "audio": "recording",
-    "textfile": "book",
-}
-_ROLE_BY_CATEGORY = {
-    "pdf": "primary_textbook",
-    "youtube": "lecture",
-    "arxiv": "paper",
-    "web": "reference",
-    "textfile": "reference",
-}
 _CHAPTER_NUMBER = re.compile(r"^\s*(?:chapter|ch\.?|part|lecture|unit)?\s*(\d+)\b", re.IGNORECASE)
 _JUNK_PDF_TITLES = re.compile(r"^(?:untitled|microsoft word|document\d*|\s*)$|\.(?:docx?|tex|dvi|pdf)$", re.IGNORECASE)
 # The AI the learner set up, named as they know it (usability round 2: a Codex
@@ -140,7 +122,10 @@ class AddSourceOptions:
 
 
 def kind_noun(category: str | None) -> str:
-    return _KIND_NOUN.get(category or "", "book")
+    # A PDF is a "PDF" until its text says it is a book or a paper (UX Phase 1
+    # finishing pass: a paper's hand-over said "Getting this book ready", and a
+    # two-page handout was a "book"); ``learner_kind`` refines it.
+    return source_kind(category).noun
 
 
 # A PDF is a paper when it opens with an abstract and is short (usability
@@ -1662,7 +1647,7 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
     revision = ctx.repo.get_source_revision(revision_id)
     title = learner_title(artifact, revision)
     category = artifact.get("acquisition_kind")
-    role = _ROLE_BY_CATEGORY.get(str(category or ""), "reference")
+    role = source_kind(category).suggested_role
     source_set_id = f"sset_quickadd_{source_id}"
     with vault_mutation_lock(ctx.vault_root, purpose="auto_study_map"):
         subject_id, created = ensure_subject(ctx.vault_root, vault, source_id, title, clock=ctx.clock)

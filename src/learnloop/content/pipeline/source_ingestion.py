@@ -30,6 +30,7 @@ from learnloop.vault.repository import vault_repository
 from learnloop.ids import kebab_case, new_ulid, snake_case
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import ResolvedSource, resolve_source
+from learnloop.ingest.source_kinds import source_kind
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.sources.pdf_extraction import PdfExtractionError, extract_pdf_markdown
 from learnloop.content.proposals.proposals import auto_apply_rows, proposal_item_row
@@ -700,29 +701,28 @@ def resolve_canonical_source(
         resolved = resolve_source(source)
     except UnsupportedSourceError as exc:
         raise SourceIngestionError(str(exc)) from exc
-    if resolved.category == "audio":
-        raise SourceIngestionError(
-            "Audio sources are only supported by the durable import pipeline "
-            "(canonical mode); exam seeding and the legacy one-shot path cannot read audio."
-        )
-    if resolved.category == "image":
-        raise SourceIngestionError(
-            "Image sources are only supported by the durable import pipeline "
-            "(canonical mode); exam seeding and the legacy one-shot path cannot read images."
-        )
+    legacy_kind = source_kind(resolved.category).legacy_kind
+    if legacy_kind is None:
+        raise SourceIngestionError(_LEGACY_REFUSALS[resolved.category])
     if kind != "auto":
         _validate_explicit_kind(kind)
         return resolved, kind
     if learning_object_ids:
         return resolved, "textbook_chapter"
-    mapping: dict[str, SourceKind] = {
-        "youtube": "youtube_video",
-        "arxiv": "arxiv_html",
-        "web": "website_page",
-        "pdf": "website_page",
-        "textfile": "website_page",
-    }
-    return resolved, mapping[resolved.category]
+    return resolved, legacy_kind
+
+
+# The kinds this one-shot pipeline cannot read (``SourceKind.legacy_kind`` is ``None``), and why.
+_LEGACY_REFUSALS: dict[str, str] = {
+    "audio": (
+        "Audio sources are only supported by the durable import pipeline "
+        "(canonical mode); exam seeding and the legacy one-shot path cannot read audio."
+    ),
+    "image": (
+        "Image sources are only supported by the durable import pipeline "
+        "(canonical mode); exam seeding and the legacy one-shot path cannot read images."
+    ),
+}
 
 
 def fetch_source(
