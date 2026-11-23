@@ -473,6 +473,8 @@ export function DeskShell({
     return { width: viewport.width - shelf, height: viewport.height - DESK_SIZES.topBar - DESK_SIZES.footer };
   });
   const [viewportWidth, setViewportWidth] = useState(() => (initialViewport ?? { width: window.innerWidth }).width);
+  // The companion's docks fold on the laptop by the window's width, as the mockup's (§4.3).
+  const companionStage = useMemo(() => ({ ...stage, viewport: viewportWidth }), [stage, viewportWidth]);
   // The overview (spec §6): the committed view, its camera and selection, and what a zoom needs.
   const [overview, setOverview] = useState(false);
   const [ovCam, setOvCam] = useState<Camera>({ x: 24, y: 70, s: OVERVIEW.scale });
@@ -1733,13 +1735,16 @@ export function DeskShell({
   /** `c` (alt+c while typing) and `shift+c` (spec §8.3): summon at the selection or the cursor, dissolve when
    * anchored, back to the drawer when docked; shift+c to the dock. */
   const companionKey = (atDock: boolean) => {
+    const id = focusIdRef.current;
     if (atDock) {
+      // A selection is the question's context whichever key opens the companion (§8.6): shift+c takes it too.
+      const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null;
+      if (selected) setChip({ quote: clipQuote(selected.quote, 400), spanIds: selected.spanIds, windowId: selected.windowId });
       stepCompanion({ kind: "dock" });
       return;
     }
     let anchor: Rect | null = null;
     if (companionStateRef.current.mode === "hidden") {
-      const id = focusIdRef.current;
       const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null;
       if (selected) {
         setChip({ quote: clipQuote(selected.quote, 400), spanIds: selected.spanIds, windowId: selected.windowId });
@@ -1748,7 +1753,9 @@ export function DeskShell({
         anchor = { x: lastPointer.current.x, y: lastPointer.current.y, w: 1, h: 1 };
       }
     }
-    stepCompanion({ kind: "c", anchor, stage: stageNow.current });
+    // The window's width decides the narrow summon, as the mockup's (§4.3).
+    const viewport = (stageRef.current?.closest(".desk-shell") as HTMLElement | null)?.clientWidth;
+    stepCompanion({ kind: "c", anchor, stage: { ...stageNow.current, viewport } });
   };
   const companionKeyRef = useRef(companionKey);
   companionKeyRef.current = companionKey;
@@ -2838,7 +2845,7 @@ export function DeskShell({
             ref={companionRef}
             state={companionState}
             dock={companionDock}
-            stage={stage}
+            stage={companionStage}
             overview={overview}
             reducedMotion={reduced}
             timers={timers}

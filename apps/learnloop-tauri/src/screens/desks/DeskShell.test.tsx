@@ -1198,6 +1198,16 @@ describe("RD3b: the companion's summon, dissolve and dock (spec §8.3)", () => {
     expect(panel()?.textContent).toContain("the first passage of fx_w_book");
   });
 
+  it("shift+c with a selection opens it at its dock, with the selection as its chip (§8.6)", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("docked");
+    expect(panel()?.textContent).toContain("asking about");
+    expect(panel()?.textContent).toContain("the first passage of fx_w_book");
+  });
+
   it("c again dissolves it where it is: it never passes through its dock, then goes", async () => {
     mountCompanion();
     await screen.findByTestId("pane-fx_w_book");
@@ -1597,7 +1607,7 @@ describe("RD4b: pads in the desks", () => {
           return { carried: {} as never, created: true };
         },
         requestTeachBack: async () => ({ practiceItemId: "tb" }),
-        passageUnionRange: async () => ({ sections: [] }) as never,
+        passageUnionRange: async () => ({ spans: [] }) as never,
         authorPracticeItem: async () => ({ practiceItemId: "x" }),
         workbenchOpenProblems: async () => ({ problems: [] }),
         submitTeachBackTurn: async () => ({ done: true }) as never,
