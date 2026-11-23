@@ -157,7 +157,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] | [[Reference/Modules/learnloop/db/stores/ingest_queue#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/db/stores/intent_reads|learnloop.db.stores.intent_reads]] | [[Reference/Modules/learnloop/db/stores/intent_reads#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop/db/stores/judgment_claims|learnloop.db.stores.judgment_claims]] | [[Reference/Modules/learnloop/db/stores/judgment_claims#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
-| [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] | [[Reference/Modules/learnloop/db/stores/judgments#^module-purpose|purpose]] | `ACTIVE` | 69 | 21 |
+| [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] | [[Reference/Modules/learnloop/db/stores/judgments#^module-purpose|purpose]] | `ACTIVE` | 70 | 21 |
 | [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] | [[Reference/Modules/learnloop/db/stores/learner_gaps#^module-purpose|purpose]] | `ACTIVE` | 15 | 12 |
 | [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] | [[Reference/Modules/learnloop/db/stores/learner_model#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
 | [[Reference/Modules/learnloop/db/stores/learner_notes|learnloop.db.stores.learner_notes]] | [[Reference/Modules/learnloop/db/stores/learner_notes#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -188,7 +188,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] | [[Reference/Modules/learnloop/db/stores/router#^module-purpose|purpose]] | `ACTIVE` | 12 | 15 |
 | [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] | [[Reference/Modules/learnloop/db/stores/router_objective#^module-purpose|purpose]] | `ACTIVE` | 19 | 26 |
 | [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] | [[Reference/Modules/learnloop/db/stores/router_suggestions#^module-purpose|purpose]] | `ACTIVE` | 8 | 13 |
-| [[Reference/Modules/learnloop/db/stores/section_coverage|learnloop.db.stores.section_coverage]] | [[Reference/Modules/learnloop/db/stores/section_coverage#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
+| [[Reference/Modules/learnloop/db/stores/section_coverage|learnloop.db.stores.section_coverage]] | [[Reference/Modules/learnloop/db/stores/section_coverage#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/db/stores/session_ownership|learnloop.db.stores.session_ownership]] | [[Reference/Modules/learnloop/db/stores/session_ownership#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] | [[Reference/Modules/learnloop/db/stores/source_block_fts#^module-purpose|purpose]] | `ACTIVE` | 39 | 10 |
 | [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] | [[Reference/Modules/learnloop/db/stores/source_documents#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -212,7 +212,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 54 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 56 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 28 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
@@ -288,7 +288,7 @@ flowchart LR
     center -->|72| n_learnloop
     n_learnloop_db -->|27| center
     center -->|38| n_learnloop_db
-    n_learnloop_source_retrieval -->|54| center
+    n_learnloop_source_retrieval -->|56| center
     n_learnloop_adaptive_difficulty -->|28| center
     n_learnloop_sidecar_handlers -->|28| center
     n_learnloop_daily_plan -->|25| center

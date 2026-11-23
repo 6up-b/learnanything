@@ -230,6 +230,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/facet_identity_helpers.py](../../../../../../tests/facet_identity_helpers.py) — direct import
+- [tests/goal_lens_helpers.py](../../../../../../tests/goal_lens_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/hypothesis_marks_context_helpers.py](../../../../../../tests/hypothesis_marks_context_helpers.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
