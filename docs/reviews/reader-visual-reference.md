@@ -100,8 +100,8 @@ element), **state** (a missing state). "Excused" names the §4.4 row, or says wh
 (a fixture difference, a recorded deviation, a spec rule the mockup does not follow). Each real difference has a
 ledger row (`docs/reviews/refactor-bug-ledger.md`, VR-n), with no fix and its stage's fix round as the deadline.
 
-Counts (distinct differences after grouping one property of one region across states and viewports, from
-`findings__<stage>.json`): RD1 73, RD2 102, RD3 68, RD4 90 raw rows; after reading them, **41 real differences**
+Counts (rows of `findings__all.json`, one row per region, property and pair of values, as the comparison's last
+lines print them; corrected 2026-11-23, §10): RD1 95, RD2 107, RD3 75, RD4 93; after reading them, **41 real differences**
 (RD1 12, RD2 7, RD3 9, RD4 13; three of them owner calls) and the rest excused or explained below. The overview's type is measured in world
 pixels (the cards are drawn at 1/0.34 and scaled), so a world size is given with its on-screen size.
 
@@ -247,15 +247,7 @@ laptop docks; §4.3 also gains the 34 px top bar on a short window). Behaviour s
 was a product bug. Styles live in `styles/desk.css`; markup changed in three places only (the selection chip's label
 in its own span, ⓘ in its own ring, the overview's link labels' paint).
 
-**Counts** (grouped rows from `findings__all.json`, both viewports, before and after; the rows left are the excused
-ones and the ones listed below):
-
-| Stage | Before | After |
-|---|---|---|
-| RD1 | 79 (colour 25, type 25, geometry 26, missing 3) | 21 (colour 3, type 2, geometry 13, missing 3) |
-| RD2 | 102 (37, 38, 21, 6) | 27 (8, 2, 11, 6) |
-| RD3 | 68 (20, 30, 16, 2) | 5 (1, 0, 2, 2) |
-| RD4 | 90 (37, 11, 25, 17) | 20 (0, 3, 1, 16) |
+**Counts:** see §10 (one reproducible number per stage, and the command that prints it).
 
 | Row | Outcome |
 |---|---|
@@ -304,7 +296,44 @@ lists the generated notes the landing regenerates).
 | VR-45 | Fixed (`3dc89dc187`): below 1400 px the opened strip covers the rail from the window's edge with its own ☰ and "strip" on top; the closed rail shows ☰ over a vertical "strip". The shell owns the open state; the key router gains a `strip` scope (below arrange, above pen) whose esc closes it and which passes every other key on. Fail-first tests in `DeskShell.test.tsx` (esc and pointer); `router.test.ts` gains the strip case, and its scope-order expectation now lists `strip` |
 | Inter | Removed (`8024da8119`): no other screen named it. The package, the shell's import, its `LICENSES.txt` entry and the harness's font check (now four fonts) went; §4.2 says so |
 
-After round 2 the comparison (RD1 to RD4, both viewports) has RD1 19, RD2 21, RD3 5, RD4 20 grouped rows, every one
-excused or listed above (VR-12, VR-29, VR-43, VR-44, the fixture's differences). The `video_paper` rows and the open
+After round 2 every row the comparison still reports (RD1 to RD4, both viewports; counted in §10) is excused or
+listed above (VR-12, VR-29, VR-43, VR-44, the fixture's differences). The `video_paper` rows and the open
 strip's place are gone. Tests: vitest 367 files, 4099 passed; typecheck clean; the desk harness 120 passed, 0 failed
 (the goal lens's checks included).
+
+## 10. Counts: one number per stage, and how to reproduce it (corrected 2026-11-23)
+
+The comparison's last lines print, per stage, the rows of `findings__<run>.json`: one row per region, property and
+pair of values, so the same difference at other values (the laptop's sizes, another state's position) is a row of
+its own. Run from the worktree root, after building the harness page:
+
+    uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \
+        python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage all
+
+| Stage | Before the fix round (base of the branch) | Now (this record's tip) |
+|---|---|---|
+| RD1 | 103 | 37 (colour 2, type 2, geometry 30, missing 3) |
+| RD2 | 107 | 22 (colour 8, type 2, geometry 6, missing 6) |
+| RD3 | 75 | 7 (colour 1, geometry 4, missing 2) |
+| RD4 | 93 | 20 (type 3, geometry 1, missing 16) |
+
+(The reference record's first run, §5, counted 95, 107, 75 and 93; the fix round's base had RD3 and RD4's fix rounds
+merged in. The "before" column used the comparison as it was then; later rounds taught it to ignore transparent
+borders and sub-0.05 px rounding, which only removes rows.)
+
+**Why the record said 19, 21, 5 and 20 (and 79, 102, 68, 90 before):** those figures came from a private helper that
+grouped a region's property across all its values, so a difference measured at two viewports or in three states with
+different numbers counted once; the comparison's file counts each pair of values. The integration worker's 37, 22,
+7 and 20 are the file's count and are the right figure to quote. Nothing was hidden by the grouping: RD1's 18 extra
+rows are the same differences at other values, all already accounted for:
+
+- the 5 px slot width and the positions that follow from it: `window_focus`, `window_focus_head`, `window_other`,
+  `window_other_head` widths at 1440 and 1280, and their x in `#focus=3` and `#move` at both sizes (VR-44, owner);
+- focus mode at both sizes (`window_focus` and its head: width, height, x, y, radius, ring; the mockup's half-width
+  focus, §4.4 row 1), with the prose and sheet padding the mockup's narrower focus column gets at 1280;
+- the sheet's 12 px less left padding (the passages carry those 12 px, so the text sits where the mockup's does),
+  at two padding values.
+
+RD2's 22 (against 21) adds the far selection's card at the second viewport; RD3's 7 (against 5) the anchored
+panel's place at two viewports (it follows the fixture's passage). No real difference was missing from §9.
+
