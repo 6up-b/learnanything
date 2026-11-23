@@ -190,6 +190,15 @@ AD's scoring (8 trained attempts; 4 repeats excluded as `repeat_surface`; 2 carr
 
 ## Owner copies
 
-*For the orchestrator: per vault copy, the date, the options used (`--as-of`, `--top-k`, `--ad-without-z-llm`),
-whether the run completed and the input stayed unchanged, and that the private JSON was kept outside every
-checkout. The numbers go to the owner privately; none goes in this file.*
+Run by the orchestrator on 2026-11-23 on backup-API copies of the owner's three vaults, each upgraded to `mvp-0.67`
+first, with the default options (`--as-of` now, `--top-k 10`, `z_llm` kept in arms c and d; the script reports AD's
+scoring both ways). All three runs completed in seconds, each input copy's databases stayed unchanged, the live
+vaults were unchanged, and the private JSON reports were kept in the orchestrator's scratch directory outside every
+checkout; the copies were deleted. The numbers went to the owner privately. In words only:
+
+- No due date moved in any arm on any vault (the interval factor is removed at this tag).
+- Arm (c) never changed mastery or the due queue; it changed surprise rows only.
+- Arm (b) changed mastery on two of the three vaults and moved the due queue slightly on two, including one where
+  mastery did not change (the scheduler reads the label directly).
+- No surprise row changed direction in any arm.
+- AD's scoring with and without `z_llm` differed by small amounts in both directions across vaults, on small samples.
