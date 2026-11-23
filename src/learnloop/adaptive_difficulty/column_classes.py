@@ -446,6 +446,9 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "learning_object_id status probe_phase_id hypothesis_set_id probe_attempts_completed "
         "probe_attempts_target entered_at completed_at algorithm_version updated_at",
         "families_converged_json completion_reason"),
+    "mastery_seed_inputs": (
+        "learning_object_id claims_made_json selected_claim_id materialized_at basis policy_version recorded_at",
+        ""),
     "measurement_contract_corrections": (
         "id correction_set_id source_practice_item_id source_contract_version_id "
         "corrected_practice_item_id corrected_contract_version_id consuming_projection_version "

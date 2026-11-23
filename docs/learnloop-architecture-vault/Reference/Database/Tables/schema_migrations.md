@@ -109,7 +109,7 @@ None found by exact static reference scan.
 - `tests/test_ih3_migration.py`
 - `tests/test_ingest_job_progress_migration.py`
 - `tests/test_init.py`
-- `tests/test_mcp_runtime.py`
+- `tests/test_mastery_seed_inputs_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

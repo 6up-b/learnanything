@@ -20,6 +20,8 @@ from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
 from learnloop.attempts.lifecycle_inputs import application_required_facets, recorded_for_replay
 from learnloop.db.attempt_lifecycle_inputs import LifecycleInputs
+from learnloop.db.mastery_seed_inputs import MasterySeedInputs
+from learnloop.learner.mastery_seed import attempt_seed_capture
 from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.records import FacetUncertaintyState
 from learnloop.db.repositories import (
@@ -76,9 +78,10 @@ from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
     MasteryObservation,
     MasteryObservationTrace,
+    MasterySeed,
     display_mastery,
-    initial_mastery_state_for_learning_object,
     item_irt_params,
+    seed_for_learning_object,
     resolve_item_irt_params,
     update_item_difficulty,
     update_mastery_traced,
@@ -541,6 +544,8 @@ class AttemptPriorState:
     item_facet_recall: dict[str, FacetRecallState | None]
     facet_uncertainty: dict[str, FacetUncertaintyState | None]
     item_parameter_state: ItemParameterState | None = None
+    #: The seed ``mastery`` was built from when the learning object had no row yet (None when the row was read).
+    mastery_seed: MasterySeed | None = None
 
     def facet_recall_state(self, facet_id: str, practice_item_id: str | None = None) -> FacetRecallState | None:
         if practice_item_id is None:
@@ -598,6 +603,8 @@ class AttemptApplication:
     fsrs_review: dict[str, Any] | None = None
     #: mvp-0.66: a live application's required facet set, recorded with its attempt (None when nothing is new).
     lifecycle_inputs: LifecycleInputs | None = None
+    #: mvp-0.67: a live application's prior seed when its learning object had no mastery row, recorded with the row.
+    mastery_seed_inputs: MasterySeedInputs | None = None
 
 
 class AttemptValidationError(ValueError):
@@ -3688,6 +3695,7 @@ def _persist_attempt_application(
     else:
         repository.record_attempt_outcome(
             lifecycle_inputs=application.lifecycle_inputs,
+            mastery_seed_inputs=application.mastery_seed_inputs,
             attempt=application.attempt_record,
             evidence_rows=application.evidence_rows,
             error_events=application.error_events,
@@ -4002,12 +4010,9 @@ def load_attempt_prior_state(
     """
 
     facet_ids = list(dict.fromkeys(facets))
-    mastery = repository.mastery_state(learning_object_id) or initial_mastery_state_for_learning_object(
-        vault,
-        repository,
-        learning_object_id,
-        now_iso,
-    )
+    mastery = repository.mastery_state(learning_object_id)
+    mastery_seed = None if mastery is not None else seed_for_learning_object(vault, repository, learning_object_id, now_iso)
+    mastery = mastery_seed.state if mastery_seed is not None else mastery
     # KM2b: the belief priors this attempt reads come from the canonical shared
     # state (folded through aliases + merges). One reader build per attempt.
     reader = CanonicalFacetStateReader(vault, repository)
@@ -4059,6 +4064,7 @@ def load_attempt_prior_state(
             if vault.config.mastery.irt.eb_difficulty_enabled
             else None
         ),
+        mastery_seed=mastery_seed,
     )
 
 
@@ -4255,7 +4261,8 @@ def _compute_resolved_grade_application(
         error_event_ids=error_event_ids,
         grading_evidence=grading_evidence,
     )
-    return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs)
+    seed = attempt_seed_capture(vault, learning_object.id, prior_state.mastery_seed, replay=replay, now_iso=now_iso)
+    return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs, mastery_seed_inputs=seed)
 
 
 def _interpretation_variance(

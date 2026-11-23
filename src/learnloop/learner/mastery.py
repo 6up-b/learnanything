@@ -24,7 +24,9 @@ from typing import TYPE_CHECKING, Any
 
 from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.config import MasteryConfig
+from learnloop.algorithm_versions import mastery_seed_on
 from learnloop.db.repositories import ItemParameterState, MasteryState
+from learnloop.db.mastery_seed_inputs import BASIS_CAPTURED, MasterySeedInputs
 from learnloop.numeric import clamp
 from learnloop.attempts.evidence import attempt_evidence_mass
 
@@ -302,13 +304,27 @@ def initial_mastery_state_for_learning_object(
     row. A structural ``max`` over seeds already computed, no new number.
     """
 
-    mastery_config = vault.config.mastery
-    cold = initial_mastery_state(
-        learning_object_id,
-        vault.config.algorithms.algorithm_version,
-        now_iso,
-        logit_variance=float(mastery_config.cold_start_prior_logit_variance),
-    )
+    return seed_for_learning_object(vault, repository, learning_object_id, now_iso, claims_made=claims_made).state
+
+
+@dataclass(frozen=True)
+class MasterySeed:
+    """A learning object's zero-evidence seed and what it read (mvp-0.67 records the reading where a row is first
+    persisted): every covering claim considered (``considered``, replaced ones included where the variance bound reads
+    them), the ones in force among them, and the claim whose level won (None: the cold start)."""
+
+    state: MasteryState
+    considered: tuple[dict[str, Any], ...]
+    in_force_ids: frozenset[str]
+    selected_claim_id: str | None
+
+
+def seed_for_learning_object(
+    vault, repository, learning_object_id: str, now_iso: str, *, claims_made: Collection[str] | None = None
+) -> MasterySeed:
+    """:func:`initial_mastery_state_for_learning_object`'s state together with the claims it read. Pure: nothing is
+    written (the forecast and teacher readers ask for a hypothetical prior through the same function)."""
+
     fixes = claim_fixes_live(vault)
     if fixes and claims_made is None:
         # Now (live, an attempt-free rebuild, an activation's re-seed): the
@@ -320,15 +336,41 @@ def initial_mastery_state_for_learning_object(
     else:
         made = _claims_made(vault, repository, learning_object_id, claims_made, fixes=fixes)
         claims = _in_force(made)
+    return _seed_from(vault, learning_object_id, now_iso, made, claims, fixes=fixes)
+
+
+def seed_from_recorded_claims(
+    vault, learning_object_id: str, now_iso: str, claims: Collection[dict[str, Any]], in_force_ids: Collection[str]
+) -> MasteryState:
+    """The seed a recorded reading gives (mvp-0.67): the same rule as :func:`seed_for_learning_object`, over the
+    claims the first persistence considered instead of the claims on record now."""
+
+    made = [dict(claim) for claim in claims]
+    in_force = [claim for claim in made if str(claim.get("id")) in set(in_force_ids)]
+    return _seed_from(vault, learning_object_id, now_iso, made, in_force, fixes=claim_fixes_live(vault)).state
+
+
+def _seed_from(
+    vault, learning_object_id: str, now_iso: str, made: list[dict[str, Any]], claims: list[dict[str, Any]], *,
+    fixes: bool,
+) -> MasterySeed:
+    cold = initial_mastery_state(
+        learning_object_id,
+        vault.config.algorithms.algorithm_version,
+        now_iso,
+        logit_variance=float(vault.config.mastery.cold_start_prior_logit_variance),
+    )
+    considered = tuple(made)
+    in_force_ids = frozenset(str(claim.get("id") or "") for claim in claims)
     claim = _winning_claim(claims, fixes=fixes)
     if claim is None:
-        return cold
+        return MasterySeed(cold, considered, in_force_ids, None)
     state = _claim_seed(vault, claim, cold, now_iso, fixes=fixes)
     if fixes:
         retained = _retained_cold_variance(vault, made, learning_object_id, cold, now_iso)
         if retained > state.logit_variance:
             state = replace(state, logit_variance=retained)
-    return state
+    return MasterySeed(state, considered, in_force_ids, str(claim.get("id") or "") or None)
 
 
 def _claim_seed(vault, claim: dict[str, Any], cold: MasteryState, now_iso: str, *, fixes: bool) -> MasteryState:
@@ -542,12 +584,15 @@ def _reanchor_in_transaction(
     claims_made: Collection[str] | None,
 ) -> MasteryState:
     current = repository.mastery_state(learning_object_id)
+    first_seed: MasterySeedInputs | None = None
     if current is None or current.evidence_count == 0:
-        updated = initial_mastery_state_for_learning_object(
-            vault, repository, learning_object_id, now_iso, claims_made=claims_made,
-        )
+        seed = seed_for_learning_object(vault, repository, learning_object_id, now_iso, claims_made=claims_made)
+        updated = seed.state
         if current is not None and claim_fixes_live(vault) and current.logit_variance > updated.logit_variance:
             updated = replace(updated, logit_variance=current.logit_variance)
+        if current is None and claims_made is None:
+            # A live claim materializing the row: the seed (this claim included) is recorded with it (mvp-0.67).
+            first_seed = live_seed_inputs(vault, learning_object_id, seed, materialized_at=now_iso)
     else:
         updated = apply_claim_evidence(
             current,
@@ -556,8 +601,32 @@ def _reanchor_in_transaction(
             now_iso=now_iso,
             mean_only=claim_fixes_live(vault),
         )
-    repository.upsert_mastery_state(updated)
+    # The row and its seed record commit together (the claim-fixes switch off runs this outside a transaction).
+    with repository.atomic() if first_seed is not None else nullcontext():
+        repository.upsert_mastery_state(updated)
+        if first_seed is not None:
+            repository.record_mastery_seed_inputs(first_seed, recorded_at=now_iso)
     return updated
+
+
+def live_seed_inputs(
+    vault, learning_object_id: str, seed: MasterySeed, *, materialized_at: str
+) -> MasterySeedInputs | None:
+    """The record a live first persistence of ``learning_object_id``'s mastery writes with its row (mvp-0.67): every
+    claim ``seed`` considered; None below the tag, where nothing is recorded."""
+
+    if not mastery_seed_on(vault.config):
+        return None
+    return MasterySeedInputs.of(
+        learning_object_id, seed.considered, seed.in_force_ids, seed.selected_claim_id,
+        basis=BASIS_CAPTURED, materialized_at=materialized_at,
+    )
+
+
+def recorded_seed_state(vault, inputs: MasterySeedInputs, now_iso: str) -> MasteryState:
+    """The zero-evidence state a recorded seed gives (mvp-0.67)."""
+
+    return seed_from_recorded_claims(vault, inputs.learning_object_id, now_iso, inputs.claims, inputs.in_force_ids)
 
 
 def covering_learner_claim(

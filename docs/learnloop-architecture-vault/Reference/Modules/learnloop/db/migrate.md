@@ -275,6 +275,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_source_widening.py](../../../../../../tests/test_learner_text_source_widening.py) — direct import
   - `test_the_migration_names_both_kinds_in_one_rebuild`
 - [tests/test_library_asks_migration.py](../../../../../../tests/test_library_asks_migration.py) — direct import
+- [tests/test_mastery_seed_inputs_migration.py](../../../../../../tests/test_mastery_seed_inputs_migration.py) — direct import
+  - `test_it_adds_the_table_and_changes_nothing_else`
+  - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
 - [tests/test_migrate_fresh.py](../../../../../../tests/test_migrate_fresh.py) — direct import
   - `test_existing_database_upgrades_incrementally`
   - `test_fk_toggle_migration_is_atomic_and_restores_enforcement`
