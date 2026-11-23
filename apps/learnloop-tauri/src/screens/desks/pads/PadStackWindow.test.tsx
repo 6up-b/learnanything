@@ -61,6 +61,8 @@ function fakeApi(): PadsApi & { calls: Array<[string, unknown]> } {
     passageUnionRange: log("passageUnionRange", { sections: [] } as never),
     authorPracticeItem: log("authorPracticeItem", { practiceItemId: "new_item" }),
     workbenchOpenProblems: log("workbenchOpenProblems", { problems: [{ sessionId: "wb1", practiceItemId: "item_problem" }] }),
+    submitTeachBackTurn: log("submitTeachBackTurn", { done: true } as never),
+    getSession: log("getSession", { checkpoint: null } as never),
   };
 }
 
@@ -337,5 +339,76 @@ describe("the fix round (RD4 review)", () => {
     await flush();
     const edits = sentOps(server).filter((op) => op.op === "edit_block");
     expect(edits.map((op) => (op as { bodyMd?: string }).bodyMd)).toEqual(["my new words"]);
+  });
+
+  function anchoredRunning() {
+    const server = new FixtureDeskServer();
+    const running = server.pads.fx_pad_running as PadViewDto;
+    running.anchors = [...running.anchors, { eventId: "fx_an_r1", blockId: "fx_b_r1", extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_1", anchor: {}, annotationId: null, createdAt: "2026-11-22T09:00:00Z" }];
+    return server;
+  }
+  async function openTeachBack(api: PadsApi) {
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Submit this block as…"));
+    return screen.findByRole("button", { name: /a teach-back of the idea/ });
+  }
+
+  it("a submission retried after a lost reply resends the same frozen request: one submission id, one teach-back target", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    const sent: unknown[] = [];
+    let first = true;
+    api.padSubmitBlock = async (input) => {
+      sent.push(input);
+      if (first) {
+        first = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost" };
+      }
+      return { version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId, attemptId: null, teachBackId: "tb1", duplicate: true, entry: null } as never;
+    };
+    const row = await openTeachBack(api);
+    fireEvent.click(row);
+    expect(await screen.findByText(/the reply was lost/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /a teach-back of the idea/ }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    const [a, b] = sent as Array<{ submissionId: string; versionId: string; target: { practiceItemId: string } }>;
+    expect(b.submissionId).toBe(a.submissionId);
+    expect(b.versionId).toBe(a.versionId);
+    expect(b.target).toEqual(a.target);
+    expect(api.calls.filter(([name]) => name === "requestTeachBack")).toHaveLength(1);
+  });
+
+  it("a teach-back that asks a follow-up shows the question and continues the conversation", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.padSubmitBlock = (async (input: { submissionId: string; blockId: string; versionId: string; as: string; target: { practiceItemId: string } }) => ({
+      version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId,
+      attemptId: null, teachBackId: "tb1", duplicate: false,
+      entry: { done: false, questionMd: "why do the weights stay positive?", questionNumber: 1, remaining: 1, asked: 1, budget: 2 },
+    })) as never;
+    const turns: unknown[] = [];
+    api.submitTeachBackTurn = (async (input: unknown) => {
+      turns.push(input);
+      return { done: true };
+    }) as never;
+    fireEvent.click(await openTeachBack(api));
+    expect(await screen.findByText("why do the weights stay positive?")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "the exponential is positive" } });
+    fireEvent.click(screen.getByRole("button", { name: "answer" }));
+    await waitFor(() => expect(turns).toHaveLength(1));
+    expect(turns[0]).toMatchObject({ sessionId: "session1", practiceItemId: "tb_item", answerMd: "the exponential is positive" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "submit this block" })).toBeNull());
+  });
+
+  it("a duplicate reply (the submission was recorded before) resumes the conversation from the session's checkpoint", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.padSubmitBlock = (async (input: { submissionId: string; blockId: string; versionId: string; as: string; target: { practiceItemId: string } }) => ({
+      version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId,
+      attemptId: null, teachBackId: "tb1", duplicate: true, entry: null,
+    })) as never;
+    api.getSession = (async () => ({ checkpoint: { currentPracticeItemId: "tb_item", hintsUsed: 0, submissionId: null,
+      currentAnswer: JSON.stringify({ mode: "teach_back", state: { practice_item_id: "tb_item", turns: [{ role: "learner", content_md: "mine" }, { role: "ai", content_md: "and for a negative score?" }] } }) } })) as never;
+    fireEvent.click(await openTeachBack(api));
+    expect(await screen.findByText("and for a negative score?")).toBeTruthy();
   });
 });

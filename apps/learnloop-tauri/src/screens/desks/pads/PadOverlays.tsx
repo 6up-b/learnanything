@@ -296,14 +296,58 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
   );
 }
 
+/** A submission in flight, frozen at its first try: a retry (its reply was lost, the sidecar was away) resends the
+ * very same request (id, version, target), so the server's idempotency holds and nothing is recorded twice. A new
+ * request is made only for a new submission: after this one is recorded, or once the block's words have changed. */
+interface FrozenSubmission {
+  submissionId: string;
+  versionId: string;
+  as: "attempt" | "teach_back";
+  practiceItemId: string;
+}
+
+const FROZEN = new WeakMap<object, Map<string, FrozenSubmission>>();
+
+function frozenFor(store: object): Map<string, FrozenSubmission> {
+  let map = FROZEN.get(store);
+  if (!map) {
+    map = new Map();
+    FROZEN.set(store, map);
+  }
+  return map;
+}
+
+/** A teach-back's open question, from the entry point's reply or from the session's checkpoint. */
+interface TeachBackTurn {
+  practiceItemId: string;
+  questionMd: string;
+}
+
+/** The pending follow-up question of a checkpointed teach-back on this item, if its last turn is the tutor's. */
+export function pendingTeachBackQuestion(currentAnswer: string | null | undefined, practiceItemId: string): string | null {
+  if (!currentAnswer) return null;
+  try {
+    const envelope = JSON.parse(currentAnswer) as { mode?: string; state?: { practice_item_id?: string; practiceItemId?: string; turns?: Array<{ role?: string; content_md?: string; contentMd?: string }> } };
+    if (envelope.mode !== "teach_back" || !envelope.state) return null;
+    if ((envelope.state.practice_item_id ?? envelope.state.practiceItemId) !== practiceItemId) return null;
+    const last = envelope.state.turns?.[envelope.state.turns.length - 1];
+    return last && last.role === "ai" ? last.content_md ?? last.contentMd ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
 /** "Submit this block as…" (spec §10.9): my answer to the problem pad's item or the check cell's, or a teach-back
- * of the idea of a passage the block is linked to. Only the learner's own words; the server refuses quoted text. */
+ * of the idea of a passage the block is linked to. Only the learner's own words; the server refuses quoted text.
+ * A teach-back that asks a follow-up goes on here, turn by turn, until it is graded. */
 export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost; state: PadState | null; blockId: string; onClose: () => void }) {
   const block = state?.blocks.find((each) => each.blockId === blockId) ?? null;
   const [answerItem, setAnswerItem] = useState<string | null>(null);
   const [los, setLos] = useState<string[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [turn, setTurn] = useState<TeachBackTurn | null>(null);
+  const [reply, setReply] = useState("");
   const anchors = anchorsOf(state, blockId);
   useEffect(() => {
     let live = true;
@@ -329,20 +373,46 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockId]);
   if (!state || !block) return null;
-  const submit = async (as: "attempt" | "teach_back", item: () => Promise<string>) => {
+  const padId = state.pad.padId;
+
+  const submit = async (as: "attempt" | "teach_back", key: string, item: () => Promise<string>) => {
     const sessionId = host.practiceSessionId;
     if (!sessionId) {
       setFailure("start a practice session first: a submission is recorded in it, as any attempt is");
       return;
     }
     setBusy(true);
+    setFailure(null);
+    const frozen = frozenFor(host.store);
+    const slot = `${padId}|${blockId}|${as}|${key}`;
     try {
       // The block's words must be saved before they are submitted (the server freezes that version).
       await host.store.flush();
-      const current = host.store.pads[state.pad.padId]?.blocks.find((each) => each.blockId === blockId) ?? block;
-      const practiceItemId = await item();
-      const reply = await host.api.padSubmitBlock({ submissionId: host.mintId("sub"), blockId, versionId: current.headVersionId, as, target: { sessionId, practiceItemId } });
-      host.store.noteSubmission(state.pad.padId, blockId, { submissionId: reply.submissionId, versionId: reply.versionId, as: reply.as, practiceItemId: reply.practiceItemId, attemptId: reply.attemptId, teachBackId: reply.teachBackId, createdAt: new Date().toISOString(), current: true });
+      const current = host.store.pads[padId]?.blocks.find((each) => each.blockId === blockId) ?? block;
+      let request = frozen.get(slot);
+      if (!request || request.versionId !== current.headVersionId) {
+        // A new submission (first try, or new words): its target is asked for once and kept with it.
+        request = { submissionId: host.mintId("sub"), versionId: current.headVersionId, as, practiceItemId: await item() };
+        frozen.set(slot, request);
+      }
+      const answered = await host.api.padSubmitBlock({
+        submissionId: request.submissionId, blockId, versionId: request.versionId, as, target: { sessionId, practiceItemId: request.practiceItemId },
+      });
+      frozen.delete(slot);
+      host.store.noteSubmission(padId, blockId, { submissionId: answered.submissionId, versionId: answered.versionId, as: answered.as, practiceItemId: answered.practiceItemId, attemptId: answered.attemptId, teachBackId: answered.teachBackId, createdAt: new Date().toISOString(), current: true });
+      if (as === "teach_back") {
+        const entry = answered.entry as { done?: boolean; questionMd?: string } | null;
+        let question: string | null = entry && entry.done === false ? entry.questionMd ?? null : null;
+        // Recorded before (its reply was lost): the conversation, if it goes on, is in the session's checkpoint.
+        if (!entry && answered.duplicate) {
+          const session = await host.api.getSession(sessionId).catch(() => null);
+          question = pendingTeachBackQuestion(session?.checkpoint?.currentAnswer, answered.practiceItemId);
+        }
+        if (question) {
+          setTurn({ practiceItemId: answered.practiceItemId, questionMd: question });
+          return;
+        }
+      }
       host.toast(as === "attempt" ? "submitted as your answer" : "submitted as a teach-back");
       onClose();
     } catch (error) {
@@ -351,12 +421,50 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
       setBusy(false);
     }
   };
+
+  const answerTurn = async (finish: boolean) => {
+    const sessionId = host.practiceSessionId;
+    if (!turn || !sessionId) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      const next = await host.api.submitTeachBackTurn({ sessionId, practiceItemId: turn.practiceItemId, answerMd: reply.trim(), ...(finish ? { finish: true } : {}) });
+      setReply("");
+      if (next.done === false) {
+        setTurn({ practiceItemId: turn.practiceItemId, questionMd: next.questionMd });
+        return;
+      }
+      host.toast("teach-back finished · it is graded as any teach-back");
+      onClose();
+    } catch (error) {
+      // The conversation stays in the session; the answer typed stays here to send again.
+      setFailure(messageOf(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (turn) {
+    return (
+      <div className="desk-sheet" role="dialog" aria-label="submit this block">
+        <div className="head">◎ teach-back · the tutor asks, as a student would</div>
+        <div className="note q">{turn.questionMd}</div>
+        <label>your answer<textarea aria-label="your answer" value={reply} onChange={(event) => setReply(event.target.value)} /></label>
+        {failure ? <div className="note err">{failure} · your answer is kept; send it again</div> : null}
+        <div className="acts">
+          <button type="button" disabled={busy || !reply.trim()} onClick={() => void answerTurn(false)}>answer</button>
+          <button type="button" disabled={busy} onClick={() => void answerTurn(true)}>finish now</button>
+          <button type="button" onClick={onClose}>later · it waits in your session</button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="desk-sheet" role="dialog" aria-label="submit this block">
       <div className="head">✓ submit this block as… · only your own words count</div>
-      {answerItem ? <button type="button" className="row" disabled={busy} onClick={() => void submit("attempt", async () => answerItem)}>my answer to {state.pad.kind === "problem" ? "this problem" : "this check"}</button> : null}
+      {answerItem ? <button type="button" className="row" disabled={busy} onClick={() => void submit("attempt", answerItem, async () => answerItem)}>my answer to {state.pad.kind === "problem" ? "this problem" : "this check"}</button> : null}
       {los.map((lo) => (
-        <button key={lo} type="button" className="row" disabled={busy} onClick={() => void submit("teach_back", async () => (await host.api.requestTeachBack({ learningObjectId: lo })).practiceItemId)}>a teach-back of the idea this passage teaches{los.length > 1 ? ` (${lo})` : ""}</button>
+        <button key={lo} type="button" className="row" disabled={busy} onClick={() => void submit("teach_back", lo, async () => (await host.api.requestTeachBack({ learningObjectId: lo })).practiceItemId)}>a teach-back of the idea this passage teaches{los.length > 1 ? ` (${lo})` : ""}</button>
       ))}
       {!answerItem && los.length === 0 ? <div className="note">nothing to submit this to yet: link the block to a passage (append it from a source), or write it in a problem pad</div> : null}
       {failure ? <div className="note err">{failure}</div> : null}

@@ -1596,6 +1596,8 @@ describe("RD4b: pads in the desks", () => {
         passageUnionRange: async () => ({ sections: [] }) as never,
         authorPracticeItem: async () => ({ practiceItemId: "x" }),
         workbenchOpenProblems: async () => ({ problems: [] }),
+        submitTeachBackTurn: async () => ({ done: true }) as never,
+        getSession: async () => ({ checkpoint: null }) as never,
         padDrain: async ({ deskId }: { deskId: string }) => ({
           version: 1, deskId, day: "2026-11-23",
           pads: [{ padId: "fx_pad_running", kind: "running", title: "running", kept: false, version: 1, firstLine: "softmax keeps the winner", lastLine: "is it the same move?", carryCandidate: "is it the same move?", updatedAt: "2026-11-23T10:00:00Z" }],

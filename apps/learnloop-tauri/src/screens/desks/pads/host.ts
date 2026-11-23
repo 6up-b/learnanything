@@ -10,6 +10,9 @@ import type {
   PassageUnionDto,
   PassageUnionInput,
   ProposalLabelInput,
+  SessionSnapshot,
+  SubmitTeachBackTurnInput,
+  TeachBackTurnResult,
 } from "../../../api/dto";
 import type { DeskStore } from "../store";
 import type { SearchRow } from "../search/model";
@@ -22,6 +25,10 @@ export interface PadsApi {
   requestTeachBack(input: { learningObjectId?: string; practiceItemId?: string }): Promise<{ practiceItemId: string }>;
   passageUnionRange(input: PassageUnionInput): Promise<PassageUnionDto>;
   authorPracticeItem(input: { learningObjectId: string; prompt: string; expectedAnswer: string }): Promise<{ practiceItemId: string }>;
+  /** A teach-back's next turn (the existing entry point), when a submitted teach-back asks a follow-up. */
+  submitTeachBackTurn(input: SubmitTeachBackTurnInput): Promise<TeachBackTurnResult>;
+  /** The session (its checkpoint holds a teach-back in progress). */
+  getSession(sessionId: string): Promise<SessionSnapshot>;
   /** The open problems (a problem pad's item). */
   workbenchOpenProblems(): Promise<{ problems: Array<{ sessionId: string; practiceItemId?: string | null }> }>;
 }
