@@ -6,13 +6,11 @@ blocks only, at most one per block version (the marker density is the attention 
 (``pad_proposals``). "Not this", "dismiss", "opened" and an ignored marker are labels (``proposal_labels``): ranking
 and offline evaluation, never evidence.
 
-What finds one here is the cheap, model-free part of the machinery the menus' promoted rows share: the passage
-links the cue judge already made for this learner (``passage_links``, ranked by their own ``pick_rank``). A block
-linked to a passage that a link ties to one of the learner's open problems (a hypothesis, a misconception, a named
-gap, a recurrence group, a demonstrated facet, an unchecked claim) gets the best other passage tied to the same
-problem, with that link's relation as the reason and its quote. Search and correspondents ("<video> ▶ <time> says
-this another way", found by ``search_spans`` and verified by ``verify_spans``) and the learner-history ranking are
-the menus' stage (``passage.promoted``): a block with no linked passage gets no proposal until then.
+What finds one is the menus' machinery (``learnloop.passage_union.elsewhere``, the promoted rows' too), best first:
+a passage the cue judge tied to the same learner problem as a passage the block is linked to (ranked for this
+learner, with the link's relation as the reason and its quote); else another book's section the coverage judge says
+treats the same topic; else a passage found for the block's words by keyword ("found by search, not checked"). None
+of them calls a model at the commit; meaning search and its verification are the menu job's.
 """
 from __future__ import annotations
 
@@ -24,18 +22,15 @@ from learnloop.content.sources.span_aliases import reading_source
 from learnloop.db.stores import pad_ledgers as store
 from learnloop.db.stores import pad_reads as reads
 from learnloop.ids import new_ulid
+from learnloop.passage_union.elsewhere import RELATION_REASONS
 from learnloop.pads.emission import emittable, lineage, passages_of, words_version
 
 PAD_PROPOSAL, PROMOTED_ROW = "pad_proposal", "promoted_row"
 LABELS = ("opened", "not_this", "dismiss", "ignored")
 PASSAGE_LINK = "passage_link"
 #: The reason each passage-link relation gives, in the learner's words.
-REASONS = {
-    "clarifies_distinction": "this passage draws the distinction you are working on",
-    "new_application": "this passage takes it to a new application",
-    "prerequisite_for": "this passage is what it builds on",
-    "try_first": "try this passage first",
-}
+#: What each passage-link relation says (one table, the menus' too).
+REASONS = RELATION_REASONS
 
 
 class ProposalRefused(Exception):
@@ -53,36 +48,35 @@ def _block_places(connection: Any, head: dict[str, Any]) -> set[tuple[str, str]]
     return {(extraction_id, span_id) for extraction_id, span_id in passages_of(connection, head)}
 
 
-def _candidate(connection: Any, places: set[tuple[str, str]]) -> dict[str, Any] | None:
-    """The best passage link to a passage other than ``places`` tied to a problem a link on ``places`` names."""
+def _findings(vault: Any, repository: Any, connection: Any, head: dict[str, Any]) -> list[Any]:
+    """The candidates for one block, best first: a passage the cue judge tied to the same learner problem (ranked for
+    this learner), else another book's section the coverage judge says treats the same topic, else a passage found for
+    the block's words by keyword ("found by search, not checked"). The last two need the vault; neither calls a model
+    (a commit never waits on one)."""
 
-    if not places or not _table(connection, "passage_links"):
-        return None
-    targets: set[tuple[str, str]] = set()
-    for extraction_id, span_id in sorted(places):
-        targets.update((str(row[0]), str(row[1])) for row in connection.execute(
-            "SELECT target_kind, target_id FROM passage_links WHERE extraction_id = ? AND span_id = ?",
-            (extraction_id, span_id)))
-    best: tuple[Any, ...] | None = None
-    found: dict[str, Any] | None = None
-    for target_kind, target_id in sorted(targets):
-        cursor = connection.execute(
-            "SELECT id, extraction_id, span_id, target_kind, target_id, relation, quote, pick_rank, ledger_id, "
-            "created_at FROM passage_links WHERE target_kind = ? AND target_id = ?", (target_kind, target_id))
-        names = [column[0] for column in cursor.description]
-        for raw in cursor.fetchall():
-            row = dict(zip(names, raw, strict=True))
-            if (str(row["extraction_id"]), str(row["span_id"])) in places:
-                continue
-            key = (int(row["pick_rank"]), str(row["created_at"]), str(row["id"]))
-            if best is None or key < best:
-                best, found = key, row
-    return found
+    from learnloop.passage_union import elsewhere as E
+
+    places = sorted(_block_places(connection, head))
+    found = E.by_passage_links(repository, connection, places)
+    if found or vault is None:
+        return found
+    if places:
+        found = [finding for finding in E.by_correspondents(vault, repository, places, search_fallback=False)
+                 if finding.checked]
+        if found:
+            return found
+    sources = sorted({source for extraction_id, _span in places
+                      if (source := reading_source(repository, extraction_id)) is not None})
+    return E.by_search(vault, repository, str(head["body_md"] or ""), exclude_sources=sources, exclude_places=places,
+                       deep=False, verify=False, owner_id=f"pad_proposal:{head['block_id']}", pick_at_most=1)
 
 
-def propose_for_blocks(repository: Any, block_ids: Iterable[str], *, clock: Any = None) -> list[dict[str, Any]]:
-    """After a pad batch: one proposal for each block whose newly committed words have none yet and a candidate.
-    Idempotent (one per words version). Returns the proposals written."""
+def propose_for_blocks(repository: Any, block_ids: Iterable[str], *, vault: Any = None,
+                       clock: Any = None) -> list[dict[str, Any]]:
+    """After a pad batch: one proposal for each block whose newly committed words have none yet and a candidate
+    (:func:`_findings`). Idempotent (one per words version). Returns the proposals written."""
+
+    from learnloop.passage_union.elsewhere import as_proposal
 
     written: list[dict[str, Any]] = []
     with repository.atomic():
@@ -97,22 +91,11 @@ def propose_for_blocks(repository: Any, block_ids: Iterable[str], *, clock: Any 
             words = words_version(lineage(connection, block_id))
             if words is None or reads.proposal_for_version(connection, str(words["version_id"])) is not None:
                 continue
-            link = _candidate(connection, _block_places(connection, head))
-            if link is None:
+            findings = _findings(vault, repository, connection, head)
+            if not findings:
                 continue
-            source_id = reading_source(repository, str(link["extraction_id"]))
-            if source_id is None:
-                continue
-            row = {
-                "proposal_id": new_ulid(), "block_version_id": str(words["version_id"]), "block_id": block_id,
-                "pad_id": str(head["pad_id"]), "found_by": PASSAGE_LINK,
-                "target_spec": {"content": {"kind": "source", "source_id": source_id,
-                                            "extraction_id": str(link["extraction_id"]), "view": "render"},
-                                "target": {"span_id": str(link["span_id"])}},
-                "reason_md": REASONS.get(str(link["relation"]), "this passage is tied to what you wrote"),
-                "quote": str(link["quote"] or ""), "judgment_ref": str(link["ledger_id"]),
-                "created_at": utc_now_iso(clock),
-            }
+            row = {"proposal_id": new_ulid(), "block_version_id": str(words["version_id"]), "block_id": block_id,
+                   "pad_id": str(head["pad_id"]), **as_proposal(findings[0]), "created_at": utc_now_iso(clock)}
             store.insert_proposal(connection, row)
             written.append(row)
     return written

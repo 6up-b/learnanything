@@ -131,7 +131,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
             version = (head or {}).get("version") or {}
             entry = {"annotation_id": (head or {}).get("annotation", {}).get("id"),
                      "type": version.get("annotation_type"), "learner_text": version.get("learner_text") or "",
-                     "placement": placement["state"]}
+                     "placement": placement["state"],
+                     "created_at": version.get("created_at") or (head or {}).get("annotation", {}).get("created_at")}
             spans = [segment["span_id"] for segment in placement["segments"]] or (
                 [placement["flag_span_id"]] if placement.get("flag_span_id") else [])
             for span in dict.fromkeys(spans):
@@ -157,7 +158,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
                 out[placed[0]]["pad_blocks"].append({
                     "block_id": head["block_id"], "pad_id": head["pad_id"], "kind": head["kind"],
                     "provenance": head["provenance"], "event_id": anchor["event_id"],
-                    "annotation_id": anchor["annotation_id"], "alias": placed[1], "lifted_from_block_id": lifted_from})
+                    "annotation_id": anchor["annotation_id"], "alias": placed[1], "lifted_from_block_id": lifted_from,
+                    "created_at": anchor["created_at"]})
 
         # Questions the learner carries, beside the passage they were carried from (still carried only: a quiet
         # margin mark, never a nudge; spec §10.12).
