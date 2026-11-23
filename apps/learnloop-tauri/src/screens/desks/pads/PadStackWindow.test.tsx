@@ -440,6 +440,31 @@ describe("the fix round (RD4 review)", () => {
     return screen.findByRole("button", { name: /a teach-back of the idea/ });
   }
 
+  it("Make it practice saves once: a second press while the first save is on its way authors nothing more", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    let finish: () => void = () => undefined;
+    const authored: unknown[] = [];
+    api.authorPracticeItem = ((input: unknown) => {
+      authored.push(input);
+      return new Promise((resolve) => { finish = () => resolve({ practiceItemId: "pi1" }); });
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    const save = within(sheet).getByText("save to my queue");
+    fireEvent.click(save);
+    fireEvent.click(within(sheet).getByRole("button", { name: "saving…" }));
+    expect(authored).toHaveLength(1);
+    await act(async () => {
+      finish();
+      await Promise.resolve();
+    });
+  });
+
   it("a submission retried after a lost reply resends the same frozen request: one submission id, one teach-back target", async () => {
     const { api } = mount({ server: anchoredRunning() });
     const sent: unknown[] = [];

@@ -178,6 +178,8 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
   const [los, setLos] = useState<string[] | null>(null);
   const [lo, setLo] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // One save at a time: a second press while the first is on its way would author a second item.
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     let live = true;
     const first = anchors[0];
@@ -202,13 +204,18 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
       )}
       {failure ? <div className="note err">{failure}</div> : null}
       <div className="acts">
-        <button type="button" disabled={!lo || !prompt.trim() || !answer.trim()} onClick={() => {
-          if (!lo) return;
+        <button type="button" disabled={saving || !lo || !prompt.trim() || !answer.trim()} onClick={() => {
+          if (!lo || saving) return;
+          setSaving(true);
+          setFailure(null);
           void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim() }).then(() => {
             host.toast("added to your queue");
             onClose();
-          }, (error: unknown) => setFailure(messageOf(error)));
-        }}>save to my queue</button>
+          }, (error: unknown) => {
+            setSaving(false);
+            setFailure(messageOf(error));
+          });
+        }}>{saving ? "saving…" : "save to my queue"}</button>
         <button type="button" onClick={onClose}>not now</button>
       </div>
     </div>
