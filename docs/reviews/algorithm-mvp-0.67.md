@@ -10,7 +10,7 @@ fakes; the owner's vaults are the orchestrator's (the last sections).
 | Commit | What |
 |---|---|
 | `03571d947d` | Migration 265: `mastery_seed_inputs` (empty), its roles, seventeen earlier migrations' diffs |
-| `3530e9929f` | The head fixture upgraded from 263 to 265, on its own (whichever of this branch and a 264 lands second redoes it) |
+| `3530e9929f` | The head fixture upgraded from 263 to 265, on its own (redone on main's 264 file at the merge, below) |
 | `1af1ab2a5e` | The tag: one constant, the chain entry, its set and predicate, one upgrade row (a whole-vault rebuild for now), one test row; the mechanical moves by the tag string |
 | `92fbcb0d27` | The behaviour: the capture at the three first-persistence seams, replay and the attempt-free rebuild reading it back, the upgrade's own activation; the strict xfail turned into below-tag characterization plus the successor's equality scenario; the new tests and their golden |
 | `48abf4dc98` | The new table in the tests that see every write: the journey, grade-application and synthesis-tail goldens record its rows |
@@ -364,9 +364,10 @@ database's hash unchanged.
 
 ## Judgment calls to read first
 
-1. **Migration 265 is provisional.** 264 is reserved for a parallel fix round; the 23 migration-range tests that name
-   every number fail on this branch alone (`265 != 264`) and pass with a local stand-in 264 (never committed).
-   Whichever lands second renumbers and redoes the head fixture (its own commit).
+1. **Migration 265 follows the RD0 fix round's 264.** It was built beside that round, before 264 existed, and its 23
+   migration-range tests failed on the branch alone (`265 != 264`) until 264 landed. After merging main, the head
+   fixture's 265 upgrade was redone on main's 264 file and every range test passes with no stand-in ("After merging
+   main", below).
 2. **Each recorded claim carries `in_force`** (inside `claims_made_json`, no extra column): exactness does not depend
    on the live and replay in-force rules agreeing.
 3. **The attempt-free rebuild records a seed for a learning object nobody materialized**, the one place a rebuild
@@ -382,6 +383,30 @@ database's hash unchanged.
    grade-application golden moves by a field as well as by the table's rows.
 7. **The three re-anchoring sources and AD's claim policy are untouched**; only replay's seed and its first-attempt
    folding changed.
+
+## After merging main
+
+The RD0 fix round (migration 264: replacing inserts refused, `projection_initializations`, an answer-lookup index;
+main `54be27df69`) landed while this was built, and the branch merged main once (`1350acf59a`). The head fixture is
+main's 264 file with 265 applied again by CLAUDE.md's procedure: a backup-API copy outside the checkout,
+`apply_migrations` under `upgrade_allowance(UPGRADE_SCRATCH_COPY)` applied `[265]` only, `wal_checkpoint(TRUNCATE)`
+(0, 0, 0), rollback mode (header 1/1), `integrity_check` ok, `foreign_key_check` empty, two objects added (the table and
+its autoindex), rows changed only in `schema_migrations`, no companion files (7,729,152 to 7,737,344 bytes); its README
+keeps 265's section above 264's and names 265 as the head. The seventeen diff files take main's version with
+`MASTERY_SEED_ADDED_OBJECTS` admitted beside `RD0_GUARDS_ADDED_OBJECTS`. The structure golden needed no change (main
+had not touched it, and the ratchets pass with this branch's values). The ledger keeps D8-3 beside main's RD0 rows.
+
+| Run (after the merge, no stand-in) | Result |
+|---|---|
+| The migration-range files, the seventeen diff files and the migration set (26 files) | 171 passed |
+| `test_reader_rd0_guards_migration`, `test_reader_rd0_migration` (main's) | 18 passed |
+| Journey, grade-application, synthesis-tail and due-queue goldens, identity pins, ratchets, public-tip guards, the new file, upgrades, the superseded-claims file, `-m "not arc_close"` | 851 passed |
+| The AD guard set (`test_ad23_contract`, `test_ad_guard`, `test_ad_guard_offer_receipts`, `test_ad_guard_reachable_reads`, `test_ad_protected_readings`, `test_ad_protected_tables`) | 237 passed |
+| `tests/test_architecture.py` alone; `tests/test_test_layout.py` alone | 18 passed; 3 passed |
+| `uv run ruff check`; `uv run lint-imports --no-cache` | All checks passed!; Contracts: 52 kept, 0 broken. |
+| `uv run python scripts/check_gate_partition.py` | collected 33250: landing 33184 + arc_close 66 |
+| `db_generate_reference.py`, then `db_validate_reference.py` (the notes discarded; the landing regenerates them) | `uncommitted_inputs` 0; `errors` [] |
+| A fresh `learnloop init` vault (`--starting-level some_exposure`) through the CLI, the counts script and `rebuild --shadow --json` | `mvp-0.67`, no learning object yet, one `init_wizard` claim, every seed and anomaly count 0; shadow 0, 0, 0, no due date moved; the database's hash unchanged |
 
 ## What was not verified
 
