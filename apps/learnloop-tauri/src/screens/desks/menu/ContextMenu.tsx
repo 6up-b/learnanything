@@ -68,7 +68,8 @@ export function useSheetFocus(ref: { current: HTMLElement | null }, onEscape: ()
       (field ?? node).focus();
     }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      // A modal sheet: it owns escape wherever the focus is.
+      if (screenLeavesKey(event, { modal: true }) || event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
       escape.current();
