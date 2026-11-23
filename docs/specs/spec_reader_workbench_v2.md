@@ -223,12 +223,13 @@ App-wide, under `F:components/companion/`, sits `Companion.tsx` with its state m
 - `src/learnloop/passage_union/`: the per-span union read (§7.6) and promoted menu rows (§9.1).
 - `src/learnloop/companion/`: history by day and desk, exchange context (desk, surface, pad blocks), search over exchanges.
 - `src/learnloop/curriculum/goal_lens.py` (inside the existing curriculum area): passage levels, reasons and the band summary (§12).
-- `src/learnloop/curriculum/inline_checks.py`:
+- `src/learnloop/intent/inline_checks.py` (beside "Check once" serving, `intent/checks.py`; not in `curriculum/`, because it reads `scheduling.intent` and `scheduling` already imports `curriculum`, so a module there would close a package cycle under the acyclic import contract; RD0's review, `docs/reviews/reader-rd0.md`):
   - due checks by LO, section or span;
   - inline administration;
   - veil sets (§12.6).
+- `src/learnloop/substrate/passage_spans.py`: the two DERIVED span tables of §7.6, their per-source recipes, their write-through and their replayers. They sit in `substrate` with the rebuild's other projections because the Reader's Ask, the tutor and the gap pipeline write through them, and `substrate` imports none of those (RD0's review).
 
-Handlers live in `H:desks.py`, `H:pads.py`, `H:companion.py`, `H:passage_union.py` and `H:goal_lens.py`.
+Handlers live in `H:desks.py`, `H:pads.py`, `H:companion.py`, `H:passage_union.py`, `H:inline_checks.py` and `H:goal_lens.py`.
 
 ### 3.3 Import fences (new contracts in `pyproject.toml`)
 1. **Nothing that writes evidence reads pads, ink, desks or veil sets,** the replay, evidence and serving internals included. The only exits are explicit:
@@ -265,10 +266,12 @@ Open specs, claims, back-links, search results, promoted rows and path rows all 
 - The server applies a batch **in one SQLite transaction** together with its receipt, in `seq` order, and refuses a gap in `seq`.
 - An op whose expected head is stale is not applied. It returns `conflict` with the current head, and the client resolves it (§3.5).
 - A retried batch with an already-applied `seq` returns the stored receipt.
+- `seq` is one sequence per client across `desk.apply` and `pad.apply` (one outbox).
+- A reply names data in lists, never as object keys (`versions`, `server_seq`, the union's `spans`): the sidecar turns every reply key into camelCase, which would rewrite an id used as a key.
 
 | Method | Input | Reply | Notes |
 |---|---|---|---|
-| `desk.state` | `{}` | `{desks:[{desk_id, title, position, focus_window_id, goal_id?, companion:{dock, shown}, version, slots:[{slot, windows:[{window_id, pane, content:ContentRef, view}]}]}], running_pad_ids, server_seq:{client_id: seq}}` | One read at startup and after a conflict. **Slots are authoritative:** a pair is two windows sharing a `slot` with panes 0 and 1. There are no nested pair specs |
+| `desk.state` | `{}` | `{desks:[{desk_id, title, position, focus_window_id, goal_id?, companion:{dock, shown}, version, slots:[{slot, windows:[{window_id, pane, content:ContentRef, view}]}]}], running_pad_ids, server_seq:[{client_id, seq}]}` | One read at startup and after a conflict. **Slots are authoritative:** a pair is two windows sharing a `slot` with panes 0 and 1. There are no nested pair specs |
 | `desk.apply` | `{client_id, seq, ops:[{op, expected_version, …}]}` | `{applied_seq, results:[ok\|conflict{current}], versions}` | The ops are `create_desk`, `rename_desk`, `archive_desk`, `move_desk`, `open_window`, `close_window`, `reopen_window`, `move_window`, `move_to_desk`, `pair`, `unpair`, `set_focus`, `set_active_pane`, `set_view`, `set_dock`, `set_companion_shown`, `set_goal` |
 | `pad.get` | `{pad_id}` | `{pad, blocks:[{block_id, head_version_id, …}], anchors}` | |
 | `pad.list` | `{desk_id?, query?, kept?, cursor?}` | `{pads}` | Feeds the library, search and the drain |
@@ -276,7 +279,7 @@ Open specs, claims, back-links, search results, promoted rows and path rows all 
 | `pad.submit_block` | `{submission_id (client-minted), block_id, version_id, as: "attempt"\|"teach_back", target}` | `{attempt_id?\|teach_back_id?}` | Idempotent by `submission_id`; hands off to existing entry points (§10.9) |
 | `ink.save` | `{client_id, seq, owner:{block_id\|annotation_id}, ink_id (client-minted), strokes}` | `{ink_id}` | |
 | `ink.transcribe` / `ink.transcribe_job` | `{ink_id}` | job → `{latex_md, confidence_label}` | A paid route through the plan transport (§10.10) |
-| `passage.union_range` | `{extraction_id, from_span_id, to_span_id}` or `{extraction_id, t0, t1}` | `{spans:{span_id: union}}` | Goal-independent (§7.6). **Batched per visible range,** never per span on hover |
+| `passage.union_range` | `{extraction_id, from_span_id, to_span_id}` or `{extraction_id, t0, t1}` | `{extraction_id, spans:[{span_id, …union}], sections}` | Goal-independent (§7.6). **Batched per visible range,** never per span on hover |
 | `passage.promoted` | `{extraction_id, span_id\|t, object_kind, desk_id}` | `{rows, pending_job?}` | Cheap rows inline; judged rows through a job (§9.1) |
 | `companion.history` | `{from?, to?, desk_id?, query?, cursor?}` | `{days:[{date, desks:[{desk_id, exchanges:[…]}]}], cursor}` | §8.5 |
 | `companion.ask` / `companion.ask_job` | the `reader.ask` input plus `{request_id, desk_id, surface, pad_block_ids?, notebook_ref?}` | job → `{status, partial_md, citations, done}` | **Generation is a job** (review F8): today's `reader.ask` calls the model synchronously inside the mutex. The handler runs the existing ask path off the request thread and records the exchange context. The client polls `partial_md` through the central poller (§3.6) to show the answer streaming. Off the Reader, the wrapped call is `ask_tutor_question` |
@@ -1766,12 +1769,12 @@ Use the next free migration numbers at build time (`ls migrations/`). Classify e
 |---|---|---|---|
 | `desks` | WORKFLOW | `desk_id`, `title`, `position`, `focus_window_id`, `goal_id?`, `companion_dock`, `companion_shown`, `created_at`, `archived_at?` | RD0 |
 | `desk_windows` | WORKFLOW | `window_id`, `desk_id`, `slot`, `pane` (0/1 in a pair), `kind`, `spec_json`, `view_json` (scroll anchor by span or t, document zoom, stack mode and ratios, active pad), `opened_at`, `closed_at?` (soft close, for undo and history) | RD0 |
-| `desk_op_receipts` | RECEIPT | `op_id`, `applied_at`, `result` | RD0 |
+| `desk_op_receipts` | RECEIPT | `client_id`, `seq` (the batch, §3.4), `request_hash`, `result_json` (the stored reply), `applied_at` | RD0 |
 | `pads` | WORKFLOW | `pad_id`, `kind` (`running`, `named`, `problem`, `ink`, `lesson_additions`), `title`, `kept`, `home_desk_id?`, `workbench_session_id?`, `lesson_id?`, `created_at`, `archived_at?` | RD0 |
 | `pad_block_versions` | RAW_LEDGER (append-only by trigger) | `version_id`, `block_id`, `supersedes_id?`, `pad_id`, `position_key` (a fractional index), `day` (running pads), `kind`, `body_md`, `payload_json` (sketch shapes, cell code, quote anchor, open spec, figure ref), `provenance` (`learner`, `source`, `tutor`, `learnloop`, `ink_transcription`, `learner_correction`), `tombstone`, `created_at` | RD0 |
 | `pad_block_anchors` | RAW_LEDGER | `event_id`, `block_id`, `extraction_id`, `span_id`, `anchor_json` (anchor-v1), `annotation_id?`, `action` (`link`, `unlink`), `created_at` | RD0 |
 | `pad_block_submissions` | RAW_LEDGER | `block_id`, `version_id`, `as`, `attempt_id?`, `teach_back_id?`, `created_at` | RD4 |
-| `pad_op_receipts` | RECEIPT | `op_id`, `pad_id`, `applied_at` | RD0 |
+| `pad_op_receipts` | RECEIPT | `client_id`, `seq`, `pad_id`, `request_hash`, `result_json`, `applied_at` | RD0 |
 | `ink_strokes` | RAW_LEDGER | `ink_id`, `owner_kind` (`block`, `annotation`), `owner_id`, `strokes_blob` (compressed points with pressure and tilt), `pointer_meta`, `created_at` | RD8a |
 | `companion_exchange_context` | RAW_LEDGER | `question_event_id`, `desk_id?`, `surface`, `window_spec_json?`, `pad_block_ids_json?`, `goal_id?`, `origin` (`live`, `backfill`) | RD0 |
 | `question_event_spans` | DERIVED | `question_event_id`, `extraction_id`, `span_id`, `role` (`selection`, `cited`) | RD0 (replayer from `interaction_events` reader payloads) |
