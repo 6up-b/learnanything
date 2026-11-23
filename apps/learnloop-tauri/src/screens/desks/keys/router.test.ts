@@ -281,6 +281,21 @@ describe("the companion's and search's keys (RD3)", () => {
     expect(resolveKey(key("c", "KeyC"), { overview: true }, mods)).toBeNull();
   });
 
+  it("a typing scope a window claims with the focus still on the page (the Reader's intent box over a selection) lets c, shift+c and / through; real typing keeps them", () => {
+    const claimed: ScopeState = { typingClaim: true };
+    expect(resolveKey(key("c", "KeyC"), claimed, mods)?.binding.action).toEqual({ kind: "companion", atDock: false });
+    expect(resolveKey(key("C", "KeyC", { shiftKey: true }), claimed, mods)?.binding.action).toEqual({ kind: "companion", atDock: true });
+    expect(resolveKey(key("/", "Slash"), claimed, mods)?.binding.action).toEqual({ kind: "search" });
+    // Every other bare key stays the claim's (x would swap, o would zoom out).
+    expect(resolveKey(key("x", "KeyX"), claimed, mods)).toBeNull();
+    expect(resolveKey(key("o", "KeyO"), claimed, mods)).toBeNull();
+    // The DOM focus in an editor: typing, whatever is claimed.
+    expect(resolveKey(key("c", "KeyC"), { typing: true, typingClaim: true }, mods)).toBeNull();
+    expect(resolveKey(key("/", "Slash"), { typing: true, typingClaim: true }, mods)).toBeNull();
+    // An open menu still takes them.
+    expect(resolveKey(key("c", "KeyC"), { typingClaim: true, menu: true }, mods)).toBeNull();
+  });
+
   it("alt+c is no shell chord, and c is no shell letter (no collision with keymap.ts)", () => {
     const binding = DESK_BINDINGS.find((each) => each.id === "companion.typing");
     expect(binding?.chord).toMatchObject({ alt: true, code: "KeyC" });

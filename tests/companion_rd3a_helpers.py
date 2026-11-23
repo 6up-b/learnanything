@@ -111,6 +111,23 @@ def workbench_contexts(tmp_path: Any, monkeypatch: Any) -> Iterator[Callable[...
         close_and_wait(ctx)
 
 
+def hold_before_the_tutor(monkeypatch: Any) -> tuple[threading.Event, threading.Event]:
+    """Hold a job after its context is read and before the tutor's request is admitted: (reached, release)."""
+
+    from learnloop.reader import reader_dialogue as RD
+
+    reached, release = threading.Event(), threading.Event()
+    original = RD.build_reader_manifest
+
+    def held(*args: Any, **kwargs: Any) -> Any:
+        reached.set()
+        assert release.wait(WAIT)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(RD, "build_reader_manifest", held)
+    return reached, release
+
+
 def ask_params(request_id: str = "req_1", question: str = ROOT_QUESTION, **extra: Any) -> dict[str, Any]:
     """``companion.ask``'s input on the library vault's text passage (the old Reader's surface by default)."""
 
@@ -119,11 +136,19 @@ def ask_params(request_id: str = "req_1", question: str = ROOT_QUESTION, **extra
             **extra}
 
 
+def job_of(ctx: Any, job_id: str, *, registry: str = "companion_ask_jobs") -> Any:
+    """The polled job ``job_id`` of the vault ``ctx`` has open (None when not kept)."""
+
+    from learnloop_sidecar.polled_jobs import vault_key
+
+    jobs = getattr(ctx, registry, None)
+    return None if jobs is None else jobs.get(vault_key(ctx), job_id)
+
+
 def wait_job(ctx: Any, request_id: str, *, method: str = "companion.ask_job") -> dict[str, Any]:
     """Wait on the job itself (a poll never waits), then poll it once."""
 
-    registry = ctx.companion_ask_jobs if method.startswith("companion") else ctx.search_jobs
-    job = registry.get(request_id)
+    job = job_of(ctx, request_id, registry="companion_ask_jobs" if method.startswith("companion") else "search_jobs")
     assert job is not None and job.done.wait(WAIT), f"job {request_id} did not finish"
     deadline = time.monotonic() + WAIT
     while job.thread is not None and job.thread.is_alive() and time.monotonic() < deadline:

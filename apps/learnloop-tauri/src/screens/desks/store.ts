@@ -12,7 +12,7 @@
 // pad model, its batches queued in the same outbox (one numbering a client), reconciled the same way.
 import type { DeskOpDto, DeskStateDto, PadBlockSubmissionDto, PadOpDto, PadViewDto } from "../../api/dto";
 import { EMPTY_WORKSPACE, OpRefusal, fromDeskState, restampOp, type Step, type Workspace } from "./model/workspace";
-import { DeskOutbox, MemoryOutboxStore, type BatchBody, type OutboxTransport } from "./outbox";
+import { DeskOutbox, MemoryOutboxStore, type BatchBody, type OutboxTransport, type FlushOutcome } from "./outbox";
 import { PadOpRefusal, applyPadOp, fromPadView, restampPadOp, type Pads } from "./pads/model";
 import type { Timers } from "./keys/router";
 
@@ -187,12 +187,34 @@ export class DeskStore {
    * reconcile: a second flush started while the first's conflict is being reconciled would otherwise send
    * the batches queued after the conflict with heads that no longer hold, before they are rebased. */
   flush(): Promise<void> {
+    return this.flushReporting().then(() => undefined);
+  }
+
+  private flushReporting(): Promise<FlushOutcome["kind"]> {
     const run = this.flushChain.then(() => this.flushOnce());
-    this.flushChain = run.catch(() => undefined);
+    this.flushChain = run.then(() => undefined, () => undefined);
     return run;
   }
 
-  private async flushOnce(): Promise<void> {
+  /** Every desk (and pad) write queued so far, acknowledged by the server: sent now, not at the idle flush.
+   * "unsaved" when they cannot be sent (offline) or keep failing; a companion question waits on this, because
+   * the sidecar reads the desk's focus and windows when it records the question. */
+  async settled(): Promise<"saved" | "unsaved"> {
+    for (let pass = 0; pass < 4; pass += 1) {
+      if (this.reconciling) await this.reconciling;
+      if (this.outbox.pending === 0) return "saved";
+      if (this.flushTimer !== null) {
+        this.timers.clear(this.flushTimer);
+        this.flushTimer = null;
+      }
+      const kind = await this.flushReporting();
+      if (kind === "offline") return "unsaved";
+    }
+    if (this.reconciling) await this.reconciling;
+    return this.outbox.pending === 0 ? "saved" : "unsaved";
+  }
+
+  private async flushOnce(): Promise<FlushOutcome["kind"]> {
     if (this.reconciling) await this.reconciling;
     const outcome = await this.outbox.flush();
     if (outcome.kind === "conflict") {
@@ -210,6 +232,7 @@ export class DeskStore {
     } else if (outcome.kind === "offline") {
       this.notify({ kind: "offline", message: outcome.message });
     }
+    return outcome.kind;
   }
 
   /** The server's state, with every op still queued rebased on it. Ops that no longer apply there are

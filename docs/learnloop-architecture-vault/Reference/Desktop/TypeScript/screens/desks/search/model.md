@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/search/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/search/model.ts) |
-| Source lines | 158 |
+| Source lines | 166 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/search/_area|TypeScript/screens/desks/search]] |
 | Refactor status | `ACTIVE` |
@@ -54,48 +54,48 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const ROWS_PER_GROUP = 3` — const, line 19
-- `export const GROUP_ORDER: readonly SearchScope[] = ["sources", "passages", "notes", "pads", "threads", "exchanges"]` — const, line 21
-- `export interface OpenWindow` — interface, line 24
-- `export type SearchRow = |` — type, line 29
-- `export interface ShownGroup` — interface, line 34
-- `export function describeRow(group: SearchScope, raw: SearchGroupDto["rows"][number], deskTitle: (deskId: string | null)` — function, line 59
-- `export function shownGroups(input:` — function, line 104
-- `export function selectableRows(groups: ShownGroup[]): SearchRow[]` — function, line 149
-- `export function meaningNote(words: SearchEverythingDto | null): string | null` — function, line 154
+- `export const ROWS_PER_GROUP = 3` — const, line 20
+- `export const GROUP_ORDER: readonly SearchScope[] = ["sources", "passages", "notes", "pads", "threads", "exchanges"]` — const, line 22
+- `export interface OpenWindow` — interface, line 25
+- `export type SearchRow = |` — type, line 30
+- `export interface ShownGroup` — interface, line 35
+- `export function describeRow(group: SearchScope, raw: SearchGroupDto["rows"][number], deskTitle: (deskId: string | null)` — function, line 60
+- `export function shownGroups(input:` — function, line 105
+- `export function selectableRows(groups: ShownGroup[]): SearchRow[]` — function, line 156
+- `export function meaningNote(words: SearchEverythingDto | null, fromJob: ReadonlyArray<` — function, line 162
 
 ## Internal implementation anchors
 
-- `function shortDate(iso: string | null | undefined): string` — function, line 46
-- `const date = new Date(iso)` — const, line 48
-- `function clip(text: string, length = 140): string` — function, line 53
-- `const flat = text.replace(/\s+/g, " ").trim()` — const, line 54
-- `const row = raw as SearchSourceRowDto` — const, line 62
-- `const kind = row.ref?.kind === "video" ? "video" : "source"` — const, line 63
-- `const row = raw as SearchPassageRowDto` — const, line 67
-- `const at = row.ref?.kind === "video" && typeof row.target?.t === "number" ? ` ▶ $` — const, line 68
-- `const row = raw as SearchNoteRowDto` — const, line 72
-- `const row = raw as SearchPadRowDto` — const, line 77
-- `const row = raw as SearchThreadRowDto` — const, line 81
-- `const row = raw as SearchExchangeRowDto` — const, line 85
-- `function clock(seconds: number): string` — function, line 91
-- `const s = Math.max(0, Math.floor(seconds))` — const, line 92
-- `function rowKey(group: SearchScope, raw: SearchGroupDto["rows"][number], index: number): string` — function, line 96
-- `const r = raw as unknown as Record<string, unknown>` — const, line 97
-- `const id = r.spanId ?? r.blockId ?? r.noteKey ?? r.gapId ?? r.questionEventId ?? r.sourceId ?? index` — const, line 98
-- `const out: ShownGroup[] = []` — const, line 113
-- `const q = input.query.trim().toLowerCase()` — const, line 114
-- `const openRows: SearchRow[] = input.open .filter((window)` — const, line 115
-- `const pendingGroups = new Set(input.meaningPending ? input.words.meaning.groups ?? [] : [])` — const, line 120
-- `const words = input.words.groups.find((group)` — const, line 122
-- `const meaning = input.meaning.find((group)` — const, line 123
-- `const rows: SearchRow[] = []` — const, line 124
-- `const seen = new Set<string>()` — const, line 125
-- `const key = rowKey(id, raw, index)` — const, line 129
-- `const described = describeRow(id, raw, input.deskTitle)` — const, line 132
-- `const off = words && words.status === "off" ? words.reason ?? "not available" : null` — const, line 136
-- `function limit(group: ShownGroup, expanded: ReadonlySet<string>): ShownGroup` — function, line 143
-- `const reasons = [...new Set(words.meaning.unavailable.map((entry)` — const, line 156
+- `function shortDate(iso: string | null | undefined): string` — function, line 47
+- `const date = new Date(iso)` — const, line 49
+- `function clip(text: string, length = 140): string` — function, line 54
+- `const flat = text.replace(/\s+/g, " ").trim()` — const, line 55
+- `const row = raw as SearchSourceRowDto` — const, line 63
+- `const kind = row.ref?.kind === "video" ? "video" : "source"` — const, line 64
+- `const row = raw as SearchPassageRowDto` — const, line 68
+- `const at = row.ref?.kind === "video" && typeof row.target?.t === "number" ? ` ▶ $` — const, line 69
+- `const row = raw as SearchNoteRowDto` — const, line 73
+- `const row = raw as SearchPadRowDto` — const, line 78
+- `const row = raw as SearchThreadRowDto` — const, line 82
+- `const row = raw as SearchExchangeRowDto` — const, line 86
+- `function clock(seconds: number): string` — function, line 92
+- `const s = Math.max(0, Math.floor(seconds))` — const, line 93
+- `function rowKey(group: SearchScope, raw: SearchGroupDto["rows"][number], index: number): string` — function, line 97
+- `const r = raw as unknown as Record<string, unknown>` — const, line 98
+- `const id = r.spanId ?? r.blockId ?? r.noteKey ?? r.gapId ?? r.questionEventId ?? r.sourceId ?? index` — const, line 99
+- `const out: ShownGroup[] = []` — const, line 114
+- `const q = input.query.trim().toLowerCase()` — const, line 115
+- `const openRows: SearchRow[] = input.open .filter((window)` — const, line 116
+- `const pendingGroups = new Set(input.meaningPending ? input.words.meaning.groups ?? [] : [])` — const, line 121
+- `const words = input.words.groups.find((group)` — const, line 123
+- `const meaning = input.meaning.find((group)` — const, line 124
+- `const rows: SearchRow[] = []` — const, line 125
+- `const seen = new Set<string>()` — const, line 126
+- `const key = rowKey(id, raw, index)` — const, line 130
+- `const described = describeRow(id, raw, input.deskTitle)` — const, line 133
+- `const off = words && words.status !== "ok" ? words.reason ?? "not available" : meaning && meaning.status !== "ok" ? `by meaning: $` — const, line 139
+- `function limit(group: ShownGroup, expanded: ReadonlySet<string>): ShownGroup` — function, line 150
+- `const reasons = [...new Set([...words.meaning.unavailable, ...fromJob].map((entry)` — const, line 164
 
 ## Who imports or calls it
 
@@ -110,7 +110,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchRowBase`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`
 
 ### Assets, platform, and third-party dependencies
 

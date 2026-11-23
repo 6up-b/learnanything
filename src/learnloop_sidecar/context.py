@@ -207,7 +207,10 @@ class SidecarContext:
         self.secondary = False
         self.content_fingerprint = None
         if self.vault_root is not None and target != self.vault_root:
-            # A switch: the previous vault's map builds stop before anything of the new one opens.
+            # A switch ends the previous vault's job epoch first: a job it started sends no further request,
+            # ends interrupted, and its completion never touches the new vault's context.
+            self.background_jobs.cancel()
+            # The previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
             # followups-nov1c B: the previous vault's fold memo and its watcher go too.
             forget_fold_memo()

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/companion.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/companion.ts) |
-| Source lines | 194 |
+| Source lines | 198 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -64,23 +64,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const job = this.jobs.get(requestId)` — const, line 44
 - `const done = job.status === "done" || job.status === "cancelled"` — const, line 64
 - `const answerMd = /math/.test(job.input.question) ? `Work through it in order:$` — const, line 66
-- `const job = this.jobs.get(requestId)` — const, line 98
-- `const earlier: CompanionExchangeDto[] = [` — const, line 104
-- `const all = [...this.answered, ...earlier]` — const, line 114
-- `const q = input.query?.toLowerCase().trim()` — const, line 115
-- `const rows = q ? all.filter((exchange)` — const, line 116
-- `const days = new Map<string, CompanionExchangeDto[]>()` — const, line 117
-- `const date = row.createdAt.slice(0, 10)` — const, line 119
-- `const q = input.query.toLowerCase().trim()` — const, line 130
-- `const sources = FIXTURE_LIBRARY.filter((card)` — const, line 131
-- `const passages = this.passages((text)` — const, line 141
-- `const jobId = `fx_search_$` — const, line 142
-- `const groups: SearchGroupDto[] = [` — const, line 144
-- `const search = this.searches.get(jobId)` — const, line 169
-- `const done = this.now() - search.at >= 300` — const, line 171
-- `const rows = done ? this.passages((text)` — const, line 173
-- `const card = FIXTURE_LIBRARY.find((entry)` — const, line 184
-- `const video = view.extractionId === FIXTURE_SOURCES.video.extractionId || view.extractionId === FIXTURE_SOURCES.video2.extractionId` — const, line 185
+- `const job = this.jobs.get(requestId)` — const, line 101
+- `const earlier: CompanionExchangeDto[] = [` — const, line 107
+- `const all = [...this.answered, ...earlier]` — const, line 117
+- `const q = input.query?.toLowerCase().trim()` — const, line 118
+- `const rows = q ? all.filter((exchange)` — const, line 119
+- `const days = new Map<string, CompanionExchangeDto[]>()` — const, line 120
+- `const date = row.createdAt.slice(0, 10)` — const, line 122
+- `const q = input.query.toLowerCase().trim()` — const, line 133
+- `const sources = FIXTURE_LIBRARY.filter((card)` — const, line 134
+- `const passages = this.passages((text)` — const, line 144
+- `const jobId = `fx_search_$` — const, line 145
+- `const groups: SearchGroupDto[] = [` — const, line 147
+- `const search = this.searches.get(jobId)` — const, line 172
+- `const done = this.now() - search.at >= 300` — const, line 174
+- `const rows = done ? this.passages((text)` — const, line 176
+- `const card = FIXTURE_LIBRARY.find((entry)` — const, line 188
+- `const video = view.extractionId === FIXTURE_SOURCES.video.extractionId || view.extractionId === FIXTURE_SOURCES.video2.extractionId` — const, line 189
 
 ## Who imports or calls it
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
-| Source lines | 11099 |
+| Source lines | 11113 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
@@ -951,18 +951,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type CompanionAskStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "expired"` — type, line 10991
 - `export interface PolledJobErrorDto` — interface, line 10993
 - `export interface CompanionAskJobDto` — interface, line 11001
-- `export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges"` — type, line 11021
-- `export interface SearchEverythingInput` — interface, line 11023
-- `export interface SearchRowBase` — interface, line 11031
-- `export interface SearchSourceRowDto extends SearchRowBase` — interface, line 11036
-- `export interface SearchPassageRowDto extends SearchRowBase` — interface, line 11040
-- `export type SearchNoteRowDto = SearchRowBase & ( |` — type, line 11044
-- `export interface SearchPadRowDto extends SearchRowBase` — interface, line 11048
-- `export interface SearchThreadRowDto extends SearchRowBase` — interface, line 11053
-- `export interface SearchExchangeRowDto extends SearchRowBase` — interface, line 11057
-- `export interface SearchGroupDto` — interface, line 11062
-- `export interface SearchEverythingDto` — interface, line 11078
-- `export interface SearchJobDto` — interface, line 11091
+- `export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges"` — type, line 11027
+- `export interface SearchEverythingInput` — interface, line 11029
+- `export interface SearchRowBase` — interface, line 11037
+- `export interface SearchSourceRowDto extends SearchRowBase` — interface, line 11043
+- `export interface SearchPassageRowDto extends SearchRowBase` — interface, line 11047
+- `export type SearchNoteRowDto = SearchRowBase & ( |` — type, line 11051
+- `export interface SearchPadRowDto extends SearchRowBase` — interface, line 11058
+- `export interface SearchThreadRowDto extends SearchRowBase` — interface, line 11063
+- `export interface SearchExchangeRowDto extends SearchRowBase` — interface, line 11067
+- `export interface SearchGroupDto` — interface, line 11072
+- `export interface SearchEverythingDto` — interface, line 11089
+- `export interface SearchJobDto` — interface, line 11102
 
 ## Internal implementation anchors
 
@@ -1104,7 +1104,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export: `CarriedQuestionDto`, `CarryInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageUnionDto`, `PassageUnionInput`, `ProposalLabelInput`; references `CarriedQuestionDto`, `CarryInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageUnionDto`, `PassageUnionInput`, `ProposalLabelInput`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export: `PadAnchorDto`, `PadBlockDto`, `PadBlockKind`, `PadDto`, `PadOpDto`, `PadProvenance`, `PadViewDto`; references `PadAnchorDto`, `PadBlockDto`, `PadBlockKind`, `PadDto`, `PadOpDto`, `PadProvenance`, `PadViewDto`
 - [[Reference/Desktop/TypeScript/screens/desks/search/SearchPanel|src/screens/desks/search/SearchPanel.tsx]] — import-or-re-export: `SearchEverythingDto`, `SearchEverythingInput`, `SearchGroupDto`, `SearchJobDto`; references `SearchEverythingDto`, `SearchEverythingInput`, `SearchGroupDto`, `SearchJobDto`
-- [[Reference/Desktop/TypeScript/screens/desks/search/model|src/screens/desks/search/model.ts]] — import-or-re-export: `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`; references `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`
+- [[Reference/Desktop/TypeScript/screens/desks/search/model|src/screens/desks/search/model.ts]] — import-or-re-export: `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchRowBase`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`; references `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchRowBase`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `DeskOpDto`, `DeskStateDto`, `PadBlockSubmissionDto`, `PadOpDto`, `PadViewDto`; references `DeskOpDto`, `DeskStateDto`, `PadBlockSubmissionDto`, `PadOpDto`, `PadViewDto`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `ContentRefDto`, `LibraryHitDto`; references `ContentRefDto`, `LibraryHitDto`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] — import-or-re-export: `ContentRefDto`, `SourceLibraryCard`; references `ContentRefDto`, `SourceLibraryCard`

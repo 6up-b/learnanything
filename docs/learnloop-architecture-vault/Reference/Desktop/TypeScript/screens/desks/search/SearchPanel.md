@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/search/SearchPanel.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/search/SearchPanel.tsx) |
-| Source lines | 220 |
+| Source lines | 236 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/search/_area|TypeScript/screens/desks/search]] |
 | Refactor status | `ACTIVE` |
@@ -62,26 +62,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Internal implementation anchors
 
-- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 47
-- `const searchSeq = useRef(0)` — const, line 48
-- `const stopMeaning = useRef<(()` — const, line 49
-- `const trimmed = query.trim()` — const, line 57
-- `const seq = ++searchSeq.current` — const, line 67
-- `const handle = timers.set(()` — const, line 68
-- `const jobId = found.meaning.jobId` — const, line 76
-- `const groups = useMemo( ()` — const, line 106
-- `const rows = useMemo(()` — const, line 110
-- `const current = rows[Math.min(selected, rows.length - 1)] ?? null` — const, line 111
-- `const rowEls = useRef(new Map<string, HTMLElement>())` — const, line 114
-- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 115
-- `const element = current ? rowEls.current.get(current.key) : null` — const, line 118
-- `const close = ()` — const, line 127
-- `const choose = (row: SearchRow | null)` — const, line 137
-- `const onKeyDown = (event: React.KeyboardEvent)` — const, line 144
-- `const group = groups.find((each)` — const, line 160
-- `const note = meaningNote(words)` — const, line 165
-- `const motion = reducedMotion ? " still" : ""` — const, line 166
-- `const index = rows.findIndex((each)` — const, line 198
+- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 50
+- `const searchSeq = useRef(0)` — const, line 51
+- `const stopMeaning = useRef<(()` — const, line 52
+- `const trimmed = query.trim()` — const, line 61
+- `const seq = ++searchSeq.current` — const, line 62
+- `const handle = timers.set(()` — const, line 76
+- `const jobId = found.meaning.jobId` — const, line 84
+- `const groups = useMemo( ()` — const, line 121
+- `const rows = useMemo(()` — const, line 125
+- `const current = rows[Math.min(selected, rows.length - 1)] ?? null` — const, line 126
+- `const rowEls = useRef(new Map<string, HTMLElement>())` — const, line 129
+- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 130
+- `const element = current ? rowEls.current.get(current.key) : null` — const, line 133
+- `const close = ()` — const, line 142
+- `const choose = (row: SearchRow | null)` — const, line 152
+- `const onKeyDown = (event: React.KeyboardEvent)` — const, line 159
+- `const group = groups.find((each)` — const, line 175
+- `const note = meaningNote(words, meaningUnavailable)` — const, line 180
+- `const motion = reducedMotion ? " still" : ""` — const, line 181
+- `const index = rows.findIndex((each)` — const, line 213
 
 ## Who imports or calls it
 
@@ -111,7 +111,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/desks/search/SearchPanel.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/search/SearchPanel.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

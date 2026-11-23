@@ -210,7 +210,7 @@ def prepare_reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> ReaderAsk
                          phone=ctx.request_origin is not None)
 
 
-def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
+def generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any = None) -> dict[str, Any]:
     """The model call and the exchange it records (``reader_dialogue.ask``), its failures as sidecar errors."""
 
     vault, params, lookup, binding = call.vault, call.params, call.lookup, call.binding
@@ -243,6 +243,7 @@ def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
             **({"reader_caller": restricted.stored()} if restricted.stored() else {}),
             **({"learner_state": learner_state} if learner_state is not None else {}),
             **({"context_withheld": destination} if destination is not None else {}),
+            **({"on_question_recorded": on_question_recorded} if on_question_recorded is not None else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -260,14 +261,13 @@ def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
         ) from exc
 
 
-def reader_ask_reply(ctx: SidecarContext, call: ReaderAskCall, result: dict[str, Any]) -> dict[str, Any]:
-    """The Ask's reply (before ``versioned``) for the exchange ``generate_reader_answer`` recorded."""
-
-    vault, repository, params, tools_allowed, restricted = (call.vault, call.repository, call.params,
-                                                            call.tools_allowed, call.restricted)
+def reader_ask_reply(ctx: SidecarContext, call: ReaderAskCall, result: dict[str, Any], *, live: Any = None) -> dict:
+    """The Ask's reply (before ``versioned``). ``live`` false (a job whose context closed or switched vaults)
+    wakes nothing of the context: the gap reading is queued in the question's vault, no prefetch is queued."""
     from learnloop_sidecar import phone_reader as PR
     from learnloop_sidecar.handlers import reader_tutor as RTU
-
+    vault, repository, params, tools_allowed, restricted = call.vault, call.repository, call.params, call.tools_allowed, call.restricted
+    awake = live is None or bool(live())
     if call.phone and not _phone_ask_history(
             vault, repository, params.extraction_id, [{"event_id": str(result["reader_answer_event_id"])}]):
         # Mobile v2 V4 landing (ruling R1): the answer as the Ask stored it (its citations, excerpt and what the
@@ -294,7 +294,7 @@ def reader_ask_reply(ctx: SidecarContext, call: ReaderAskCall, result: dict[str,
         "remaining": result["remaining"],
         # Learner-text gaps: a reader question is read for a named gap too.
         "learner_gap": queue_tutor_question_gap(
-            ctx, vault, repository, result["event_id"], result.get("learner_gap")
+            ctx, vault, repository, result["event_id"], result.get("learner_gap"), wake=awake,
         ),
     })
     if result.get("suggested_learning_objects"):
@@ -329,7 +329,7 @@ def reader_ask_reply(ctx: SidecarContext, call: ReaderAskCall, result: dict[str,
         response["tutor_offers"] = offers
     if practice_request is not None:
         response["practice_request"] = practice_request
-    if not cold:
+    if not cold and awake:
         # RW5d P5 (spec §10b.2): the answer's explorable offers may be built
         # ahead of the press, quietly (nothing happens with prefetch off).
         from learnloop_sidecar.prefetch_runtime import notify_offer

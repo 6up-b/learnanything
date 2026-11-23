@@ -152,7 +152,11 @@ export interface ScopeState {
   notebook?: boolean;
   check?: boolean;
   menu?: boolean;
+  /** The DOM focus is in a field (input, textarea, an editor, a part marked as typing). */
   typing?: boolean;
+  /** A window's content claims typed keys while the DOM focus stays on the page (the Reader's intent box over a
+   * selection): typing for every key but the selection's own shortcuts (`SELECTION_SHORTCUTS`). */
+  typingClaim?: boolean;
   arrange?: boolean;
   pen?: boolean;
   overview?: boolean;
@@ -219,7 +223,18 @@ export interface Resolution {
 /** The binding this key event reaches, and the scope that owns it; null when no workbench scope takes
  * it (the key goes on to the window and the shell). The first open scope that owns a matching chord
  * wins; a scope that owns nothing for it either stops the key there or passes it down. */
+/** What a selection is for on the desks (c asks about it, shift+c at the dock, / searches it): they reach the
+ * reading view through a claimed typing scope as long as the focus stays on the reading surface. A box that
+ * claims typed keys over a selection would otherwise take the very keys the selection invites. */
+export const SELECTION_SHORTCUTS: ReadonlySet<string> = new Set(["reading.companion", "reading.companion-dock", "reading.search"]);
+
 export function resolveKey(event: KeyLike, state: ScopeState, mods: { alt: boolean; ctrl: boolean }): Resolution | null {
+  if (state.typingClaim && !state.typing) {
+    const { typingClaim: _claim, ...rest } = state;
+    const unclaimed = resolveKey(event, rest, mods);
+    if (unclaimed && unclaimed.scope === "reading" && SELECTION_SHORTCUTS.has(unclaimed.binding.id)) return unclaimed;
+    return resolveKey(event, { ...rest, typing: true }, mods);
+  }
   const matching = DESK_BINDINGS.filter((binding) => chordMatches(binding.chord, event, mods));
   if (matching.length === 0) return null;
   for (const scope of openScopes(state)) {

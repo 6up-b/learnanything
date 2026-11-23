@@ -129,3 +129,125 @@ describe("honest endings", () => {
     expect(poller.size).toBe(0);
   });
 });
+
+describe("the fix round's contract (RD3 review)", () => {
+  it("retry resends the original request in full (every passage, the quote, the branch it was asked from) with a new request id", async () => {
+    const { asks, poller, asked, setNext } = setup();
+    setNext((id) => job(id, { status: "done", done: true, answer: ANSWER }));
+    asks.ask(REQUEST);
+    await Promise.resolve();
+    await Promise.resolve();
+    await poller.tick();
+    setNext((id) => job(id, { status: "failed", done: true, error: { code: "provider_error", message: "The tutor could not answer.", retryable: true } }));
+    const id = asks.ask({ ...REQUEST, question: "across both?", spanId: "s2", selectionSpanIds: ["s2", "s3"], quote: "two passages" });
+    await Promise.resolve();
+    await Promise.resolve();
+    await poller.tick();
+    // A newer answer in the thread would be a different branch parent: retry must not recompute it.
+    setNext((id2) => job(id2, { status: "done", done: true, answer: { ...ANSWER, readerAnswerEventId: "ans9" } }));
+    asks.ask({ ...REQUEST, question: "meanwhile" });
+    await Promise.resolve();
+    await Promise.resolve();
+    await poller.tick();
+    asks.retry(id);
+    await Promise.resolve();
+    const original = asked[1];
+    const resent = asked[asked.length - 1];
+    expect(resent.requestId).not.toBe(original.requestId);
+    const { requestId: _a, ...originalRest } = original;
+    const { requestId: _b, ...resentRest } = resent;
+    expect(resentRest).toEqual(originalRest);
+    expect(resentRest).toMatchObject({ selectionSpanIds: ["s2", "s3"], selectionQuote: "two passages", parentExchangeId: "ans1" });
+  });
+
+  it("a question waits for its desk writes to be acknowledged, shown as waiting, then is sent", async () => {
+    const { asks, asked } = setup();
+    let release: (value: "saved" | "unsaved") => void = () => undefined;
+    const ready = new Promise<"saved" | "unsaved">((resolve) => { release = resolve; });
+    asks.ask(REQUEST, ready);
+    expect(asks.thread("d1")[0]).toMatchObject({ status: "waiting" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(asked).toHaveLength(0);
+    release("saved");
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(asked).toHaveLength(1);
+    expect(asks.thread("d1")[0].status).toBe("asking");
+  });
+
+  it("a question whose desk writes could not be saved is not sent, says so, and can be asked again", async () => {
+    const { asks, asked } = setup();
+    asks.ask(REQUEST, Promise.resolve("unsaved"));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(asked).toHaveLength(0);
+    expect(asks.thread("d1")[0]).toMatchObject({ status: "failed", error: { code: "desk_not_saved", retryable: true } });
+  });
+
+  it("stop shows stopping until the job resolves, and never reads “nothing was sent” from kept", async () => {
+    const { asks, api, poller, setNext } = setup();
+    vi.mocked(api.companionAskCancel).mockResolvedValueOnce(job("req1", { status: "cancelled", done: false, kept: false }));
+    const id = asks.ask(REQUEST);
+    await Promise.resolve();
+    await Promise.resolve();
+    setNext((rid) => job(rid, { status: "running", questionEventId: "q1", sent: true }));
+    await poller.tick();
+    asks.cancel(id);
+    expect(asks.thread("d1")[0]).toMatchObject({ status: "asking", stopping: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(asks.thread("d1")[0]).toMatchObject({ status: "asking", stopping: true });
+    setNext((rid) => job(rid, { status: "cancelled", done: true, kept: false, questionEventId: "q1", sent: true }));
+    await poller.tick();
+    expect(asks.thread("d1")[0]).toMatchObject({ status: "cancelled", sent: true, kept: false });
+  });
+
+  it("a question stopped before its model request went out was not sent, though the question was recorded", async () => {
+    const { asks, api } = setup();
+    vi.mocked(api.companionAskCancel).mockResolvedValueOnce(job("req1", { status: "cancelled", done: true, kept: false, questionEventId: "q1", sent: false }));
+    const id = asks.ask(REQUEST);
+    await Promise.resolve();
+    await Promise.resolve();
+    asks.cancel(id);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(asks.thread("d1")[0]).toMatchObject({ status: "cancelled", sent: false });
+  });
+
+  it("suspended (the shell detached), a late first reply registers no poll until resumed", async () => {
+    const { asks, poller, api } = setup();
+    let reply: (job: CompanionAskJobDto) => void = () => undefined;
+    vi.mocked(api.companionAsk).mockReturnValueOnce(new Promise((resolve) => { reply = resolve; }));
+    asks.ask(REQUEST);
+    asks.suspend();
+    reply(job("req1", { status: "queued" }));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(poller.size).toBe(0);
+    asks.resume();
+    expect(poller.size).toBe(1);
+    asks.suspend();
+    expect(poller.size).toBe(0);
+  });
+
+  it("disposed (the vault changed), nothing polls again, late replies included", async () => {
+    const { asks, poller, api } = setup();
+    asks.ask(REQUEST);
+    await Promise.resolve();
+    await Promise.resolve();
+    let reply: (job: CompanionAskJobDto) => void = () => undefined;
+    vi.mocked(api.companionAsk).mockReturnValueOnce(new Promise((resolve) => { reply = resolve; }));
+    asks.ask({ ...REQUEST, question: "second" });
+    expect(poller.size).toBe(1);
+    asks.dispose();
+    expect(poller.size).toBe(0);
+    reply(job("req2", { status: "queued" }));
+    await Promise.resolve();
+    await Promise.resolve();
+    asks.resume();
+    expect(poller.size).toBe(0);
+  });
+});

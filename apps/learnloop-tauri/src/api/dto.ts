@@ -11009,9 +11009,15 @@ export interface CompanionAskJobDto {
   citations: TutorCitationDto[];
   /** Output pieces the request in flight has streamed (0 where the transport does not stream). */
   streamedPieces: number;
-  /** The exchange, once recorded (also on a cancelled job whose answer was already being written). */
+  /** The question, as soon as it is recorded (before its answer is asked for; also on a failed or cancelled job). */
   questionEventId: string | null;
-  /** Cancelled after its request was sent: the answer is kept in the history, not delivered. */
+  /** A model request of this job was sent: a cancel after that cannot unsend it ("stopping", not "nothing sent"). */
+  sent?: boolean;
+  /** Where the question was asked is recorded: null while no question exists yet; false while a failed write is
+   *  being retried (each poll retries it). The sidecar always sends `sent` and this since the RD3 fix round; they
+   *  are optional here only until the frontend's fixtures carry them. */
+  contextRecorded?: boolean | null;
+  /** Cancelled, and its answer was recorded anyway (it is in the history, not delivered). */
   kept: boolean;
   /** reader.ask's reply, when done. */
   answer: ReaderAnswerDto | null;
@@ -11030,7 +11036,8 @@ export interface SearchEverythingInput {
 /** What a result opens: a ContentRef plus where in it (a span, a time or a pad block). */
 export interface SearchRowBase {
   ref: ContentRefDto | null;
-  target: { spanId?: string; t?: number; blockId?: string } | null;
+  target: { spanId?: string; t?: number; blockId?: string; noteKey?: string; annotationId?: string;
+    captureId?: string } | null;
 }
 
 export interface SearchSourceRowDto extends SearchRowBase {
@@ -11043,7 +11050,10 @@ export interface SearchPassageRowDto extends SearchRowBase {
 }
 export type SearchNoteRowDto = SearchRowBase & (
   | { noteKind: "note"; noteKey: string; title: string; heading: string | null; snippet: string;
-      capturedOn: string | null; byMeaning: boolean }
+      capturedOn: string | null; byMeaning: boolean;
+      /** `annotation`: a Reader note or highlight (ref: its source, target: the passage and note); `capture`: an
+       *  inbox note (ref: the notes panel, target: the note). */
+      noteRefKind: "annotation" | "capture" | null }
   | { noteKind: "gap_reading"; gapId: string; sourceKind: string; kind: string; snippet: string; createdAt: string });
 export interface SearchPadRowDto extends SearchRowBase {
   padId: string; blockId: string; padTitle: string; kind: PadBlockKind; provenance: PadProvenance;
@@ -11063,14 +11073,15 @@ export interface SearchGroupDto {
   group: SearchScope;
   label: string;
   basis: "words" | "meaning";
-  /** `off`: the group could not be searched (`reason` says why), never "nothing found". */
-  status: "ok" | "off";
+  /** `off` (words) or `unavailable` (meaning): the group could not be searched; `failed`: its search by meaning
+   *  failed. `reason` says why; none of them is "nothing found". */
+  status: "ok" | "off" | "unavailable" | "failed";
   reason?: string;
   rows: (SearchSourceRowDto | SearchPassageRowDto | SearchNoteRowDto | SearchPadRowDto | SearchThreadRowDto
     | SearchExchangeRowDto)[];
   /** More rows exist than the group returns. */
   more: boolean;
-  /** A meaning group over the library: the retrieval's basis, and its coverage when partial. */
+  /** A meaning group: the library retrieval's basis, and its coverage (passages or notes) when partial. */
   retrievalBasis?: string;
   coverage?: string;
 }
@@ -11093,8 +11104,11 @@ export interface SearchJobDto {
   jobId: string;
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
   done: boolean;
-  /** The groups found by meaning (results the words found are left out); empty unless done. */
+  /** The groups found by meaning (results the words found are left out), each with its status; empty unless done. */
   groups: SearchGroupDto[];
+  /** The groups that had no search by meaning, with why (carried on the poll as on the start's reply; always sent,
+   *  optional here only until the frontend's fixtures carry it). */
+  unavailable?: { group: SearchScope; reason: string }[];
   error: PolledJobErrorDto | null;
 }
 
