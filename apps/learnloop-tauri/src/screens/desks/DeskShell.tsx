@@ -1303,10 +1303,29 @@ export function DeskShell({
     }
   }, [controller, toggleOverview, commit]);
 
-  // Miniatures: after the overview opens, when idle, each opened window's picture is (re)built if it changed.
+  // A window's picture goes stale when its content changes (a note, a panel's list, a page turned), not
+  // only when its status does: any change inside a window's content marks its picture for a rebuild.
   useEffect(() => {
-    if (!overview) return;
+    const world = worldRef.current;
+    if (!world || typeof MutationObserver === "undefined") return;
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        const node = record.target instanceof Element ? record.target : record.target.parentElement;
+        const windowId = windowOfTarget(node);
+        if (windowId) miniatures.invalidate(windowId);
+      }
+    });
+    observer.observe(world, { subtree: true, childList: true, characterData: true });
+    return () => observer.disconnect();
+  }, [ws === null, miniatures]);
+
+  // Miniatures: once the overview is committed and no zoom runs, each opened window's picture is
+  // (re)built if it changed, or put back in a card host that lost it. A build never lands during a zoom:
+  // a zoom starting cancels it, and the commit after the zoom schedules it again.
+  useEffect(() => {
+    if (!overview || zooming) return;
     const handle = timers.set(() => {
+      if (controller.active) return;
       for (const [windowId, host] of miniHosts.current) {
         const body = [...document.querySelectorAll<HTMLElement>("[data-desk-window]")].find((pane) => pane.getAttribute("data-desk-window") === windowId) ?? null;
         if (!body) continue;
@@ -1326,7 +1345,7 @@ export function DeskShell({
       }
     }, 120);
     return () => timers.clear(handle);
-  }, [overview, timers, miniatures]);
+  }, [overview, zooming, ws, timers, miniatures, controller]);
 
   // The harness's handle on the zoom (the commit-identity check drives p itself).
   useEffect(() => {

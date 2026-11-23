@@ -999,3 +999,71 @@ describe("RD2 fix round: cancelled pointer gestures (findings 14, 15)", () => {
     expect(state("fx_w_book")).toBe("active");
   });
 });
+
+describe("RD2 fix round: miniatures (finding 13)", () => {
+  function CountingPane({ input }: { input: PaneRenderInput }) {
+    const [count, setCount] = useState(0);
+    return (
+      <div data-testid={`pane-${input.window.windowId}`} data-state={input.lifecycle.state}>
+        <button type="button" onClick={() => setCount((value) => value + 1)}>{`count ${input.window.windowId} ${count}`}</button>
+      </div>
+    );
+  }
+  const host = (windowId: string) => document.querySelector(`[data-desk-slot-window="${windowId}"] .desk-card`) as HTMLElement;
+
+  it("a picture is rebuilt after the window's content changed, though its status did not", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true, renderPane: (input) => <CountingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 0");
+    press("Escape", "Escape");
+    fireEvent.click(screen.getByRole("button", { name: "count fx_w_book 0" }));
+    await flush();
+    alt("KeyO", "o");
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 1");
+  });
+
+  it("a card moved between two opened desks keeps its picture", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true, renderPane: (input) => <CountingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyJ", "j");
+    await screen.findByTestId("pane-fx_w_video2");
+    alt("KeyK", "k");
+    alt("KeyO", "o");
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 0");
+    act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyDown(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 0");
+  });
+
+  it("no picture is put in while a zoom runs: a build due during an exit waits for its commit", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false, renderPane: (input) => <CountingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    frames.run();
+    expect(overviewOn()).toBe(true);
+    press("Escape", "Escape");
+    expect(shellHas("zooming")).toBe(true);
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).not.toContain("count fx_w_book");
+  });
+});
