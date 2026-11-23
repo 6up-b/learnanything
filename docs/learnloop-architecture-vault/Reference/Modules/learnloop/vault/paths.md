@@ -344,7 +344,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_primed_sibling_clock.py](../../../../../../tests/test_primed_sibling_clock.py) — direct import
   - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
-- [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
   - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
@@ -395,7 +394,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_whose_facets_used_to_be_locked_still_bootstraps`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
-- [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_fix_content_skips_unparseable_items_and_reports_them`
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
