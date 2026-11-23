@@ -280,3 +280,51 @@ describe("an ask waits for the desk writes it depends on (RD3 review)", () => {
     expect(await store.settled()).toBe("unsaved");
   });
 });
+
+describe("reconciling keeps what was queued meanwhile (RD4 review)", () => {
+  it("an edit queued while the reconcile reads the pads is rebased and sent, not dropped", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let interfered = false;
+    let holdReads = false;
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let readStarted: () => void = () => undefined;
+    const reading = new Promise<void>((resolve) => { readStarted = resolve; });
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => server.apply(input),
+      applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => {
+        if (!interfered) {
+          interfered = true;
+          server.applyPad({ clientId: "other", seq: 1, padId: "fx_pad_running", ops: [
+            { op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "theirs", bodyMd: "their edit" },
+          ] });
+          holdReads = true;
+        }
+        return server.applyPad(input);
+      },
+      padGet: async ({ padId }: { padId: string }) => {
+        if (holdReads) {
+          holdReads = false;
+          readStarted();
+          await held;
+        }
+        return server.padGet(padId);
+      },
+    }, timers);
+    await store.load();
+    await store.loadPad("fx_pad_running");
+    store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "mine1", bodyMd: "my edit" }]);
+    const flushing = store.flush();
+    await reading;
+    // While the reconcile waits on its pad reads, the learner writes another line.
+    const head = store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r7")!.headVersionId;
+    store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r7", expectedHead: head, versionId: "mine7", bodyMd: "written meanwhile" }]);
+    release();
+    await flushing;
+    await settle(store, timers);
+    expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("written meanwhile");
+    expect(server.padGet("fx_pad_running").blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("written meanwhile");
+  });
+});

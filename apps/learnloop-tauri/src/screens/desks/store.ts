@@ -250,7 +250,9 @@ export class DeskStore {
         return;
       }
       // Read the queue only now: changes committed while the state was on its way are rebased too.
-      const queued: BatchBody[] = [...(first ? [first] : []), ...this.outbox.queued()];
+      const snapshot = this.outbox.queued();
+      const taken = new Set(snapshot.map((batch) => batch.seq));
+      const queued: BatchBody[] = [...(first ? [first] : []), ...snapshot];
       const head = state.serverSeq.find((entry) => entry.clientId === this.clientId)?.seq ?? 0;
       let ws: Workspace = { ...fromDeskState(state), closed: {} };
       for (const [deskId, entries] of Object.entries(this.ws.closed)) {
@@ -260,11 +262,24 @@ export class DeskStore {
       // The pads shown are read again, so queued pad ops rebase on the server's heads.
       let pads: Pads = {};
       const padIds = [...new Set([...Object.keys(this.pads), ...queued.flatMap((batch) => (batch.pad ? [batch.pad.padId] : []))])];
-      if (this.transport.padGet) {
-        const reads = await Promise.all(padIds.map((padId) => this.transport.padGet!({ padId }).then((view) => [padId, view] as const, () => [padId, null] as const)));
+      const read = async (ids: string[]) => {
+        const reads = await Promise.all(ids.map((padId) => this.transport.padGet!({ padId }).then((view) => [padId, view] as const, () => [padId, null] as const)));
         for (const [padId, view] of reads) if (view) pads[padId] = fromPadView(view);
-      } else {
-        pads = { ...this.pads };
+      };
+      if (this.transport.padGet) await read(padIds);
+      else pads = { ...this.pads };
+      // Batches queued while the pads were read (the learner kept writing) join the rebase, after the ones
+      // taken first; a pad they name that was not read yet is read too. Nothing is awaited after the last look,
+      // so no commit can land between it and the requeue below.
+      for (;;) {
+        const tail = this.outbox.queued().filter((batch) => !taken.has(batch.seq));
+        if (tail.length === 0) break;
+        for (const batch of tail) taken.add(batch.seq);
+        queued.push(...tail);
+        const unread = [...new Set(tail.flatMap((batch) => (batch.pad ? [batch.pad.padId] : [])))].filter((padId) => !padIds.includes(padId));
+        padIds.push(...unread);
+        if (unread.length && this.transport.padGet) await read(unread);
+        else if (unread.length) for (const padId of unread) if (this.pads[padId]) pads[padId] = this.pads[padId];
       }
       const now = new Date().toISOString();
       let lost = 0;
