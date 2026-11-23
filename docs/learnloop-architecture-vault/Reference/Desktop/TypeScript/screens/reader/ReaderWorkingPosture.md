@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReaderWorkingPosture.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReaderWorkingPosture.tsx) |
-| Source lines | 204 |
+| Source lines | 203 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,17 +54,19 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const WORKING_ASK_WAITS = "Ask the tutor is beside the book. Leave for now (your steps are kept) and Ask opens."` — const, line 19
-- `export function ReaderWorkingPosture(` — function, line 21
+- `export const WORKING_ASK_WAITS = "Ask the tutor is beside the book. Leave for now (your steps are kept) and Ask opens."` — const, line 20
+- `export function ReaderWorkingPosture(` — function, line 22
 
 ## Internal implementation anchors
 
-- `const itemId = active.session.practiceItemId` — const, line 64
-- `const inlineAsk = algoConfig().ask !== null && itemId !== null && !active.readOnly` — const, line 65
-- `const startX = event.clientX` — const, line 109
-- `const startWidth = wbCtl.width` — const, line 110
-- `const onMove = (move: MouseEvent)` — const, line 111
-- `const onUp = ()` — const, line 112
+- `const hub = useListenerHub()` — const, line 59
+- `const itemId = active.session.practiceItemId` — const, line 66
+- `const inlineAsk = algoConfig().ask !== null && itemId !== null && !active.readOnly` — const, line 67
+- `const startX = event.clientX` — const, line 111
+- `const startWidth = wbCtl.width` — const, line 112
+- `const onMove = (move: MouseEvent)` — const, line 113
+- `const offs: Array<()` — const, line 114
+- `const onUp = ()` — const, line 115
 
 ## Who imports or calls it
 
@@ -81,6 +83,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export; imports `AskOverlay`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export; imports `ActiveWorkbench`, `ReaderWorkbench`
 - [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export; imports `Workbench`
 - [[Reference/Desktop/TypeScript/screens/workbench/splitWidth|src/screens/workbench/splitWidth.ts]] — import-or-re-export; imports `MIN_WORKBENCH_WIDTH`, `SPLIT_STEP`, `clampSplitWidth`

@@ -28,6 +28,7 @@ Top-level routed workflow screens in the desktop shell.
 
 ## Child areas
 
+- [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] — The Reader workbench's desks: the shell, the window lifecycle contract, the shelf, reading-view geometry and the desk outbox.
 - [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] — The post-answer feedback surface: answer exposure, method comparison, and its exposure contract.
 - [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] — Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen.
 - [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] — Reader request-state coordination extracted from the main reader screen.
@@ -56,7 +57,7 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|MaintenanceScreen.tsx]] | `ACTIVE` | Implements the `MaintenanceScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/PracticeScreen|PracticeScreen.tsx]] | `ACTIVE` | Implements the `PracticeScreen` routed desktop screen and coordinates its learner-facing workflow state. | 35 | 1 |
 | [[Reference/Desktop/TypeScript/screens/ProposalsScreen|ProposalsScreen.tsx]] | `ACTIVE` | Implements the `ProposalsScreen` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
-| [[Reference/Desktop/TypeScript/screens/ReaderScreen|ReaderScreen.tsx]] | `ACTIVE` | Implements the `ReaderScreen` routed desktop screen and coordinates its learner-facing workflow state. | 84 | 1 |
+| [[Reference/Desktop/TypeScript/screens/ReaderScreen|ReaderScreen.tsx]] | `ACTIVE` | Implements the `ReaderScreen` routed desktop screen and coordinates its learner-facing workflow state. | 85 | 2 |
 | [[Reference/Desktop/TypeScript/screens/RegistryReviewScreen|RegistryReviewScreen.tsx]] | `ACTIVE` | Implements the `RegistryReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/RepairScreen|RepairScreen.tsx]] | `ACTIVE` | Implements the `RepairScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/ReviewScreen|ReviewScreen.tsx]] | `ACTIVE` | Implements the `ReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |

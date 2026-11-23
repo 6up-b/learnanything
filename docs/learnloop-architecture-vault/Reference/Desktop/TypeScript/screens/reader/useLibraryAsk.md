@@ -239,6 +239,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `CompareRequest`, `SCOPE_COPY`, `useLibraryAsk`; references `CompareRequest`, `SCOPE_COPY`, `useLibraryAsk`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `useLibraryAsk`; references `useLibraryAsk`
 - [[Reference/Desktop/TypeScript/screens/reader/CompareScope|src/screens/reader/CompareScope.tsx]] — import-or-re-export: `LIBRARY_COPY`, `LibraryAskController`, `SCOPE_COPY`, `ScopeChips`; references `LIBRARY_COPY`, `LibraryAskController`, `SCOPE_COPY`, `ScopeChips`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|src/screens/reader/LibraryAnswer.tsx]] — import-or-re-export: `LIBRARY_COPY`, `LibraryAskController`, `SCOPE_COPY`; references `LIBRARY_COPY`, `LibraryAskController`, `SCOPE_COPY`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryPane|src/screens/reader/LibraryPane.tsx]] — import-or-re-export: `LIBRARY_COPY`, `LibraryAskController`; references `LIBRARY_COPY`, `LibraryAskController`

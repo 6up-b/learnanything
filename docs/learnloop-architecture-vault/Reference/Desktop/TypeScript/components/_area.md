@@ -81,7 +81,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/OpenInSource|OpenInSource.tsx]] | `ACTIVE` | Provides the reusable `OpenInSource` interaction surface used by one or more desktop workflows. | 4 | 9 |
 | [[Reference/Desktop/TypeScript/components/OutlineAndPlan|OutlineAndPlan.tsx]] | `ACTIVE` | Provides the reusable `OutlineAndPlan` interaction surface used by one or more desktop workflows. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/components/PageRangeSelector|PageRangeSelector.tsx]] | `ACTIVE` | Provides the reusable `PageRangeSelector` interaction surface used by one or more desktop workflows. | 1 | 3 |
-| [[Reference/Desktop/TypeScript/components/PdfReaderPane|PdfReaderPane.tsx]] | `ACTIVE` | Provides the reusable `PdfReaderPane` interaction surface used by one or more desktop workflows. | 12 | 6 |
+| [[Reference/Desktop/TypeScript/components/PdfReaderPane|PdfReaderPane.tsx]] | `ACTIVE` | Provides the reusable `PdfReaderPane` interaction surface used by one or more desktop workflows. | 13 | 6 |
 | [[Reference/Desktop/TypeScript/components/PlacementControls|PlacementControls.tsx]] | `ACTIVE` | Provides the reusable `PlacementControls` interaction surface used by one or more desktop workflows. | 3 | 4 |
 | [[Reference/Desktop/TypeScript/components/PlainParts|PlainParts.tsx]] | `ACTIVE` | Provides the reusable `PlainParts` interaction surface used by one or more desktop workflows. | 1 | 18 |
 | [[Reference/Desktop/TypeScript/components/PlanFallbackOffer|PlanFallbackOffer.tsx]] | `ACTIVE` | Provides the reusable `PlanFallbackOffer` interaction surface used by one or more desktop workflows. | 4 | 1 |
