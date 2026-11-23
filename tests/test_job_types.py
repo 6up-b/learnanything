@@ -206,3 +206,27 @@ def test_the_pipeline_reaches_retrieval_through_its_rows_and_the_hosts_sweeps() 
         "learnloop.source_retrieval.spaces", "learnloop.source_retrieval.student_encoder",
     }
     assert retrieval_imports("learnloop/content/pipeline/job_types.py") == set()
+
+
+def test_the_job_contracts_are_one_set_of_objects_through_every_path() -> None:
+    """The runner re-exports the leaf's contracts, so ``except IngestRunnerError`` and ``isinstance`` checks hold
+    whichever module a handler, the host or a test imported the class from."""
+
+    from learnloop.content.authoring import jobs as authoring_jobs
+    from learnloop.content.pipeline import import_jobs, job_contracts, runner
+    from learnloop.content.synthesis import jobs as synthesis_jobs
+    from learnloop.figures import jobs as figure_jobs
+    from learnloop.source_retrieval import jobs as retrieval_jobs
+
+    for name in ("FetchedBytes", "IngestRunnerError", "JobCancelled", "JobSpec", "WaitingForInput"):
+        contract = getattr(job_contracts, name)
+        assert getattr(runner, name) is contract, name
+        for module in (import_jobs, synthesis_jobs, authoring_jobs, figure_jobs, retrieval_jobs):
+            assert getattr(module, name, contract) is contract, (module.__name__, name)
+
+
+def test_the_job_contracts_import_nothing_of_learnloop() -> None:
+    tree = ast.parse((SRC / "learnloop/content/pipeline/job_contracts.py").read_text(encoding="utf-8"))
+    imported = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)} | {
+        alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
+    assert not {module for module in imported if module and module.startswith("learnloop")}

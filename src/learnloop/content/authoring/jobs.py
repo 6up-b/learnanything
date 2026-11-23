@@ -11,11 +11,11 @@ from __future__ import annotations
 import logging
 import threading
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.clock import utc_now_iso
-from learnloop.content.pipeline.runner import IngestRunnerError, JobCancelled, JobContext, JobSpec
+from learnloop.content.pipeline.job_contracts import IngestRunnerError, JobCancelled, JobSpec
 from learnloop.content.synthesis.jobs import _routed_task_client
 from learnloop.db.repositories import Repository
 from learnloop.reader import (
@@ -26,6 +26,9 @@ from learnloop.reader import (
 )
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.tutor.promotions import PromotionError, PromotionNoItemError, promote_tutor_question
+
+if TYPE_CHECKING:
+    from learnloop.content.pipeline.runner import JobContext
 
 
 def default_animation_client(ctx: JobContext) -> Any:

@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 
-from learnloop.content.pipeline.runner import IngestRunnerError, JobCancelled, JobContext, JobSpec
+from learnloop.content.pipeline.job_contracts import IngestRunnerError, JobCancelled, JobSpec
+
+if TYPE_CHECKING:
+    from learnloop.content.pipeline.runner import JobContext
 
 
 def queue_source_vectors(ctx: JobContext, extraction_id: str, *, title: str | None = None) -> str | None:

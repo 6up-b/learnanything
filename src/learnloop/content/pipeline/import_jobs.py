@@ -12,15 +12,18 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.content.pipeline.runner import FetchedBytes, IngestRunnerError, JobContext
+from learnloop.content.pipeline.job_contracts import FetchedBytes, IngestRunnerError
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
 from learnloop.ids import new_ulid
 from learnloop.ingest.source_kinds import source_kind
 from learnloop.source_retrieval.jobs import queue_source_vectors
+
+if TYPE_CHECKING:
+    from learnloop.content.pipeline.runner import JobContext
 
 
 _LEGACY_PHASE_TO_LADDER = {

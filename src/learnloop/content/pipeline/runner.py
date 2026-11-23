@@ -33,6 +33,7 @@ this same object.
 
 from __future__ import annotations
 
+import importlib
 import logging
 import threading
 from contextlib import AbstractContextManager, ExitStack, contextmanager
@@ -50,6 +51,14 @@ from learnloop.db.repositories import Repository
 from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
 from learnloop.db.stores.ingest_queue import JobOwner
 from learnloop.ids import new_ulid
+# Defined in the leaf so a job module needs no runner; importable from here as well.
+from learnloop.content.pipeline.job_contracts import (
+    FetchedBytes,
+    IngestRunnerError,
+    JobCancelled,
+    JobSpec,
+    WaitingForInput,
+)
 from learnloop.vault_lock import DEFAULT_TIMEOUT_S, VaultLockTimeout, vault_mutation_lock
 
 # The checkpoint ladder (§6.2). Every phase is an independently resumable stage.
@@ -113,53 +122,6 @@ WAITING_FOR_OK_PAYLOAD = {"code": model_use.WAITING_CODE}
 # build (its topics and question plans) and the questions written for a section
 # the learner finished.
 _BUILD_WORKFLOWS = frozenset({"bootstrap_synthesis", "append_synthesis", "practice_expansion"})
-
-
-class IngestRunnerError(ValueError):
-    """A typed, user-actionable job failure persisted for the Activity UI."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        code: str = "invalid_job",
-        details: Mapping[str, Any] | None = None,
-        retryable: bool = False,
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.details = dict(details or {})
-        self.retryable = retryable
-
-
-class JobCancelled(Exception):
-    """Raised from ``report()`` when a cancellation was requested mid-stage."""
-
-
-class WaitingForInput(Exception):
-    """A handler pauses the job pending user input (unit choice, consent, budget).
-
-    Carries the actionable payload the Batch-progress UI renders as a card. The
-    job releases its lease so the rest of the queue keeps draining (§6.2)."""
-
-    def __init__(self, payload: Mapping[str, Any], *, message: str = "Waiting for input") -> None:
-        self.payload = dict(payload)
-        self.message = message
-        super().__init__(message)
-
-
-@dataclass(frozen=True)
-class FetchedBytes:
-    raw_bytes: bytes
-    content_type: str | None
-    original_uri: str
-    retrieved_at: str
-    # Human-readable metadata captured during the fetch phase, when the source
-    # kind exposes it cheaply (e.g. a YouTube video's title + channel via oEmbed).
-    # Absent (None/()) for sources with no knowable metadata — the import then
-    # falls back to the URL title.
-    title: str | None = None
-    authors: tuple[str, ...] = ()
 
 
 @dataclass
@@ -315,36 +277,35 @@ class RunnerServices:
 
 
 def _job_types() -> Any:
-    """Load the job types and their handlers only when they are needed.
-
-    The handler modules import the runner contracts, and their defaults pull in
-    acquisition and provider code. Keeping these dependencies lazy lets
-    queue-only callers import and test the runner without initializing either;
-    the same holds for the job modules below, whose defaults the services fall
-    back on.
-    """
+    """The job-type table (a leaf: it names its handlers and imports none of them)."""
 
     from learnloop.content.pipeline import job_types
 
     return job_types
 
 
-def _import_jobs() -> Any:
-    from learnloop.content.pipeline import import_jobs
+def _job_module(name: str) -> Any:
+    """A feature's job module, whose defaults the services fall back on, loaded by name when a default is used.
 
-    return import_jobs
+    By name, as the table names its handlers: a job module reaches the runner back through the code it calls (the
+    add-source planner reads the runner's job statuses), so an import from here would put every job module in the
+    runner's import cycle. Lazy, so queue-only callers import and test the runner without initializing
+    acquisition or provider code.
+    """
+
+    return importlib.import_module(name)
+
+
+def _import_jobs() -> Any:
+    return _job_module("learnloop.content.pipeline.import_jobs")
 
 
 def _synthesis_jobs() -> Any:
-    from learnloop.content.synthesis import jobs
-
-    return jobs
+    return _job_module("learnloop.content.synthesis.jobs")
 
 
 def _authoring_jobs() -> Any:
-    from learnloop.content.authoring import jobs
-
-    return jobs
+    return _job_module("learnloop.content.authoring.jobs")
 
 
 @contextmanager
@@ -494,16 +455,6 @@ class JobContext:
 
 
 Handler = Callable[[JobContext], dict[str, Any] | None]
-
-
-@dataclass(frozen=True)
-class JobSpec:
-    """One job in an enqueued batch. ``depends_on`` is a tuple of indices into
-    the batch's job list (topologically before this job)."""
-
-    job_type: str
-    payload: Mapping[str, Any] = field(default_factory=dict)
-    depends_on: tuple[int, ...] = ()
 
 
 class _LiveAttempts:

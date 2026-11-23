@@ -6,9 +6,12 @@ flags) is its row in :mod:`learnloop.content.pipeline.job_types`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from learnloop.content.pipeline.runner import IngestRunnerError, JobCancelled, JobContext
+from learnloop.content.pipeline.job_contracts import IngestRunnerError, JobCancelled
+
+if TYPE_CHECKING:
+    from learnloop.content.pipeline.runner import JobContext
 
 
 def handle_figure_rich(ctx: JobContext) -> dict[str, Any]:

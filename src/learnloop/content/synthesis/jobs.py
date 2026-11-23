@@ -13,12 +13,15 @@ import queue
 import threading
 import time
 from contextvars import copy_context
-from typing import Any, Callable, Mapping
+from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.content.pipeline.import_jobs import _optional_int
-from learnloop.content.pipeline.runner import IngestRunnerError, JobCancelled, JobContext
+from learnloop.content.pipeline.job_contracts import IngestRunnerError, JobCancelled
 from learnloop.db.repositories import Repository
+
+if TYPE_CHECKING:
+    from learnloop.content.pipeline.runner import JobContext
 
 
 # Handler execution defaults remain here with the concrete jobs they govern.
