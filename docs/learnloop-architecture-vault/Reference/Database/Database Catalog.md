@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 260
-table_count: 396
+schema_head: 261
+table_count: 397
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -19,13 +19,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-260"
+  - "learnloop/database/schema-head-261"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 396 user tables at migration head 260. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 397 user tables at migration head 261. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -36,7 +36,7 @@ This is the exhaustive map of the 396 user tables at migration head 260. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 165 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 166 |
 | [[Table Roles#Derived|`derived`]] | 27 |
 | [[Table Roles#Receipt|`receipt`]] | 94 |
 | [[Table Roles#Workflow|`workflow`]] | 104 |
@@ -46,7 +46,7 @@ This is the exhaustive map of the 396 user tables at migration head 260. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 387 |
+| `active` | 388 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 2 |
 | `dormant-shadow` | 2 |
@@ -103,6 +103,7 @@ Schema evolution, reviewed content changes, recovery intents, and governed param
 
 Attempt capture, grading, measurement, and evidence authority. This is a navigational grouping, not permission for cross-domain imports. ^family-attempts-and-measurement
 
+- [[Reference/Database/Tables/attempt_application_order|attempt_application_order]] — `raw_ledger` · `active` · Gives attempt application order a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `algorithm_version`, `sequence`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_completion_work|attempt_completion_work]] — `workflow` · `active` · Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `attempt_id`, `submission_id`, `session_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_debug_payloads|attempt_debug_payloads]] — `raw_ledger` · `active` · Gives attempt debug payload a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_diagnoses|attempt_diagnoses]] — `raw_ledger` · `active` · Gives attempt diagnose a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `blind_grade_record_id`, `agent_run_id`, making the operational relationship explicit.

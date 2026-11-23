@@ -150,6 +150,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_agent_run_token_columns_exist_and_default_to_zero`
 - [tests/test_approach_maps_schema.py](../../../../../../tests/test_approach_maps_schema.py) — direct import
+- [tests/test_attempt_application_order_migration.py](../../../../../../tests/test_attempt_application_order_migration.py) — direct import
+  - `test_it_adds_the_table_and_changes_nothing_else`
+  - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
 - [tests/test_card_lineage.py](../../../../../../tests/test_card_lineage.py) — direct import
 - [tests/test_check_delivery.py](../../../../../../tests/test_check_delivery.py) — direct import
 - [tests/test_commitments.py](../../../../../../tests/test_commitments.py) — direct import

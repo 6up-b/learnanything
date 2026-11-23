@@ -24,7 +24,9 @@ source_text_assertions = 23
 "src/learnloop/db/repositories.py" = 3025
 "src/learnloop/scheduling/scheduler.py" = 4196
 "src/learnloop_sidecar/handlers/reader.py" = 2980
-golden_json_lines = 281223
+# 281338: the diagnosis journey and grade-application goldens record every persisted row, and from mvp-0.65 each
+# applied attempt also writes its row in attempt_application_order (115 lines; no existing value moved).
+golden_json_lines = 281338
 
 [members]
 import_component = [

@@ -48,24 +48,24 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py) |
-| Source lines | 291 |
+| Source lines | 300 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `load_canonical_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 29) — Load attempts plus live grading evidence in two queries.
-- `load_authoritative_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 116) — Load the P0 authoritative ledger with a fixed six-query budget.
-- `load_effective_assessment_contracts(connection: sqlite3.Connection, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 251) — Resolve immutable contract snapshots for a replay in one bulk query.
+- `load_canonical_observation_ledger(connection: sqlite3.Connection, *, order: AttemptOrder=LEGACY_ORDER) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 31) — Load attempts plus live grading evidence in two queries.
+- `load_authoritative_observation_ledger(connection: sqlite3.Connection, *, order: AttemptOrder=LEGACY_ORDER) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 123) — Load the P0 authoritative ledger with a fixed six-query budget.
+- `load_effective_assessment_contracts(connection: sqlite3.Connection, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 260) — Resolve immutable contract snapshots for a replay in one bulk query.
 
 ### Module constants
 
-- `_LATEST_OBSERVATIONS` ([src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 103)
+- `_LATEST_OBSERVATIONS` ([src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 110)
 
 ## Internal implementation anchors
 
-- `_loads(value: str | None, default: Any) -> Any` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 23)
+- `_loads(value: str | None, default: Any) -> Any` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 25)
 
 ## Who imports or calls it
 
@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `AttemptOrder`, `LEGACY_ORDER`
 
 ### Platform and third-party dependencies
 

@@ -48,19 +48,20 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/family_memory.py](../../../../../../src/learnloop/substrate/family_memory.py) |
-| Source lines | 72 |
+| Source lines | 85 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `rebuild_family_memory(vault, repository, load_rows: Callable[[], Iterable]) -> dict` ([source](../../../../../../src/learnloop/substrate/family_memory.py), line 27) — Replace ``family_memory_state``; ``load_rows`` runs only if families exist.
+- `in_fold_order(rows: Iterable, order: AttemptOrder, sequences: dict[str, int]) -> list` ([source](../../../../../../src/learnloop/substrate/family_memory.py), line 27) — The family-memory fold's order: by observation time, then the attempt's place in the ledger's order (its id, or from mvp-0.65 its application sequence and then its id).
+- `rebuild_family_memory(vault, repository, load_rows: Callable[[], Iterable]) -> dict` ([source](../../../../../../src/learnloop/substrate/family_memory.py), line 35) — Replace ``family_memory_state``; ``load_rows`` runs only if families exist.
 
 ### Module constants
 
-- `PROJECTION_VERSION` ([src/learnloop/substrate/family_memory.py](../../../../../../src/learnloop/substrate/family_memory.py), line 22)
-- `PROJECTION_LEGACY_FALLBACK` ([src/learnloop/substrate/family_memory.py](../../../../../../src/learnloop/substrate/family_memory.py), line 23)
+- `PROJECTION_VERSION` ([src/learnloop/substrate/family_memory.py](../../../../../../src/learnloop/substrate/family_memory.py), line 23)
+- `PROJECTION_LEGACY_FALLBACK` ([src/learnloop/substrate/family_memory.py](../../../../../../src/learnloop/substrate/family_memory.py), line 24)
 
 ## Internal implementation anchors
 
@@ -77,6 +78,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `AttemptOrder`, `application_sequences`, `attempt_order_for`; calls `application_sequences`, `attempt_order_for`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `atomic_repository_call`
 - [[Reference/Modules/learnloop/db/stores/families|learnloop.db.stores.families]] — imports `record_revision`; calls `record_revision`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
@@ -105,6 +107,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_family_projection_durable_repeat`
   - `test_no_family_rebuild_does_not_touch_other_state`
   - `test_rebuild_and_evaluation_fold_the_same_leak_aware_rows`
+- [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
+  - `test_the_family_memory_fold_breaks_a_tie_by_the_ledgers_order`
 
 ## Modification guidance
 

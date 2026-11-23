@@ -111,6 +111,9 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "assumption_returns": (
         "id assumption_id learning_object_id reason trigger_ref algorithm_version created_at",
         ""),
+    "attempt_application_order": (
+        "sequence attempt_id basis algorithm_version recorded_at",
+        ""),
     "attempt_diagnoses": (
         "id attempt_id blind_grade_record_id agent_run_id diagnosis_prompt_version provider model mode "
         "history_mode status latency_seconds supersedes_id created_at",

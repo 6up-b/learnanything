@@ -19,6 +19,8 @@ import sqlite3
 from collections import defaultdict
 from typing import Any, Iterable
 
+from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder
+
 
 def _loads(value: str | None, default: Any) -> Any:
     if value is None:
@@ -28,19 +30,24 @@ def _loads(value: str | None, default: Any) -> Any:
 
 def load_canonical_observation_ledger(
     connection: sqlite3.Connection,
+    *,
+    order: AttemptOrder = LEGACY_ORDER,
 ) -> list[dict[str, Any]]:
     """Load attempts plus live grading evidence in two queries.
 
     The old implementation queried ``grading_evidence`` once per attempt.  A
     complete replay is now a pair of ordered scans regardless of history size.
+    The attempts come in the ledger's order (``order``,
+    :mod:`learnloop.db.attempt_order`), the order the projection folds them in.
     """
 
+    terms = order.order_sql(attempt_id="practice_attempts.id") if order.by_sequence else "created_at ASC, id ASC"
     attempt_rows = connection.execute(
-        """
+        f"""
         SELECT id, practice_item_id, learning_object_id, attempt_type,
                practice_mode, hints_used, primed, created_at, reference_status
           FROM practice_attempts
-         ORDER BY created_at ASC, id ASC
+         ORDER BY {terms}
         """
     ).fetchall()
     if not attempt_rows:
@@ -115,6 +122,8 @@ WITH ranked_observations AS (
 
 def load_authoritative_observation_ledger(
     connection: sqlite3.Connection,
+    *,
+    order: AttemptOrder = LEGACY_ORDER,
 ) -> list[dict[str, Any]]:
     """Load the P0 authoritative ledger with a fixed six-query budget.
 
@@ -123,7 +132,7 @@ def load_authoritative_observation_ledger(
     repository can hold one read transaction across the complete snapshot.
     """
 
-    ledger = load_canonical_observation_ledger(connection)
+    ledger = load_canonical_observation_ledger(connection, order=order)
     if not ledger:
         return []
 

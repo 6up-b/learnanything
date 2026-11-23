@@ -374,6 +374,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_presentations_and_cards_survive_production_pragmas`
   - `test_router_outcomes_replay_twice_with_no_model_call`
+- [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
+  - `test_a_replay_and_a_regrade_keep_the_attempts_sequence`
+  - `test_below_the_tag_no_sequence_is_reserved_and_a_reversed_pair_rebuilds_in_id_order`
+  - `test_the_upgrade_ranks_legacy_attempts_in_id_order_then_new_ones_follow_in_application_order`
+  - `test_two_connections_with_reversed_allocation_and_completion_rebuild_to_live`
 - [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
   - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import

@@ -352,7 +352,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Clock`
-- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `Clock`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `Clock`
 - [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `Clock`
 - [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -1934,6 +1934,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_query_embedding_is_admitted_by_the_daily_guard`
 - [tests/test_rw7b_codex_review_fixes.py](../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import
   - `test_f4_the_report_counts_misses_after_a_core_skip_only`
+- [tests/test_same_second_order.py](../../../../../tests/test_same_second_order.py) — direct import
 - [tests/test_scheduler.py](../../../../../tests/test_scheduler.py) — direct import
   - `test_a_clean_cold_task_is_served_as_the_cold_lane`
   - `test_a_revealed_cold_task_is_withheld_and_says_so_in_the_slate`

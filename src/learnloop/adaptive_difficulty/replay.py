@@ -58,6 +58,7 @@ import numpy as np
 
 from learnloop.attempts.salience_firewall import learning_opportunity_events
 from learnloop.clock import parse_utc
+from learnloop.db.attempt_order import UNBOUND_SEQUENCE, attempt_order_for
 from learnloop.db.evidence_cutoff import ad_replay_excludes
 from learnloop.db.stores import ad_receipts as receipt_store
 from learnloop.db.stores import ad_serving as serving_store
@@ -193,10 +194,18 @@ class Events:
     lo_subject: dict[str, str]
     lo_facets: dict[str, list[str]]
     summary: dict[str, Any] = field(default_factory=dict)
+    #: From mvp-0.65: each attempt's application sequence, which breaks a tie between attempts at one time (None
+    #: below the tag: by id). Not in :func:`events_fingerprint`: ``attempts`` is already loaded in that order.
+    attempt_sequences: dict[str, int] | None = None
 
     def ordered(self) -> list[tuple[str, Any]]:
-        stream: list[tuple[tuple[float, int, str], str, Any]] = []
-        stream += [((e.at, 0, e.attempt_id), "attempt", e) for e in self.attempts]
+        # Attempts, claims and opportunities at one time keep their precedence (0, 1, 2); only attempts among
+        # themselves are ordered by their application sequence.
+        sequences = self.attempt_sequences
+        stream: list[tuple[tuple[float, int, Any], str, Any]] = []
+        stream += [((e.at, 0, e.attempt_id if sequences is None
+                     else (sequences.get(e.attempt_id, UNBOUND_SEQUENCE), e.attempt_id)), "attempt", e)
+                   for e in self.attempts]
         stream += [((e.at, 1, e.claim_id), "claim", e) for e in self.claims]
         stream += [((e.at, 2, e.opportunity_id), "opportunity", e) for e in self.opportunities]
         stream.sort(key=lambda entry: entry[0])
@@ -411,7 +420,16 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
 
     attempts: list[AttemptEvent] = []
     surfaces: set[str] = set()
-    for attempt in view.attempts(connection):
+    # The first surface is the first attempt in the ledger's order: from mvp-0.65 a tie inside one second goes to
+    # the grade applied first, not the lower id.
+    order = attempt_order_for(vault.config)
+    sequences: dict[str, int] | None = None
+    visible = view.attempts(connection)
+    if order.by_sequence:
+        sequences = {str(row["attempt_id"]): int(row["sequence"])
+                     for row in view.rows(connection, "attempt_application_order")}
+        visible = order.sorted(visible, sequences)
+    for attempt in visible:
         attempt_id = str(attempt["id"])
         try:
             at = days(attempt["created_at"])
@@ -576,7 +594,8 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                                              float(level)))
     summary["claims"] = len(claims)
     summary["opportunities"] = len(opportunities)
-    return Events(attempts, claims, opportunities, structure, lo_subject, lo_to_facets, summary)
+    return Events(attempts, claims, opportunities, structure, lo_subject, lo_to_facets, summary,
+                  attempt_sequences=sequences)
 
 
 # -- running the views -------------------------------------------------------------------------

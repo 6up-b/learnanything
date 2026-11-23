@@ -979,6 +979,19 @@ SECTION_END_ALGORITHM_VERSION = "mvp-0.63"
 # activation is the idempotent projection. No kill switch (owner rule 2026-11-16). No migration. ONE constant.
 UNTAKEN_EPISODE_END_ALGORITHM_VERSION = "mvp-0.64"
 
+# mvp-0.65 (same-second grades replay in the order they were applied; docs/reviews/algorithm-mvp-0.65.md), on top of
+# the untaken repair episode's end, mvp-0.64. An attempt's id is minted when its grading starts and its created_at
+# (whole seconds) when its grade is applied, so two grades of one learning object applied in one second can carry ids
+# in the opposite order from their application; every prefix reader ordered the ledger by (created_at, id), so replay
+# folded them in another order than live had and rebuilt other mastery. At this tag apply_attempt reserves an
+# application sequence inside its own write transaction (attempt_application_order, migration 261), and every prefix
+# reader orders by (created_at, sequence, id) (``learnloop.db.attempt_order``): occurrence time stays first and the
+# sequence breaks ties inside one second only. The upgrade ranks the attempts applied before it in the predecessor's
+# order ('legacy_order_unknown': their real order was never recorded) and then rebuilds the whole vault, so a
+# historical tie keeps the predecessor's reading and only new ties are exact. No kill switch (owner rule
+# 2026-11-16). ONE constant.
+APPLICATION_ORDER_ALGORITHM_VERSION = "mvp-0.65"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1041,6 +1054,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
+    APPLICATION_ORDER_ALGORITHM_VERSION,
 )
 
 
@@ -1145,6 +1159,20 @@ def untaken_episode_end_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in UNTAKEN_EPISODE_END_VERSIONS
+
+# Versions where apply_attempt reserves each attempt's application sequence and the ledger's prefix readers order by it
+# inside one created_at. Every later successor keeps it; gates must use this set, never equality, and read it through
+# :func:`application_order_on` (``learnloop.db.attempt_order.attempt_order_for`` is the readers' one door).
+APPLICATION_ORDER_VERSIONS: frozenset[str] = successors_from(APPLICATION_ORDER_ALGORITHM_VERSION)
+
+
+def application_order_on(config: object) -> bool:
+    """Same-second grades fold in the order they were applied (mvp-0.65), gated by the vault's tag alone (no kill
+    switch): below it no sequence is reserved and every reader orders the ledger by ``(created_at, id)``, exactly as
+    at mvp-0.64. ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in APPLICATION_ORDER_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it
