@@ -413,3 +413,141 @@
   .desk-search-backdrop, .desk-search, .desk-search.closing, .desk-search-backdrop.closing { animation: none; }
   .desk-search-sel { transition: none; }
 }
+
+/* -- scratchpads (§10; tab and paper tokens from §10.1, §10.3) ------------------------------------------- */
+
+:where(.desk-pads, .desk-padmenu, .desk-sheet, .desk-arrange, .desk-drain, .desk-pmark, .desk-carried) button {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer;
+}
+.desk-pads { position: relative; display: flex; flex-direction: column; min-height: 0; height: 100%; background: #1a1a1c; font: 12px var(--desk-mono); }
+.desk-pads .pinfo { position: absolute; right: 10px; top: -27px; z-index: 5; color: var(--desk-t3); font-size: 11px; }
+.desk-pads .pinfo-pop { position: absolute; right: 8px; top: 4px; z-index: 40; width: 300px; padding: 10px 12px; background: #181818; border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 14px 40px rgba(0, 0, 0, .6); color: var(--desk-t2); font-size: 11px; line-height: 1.6; }
+.desk-pads .pinfo-pop b { color: var(--desk-t); font-weight: 500; }
+.desk-pads .pinfo-pop .none { margin-top: 6px; color: var(--desk-t3); }
+.desk-pads .pscroller { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 0 8px; }
+.desk-pads .ptab {
+  /* A block button shrinks to its text; the tab fills its row between the margins the merge writes. */
+  position: sticky; z-index: 3; display: block; width: -webkit-fill-available; width: stretch; height: 30px; box-sizing: border-box; padding-top: 4px;
+  background: #1a1a1c; transition: margin .25s var(--desk-ease); text-align: left;
+}
+.desk-pads .ptab .sheet {
+  position: relative; display: flex; gap: 8px; align-items: baseline; min-width: 0; height: 26px; box-sizing: border-box; padding: 4px 10px 0;
+  background: #e9e6de; border: 1.5px solid #4a4740; border-radius: 6px; color: #3b3832; font-size: 11px; overflow: hidden; white-space: nowrap;
+}
+.desk-pads .ptab.open .sheet { background: var(--desk-pad-paper); border-bottom-color: transparent; border-radius: 6px 6px 0 0; height: 28px; }
+.desk-pads .ptab .kept { color: var(--desk-amber-ink); }
+.desk-pads .ptab .tt { color: #2a2825; flex: none; }
+.desk-pads .ptab.open .tt { color: var(--desk-amber-ink); }
+.desk-pads .ptab .tl { color: #8a857a; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.desk-pads .ptab .tm { color: #9a968e; font-size: 10px; flex: none; }
+.desk-pads .ptab.open .tm { color: var(--desk-amber-ink); }
+/* The fillets: as the tab merges, curved corners flare it into its paper (opacity = m, written per tab). */
+.desk-pads .ptab .fl { position: absolute; bottom: 0; width: 10px; height: 10px; opacity: var(--fillet, 0); pointer-events: none; }
+.desk-pads .ptab .fl.l { left: -10px; background: radial-gradient(circle at 0 0, transparent 9px, var(--desk-pad-paper) 10px); }
+.desk-pads .ptab .fl.r { right: -10px; background: radial-gradient(circle at 100% 0, transparent 9px, var(--desk-pad-paper) 10px); }
+.desk-pads .paper {
+  box-sizing: border-box; padding: 8px 10px 16px 12px; background: var(--desk-pad-paper); color: var(--desk-ink);
+  border: 1.5px solid #4a4740; border-top: 0; border-radius: 0 0 6px 6px; transition: margin .25s var(--desk-ease);
+}
+.desk-pads .paper .day { margin: 6px 0 4px 46px; padding-bottom: 3px; border-bottom: 1px solid #ebe6db; color: var(--desk-amber-ink); font-size: 10px; letter-spacing: .1em; }
+.desk-pads .pb { position: relative; display: flex; gap: 0; padding: 3px 0; border-radius: 6px; transition: background .18s, color .18s; }
+.desk-pads .pb .gut { flex: none; width: 46px; box-sizing: border-box; padding: 3px 6px 1px; text-align: right; color: #6a5aa8; font-size: 11px; }
+.desk-pads .pb .bx { flex: 1 1 auto; min-width: 0; padding-left: 6px; font: 14.5px/1.55 var(--desk-book); color: #2a2825; }
+.desk-pads .pb.editable { cursor: text; }
+.desk-pads .pb.editable:hover { background: #faf7f0; }
+.desk-pads .pb.editing { background: #fff8ec; box-shadow: inset 2px 0 0 var(--desk-amber-ink); }
+.desk-pads .pb.flash { animation: desk-pad-flash 1.8s ease-out; }
+@keyframes desk-pad-flash { 0%, 30% { background: #f6e4c5; } 100% { background: transparent; } }
+/* The § row hover: the row darkens and its text fades to the pad's white with it, and back (§10.3). */
+.desk-pads .pb.srcrow:hover { background: #2a2825; }
+.desk-pads .pb.srcrow:hover .bx, .desk-pads .pb.srcrow:hover .bx * { color: var(--desk-pad-paper); }
+.desk-pads .pb.srcrow .bx, .desk-pads .pb.srcrow .bx * { transition: color .18s; }
+.desk-pads .mark { color: #6a5aa8; font: 11px var(--desk-mono); padding: 0 2px; }
+.desk-pads .mark.src { color: #3b3832; }
+.desk-pads .pb.srcrow:hover .mark.src { color: var(--desk-pad-paper); }
+.desk-pads .mark.pen { color: var(--desk-pen); }
+.desk-pads .quote { font-style: italic; }
+.desk-pads .quote.piece { border-left: 2px solid var(--desk-amber); padding-left: 8px; }
+.desk-pads .back { display: inline-block; margin-top: 3px; font: 10.5px var(--desk-mono); font-style: normal; color: var(--desk-amber-ink); border: 1px solid #d8b98f; border-radius: 2px; padding: 0 5px; }
+.desk-pads .tutorq { border-left: 1px dotted #7d6fb8; padding-left: 8px; font: 12px/1.6 var(--desk-mono); color: #3b3832; }
+.desk-pads .tutorq .who { display: block; color: var(--desk-ll-ink); font-size: 10px; }
+.desk-pads .figline { color: #3b3832; }
+.desk-pads .lifted { font: 12px var(--desk-mono); color: #7a766e; }
+.desk-pads .check .prompt { color: var(--desk-ll-ink); }
+.desk-pads .check .hint { color: #9a968e; font: 12px var(--desk-mono); }
+.desk-pads .submitted { display: inline-block; margin-top: 3px; padding: 0 5px; font: 10px var(--desk-mono); color: #2f7a46; border: 1px solid #8cc39c; border-radius: 2px; }
+.desk-pads .carry { margin-left: 8px; font: 10px var(--desk-mono); color: var(--desk-amber-ink); border: 1px solid #d8b98f; border-radius: 8px; padding: 0 6px; }
+.desk-pads .lift { position: absolute; right: 4px; top: 6px; opacity: 0; font: 10px var(--desk-mono); color: var(--desk-amber-ink); border: 1px solid #d8b98f; border-radius: 2px; padding: 0 5px; background: var(--desk-pad-paper); }
+.desk-pads .pb:hover > .lift, .desk-pads .lift:focus-visible { opacity: 1; }
+@media (hover: none) { .desk-pads .lift { opacity: 1; } }
+.desk-pads .pb.jot .wline { color: #9a968e; font: 12px var(--desk-mono); padding: 2px 0; cursor: text; }
+.desk-pads .editor .hintline { color: #9a968e; font: 10px var(--desk-mono); margin-top: 2px; }
+/* The shared editor styles its box inline for the dark app; on paper it takes the pad's ink and font. */
+.desk-pads .editor { outline: none; }
+.desk-pads .editor textarea { font: 14.5px/1.55 var(--desk-book) !important; color: var(--desk-ink) !important; background: transparent !important; border: 0 !important; padding: 0 !important; }
+.desk-pads .pcard {
+  position: absolute; z-index: 30; width: 330px; box-sizing: border-box; padding: 9px 11px; background: #181818; color: var(--desk-t);
+  border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 14px 40px rgba(0, 0, 0, .6); font: 11.5px/1.55 var(--desk-mono);
+  animation: desk-pcard-in .16s ease-out;
+}
+.desk-pads .pcard.above { transform: translateY(-100%); }
+@keyframes desk-pcard-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+.desk-pads .pcard .head { color: var(--desk-ll); font-size: 10.5px; margin-bottom: 4px; }
+.desk-pads .pcard button { color: #f0b878; margin-right: 10px; margin-top: 6px; }
+.desk-pads .split { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0 8px 8px; }
+.desk-pads .split .pane { position: relative; min-height: 60px; display: flex; flex-direction: column; }
+.desk-pads .split .pane.focus { box-shadow: inset 2px 0 0 var(--desk-amber); }
+.desk-pads .split .ptitle { flex: none; padding: 4px 10px; color: var(--desk-t2); font-size: 11px; }
+.desk-pads .split .pscroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.desk-pads .split .divider { height: 6px; cursor: row-resize; background: #000; }
+.desk-sketch { margin: 2px 0; }
+.desk-sketch .bar { display: flex; gap: 10px; font: 10.5px var(--desk-mono); color: #7a766e; margin-bottom: 2px; }
+.desk-sketch .bar button { color: var(--desk-pen); }
+.desk-sketch .bar button.on { text-decoration: underline; }
+.desk-sketch .canvas { display: block; background: #fff; border: 1px solid #ebe6db; border-radius: 3px; touch-action: none; cursor: crosshair; }
+.desk-padmenu, .desk-sheet, .desk-arrange, .desk-drain {
+  position: fixed; z-index: 90; min-width: 320px; max-width: 420px; padding: 6px; background: #181818; color: var(--desk-t);
+  border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 24px 70px rgba(0, 0, 0, .6); font: 12px var(--desk-mono);
+}
+.desk-sheet, .desk-arrange, .desk-drain { left: 50%; top: 18%; transform: translateX(-50%); }
+.desk-padmenu .head, .desk-sheet .head, .desk-arrange .head, .desk-drain .head { padding: 4px 8px 6px; color: var(--desk-t3); font-size: 10.5px; border-bottom: 1px solid #2a2a2a; margin-bottom: 4px; }
+.desk-padmenu .row, .desk-sheet .row, .desk-arrange .row { display: flex; width: 100%; gap: 10px; padding: 5px 8px; text-align: left; border-radius: 2px; }
+.desk-padmenu .row.sel, .desk-arrange .row.sel { background: #2a2a2a; }
+.desk-padmenu .row:disabled { color: var(--desk-t3); cursor: default; }
+.desk-padmenu .row .g { width: 12px; color: var(--desk-t3); }
+.desk-padmenu .row .l { flex: 1; }
+.desk-padmenu .row .n { color: var(--desk-t3); font-size: 10.5px; }
+.desk-padmenu .row .k { color: var(--desk-t3); }
+.desk-padmenu .sep { padding: 6px 8px 2px; color: var(--desk-t3); font-size: 9.5px; letter-spacing: .1em; }
+.desk-sheet label { display: block; padding: 4px 8px; color: var(--desk-t3); font-size: 10.5px; }
+.desk-sheet textarea { display: block; width: 100%; box-sizing: border-box; min-height: 48px; margin-top: 3px; background: #080808; color: var(--desk-t); border: 1px solid #3a3a3a; border-radius: 2px; font: 12px var(--desk-mono); padding: 6px; }
+.desk-sheet .note, .desk-drain .note { padding: 4px 8px; color: var(--desk-t3); font-size: 11px; }
+.desk-sheet .note.err { color: #e8a0a0; }
+.desk-sheet .acts, .desk-drain .acts { display: flex; gap: 12px; padding: 6px 8px; }
+.desk-sheet .acts button, .desk-drain .acts button { color: #f0c890; }
+.desk-arrange .foot { padding: 6px 8px 2px; color: var(--desk-t3); font-size: 10px; }
+.desk-drain .sub { padding: 0 8px 6px; color: var(--desk-t3); font-size: 10.5px; }
+.desk-drain .pad { padding: 6px 8px; border-top: 1px solid #2a2a2a; }
+.desk-drain .pad .title { color: var(--desk-t); }
+.desk-drain .pad .lines { color: var(--desk-t3); font-size: 11px; margin: 2px 0; }
+.desk-drain .pad .done { color: #8cc39c; font-size: 11px; }
+.desk-pmark { position: absolute; z-index: 25; font: 12px var(--desk-mono); }
+.desk-pmark.pad { color: var(--desk-amber-ink); background: #fff8ec; border: 1px solid #d8b98f; border-radius: 2px; padding: 0 3px; }
+.desk-pmark.carried > button { color: var(--desk-amber-ink); }
+.desk-pmark .pop { position: absolute; left: 0; top: 18px; width: 260px; padding: 8px 10px; background: #181818; color: var(--desk-t); border: 1px solid #3a3a3a; border-radius: 4px; font-size: 11px; line-height: 1.5; }
+.desk-pmark .pop .acts { display: flex; gap: 10px; margin-top: 6px; }
+.desk-pmark .pop .acts button { color: #f0c890; }
+.desk-carried { margin-top: 10px; }
+.desk-carried .q { padding: 2px 14px; font: 11px var(--desk-mono); color: var(--desk-t2); display: flex; flex-direction: column; }
+.desk-carried .q .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desk-carried .q .s { color: var(--desk-t3); font-size: 10px; }
+.desk-carried .more { padding: 2px 14px; color: var(--desk-t3); font-size: 10px; }
+
+/* -- display math is never clipped (§13.4, an owner rule) ---------------------------------------------- */
+
+.desk-math .katex-display { margin: .3em 0; padding: .45em 0 .55em; overflow: visible; text-align: left; }
+.desk-math .katex-display > .katex { text-align: left; white-space: nowrap; }
+/* Below the fitting floor: a horizontal scroller whose bar shows and whose height is the equation's own. */
+.desk-shell .desk-math .katex-display.desk-math-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: calc(.55em + 8px); scrollbar-width: thin; scrollbar-color: #9a968e transparent; }
+.desk-shell .desk-math .katex-display.desk-math-scroll::-webkit-scrollbar { height: 6px; }
+.desk-shell .desk-math .katex-display.desk-math-scroll::-webkit-scrollbar-thumb { background: #9a968e; border-radius: 3px; }

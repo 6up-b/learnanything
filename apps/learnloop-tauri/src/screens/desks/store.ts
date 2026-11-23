@@ -10,7 +10,7 @@
 //
 // Pads live here too (spec §10.5): a pad is read once (`pad.get`) and then changed locally op by op through the
 // pad model, its batches queued in the same outbox (one numbering a client), reconciled the same way.
-import type { DeskOpDto, DeskStateDto, PadOpDto, PadViewDto } from "../../api/dto";
+import type { DeskOpDto, DeskStateDto, PadBlockSubmissionDto, PadOpDto, PadViewDto } from "../../api/dto";
 import { EMPTY_WORKSPACE, OpRefusal, fromDeskState, restampOp, type Step, type Workspace } from "./model/workspace";
 import { DeskOutbox, MemoryOutboxStore, type BatchBody, type OutboxTransport } from "./outbox";
 import { PadOpRefusal, applyPadOp, fromPadView, restampPadOp, type Pads } from "./pads/model";
@@ -105,6 +105,15 @@ export class DeskStore {
     );
     this.padReads.set(padId, read);
     return read;
+  }
+
+  /** A submission the server recorded (its "submitted · …" tag), shown at once without reading the pad again. */
+  noteSubmission(padId: string, blockId: string, submission: PadBlockSubmissionDto): void {
+    const state = this.pads[padId];
+    if (!state) return;
+    const blocks = state.blocks.map((block) => (block.blockId === blockId ? { ...block, submissions: [...block.submissions.map((each) => ({ ...each, current: false })), submission] } : block));
+    this.pads = { ...this.pads, [padId]: { ...state, blocks } };
+    this.emitPads();
   }
 
   /** Apply ops to a pad at once and queue them; a refused op is not applied and its refusal is returned. */

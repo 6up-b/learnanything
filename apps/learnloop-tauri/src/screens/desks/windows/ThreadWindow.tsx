@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import type { ReaderAskHistoryExchangeDto, TutorCitationDto } from "../../../api/dto";
 import { MarkdownMath } from "../../../render/MarkdownMath";
+import { FitMath } from "../fitMath";
 import { useWindowPaused } from "../lifecycle";
 
 /** The exchanges of the thread `rootExchangeId` belongs to, in the order they were asked. */
@@ -61,7 +62,7 @@ export function ThreadWindow({ rootExchangeId, extractionId, onOpenClaim }: {
           <div className="bub you"><span className="who">› you{exchange.createdAt ? ` · ${new Date(exchange.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}</span><p>{exchange.questionMd}</p></div>
           <div className="bub ai">
             <span className="who">◇ LearnLoop</span>
-            <div className="md"><MarkdownMath value={exchange.answerMd} /></div>
+            <FitMath className="md"><MarkdownMath value={exchange.answerMd} /></FitMath>
             {exchange.citations.length ? (
               <div className="claims">
                 {exchange.citations.map((citation, index) => (

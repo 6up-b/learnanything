@@ -25,9 +25,14 @@ export function Shelf({
   onFocus,
   onReorder,
   onSearch,
+  carried = [],
+  carriedMore = 0,
 }: {
   rows: ShelfRow[];
   folded: boolean;
+  /** CARRIED (spec §10.12): at most the attention limit, each "since <date>"; the rest are in the library. */
+  carried?: Array<{ carriedId: string; text: string; since: string }>;
+  carriedMore?: number;
   undo: { title: string; onUndo: () => void } | null;
   onFocus: (windowId: string) => void;
   onReorder: (windowId: string, toSlot: number) => void;
@@ -42,7 +47,23 @@ export function Shelf({
       </aside>
     );
   }
-  const body = <ShelfBody rows={rows} undo={undo} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />;
+  const body = (
+    <>
+      <ShelfBody rows={rows} undo={undo} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />
+      {carried.length ? (
+        <div className="desk-carried" data-shelf-carried="">
+          <h4><span>Carried</span></h4>
+          {carried.map((question) => (
+            <div key={question.carriedId} className="q" title={question.text}>
+              <span className="t">? {question.text}</span>
+              <span className="s">since {new Date(question.since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+            </div>
+          ))}
+          {carriedMore > 0 ? <div className="more">three shown (an attention limit) · {carriedMore} more in the library</div> : null}
+        </div>
+      ) : null}
+    </>
+  );
   if (folded) {
     return (
       <>

@@ -219,3 +219,9 @@ export function isLearnersWords(block: PadBlockDto): boolean {
 export function firstLine(text: string): string {
   return text.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 }
+
+/** A line as plain words for a one-line label: math delimiters, emphasis, heading and quote marks dropped
+ * (a tab cannot typeset, and "$y$" reads as noise). */
+export function plainLine(text: string): string {
+  return firstLine(text).replace(/\$+/g, "").replace(/[*_`]+/g, "").replace(/^(#+|>)\s*/, "").replace(/\\([a-zA-Z]+)/g, "$1").trim();
+}

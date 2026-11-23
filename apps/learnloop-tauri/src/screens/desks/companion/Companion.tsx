@@ -11,6 +11,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { CompanionDock, CompanionExchangeDto, CompanionHistoryDto, TutorCitationDto } from "../../../api/dto";
 import { MarkdownMath } from "../../../render/MarkdownMath";
+import { FitMath } from "../fitMath";
 import type { Rect, Stage } from "../geometry";
 import type { Timers } from "../keys/router";
 import type { CompanionExchange } from "./asks";
@@ -429,7 +430,7 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
       answer = (
         <div className="bub ai" data-exchange-status="answered">
           <span className="who">◇ LearnLoop{exchange.answer?.citations.length ? " · claims link to the passage" : ""}</span>
-          <div className="md"><MarkdownMath value={exchange.answer?.answerMd ?? ""} /></div>
+          <FitMath className="md"><MarkdownMath value={exchange.answer?.answerMd ?? ""} /></FitMath>
           {exchange.answer?.citations.length ? (
             <div className="claims">
               {exchange.answer.citations.map((citation, index) => (

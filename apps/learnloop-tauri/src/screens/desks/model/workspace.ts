@@ -459,6 +459,19 @@ export function openBeside(
   return { ...step, windowId, existed: false };
 }
 
+/** A pad stack window opened beside the focus (alt+n away from a stack: spec §10.5). */
+export function openStackBeside(ws: Workspace, deskId: string, padIds: string[], mintId: () => string, view: Record<string, unknown> = {}): Step & { windowId: string } {
+  const desk = requireDesk(ws, deskId);
+  const windowId = mintId();
+  const focus = focusedWindowId(ws, desk);
+  let step = push(start(ws), {
+    op: "open_window", deskId, windowId, stack: padIds.map((padId) => ({ kind: "pad" as const, padId })), view,
+    afterWindowId: focus ? lastOfSlot(desk, focus) : null,
+  });
+  step = push(step, { op: "set_focus", deskId, windowId });
+  return { ...step, windowId };
+}
+
 function lastOfSlot(desk: Desk, windowId: string): string {
   const slot = desk.slots[slotIndexOf(desk, windowId)];
   return slot[slot.length - 1];

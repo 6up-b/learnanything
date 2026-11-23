@@ -43,7 +43,8 @@ export type DeskAction =
   | { kind: "playPause" }
   | { kind: "swap" }
   | { kind: "docZoom"; direction: -1 | 0 | 1 }
-  | { kind: "leaveFocusMode" };
+  | { kind: "leaveFocusMode" }
+  | { kind: "drain" };
 
 export interface Chord {
   /** `KeyboardEvent.code` for Alt chords (Alt+H types other characters on some layouts and on a Mac);
@@ -99,9 +100,10 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   alt("windows.overview", "alt+o", "overview", "KeyO", { kind: "overview" }, ["overview", "focus", "reading"], { group: "windows" }),
   alt("windows.pair", "alt+,", "share a slot", "Comma", { kind: "pair" }, ["typing", "reading"], { group: "windows" }),
   alt("windows.unpair", "alt+.", "own slot", "Period", { kind: "unpair" }, ["typing", "reading"], { group: "windows" }),
-  alt("pads.new", "alt+n", "new pad", "KeyN", { kind: "newPad" }, READING, { later: "RD4", group: "pads" }),
-  alt("pads.arrange", "alt+a", "arrange pads", "KeyA", { kind: "arrangePads" }, READING, { later: "RD4", group: "pads" }),
-  alt("pads.sketch", "alt+d", "sketch block", "KeyD", { kind: "sketchBlock" }, READING, { later: "RD4", group: "pads" }),
+  alt("pads.new", "alt+n", "new pad", "KeyN", { kind: "newPad" }, READING, { group: "pads" }),
+  alt("pads.arrange", "alt+a", "arrange pads", "KeyA", { kind: "arrangePads" }, READING, { group: "pads" }),
+  alt("pads.sketch", "alt+d", "sketch block", "KeyD", { kind: "sketchBlock" }, READING, { group: "pads" }),
+  { id: "pads.drain", keys: "alt+shift+q", label: "close the desk's day (the drain)", chord: { code: "KeyQ", alt: true, shift: true }, action: { kind: "drain" }, scopes: READING, group: "pads" },
   alt("pads.timestamp", "alt+;", "insert ▶ timestamp", "Semicolon", { kind: "timestamp" }, READING, { later: "RD10", group: "pads" }),
   alt("pen.toggle", "alt+p", "pen mode", "KeyP", { kind: "pen" }, ["pen", "reading"], { later: "RD8a" }),
   alt("companion.typing", "alt+c", "the companion, while typing", "KeyC", { kind: "companion", atDock: false }, ["typing"]),
@@ -109,10 +111,12 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   bare("reading.companion", "c", "companion here", "c", { kind: "companion", atDock: false }, READING),
   { id: "reading.companion-dock", keys: "shift+c", label: "companion at its dock", chord: { key: "C", shift: true }, action: { kind: "companion", atDock: true }, scopes: READING },
   bare("reading.search", "/", "search in context", "/", { kind: "search" }, READING),
-  bare("reading.menu", ".", "the menu on the hovered object", ".", { kind: "menu" }, READING, { later: "RD5" }),
-  bare("reading.menu-key", "menu key", "the menu on the hovered object", "ContextMenu", { kind: "menu" }, READING, { later: "RD5" }),
-  { id: "reading.next-pad", keys: "ctrl+tab", label: "next pad", chord: { key: "Tab", ctrl: true, shift: false }, action: { kind: "nextPad", direction: 1 }, scopes: READING, later: "RD4" },
-  { id: "reading.prev-pad", keys: "ctrl+shift+tab", label: "previous pad", chord: { key: "Tab", ctrl: true, shift: true }, action: { kind: "nextPad", direction: -1 }, scopes: READING, later: "RD4" },
+  // The pad menu on a hovered pad line now; the source menu on a passage arrives with the menus (a key the
+  // shell does not take goes on to the window).
+  bare("reading.menu", ".", "the menu on the hovered object", ".", { kind: "menu" }, READING),
+  bare("reading.menu-key", "menu key", "the menu on the hovered object", "ContextMenu", { kind: "menu" }, READING),
+  { id: "reading.next-pad", keys: "ctrl+tab", label: "next pad", chord: { key: "Tab", ctrl: true, shift: false }, action: { kind: "nextPad", direction: 1 }, scopes: READING },
+  { id: "reading.prev-pad", keys: "ctrl+shift+tab", label: "previous pad", chord: { key: "Tab", ctrl: true, shift: true }, action: { kind: "nextPad", direction: -1 }, scopes: READING },
   bare("reading.path", "p", "your path", "p", { kind: "path" }, READING, { later: "RD6" }),
   bare("reading.note", "n", "a margin note on the hovered passage", "n", { kind: "marginNote" }, READING, { later: "RD5" }),
   bare("reading.promoted", "b", "the first promoted action", "b", { kind: "promoted" }, READING, { later: "RD5" }),
