@@ -94,6 +94,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
   const [historyQuery, setHistoryQuery] = useState("");
   const panelRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLButtonElement | null>(null);
+  const tabRef = useRef<HTMLButtonElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
 
   // What the panel shows: it stays mounted while it animates out (a dissolve or a hide), then goes.
@@ -148,17 +149,24 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
     zoomFrame(q) {
       const panel = panelRef.current;
       const pill = pillRef.current;
+      const tabEl = tabRef.current;
       if (q === null) {
         if (panel) {
           panel.style.opacity = "";
           panel.style.transform = "";
           panel.style.transition = "";
         }
-        if (pill) {
-          pill.style.opacity = "";
-          pill.style.transition = "";
+        for (const element of [pill, tabEl]) {
+          if (!element) continue;
+          element.style.opacity = "";
+          element.style.transition = "";
         }
         return;
+      }
+      // The drawer's tab fades out as the pill fades in.
+      if (tabEl) {
+        tabEl.style.transition = "none";
+        tabEl.style.opacity = String(1 - q);
       }
       // In step with the zoom: the panel shrinks toward the pill's corner and fades as the pill fades in.
       if (panel) {
@@ -267,10 +275,12 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
 
   return (
     <>
-      {mounted && !overview ? (
+      {/* The panel, the tab and the pill stay mounted through the overview (only faded), so a zoom in or out
+          moves them in step with its frames and its commit changes nothing on screen. */}
+      {mounted ? (
         <div
           ref={panelRef}
-          className={`desk-companion${leaving ? ` leaving-${leaving}` : enter}${motionClass}`}
+          className={`desk-companion${leaving ? ` leaving-${leaving}` : enter}${motionClass}${overview ? " away" : ""}`}
           data-desk-companion=""
           data-companion-mode={state.mode}
           data-companion-dock={dock}
@@ -364,10 +374,11 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           </div>
         </div>
       ) : null}
-      {!mounted && !overview ? (
+      {!mounted ? (
         <button
+          ref={tabRef}
           type="button"
-          className={`desk-companion-tab${motionClass}`}
+          className={`desk-companion-tab${motionClass}${overview ? " away" : ""}`}
           data-desk-companion-tab=""
           style={{ left: tabRect.x + tabRect.w - 230, top: tabRect.y + tabRect.h - 26 }}
           onClick={props.onDock}
@@ -375,7 +386,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           {tabLabel}
         </button>
       ) : null}
-      {overview || (mounted && state.mode !== "hidden") ? (
+      {(
         <button
           ref={pillRef}
           type="button"
@@ -390,7 +401,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           <span className="t">{props.threadTitle}</span>
           <span className="k">› <kbd>c</kbd></span>
         </button>
-      ) : null}
+      )}
     </>
   );
 });

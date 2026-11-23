@@ -353,6 +353,7 @@
   font: 12px var(--desk-mono); color: var(--desk-t); opacity: 0; pointer-events: none; transition: opacity .28s var(--desk-focus-ease);
 }
 .desk-companion-pill.on { opacity: 1; pointer-events: auto; }
+.desk-companion.away, .desk-companion-tab.away { opacity: 0; pointer-events: none; animation: none; }
 .desk-companion-pill .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .desk-companion-pill .k { color: var(--desk-t3); }
 .desk-companion-pill kbd { border: 1px solid #3a3a3a; border-radius: 2px; padding: 0 4px; font: 10px var(--desk-mono); }

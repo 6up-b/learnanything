@@ -20,6 +20,18 @@ function spanOf(element: Element): string | null {
   return element.getAttribute("data-span-id") ?? element.getAttribute("data-transcript-span");
 }
 
+/** The selection's text as the learner reads it: rendered math by its TeX source (KaTeX keeps both a
+ * visual copy and a MathML copy, and the DOM's own text would repeat every symbol). */
+export function quoteOf(range: Range, doc: Document = document): string {
+  const box = doc.createElement("div");
+  box.append(range.cloneContents());
+  for (const math of box.querySelectorAll(".katex")) {
+    const tex = math.querySelector('annotation[encoding="application/x-tex"]')?.textContent;
+    math.replaceWith(tex ? `$${tex.trim()}$` : math.querySelector(".katex-html")?.textContent ?? "");
+  }
+  return (box.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
 /** The current DOM selection inside the window `windowId`, or null when there is none there. */
 export function readWindowSelection(windowId: string, stage: Element | null, doc: Document = document): WindowSelection | null {
   const selection = doc.getSelection?.();
@@ -27,7 +39,7 @@ export function readWindowSelection(windowId: string, stage: Element | null, doc
   const range = selection.getRangeAt(0);
   const host = doc.querySelector(`[${WINDOW_ATTRIBUTE}="${windowId}"]`);
   if (!host || !host.contains(range.commonAncestorContainer)) return null;
-  const quote = selection.toString().replace(/\s+/g, " ").trim();
+  const quote = quoteOf(range, doc);
   if (!quote) return null;
   const spanIds: string[] = [];
   const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;

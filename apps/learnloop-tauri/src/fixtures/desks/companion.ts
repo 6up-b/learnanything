@@ -165,8 +165,10 @@ export class FixtureCompanion {
     const search = this.searches.get(jobId);
     if (!search) throw { code: "job_not_found", message: "no such search", retryable: false };
     const done = this.now() - search.at >= 300;
-    const stem = search.query.slice(0, 4);
-    const rows = done ? this.passages((text) => !text.toLowerCase().includes(search.query) && stem.length >= 3 && text.toLowerCase().includes(stem), true).slice(0, 3) : [];
+    // A stand-in for the meaning pass: passages of the attention note the words did not find.
+    const rows = done
+      ? this.passages((text) => !text.toLowerCase().includes(search.query), true).filter((row) => row.extractionId === FIXTURE_SOURCES.paper.extractionId).slice(0, 2)
+      : [];
     return {
       version: 1, jobId, status: done ? "done" : "running", done, error: null,
       groups: done ? [{ group: "passages", label: "passages and moments", basis: "meaning", status: "ok", rows, more: false }] : [],
