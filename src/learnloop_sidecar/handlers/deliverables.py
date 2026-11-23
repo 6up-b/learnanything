@@ -88,6 +88,16 @@ def _require(ctx: SidecarContext) -> tuple[Any, Any]:
     return vault, repository
 
 
+def _require_read(ctx: SidecarContext) -> tuple[Any, Any]:
+    """``_require`` for a read (the goal band and lens): the same refusal, no recovery. Finishing a stopped
+    publication writes goals.yaml and the journal, which a read must never do; the next curriculum action does it."""
+
+    vault, repository = ctx.require_vault()
+    if not DL.enabled(vault):
+        raise SidecarError("curriculum_disabled", "The deliverable curriculum is off (curriculum.enabled = false).")
+    return vault, repository
+
+
 def _error(exc: Exception) -> SidecarError:
     code = getattr(exc, "code", None) or "validation_error"
     return SidecarError(str(code), str(exc))

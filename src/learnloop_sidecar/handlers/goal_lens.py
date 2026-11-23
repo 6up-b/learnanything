@@ -127,7 +127,7 @@ class GoalBandInput(ParamsModel):
 def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     """The goal band (§12.2) and the path view's data (§12.5)."""
 
-    vault, repository = curriculum._require(ctx)
+    vault, repository = curriculum._require_read(ctx)
     other = _not_a_deliverable(vault, params.goal_id)
     if other is not None:
         return versioned(other)
@@ -172,7 +172,7 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
     from learnloop.reader import reader_dialogue as RD
     from learnloop_sidecar.handlers.reader import _require_source_reader, _source_id_for_extraction
 
-    vault, repository = curriculum._require(ctx)
+    vault, repository = curriculum._require_read(ctx)
     if not RD.reader_enabled(vault):
         raise SidecarError("reader_disabled", "The reader dialogue is disabled (tutor_qa.reader_enabled=False).")
     resolved = resolve_extraction_id(repository, params.extraction_id)
