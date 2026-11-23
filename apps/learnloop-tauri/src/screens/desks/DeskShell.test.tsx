@@ -1,7 +1,7 @@
 // DeskShell in jsdom (spec §18.2): the key router reaching the workspace, the writes the outbox sends,
 // a conflict taking the server's state, first-run desks, the typing scope, hidden desks and which-key.
 // Layout, pixels and real iframes are the real-webview harness's (scripts/desk_harness/run.py).
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useState } from "react";
 import type { DeskStateDto, SourceLibraryCard } from "../../api/dto";
@@ -1675,7 +1675,41 @@ describe("RD4b: pads in the desks", () => {
     });
     expect(shelf.querySelectorAll(".q")).toHaveLength(3);
     expect(shelf.textContent).toContain("since 20 Nov");
-    expect(shelf.textContent).toContain("1 more in the library");
+    // The rest is a working link to every carried question (not a mention of the library).
+    expect(within(shelf).getByRole("button", { name: /all carried questions \(1 more\)/ })).toBeTruthy();
+  });
+
+  it("the shelf's link opens every carried question, page by page, each with fruitful, not now and let it go", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const question = (n: number) => ({ carriedId: `c${n}`, text: `question ${n}?`, originKind: "typed", originRef: null, anchor: null, deskId: null, since: "2026-11-20T10:00:00Z", state: "carried", carried: true, version: n, updatedAt: "2026-11-20T10:00:00Z" });
+    const pages: Array<string | undefined> = [];
+    fakes.transport.carriedList = (async (input: { cursor?: string }) => {
+      pages.push(input.cursor);
+      return input.cursor ? { carried: [question(5)], shelfLimit: 3, cursor: null } : { carried: [1, 2, 3, 4].map(question), shelfLimit: 3, cursor: "c4" };
+    }) as never;
+    const marks: unknown[] = [];
+    fakes.transport.carriedMark = async (input: unknown) => {
+      marks.push(input);
+      return {};
+    };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const shelf = document.querySelector("[data-shelf-carried]") as HTMLElement;
+    expect(shelf.querySelectorAll(".q")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: /all carried questions/ }));
+    const list = await screen.findByRole("dialog", { name: "carried questions" });
+    expect(list.querySelectorAll("[data-carried-row]")).toHaveLength(4);
+    fireEvent.click(screen.getByRole("button", { name: /older/ }));
+    await flush();
+    expect(list.querySelectorAll("[data-carried-row]")).toHaveLength(5);
+    expect(pages).toContain("c4");
+    const row = list.querySelector('[data-carried-row="c2"]') as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "let it go" }));
+    await flush();
+    expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c2", event: "let_go", expectedVersion: 2 });
+    expect(list.querySelector('[data-carried-row="c2"]')).toBeNull();
   });
 
   it("a carried question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {

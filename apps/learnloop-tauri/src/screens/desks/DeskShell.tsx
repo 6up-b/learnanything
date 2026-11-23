@@ -92,7 +92,7 @@ import { DeskListenerRouter, WINDOW_ATTRIBUTE, windowOfTarget } from "./keys/lis
 import { WindowScope, isPaused, windowState, type ClaimedScope, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./lifecycle";
 import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
-import { Shelf, type ShelfRow } from "./Shelf";
+import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
@@ -249,7 +249,7 @@ export interface PadsTransport extends PadsApi {
   padDrain(input: { deskId: string }): Promise<PadDrainDto>;
   figureRequest(input: import("../../api/dto").FigureRequestV1Input): Promise<import("../../api/dto").LibraryJobDto<import("../../api/dto").FigureBuildResultDto>>;
   readerFigureJob(input: { jobId: string }): Promise<import("../../api/dto").LibraryJobDto<import("../../api/dto").FigureBuildResultDto>>;
-  carriedList(input: { which?: "open" | "closed" | "all"; deskId?: string }): Promise<{ carried: CarriedQuestionDto[]; shelfLimit: number }>;
+  carriedList(input: { which?: "open" | "closed" | "all"; deskId?: string; cursor?: string }): Promise<{ carried: CarriedQuestionDto[]; shelfLimit: number; cursor?: string | null }>;
   carriedMark(input: import("../../api/dto").CarriedMarkInput): Promise<unknown>;
 }
 
@@ -496,7 +496,8 @@ export function DeskShell({
   const [search, setSearch] = useState<{ query: string; insert?: ((row: SearchRow) => void) | null } | null>(null);
   // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
   const padHandles = useRef(new Map<string, PadStackHandle>());
-  const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number }>({ list: [], limit: 3 });
+  const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number; more: boolean }>({ list: [], limit: 3, more: false });
+  const [carriedOpen, setCarriedOpen] = useState(false);
   const [draining, setDraining] = useState(false);
   const drainingRef = useRef(false);
   drainingRef.current = draining;
@@ -1969,7 +1970,7 @@ export function DeskShell({
 
   const refreshCarried = useCallback(() => {
     // Through a promise, so a call that throws (a sidecar without carried questions) is a quiet failure too.
-    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit }), () => undefined);
+    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit, more: Boolean(out.cursor) }), () => undefined);
   }, [padsTransport]);
   useEffect(() => {
     if (ws) refreshCarried();
@@ -2518,6 +2519,7 @@ export function DeskShell({
           onSearch={() => setSearch({ query: "" })}
           carried={carried.list.slice(0, carried.limit).map((question) => ({ carriedId: question.carriedId, text: question.text, since: question.since }))}
           carriedMore={Math.max(0, carried.list.length - carried.limit)}
+          onCarriedList={carried.list.length > carried.limit || carried.more ? () => setCarriedOpen(true) : undefined}
         />
         <section
           className="desk-stage"
@@ -2859,6 +2861,16 @@ export function DeskShell({
         <div key={badge} className="desk-zoom-badge fade" role="status">
           {Math.round(focusZoom * 100)}% · alt+↵ or esc to leave · = − to zoom
         </div>
+      ) : null}
+      {carriedOpen ? (
+        <CarriedList
+          load={(cursor) => padsTransport.carriedList({ which: "open", ...(cursor ? { cursor } : {}) })}
+          mark={(question, event) => padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then((out) => {
+            refreshCarried();
+            return out;
+          })}
+          onClose={() => setCarriedOpen(false)}
+        />
       ) : null}
       {draining && deskId ? (
         <DrainPanel
