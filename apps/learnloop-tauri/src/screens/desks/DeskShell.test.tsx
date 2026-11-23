@@ -1186,6 +1186,27 @@ const panelBox = () => {
   return element ? [element.style.left, element.style.top, element.style.width, element.style.height].join(",") : null;
 };
 
+describe("the laptop strip (below 1400 px the shelf is a rail; spec §5.6)", () => {
+  it("opens over the rail with its own ☰ inside, and esc closes it through the key router", async () => {
+    mount(new FixtureDeskServer(), { initialViewport: { width: 1280, height: 800 } });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByRole("button", { name: "show the strip" }));
+    const strip = document.querySelector(".desk-shelf-overlay");
+    expect(strip?.querySelector("button[aria-label='hide the strip']")).not.toBeNull();
+    press("Escape", "Escape");
+    expect(document.querySelector(".desk-shelf-overlay")).toBeNull();
+    expect(screen.getByRole("button", { name: "show the strip" })).not.toBeNull();
+  });
+
+  it("its own ☰ closes it by pointer", async () => {
+    mount(new FixtureDeskServer(), { initialViewport: { width: 1280, height: 800 } });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByRole("button", { name: "show the strip" }));
+    fireEvent.click(document.querySelector(".desk-shelf-overlay button[aria-label='hide the strip']")!);
+    expect(document.querySelector(".desk-shelf-overlay")).toBeNull();
+  });
+});
+
 describe("RD3b: the companion's summon, dissolve and dock (spec §8.3)", () => {
   it("c with a selection opens it anchored at the selection, with the selection as its chip", async () => {
     mountCompanion();
@@ -1194,6 +1215,16 @@ describe("RD3b: the companion's summon, dissolve and dock (spec §8.3)", () => {
     press("c", "KeyC");
     expect(panel()?.getAttribute("data-companion-mode")).toBe("anchored");
     expect(panel()?.className).toContain("summon");
+    expect(panel()?.textContent).toContain("asking about");
+    expect(panel()?.textContent).toContain("the first passage of fx_w_book");
+  });
+
+  it("shift+c with a selection opens it at its dock, with the selection as its chip (§8.6)", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("docked");
     expect(panel()?.textContent).toContain("asking about");
     expect(panel()?.textContent).toContain("the first passage of fx_w_book");
   });

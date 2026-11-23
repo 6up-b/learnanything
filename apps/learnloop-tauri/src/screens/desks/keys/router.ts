@@ -6,10 +6,10 @@
 // top to bottom; a key no scope takes goes on to the active window (its own listeners, registered
 // through the shell's listener hub), and from there to the shell's chords (`app/keymap.ts`).
 
-export type DeskScope = "notebook" | "check" | "menu" | "typing" | "arrange" | "pen" | "overview" | "focus" | "reading";
+export type DeskScope = "notebook" | "check" | "menu" | "typing" | "arrange" | "strip" | "pen" | "overview" | "focus" | "reading";
 
 /** Highest first (spec §5.4's matrix). */
-export const SCOPE_ORDER: readonly DeskScope[] = ["notebook", "check", "menu", "typing", "arrange", "pen", "overview", "focus", "reading"];
+export const SCOPE_ORDER: readonly DeskScope[] = ["notebook", "check", "menu", "typing", "arrange", "strip", "pen", "overview", "focus", "reading"];
 
 export type DeskAction =
   | { kind: "focusAlong"; direction: -1 | 1 }
@@ -44,7 +44,8 @@ export type DeskAction =
   | { kind: "swap" }
   | { kind: "docZoom"; direction: -1 | 0 | 1 }
   | { kind: "leaveFocusMode" }
-  | { kind: "drain" };
+  | { kind: "drain" }
+  | { kind: "closeStrip" };
 
 export interface Chord {
   /** `KeyboardEvent.code` for Alt chords (Alt+H types other characters on some layouts and on a Mac);
@@ -145,6 +146,8 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   bare("focus.zoom-out", "-", "document zoom out", "-", { kind: "docZoom", direction: -1 }, ["focus"]),
   bare("focus.zoom-reset", "0", "document zoom 100 %", "0", { kind: "docZoom", direction: 0 }, ["focus"]),
   bare("focus.leave", "esc", "leave focus mode", "Escape", { kind: "leaveFocusMode" }, ["focus"]),
+  // The laptop's strip, opened over the rail (spec §5.6): esc hides it; every other key passes on.
+  bare("strip.close", "esc", "hide the strip", "Escape", { kind: "closeStrip" }, ["strip"]),
 ];
 
 /** What is open, as the router reads it. Each flag turns one scope of the matrix on. */
@@ -158,6 +161,8 @@ export interface ScopeState {
    * selection): typing for every key but the selection's own shortcuts (`SELECTION_SHORTCUTS`). */
   typingClaim?: boolean;
   arrange?: boolean;
+  /** The laptop's strip is open over the rail. */
+  strip?: boolean;
   pen?: boolean;
   overview?: boolean;
   focus?: boolean;
@@ -203,8 +208,9 @@ function passesThrough(scope: DeskScope, binding: DeskBinding): boolean {
     // Typing passes only the Alt chords marked for it.
     case "typing":
       return false;
-    // Pen mode passes every key; the overview passes the shell's chords (none of these); focus mode passes
-    // the reading-view keys.
+    // Pen mode and the open strip pass every key; the overview passes the shell's chords (none of these); focus
+    // mode passes the reading-view keys.
+    case "strip":
     case "pen":
     case "focus":
       return true;

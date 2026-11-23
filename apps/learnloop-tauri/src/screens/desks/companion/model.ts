@@ -9,9 +9,14 @@ export const COMPANION_SIZES = {
   /** Space between a dock and the stage's edges. */
   inset: 14,
   width: 400,
-  /** The open-at-cursor width below a 1240 px stage. */
+  /** The open-at-cursor width below a 1240 px window (the stage's width when the window's is unknown). */
   narrowWidth: 360,
   narrowBelow: 1240,
+  /** Below a 1400 px window (the laptop, where the shelf is a rail) every dock is at most 330 px wide and
+   * half the stage high, as the mockup's. */
+  laptopBelow: 1400,
+  laptopWidth: 330,
+  laptopShare: 0.5,
   /** Docked height, as a share of the stage (the `right` dock is the stage's height less two insets). */
   dockShare: 0.52,
   rightWidth: 420,
@@ -34,12 +39,14 @@ export const DOCKS: readonly CompanionDock[] = ["br", "bl", "right", "cb"];
 
 export function dockRect(dock: CompanionDock, stage: Stage): Rect {
   const { inset } = COMPANION_SIZES;
+  const laptop = stage.viewport !== undefined && stage.viewport < COMPANION_SIZES.laptopBelow;
+  const fit = (w: number, h: number) =>
+    laptop ? { w: Math.min(w, COMPANION_SIZES.laptopWidth), h: Math.round(Math.min(h, stage.height * COMPANION_SIZES.laptopShare)) } : { w, h };
   if (dock === "right") {
-    const w = Math.min(COMPANION_SIZES.rightWidth, stage.width * COMPANION_SIZES.rightShare);
-    return { x: stage.width - w - inset, y: inset, w, h: Math.max(0, stage.height - 2 * inset) };
+    const { w, h } = fit(Math.min(COMPANION_SIZES.rightWidth, stage.width * COMPANION_SIZES.rightShare), Math.max(0, stage.height - 2 * inset));
+    return { x: stage.width - w - inset, y: inset, w, h };
   }
-  const w = Math.min(COMPANION_SIZES.width, Math.max(0, stage.width - 2 * inset));
-  const h = Math.round(stage.height * COMPANION_SIZES.dockShare);
+  const { w, h } = fit(Math.min(COMPANION_SIZES.width, Math.max(0, stage.width - 2 * inset)), Math.round(stage.height * COMPANION_SIZES.dockShare));
   const y = stage.height - h - inset;
   if (dock === "bl") return { x: inset, y, w, h };
   if (dock === "cb") return { x: Math.round((stage.width - w) / 2), y, w, h };
@@ -48,7 +55,7 @@ export function dockRect(dock: CompanionDock, stage: Stage): Rect {
 
 /** Summoned at the cursor: 10 px below the anchor if it fits, else above, clamped to the stage. */
 export function anchoredRect(anchor: Rect, stage: Stage): Rect {
-  const w = Math.min(stage.width < COMPANION_SIZES.narrowBelow ? COMPANION_SIZES.narrowWidth : COMPANION_SIZES.width, stage.width - 16);
+  const w = Math.min((stage.viewport ?? stage.width) < COMPANION_SIZES.narrowBelow ? COMPANION_SIZES.narrowWidth : COMPANION_SIZES.width, stage.width - 16);
   const h = Math.min(COMPANION_SIZES.anchoredHeight, Math.round(stage.height * COMPANION_SIZES.anchoredShare));
   const below = anchor.y + anchor.h + COMPANION_SIZES.anchorGap;
   const above = anchor.y - COMPANION_SIZES.anchorGap - h;

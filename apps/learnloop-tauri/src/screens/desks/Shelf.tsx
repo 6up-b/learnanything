@@ -32,9 +32,15 @@ export function Shelf({
   carried = [],
   carriedMore = 0,
   onCarriedList,
+  open = false,
+  onOpenChange,
 }: {
   rows: ShelfRow[];
   folded: boolean;
+  /** Folded, whether the strip is open over the rail (the shell owns it, so esc can close it through its key
+   * router). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** CARRIED (spec §10.12): at most the attention limit, each "since <date>"; the rest are in the library. */
   carried?: Array<{ carriedId: string; text: string; since: string }>;
   /** More carried than the shelf shows (or more pages): the list behind "all carried questions". */
@@ -47,11 +53,11 @@ export function Shelf({
   /** "/ switch": search in context (spec §9.3). */
   onSearch?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const setOpen = (next: boolean) => onOpenChange?.(next);
   if (folded && !open) {
     return (
       <aside className="desk-shelf-rail" aria-label="this desk's windows">
-        <button type="button" aria-label="show the strip" title="the strip" onClick={() => setOpen(true)}>☰</button>
+        <button type="button" className="railbtn" aria-label="show the strip" title="the strip · tap to open" onClick={() => setOpen(true)}>☰<span className="rl">strip</span></button>
       </aside>
     );
   }
@@ -77,12 +83,14 @@ export function Shelf({
     </>
   );
   if (folded) {
+    // Open, the strip covers the rail (the mockup's), its own ☰ on top to hide it; the rail keeps its column.
     return (
       <>
-        <aside className="desk-shelf-rail" aria-label="this desk's windows">
-          <button type="button" aria-label="hide the strip" onClick={() => setOpen(false)}>☰</button>
-        </aside>
-        <div className="desk-shelf desk-shelf-overlay">{body}</div>
+        <aside className="desk-shelf-rail" aria-label="this desk's windows" />
+        <div className="desk-shelf desk-shelf-overlay" role="dialog" aria-label="the strip">
+          <button type="button" className="railbtn open" aria-label="hide the strip" title="the strip · tap to close" onClick={() => setOpen(false)}>☰<span className="rl">strip</span></button>
+          {body}
+        </div>
       </>
     );
   }

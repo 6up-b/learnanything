@@ -40,9 +40,15 @@ function stateFor(scope: DeskScope): ScopeState {
 
 describe("the resolved scope and precedence matrix", () => {
   it("lists the scopes highest first, with the reading view always open beneath", () => {
-    expect(SCOPE_ORDER).toEqual(["notebook", "check", "menu", "typing", "arrange", "pen", "overview", "focus", "reading"]);
+    expect(SCOPE_ORDER).toEqual(["notebook", "check", "menu", "typing", "arrange", "strip", "pen", "overview", "focus", "reading"]);
     expect(openScopes({})).toEqual(["reading"]);
     expect(openScopes({ typing: true, focus: true })).toEqual(["typing", "focus", "reading"]);
+  });
+
+  it("the laptop's open strip takes esc to hide itself and passes every other key on", () => {
+    expect(resolveKey(key({ key: "Escape", code: "Escape" }), { strip: true }, { alt: false, ctrl: false })?.binding.id).toBe("strip.close");
+    expect(resolveKey(key({ code: "KeyL", altKey: true }), { strip: true }, { alt: true, ctrl: false })?.binding.id).toBe("move.right");
+    expect(resolveKey(key({ key: "Escape", code: "Escape" }), {}, { alt: false, ctrl: false })).toBeNull();
   });
 
   it("gives every chord one binding per scope: no two bindings of a scope share a chord", () => {
