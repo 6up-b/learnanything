@@ -29,7 +29,10 @@ source_text_assertions = 23
 "src/learnloop_sidecar/handlers/reader.py" = 2980
 # 269250: the diagnosis journey and grade-application goldens record every persisted row, and from mvp-0.65 each
 # applied attempt also writes its row in attempt_application_order (115 lines; no existing value moved).
-golden_json_lines = 269250
+# 269274: the diagnosis journey golden's text_prerequisite case records the Reader workbench's derived passage rows
+# its tutor question and its gap reading now write (question_event_spans, learner_text_gap_spans; 24 lines, both
+# unanchored rows naming the case's LO; no existing value moved).
+golden_json_lines = 269274
 
 [members]
 import_component = [
