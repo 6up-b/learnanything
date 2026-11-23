@@ -83,7 +83,12 @@ def close_and_wait(ctx: Any) -> None:
             threads += [job.thread for job in list(registry._jobs.values()) if job.thread is not None]
     for thread in threads:
         thread.join(max(0.0, deadline - time.monotonic()))
+    # The post-attempt worker's slots (an answer's gap reading runs there): told to stop by the close.
+    while ctx.post_attempt_worker.running and time.monotonic() < deadline:
+        ctx.post_attempt_worker.shutdown(timeout=0.5)
     alive = [thread.name for thread in threads if thread.is_alive()]
+    if ctx.post_attempt_worker.running:
+        alive.append("post-attempt worker")
     assert not alive, f"threads still running after the context closed: {alive}"
 
 
