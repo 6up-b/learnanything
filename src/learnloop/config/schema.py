@@ -889,8 +889,8 @@ class IngestBudgetsConfig(BaseModel):
     # inventories (synthesis_shard_input_tokens, 40000), one span round
     # (12 spans x 4000 characters, 12000) and the fixed part (8000, the room
     # bootstrap's synthesis_total_input_ceiling leaves above its shard; the
-    # append's instructions and schema measure about 6600). Larger appends wait
-    # for splitting into passes (K2.4).
+    # append's instructions and schema measure about 6600). A larger append is
+    # split into passes that each fit; only an inventory over it alone is refused.
     append_input_ceiling: int = 84000
     # Span-request protocol caps: one bounded request round only.
     synthesis_span_request_max_count: int = 12

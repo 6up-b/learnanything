@@ -1000,9 +1000,12 @@ class SynthesisCall:
     #: ``spend(budgets, unlimited)``: the run's spend against its budgets (the methods ``_SynthesisBudget`` has).
     spend: Callable[[Any, bool], Any]
     #: Each shard's answer is filed under its base pass's key (``synthesis_shard_results``, which answers a one-request
-    #: shard on a rerun), its client ids are made local to it, and the shards are merged. Unsharded: one unit, whose
-    #: answer is the candidate with the ids the model wrote.
+    #: shard on a rerun) and its client ids are made local to it. Unsharded: no shard row; one unit's answer keeps the
+    #: ids the model wrote, and a run split into several units has each unit's made local (independent passes choose
+    #: the same ids), as a sharded mode's are.
     sharded: bool
+    #: ``merge(merged, answer)``: the answers of a run's units, joined into the one candidate.
+    merge: Callable[[Any, Any], Any]
     #: ``after_passes(run, merged, spend=, answers=, settings=, shard_count=) -> (candidate, usage, diagnostics)``: what
     #: follows the passes; the usage joins the runner's record, the diagnostics are the answer's own review records.
     after_passes: Callable[..., tuple[Any, dict[str, Any], list[dict[str, Any]]]]
@@ -2007,6 +2010,7 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
 
     call, repository, budgets, client, progress = mode.call, run.repository, run.budgets, run.client, run.progress
     shards = call.shards(run)
+    namespaced = call.sharded or len(shards) > 1
     context_for = call.contexts(run)
     merged = None
     span_request_count = 0
@@ -2080,7 +2084,7 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
                     f"Reusing completed shard {ordinal + 1} of {len(shards)}",
                     current=ordinal + 1, total=len(shards), step="plan_reused")
             result = _namespace_synthesis_shard(result, ordinal)
-            merged = _merge_synthesis(merged, result) if merged is not None else result
+            merged = call.merge(merged, result) if merged is not None else result
             continue
 
         _notify(progress, "synthesis",
@@ -2121,8 +2125,9 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
                 manifest_hash=run.manifest["manifest_hash"], result=shard_output, clock=run.clock,
             )
             answers.shards.append((shard_key, shard_output))
+        if namespaced:
             result = _namespace_synthesis_shard(result, ordinal)
-        merged = _merge_synthesis(merged, result) if merged is not None else result
+        merged = call.merge(merged, result) if merged is not None else result
         spend.check_merged_output(merged, "Merged synthesis exceeded its total output budget; completed shards are saved.")
 
     if merged is None:
@@ -2205,6 +2210,7 @@ BOOTSTRAP_CALL = SynthesisCall(
     contexts=_bootstrap_contexts,
     spend=_SynthesisBudget,
     sharded=True,
+    merge=lambda merged, answer: _merge_synthesis(merged, answer),  # defined below, with the shard helpers
     after_passes=_structure_merged,
 )
 
@@ -2890,7 +2896,9 @@ def _apply_concept_merges(result: Any, mapping: dict[str, str]) -> Any:
             continue
         seen_relations.add(signature)
         surviving_relations.append(relation)
-    data["concept_relations"] = surviving_relations
+    if not hasattr(result, "model_dump") or "concept_relations" in type(result).model_fields:
+        # An append's answer has no relations field (its model forbids extra keys).
+        data["concept_relations"] = surviving_relations
 
     if hasattr(result, "model_dump"):
         return result.__class__.model_validate(data)
