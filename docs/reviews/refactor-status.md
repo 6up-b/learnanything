@@ -62,12 +62,12 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 |---|---|---|---|---|---|
 | D1 | Enforce the oldest supported tag at vault doors | landed | `1da959e7d7` | [refactor-d1.md](refactor-d1.md) | — |
 | D2a | Run basic test vaults at the head tag | landed | `72ace2968a` | [refactor-d2a.md](refactor-d2a.md) | — |
-| D2b | Move tests off old tags in passes | waiting on | — | [refactor-d2b4.md](refactor-d2b4.md) | Third old-tag pass |
+| D2b | Move tests off old tags in passes | waiting on | — | [refactor-d2b5.md](refactor-d2b5.md) | A fourth pass over `mixture_env`'s default and the config-written tags the third pass lists |
 | D2b part 1 | Retag shared fixtures and older successor test builders | landed | `16a9e3fd48` | [refactor-d2b.md](refactor-d2b.md) | — |
 | D2b part 2a | Build the shared plan test vault at head | landed | `33c10723f2` | [refactor-d2b2.md](refactor-d2b2.md) | — |
 | D2b part 2b | Move plan tests off old tags where possible | landed | `5f0d44269e` | [refactor-d2b3.md](refactor-d2b3.md) | — |
 | D2b part 2c | Run the second pass over old-tag tests | landed | `6c114e2ae1` | [refactor-d2b4.md](refactor-d2b4.md) | — |
-| D2b third pass | Review the remaining tests that name old tags | not started | — | [refactor-d2b4.md](refactor-d2b4.md) | — |
+| D2b third pass | Review the remaining tests that name old tags | landed | this commit | [refactor-d2b5.md](refactor-d2b5.md) | 450 test cases moved to the head (vaults below the head: 2,493 → 2,043); eleven builders now default to the head; row stamps kept as data. Left: 187 passing cases not moved (mostly through `mixture_env`'s default) and 247 whose tag comes from a hand-written config or copied fixture |
 | D3 | Replace the upgrade chain with one table | landed | `9eb0194c2c` | [refactor-d3.md](refactor-d3.md) | — |
 | D4 | Remove constant attempt, mastery and grading gates | landed | `41387e1236` | [refactor-d4.md](refactor-d4.md) | — |
 | D5 | Remove constant rebuild, projection and doctor gates | landed | `a4bd9f2b77` | [part 1](refactor-d5.md), [part 2](refactor-d5b.md) | — |

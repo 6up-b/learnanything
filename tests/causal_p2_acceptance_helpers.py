@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import (
@@ -26,7 +27,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card
-from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, build_shared_facet_vault
+from tests.km2_write_path_helpers import SELECT, SHARED, build_shared_facet_vault
 
 
 CLOCK = FrozenClock(NOW)
@@ -85,9 +86,9 @@ def _extra_item(root, item_id: str, *, source_family: str, prompt: str) -> None:
     )
 
 
-def _acceptance_vault(tmp_path, *, version: str = KM2_OLD_TAG, toml: str | None = None):
-    """A synthetic vault (at ``version``; the tag its own tests were written at, which the learner/ gate's tests still
-    read) with a probe surface and a cold surface.
+def _acceptance_vault(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION, toml: str | None = None):
+    """A synthetic vault (at ``version``, the head unless a caller names the tag its recorded journey ran at) with a
+    probe surface and a cold surface.
 
     Both extra items live in their OWN source family: a cold verification is
     rejected outright when it shares a surface group with its source, and a

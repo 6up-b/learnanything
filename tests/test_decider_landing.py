@@ -18,6 +18,7 @@ import typing
 import pytest
 
 from learnloop.ai.decisions import ChoiceAnswer, DecisionResult
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 
 from tests.facet_span_support_helpers import LockProbe, SpanDecider, _span_vault
@@ -314,7 +315,7 @@ def test_the_tier1_disclosure_and_the_one_ok_use_one_recipient_for_a_direct_perp
     from learnloop.decider_judgments import connection_note
 
     config = LearnLoopConfig()
-    config.algorithms.algorithm_version = "mvp-0.22"
+    config.algorithms.algorithm_version = LATEST_ALGORITHM_VERSION
     config.ai.providers["pplx"] = DeciderProviderConfig(api="perplexity")
     config.ai.routing.tier1_decider = "pplx"
     config.ai.routing.learner_gap_decider = "pplx"

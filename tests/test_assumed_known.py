@@ -322,7 +322,8 @@ def test_i_dont_know_this_returns_an_assumed_lo_to_learning_immediately(tmp_path
 
 
 def test_fast_track_receipt_recomputes_its_decision(tmp_path):
-    paths, vault, repository = _setup(tmp_path, placement_toml=LOW_Q)
+    # The decision row carries the vault's tag, which the receipt check below names.
+    paths, vault, repository = _setup(tmp_path, version="mvp-0.11", placement_toml=LOW_Q)
     _answer(vault, repository, "pi_diag_hard", minutes=1)
     _answer(vault, repository, "pi_diag_mid", minutes=2)
     (decision,) = reconcile_fast_track(vault, repository, clock=_at(3))

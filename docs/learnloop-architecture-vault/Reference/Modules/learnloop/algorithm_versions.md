@@ -218,7 +218,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ad23_fakes.py](../../../../../tests/ad23_fakes.py) — direct import
 - [tests/ad_fakes.py](../../../../../tests/ad_fakes.py) — direct import
+- [tests/assumed_known_helpers.py](../../../../../tests/assumed_known_helpers.py) — direct import
 - [tests/canonical_facet_helpers.py](../../../../../tests/canonical_facet_helpers.py) — direct import
+- [tests/causal_p2_acceptance_helpers.py](../../../../../tests/causal_p2_acceptance_helpers.py) — direct import
+- [tests/certification_cold_probe_helpers.py](../../../../../tests/certification_cold_probe_helpers.py) — direct import
 - [tests/cold_retry_reschedule_helpers.py](../../../../../tests/cold_retry_reschedule_helpers.py) — direct import
 - [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
 - [tests/data_capture_a2_measurement_helpers.py](../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
@@ -227,6 +230,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followup_serve_helpers.py](../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/followups_nov2_help_fold_helpers.py](../../../../../tests/followups_nov2_help_fold_helpers.py) — direct import
 - [tests/forecast_receipts_helpers.py](../../../../../tests/forecast_receipts_helpers.py) — direct import
+- [tests/goal_certification_any_of_helpers.py](../../../../../tests/goal_certification_any_of_helpers.py) — direct import
 - [tests/grade_application_golden_helpers.py](../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../tests/graph_editor_reads_helpers.py) — direct import
 - [tests/helpers.py](../../../../../tests/helpers.py) — direct import
@@ -236,7 +240,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/km2_write_path_helpers.py](../../../../../tests/km2_write_path_helpers.py) — direct import
 - [tests/km3_projections_helpers.py](../../../../../tests/km3_projections_helpers.py) — direct import
 - [tests/learner_report_superseded_helpers.py](../../../../../tests/learner_report_superseded_helpers.py) — direct import
+- [tests/learner_text_gaps_flow_helpers.py](../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
 - [tests/learner_text_gaps_helpers.py](../../../../../tests/learner_text_gaps_helpers.py) — direct import
+- [tests/learner_text_gaps_review_helpers.py](../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/pfc_unverified_unassessed_helpers.py](../../../../../tests/pfc_unverified_unassessed_helpers.py) — direct import
@@ -326,6 +332,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
 - [tests/test_data_capture_successor.py](../../../../../tests/test_data_capture_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_te1b_and_the_latest`
+- [tests/test_decider_landing.py](../../../../../tests/test_decider_landing.py) — direct import
+  - `test_the_tier1_disclosure_and_the_one_ok_use_one_recipient_for_a_direct_perplexity_route`
 - [tests/test_diagnosis_input_provenance.py](../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_every_tag_defaults_the_switch_off`
 - [tests/test_due_queue_golden.py](../../../../../tests/test_due_queue_golden.py) — direct import
@@ -412,6 +420,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_report_superseded.py](../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_global_claim_made_after_materialization_rebuilds_to_live`
   - `test_the_tag_is_one_constant_after_mvp035_and_the_latest`
+- [tests/test_learner_text_gaps.py](../../../../../tests/test_learner_text_gaps.py) — direct import
+  - `test_a_belief_matching_a_holding_pen_candidate_is_a_sighting_and_the_decider_never_joins`
+  - `test_a_declared_prerequisite_matches_with_both_judges_logged_and_no_edge`
+  - `test_an_undeclared_match_adds_an_edge_after_a_needed_yes_and_one_tap_undo_removes_it`
+  - `test_the_decider_as_chooser_is_the_authoritative_prerequisite_judge`
+- [tests/test_learner_text_gaps_composition.py](../../../../../tests/test_learner_text_gaps_composition.py) — direct import
+- [tests/test_learner_text_gaps_flow.py](../../../../../tests/test_learner_text_gaps_flow.py) — direct import
+  - `test_a_diagnosis_is_read_from_its_causes_without_a_call`
+- [tests/test_learner_text_gaps_review.py](../../../../../tests/test_learner_text_gaps_review.py) — direct import
+  - `test_f11_pair_agreement_honours_since`
+  - `test_f1_a_failed_pair_on_the_true_match_never_creates_and_the_retry_matches`
 - [tests/test_lp_claim_fixes.py](../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_the_successor_is_one_constant_after_its_predecessor`
 - [tests/test_lp_claim_fixes_rereview.py](../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
@@ -439,6 +458,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_placement_fixture_copies.py](../../../../../tests/test_placement_fixture_copies.py) — direct import
   - `test_no_lo_answered_without_a_due_time_leaves_the_queue_at_the_latest_tag`
   - `test_the_hole_stays_at_the_old_tag_and_with_the_switch_off`
+- [tests/test_placement_sidecar.py](../../../../../tests/test_placement_sidecar.py) — direct import
 - [tests/test_placement_split_grades.py](../../../../../tests/test_placement_split_grades.py) — direct import
 - [tests/test_placement_unevidenced_return.py](../../../../../tests/test_placement_unevidenced_return.py) — direct import
   - `test_the_successor_is_one_constant_after_its_predecessor_and_the_latest`
@@ -454,6 +474,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_rw2d`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
+- [tests/test_projection_evidence_polarity.py](../../../../../tests/test_projection_evidence_polarity.py) — direct import
 - [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import
   - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
@@ -750,9 +771,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_successor.py](../../../../../tests/test_teacher_te2_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_the_router_followups_and_the_latest`
 - [tests/test_tier1_decider.py](../../../../../tests/test_tier1_decider.py) — direct import
+  - `test_serving_judgments_follow_their_switches_and_the_router_is_never_tier1`
   - `test_text_gap_kind_authority`
   - `test_text_gap_kind_is_reused_never_paid_for_twice`
   - `test_the_learner_text_gaps_decider_switch_still_keeps_learner_text_from_the_decider`
+- [tests/test_today_headline.py](../../../../../tests/test_today_headline.py) — direct import
+- [tests/test_unresolved_cause_gate.py](../../../../../tests/test_unresolved_cause_gate.py) — direct import
 - [tests/test_untaken_repair_episode.py](../../../../../tests/test_untaken_repair_episode.py) — direct import
   - `test_an_episode_open_at_the_upgrade_is_ended_by_the_first_sweep_after_it`
   - `test_the_tag`

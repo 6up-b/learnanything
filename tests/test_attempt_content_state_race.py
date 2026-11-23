@@ -38,7 +38,7 @@ from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from learnloop.algorithm_versions import ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.state_sync_scheduling_race_helpers import (
@@ -60,7 +60,7 @@ def _at_the_tag(tmp_path: Path, version: str = ATTEMPT_CONTENT_STATE_ALGORITHM_V
     return paths
 
 
-def _fresh_vault(tmp_path: Path, version: str = ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION):
+def _fresh_vault(tmp_path: Path, version: str = LATEST_ALGORITHM_VERSION):
     paths = _at_the_tag(tmp_path, version)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(load_vault(paths.root), repository, clock=SYNC_CLOCK)

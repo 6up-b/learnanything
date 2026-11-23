@@ -24,7 +24,7 @@ from tests.tier1_decider_helpers import Decider, FixedDecider, TiedDecider, _no_
 
 def _config(**switches) -> LearnLoopConfig:
     config = LearnLoopConfig()
-    config.algorithms.algorithm_version = "mvp-0.22"
+    config.algorithms.algorithm_version = LATEST_ALGORITHM_VERSION
     for name, value in switches.items():
         setattr(config.decider_routes, name, value)
     return config
@@ -81,7 +81,7 @@ def test_serving_judgments_follow_their_switches_and_the_router_is_never_tier1()
     config = LearnLoopConfig()
     # The span-support check is a content path: its switch acts at every version.
     assert enabled(config, "facet_span_support")
-    config.algorithms.algorithm_version = "mvp-0.22"
+    config.algorithms.algorithm_version = LATEST_ALGORITHM_VERSION
     assert all(enabled(config, task) for task in SERVING)
     assert not enabled(config, "router_decider") and not enabled(config, "llm_probability_decider")
 
@@ -144,7 +144,6 @@ def test_misconception_match(tmp_path, monkeypatch, mode):
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root, load_environment=False)
-    vault.config.algorithms.algorithm_version = "mvp-0.22"
     vault.config.decider_routes.misconception_match = mode != "disabled"
     repo = Repository(paths.sqlite_path)
     decider = FixedDecider({"misconception_match": "candidate"})
@@ -348,7 +347,6 @@ def test_contamination(tmp_path, monkeypatch, task, mode):
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root, load_environment=False)
-    vault.config.algorithms.algorithm_version = "mvp-0.22"
     setattr(vault.config.decider_routes, OPERATIONS[task], mode != "disabled")
     repo = Repository(paths.sqlite_path)
     decider = FixedDecider({OPERATIONS[task]: "clean"})
@@ -387,7 +385,6 @@ def test_field_question_classification(tmp_path, monkeypatch, mode):
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root, load_environment=False)
-    vault.config.algorithms.algorithm_version = "mvp-0.22"
     vault.config.decider_routes.field_question_classification = mode != "disabled"
     if mode == "oversized":
         monkeypatch.setattr(field_decider, "MAX_QUESTIONS", 0)
@@ -744,7 +741,6 @@ def test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm(
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root, load_environment=False)
-    vault.config.algorithms.algorithm_version = "mvp-0.22"
     repo = Repository(paths.sqlite_path)
     monkeypatch.setattr(tier1, "client_for", lambda *a: Decider(AIInterrupted("stop")))
 
