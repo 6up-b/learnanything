@@ -2239,6 +2239,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_backfill_dry_runs_and_then_embeds_what_is_missing`
   - `test_the_backfill_is_held_to_its_money_cap`
 - [tests/test_rw2c_fix_round2.py](../../../../../../tests/test_rw2c_fix_round2.py) — direct import
+- [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
+  - `test_two_connections_with_reversed_allocation_and_completion_rebuild_to_live`
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_ordinary_due_pick_carries_no_followup_kind`
   - `test_scheduler_candidate_logs_are_retained_per_configured_limit`

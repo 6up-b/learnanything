@@ -9,18 +9,31 @@ from, as they were then.
 
 ## Reader workbench v2 RD0 (migration 262), `reader/rd0-foundations`, 2026-11-22
 
-Upgraded in place (no rename; base: main at `533495a5c9`, head 260) by the B1 procedure below:
+Upgraded in place (no rename; base: main at `544a6d529a`, head 261, after the merge that brought D8's 261 under it) by the B1 procedure below:
 `262_reader_workbench_foundations.sql` (ten new tables: `desks`, `desk_windows`, `pads` WORKFLOW; `desk_op_receipts`,
 `pad_op_receipts` RECEIPT; `pad_block_versions`, `pad_block_anchors`, `companion_exchange_context` RAW_LEDGER,
 append-only by trigger; `question_event_spans`, `learner_text_gap_spans` DERIVED, one replayer each; all empty here)
 applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
 `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[262]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
-and the copy written into its place with `backup_database`, no companion files. Compared with the 260 file: 41 objects
+and the copy written into its place with `backup_database`, no companion files. Compared with the 261 file: 41 objects
 added (the ten tables, their eight autoindexes, twelve indexes and eleven triggers), no existing object's definition
-changed, and the only table whose rows changed is `schema_migrations` (gains 262). The number skips 261, which the
-D8 step takes in parallel: whichever of the two lands second renumbers its migration and redoes this upgrade. The file
-is 7,696,384 bytes.
+changed, and the only table whose rows changed is `schema_migrations` (gains 262). Redone on main's 261 file after D8
+landed first. The file is 7,704,576 bytes.
+
+## Refactor D8 gap 1 (migration 261), `refactor/d8-same-second-order`, 2026-11-22
+
+Upgraded in place (no rename; base: main at `533495a5c9`, head 260) by the B1 procedure below:
+`261_attempt_application_order.sql` (one new table, `attempt_application_order`, RAW_LEDGER, one row per attempt
+with its application sequence, a deferred foreign key to `practice_attempts`, empty here: nothing is backfilled by
+the migration, and the fixture is at `mvp-0.6`, below the tag whose upgrade ranks legacy attempts) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
+`upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[261]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
+and the copy written into its place with `backup_database`, no companion files. Compared with the 260 file: two
+objects added (the table and the autoindex of its `attempt_id` UNIQUE constraint; the INTEGER PRIMARY KEY has none),
+no existing object's definition changed, and the only existing table whose rows changed is `schema_migrations`
+(gains 261). The file stays 7,626,752 bytes: the new pages came from the freelist.
 
 ## Refactor J2 (migration 260), `refactor/j2-drop-dead-tables`, 2026-11-21
 

@@ -7,6 +7,7 @@ an observation and renders as a visible correction step.
 
 from __future__ import annotations
 
+from learnloop.db.attempt_order import LEGACY_ORDER
 from learnloop.learner.facet_evidence_timeline import (
     ObservationEvent,
     facet_evidence_timeline,
@@ -135,9 +136,9 @@ def test_bulk_timelines_read_grading_history_once(blueprint_vault, monkeypatch):
     original_contracts = repository.effective_assessment_contract_versions
     original_activity = repository.all_causal_activity_classifications
 
-    def attempts_once():
+    def attempts_once(*, order=LEGACY_ORDER):
         calls["attempts"] += 1
-        return original_attempts()
+        return original_attempts(order=order)
 
     def grading_once(*, include_superseded=False):
         calls["grading"] += 1

@@ -2164,6 +2164,19 @@ def hypothesis_channel_body(
 # ---------------------------------------------------------------------------
 
 
+#: ``probe_episode_decision``'s default: it reads the pinned channel itself.
+READ_PINNED_CHANNEL: Any = object()
+
+
+def read_pinned_channel(repository: Any, episode: Any) -> Any:
+    """The episode's pinned channel as ``probe_episode_decision`` reads it, for a caller that reads it ahead and
+    passes it as ``pinned_channel``."""
+
+    from learnloop.diagnosis.probe_robust import load_pinned_channel
+
+    return load_pinned_channel(repository, episode.calibration_model_hash)
+
+
 def probe_episode_decision(
     ctx: VoiContext,
     episode: Any,
@@ -2174,6 +2187,7 @@ def probe_episode_decision(
     familiarity: Mapping[str, float] | None = None,
     qualifying_observations: int,
     session_qualifying_observations: int,
+    pinned_channel: Any = READ_PINNED_CHANNEL,
 ) -> SiteDecision:
     """(a) Does this episode's next observation pay for its minutes?
 
@@ -2190,15 +2204,22 @@ def probe_episode_decision(
     them (``probe_episodes.effective_qualifying_total``). Both are required:
     this module does not import the episode reader, and a count of the stored
     flags would still count an exposed answer recorded below the tag.
+
+    ``pinned_channel``: the episode's pinned channel as the caller already read
+    it (``probe_robust.load_pinned_channel``; None when the hash names no
+    model). Left out, it is read here through ``ctx.repository``.
     """
 
     from learnloop.diagnosis.probe_families import instrument_conditionals
 
     channel = None
     if getattr(episode, "calibration_model_hash", None) is not None:
-        from learnloop.diagnosis.probe_robust import load_pinned_channel
+        if pinned_channel is READ_PINNED_CHANNEL:
+            from learnloop.diagnosis.probe_robust import load_pinned_channel
 
-        channel = load_pinned_channel(ctx.repository, episode.calibration_model_hash)
+            channel = load_pinned_channel(ctx.repository, episode.calibration_model_hash)
+        else:
+            channel = pinned_channel
     belief = {label: float(value) for label, value in posterior.items()}
     candidates: list[Candidate] = []
     for entry in eligible:
@@ -2442,6 +2463,8 @@ __all__ = [
     "UNRESOLVED_NO_PROBLEM_LABELS",
     "unresolved_scope_for_label",
     "METHOD_LOOKAHEAD_PREFIX",
+    "READ_PINNED_CHANNEL",
+    "read_pinned_channel",
     "REASON_EVSI_BATCH_CLEARS",
     "REASON_LEARNER_REQUEST",
     "REASON_NOT_IN_PLAN",

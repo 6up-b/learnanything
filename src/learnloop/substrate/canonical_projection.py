@@ -22,6 +22,7 @@ from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Collection, Mapping, Sequence
 
 from learnloop.clock import Clock
+from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder, application_sequences, attempt_order_for_version
 from learnloop.db.repositories import Repository
 from learnloop.grading_epochs import current_epoch
 from learnloop.learner.assessment_contracts import KM_ALGORITHM_VERSION
@@ -294,6 +295,11 @@ class CanonicalProjectionSnapshot:
     #: contract is unrecorded (the projection, like replay, reads them as no
     #: evidence).
     contract_unrecorded: frozenset[str] = frozenset()
+    #: The order ``ledger_rows`` are in (``learnloop.db.attempt_order``) and,
+    #: under the application order, each attempt's sequence: what a bounded
+    #: fold's boundary is keyed by. Empty under the legacy order.
+    order: AttemptOrder = LEGACY_ORDER
+    application_sequences: Mapping[str, int] = field(default_factory=dict)
 
 
 def load_canonical_projection_snapshot(
@@ -312,7 +318,8 @@ def load_canonical_projection_snapshot(
         load_effective_observation_references,
     )
 
-    ledger_rows = tuple(repository.canonical_observation_ledger_v2())
+    order = attempt_order_for_version(algorithm_version)
+    ledger_rows = tuple(repository.canonical_observation_ledger_v2(order=order))
     contract_ids = {
         str(row["assessment_contract_version_id"])
         for attempt in ledger_rows
@@ -335,7 +342,14 @@ def load_canonical_projection_snapshot(
         activity_by_attempt=repository.all_causal_activity_classifications(),
         p0_references=p0_references,
         contract_unrecorded=_contract_unrecorded(repository),
+        order=order,
+        application_sequences=_application_sequences(repository) if order.by_sequence else {},
     )
+
+
+def _application_sequences(repository: Repository) -> dict[str, int]:
+    with repository.connection() as connection:
+        return application_sequences(connection)
 
 
 def _contract_unrecorded(repository: Repository) -> frozenset[str]:
@@ -623,7 +637,8 @@ def project_canonical_facet_state(
 
     ``before`` / ``through`` (replay only; at most one) bound the fold to the
     ledger up to a position ``(created_at, attempt id)`` in the ledger's own
-    order, strictly before it or including it. Replay recomputes an attempt
+    order (``learnloop.db.attempt_order``: from mvp-0.65 a tie inside one
+    second by its application sequence), strictly before it or including it. Replay recomputes an attempt
     with the whole ledger on disk; a bounded fold gives it the belief cache
     the live write read (``before``) and left (``through``), so a rebuild
     equals live state (rebuild equivalence, 2026-10-25). A bounded fold
@@ -677,7 +692,10 @@ def project_canonical_facet_state(
             ledger_rows=tuple(
                 row
                 for row in snapshot.ledger_rows
-                if _ledger_position_within(row, bound, inclusive=through is not None)
+                if snapshot.order.within(
+                    row.get("created_at"), row.get("attempt_id"), bound, snapshot.application_sequences,
+                    inclusive=through is not None,
+                )
             ),
         )
     merge_map = snapshot.merge_map
@@ -1140,19 +1158,6 @@ def project_canonical_facet_state(
     # so it runs on every path that recomputes canonical state — live attempts and
     # replay alike — and a rebuild reproduces activation deterministically.
     project_capability_residuals(vault, repository, clock=clock)
-
-
-def _ledger_position_within(
-    row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool
-) -> bool:
-    """Whether a ledger row lies before (or, inclusive, at) ``bound``.
-
-    The order is the ledger's own, ``(created_at, attempt id)``
-    (``load_canonical_observation_ledger``), the order replay records in.
-    """
-
-    position = (str(row.get("created_at") or ""), str(row.get("attempt_id") or ""))
-    return position <= bound if inclusive else position < bound
 
 
 def project_capability_residuals(

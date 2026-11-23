@@ -24,6 +24,7 @@ from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.attempts.stuck import stuck_answer_summary
 from learnloop.clock import parse_utc
+from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.evidence_cutoff import completed_by_excludes
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.daily_plans import plan_served_origins
@@ -741,10 +742,17 @@ def fsrs_predicted_retrievability(
         review_log_from_attempts,
     )
 
+    # Each item's reviews in the order they were applied (from mvp-0.65 a tie inside one second by its application
+    # sequence), the order the live schedule chained them in.
+    order = attempt_order_for(vault.config)
+    terms = (
+        order.order_sql(attempt_id="practice_attempts.id")
+        if order.by_sequence else "created_at ASC, id ASC"
+    )
     rows = [
         dict(row)
         for row in connection.execute(
-            "SELECT * FROM practice_attempts ORDER BY practice_item_id ASC, created_at ASC, id ASC"
+            f"SELECT * FROM practice_attempts ORDER BY practice_item_id ASC, {terms}"
         )
     ]
     return predicted_retrievability_by_attempt(

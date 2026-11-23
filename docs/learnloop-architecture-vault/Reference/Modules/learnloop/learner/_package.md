@@ -76,7 +76,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] | [[Reference/Modules/learnloop/learner/capability_mapping#^module-purpose|purpose]] | `ACTIVE` | 24 | 4 |
 | [[Reference/Modules/learnloop/learner/contract_reachability|learnloop.learner.contract_reachability]] | [[Reference/Modules/learnloop/learner/contract_reachability#^module-purpose|purpose]] | `ACTIVE` | 11 | 4 |
 | [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] | [[Reference/Modules/learnloop/learner/facet_diagnostics#^module-purpose|purpose]] | `ACTIVE` | 26 | 8 |
-| [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] | [[Reference/Modules/learnloop/learner/facet_evidence_timeline#^module-purpose|purpose]] | `ACTIVE` | 6 | 19 |
+| [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] | [[Reference/Modules/learnloop/learner/facet_evidence_timeline#^module-purpose|purpose]] | `ACTIVE` | 6 | 20 |
 | [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] | [[Reference/Modules/learnloop/learner/facet_state_reader#^module-purpose|purpose]] | `ACTIVE` | 18 | 9 |
 | [[Reference/Modules/learnloop/learner/familiarity|learnloop.learner.familiarity]] | [[Reference/Modules/learnloop/learner/familiarity#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/learner/hypothesis_claims|learnloop.learner.hypothesis_claims]] | [[Reference/Modules/learnloop/learner/hypothesis_claims#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -102,7 +102,7 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 28 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 25 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 23 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 24 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 6 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
@@ -170,7 +170,7 @@ flowchart LR
     center -->|28| n_learnloop
     n_learnloop_sidecar_handlers -->|28| center
     center -->|25| n_learnloop_vault
-    center -->|23| n_learnloop_db
+    center -->|24| n_learnloop_db
     n_learnloop_diagnosis -->|18| center
     center -->|5| n_learnloop_diagnosis
     n_learnloop_goals -->|14| center

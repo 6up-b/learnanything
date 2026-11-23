@@ -46,9 +46,8 @@ def _migrations_through(tmp_path: Path, version: int) -> Path:
 
 
 def _database_before(tmp_path: Path, version: int) -> Path:
-    through = _migrations_through(tmp_path, version)
     database = tmp_path / "state.sqlite"
-    apply_migrations(database, migrations_dir=through)
+    apply_migrations(database, migrations_dir=_migrations_through(tmp_path, version))
     assert max(applied_versions(database)) == version
     return database
 
@@ -78,10 +77,10 @@ def test_an_empty_family_is_dropped_and_nothing_else_changes(tmp_path):
     database = _database_before(tmp_path, MIGRATION.version - 1)
     before = _schema(database)
     assert J2_DROPPED_OBJECTS <= set(before)
-    # The upgrade stops at this migration, so a later one's objects never enter the diff below.
+    # Through this migration only: a later migration's objects are its own test's.
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [m.version for m in apply_migrations(
-            database, migrations_dir=_migrations_through(tmp_path, MIGRATION.version))] == [MIGRATION.version]
+        applied = apply_migrations(database, migrations_dir=_migrations_through(tmp_path, MIGRATION.version))
+        assert [m.version for m in applied] == [MIGRATION.version]
     after = _schema(database)
     assert set(before) - set(after) == J2_DROPPED_OBJECTS
     assert set(after) - set(before) == set()

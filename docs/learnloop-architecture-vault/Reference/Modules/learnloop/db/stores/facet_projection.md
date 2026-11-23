@@ -48,61 +48,61 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/facet_projection.py](../../../../../../../src/learnloop/db/stores/facet_projection.py) |
-| Source lines | 1120 |
+| Source lines | 1121 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 164)
-- `class CanonicalFacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 184) — Canonical shared facet belief (KM2 §7.1), keyed on the post-merge facet id and observed capability.
-- `class FacetCapabilityEvidence` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 207) — Capability-sliced certification ledger (KM2 §7.1).
-- `class FacetProjectionStoreMixin` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 349)
-  - `facet_ids_with_recall_evidence(self) -> set[str]` (line 351; public) — Facet ids with legacy per-LO recall evidence (mvp-0.6 first-touch lock).
-  - `facet_recall_state(self, learning_object_id: str, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 366; public)
-  - `canonical_facet_recall_states(self) -> list[CanonicalFacetRecallState]` (line 397; public)
-  - `canonical_facet_recall_state(self, facet_id: str, capability_key: str='shared', practice_item_id: str | None=None) -> CanonicalFacetRecallState | None` (line 404; public)
-  - `facet_capability_evidence(self, facet_id: str, capability: str) -> FacetCapabilityEvidence | None` (line 429; public)
-  - `facet_capability_evidence_all(self) -> list[FacetCapabilityEvidence]` (line 439; public)
-  - `facet_capability_evidence_for_facet(self, facet_id: str) -> list[FacetCapabilityEvidence]` (line 446; public)
-  - `facet_independence_evidence(self, facet_id: str) -> tuple[int, float]` (line 456; public) — (#distinct direct surface/correlation groups, independent mass) for the independence-gated lock trigger (§3.4).
-  - `canonical_observation_ledger(self) -> list[dict[str, Any]]` (line 474; public) — Every graded attempt in global chronological order with its non-superseded grading evidence (KM2 projection input).
-  - `canonical_observation_ledger_v2(self) -> list[dict[str, Any]]` (line 494; public) — P0.3 (§4.3) authoritative-events ledger.
-  - `replace_canonical_facet_state(self, *, recall_rows: Iterable[Mapping[str, Any]], capability_rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 510; public) — Make the canonical belief cache equal a derived projection.
-  - `replace_capability_residual_state(self, *, rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 598; public) — Make the derived capability-residual activation state equal a projection (§4.2).
-  - `capability_residual_states(self) -> list[dict[str, Any]]` (line 645; public)
-  - `capability_residual_state(self, facet_id: str, capability: str) -> dict[str, Any] | None` (line 652; public)
-  - `identifiability_watermark(self, subject_id: str) -> dict[str, Any] | None` (line 664; public)
-  - `upsert_identifiability_watermark(self, *, subject_id: str, registry_hash: str, finding_count: int, clock: Clock | None=None) -> None` (line 679; public)
-  - `facet_merge_map(self, *, include_in_flight: bool=False) -> dict[str, str]` (line 705; public) — The settled merge map, retired facet -> survivor.
-  - `resolve_facet_merge(self, facet_id: str, merge_map: Mapping[str, str] | None=None) -> str` (line 722; public) — Resolve a facet id transitively to its terminal survivor (§7.1).
-  - `insert_facet_merge(self, *, retired_facet_id: str, surviving_facet_id: str, proposal_item_id: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> None` (line 728; public) — Record a pre-lock reviewed merge; reject a row that creates a cycle.
-  - `facet_recall_states(self, learning_object_id: str | None=None) -> list[FacetRecallState]` (line 768; public)
-  - `facet_uncertainty_state(self, learning_object_id: str, facet_id: str) -> FacetUncertaintyState | None` (line 785; public)
-  - `facet_uncertainty_states(self, learning_object_id: str | None=None, *, statuses: Iterable[str] | None=None) -> list[FacetUncertaintyState]` (line 800; public)
-  - `upsert_facet_uncertainty_state(self, state: Mapping[str, Any]) -> None` (line 826; public)
-  - `latest_whole_vault_rebuild(self) -> dict[str, Any] | None` (line 831; public) — The latest rebuild that replayed every learning object (scope ``all``), or None.
-  - `record_derived_state_rebuild(self, *, scope: str, learning_object_ids: list[str], algorithm_version: str, rebuilt_learning_objects: int, replayed_attempts: int, canonical_projection_version: str | None=None, coverage_denominator_version: str | None=None, projection_switches: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 840; public)
-  - `latest_derived_state_rebuild(self) -> dict[str, Any] | None` (line 886; public)
-  - `has_whole_vault_rebuild(self, *, algorithm_version: str) -> bool` (line 897; public) — Whether a whole-vault rebuild (scope ``all``) ran under ``algorithm_version``.
-  - `latest_canonical_projection_rebuild(self) -> dict[str, Any] | None` (line 911; public) — Latest rebuild that explicitly names its projection semantics.
-  - `_upsert_facet_uncertainty_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None` (line 933; internal)
-  - `derived_state_rebuild_version_changes(self) -> list[dict[str, Any]]` (line 1002; public) — Recalibration boundaries: each derived-state rebuild whose ``algorithm_version`` OR ``canonical_projection_version`` differs from the immediately preceding rebuild.
+- `class FacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 165)
+- `class CanonicalFacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 185) — Canonical shared facet belief (KM2 §7.1), keyed on the post-merge facet id and observed capability.
+- `class FacetCapabilityEvidence` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 208) — Capability-sliced certification ledger (KM2 §7.1).
+- `class FacetProjectionStoreMixin` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 350)
+  - `facet_ids_with_recall_evidence(self) -> set[str]` (line 352; public) — Facet ids with legacy per-LO recall evidence (mvp-0.6 first-touch lock).
+  - `facet_recall_state(self, learning_object_id: str, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 367; public)
+  - `canonical_facet_recall_states(self) -> list[CanonicalFacetRecallState]` (line 398; public)
+  - `canonical_facet_recall_state(self, facet_id: str, capability_key: str='shared', practice_item_id: str | None=None) -> CanonicalFacetRecallState | None` (line 405; public)
+  - `facet_capability_evidence(self, facet_id: str, capability: str) -> FacetCapabilityEvidence | None` (line 430; public)
+  - `facet_capability_evidence_all(self) -> list[FacetCapabilityEvidence]` (line 440; public)
+  - `facet_capability_evidence_for_facet(self, facet_id: str) -> list[FacetCapabilityEvidence]` (line 447; public)
+  - `facet_independence_evidence(self, facet_id: str) -> tuple[int, float]` (line 457; public) — (#distinct direct surface/correlation groups, independent mass) for the independence-gated lock trigger (§3.4).
+  - `canonical_observation_ledger(self) -> list[dict[str, Any]]` (line 475; public) — Every graded attempt in global chronological order with its non-superseded grading evidence (KM2 projection input).
+  - `canonical_observation_ledger_v2(self, *, order: AttemptOrder=LEGACY_ORDER) -> list[dict[str, Any]]` (line 495; public) — P0.3 (§4.3) authoritative-events ledger.
+  - `replace_canonical_facet_state(self, *, recall_rows: Iterable[Mapping[str, Any]], capability_rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 511; public) — Make the canonical belief cache equal a derived projection.
+  - `replace_capability_residual_state(self, *, rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 599; public) — Make the derived capability-residual activation state equal a projection (§4.2).
+  - `capability_residual_states(self) -> list[dict[str, Any]]` (line 646; public)
+  - `capability_residual_state(self, facet_id: str, capability: str) -> dict[str, Any] | None` (line 653; public)
+  - `identifiability_watermark(self, subject_id: str) -> dict[str, Any] | None` (line 665; public)
+  - `upsert_identifiability_watermark(self, *, subject_id: str, registry_hash: str, finding_count: int, clock: Clock | None=None) -> None` (line 680; public)
+  - `facet_merge_map(self, *, include_in_flight: bool=False) -> dict[str, str]` (line 706; public) — The settled merge map, retired facet -> survivor.
+  - `resolve_facet_merge(self, facet_id: str, merge_map: Mapping[str, str] | None=None) -> str` (line 723; public) — Resolve a facet id transitively to its terminal survivor (§7.1).
+  - `insert_facet_merge(self, *, retired_facet_id: str, surviving_facet_id: str, proposal_item_id: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> None` (line 729; public) — Record a pre-lock reviewed merge; reject a row that creates a cycle.
+  - `facet_recall_states(self, learning_object_id: str | None=None) -> list[FacetRecallState]` (line 769; public)
+  - `facet_uncertainty_state(self, learning_object_id: str, facet_id: str) -> FacetUncertaintyState | None` (line 786; public)
+  - `facet_uncertainty_states(self, learning_object_id: str | None=None, *, statuses: Iterable[str] | None=None) -> list[FacetUncertaintyState]` (line 801; public)
+  - `upsert_facet_uncertainty_state(self, state: Mapping[str, Any]) -> None` (line 827; public)
+  - `latest_whole_vault_rebuild(self) -> dict[str, Any] | None` (line 832; public) — The latest rebuild that replayed every learning object (scope ``all``), or None.
+  - `record_derived_state_rebuild(self, *, scope: str, learning_object_ids: list[str], algorithm_version: str, rebuilt_learning_objects: int, replayed_attempts: int, canonical_projection_version: str | None=None, coverage_denominator_version: str | None=None, projection_switches: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 841; public)
+  - `latest_derived_state_rebuild(self) -> dict[str, Any] | None` (line 887; public)
+  - `has_whole_vault_rebuild(self, *, algorithm_version: str) -> bool` (line 898; public) — Whether a whole-vault rebuild (scope ``all``) ran under ``algorithm_version``.
+  - `latest_canonical_projection_rebuild(self) -> dict[str, Any] | None` (line 912; public) — Latest rebuild that explicitly names its projection semantics.
+  - `_upsert_facet_uncertainty_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None` (line 934; internal)
+  - `derived_state_rebuild_version_changes(self) -> list[dict[str, Any]]` (line 1003; public) — Recalibration boundaries: each derived-state rebuild whose ``algorithm_version`` OR ``canonical_projection_version`` differs from the immediately preceding rebuild.
 
 ## Internal implementation anchors
 
-- `class _ProjectionChanges` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 32)
-- `_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, cells: Sequence[Mapping[str, Any]]) -> _ProjectionChanges` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 41) — Compare a projection with the stored rows, cell by cell.
-- `_apply_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, changes: _ProjectionChanges, *, now: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 85)
-- `_write_projection_on_change(connection: sqlite3.Connection, projections: Sequence[tuple[_ProjectionTable, Sequence[Mapping[str, Any]]]], *, now: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 121) — Persist whole projections, writing only the cells that changed.
-- `_facet_recall_state(row: sqlite3.Row) -> FacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 233)
-- `_canonical_facet_recall_state(row: sqlite3.Row) -> CanonicalFacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 254)
-- `_facet_capability_evidence(row: sqlite3.Row) -> FacetCapabilityEvidence` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 275)
-- `_capability_residual_row(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 294)
-- `_resolve_merge(facet_id: str, merge_map: Mapping[str, str]) -> str` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 316) — Follow retired->surviving edges to the terminal survivor.
-- `_reaches(start: str, target: str, merge_map: Mapping[str, str]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 330)
-- `_decode_derived_state_rebuild(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 341)
+- `class _ProjectionChanges` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 33)
+- `_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, cells: Sequence[Mapping[str, Any]]) -> _ProjectionChanges` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 42) — Compare a projection with the stored rows, cell by cell.
+- `_apply_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, changes: _ProjectionChanges, *, now: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 86)
+- `_write_projection_on_change(connection: sqlite3.Connection, projections: Sequence[tuple[_ProjectionTable, Sequence[Mapping[str, Any]]]], *, now: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 122) — Persist whole projections, writing only the cells that changed.
+- `_facet_recall_state(row: sqlite3.Row) -> FacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 234)
+- `_canonical_facet_recall_state(row: sqlite3.Row) -> CanonicalFacetRecallState` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 255)
+- `_facet_capability_evidence(row: sqlite3.Row) -> FacetCapabilityEvidence` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 276)
+- `_capability_residual_row(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 295)
+- `_resolve_merge(facet_id: str, merge_map: Mapping[str, str]) -> str` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 317) — Follow retired->surviving edges to the terminal survivor.
+- `_reaches(start: str, target: str, merge_map: Mapping[str, str]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 331)
+- `_decode_derived_state_rebuild(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/facet_projection.py), line 342)
 
 ## Who imports or calls it
 
@@ -121,6 +121,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `AttemptOrder`, `LEGACY_ORDER`
 - [[Reference/Modules/learnloop/db/records|learnloop.db.records]] — imports `FacetUncertaintyState`, `_CAPABILITY_RESIDUAL_PROJECTION`, `_FACET_CAPABILITY_PROJECTION`, `_FACET_RECALL_PROJECTION`, `_ProjectionTable`, `_facet_uncertainty_state`, `_projection_id`; calls `_facet_uncertainty_state`, `_projection_id`
 - [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] — imports `_json`, `_loads`; calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/stores/facet_identity|learnloop.db.stores.facet_identity]] — imports `settled_merge_rows`; calls `settled_merge_rows`

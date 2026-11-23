@@ -68,6 +68,10 @@ OUT_OF_SCOPE: dict[str, str] = {
 #: compared as AD reads them, through the material view, instead of raw (fix round 12, F42).
 COMPARED_THROUGH_VIEW: dict[str, str] = {
     "practice_item_state": "out['item_states']: MaterialView.item_states, what AD's admission and generation read",
+    # mvp-0.65: the incumbent's answer pipeline numbers every application, the protected answers included, so the
+    # raw sequences differ by construction; AD reads only their order between the attempts the view keeps.
+    "attempt_application_order": "out['application_order']: the visible attempts in sequence order, as AD's replay "
+                                 "reads them",
 }
 #: The report's protection disclosure: what the view withheld (it differs by construction).
 DISCLOSURE = ("protection", "generated_at", "protected_readings")
@@ -1220,6 +1224,9 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     out["item_states"] = {item_id: [state.difficulty, state.stability, state.retrievability, state.due_at,
                                     state.active, state.last_attempt_at]
                           for item_id, state in sorted(states.items())}
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        out["application_order"] = [str(row["attempt_id"]) for row in sorted(
+            view.rows(connection, "attempt_application_order"), key=lambda row: int(row["sequence"]))]
     return out
 
 

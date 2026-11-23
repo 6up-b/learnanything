@@ -107,6 +107,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Slice 1 M2: the validated diagnosis ledger (append-only; re-diagnosis
     # supersedes). Replay reads it and never calls the diagnoser (S7).
     ("attempt_diagnoses", TableRole.RAW_LEDGER),
+    # mvp-0.65 (migration 261): the order attempts were applied in, one row per
+    # attempt, reserved inside apply_attempt's transaction or ranked by the
+    # upgrade. Replay folds by it and never writes it.
+    ("attempt_application_order", TableRole.RAW_LEDGER),
     ("attempt_completion_work", TableRole.WORKFLOW),
     # Carries immutable diagnosis/firewall receipts and recorded priming inputs
     # alongside the replay trace.  There is no external lossless source for the

@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Callable, Iterable
 
+from learnloop.db.attempt_order import AttemptOrder, application_sequences, attempt_order_for
 from learnloop.db.scopes import atomic_repository_call
 from learnloop.scheduling.family_memory_model import FamilyMemory, weights_digest
 from learnloop.substrate.activities import canonical_json
@@ -21,6 +22,13 @@ from learnloop.params.fitted_params import resolve_fsrs_weights
 # question voids coldness even without a reveal-ledger row), as in evaluation.
 PROJECTION_VERSION = "family-memory-cold-v4"
 PROJECTION_LEGACY_FALLBACK = "current_content"
+
+
+def in_fold_order(rows: Iterable, order: AttemptOrder, sequences: dict[str, int]) -> list:
+    """The family-memory fold's order: by observation time, then the attempt's place in the ledger's order (its id,
+    or from mvp-0.65 its application sequence and then its id)."""
+
+    return sorted(rows, key=lambda row: order.key(row.features.observed_at, row.attempt_id, sequences))
 
 
 @atomic_repository_call
@@ -35,7 +43,12 @@ def rebuild_family_memory(vault, repository, load_rows: Callable[[], Iterable]) 
     arm = FamilyMemory("family", weights)
     skipped: Counter = Counter()
     count = 0
-    for row in sorted(load_rows(), key=lambda r: (r.features.observed_at, r.attempt_id)):
+    order = attempt_order_for(vault.config)
+    sequences: dict[str, int] = {}
+    if order.by_sequence:
+        with repository.connection() as connection:
+            sequences = application_sequences(connection)
+    for row in in_fold_order(load_rows(), order, sequences):
         if not row.features.family_id:
             skipped["no_family"] += 1
         elif not row.memory_eligible:

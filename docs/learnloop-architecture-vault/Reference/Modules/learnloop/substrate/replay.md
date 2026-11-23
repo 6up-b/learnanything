@@ -47,29 +47,29 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/replay.py](../../../../../../src/learnloop/substrate/replay.py) |
-| Source lines | 551 |
+| Source lines | 553 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 15)
-  - `as_dict(self) -> dict[str, object]` (line 20; public)
-- `class RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 29)
-  - `as_dict(self) -> dict[str, object]` (line 36; public)
-- `replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None=None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None=None, project_canonical_state: bool=True, clock: Clock | None=None) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 268) — Rebuild attempt-derived state for one learning object from persisted grades.
-- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 434) — Replay all requested learning objects that have persisted attempts.
-- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 498) — Stamp the recalibration boundary AT the content change, not after it.
+- `class ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 16)
+  - `as_dict(self) -> dict[str, object]` (line 21; public)
+- `class RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 30)
+  - `as_dict(self) -> dict[str, object]` (line 37; public)
+- `replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None=None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None=None, project_canonical_state: bool=True, clock: Clock | None=None) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 269) — Rebuild attempt-derived state for one learning object from persisted grades.
+- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 436) — Replay all requested learning objects that have persisted attempts.
+- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 500) — Stamp the recalibration boundary AT the content change, not after it.
 
 ## Internal implementation anchors
 
-- `_restore_debug_audit_events(repository: Repository, attempt_id: str, prior_payload: Mapping[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 48) — Preserve decision-time firewall audit events across deterministic replay.
-- `class _ClaimStream` ([source](../../../../../../src/learnloop/substrate/replay.py), line 106) — Claims replayed where they were applied live (LP-min (a); AD §5.5).
-- `_order_key(row: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/substrate/replay.py), line 237) — A row's place in the shared ``(created_at, id)`` order; an unparseable stamp sorts first.
-- `_claim_position(claim: Mapping[str, Any], learning_object_id: str, attempt_keys: list[tuple[float, str]]) -> tuple[int, float, str] | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 244) — ``(attempts applied before the claim, created_at, id)``, or None for an unordered claim.
-- `_parse_or_none(value: Any)` ([source](../../../../../../src/learnloop/substrate/replay.py), line 261)
-- `_replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, project_canonical_state: bool, clock: Clock | None) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 314)
+- `_restore_debug_audit_events(repository: Repository, attempt_id: str, prior_payload: Mapping[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 49) — Preserve decision-time firewall audit events across deterministic replay.
+- `class _ClaimStream` ([source](../../../../../../src/learnloop/substrate/replay.py), line 107) — Claims replayed where they were applied live (LP-min (a); AD §5.5).
+- `_order_key(row: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/substrate/replay.py), line 238) — A row's place in the shared ``(created_at, id)`` order; an unparseable stamp sorts first.
+- `_claim_position(claim: Mapping[str, Any], learning_object_id: str, attempt_keys: list[tuple[float, str]]) -> tuple[int, float, str] | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 245) — ``(attempts applied before the claim, created_at, id)``, or None for an unordered claim.
+- `_parse_or_none(value: Any)` ([source](../../../../../../src/learnloop/substrate/replay.py), line 262)
+- `_replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, project_canonical_state: bool, clock: Clock | None) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 315)
 
 ## Who imports or calls it
 
@@ -92,6 +92,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptResult`, `GradeAttribution`, `replay_existing_attempt`; calls `replay_existing_attempt`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `parse_utc`; calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `attempt_order_for`; calls `attempt_order_for`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CANONICAL_STAMPED_TABLES`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `update_misconception_posteriors_and_resolve`; calls `update_misconception_posteriors_and_resolve`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `closed_probe_ids`; calls `closed_probe_ids`
@@ -202,6 +203,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_preserves_targeted_error_attribution_facets`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_exam_seeding_records_the_import_time_and_replay_keeps_it`
+- [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
+  - `test_at_the_tag_each_replayed_attempt_sees_the_windows_and_cache_its_live_write_saw`
+  - `test_below_the_tag_the_replayed_windows_follow_the_ids`
+  - `test_distinct_seconds_replay_alike_at_both_tags`
 - [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — direct import
   - `test_replay_identical_after_append_apply`
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import
