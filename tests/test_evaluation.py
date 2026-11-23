@@ -19,7 +19,7 @@ from learnloop.scheduling.evaluation import (
     log_loss,
 )
 from learnloop.scheduling.fsrs import apply_review, forgetting_curve
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
@@ -77,7 +77,7 @@ def test_report_on_real_session_flow(tmp_path):
     # from it, then a later attempt on the same item (a retention label pair).
     from learnloop.scheduling.scheduler import SchedulerSession
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id="s_eval_test")
     )
     assert queue
@@ -143,7 +143,7 @@ def test_propensity_report_marks_composed_offers_unavailable_not_degenerate(tmp_
     vault, repository = _seeded(tmp_path)
     clock = FrozenClock(NOW)
     session = repository.create_session(clock=clock)
-    offered = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    offered = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
     repository.finalize_scheduler_offer(offered.scheduler_slate_id, [offered.scheduler_candidate_id])
     complete_self_graded_attempt(
         vault,

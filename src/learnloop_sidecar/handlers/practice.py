@@ -54,7 +54,7 @@ from learnloop.diagnosis.probe_presentations import (
     validate_presentation_for_submission,
 )
 from learnloop.diagnosis.probes import probe_posterior
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.attempts.trace_evidence import (
     compose_learner_trace,
     decide_elicitation,
@@ -1955,7 +1955,7 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
     generation = int(session.get("owner_generation") or 0)
     trace = offer_trace_for(vault, params.session_id)
     held_for_device = device_filter(ctx.request_origin, vault, repository, params.session_id)
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault,
         repository,
         session=SchedulerSession(

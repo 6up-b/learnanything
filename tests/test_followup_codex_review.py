@@ -23,7 +23,7 @@ from learnloop.followup_run import jobs, router, serving
 from learnloop.followup_run.decision_view import decision_view
 from learnloop.followup_serve import identity, workflow as wf
 from learnloop.followup_serve.gates import generate_and_serve_on
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -247,7 +247,7 @@ def test_f3_a_crash_after_the_file_leaves_an_identified_parked_item(journey, mon
     assert identity.is_generated_probe(repository, orphan)
     assert repository.probe_item_family_links(orphan)
     assert not repository.practice_item_state(orphan).active  # the sync parked it
-    assert orphan not in {item.practice_item_id for item in build_due_queue(vault, repository, limit=None)}
+    assert orphan not in {item.practice_item_id for item in serve_due_queue(vault, repository, limit=None)}
     journey.ctx.reload(maintenance=False)
     _refused(journey.ctx, "open_queue_item", {"practiceItemId": orphan}, code=identity.GENERATED_PROBE_RESERVED)
     _refused(journey.ctx, "get_practice_item", {"practiceItemId": orphan, "sessionId": "s1"},

@@ -62,7 +62,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `servable(self) -> tuple[str, ...]` (line 184; public) — The candidates this check may serve now: the eligible ones; with none, nothing while a hold lasts; else the exposed ones, as practice.
   - `cold(self, item_id: str) -> bool` (line 196; public)
 - `class IntentServing` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 205)
-  - `bind_admission(self, admitted: Any) -> None` (line 231; public) — Split the due checks with this admission (``build_due_queue``'s own).
+  - `bind_admission(self, admitted: Any) -> None` (line 231; public) — Split the due checks with this admission (``serve_due_queue``'s own).
   - `checks(self) -> dict[str, CheckState]` (line 238; public)
   - `frozen(self, anchors_for: Iterable[str] | None=None) -> 'IntentServing'` (line 263; public) — This view with every read it makes done, and none of its readers.
   - `intent(self, item_id: str) -> ItemIntent` (line 300; public)

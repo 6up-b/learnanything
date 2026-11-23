@@ -22,7 +22,7 @@ def fixed_request_root(monkeypatch):
 
 def test_first_of_eight_topics_is_served_while_the_second_is_being_written(tmp_path):
     from learnloop.clock import FrozenClock
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
     from learnloop.vault.loader import load_vault
     from tests.helpers import NOW
 
@@ -32,7 +32,7 @@ def test_first_of_eight_topics_is_served_while_the_second_is_being_written(tmp_p
 
     def during_call():
         if len(writer.calls) == 2:
-            queue = build_due_queue(load_vault(paths.root), repo, clock=FrozenClock(NOW))
+            queue = serve_due_queue(load_vault(paths.root), repo, clock=FrozenClock(NOW))
             observed.extend(row.practice_item_id for row in queue)
             assert f"pi_{TOPICS[0]}" in observed
             assert live_questions(paths) == {f"pi_{TOPICS[0]}"}

@@ -53,7 +53,7 @@ from learnloop.daily_plan.policy import policy_for, prefetch_can_start
 from learnloop.daily_plan.engine import intent_view
 from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
 from learnloop.daily_plan.view import disabled_view, plan_view
-from learnloop.scheduling.scheduler import build_due_queue, read_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue, read_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -178,7 +178,7 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
         # the scheduler's greedy order, without its seeded exploration
         # (plan_scheduler_session: staged plans are deterministic). The prefetch
         # reads on a read-only attach, where any write of the build would fail.
-        queue = (read_due_queue if prefetch else build_due_queue)(
+        queue = (read_due_queue if prefetch else serve_due_queue)(
             vault,
             repository,
             session=plan_scheduler_session(vault, session_id, minutes),

@@ -1,7 +1,7 @@
 """Daily-loop DL2: resolving an item's intent, the most recent choice wins (§5.3, G4).
 
 Every case runs through the real control (``apply_choice``) and the real
-scheduler (``build_due_queue``); clocks advance between choices so "most
+scheduler (``serve_due_queue``); clocks advance between choices so "most
 recent" is a stored-time fact. "Check once" cases are the spec's §13 list.
 """
 

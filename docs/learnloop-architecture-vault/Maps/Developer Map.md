@@ -24,7 +24,7 @@ tags:
 | Change | Primary authority | Then inspect |
 |---|---|---|
 | scoring/evidence interpretation | [[Learning System]] and `attempts/` | [[Algorithm Versions and Reproducibility]], [[Attempt Processing]] |
-| what to serve next | the plan engine (`daily_plan/engine.py`) and the router's choice (`daily_plan/objective_chooser.py`, `router_objective/`); `scheduling/` only builds the FSRS due queue (`scheduling/scheduler.py`, `build_due_queue`) | [[LearnLoop Pipeline Map]], the table below |
+| what to serve next | the plan engine (`daily_plan/engine.py`) and the router's choice (`daily_plan/objective_chooser.py`, `router_objective/`); `scheduling/` only builds the FSRS due queue (`scheduling/scheduler.py`, `serve_due_queue`) | [[LearnLoop Pipeline Map]], the table below |
 | provider or route | [[AI Architecture]] | `ai/routing.py`, provider profile config, parity tests |
 | a structured AI operation | owning domain `ai_contracts.py` | [[ADR-002 Feature-owned structured AI contracts]] |
 | new persistent state | [[State and Persistence]] | table role, write owner, migration, rebuild tests |

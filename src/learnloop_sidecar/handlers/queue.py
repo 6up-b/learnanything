@@ -31,7 +31,7 @@ from learnloop.scheduling.scheduler import (
     OfferTrace,
     ScheduledItem,
     SchedulerSession,
-    build_due_queue,
+    serve_due_queue,
     deferred_cold_followups,
     explain_practice_item,
 )
@@ -171,7 +171,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
         limit = reentry_cap if limit is None else min(limit, reentry_cap)
     trace = offer_trace_for(vault, params.session_id)
     held_for_device = device_filter(ctx.request_origin, vault, repository, params.session_id)
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault,
         repository,
         session=SchedulerSession(
@@ -370,7 +370,7 @@ def explain_practice_item_handler(ctx: SidecarContext, params: PracticeItemInput
 def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]:
     """Open one item by id, or refuse with the reason it cannot be rendered.
 
-    Meas §3.A2/§3.A3. ``build_due_queue`` keeps unrenderable instruments out of
+    Meas §3.A2/§3.A3. ``serve_due_queue`` keeps unrenderable instruments out of
     the queue, but this method takes an id, not a queue position: a deep link, a
     restored session, an inspector jump or a stale client all reach an item the
     queue would never have offered. Without the guard the learner gets the

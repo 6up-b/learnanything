@@ -274,7 +274,7 @@ def media_served(prompt: str, served: MediaPredicate | None) -> bool:
 class DeviceFilter:
     """One queue build's device, and what it held back.
 
-    Passed to ``build_due_queue``, whose admission predicate asks it
+    Passed to ``serve_due_queue``, whose admission predicate asks it
     (``serving_exclusions.admission_reason``, so a "Check once" asks too, and
     orchestrator ruling R1 holds). So it runs before the exploration's support and
     before ``limit`` (Codex review F1, F2): every counterfactual the router logs is

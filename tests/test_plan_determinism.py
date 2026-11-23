@@ -356,7 +356,7 @@ def test_the_per_session_draw_keeps_its_own_path(tmp_path, frozen):
     firsts = set()
     for sid in SESSIONS:
         # The surfaces named above serve, and only a serving build records the pair's serving.
-        queue = scheduler_module.build_due_queue(
+        queue = scheduler_module.serve_due_queue(
             vault, repository, session=scheduler_module.SchedulerSession(session_id=sid, available_minutes=25),
             limit=None,
         )

@@ -955,7 +955,7 @@ def test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications(tmp_p
         complete_self_graded_attempt,
     )
     from learnloop.clock import FrozenClock
-    from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+    from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
     from learnloop.substrate.dataset import export_dataset
     from learnloop.vault.loader import load_vault
     from tests.helpers import NOW, create_basic_vault, seed_due_item
@@ -1009,7 +1009,7 @@ def test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications(tmp_p
 
     repository = seed_due_item(paths)
     session = repository.create_session(clock=clock)
-    offered = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    offered = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
     repository.finalize_scheduler_offer(offered.scheduler_slate_id, [offered.scheduler_candidate_id])
     scored = complete_self_graded_attempt(
         vault,

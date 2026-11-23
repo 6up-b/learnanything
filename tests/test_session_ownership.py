@@ -428,7 +428,7 @@ def test_a_skip_never_clears_the_draft_of_a_device_that_adopted_while_the_queue_
     _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": ITEM,
                                        "answerMd": "desktop draft", "submissionId": _SUBMISSION})
     phone = Repository.attach(paths.sqlite_path)
-    original = practice_handlers.build_due_queue
+    original = practice_handlers.serve_due_queue
     phone_draft = {"current_practice_item_id": ITEM, "current_answer": "the phone's own draft"}
 
     def build_while_the_phone_adopts(*args, **kwargs):
@@ -437,7 +437,7 @@ def test_a_skip_never_clears_the_draft_of_a_device_that_adopted_while_the_queue_
         patch_checkpoint(phone, SessionCheckpointInput(session_id=session_id, **phone_draft), device_id=PHONE)
         return queue
 
-    monkeypatch.setattr(practice_handlers, "build_due_queue", build_while_the_phone_adopts)
+    monkeypatch.setattr(practice_handlers, "serve_due_queue", build_while_the_phone_adopts)
     with pytest.raises(SidecarError) as moved:
         _call(ctx, "skip_practice_item", {"sessionId": session_id, "practiceItemId": ITEM})
 
@@ -462,7 +462,7 @@ def test_a_skip_refuses_a_session_that_moved_and_came_back_while_the_queue_was_b
     ctx = _desktop(paths)
     session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     other = Repository.attach(paths.sqlite_path)
-    original = practice_handlers.build_due_queue
+    original = practice_handlers.serve_due_queue
 
     def build_while_it_moves_and_returns(*args, **kwargs):
         queue = original(*args, **kwargs)
@@ -472,7 +472,7 @@ def test_a_skip_refuses_a_session_that_moved_and_came_back_while_the_queue_was_b
         other.adopt_session(session_id, None, 1)
         return queue
 
-    monkeypatch.setattr(practice_handlers, "build_due_queue", build_while_it_moves_and_returns)
+    monkeypatch.setattr(practice_handlers, "serve_due_queue", build_while_it_moves_and_returns)
     with pytest.raises(SidecarError) as moved:
         _call(ctx, "skip_practice_item", {"sessionId": session_id, "practiceItemId": ITEM})
 

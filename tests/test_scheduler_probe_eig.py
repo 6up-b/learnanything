@@ -4,7 +4,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.diagnosis.probe_episodes import enter_episode
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, read_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -46,7 +46,7 @@ def test_probe_eig_included_only_for_in_progress_probe(tmp_path):
     vault_root, repository = _setup_probe_vault(tmp_path)
     loaded = load_vault(vault_root)
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
@@ -111,7 +111,7 @@ def test_scheduler_explanations_persist_only_for_named_sessions(tmp_path):
     vault_root, repository = _setup_probe_vault(tmp_path)
     loaded = load_vault(vault_root)
 
-    build_due_queue(loaded, repository, clock=FrozenClock(NOW))
+    serve_due_queue(loaded, repository, clock=FrozenClock(NOW))
 
     assert repository.latest_scheduler_explanation("pi_svd_define_001") is None
 
@@ -120,7 +120,7 @@ def test_probe_eig_persisted_in_scheduler_explanation(tmp_path):
     vault_root, repository = _setup_probe_vault(tmp_path)
     loaded = load_vault(vault_root)
 
-    build_due_queue(
+    serve_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
@@ -229,7 +229,7 @@ def test_readiness_factor_is_persisted_without_changing_priority(tmp_path):
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="baseline"),
     )
-    with_readiness = build_due_queue(
+    with_readiness = serve_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),

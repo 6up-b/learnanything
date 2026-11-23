@@ -389,7 +389,7 @@ _REGISTRIES = frozenset({"learnloop.db.table_roles", "learnloop.adaptive_difficu
                          "learnloop.adaptive_difficulty.column_classes"})
 
 #: Record writers inside the closure, each with its proof that replay never calls it. The slate's record
-#: (refactor B6) is written only by a persisting queue build (``build_due_queue``, statically in the closure through
+#: (refactor B6) is written only by a persisting queue build (``serve_due_queue``, statically in the closure through
 #: the simulator and the state sync's imports); no rebuild, replay or upgrade builds a queue, and
 #: ``test_a_rebuild_never_calls_the_record_and_keeps_its_rows`` refuses it at run time. The store enters the closure
 #: through these writers alone.

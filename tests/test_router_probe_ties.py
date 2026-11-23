@@ -21,7 +21,7 @@ from learnloop.scheduling.scheduler import (
     SchedulerSession,
     _apply_seeded_exploration,
     _selection_propensities,
-    build_due_queue,
+    serve_due_queue,
     read_due_queue,
 )
 from learnloop.scheduling.selection_rewards import SchedulerIntent
@@ -132,7 +132,7 @@ def test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice
                              session=SchedulerSession(session_id=session_id))
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
+    queue = serve_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
 
     assert queue[0].practice_item_id != greedy[0].practice_item_id
     assert queue[0].components.get("exploration_selected") == 1.0
@@ -152,7 +152,7 @@ def test_a_greedy_probe_presentation_carries_no_exploration_mark(tmp_path, monke
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     # A roll above the rate: the build stays greedy and the probe heads it as the EIG choice.
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (1.0, 0.0))
-    build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
+    serve_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
     presentation = repository.active_probe_presentation_for_session(session_id)
     assert presentation is not None and "scheduler_exploration" not in presentation.selection_components
 

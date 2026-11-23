@@ -190,7 +190,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`; calls `display_mastery`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `episode_ignored`, `servable_open_episode`; calls `episode_ignored`, `servable_open_episode`
 - [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `held_earlier`, `held_parts_on`; calls `held_earlier`, `held_parts_on`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `build_due_queue`; calls `SchedulerSession`, `build_due_queue`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `serve_due_queue`; calls `SchedulerSession`, `serve_due_queue`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `hint_equivalents_for_submission`; calls `hint_equivalents_for_submission`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `to_camel`, `versioned`; calls `to_camel`, `versioned`
