@@ -336,3 +336,55 @@ Screenshots and measurements stay in the private reference directory.
 Part 2 (ink pads and blocks, the pad transcription, `kept_your_correction`, the refusal on a pad), the ladder and
 `#pen=veil`. The real tablet (pressure and palm behaviour on the owner's device) is unverified: the harness's pen is
 synthetic.
+
+## 11. The frontend, part 2: ink pads, ink lines and their transcriptions
+
+After RD4's fix round was final (merged again at its tip, which also fixed the DeskShell test's union fake).
+
+**What it delivers** (`screens/desks/pen/inkCache.ts`, `pen/InkLine.tsx`; mount points in `pads/PadStackWindow.tsx`;
+`DeskStore.refreshPad`):
+
+- **A handwritten pad** (`kind: ink`, `#pen=pad`): its tab reads "handwritten · today"; under the tab the bar "✎ by hand
+  · dotted · hide transcription"; each ink line sits on its own rule (`#dfe6f2`, the mockup's), or the paper becomes a
+  dot grid. A new pad made while pen mode is on is a handwritten one ("Scratchpad · ✎ by hand").
+- **Ink lines** (`ink` blocks) in any pad: the line's surface draws its strokes in the pen's colour and takes the pen
+  (touch never draws; a paused window draws nothing; the barrel's erasing is `erase_ink`). The pad's last row takes the
+  pen too: a stroke there inserts a new ink block, then saves its ink (one write sequence: the block's batch, then the
+  ink's). A click on that row still starts a typed line.
+- **The transcription**, under each line: "read as <the reading>" with "may be wrong · fix it" for LearnLoop's reading
+  (provenance `ink_transcription`), "yours … you corrected the transcription · fix it" for the learner's words
+  (`learner_correction`). Fixing it is `edit_block`, a new version the server makes the learner's correction.
+- **Reading** (`ink.transcribe`): a line is read once the learner starts writing on another line, or asks ("read it");
+  never on every stroke. Its job is polled through the central poller under the window's id (so a paused window does
+  not poll), "reading your handwriting… · cancel" while it runs, cancelled when its window closes. A reading written
+  into the block reads the pad again (`refreshPad`, once the outbox is acknowledged), so the client's head is the
+  server's and the learner's next fix does not conflict.
+- **Outcomes said as they are**: `cannot_read_images` (today's default route): "handwriting can't be read yet · your ink
+  is kept · type what you wrote"; `kept_your_correction`: "your words stand · LearnLoop now reads: … (may be wrong) · use
+  it", and using it is the learner's edit; `nothing_read`: "nothing read · write it here"; a failure: "not read (…) ·
+  your ink is kept · read it again".
+
+**The mockup comparison** (`--stage rd8`, state `pen=pad`; the harness shows a fixture handwritten pad, synthetic
+strokes and project-written transcriptions, with `?inkpad=1`; the private capture gained the pad's regions and the
+link was captured again). Exact: the bar (`#7a766e` 10.5 px mono, its buttons `#2b4fa8`), the gutter's ✎ (`#2b4fa8`
+10 px at .6), the transcription line (11 px mono `#7a766e`, "read as" 9.5 px `#a09a8e`, the reading `#3b3832` 12 px),
+the last row's hint (`#9a968e` 11 px). Explained: the paper's colour is compared through the mockup's gradient
+shorthand (both are `#fdfdfc` with `#dfe6f2` rules); the pad paper's and tab's border colours and the window head
+(RD4's pads and VR-2, RD1's); the top-bar chip's 12 px (VR-9). Not compared: the mockup's ink is handwriting-font
+text (`#233f8f`, "mock ink"); the desks draw the learner's strokes (`#2b4fa8` at .85, the pen token).
+
+**Judgment calls.** (1) A line is read when the next one starts or on request, not after an idle time (a number found
+nowhere), and not per stroke (spent and thrown away). (2) The learner's correction is never replaced by a later reading
+(the backend's rule); the newer reading is offered beside it. (3) The last row's hint names what happens ("each line is
+read once you start the next"): the mockup's "LearnLoop marks only the gutter (◇)" describes the help ladder, which is
+not built. (4) Rules are drawn per line, not as one paper background: lines grow with their strokes and readings, and a
+paper-wide rule would cross them.
+
+**Plain ink on a source (part 1's judgment call 1), stopped as instructed.** The mockup keeps what the learner draws on
+the page (its recognizer's last branch draws the ink and returns), and so do the desks for the session (the chip says
+it is not kept); the reference has no state that shows it. Keeping it needs a third owner kind, and `ink_strokes`'
+`owner_kind` CHECK (`'block', 'annotation'`) forbids one. Options: (a) amend migration 267 in place (it has landed
+nowhere: one CHECK value, `'source'`, owner id the reading's extraction id, and the fixture rebuilt), with `ink.save` and
+`ink.list {sourceId}` taking it; (b) a new migration rebuilding the table; (c) leave it as now.
+
+**What waits.** The help ladder and its ◇ marker (`#pen=ladder`, `#pen=rung2`), `#pen=veil`; the real tablet.
