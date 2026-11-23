@@ -300,3 +300,28 @@ rises by those 24 lines. Results after the merge:
 | `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / 51 kept, 0 broken / collected 33069: landing 33003 + arc_close 66 |
 | `npx vitest run --maxWorkers=2` / `npm run frontend:build` | 328 files, 3656 tests passed / built |
 
+## 14. Owner copies (run by the orchestrator)
+
+§11 on backup-API copies of the owner's three vaults, each upgraded to `mvp-0.65` (vault A from `mvp-0.61`, B and C
+from `mvp-0.58`). Counts only.
+
+| | A | B | C |
+|---|---|---|---|
+| Migrations applied to; `integrity_check`; foreign-key violations | 262; ok; 0 | 262; ok; 0 | 262; ok; 0 |
+| Exchanges → `question_event_spans` rows | 42 → 53 | 21 → 27 | 10 → 51 |
+| by quality: citation, exact selection, source context, unanchored | 11, 3, 0, 39 | 6, 11, 0, 10 | 4, 8, 34, 5 |
+| Gaps → `learner_text_gap_spans` rows | 67 → 74 | 0 → 0 | 2 → 2 |
+| by quality: citation, exact selection, source context, unanchored | 7, 2, 1, 64 | — | 0, 0, 0, 2 |
+| Exchanges or gaps with no row | 0 | 0 | 0 |
+| Both replayers run again: rows identical | yes | yes | yes |
+| Shadow rebuild: mastery, facet, schedule changed | 0, 0, 0 | 0, 0, 0 | 0, 0, 0 |
+| `passage.union_range` over the asked passages of the most-asked reading | 440 spans, 0.46 s | 89 spans, 0.12 s | 411 spans, 0.17 s |
+| `companion.history` first page | 8 days, 0.005 s | 3 days, 0.005 s | 2 days, 0.005 s |
+
+The upgrade's whole-vault rebuild had already filled both tables, with the same counts the replayers then wrote. None
+of the three vaults has seen-passage rows yet, so the union read was timed over the span range the learner's
+questions touched instead of a read section. The live databases were unchanged, and the copies were deleted.
+
+Not run: the write-through comparison after a new Ask and a new gap reading on a copy, because both make a model
+call. The tests compare write-through with a rebuild on fakes.
+
