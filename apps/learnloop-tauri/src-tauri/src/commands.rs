@@ -1371,6 +1371,11 @@ sidecar_passthrough!(pad_apply, "pad.apply");
 sidecar_passthrough!(passage_union_range, "passage.union_range");
 // RD4 fix round: a range of a reading as the source has it (desktop only).
 sidecar_passthrough!(passage_content, "passage.content");
+// RD5: the split menu's promoted rows, their job, and What this knows (desktop only).
+sidecar_passthrough!(passage_promoted, "passage.promoted");
+sidecar_passthrough!(passage_promoted_job, "passage.promoted_job");
+sidecar_passthrough!(passage_promoted_cancel, "passage.promoted_cancel");
+sidecar_passthrough!(passage_knows, "passage.knows");
 sidecar_passthrough!(companion_history, "companion.history");
 sidecar_passthrough!(checks_due_for, "checks.due_for");
 // Reader workbench v2: the companion's ask as a polled job, and search in context (desktop only; no component

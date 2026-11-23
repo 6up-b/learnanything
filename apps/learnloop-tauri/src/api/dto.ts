@@ -10851,6 +10851,71 @@ export interface PadSubmitBlockDto {
   teachBack: { status: "completed" | "ongoing"; conversationId: string; state: Record<string, unknown> | null } | null;
 }
 
+/** RD5: the object a menu was opened on (§9.1): a passage, a cue (its span or a time), a highlight or margin note (its
+ * annotation and the passage it sits on), a window header (the passage in view), or a pad line (its block). */
+export interface MenuObjectInput {
+  objectKind: "passage" | "cue" | "highlight" | "note" | "window" | "pad_line";
+  extractionId?: string;
+  spanId?: string;
+  t?: number;
+  annotationId?: string;
+  blockId?: string;
+  windowId?: string;
+  deskId?: string;
+}
+
+/** One promoted row. `rowId` is stable for its object, kind and target: label it with proposal.label
+ * (proposalKind "promoted_row"); a row dismissed or marked "not this" is left out on that object from then on. */
+export interface PromotedRowDto {
+  rowId: string;
+  kind: "question" | "adjustment" | "gap" | "your_words" | "carried" | "note" | "figure" | "next_step"
+    | "correspondent" | "elsewhere";
+  glyph: string;
+  label: string;
+  reason: string;
+  /** verb: "open" (ref: a ContentRef, target?), "knows" (gapId), "carried" (carriedId), "annotation"
+   * (annotationId), "figure" (figureId). Keys as below, camelCase. */
+  action: { verb: "open" | "knows" | "carried" | "annotation" | "figure"; ref?: Record<string, unknown>;
+    target?: { spanId?: string; blockId?: string; t?: number }; gapId?: string; carriedId?: string;
+    annotationId?: string; figureId?: string };
+  /** When the learner's own act behind the row happened; null for a judge's finding. */
+  learnerAt: string | null;
+  /** Checked by a judge; false means "found by search, not checked"; null for the learner's own rows. */
+  checked: boolean | null;
+  judgeRank: number;
+  basis: "union" | "judged";
+  extra: Record<string, unknown>;
+}
+
+export interface PassagePromotedDto {
+  version: number;
+  objectKey: string;
+  /** The cheap rows, ranked, at most `cap`; the job's rows replace them when it is done. */
+  rows: PromotedRowDto[];
+  cap: number;
+  pendingJob: { jobId: string } | null;
+  /** Whether the job may search by meaning and verify (the learner's OK to use AI, retrieval on). */
+  paid: { searchedByMeaning: boolean; verified: boolean; reason: string | null };
+}
+
+export interface PromotedJobDto {
+  version: number;
+  jobId: string;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  /** When done: every row ranked again, cheap and judged, at most four; [] when cancelled or superseded. */
+  rows: PromotedRowDto[];
+  error: { code: string; message: string; retryable: boolean } | null;
+}
+
+/** passage.knows: What this knows (§9.1 `i`) as one read: each of the object's passages with its union entry. */
+export interface PassageKnowsDto {
+  version: number;
+  objectKey: string;
+  sourceIds: string[];
+  places: { extractionId: string; spanId: string; role: string | null; knows: PassageUnionSpanDto }[];
+}
+
 /** passage.content: one range of a reading as the source has it (a source_piece's words, location and time). */
 export interface PassageContentDto {
   version: number;
@@ -10950,11 +11015,11 @@ export type SpanAlias = "exact" | "needs_reanchor";
 export interface PassageUnionSpanDto {
   spanId: string;
   sectionId: string | null;
-  annotations: { annotationId: string; type: string; learnerText: string; placement: string }[];
+  annotations: { annotationId: string; type: string; learnerText: string; placement: string; createdAt?: string | null }[];
   padBlocks: { blockId: string; padId: string; kind: PadBlockKind; provenance: PadProvenance; eventId: string;
     annotationId: string | null; alias: SpanAlias;
     /** The link sits on a lift-out stub (a lift made before links moved): blockId is the lifted block. */
-    liftedFromBlockId?: string | null }[];
+    liftedFromBlockId?: string | null; createdAt?: string }[];
   exchanges: { questionEventId: string; role: "selection" | "cited" | "context"; quality: AnchorQuality;
     alias: SpanAlias; context: string; questionMd: string; createdAt: string }[];
   adjustments: { questionEventId: string; gapId: string }[];
