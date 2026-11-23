@@ -119,8 +119,8 @@ class HeldReader(ImageReader):
 def ink_jobs(ctx: Any) -> list[Any]:
     """Every reading job of every vault a context ran."""
 
-    return [job for registry in (getattr(ctx, "ink_transcribe_jobs", None) or {}).values()
-            for job in list(registry.jobs._jobs.values())]
+    registry = getattr(ctx, "ink_transcribe_jobs", None)
+    return [] if registry is None else list(registry._jobs.values())
 
 
 def wait_reading(ctx: Any, job_id: str) -> dict[str, Any]:

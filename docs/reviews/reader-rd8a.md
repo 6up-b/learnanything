@@ -115,8 +115,8 @@ overwritten, and the reading is returned for the client to offer. The learner's 
 provenance `learner_correction` (`pads.blocks`, RD0). A margin note's reading is kept and returned, never written into
 the annotation: the note's text is the annotation's own, written by the client through the annotation's edit.
 
-**The job.** `polled_jobs` on a thread the context owns; one registry per vault root, so a poll from another vault
-answers `job_not_found`, and a vault switch interrupts a running job (its next request is refused). A second ask for
+**The job.** `polled_jobs` on a thread the context owns; the shared polled-jobs registry keyed by vault (RD3's fix round), so a poll from
+another vault answers `job_not_found`, and a vault switch interrupts a running job (its next request is refused). A second ask for
 the same owner and strokes while a job runs joins it; after a failure or a cancel a new ask starts a new job.
 Cancelling refuses the next physical model request before it is sent; a request already sent finishes and its reading
 is kept (the poll still reads `cancelled`). Failures as the poll says them: `cannot_read_images`, `models_off`,

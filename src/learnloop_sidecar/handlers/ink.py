@@ -114,25 +114,14 @@ def ink_list(ctx: SidecarContext, params: InkListInput) -> dict[str, Any]:
 # -- reading ---------------------------------------------------------------------------------------------------------
 
 
-class _VaultJobs:
-    """One vault's reading jobs: the polled jobs, and which job is reading which strokes now."""
-
-    def __init__(self) -> None:
-        self.jobs = PJ.PolledJobs()
-        self.lock = threading.Lock()
-        self.by_key: dict[str, str] = {}
+_REGISTRY = "ink_transcribe_jobs"
+_READING_LOCK = threading.Lock()
 
 
-def _vault_jobs(ctx: SidecarContext, vault: Any) -> _VaultJobs:
-    with _REGISTRIES_LOCK:
-        registries = getattr(ctx, "ink_transcribe_jobs", None)
-        if registries is None:
-            registries = {}
-            ctx.ink_transcribe_jobs = registries
-        return registries.setdefault(str(vault.root), _VaultJobs())
+def _jobs(ctx: SidecarContext) -> PJ.PolledJobs:
+    """The context's reading jobs (by vault and id; a vault switch interrupts that vault's)."""
 
-
-_REGISTRIES_LOCK = threading.Lock()
+    return PJ.registry(ctx, _REGISTRY)
 
 
 def _error(error: SidecarError | None) -> dict[str, Any] | None:
@@ -215,7 +204,8 @@ def ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str,
     earlier = reading.stored(repository, prepared)
     if earlier is not None:
         return _payload(None, PJ.DONE, finished=True, result=earlier, error=None)
-    registry = _vault_jobs(ctx, vault)
+    jobs = _jobs(ctx)
+    vault_key = PJ.vault_key(ctx)
     client = getattr(ctx, "ink_transcription_client", None)
 
     def work(job: PJ.PolledJob) -> dict[str, Any]:
@@ -226,22 +216,28 @@ def ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str,
         _after_reading(ctx, vault, repository, result)
         return result
 
-    with registry.lock:
-        running = registry.jobs.get(registry.by_key.get(prepared.key, ""))
+    with _READING_LOCK:
+        # Which job is reading which strokes now: (vault, owner and strokes) -> job id, the finished ones let go.
+        reading_now: dict[tuple[str, str], str] = getattr(ctx, "ink_reading_now", None) or {}
+        reading_now = {key: job_id for key, job_id in reading_now.items()
+                       if (found := jobs.get(key[0], job_id)) is not None and not found.done.is_set()}
+        ctx.ink_reading_now = reading_now
+        running = jobs.get(vault_key, reading_now.get((vault_key, prepared.key), ""))
         if running is not None and not running.done.is_set() and not running.cancelled:
             return _job_payload(running)
-        job = registry.jobs.start(ctx, kind=KIND, job_id="ink_" + new_ulid(), work=work, request_key=prepared.key)
-        registry.by_key[prepared.key] = job.job_id
+        job = jobs.start(ctx, kind=KIND, job_id="ink_" + new_ulid(), work=work, request_key=prepared.key)
+        reading_now[(vault_key, prepared.key)] = job.job_id
     return _job_payload(job)
 
 
 def _find(ctx: SidecarContext, job_id: str, *, cancel: bool = False) -> dict[str, Any]:
-    vault, _repository = ctx.require_vault()
-    jobs = _vault_jobs(ctx, vault).jobs
-    job = jobs.cancel(job_id) if cancel else jobs.get(job_id)
+    ctx.require_vault()
+    jobs = _jobs(ctx)
+    vault_key = PJ.vault_key(ctx)
+    job = jobs.cancel(vault_key, job_id) if cancel else jobs.get(vault_key, job_id)
     if job is not None:
         return _job_payload(job)
-    receipt = jobs.receipt(job_id)
+    receipt = jobs.receipt(vault_key, job_id)
     if receipt is not None:
         return _receipt_payload(receipt)
     raise SidecarError("job_not_found", NOT_FOUND_MESSAGE, details={"job_id": job_id})

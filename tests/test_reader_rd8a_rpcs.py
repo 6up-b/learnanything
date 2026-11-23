@@ -16,6 +16,7 @@ from tests.ink_helpers import (
     HeldReader,
     ImageReader,
     close_and_wait,
+    ink_jobs,
     reads_as,
     wait_reading,
 )
@@ -185,7 +186,7 @@ def test_a_reading_belongs_to_its_vault(contexts):
     assert held.inside.wait(WAIT)
     other = create_basic_vault(ctx.vault.root.parent / "other")
     held.release.set()
-    job = next(iter(ctx.ink_transcribe_jobs.values())).jobs.get(first["jobId"])
+    job = next(job for job in ink_jobs(ctx) if job.job_id == first["jobId"])
     assert job.done.wait(WAIT)
     ctx.load(other.root)
     with pytest.raises(SidecarError) as elsewhere:
