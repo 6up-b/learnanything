@@ -28,7 +28,7 @@
   --desk-search: #2563eb;
   --desk-pen: #2b4fa8;
   /* fonts (§4.2), local only */
-  --desk-ui: "Inter Variable", "Inter", system-ui, sans-serif;
+  --desk-ui: "JetBrains Mono Variable", "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
   --desk-book: "Literata Variable", "Literata", Georgia, serif;
   --desk-paperfont: "Source Serif 4 Variable", "Source Serif 4", "Times New Roman", serif;
   --desk-mono: "JetBrains Mono Variable", "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;

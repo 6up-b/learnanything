@@ -404,7 +404,7 @@ Each stage's acceptance names deep links (`index.html#…`) that put the mockup 
 - pen stroke: `#2b4fa8`, 2.2 px.
 
 **Fonts:**
-- UI: Inter;
+- UI: JetBrains Mono, as the mockup sets its whole interface (corrected 2026-11-23 from Inter: where the spec's text and the mockup disagree on looks, the mockup wins);
 - book and pad prose: **Literata**;
 - paper: Source Serif 4;
 - code: JetBrains Mono;
