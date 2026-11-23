@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/harness.tsx](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/harness.tsx) |
-| Source lines | 63 |
+| Source lines | 71 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,16 +54,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function Harness(` — function, line 47
-- `export function mountHarness(root: HTMLElement): void` — function, line 57
+- `export function Harness(` — function, line 48
+- `export function mountHarness(root: HTMLElement): void` — function, line 65
 
 ## Internal implementation anchors
 
 - `const errors: string[] = []` — const, line 14
 - `interface Window` — interface, line 16
-- `const noop = ()` — const, line 22
-- `function PreviewCard(` — function, line 26
-- `const preview = new URLSearchParams(search).get("preview")` — const, line 48
+- `const noop = ()` — const, line 23
+- `function PreviewCard(` — function, line 27
+- `const preview = new URLSearchParams(search).get("preview")` — const, line 49
 
 ## Who imports or calls it
 
@@ -77,7 +77,7 @@ No live desktop source file directly imports this module. Do not infer dormancy:
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_LIBRARY`, `FIXTURE_SOURCES`
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export; imports `DeskShell`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export; imports `DeskDebugHandle`, `DeskShell`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `DIRECT_HUB`, `WindowScope`, `WindowState`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] — import-or-re-export; imports `SourceWindow`
 
