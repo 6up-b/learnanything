@@ -73,8 +73,8 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] | [[Reference/Modules/learnloop/goals/goal_contracts#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
 | [[Reference/Modules/learnloop/goals/goal_intent|learnloop.goals.goal_intent]] | [[Reference/Modules/learnloop/goals/goal_intent#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] | [[Reference/Modules/learnloop/goals/goal_lo#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] | [[Reference/Modules/learnloop/goals/goal_pace#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] | [[Reference/Modules/learnloop/goals/goal_projection#^module-purpose|purpose]] | `ACTIVE` | 22 | 9 |
+| [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] | [[Reference/Modules/learnloop/goals/goal_pace#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
+| [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] | [[Reference/Modules/learnloop/goals/goal_projection#^module-purpose|purpose]] | `ACTIVE` | 23 | 9 |
 | [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] | [[Reference/Modules/learnloop/goals/goal_series#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]] | [[Reference/Modules/learnloop/goals/goal_series_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/goals/receipt_contributions|learnloop.goals.receipt_contributions]] | [[Reference/Modules/learnloop/goals/receipt_contributions#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
@@ -100,7 +100,7 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 21 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 23 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 8 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 5 static module edges
@@ -139,7 +139,7 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     center -->|23| n_learnloop
-    n_learnloop_sidecar_handlers -->|21| center
+    n_learnloop_sidecar_handlers -->|23| center
     n_learnloop_learner -->|6| center
     center -->|14| n_learnloop_learner
     center -->|17| n_learnloop_vault

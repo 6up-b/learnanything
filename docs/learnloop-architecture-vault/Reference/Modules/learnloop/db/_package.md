@@ -71,7 +71,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 101 |
 | [[Reference/Modules/learnloop/db/prediction_target|learnloop.db.prediction_target]] | [[Reference/Modules/learnloop/db/prediction_target#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/db/records|learnloop.db.records]] | [[Reference/Modules/learnloop/db/records#^module-purpose|purpose]] | `ACTIVE` | 16 | 0 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 413 | 747 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 415 | 747 |
 | [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] | [[Reference/Modules/learnloop/db/row_serialization#^module-purpose|purpose]] | `ACTIVE` | 18 | 0 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 6 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
@@ -90,7 +90,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 65 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 67 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 57 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 38 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 28 static module edges
@@ -155,8 +155,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.db"]
-    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
+    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_cli["learnloop.cli"]
@@ -165,9 +165,9 @@ flowchart LR
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_scheduling["learnloop.scheduling"]
+    n_learnloop_source_retrieval -->|67| center
     n_learnloop_db_stores -->|38| center
     center -->|27| n_learnloop_db_stores
-    n_learnloop_source_retrieval -->|65| center
     n_learnloop_diagnosis -->|57| center
     n_learnloop_substrate -->|28| center
     n_learnloop_cli -->|27| center

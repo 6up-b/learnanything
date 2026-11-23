@@ -50,40 +50,53 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py) |
-| Source lines | 289 |
+| Source lines | 419 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PolledJob` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 59)
-  - `note(self, **values: Any) -> None` (line 82; public)
-  - `state(self) -> dict[str, Any]` (line 86; public) — A consistent reading of the job: ``status`` as a poll reports it, and what it holds.
-- `class Receipt` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 108) — What is kept of a dropped job: enough to answer a repeat of its id.
-- `as_job_error(exc: BaseException, *, cancelled: bool) -> SidecarError` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 141) — A job's failure as the poll reports it.
-- `class PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 187) — One kind of polled job in one sidecar context: running and recently finished jobs by id.
-  - `__init__(self, *, kept: int=MAX_KEPT_JOBS, receipts: int=MAX_RECEIPTS) -> None` (line 190; internal)
-  - `get(self, job_id: str) -> PolledJob | None` (line 197; public)
-  - `receipt(self, job_id: str) -> Receipt | None` (line 201; public)
-  - `cancel(self, job_id: str) -> PolledJob | None` (line 205; public) — Cancel a job that has not finished (a finished job keeps its outcome).
-  - `_drop_finished(self) -> None` (line 215; internal) — Under ``self._lock``: drop the oldest finished jobs beyond the bound, keeping their receipts.
-  - `start(self, ctx: Any, *, kind: str, job_id: str, work: Callable[[PolledJob], Any], request_key: Any=None, foreground_kind: str | None=None, supersede_key: str | None=None) -> PolledJob` (line 228; public) — Start ``work(job)`` on a thread the context owns; its return value is the job's result.
-- `registry(ctx: Any, name: str) -> PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 278) — ``ctx``'s registry of one kind of polled job (made on first use).
+- `vault_key(ctx: Any) -> str` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 75) — The vault a job belongs to: the context's open vault, resolved ("" with none open).
+- `class PolledJob` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 83)
+  - `live(self) -> bool` (line 116; public) — False once the context closed or switched vaults after this job started: its completion then touches nothing of the context (no worker woken, no prefetch queued).
+  - `note(self, **values: Any) -> None` (line 122; public)
+  - `state(self) -> dict[str, Any]` (line 126; public) — A consistent reading of the job: ``status`` as a poll reports it, and what it holds.
+- `class Receipt` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 149) — What a registry keeps of a request id apart from its result: enough to answer a repeat of it.
+- `as_job_error(exc: BaseException, *, cancelled: bool) -> SidecarError` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 186) — A job's failure as the poll reports it.
+- `class PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 235) — One kind of polled job in one sidecar context: running and recently finished jobs, by vault and id.
+  - `__init__(self, *, kept: int=MAX_KEPT_JOBS, running: int=MAX_RUNNING, remember_ids: bool=True, remembered: int=MAX_REMEMBERED_IDS, receipts: int=MAX_RECEIPTS) -> None` (line 242; internal)
+  - `get(self, vault: str, job_id: str) -> PolledJob | None` (line 252; public)
+  - `receipt(self, vault: str, job_id: str) -> Receipt | None` (line 256; public) — The record of an id this registry admitted in ``vault`` whose result is no longer kept.
+  - `known(self, vault: str, job_id: str) -> PolledJob | Receipt | None` (line 264; public)
+  - `kept_count(self) -> int` (line 267; public)
+  - `cancel(self, vault: str, job_id: str) -> PolledJob | None` (line 271; public) — Cancel a job that has not finished (a finished job keeps its outcome).
+  - `interrupt(self, vault: str) -> None` (line 281; public) — Interrupt every unfinished job of ``vault`` (its vault was switched away from).
+  - `supersede(self, vault: str, key: str) -> None` (line 291; public) — Cancel every unfinished job of ``vault`` with this supersede key (a newer request replaces them).
+  - `_running_now(self) -> int` (line 302; internal) — Under ``self._lock``: jobs whose thread has not ended (a cancelled one still holds its thread).
+  - `_drop_finished(self) -> None` (line 308; internal) — Under ``self._lock``: drop the oldest finished results beyond the bound; their records stay.
+  - `_finished(self) -> None` (line 327; internal)
+  - `start(self, ctx: Any, *, kind: str, job_id: str, work: Callable[[PolledJob], Any], request_key: Any=None, foreground_kind: str | None=None, supersede_key: str | None=None, attachments: dict[str, Any] | None=None) -> PolledJob` (line 331; public) — Start ``work(job)`` on a thread the context owns; its return value is the job's result.
+- `registry(ctx: Any, name: str, **kwargs: Any) -> PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 390) — ``ctx``'s registry of one kind of polled job (made on first use with ``kwargs``).
+- `interrupt_vault(ctx: Any, vault_root: Any) -> None` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 405) — A vault switch: every unfinished polled job of ``vault_root`` sends no further request, ends ``interrupted`` and wakes nothing of the context.
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 40)
-- `MAX_KEPT_JOBS` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 43)
-- `MAX_RECEIPTS` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 45)
-- `QUEUED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 47)
-- `RUNNING` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 48)
-- `DONE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 49)
-- `FAILED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 50)
-- `CANCELLED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 51)
-- `EXPIRED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 52)
-- `INTERRUPTED_MESSAGE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 54)
-- `INTERNAL_MESSAGE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 55)
+- `LOG` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 50)
+- `MAX_KEPT_JOBS` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 53)
+- `MAX_RUNNING` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 55)
+- `MAX_REMEMBERED_IDS` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 57)
+- `MAX_RECEIPTS` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 59)
+- `QUEUED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 61)
+- `RUNNING` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 62)
+- `DONE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 63)
+- `FAILED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 64)
+- `CANCELLED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 65)
+- `EXPIRED` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 66)
+- `INTERRUPTED_MESSAGE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 68)
+- `INTERNAL_MESSAGE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 69)
+- `BUSY_MESSAGE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 70)
+- `IDS_FULL_MESSAGE` ([src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py), line 71)
 
 ### Explicit exports
 
@@ -95,33 +108,37 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `FAILED`
 - `MAX_KEPT_JOBS`
 - `MAX_RECEIPTS`
+- `MAX_REMEMBERED_IDS`
+- `MAX_RUNNING`
 - `QUEUED`
 - `RUNNING`
 - `PolledJob`
 - `PolledJobs`
 - `Receipt`
 - `as_job_error`
+- `interrupt_vault`
 - `registry`
+- `vault_key`
 
 ## Internal implementation anchors
 
-- `class _CancelGate` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 118) — Refuses a cancelled job's physical model requests before they are sent; an outer gate (the context's closing gate) is admitted first and settled on a refusal, so nothing it reserved is kept for a request never sent.
-- `_job_scope(job: PolledJob, repository: Any, owner_id: str, foreground_kind: str | None) -> Iterator[None]` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 167)
+- `class _CancelGate` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 161) — Refuses a cancelled job's physical model requests before they are sent and counts the ones it admits; an outer gate (the context's closing gate) is admitted first and settled on a refusal, so nothing it reserved is kept for a request never sent.
+- `_job_scope(job: PolledJob, repository: Any, owner_id: str, foreground_kind: str | None) -> Iterator[None]` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 212)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] — imports `module`; statically calls `registry`
-- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `registry`
-- [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `module`; statically calls `registry`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `interrupt_vault`; statically calls `interrupt_vault`
+- [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] — imports `module`; statically calls `registry`, `vault_key`
+- [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `module`; statically calls `as_job_error`, `registry`, `vault_key`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `active_request_gate`, `gate_model_requests`, `observe_model_output`, `record_model_calls`; calls `active_request_gate`, `gate_model_requests`, `observe_model_output`, `record_model_calls`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `active_request_gate`, `annotate_calls`, `gate_model_requests`, `observe_model_output`, `record_model_calls`; calls `active_request_gate`, `annotate_calls`, `gate_model_requests`, `observe_model_output`, `record_model_calls`
 - [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `ModelUseNotAccepted`
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `note_unit`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendCancelled`; calls `SpendCancelled`
@@ -131,7 +148,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `logging`, `sqlite3`, `threading`, `time`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `logging`, `pathlib`, `sqlite3`, `threading`, `time`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -144,12 +161,18 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]], [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]], [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]], [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/companion_rd3a_helpers.py](../../../../../tests/companion_rd3a_helpers.py) — direct import
+- [tests/test_reader_rd3_fix_backend.py](../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
+  - `test_a_full_record_of_ids_refuses_a_new_id_rather_than_forget_one`
+  - `test_a_request_id_is_remembered_after_its_result_is_dropped`
+  - `test_results_are_pruned_as_jobs_finish_not_only_when_the_next_starts`
+  - `test_running_asks_are_bounded`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_a_finished_job_dropped_from_memory_is_answered_as_expired_never_asked_again`
 

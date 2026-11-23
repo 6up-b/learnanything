@@ -315,6 +315,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_table_has_the_specs_role_and_each_derived_one_a_single_replayer`
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
   - `test_the_umbrella_rebuild_runs_both_replayers`
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
 - [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — direct import
 - [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_an_abandoned_session_writes_no_attempt_and_a_rebuild_leaves_the_workbench_alone`

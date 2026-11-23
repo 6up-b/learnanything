@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/section_map.py](../../../../../src/learnloop/section_map.py) |
-| Source lines | 386 |
+| Source lines | 421 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,13 +59,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `span_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], translator: Any=None, accept_moved: bool=False) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 58) — The span of the viewed reading a provenance ref names, or None.
 - `anchor_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], translator: Any=None) -> tuple[str, str] | None` ([source](../../../../../src/learnloop/section_map.py), line 79) — ``(span id, "current" | "needs_reanchor")`` for a ref on the viewed reading.
 - `extraction_sections(ir: Any) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]` ([source](../../../../../src/learnloop/section_map.py), line 140) — Derive the Reader's guide sections from one extraction's IR.
-- `section_id_in_ir(ir: Any, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 188) — The normalized section of ``ir`` holding one reader span.
-- `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 196) — Resolve one reader span to its containing normalized section (loads the IR; outside AD).
-- `learning_objects_for_span_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 207) — :func:`learning_objects_for_span` over a given IR.
-- `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 224) — Provenance-linked Learning Objects available as promotion targets (loads the IR; outside AD).
-- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, reading_order: bool=False) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 239) — Active Learning Objects whose provenance cites spans inside the section (loads the IR; outside AD).
-- `learning_objects_for_section_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, section_id: str, reading_order: bool=False) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 260) — Active Learning Objects whose provenance cites spans inside the section of ``ir``.
-- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../src/learnloop/section_map.py), line 324) — Every section of an extraction with its provenance-linked Learning Objects.
+- `class RangeError(ValueError)` ([source](../../../../../src/learnloop/section_map.py), line 184) — A visible range this reading cannot answer (``code``: ``span_not_found`` or ``validation_error``).
+  - `__init__(self, code: str, message: str) -> None` (line 187; internal)
+- `range_span_ids(ir: Any, *, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 192) — The passages of one visible range, in reading order: two passages (inclusive, either order), or two times over a transcript's ``t=start-end`` cues (every cue overlapping them).
+- `section_id_in_ir(ir: Any, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 223) — The normalized section of ``ir`` holding one reader span.
+- `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../src/learnloop/section_map.py), line 231) — Resolve one reader span to its containing normalized section (loads the IR; outside AD).
+- `learning_objects_for_span_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 242) — :func:`learning_objects_for_span` over a given IR.
+- `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 259) — Provenance-linked Learning Objects available as promotion targets (loads the IR; outside AD).
+- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, reading_order: bool=False) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 274) — Active Learning Objects whose provenance cites spans inside the section (loads the IR; outside AD).
+- `learning_objects_for_section_in_ir(vault: LoadedVault, repository: Repository, ir: Any, *, extraction_id: str, section_id: str, reading_order: bool=False) -> list[str]` ([source](../../../../../src/learnloop/section_map.py), line 295) — Active Learning Objects whose provenance cites spans inside the section of ``ir``.
+- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../src/learnloop/section_map.py), line 359) — Every section of an extraction with its provenance-linked Learning Objects.
 
 ### Module constants
 
@@ -74,6 +77,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_FURNITURE_TYPES` ([src/learnloop/section_map.py](../../../../../src/learnloop/section_map.py), line 23)
 - `ANCHOR_CURRENT` ([src/learnloop/section_map.py](../../../../../src/learnloop/section_map.py), line 75)
 - `ANCHOR_MOVED` ([src/learnloop/section_map.py](../../../../../src/learnloop/section_map.py), line 76)
+- `_CUE_TIME_RE` ([src/learnloop/section_map.py](../../../../../src/learnloop/section_map.py), line 181)
 
 ## Internal implementation anchors
 
@@ -89,14 +93,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; statically calls `learning_objects_for_section`, `learning_objects_for_span`
 - [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `extraction_sections`; statically calls `extraction_sections`
-- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `extraction_sections`; statically calls `extraction_sections`
-- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `section_id_in_ir`; statically calls `section_id_in_ir`
-- [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `RangeError`, `extraction_sections`, `range_span_ids`; statically calls `extraction_sections`, `range_span_ids`
 - [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `ANCHOR_CURRENT`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `ANCHOR_CURRENT`, `ANCHOR_MOVED`, `SPAN_LOCATOR_RE`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`, `span_for_ref`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_by_section`, `learning_objects_for_section`, `learning_objects_for_span`, `section_id_for_span`; statically calls `section_id_for_span`
 - [[Reference/Modules/learnloop/reader/seen_passages|learnloop.reader.seen_passages]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop/source_retrieval/goal_lens_choices|learnloop.source_retrieval.goal_lens_choices]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `extraction_sections`, `range_span_ids`; statically calls `extraction_sections`, `range_span_ids`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `RangeError`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `extraction_sections`; statically calls `extraction_sections`
 
 ## Dependencies
@@ -119,7 +124,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]], [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]], [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

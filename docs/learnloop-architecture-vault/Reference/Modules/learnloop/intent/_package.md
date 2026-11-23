@@ -51,7 +51,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] | [[Reference/Modules/learnloop/intent/checks#^module-purpose|purpose]] | `ACTIVE` | 6 | 15 |
 | [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] | [[Reference/Modules/learnloop/intent/control#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
 | [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] | [[Reference/Modules/learnloop/intent/deadline#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] | [[Reference/Modules/learnloop/intent/inline_checks#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] | [[Reference/Modules/learnloop/intent/inline_checks#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] | [[Reference/Modules/learnloop/intent/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 
 ## Cross-package dependencies
@@ -68,7 +68,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 9 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 10 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 1 static module edge
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 1 static module edge
@@ -81,8 +81,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.intent"]
-    n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop["learnloop"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_vault["learnloop.vault"]
@@ -91,8 +91,8 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_passage_union["learnloop.passage_union"]
     n_learnloop_reader["learnloop.reader"]
+    n_learnloop_sidecar_handlers -->|10| center
     center -->|9| n_learnloop_scheduling_intent
-    n_learnloop_sidecar_handlers -->|9| center
     center -->|7| n_learnloop
     center -->|3| n_learnloop_curriculum
     center -->|3| n_learnloop_vault

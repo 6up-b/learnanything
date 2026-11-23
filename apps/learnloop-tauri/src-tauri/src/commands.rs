@@ -1394,6 +1394,12 @@ sidecar_passthrough!(pad_drain, "pad.drain");
 sidecar_passthrough!(carried_carry, "carried.carry");
 sidecar_passthrough!(carried_list, "carried.list");
 sidecar_passthrough!(carried_mark, "carried.mark");
+// Reader workbench v2 RD6: the goal band, the goal lens and read it anyway on a section, plus the deliverable's
+// path view (curriculum.path; judge: true starts the coverage and judgment it owes): desktop only.
+sidecar_passthrough!(goal_band, "goal.band");
+sidecar_passthrough!(goal_lens, "goal.lens");
+sidecar_passthrough!(goal_section_choice, "goal.section_choice");
+sidecar_passthrough!(curriculum_path, "curriculum.path");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");

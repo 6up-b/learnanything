@@ -379,6 +379,14 @@ import type {
   LessonSuggestionDto,
   LessonSuggestionResponseDto
 } from "./dto";
+import type {
+  DeliverablePathViewDto,
+  GoalBandDto,
+  GoalLensDto,
+  GoalLensInput,
+  GoalSectionChoiceDto,
+  GoalSectionChoiceInput,
+} from "./dto";
 
 // Development aid for verifying the query cache: with
 // localStorage.setItem("learnloop.debugRpc", "1") every sidecar command is
@@ -1645,6 +1653,15 @@ export const api = {
   companionAskCancel: (input: { requestId: string }) => call<CompanionAskJobDto>("companion_ask_cancel", { input }),
   searchEverything: (input: SearchEverythingInput) => call<SearchEverythingDto>("search_everything", { input }),
   searchJob: (input: { jobId: string }) => call<SearchJobDto>("search_job", { input }),
+  // Reader workbench v2 RD6 (spec §12; desktop only, no component calls them yet): the goal band (with the path
+  // view's rows), each section's level for a goal across a reading or a visible range, and read it anyway on a
+  // dimmed section. A path line's own choices stay curriculumPathOverride's. None calls a model or starts work;
+  // curriculumPath with judge: true starts the coverage and the path judgment a goal owes (in the background).
+  goalBand: (input: { goalId: string }) => call<GoalBandDto>("goal_band", { input }),
+  goalLens: (input: GoalLensInput) => call<GoalLensDto>("goal_lens", { input }),
+  goalSectionChoice: (input: GoalSectionChoiceInput) => call<GoalSectionChoiceDto>("goal_section_choice", { input }),
+  curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) =>
+    call<DeliverablePathViewDto>("curriculum_path", { input }),
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),
