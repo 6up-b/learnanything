@@ -21,6 +21,7 @@ import type { Poller } from "../../../api/poller";
 import type { PromotedApi } from "../menu/ContextMenu";
 import type { LessonsHost } from "../lesson/host";
 import type { SearchRow } from "../search/model";
+import type { NotebookMenuRequest } from "../notebook/menuBridge";
 
 export interface PadsApi {
   padProposals(input: { padId: string }): Promise<PadProposalsDto>;
@@ -110,6 +111,8 @@ export interface PadStackHandle {
   openMenu(padId: string, blockId: string | null, at: { x: number; y: number }, selection?: string): void;
   /** Bring one of its pads into view (the shelf's running pad "open"). */
   showPad(padId: string): void;
+  /** A notebook frame's right-click in this stack (a pad's cells or a lesson's notebook): the pad menu there. */
+  openFrameMenu(request: NotebookMenuRequest): void;
 }
 
 /** A figure Show me finished, waiting to be written below its line. */

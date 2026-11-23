@@ -473,6 +473,12 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       const index = padIds.indexOf(padId);
       if (index >= 0) scrollToPad(index);
     },
+    openFrameMenu(request) {
+      // A right-click inside a notebook frame (spec §11.3), labelled for the notebook's owner; its text is the
+      // frame's selection (untrusted notebook text, shown only quoted).
+      const padId = request.lessonId ? lessons?.desk.additionsFor(request.lessonId) ?? `lesson:${request.lessonId}` : request.padId ?? "";
+      setMenu({ padId, blockId: null, text: request.text, x: request.x, y: request.y, label: request.label, insertLabel: request.insertLabel, lessonId: request.lessonId });
+    },
     openMenu(padId, blockId, at, selection) {
       // The desks' one right-click listener hands a pad line's menu to its window (the rows are the pad's).
       const block = blockId ? store.pads[padId]?.blocks.find((each) => each.blockId === blockId) : undefined;
@@ -488,6 +494,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     arrange: () => impl.current?.arrange(),
     menuAtHover: () => impl.current?.menuAtHover() ?? false,
     openMenu: (padId, blockId, at, selection) => impl.current?.openMenu(padId, blockId, at, selection),
+    openFrameMenu: (request) => impl.current?.openFrameMenu(request),
     showPad: (padId) => impl.current?.showPad(padId),
   }), []);
   useImperativeHandle(ref, () => proxy, [proxy]);
@@ -916,7 +923,12 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
           state={store.pads[menu.padId] ?? null}
           muted={muted.includes(menu.padId)}
           onClose={() => setMenu(null)}
-          onInsert={(block) => insertAfter(menu.padId, menu.blockId, block, block.kind === "text")}
+          onInsert={(block) => {
+            // From a notebook frame: a lesson's inserts go under the lesson (its additions pad), a pad's at its end.
+            if (menu.lessonId) writeUnderLesson(menu.lessonId, block);
+            else if (menu.label) insertAfter(menu.padId, (store.pads[menu.padId]?.blocks.slice(-1)[0]?.blockId ?? null), block, block.kind === "text");
+            else insertAfter(menu.padId, menu.blockId, block, block.kind === "text");
+          }}
           onNote={() => menu.blockId && insertAfter(menu.padId, menu.blockId, { kind: "note", provenance: "learner", payload: { parent_block_id: menu.blockId } }, true)}
           onSubmit={() => menu.blockId && setSubmitting({ padId: menu.padId, blockId: menu.blockId })}
           onMute={() => host.setView(windowId, { ...view, mutedPads: muted.includes(menu.padId) ? muted.filter((id) => id !== menu.padId) : [...muted, menu.padId] })}

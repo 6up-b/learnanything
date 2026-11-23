@@ -23,7 +23,6 @@ function context(over: Partial<MenuContext> = {}, apiOver: Partial<MenuContext["
       readerCapture: vi.fn(async () => ({ annotationId: "a1" }) as never),
       readerImportExercise: vi.fn(async () => ({}) as never),
       readerAuthorSectionQuestion: vi.fn(async () => ({ status: "queued", question: null }) as never),
-      lessonTurn: vi.fn(async () => ({ lessonId: "les1" }) as never),
       ...apiOver,
     },
     mintId: (prefix) => `${prefix}_1`,
@@ -38,6 +37,7 @@ function context(over: Partial<MenuContext> = {}, apiOver: Partial<MenuContext["
     showMe: vi.fn(async () => ({ figureId: "fig1", line: "a figure" })),
     landFigure: vi.fn(),
     windowMove: vi.fn(),
+    teachMe: vi.fn(),
     showKnows: vi.fn(),
     promotedRows: () => [],
     ...over,
@@ -97,13 +97,15 @@ describe("each verb calls its server entry", () => {
     expect(second.toasts).toEqual(["found by search, not checked"]);
   });
 
-  it("Compare opens a compare window on the words; Teach me opens the lesson it starts in a window", async () => {
+  it("Compare opens a compare window on the words; Teach me opens a lesson on the passage in the desk's stack", async () => {
     const { ctx } = context();
     await runVerb("compare", passage({ selection: "two ideas" }), ctx);
     expect(ctx.openContent).toHaveBeenCalledWith({ kind: "compare", query: "two ideas" });
     await runVerb("teach_me", passage(), ctx);
-    expect(ctx.api.lessonTurn).toHaveBeenCalledWith({ action: "open", entry: "reader_selection", selection: { extractionId: "ext1", spanIds: ["s1"] } });
-    expect(ctx.openContent).toHaveBeenCalledWith({ kind: "lesson", lessonId: "les1" });
+    expect(ctx.teachMe).toHaveBeenCalledWith({ kind: "open", entry: "reader_selection", selection: { extractionId: "ext1", spanIds: ["s1"] } });
+    // With no passage (a margin note's words alone), the lesson starts from the words.
+    await runVerb("teach_me", { kind: "pad_line", windowId: "w1", text: "why the exponential", at: { x: 0, y: 0 } }, ctx);
+    expect(ctx.teachMe).toHaveBeenLastCalledWith({ kind: "open", entry: "new_topic", title: "why the exponential" });
   });
 
   it("Show me lands the shown figure in the running pad; no figure shown, nothing lands", async () => {
@@ -146,11 +148,11 @@ describe("each verb calls its server entry", () => {
   });
 
   it("a failed call says so instead of throwing", async () => {
-    const { ctx, toasts } = context({}, { lessonTurn: vi.fn(async () => {
-      throw new Error("the teacher is away");
+    const { ctx, toasts } = context({}, { readerCapture: vi.fn(async () => {
+      throw new Error("the reader is away");
     }) });
-    await runVerb("teach_me", passage(), ctx);
-    expect(toasts).toEqual(["couldn't do that just now · the teacher is away"]);
+    await runVerb("note", passage(), ctx);
+    expect(toasts).toEqual(["couldn't do that just now · the reader is away"]);
   });
 });
 

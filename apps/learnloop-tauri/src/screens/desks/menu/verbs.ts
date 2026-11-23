@@ -3,8 +3,6 @@
 import type {
   ContentRefDto,
   CorrespondentsDto,
-  LessonTurnInput,
-  LessonViewDto,
   MenuObjectInput,
   PassageKnowsDto,
   PromotedRowDto,
@@ -14,6 +12,7 @@ import type {
   ReaderExerciseImportReceiptDto,
   ReaderImportExerciseInput,
 } from "../../../api/dto";
+import type { LessonEntry } from "../../LessonView";
 import { objectInput, verbsFor, type MenuObject, type MenuRow, type VerbId } from "./model";
 
 /** The server entries the verbs call. */
@@ -25,7 +24,6 @@ export interface MenuApi {
   readerCapture(input: ReaderCaptureInput): Promise<ReaderCaptureReceiptDto>;
   readerImportExercise(input: ReaderImportExerciseInput): Promise<ReaderExerciseImportReceiptDto>;
   readerAuthorSectionQuestion(input: { extractionId: string; sectionId: string }): Promise<ReaderAuthorSectionQuestionDto>;
-  lessonTurn(input: LessonTurnInput): Promise<LessonViewDto>;
 }
 
 /** What the desks lend the verbs. */
@@ -49,6 +47,8 @@ export interface MenuContext {
   showMe: (text: string, anchor: { extractionId: string; spanId: string }, ownerWindowId: string | null) => Promise<{ figureId: string; line: string } | null>;
   /** The figure, landed where the desks keep figures (the running pad). */
   landFigure: (object: MenuObject, figure: { figureId: string; line: string }) => void;
+  /** A Teacher lesson opened in the desk's stack (a tab of its own while its first turn runs; spec §11.1). */
+  teachMe: (entry: LessonEntry) => void;
   /** The desks' own moves for a window (§5.2, §6.6). */
   windowMove: (kind: "new_desk" | "gather" | "share_slot" | "own_slot", windowId: string) => void;
   showKnows: (object: MenuObject) => void;
@@ -176,13 +176,12 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
         ctx.toast(drafted.status === "exists" ? "this section already has a question waiting" : "drafting a question for this section");
         return;
       }
-      case "teach_me": {
-        const lesson = await ctx.api.lessonTurn(anchor
-          ? { action: "open", entry: "reader_selection", selection: { extractionId: anchor.extractionId, spanIds: object.spanIds?.length ? object.spanIds : [anchor.spanId] } }
-          : { action: "open", entry: "new_topic", goalText: words.slice(0, 200) });
-        ctx.openContent({ kind: "lesson", lessonId: lesson.lessonId });
+      case "teach_me":
+        // The lesson opens as a tab of the desk's stack (RD9a's opening: the tab shows while its first turn runs).
+        ctx.teachMe(anchor
+          ? { kind: "open", entry: "reader_selection", selection: { extractionId: anchor.extractionId, spanIds: object.spanIds?.length ? object.spanIds : [anchor.spanId] } }
+          : { kind: "open", entry: "new_topic", title: words.slice(0, 200) });
         return;
-      }
       case "new_desk":
       case "gather":
       case "share_slot":

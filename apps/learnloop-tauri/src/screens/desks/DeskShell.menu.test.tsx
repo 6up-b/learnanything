@@ -7,7 +7,11 @@ import type { MenuObjectInput, PadOpDto, PassagePromotedDto, PromotedRowDto } fr
 import { FixtureDeskServer } from "../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../fixtures/desks/sources";
 import { Poller } from "../../api/poller";
+import { useSyncExternalStore } from "react";
 import { DeskShell, type MenuTransport, type PaneRenderInput } from "./DeskShell";
+import { usePadsHost } from "./pads/host";
+import { PadStackWindow } from "./pads/PadStackWindow";
+import { openNotebookMenu } from "./notebook/menuBridge";
 
 vi.mock("../../api/client", () => ({ api: {} }));
 vi.mock("./windows/SourceWindow", () => ({ SourceWindow: () => null }));
@@ -18,8 +22,11 @@ const paneMenus: string[] = [];
 /** A pane with passages, and a right-click handler of its own standing for the Reader's old tag menu. */
 function PassagePane({ input }: { input: PaneRenderInput }) {
   const id = input.window.windowId;
+  // The lesson openings shown in this window (a stack's tabs in flight), read as a stack window would.
+  const lessons = usePadsHost()?.lessons?.desk;
+  useSyncExternalStore(lessons?.subscribe ?? (() => () => undefined), lessons?.getVersion ?? (() => 0));
   return (
-    <div data-testid={`pane-${id}`} data-kind={input.window.content?.kind ?? input.window.kind} onContextMenu={() => paneMenus.push(id)}>
+    <div data-testid={`pane-${id}`} data-kind={input.window.content?.kind ?? input.window.kind} data-openings={lessons?.openingsFor(id).length ?? 0} onContextMenu={() => paneMenus.push(id)}>
       <p data-span-id={`${id}_s1`}>{`the first passage of ${id}`}</p>
       <p data-span-id={`${id}_s2`}>{`the second passage of ${id}`}</p>
     </div>
@@ -53,7 +60,6 @@ function menuFakes() {
     readerCapture: vi.fn(async () => ({ annotationId: "ann_new" }) as never),
     readerImportExercise: vi.fn(),
     readerAuthorSectionQuestion: vi.fn(),
-    lessonTurn: vi.fn(async () => ({ lessonId: "les_1" }) as never),
   };
   return { transport, asked, labels };
 }
@@ -90,7 +96,7 @@ function padsFakes(server: FixtureDeskServer) {
 }
 
 let minted = 0;
-function mount() {
+function mount(options: { stacks?: boolean } = {}) {
   const server = new FixtureDeskServer();
   const menu = menuFakes();
   const pads = padsFakes(server);
@@ -105,7 +111,9 @@ function mount() {
       padsTransport={pads.transport as never}
       menuTransport={menu.transport}
       poller={poller}
-      renderPane={(input) => <PassagePane input={input} />}
+      renderPane={(input) => (options.stacks && input.window.kind === "pad_stack"
+        ? <PadStackWindow windowId={input.window.windowId} stack={input.window.stack ?? []} view={input.window.view ?? {}} />
+        : <PassagePane input={input} />)}
       initialViewport={{ width: 1600, height: 960 }}
       mintId={(prefix) => `${prefix}_${++minted}`}
     />
@@ -225,16 +233,15 @@ describe("the desks' context menu", () => {
     expect(menus()).toHaveLength(1);
   });
 
-  it("Teach me opens the lesson it starts in a window on the desk", async () => {
-    const { transport, server } = mount();
+  it("Teach me opens a lesson as a tab of the desk's stack (its opening shows there and the stack takes the focus)", async () => {
+    mount();
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.contextMenu(passage("fx_w_book_s1"));
     fireEvent.keyDown(window, { key: "t" });
-    await waitFor(() => expect(transport.lessonTurn).toHaveBeenCalledWith({ action: "open", entry: "reader_selection", selection: { extractionId: FIXTURE_SOURCES.book.extractionId, spanIds: ["fx_w_book_s1"] } }));
-    await waitFor(() => expect(document.querySelector('[data-kind="lesson"]')).toBeTruthy());
+    expect(menus()).toHaveLength(0);
+    await waitFor(() => expect(screen.getByTestId("pane-fx_w_pads").getAttribute("data-openings")).toBe("1"));
     await flush();
-    const desk = server.state().desks.find((each) => each.deskId === "fx_desk_softmax");
-    expect(desk?.slots.flatMap((slot) => slot.windows).some((window) => window.content?.kind === "lesson" && (window.content as { lessonId: string }).lessonId === "les_1")).toBe(true);
+    expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
   });
 
   it("Append writes the passage as a quote in the running pad, linked both ways (the passage highlighted)", async () => {
@@ -291,5 +298,23 @@ describe("the shelf's running pad and the pad stack's title bar, as the mockup h
     expect(info.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(info);
     expect(info.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("a notebook frame's right-click opens the pad menu in the stack that shows the notebook's pad", async () => {
+    mount({ stacks: true });
+    await screen.findByTestId("pane-fx_w_book");
+    await waitFor(() => expect(document.querySelector('[data-desk-window="fx_w_pads"] [data-pad="fx_pad_running"]')).toBeTruthy());
+    let opened = false;
+    act(() => {
+      opened = openNotebookMenu({ owner: "pad:fx_pad_running", padId: "fx_pad_running", lessonId: null, text: "x = 1", x: 300, y: 300,
+        label: "your pad", insertLabel: "insert at the end of this pad" });
+    });
+    expect(opened).toBe(true);
+    await flush();
+    // The stack that shows the pad took the focus (a press inside a frame never reaches the desks).
+    expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
+    const menu = await screen.findByRole("menu", { name: "the pad menu" });
+    expect(within(menu).getByText("your pad · “x = 1”")).toBeTruthy();
+    expect(within(menu).getByText("marimo cell")).toBeTruthy();
   });
 });

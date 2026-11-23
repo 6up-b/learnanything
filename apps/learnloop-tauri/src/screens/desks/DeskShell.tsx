@@ -101,7 +101,6 @@ import { ContextMenu, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
 import { headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
 import { promotedRef, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
-import { LessonScreen } from "../LessonScreen";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
 import { keyAfter } from "./pads/model";
@@ -113,7 +112,7 @@ import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
 import { NotebookBridgeContext, type NotebookBridgeHost } from "./notebook/NotebookFrame";
 import type { BridgeMessage } from "./notebook/bridge";
-import { notebookMenuRequest, openNotebookMenu } from "./notebook/menuBridge";
+import { notebookMenuRequest, openNotebookMenu, setNotebookMenuOpener } from "./notebook/menuBridge";
 import { lessonNotebookFrame } from "./notebook/LessonNotebook";
 import type { NotebookOwner } from "../../api/dto";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
@@ -337,7 +336,6 @@ export const LIVE_MENU_TRANSPORT: MenuTransport = {
   readerCapture: (input) => api.readerCapture(input),
   readerImportExercise: (input) => api.readerImportExercise(input),
   readerAuthorSectionQuestion: (input) => api.readerAuthorSectionQuestion(input),
-  lessonTurn: (input) => api.lessonTurn(input),
 };
 
 /** The companion's and search's calls (spec §3.4; RD3a's jobs). */
@@ -2711,8 +2709,35 @@ export function DeskShell({
       else runRef.current({ kind: "unpair" });
     },
     showKnows: (object) => setKnows(objectInput(object, deskIdRef.current)),
+    teachMe: (entry) => openLesson(entry),
     promotedRows: () => menuPromotedRows.current,
-  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit]);
+  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson]);
+
+  // A right-click inside a notebook frame (spec §11.3) opens the pad menu in the stack window that shows the
+  // notebook's owner: a pad's cells ("your pad") or a lesson's notebook ("the lesson", inserting under the lesson).
+  // Registered once; the request's text is the frame's selection, untrusted, and only ever shown quoted.
+  useEffect(() => {
+    setNotebookMenuOpener((request) => {
+      const id = deskIdRef.current;
+      const shows = (window: DeskWindow) => {
+        if (request.lessonId) {
+          const lessonId = request.lessonId;
+          return (window.stack ?? []).some((entry) => entry.kind === "lesson" && entry.lessonId === lessonId)
+            || (window.content?.kind === "lesson" && window.content.lessonId === lessonId)
+            || lessonDesk.openingsFor(window.windowId).includes(lessonKey(lessonId));
+        }
+        return (window.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === request.padId)
+          || (window.content?.kind === "pad" && window.content.padId === request.padId);
+      };
+      const target = Object.values(wsRef.current.windows).find((window) => window.deskId === id && shows(window) && padHandles.current.has(window.windowId));
+      if (!id || !target) return;
+      // A press inside a frame never reaches the desks, so its window takes the focus here first (the pad menu
+      // belongs to the active window and closes when the focus leaves it); the menu opens once it has it.
+      if (focusIdRef.current !== target.windowId) commit(setFocus(wsRef.current, id, target.windowId));
+      timers.set(() => padHandles.current.get(target.windowId)?.openFrameMenu(request), 0);
+    });
+    return () => setNotebookMenuOpener(null);
+  }, [lessonDesk, commit, timers]);
 
   /** A promoted row's action: open its place, What this knows, the carried list, the passage of a note. */
   onPromotedRef.current = (row) => {
@@ -3011,13 +3036,6 @@ export function DeskShell({
       }
       case "compare":
         return <LibraryPanel query={content.query ?? null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
-      case "lesson":
-        // Teach me's lesson, in a window (the Teacher's own screen; Close keeps the lesson).
-        return (
-          <div className="desk-panel ll-scroll" style={{ height: "100%", minHeight: 0 }}>
-            <LessonScreen entry={{ kind: "resume", lessonId: content.lessonId }} onClose={() => undefined} onError={onError} />
-          </div>
-        );
       case "thread":
         return (
           <ThreadWindow

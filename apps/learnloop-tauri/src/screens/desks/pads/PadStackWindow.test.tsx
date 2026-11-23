@@ -77,6 +77,9 @@ let minted = 0;
 const TOASTS = new WeakMap<object, string[]>();
 const toastsOf = (host: PadsHost) => TOASTS.get(host) ?? [];
 
+/** The mounted stack's handle (the desks reach a stack through it). */
+let stackHandleOf: () => PadStackHandle | null = () => null;
+
 function mount(options: { state?: WindowState; server?: FixtureDeskServer; padIds?: string[]; practiceSessionId?: string | null; view?: Record<string, unknown> } = {}) {
   const server = options.server ?? new FixtureDeskServer();
   const timers = new ManualTimers();
@@ -111,6 +114,7 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
   };
   const padIds = options.padIds ?? ["fx_pad_running", "fx_pad_deriving"];
   let stackHandle: PadStackHandle | null = null;
+  stackHandleOf = () => stackHandle;
   // The desks' one right-click listener, as the shell has it: a pad line's menu opens in its window.
   const onContextMenuCapture = (event: React.MouseEvent) => {
     const object = objectAt(event.target as Element, () => "pad_stack", () => null, { x: event.clientX, y: event.clientY });
@@ -254,18 +258,56 @@ describe("a pad stack window", () => {
     expect(sentOps(server).map((op) => op.op)).toEqual(["lift_out"]);
   });
 
-  it("the pad menu offers submit only on the learner's words, and marimo cells say they arrive with notebooks", async () => {
+  it("the pad menu offers submit only on the learner's words, and its marimo row is live (notebooks are in)", async () => {
     mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r2"));
     let menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).queryByText("Submit this block as…")).toBeNull();
-    expect((within(menu).getByText("marimo cell · arrives with notebooks").closest("button") as HTMLButtonElement).disabled).toBe(true);
+    expect((within(menu).getByText("marimo cell").closest("button") as HTMLButtonElement).disabled).toBe(false);
+    expect(within(menu).queryByText(/arrives with notebooks/)).toBeNull();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     fireEvent.contextMenu(block("fx_b_r1"));
     menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).getByText("Submit this block as…")).toBeTruthy();
+  });
+
+  it("the marimo row inserts an empty cell of the learner's below the line", async () => {
+    const { store, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("marimo cell"));
+    await flush();
+    const blocks = store.pads.fx_pad_running.blocks;
+    const at = blocks.findIndex((each) => each.blockId === "fx_b_r1");
+    expect(blocks[at + 1]).toMatchObject({ kind: "cell", provenance: "learner", bodyMd: "" });
+  });
+
+  it("a notebook frame's right-click opens the pad menu labelled for its owner, the frame's text only ever quoted", async () => {
+    const { store, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    act(() => {
+      stackHandleOf()?.openFrameMenu({ owner: "pad:fx_pad_running", padId: "fx_pad_running", lessonId: null, text: "<b>bold</b> words", x: 40, y: 40,
+        label: "your pad", insertLabel: "insert at the end of this pad" });
+    });
+    const menu = screen.getByRole("menu", { name: "the pad menu" });
+    expect(within(menu).getByText("your pad · “<b>bold</b> words”")).toBeTruthy();
+    expect(menu.querySelector("b")).toBeNull();
+    expect(within(menu).getByText("insert at the end of this pad")).toBeTruthy();
+    // A pad's inserts from the frame land at the pad's end.
+    fireEvent.click(within(menu).getByText("marimo cell"));
+    await flush();
+    expect(store.pads.fx_pad_running.blocks.slice(-1)[0]).toMatchObject({ kind: "cell", provenance: "learner" });
+    act(() => {
+      stackHandleOf()?.openFrameMenu({ owner: "lesson:les9", padId: null, lessonId: "les9", text: "a cell's words", x: 40, y: 40,
+        label: "the lesson", insertLabel: "add under this lesson (the notebook stays as the teacher made it)" });
+    });
+    const lesson = screen.getByRole("menu", { name: "the pad menu" });
+    expect(within(lesson).getByText("the lesson · “a cell's words”")).toBeTruthy();
+    expect(within(lesson).getByText("add under this lesson (the notebook stays as the teacher made it)")).toBeTruthy();
+    // Nothing of a pad's own (muting its suggestions) on a lesson's menu.
+    expect(within(lesson).queryByText(/suggestions on this pad/)).toBeNull();
   });
 
   it("a piece of a source inserted from the menu lands below the line, linked to its passage in the same write", async () => {

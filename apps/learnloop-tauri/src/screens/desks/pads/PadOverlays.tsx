@@ -1,4 +1,4 @@
-// The pad's overlays: the pad menu (spec §9.2, all rows but marimo's, which says it arrives with notebooks),
+// The pad's overlays: the pad menu (spec §9.2, its marimo row inserting a cell run in the pad's notebook),
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
 import { useEffect, useMemo, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
@@ -6,6 +6,7 @@ import type { MenuObjectInput } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
 import { useListenerHub, useWindowLifecycle } from "../lifecycle";
 import { ContextMenu } from "../menu/ContextMenu";
+import { MARIMO_CELL_INSERT, MARIMO_CELL_ROW } from "../notebook/menuBridge";
 import type { MenuRow } from "../menu/model";
 import type { PadsHost } from "./host";
 import { isLearnersWords, type PadState } from "./model";
@@ -16,6 +17,12 @@ export interface MenuRequest {
   text: string;
   x: number;
   y: number;
+  /** Opened from a notebook frame (spec §11.3): the header's label ("the lesson", "your pad") and the insert row's
+   * words; the text is the frame's selection, untrusted notebook text (only ever shown quoted, as text). */
+  label?: string;
+  insertLabel?: string;
+  /** A notebook lesson's menu: its inserts go to the lesson's additions pad, never into the notebook. */
+  lessonId?: string | null;
 }
 
 type InsertBlock = { kind: PadBlockKind; provenance: PadProvenance; bodyMd?: string; payload?: Record<string, unknown> };
@@ -116,7 +123,7 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
     // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving
     // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.
     { key: "sketch", glyph: "✎", label: "Sketch cell", note: "pen, line, arrow, box, text · yours", run: close(() => onInsert({ kind: "sketch", provenance: "learner", payload: { width: 480, height: 160, items: [] } })) },
-    { key: "m", glyph: "◆", label: "marimo cell · arrives with notebooks", disabled: true },
+    { ...MARIMO_CELL_ROW, run: close(() => onInsert(MARIMO_CELL_INSERT)) },
     ...pieces.map((piece, index): Row => ({
       key: index === 0 ? "i" : `piece-${index}`,
       glyph: piece.t !== undefined ? "▶" : "§",
@@ -135,7 +142,7 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   ];
   const tailRows: Row[] = [
     ...(request.blockId && host.menu ? [{ key: "knows", glyph: "i", label: "What this knows", run: close(() => host.menu?.knows({ objectKind: "pad_line", blockId: request.blockId as string, windowId })) }] : []),
-    { key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) },
+    ...(request.lessonId ? [] : [{ key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }]),
   ];
   const toRow = (section: MenuRow["section"]) => (row: Row): MenuRow => ({
     id: row.key, glyph: row.glyph, label: row.label, note: row.note, disabled: row.disabled, run: row.run, section,
@@ -146,7 +153,7 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   return (
     <ContextMenu
       label="the pad menu"
-      header={`your pad · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
+      header={`${request.label ?? "your pad"} · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
       rows={rows}
       at={{ x: request.x, y: request.y }}
       object={object}
@@ -154,7 +161,7 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
       onPromoted={host.menu?.onPromoted}
       poller={host.menu?.poller}
       owner={windowId}
-      insertHeading={request.blockId ? "insert below this line" : "insert at the end of this pad"}
+      insertHeading={request.insertLabel ?? (request.blockId ? "insert below this line" : "insert at the end of this pad")}
       onClose={onClose}
       listen={(target, type, handler, capture) => hub.listen(target, type, handler, capture)}
     >
