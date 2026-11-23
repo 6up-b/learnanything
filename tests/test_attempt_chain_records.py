@@ -137,12 +137,12 @@ def test_a_held_grade_gets_a_record_when_the_hold_first_applies(tmp_path):
 
     paths, vault, repository = live_shape_vault(tmp_path, task_features=False)
     with provenance.trace_scope("TRACE_HELD"):
-        grade_id = grade_records.record_grade(
-            repository, attempt_id="att_held", practice_item_id="pi_svd_compute_001", learning_object_id=None,
+        grade_id = grade_records.write_grade_decision(repository, grade_records.grade_decision(
+            attempt_id="att_held", practice_item_id="pi_svd_compute_001", learning_object_id=None,
             rubric_score=2, max_points=4, correctness=0.5, grader_confidence=0.9, grading_source="ai",
             grader_mode="blind", manual_review_reason="valid_alternative_unverified:crit_a,crit_b",
             held=True, unverified_criterion_ids=["crit_a", "crit_b"], algorithm_version="mvp-0.57",
-        )
+        ))
     payload = _why(paths.root, "attempt:att_held")
     held = _kinds(payload, grade_records.GRADE_HELD)
     assert len(held) == 1 and held[0]["parent_id"] == grade_id
@@ -152,42 +152,59 @@ def test_a_held_grade_gets_a_record_when_the_hold_first_applies(tmp_path):
     grade = _kinds(payload, grade_records.GRADE)[0]
     assert grade["facts"]["held"] is True and grade["facts"]["review_reason_ids"] == ["crit_a", "crit_b"]
     # An unheld grade leaves no hold record.
-    grade_records.record_grade(repository, attempt_id="att_clear", practice_item_id=None, learning_object_id=None,
-                               rubric_score=4, max_points=4, correctness=1.0, grader_confidence=1.0,
-                               grading_source="self", grader_mode=None, manual_review_reason=None, held=False)
+    grade_records.write_grade_decision(repository, grade_records.grade_decision(
+        attempt_id="att_clear", practice_item_id=None, learning_object_id=None, rubric_score=4, max_points=4,
+        correctness=1.0, grader_confidence=1.0, grading_source="self", grader_mode=None, manual_review_reason=None,
+        held=False))
     clear = _why(paths.root, "attempt:att_clear")
     assert [record["kind"] for record in clear["records"]] == ["grade"]
     assert clear["records"][0]["rule"] == "full_credit" and clear["records"][0]["decided_by"] == "self_grade"
 
 
-def test_a_live_held_attempt_writes_its_hold_record_in_the_attempt_step(tmp_path, monkeypatch):
-    """The step's in-flight predicate (``AttemptApplication.grade_held``) is what the record reads."""
+def test_a_live_held_attempt_writes_the_records_its_core_returned(tmp_path, monkeypatch):
+    """The core's in-flight hold (``AttemptApplication.grade_held``) is what its records carry, and the attempt step
+    writes them as returned: the grade under the submit's trace, the hold as its child."""
 
-    import learnloop.attempts.attempts as attempts_module
+    from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
+    from learnloop.clock import FrozenClock
 
-    seen: dict[str, Any] = {}
-    real = grade_records.record_grade
+    written: list[Any] = []
+    real = grade_records.write_grade_decision
 
-    def spy(repository, **values):
-        seen.update(values)
-        return real(repository, **values)
+    def spy(repository, decision):
+        written.append(decision)
+        return real(repository, decision)
 
-    monkeypatch.setattr(grade_records, "record_grade", spy)
     paths, vault, repository = live_shape_vault(tmp_path, task_features=False)
-    original = attempts_module.compute_attempt_application
-
-    def held_application(*args, **kwargs):
-        from dataclasses import replace
-
-        return replace(original(*args, **kwargs), grade_held=True)
-
-    monkeypatch.setattr(attempts_module, "compute_attempt_application", held_application)
+    monkeypatch.setattr(grade_records, "write_grade_decision", spy)
     with provenance.trace_scope("TRACE_LIVE_HELD"):
-        result = submit(vault, repository, BlindRivalClient(), answer=ANSWER, pipeline=False, when=CLOCK.now())
-    assert seen["held"] is True and seen["attempt_id"] == result.attempt_id
+        result = apply_attempt(vault, repository, ApplyAttemptInput(
+            draft=AttemptDraft(practice_item_id="pi_svd_compute_001", learner_answer_md="U Sigma V^T",
+                               attempt_type="independent_attempt"),
+            attempt_id="att_live_held", grading_source="ai", grade_held_for_review=True,
+            unverified_criterion_ids=("setup", "result"),
+            grade=ResolvedGrade(rubric_score=0, criterion_points={"setup": 0, "result": 0}, evidence_rows=[],
+                                error_attributions=[], grader_confidence=0.85, confidence=3,
+                                manual_review_reason="valid_alternative_unverified:setup,result", feedback_md="graded"),
+        ), clock=FrozenClock(CLOCK.now()))
+    [decision] = written
+    assert decision.grade.subject_id == result.attempt_id and decision.grade.facts["held"] is True
+    assert decision.hold is not None and decision.hold.facts["unverified_criteria"] == ["result", "setup"]
+    assert decision.grade.parent_id is None and decision.hold.parent_id is None
     payload = _why(paths.root, f"attempt:{result.attempt_id}")
     assert [record["kind"] for record in payload["records"]] == ["grade", "grade_held"]
     assert all(record["trace_id"] == "TRACE_LIVE_HELD" for record in payload["records"])
+    grade, hold = payload["records"]
+    assert hold["parent_id"] == grade["id"] and hold["rule"] == decision.hold.rule
+
+
+def test_a_record_that_cannot_be_built_leaves_the_grade_and_logs(caplog):
+    import logging
+
+    with provenance.trace_scope("TRACE_UNBUILT"), caplog.at_level(logging.WARNING):
+        assert grade_records.grade_decision(held=False, attempt_id="att_1") is None
+    assert "decision record 'grade' not written (trace TRACE_UNBUILT): TypeError" in caplog.text
+    assert grade_records.write_grade_decision(object(), None) is None
 
 
 def test_replay_writes_no_grade_record(tmp_path):

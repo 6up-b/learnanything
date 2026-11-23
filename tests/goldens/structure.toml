@@ -29,7 +29,9 @@ source_text_assertions = 23
 # 5840: from mvp-0.67 an attempt's prior keeps the seed it was built from when its learning object had no mastery
 # row, and a live application records it with the row (two fields, the prior's seed read, the capture call and its
 # persistence keyword; the logic lives in learner/mastery_seed.py).
-"src/learnloop/attempts/attempts.py" = 5840
+# 5831: the grade's decision records come from the core with its result (L6a), and the attempt step's record builder
+# went with them.
+"src/learnloop/attempts/attempts.py" = 5831
 "src/learnloop/db/repositories.py" = 3025
 "src/learnloop/scheduling/scheduler.py" = 4428
 "src/learnloop_sidecar/handlers/reader.py" = 2980
@@ -40,7 +42,9 @@ source_text_assertions = 23
 # unanchored rows naming the case's LO; no existing value moved).
 # 281654: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
 # golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
-golden_json_lines = 295142
+# 295944: the grade-application golden records the application's new grade_decision field, the records its core
+# returns (L6a): 802 lines, the eleven live applications' records and a null on each replay; no existing value moved.
+golden_json_lines = 295944
 
 [members]
 import_component = [
