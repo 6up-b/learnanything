@@ -498,6 +498,41 @@ async def run_overview(page: Page, base: str, results: Results, shots: Path | No
     await page.keyboard.press("Escape")
     await settle(page, 900)
 
+    # A paused window's content is not rendered (content-visibility), as the lifecycle contract asks.
+    paused_cv = await page.evaluate("""() => [...document.querySelectorAll('.desk-window.paused .desk-pane-body')].map((b) => getComputedStyle(b).contentVisibility)""")
+    results.check("a paused window's content is not rendered (content-visibility: auto)", bool(paused_cv) and set(paused_cv) == {"auto"}, paused_cv)
+
+    # alt + a sideways swipe pans the strip, then snaps to the nearest window and focuses it.
+    before_focus = [w["id"] for w in await windows(page) if w["state"] == "active"]
+    await page.mouse.move(800, 500)
+    await page.keyboard.down("Alt")
+    for _ in range(6):
+        await page.mouse.wheel(110, 0)
+        await page.wait_for_timeout(16)
+    await page.keyboard.up("Alt")
+    await settle(page, 900)
+    after_focus = [w["id"] for w in await windows(page) if w["state"] == "active"]
+    left_edges = await page.evaluate("""() => [...document.querySelectorAll('[data-desk-slot]')].map((el) => el.getBoundingClientRect().left - document.querySelector('[data-desk-stage]').getBoundingClientRect().left)""")
+    snapped = any(abs(x - 34) <= 1 for x in left_edges)
+    results.check("alt + a sideways swipe pans the strip and snaps to a window, which takes the focus", after_focus != before_focus and snapped, [before_focus, after_focus])
+
+    # In the overview a card dragged onto another desk's row moves there.
+    await page.keyboard.press("Alt+o")
+    await settle(page, 900)
+    source = page.locator('[data-desk-slot-window="fx_w_paper"]')
+    target = page.locator('[data-desk-slot-window="fx_w_video2"]')
+    sb, tb = await source.bounding_box(), await target.bounding_box()
+    if sb and tb:
+        await page.mouse.move(sb["x"] + sb["width"] / 2, sb["y"] + sb["height"] / 2)
+        await page.mouse.down()
+        await page.mouse.move(tb["x"] + tb["width"] * 0.8, tb["y"] + tb["height"] / 2, steps=8)
+        await page.mouse.up()
+        await settle(page, 700)
+    moved_to = await page.evaluate("() => window.__deskHarness.server.state().desks.find((d) => d.slots.some((s) => s.windows.some((w) => w.windowId === 'fx_w_paper'))).deskId")
+    results.check("in the overview a card dragged onto another desk's row moves there", moved_to == "fx_desk_attention", moved_to)
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+
     # The laptop rail: below 1400 px the shelf folds to 44 px; ☰ overlays it at 260 px.
     await page.set_viewport_size({"width": 1280, "height": 800})
     await settle(page, 600)

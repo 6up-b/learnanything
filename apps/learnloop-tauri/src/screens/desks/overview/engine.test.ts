@@ -212,7 +212,8 @@ describe("the wheel", () => {
     result = zoomWheel(gesture, 420, 20, { active: true, inOverview: false, target: 0.1 });
     expect(result.step).toEqual({ kind: "goal", goal: 1, armMs: 150 });
     gesture = result.gesture;
-    // Momentum the same way is swallowed; the other way turns it round.
+    // Momentum the same way is swallowed, even while the settle is still running; the other way turns it round.
+    expect(zoomWheel(gesture, 30, 25, { active: true, inOverview: false, target: 1 }).step.kind).toBe("swallow");
     expect(zoomWheel(gesture, 30, 30, { active: false, inOverview: true, target: 1 }).step.kind).toBe("swallow");
     const back = zoomWheel(gesture, -42, 40, { active: false, inOverview: true, target: 1 });
     expect(back.step).toEqual({ kind: "begin-and-target", target: 0.9, armMs: 80 });

@@ -454,6 +454,25 @@ describe("gather", () => {
 });
 
 describe("the wheel", () => {
+  it("alt + a sideways swipe pans the strip and snaps to the nearest window after 120 ms, which takes the focus", async () => {
+    const { server } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    const swipe = new WheelEvent("wheel", { deltaX: 700, deltaY: 10, altKey: true, bubbles: true, cancelable: true });
+    act(() => {
+      stage.dispatchEvent(swipe);
+    });
+    expect(swipe.defaultPrevented).toBe(true);
+    expect(screen.getByRole("status").textContent).toContain("alt + swipe");
+    expect(state("fx_w_book")).toBe("active");
+    await act(async () => {
+      vi.advanceTimersByTime(130);
+    });
+    expect(state("fx_w_video")).toBe("active");
+    await flush();
+    expect(server.state().desks[0].focusWindowId).toBe("fx_w_video");
+  });
+
   it("alt + a vertical touchpad scroll starts the zoom and follows the fingers; a plain scroll does nothing", async () => {
     const frames = new ManualFrames();
     mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
