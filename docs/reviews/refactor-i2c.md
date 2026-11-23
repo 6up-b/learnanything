@@ -242,3 +242,13 @@ Run at `2e8b1029c2`. Every command went through the scratch wrapper, each pytest
 - **Follow-ups:**
   - Move the pre-ranking reads and writes into a gather that takes `serving`, so the shell drops under 200 lines.
   - I2-2, the read build's follow-up marks, stays open to arc I's close, as briefed.
+
+## Owner copies (run by the orchestrator)
+
+The same comparison as I2a's §13 and I2b's, on backup-API copies of the owner's three vaults upgraded to `mvp-0.67`:
+main at `0e6e9adbc8` against this step's tip, at one frozen clock, for `read_due_queue` without and with a session and
+the serving build with a session. All nine builds returned the same queue and trace hash on both sides. SELECT counts,
+base → tip: vault A 185 → 185, 241 → 187, 276 → 222; B 68 → 68, 102 → 70, 186 → 154; C 73 → 73, 75 → 75, 103 → 103.
+A second base read gave the same hash, nothing was written to standard error, the live vaults were unchanged, and the
+copies were deleted.
+
