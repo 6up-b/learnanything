@@ -19,13 +19,15 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import closing
 from collections.abc import Iterable, Mapping
 from typing import Any
 
 from learnloop.content.sources.exam_material import exam_withheld
 from learnloop.content.sources.span_aliases import STATUS_CURRENT, SpanTranslator, other_readings, reading_source
-from learnloop.db.stores import pads as pad_store
-from learnloop.db.stores import span_projections as spans_store
+from learnloop.db.connection import connect
+from learnloop.db.stores import pad_reads
+from learnloop.db.stores import span_projection_reads as spans_store
 from learnloop.intent.inline_checks import due_checks
 from learnloop.reader.annotations import annotation_placements
 from learnloop.section_map import extraction_sections
@@ -136,11 +138,13 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
                 if span in out:
                     out[span]["annotations"].append(entry)
 
-    with repository.connection() as connection:
+    # Read only by construction: this read's own SQL runs on a read-only connection, so a write through any
+    # store fails at the database (the import fence keeps the mutating stores out; this keeps the calls out).
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         # Pad blocks linked to the passage (links that stand, on blocks not removed).
-        for anchor in pad_store.standing_anchors_for_spans(connection, readings):
+        for anchor in pad_reads.standing_anchors_for_spans(connection, readings):
             placed = placer.place(anchor["extraction_id"], anchor["span_id"])
-            head = pad_store.head(connection, anchor["block_id"]) if placed else None
+            head = pad_reads.head(connection, anchor["block_id"]) if placed else None
             if placed and head is not None and not head["tombstone"]:
                 out[placed[0]]["pad_blocks"].append({
                     "block_id": anchor["block_id"], "pad_id": head["pad_id"], "kind": head["kind"],

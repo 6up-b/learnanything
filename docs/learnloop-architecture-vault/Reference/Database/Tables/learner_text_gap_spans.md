@@ -16,6 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
+  - "src/learnloop/db/stores/span_projection_reads.py"
   - "src/learnloop/db/stores/span_projections.py"
   - "src/learnloop/passage_union/union.py"
   - "src/learnloop/substrate/passage_spans.py"
@@ -46,7 +47,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
-- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`, `264_reader_workbench_guards.sql`.
 - **Rebuild owner:** `learner_text_gap_spans`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

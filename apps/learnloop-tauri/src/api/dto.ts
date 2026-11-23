@@ -10631,15 +10631,18 @@ export type DeskOpDto = DeskOpBase & (
   | { op: "move_desk"; deskId: string; position: string }
   | { op: "open_window"; deskId: string; windowId: string; content?: ContentRefDto; stack?: PadStackEntryDto[];
       view?: Record<string, unknown>; afterWindowId?: string | null }
-  | { op: "close_window"; windowId: string }
-  | { op: "reopen_window"; windowId: string; slot?: number | null }
-  | { op: "move_window"; windowId: string; toSlot: number }
-  | { op: "move_to_desk"; windowId: string; toDeskId: string; afterWindowId?: string | null }
-  | { op: "pair"; windowId: string }
-  | { op: "unpair"; windowId: string }
+  // A window op names the desk it was queued for and that desk's version, never whichever desk holds
+  // the window now; a transfer names the destination's version too.
+  | { op: "close_window"; deskId: string; windowId: string }
+  | { op: "reopen_window"; deskId: string; windowId: string; slot?: number | null }
+  | { op: "move_window"; deskId: string; windowId: string; toSlot: number }
+  | { op: "move_to_desk"; deskId: string; windowId: string; toDeskId: string; toExpectedVersion: number;
+      afterWindowId?: string | null }
+  | { op: "pair"; deskId: string; windowId: string }
+  | { op: "unpair"; deskId: string; windowId: string }
   | { op: "set_focus"; deskId: string; windowId: string | null }
-  | { op: "set_active_pane"; windowId: string }
-  | { op: "set_view"; windowId: string; view: Record<string, unknown> }
+  | { op: "set_active_pane"; deskId: string; windowId: string }
+  | { op: "set_view"; deskId: string; windowId: string; view: Record<string, unknown> }
   | { op: "set_dock"; deskId: string; dock: CompanionDock }
   | { op: "set_companion_shown"; deskId: string; shown: boolean }
   | { op: "set_goal"; deskId: string; goalId: string | null });
@@ -10716,9 +10719,11 @@ export type PadOpDto =
   | { op: "move_block"; blockId: string; expectedHead: string; positionKey: string; versionId?: string }
   | { op: "lift_out"; blockId: string; expectedHead: string; newPadId: string; newBlockId: string; title?: string;
       newVersionId?: string; stubVersionId?: string; positionKey?: string }
+  // The anchor's head is the newest event between this block and this passage; null (sent) means none yet.
   | { op: "link_anchor"; blockId: string; extractionId: string; spanId: string; anchor?: Record<string, unknown>;
-      annotationId?: string | null; eventId?: string; expectedHead?: string }
-  | { op: "unlink_anchor"; blockId: string; extractionId: string; spanId: string; eventId?: string; expectedHead?: string };
+      annotationId?: string | null; eventId?: string; expectedAnchorHead: string | null }
+  | { op: "unlink_anchor"; blockId: string; extractionId: string; spanId: string; eventId?: string;
+      expectedAnchorHead: string | null };
 
 export interface PadApplyInput { clientId: string; seq: number; padId: string; ops: PadOpDto[] }
 export interface PadApplyDto {

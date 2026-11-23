@@ -943,10 +943,47 @@ forbidden_modules = [
     "learnloop.passage_union",
     "learnloop.db.stores.desks",
     "learnloop.db.stores.pads",
+    "learnloop.db.stores.pad_reads",
+    "learnloop.db.stores.span_projection_reads",
     "learnloop.intent.inline_veils",
     "learnloop.curriculum.goal_lens",
 ]
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "graders-never-reach-the-workbench-v2"
+name = "No grading module reaches pads, ink, threads, desks, veils or the goal lens through any import chain (Reader workbench v2 fence 2)"
+type = "forbidden"
+# The contract above checks only learnloop.attempts' direct imports. These are the grading contexts and prompt
+# builders themselves (as graders-never-read-attempt-facts names them), checked through every import chain:
+# the reads of the exchange context (desk, window and pad blocks of an exchange) and of the pads are their
+# own modules (db.stores.span_projection_reads, db.stores.pad_reads), so a grader that reached either
+# through any dependency fails here.
+source_modules = [
+    "learnloop.attempts.ai_contracts",
+    "learnloop.attempts.blind_grading",
+    "learnloop.attempts.grading",
+    "learnloop.attempts.grading_support",
+    "learnloop.attempts.grading_admission",
+    "learnloop.attempts.grade_resolution",
+    "learnloop.attempts.grader_calibration",
+    "learnloop.attempts.regrade",
+    "learnloop.attempts.stuck",
+]
+forbidden_modules = [
+    "learnloop.desks",
+    "learnloop.pads",
+    "learnloop.companion",
+    "learnloop.passage_union",
+    "learnloop.db.stores.desks",
+    "learnloop.db.stores.pads",
+    "learnloop.db.stores.pad_reads",
+    "learnloop.db.stores.span_projection_reads",
+    "learnloop.db.stores.workspace_batches",
+    "learnloop.intent.inline_veils",
+    "learnloop.curriculum.goal_lens",
+]
+allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
 id = "desks-stay-off-scheduling-and-evidence"
@@ -989,6 +1026,13 @@ forbidden_modules = [
     "learnloop.router",
     "learnloop.adaptive_difficulty",
     "learnloop.hints",
+    # The mutating stores: the union reads pads and projections through their read modules only
+    # (db.stores.pad_reads, db.stores.span_projection_reads), and its own SQL runs on a read-only
+    # connection, so a write fails at the database even where an import would not.
+    "learnloop.db.stores.pads",
+    "learnloop.db.stores.span_projections",
+    "learnloop.db.stores.desks",
+    "learnloop.db.stores.workspace_batches",
 ]
 allow_indirect_imports = true
 

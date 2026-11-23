@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] · Root: 
 
 ## Why this module exists
 
-This module keeps dto behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]]. Its public surface centers on `camel_name`, `ParamsModel`, `EmptyParams`, `to_camel`, `versioned`.
+This module keeps dto behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]]. Its public surface centers on `camel_name`, `ParamsModel`, `EmptyParams`, `Verbatim`, `to_camel`, `versioned`.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/dto.py](../../../../../src/learnloop_sidecar/dto.py) |
-| Source lines | 43 |
+| Source lines | 50 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -60,8 +60,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `camel_name(name: str) -> str` ([source](../../../../../src/learnloop_sidecar/dto.py), line 9)
 - `class ParamsModel(BaseModel)` ([source](../../../../../src/learnloop_sidecar/dto.py), line 14)
 - `class EmptyParams(ParamsModel)` ([source](../../../../../src/learnloop_sidecar/dto.py), line 22)
-- `to_camel(value: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/dto.py), line 26)
-- `versioned(payload: Mapping[str, Any] | None=None, *, version: int=1) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/dto.py), line 38)
+- `class Verbatim(dict)` ([source](../../../../../src/learnloop_sidecar/dto.py), line 26) — Opaque JSON a reply carries as stored (a pad block's payload, a window's view, an anchor): its keys are the client's own, so camelCasing them would rewrite and could merge them ("a_b" and "aB").
+- `to_camel(value: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/dto.py), line 31)
+- `versioned(payload: Mapping[str, Any] | None=None, *, version: int=1) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/dto.py), line 45)
 
 ## Internal implementation anchors
 
@@ -89,7 +90,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `ParamsModel`, `to_camel`, `versioned`; statically calls `to_camel`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
-- [[Reference/Modules/learnloop_sidecar/handlers/desks|learnloop_sidecar.handlers.desks]] — imports `EmptyParams`, `ParamsModel`, `versioned`; statically calls `versioned`
+- [[Reference/Modules/learnloop_sidecar/handlers/desks|learnloop_sidecar.handlers.desks]] — imports `EmptyParams`, `ParamsModel`, `Verbatim`, `versioned`; statically calls `Verbatim`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `EmptyParams`, `ParamsModel`, `to_camel`, `versioned`; statically calls `to_camel`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
@@ -118,7 +119,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] — imports `ParamsModel`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `EmptyParams`, `ParamsModel`, `versioned`; statically calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
-- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
+- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `ParamsModel`, `Verbatim`, `versioned`; statically calls `Verbatim`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/placement|learnloop_sidecar.handlers.placement]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `ParamsModel`, `to_camel`, `versioned`; statically calls `to_camel`, `versioned`

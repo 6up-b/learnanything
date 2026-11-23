@@ -22,6 +22,7 @@ DECLARED = {
 FENCES = {
     "evidence-never-reads-desks-or-pads": ("learnloop.attempts.attempts", "learnloop.pads.blocks"),
     "graders-never-read-the-workbench-v2": ("learnloop.attempts.grading", "learnloop.companion.history"),
+    "graders-never-reach-the-workbench-v2": ("learnloop.attempts.grading", "learnloop.db.stores.span_projection_reads"),
     "desks-stay-off-scheduling-and-evidence": ("learnloop.desks.workspace", "learnloop.scheduling.scheduler"),
     "passage-projections-are-read-only": ("learnloop.passage_union.union", "learnloop.attempts.attempts"),
     "passage-spans-reach-only-the-stores": ("learnloop.substrate.passage_spans", "learnloop.reader.annotations"),
@@ -105,3 +106,39 @@ def test_the_fences_cover_the_specs_six_rules():
     # 6: a note is still never a source, input or evidence; the desks, pads and the union read never reach it.
     assert {"learnloop.desks", "learnloop.pads", "learnloop.passage_union", "learnloop.companion"} <= set(
         contracts["notes-are-never-a-source-or-evidence"]["source_modules"])
+
+
+def test_a_grader_reaching_a_workbench_read_through_any_dependency_breaks_its_fence(graph):
+    """The direct-import fence cannot see a grader that reaches the exchange context (desk, window, pad
+    blocks) through a dependency; the leaf fence follows every chain."""
+
+    contract = _contracts()["graders-never-reach-the-workbench-v2"]
+    assert contract["allow_indirect_imports"] is False
+    assert _check(contract, graph)
+    for imported in ("learnloop.db.stores.span_projection_reads", "learnloop.db.stores.pad_reads"):
+        broken = copy.deepcopy(graph)
+        # Every grader reaches the repository; a read of the workbench reachable from it is reachable from them.
+        broken.add_import(importer="learnloop.db.repositories", imported=imported, line_number=1, line_contents="x")
+        assert not _check(contract, broken), imported
+
+
+def test_the_union_read_reaching_a_mutating_store_breaks_its_fence(graph):
+    contract = _contracts()["passage-projections-are-read-only"]
+    assert {"learnloop.db.stores.pads", "learnloop.db.stores.span_projections"} <= set(contract["forbidden_modules"])
+    assert _check(contract, graph)
+    for imported in ("learnloop.db.stores.pads", "learnloop.db.stores.span_projections"):
+        broken = copy.deepcopy(graph)
+        broken.add_import(importer="learnloop.passage_union.union", imported=imported, line_number=1,
+                          line_contents="x")
+        assert not _check(contract, broken), imported
+
+
+def test_the_read_modules_hold_no_write():
+    """The reads the union, the history and the desks use are their own modules, and none writes: a write
+    statement in one would also fail the registered-SQL-owner guard (tests/test_architecture.py)."""
+
+    import re
+
+    pattern = re.compile(r"\b(?:INSERT\s+(?:OR\s+\w+\s+)?INTO|UPDATE|DELETE\s+FROM|REPLACE\s+INTO)\b", re.I)
+    for name in ("pad_reads", "span_projection_reads"):
+        assert not pattern.search((ROOT / "src/learnloop/db/stores" / f"{name}.py").read_text(encoding="utf-8")), name

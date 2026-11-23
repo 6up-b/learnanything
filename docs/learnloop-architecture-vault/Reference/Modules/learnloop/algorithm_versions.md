@@ -454,6 +454,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_mvp039_is_one_constant_after_mvp038_and_the_latest`
 - [tests/test_reader_guidance.py](../../../../../tests/test_reader_guidance.py) — direct import
   - `test_split_guide_reason_names_the_diagnosers_statement`
+- [tests/test_reader_rd0_spans.py](../../../../../tests/test_reader_rd0_spans.py) — direct import
+  - `test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once`
 - [tests/test_reader_recap_review_r2.py](../../../../../tests/test_reader_recap_review_r2.py) — direct import
   - `test_f1_r2_the_as_of_curve_ignores_gradings_recorded_after_the_cutoff`
 - [tests/test_reader_recap_review_r3.py](../../../../../tests/test_reader_recap_review_r3.py) — direct import

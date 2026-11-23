@@ -110,6 +110,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_an_explanation_repeating_the_answer_is_still_read`
 - [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — direct import
   - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
+- [tests/test_reader_rd0_spans.py](../../../../../../../tests/test_reader_rd0_spans.py) — direct import
+  - `test_the_explanation_suffix_is_the_gap_pipelines`
 - [tests/test_ro2_history_protection.py](../../../../../../../tests/test_ro2_history_protection.py) — direct import
   - `test_the_registry_restates_the_figure_source_grammar`
 

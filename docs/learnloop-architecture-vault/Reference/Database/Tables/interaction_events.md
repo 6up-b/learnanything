@@ -55,7 +55,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/065_activity_lineage_substrate.sql`.
-- **Schema touched by:** `065_activity_lineage_substrate.sql`, `086_reader_dialogue.sql`, `091_interaction_events_reader_envelope.sql`, `103_learner_item_authoring_kinds.sql`, `115_causal_attribution_p0.sql`, `203_chat_mcp_interaction_events.sql`.
+- **Schema touched by:** `065_activity_lineage_substrate.sql`, `086_reader_dialogue.sql`, `091_interaction_events_reader_envelope.sql`, `103_learner_item_authoring_kinds.sql`, `115_causal_attribution_p0.sql`, `203_chat_mcp_interaction_events.sql`, `264_reader_workbench_guards.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -105,6 +105,7 @@ No SQLite foreign key is declared. Identifier-looking columns are application-va
 
 Indexes and uniqueness:
 
+- `idx_interaction_events_reader_answer_question` on expression/partial index.
 - `idx_interaction_events_client_key` on `client_idempotency_key` (unique).
 - `idx_interaction_events_session` on `session_id`.
 - `idx_interaction_events_source` on `source_id`.

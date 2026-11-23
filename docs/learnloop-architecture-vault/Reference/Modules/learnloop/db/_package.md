@@ -63,17 +63,17 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs|learnloop.db.attempt_lifecycle_inputs]] | [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] | [[Reference/Modules/learnloop/db/attempt_order#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
 | [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] | [[Reference/Modules/learnloop/db/checkpoint#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 186 | 245 |
+| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 188 | 246 |
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 52 |
 | [[Reference/Modules/learnloop/db/evidence_cutoff|learnloop.db.evidence_cutoff]] | [[Reference/Modules/learnloop/db/evidence_cutoff#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
-| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 98 |
+| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 99 |
 | [[Reference/Modules/learnloop/db/prediction_target|learnloop.db.prediction_target]] | [[Reference/Modules/learnloop/db/prediction_target#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/db/records|learnloop.db.records]] | [[Reference/Modules/learnloop/db/records#^module-purpose|purpose]] | `ACTIVE` | 16 | 0 |
 | [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 412 | 737 |
 | [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] | [[Reference/Modules/learnloop/db/row_serialization#^module-purpose|purpose]] | `ACTIVE` | 18 | 0 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 6 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
-| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 81 |
+| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 82 |
 
 ## Child package maps
 
@@ -137,8 +137,10 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 2 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
+- [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 1 static module edge
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] — 1 static module edge
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 1 static module edge
+- [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 1 static module edge
 - [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 1 static module edge

@@ -28,6 +28,7 @@ from learnloop.ops.startup import run_startup_maintenance
 from learnloop.router_objective import goal_lifecycle
 from learnloop.router_objective_switches import workbench_is_open_item_on
 from learnloop.reader.reader_authoring import adopt_reference_questions
+from learnloop.substrate.passage_spans import initialize_on_open as initialize_passage_spans
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import (
@@ -250,6 +251,12 @@ class SidecarContext:
             poll_interval_seconds=runner_config.poll_interval_seconds,
         )
         sync_vault_state(self.vault, self.repository)
+        # The Reader workbench's passage projections, projected once for a vault that had history before
+        # they existed (whatever its algorithm tag); later exchanges and gaps write through.
+        try:
+            initialize_passage_spans(self.vault, self.repository)
+        except Exception:  # noqa: BLE001 - a display projection never blocks opening the vault
+            _LOGGER.warning("could not project the passage history", exc_info=True)
         # A reader question kept as a reference (no active LO cited its passage
         # when it was written) becomes practice once one does. Every study-map
         # apply ends in this (re)load, right after state sync, so this is where a

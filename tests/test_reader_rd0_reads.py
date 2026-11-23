@@ -54,7 +54,8 @@ def seeded(tmp_path):
     batches.pad("p1", {"op": "create_pad", "kind": "named"},
                 {"op": "insert_block", "block_id": "b1", "kind": "text", "provenance": "learner", "position_key": "a0",
                  "body_md": "why s3?"},
-                {"op": "link_anchor", "block_id": "b1", "extraction_id": BOOK, "span_id": "s3", "event_id": "e1"})
+                {"op": "link_anchor", "block_id": "b1", "extraction_id": BOOK, "span_id": "s3", "event_id": "e1",
+                 "expected_anchor_head": None})
     return vault, repository
 
 

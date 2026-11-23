@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
-| Source lines | 10797 |
+| Source lines | 10802 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
@@ -907,28 +907,28 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface DeskDto` — interface, line 10605
 - `export interface DeskStateDto` — interface, line 10618
 - `export type DeskOpDto = DeskOpBase & ( |` — type, line 10627
-- `export type WriteOpResultDto = |` — type, line 10648
-- `export interface DeskApplyInput` — interface, line 10653
-- `export interface DeskApplyDto` — interface, line 10654
-- `export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions"` — type, line 10661
-- `export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch" | "cell" | "ink" | "lifted" | "check_cell"` — type, line 10662
-- `export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction"` — type, line 10664
-- `export interface PadDto` — interface, line 10666
-- `export interface PadBlockDto` — interface, line 10679
-- `export interface PadAnchorDto` — interface, line 10692
-- `export interface PadViewDto` — interface, line 10702
-- `export interface PadListDto` — interface, line 10703
-- `export type PadOpDto = |` — type, line 10705
-- `export interface PadApplyInput` — interface, line 10723
-- `export interface PadApplyDto` — interface, line 10724
-- `export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored"` — type, line 10732
-- `export type SpanAlias = "exact" | "needs_reanchor"` — type, line 10734
-- `export interface PassageUnionSpanDto` — interface, line 10736
-- `export interface PassageUnionDto` — interface, line 10758
-- `export type PassageUnionInput = |` — type, line 10766
-- `export interface CompanionExchangeDto` — interface, line 10770
-- `export interface CompanionHistoryDto` — interface, line 10786
-- `export interface ChecksDueDto` — interface, line 10792
+- `export type WriteOpResultDto = |` — type, line 10651
+- `export interface DeskApplyInput` — interface, line 10656
+- `export interface DeskApplyDto` — interface, line 10657
+- `export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions"` — type, line 10664
+- `export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch" | "cell" | "ink" | "lifted" | "check_cell"` — type, line 10665
+- `export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction"` — type, line 10667
+- `export interface PadDto` — interface, line 10669
+- `export interface PadBlockDto` — interface, line 10682
+- `export interface PadAnchorDto` — interface, line 10695
+- `export interface PadViewDto` — interface, line 10705
+- `export interface PadListDto` — interface, line 10706
+- `export type PadOpDto = |` — type, line 10708
+- `export interface PadApplyInput` — interface, line 10728
+- `export interface PadApplyDto` — interface, line 10729
+- `export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored"` — type, line 10737
+- `export type SpanAlias = "exact" | "needs_reanchor"` — type, line 10739
+- `export interface PassageUnionSpanDto` — interface, line 10741
+- `export interface PassageUnionDto` — interface, line 10763
+- `export type PassageUnionInput = |` — type, line 10771
+- `export interface CompanionExchangeDto` — interface, line 10775
+- `export interface CompanionHistoryDto` — interface, line 10791
+- `export interface ChecksDueDto` — interface, line 10797
 
 ## Internal implementation anchors
 

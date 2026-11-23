@@ -53,6 +53,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 
@@ -70,12 +71,14 @@ flowchart LR
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop["learnloop"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop_intent["learnloop.intent"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     center -->|2| n_learnloop_content_sources
     center -->|2| n_learnloop_db_stores
     center -->|1| n_learnloop
+    center -->|1| n_learnloop_db
     center -->|1| n_learnloop_intent
     center -->|1| n_learnloop_reader
     n_learnloop_sidecar_handlers -->|1| center

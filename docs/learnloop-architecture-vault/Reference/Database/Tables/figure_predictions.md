@@ -103,6 +103,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/reader/reader_observations.py`
 - `src/learnloop/reader/reader_report.py`
+- `src/learnloop/substrate/passage_spans.py`
 
 ### Direct SQL writers
 
@@ -129,6 +130,7 @@ None found by exact static reference scan.
 - `tests/test_figures_switch_off.py`
 - `tests/test_help_assist_figures_migration.py`
 - `tests/test_learner_note_source_kind_migration.py`
+- `tests/test_reader_rd0_spans.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_ro2_history_protection.py`
 - `tests/test_router_reader_activity.py`

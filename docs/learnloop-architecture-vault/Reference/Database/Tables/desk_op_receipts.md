@@ -43,7 +43,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
-- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`, `264_reader_workbench_guards.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -69,6 +69,7 @@ Indexes and uniqueness:
 Database triggers:
 
 - `desk_op_receipts_no_delete` — schema-enforced lifecycle or immutability constraint.
+- `desk_op_receipts_no_replace` — schema-enforced lifecycle or immutability constraint.
 - `desk_op_receipts_no_update` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
@@ -95,6 +96,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/reader_rd0_migration_helpers.py`
+- `tests/test_reader_rd0_guards_migration.py`
 - `tests/test_reader_rd0_migration.py`
 - `tests/test_reader_rd0_protocol.py`
 

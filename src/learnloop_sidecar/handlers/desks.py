@@ -13,7 +13,7 @@ from pydantic import Field
 from learnloop.desks.protocol import ProtocolError
 from learnloop.desks.workspace import DeskOp, apply_desk_ops, desk_state
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
+from learnloop_sidecar.dto import EmptyParams, ParamsModel, Verbatim, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
@@ -37,7 +37,13 @@ def desk_state_handler(ctx: SidecarContext, params: EmptyParams) -> dict[str, An
     pads, and each client's last applied batch. Read at startup and after a conflict."""
 
     _vault, repository = ctx.require_vault()
-    return versioned(desk_state(repository))
+    state = desk_state(repository)
+    # A window's view is the client's JSON, returned with its keys as stored.
+    for desk in state["desks"]:
+        for slot in desk["slots"]:
+            for window in slot["windows"]:
+                window["view"] = Verbatim(window["view"])
+    return versioned(state)
 
 
 @method("desk.apply", DeskApplyInput)

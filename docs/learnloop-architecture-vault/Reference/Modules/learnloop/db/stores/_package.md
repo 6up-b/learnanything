@@ -50,6 +50,7 @@ source_paths:
   - "src/learnloop/db/stores/maintenance.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/db/stores/pad_reads.py"
   - "src/learnloop/db/stores/pads.py"
   - "src/learnloop/db/stores/pf.py"
   - "src/learnloop/db/stores/placement.py"
@@ -75,6 +76,7 @@ source_paths:
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/db/stores/span_projection_reads.py"
   - "src/learnloop/db/stores/span_projections.py"
   - "src/learnloop/db/stores/task_blueprints.py"
   - "src/learnloop/db/stores/voi_forecasts.py"
@@ -163,7 +165,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/maintenance|learnloop.db.stores.maintenance]] | [[Reference/Modules/learnloop/db/stores/maintenance#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] | [[Reference/Modules/learnloop/db/stores/model_calls#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] | [[Reference/Modules/learnloop/db/stores/observation_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
-| [[Reference/Modules/learnloop/db/stores/pads|learnloop.db.stores.pads]] | [[Reference/Modules/learnloop/db/stores/pads#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
+| [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] | [[Reference/Modules/learnloop/db/stores/pad_reads#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
+| [[Reference/Modules/learnloop/db/stores/pads|learnloop.db.stores.pads]] | [[Reference/Modules/learnloop/db/stores/pads#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/pf|learnloop.db.stores.pf]] | [[Reference/Modules/learnloop/db/stores/pf#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
 | [[Reference/Modules/learnloop/db/stores/placement|learnloop.db.stores.placement]] | [[Reference/Modules/learnloop/db/stores/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] | [[Reference/Modules/learnloop/db/stores/plan_presentations#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
@@ -188,7 +191,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] | [[Reference/Modules/learnloop/db/stores/source_block_fts#^module-purpose|purpose]] | `ACTIVE` | 39 | 10 |
 | [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] | [[Reference/Modules/learnloop/db/stores/source_documents#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] | [[Reference/Modules/learnloop/db/stores/source_service#^module-purpose|purpose]] | `ACTIVE` | 34 | 52 |
-| [[Reference/Modules/learnloop/db/stores/span_projections|learnloop.db.stores.span_projections]] | [[Reference/Modules/learnloop/db/stores/span_projections#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
+| [[Reference/Modules/learnloop/db/stores/span_projection_reads|learnloop.db.stores.span_projection_reads]] | [[Reference/Modules/learnloop/db/stores/span_projection_reads#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/db/stores/span_projections|learnloop.db.stores.span_projections]] | [[Reference/Modules/learnloop/db/stores/span_projections#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/db/stores/task_blueprints|learnloop.db.stores.task_blueprints]] | [[Reference/Modules/learnloop/db/stores/task_blueprints#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/voi_forecasts|learnloop.db.stores.voi_forecasts]] | [[Reference/Modules/learnloop/db/stores/voi_forecasts#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/db/stores/workbench|learnloop.db.stores.workbench]] | [[Reference/Modules/learnloop/db/stores/workbench#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
@@ -251,11 +255,11 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 3 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 3 static module edges
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 3 static module edges
 - [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 3 static module edges
+- [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges
-- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 2 static module edges
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 2 static module edges
-- [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 1 static module edge
 - [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] — 1 static module edge

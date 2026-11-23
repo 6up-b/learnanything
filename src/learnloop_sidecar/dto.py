@@ -23,7 +23,14 @@ class EmptyParams(ParamsModel):
     pass
 
 
+class Verbatim(dict):
+    """Opaque JSON a reply carries as stored (a pad block's payload, a window's view, an anchor): its keys
+    are the client's own, so camelCasing them would rewrite and could merge them ("a_b" and "aB")."""
+
+
 def to_camel(value: Any) -> Any:
+    if isinstance(value, Verbatim):
+        return dict(value)
     if isinstance(value, BaseModel):
         return to_camel(value.model_dump(by_alias=True))
     if isinstance(value, Mapping):

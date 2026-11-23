@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
   - "src/learnloop/companion/history.py"
+  - "src/learnloop/db/stores/span_projection_reads.py"
   - "src/learnloop/db/stores/span_projections.py"
   - "src/learnloop/passage_union/union.py"
   - "src/learnloop/substrate/passage_spans.py"
@@ -47,7 +48,7 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
-- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`, `264_reader_workbench_guards.sql`.
 - **Rebuild owner:** `question_event_spans`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -96,6 +97,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/reader_rd0_migration_helpers.py`
+- `tests/test_reader_rd0_guards_migration.py`
 - `tests/test_reader_rd0_migration.py`
 - `tests/test_reader_rd0_spans.py`
 - `tests/test_rebuild_orchestrator.py`

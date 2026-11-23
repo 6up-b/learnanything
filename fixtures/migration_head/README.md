@@ -9,18 +9,30 @@ from, as they were then.
 
 ## Refactor D8 gap 3 (migration 265), `refactor/d8-mastery-seed`, 2026-11-22
 
-Upgraded in place (no rename; base: main at `ca104b4983`, head 263; 264 is provisionally reserved for a parallel fix
-round, so this fixture skips it until that lands, and whichever of the two lands second renumbers and redoes this
-upgrade) by the B1 procedure below: `265_mastery_seed_inputs.sql` (one new table, `mastery_seed_inputs`, RAW_LEDGER,
+Upgraded in place (no rename; base: main at `54be27df69`, head 264, after the merge that brought the Reader workbench
+v2 fix round's 264 under it) by the B1 procedure below: `265_mastery_seed_inputs.sql` (one new table, `mastery_seed_inputs`, RAW_LEDGER,
 one row per learning object with the claims its mastery was first seeded from, empty here: nothing is backfilled by
 the migration, and the fixture is at `mvp-0.6`, below the tag whose upgrade reconstructs legacy rows) applied through
 `learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
 `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[265]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
-and the copy written into its place with `backup_database`, no companion files. Compared with the 263 file: two
+and the copy written into its place with `backup_database`, no companion files. Compared with the 264 file: two
 objects added (the table and the autoindex of its TEXT primary key), no existing object's definition changed, and the
-only existing table whose rows changed is `schema_migrations` (gains 265). The file grows from 7,712,768 to 7,720,960
-bytes (two pages).
+only existing table whose rows changed is `schema_migrations` (gains 265). Redone on main's 264 file after the fix
+round landed first. The file grows from 7,729,152 to 7,737,344 bytes (two pages).
+
+## Reader workbench v2 fix round (migration 264), `reader/rd0-fix-round`, 2026-11-22
+
+Upgraded in place (no rename; base: main at `ca104b4983`, head 263, after the merge that brought D8 gap 2's 263 under it) by the B1 procedure below:
+`264_reader_workbench_guards.sql` (five BEFORE INSERT guards refusing a replacing insert on 262's append-only tables;
+one new table, `projection_initializations`, RECEIPT, append-only by three triggers, empty here; one partial
+expression index on `interaction_events`) applied through `learnloop.db.migrate.apply_migrations` on a backup-API
+copy outside the checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[264]` only;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 263 file: eleven objects added (the table, its autoindex, the index and eight
+triggers), no existing object's definition changed, and the only table whose rows changed is `schema_migrations`
+(gains 264). Redone on main's 263 file after D8 gap 2 landed first. The file is 7,729,152 bytes.
 
 ## Refactor D8 gap 2 (migration 263), `refactor/d8-retired-items`, 2026-11-22
 

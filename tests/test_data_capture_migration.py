@@ -26,8 +26,9 @@ from tests.reader_topic_question_work_migration_helpers import TOPIC_WORK_ADDED_
 from tests.ingest_job_progress_migration_helpers import JOB_PROGRESS_ADDED_OBJECTS
 from tests.attempt_application_order_migration_helpers import APPLICATION_ORDER_ADDED_OBJECTS
 from tests.attempt_lifecycle_inputs_migration_helpers import LIFECYCLE_INPUTS_ADDED_OBJECTS
-from tests.mastery_seed_inputs_migration_helpers import MASTERY_SEED_ADDED_OBJECTS
 from tests.reader_rd0_migration_helpers import RD0_ADDED_OBJECTS
+from tests.reader_rd0_guards_migration_helpers import RD0_GUARDS_ADDED_OBJECTS
+from tests.mastery_seed_inputs_migration_helpers import MASTERY_SEED_ADDED_OBJECTS
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE
@@ -78,7 +79,7 @@ def test_240_adds_exactly_its_objects_and_changes_nothing_else(tmp_path):
         after = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-    assert set(after) - set(before) - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS == set(DATA_CAPTURE_ADDED_OBJECTS)
+    assert set(after) - set(before) - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS == set(DATA_CAPTURE_ADDED_OBJECTS)
     assert all(after[name] == sql for name, sql in before.items())
 
 

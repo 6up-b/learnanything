@@ -560,6 +560,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("probe_regrade_checks", TableRole.RECEIPT),
     ("probe_state_segments", TableRole.WORKFLOW),
     ("progression_policy_versions", TableRole.RAW_LEDGER),
+    # Reader workbench v2 (migration 264): when each derived span projection first had a vault's history
+    # projected into it, on open and whatever the algorithm tag (append-only). Never cleared by a rebuild.
+    ("projection_initializations", TableRole.RECEIPT),
     ("proposed_patch_item_dependencies", TableRole.WORKFLOW),
     ("proposed_patch_items", TableRole.WORKFLOW),
     ("proposed_patches", TableRole.WORKFLOW),

@@ -16,13 +16,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
+  - "src/learnloop/db/stores/pad_reads.py"
   - "src/learnloop/db/stores/pads.py"
   - "src/learnloop/desks/content_ref.py"
   - "src/learnloop/desks/workspace.py"
   - "src/learnloop/experiments/contextual_embeddings/e1/pins.py"
   - "src/learnloop/figures/spec.py"
   - "src/learnloop/figures/verify.py"
-  - "src/learnloop/ingest/extractors/glm_ocr.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -87,6 +87,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/db/stores/pad_reads.py`
 - `src/learnloop/db/stores/pads.py`
 
 ### Direct SQL writers
@@ -107,6 +108,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_mobile_allowlist.py`
 - `tests/test_reader_rd0_fences.py`
+- `tests/test_reader_rd0_guards_migration.py`
 - `tests/test_reader_rd0_migration.py`
 - `tests/test_reader_rd0_protocol.py`
 - `tests/test_reader_rd0_rpcs.py`
