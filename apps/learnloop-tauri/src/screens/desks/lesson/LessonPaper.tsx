@@ -6,9 +6,10 @@
 //
 // A finished lesson reopened is its review: LessonView reads it with lesson.view only, so nothing is regenerated,
 // no model is called and nothing new is written.
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { LessonViewDto } from "../../../api/dto";
 import { LessonView, type LessonEntry } from "../../LessonView";
+import { PausedPart } from "../lifecycle";
 import type { LessonsHost } from "./host";
 import { lessonMedium, modeButtons, modeLine, type LessonMode } from "./model";
 
@@ -26,6 +27,16 @@ export interface LessonPaperProps {
 
 export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAdditions }: LessonPaperProps) {
   const [mode, setMode] = useState<LessonMode>("lesson");
+  // Whether the paper is in view in its stack (scrolled away, it reads, polls and counts nothing, as a paused window).
+  const paper = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(true);
+  useEffect(() => {
+    const node = paper.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => setInView(entries.some((each) => each.isIntersecting)));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const [view, setView] = useState<LessonViewDto | null>(null);
   // An opening's step: not started (a paused window), in flight, or over (failed outright when there is no view).
   const [step, setStep] = useState<"waiting" | "busy" | "over">("waiting");
@@ -41,7 +52,7 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
   const shownId = lessonId ?? view?.lessonId ?? null;
   const notebook = view && shownId && lessonMedium(view) === "notebook" && host.notebookFrame ? host.notebookFrame(shownId, view) : null;
   return (
-    <div className="lessonnb" data-lesson-paper={shownId ?? itemKey}>
+    <div className="lessonnb" data-lesson-paper={shownId ?? itemKey} ref={paper}>
       <div className="lhead">
         <span className="lg">◇</span>
         <span className="lt">Teacher lesson <span className="faint">· yours to keep, like your other pads</span></span>
@@ -62,6 +73,8 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
       {/* Folded, not unmounted, under "your additions": a reply being written or a turn in flight stays as it was. */}
       <div className="lframe" hidden={mode !== "lesson"}>
         {notebook ?? (
+          // Folded under "your additions", or scrolled out of view: paused, its drafts kept.
+          <PausedPart paused={mode !== "lesson" || !inView}>
           <LessonView
             entry={entry}
             frame="window"
@@ -73,6 +86,7 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
             {...(host.onLookInLibrary ? { onLookInLibrary: host.onLookInLibrary } : {})}
             onStartFresh={(learningObjectIds) => host.openLesson({ kind: "open", entry: "learning_object", learningObjectIds })}
           />
+          </PausedPart>
         )}
       </div>
       {mode === "lesson" && !hasAdditions ? null : (

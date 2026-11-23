@@ -16,6 +16,7 @@ import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost } from "..
 import { PadStackWindow } from "../pads/PadStackWindow";
 import { LessonDesk, type LessonsHost, type Opening } from "./host";
 import { LessonPaper } from "./LessonPaper";
+import { LessonView, PROBE_POLL_MS } from "../../LessonView";
 import { PathLessonRow } from "./PathLessonRow";
 
 const api = vi.hoisted(() => ({
@@ -313,6 +314,47 @@ describe("an opening closed and brought back", () => {
     await act(async () => { await Promise.resolve(); });
     expect(api.lessonTurn).toHaveBeenCalledTimes(1);
     expect(opened).toEqual(["les_once"]);
+  });
+});
+
+describe("reads a lesson window makes only while it is live", () => {
+  it("a failed step's recovery read waits for the window to be live, and is never made once it closed", async () => {
+    let fail: (error: unknown) => void = () => undefined;
+    api.lessonTurn.mockImplementation(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const ui = (state: WindowState) => (
+      <WindowScope lifecycle={{ windowId: "w", state }} hub={DIRECT_HUB}>
+        <LessonView entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_fx_softmax"] }} frame="window" onError={vi.fn()} />
+      </WindowScope>
+    );
+    const view = render(ui("active"));
+    await waitFor(() => expect(api.lessonTurn).toHaveBeenCalledTimes(1));
+    view.rerender(ui("hidden"));
+    await act(async () => { fail({ code: "lesson_exists", message: "exists", details: { lesson_id: FIXTURE_LESSON_ID } }); });
+    expect(api.lessonView).not.toHaveBeenCalled();
+    view.rerender(ui("active"));
+    await waitFor(() => expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID }));
+    cleanup();
+    api.lessonView.mockClear();
+    const closed = render(ui("active"));
+    await waitFor(() => expect(api.lessonTurn).toHaveBeenCalledTimes(2));
+    closed.unmount();
+    await act(async () => { fail({ code: "lesson_exists", message: "exists", details: { lesson_id: FIXTURE_LESSON_ID } }); });
+    expect(api.lessonView).not.toHaveBeenCalled();
+  });
+
+  it("a question being prepared is not checked on while its paper is folded under your additions", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const preparing = { ...FIXTURE_LESSON_VIEW, closed: false, closeReason: null, feed: FIXTURE_LESSON_VIEW.feed.slice(0, 1),
+      probe: { probeRef: "p1", status: "preparing" as const, label: "a quick question", teachAnyway: false } };
+    api.lessonView.mockImplementation(async () => preparing);
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }] });
+    await waitFor(() => expect(api.lessonView).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("your additions"));
+    await act(async () => { vi.advanceTimersByTime(PROBE_POLL_MS * 3); await Promise.resolve(); });
+    expect(api.lessonView).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("lesson"));
+    await act(async () => { vi.advanceTimersByTime(PROBE_POLL_MS + 10); await Promise.resolve(); });
+    expect(api.lessonView.mock.calls.length).toBeGreaterThan(1);
   });
 });
 

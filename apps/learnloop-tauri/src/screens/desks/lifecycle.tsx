@@ -164,6 +164,14 @@ export function useScopeClaim(scope: ClaimedScope, open: boolean): void {
   }, [claims, scope, owner, open]);
 }
 
+/** A part of a window that is out of view while its window is not (a stack paper folded or scrolled away): paused for
+ * what it runs (timers, polls, reads, activity), as an offscreen window is; otherwise its window's own state. */
+export function PausedPart({ paused, children }: { paused: boolean; children: ReactNode }) {
+  const parent = useWindowLifecycle();
+  const lifecycle = paused && !isPaused(parent.state) ? { ...parent, state: "offscreen" as const } : parent;
+  return <WindowLifecycleContext.Provider value={lifecycle}>{children}</WindowLifecycleContext.Provider>;
+}
+
 export function WindowScope({ lifecycle, hub, claims = NO_CLAIMS, children }: { lifecycle: WindowLifecycle; hub: ListenerHub; claims?: ScopeClaims; children: ReactNode }) {
   return (
     <WindowLifecycleContext.Provider value={lifecycle}>

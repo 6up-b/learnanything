@@ -146,6 +146,12 @@ export function LessonView({
   const whenLive = useWhenLive();
   const hub = useListenerHub();
   const [view, setViewState] = useState<LessonViewDto | null>(null);
+  // A recovery read a failed step asks for (the lesson that exists, the step that was saved): made only while the view
+  // is mounted and live, so a closed, hidden or folded window reads nothing (a read can serve a ready question).
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+  const [recover, setRecover] = useState<string | null>(null);
+  const readWhenLive = useCallback((lessonId: string) => { if (mounted.current) setRecover(lessonId); }, []);
   const onViewRef = useRef(onView);
   onViewRef.current = onView;
   const setView = useCallback((next: LessonViewDto) => {
@@ -204,7 +210,7 @@ export function LessonView({
       const existing = ((err?.details ?? {}) as Record<string, unknown>).lesson_id;
       if (code === "lesson_exists" && typeof existing === "string" && existing) {
         // TE1b: a suggested lesson already opened (a second Start): show it, never another.
-        void api.lessonView({ lessonId: existing }).then(setView).catch(() => undefined);
+        readWhenLive(existing);
         return null;
       }
       if (input.action === "open" && onOpenFailed) {
@@ -223,7 +229,7 @@ export function LessonView({
         if (lessonId) {
           // The step was saved: resume it, and show what the lesson holds so far.
           setRetry({ action: "resume", lessonId });
-          void api.lessonView({ lessonId }).then(setView).catch(() => undefined);
+          readWhenLive(lessonId);
         } else {
           // Nothing was saved (the opening never reached the teacher): repeat it.
           setRetry(input);
@@ -236,7 +242,13 @@ export function LessonView({
     } finally {
       setBusy(false);
     }
-  }, [onError, onOpenFailed, shareOpening]);
+  }, [onError, onOpenFailed, shareOpening, readWhenLive]);
+  useEffect(() => {
+    if (!recover || paused) return;
+    const lessonId = recover;
+    setRecover(null);
+    void api.lessonView({ lessonId }).then((next) => { if (mounted.current) setView(next); }).catch(() => undefined);
+  }, [recover, paused, setView]);
 
   /** Send what the learner wrote, keeping it on screen while the teacher writes. A step that failed outright puts it
    *  back in its box (unless something new was typed there); one kept for Try again stays shown. */
