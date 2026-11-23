@@ -454,6 +454,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("learner_text_gaps", TableRole.RAW_LEDGER),
     ("learner_state_beliefs", TableRole.COMPAT),
     ("learning_object_mastery", TableRole.DERIVED),
+    # mvp-0.67 (migration 265): the claims each learning object's mastery
+    # was first seeded from, captured in the transaction that persisted the
+    # row or reconstructed once by the upgrade. Replay seeds from it.
+    ("mastery_seed_inputs", TableRole.RAW_LEDGER),
     ("learning_outcome_labels", TableRole.DERIVED),
     # Reader workbench RW4a (migration 209): library questions, their
     # find_sources manifests and organizer lines (paid outputs, never re-run
