@@ -284,7 +284,12 @@
 .desk-shelf .undo { display: block; margin: 0 14px 6px; color: var(--desk-amber); font: 11px var(--desk-mono); text-align: left; }
 .desk-shelf .quiet { margin: 0 14px 6px; color: var(--desk-t3); font: 11px var(--desk-mono); }
 .desk-shelf-rail { display: flex; flex-direction: column; align-items: center; padding: 10px 0 8px; border-right: 1px solid var(--desk-line); background: #0e0e10; }
-.desk-shelf-overlay { position: absolute; left: 44px; top: 38px; bottom: 26px; width: 260px; z-index: 60; box-shadow: 12px 0 30px rgba(0, 0, 0, .6); }
+/* Open, the strip covers the rail from the window's edge, its own ☰ and "strip" on top (the mockup's railshelf). */
+.desk-shelf-overlay { position: absolute; left: 0; top: 38px; bottom: 26px; width: 260px; z-index: 60; box-shadow: 12px 0 30px rgba(0, 0, 0, .6); }
+.desk-shelf-rail .railbtn { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 4px auto; color: var(--desk-t2); font-size: 16px; }
+.desk-shelf .railbtn { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 4px 8px; align-self: flex-start; color: var(--desk-t2); font-size: 16px; background: none; border: 0; padding: 0; cursor: pointer; }
+.railbtn .rl { font: 10px var(--desk-mono); letter-spacing: .1em; color: var(--desk-t3); text-transform: uppercase; }
+.desk-shelf-rail .railbtn .rl { writing-mode: vertical-rl; }
 
 /* ── which-key: Alt held 400 ms ── */
 .desk-whichkey { position: fixed; z-index: 130; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(920px, calc(100vw - 40px)); background: rgba(20, 20, 22, .97); border: 1px solid #3a3a3a; border-radius: 6px; padding: 12px 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, .6); font: 11.5px var(--desk-mono); }
