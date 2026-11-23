@@ -10514,6 +10514,9 @@ export interface LessonViewDto {
   te2?: boolean;
   /** Teacher TE2: the quick question, being prepared (with "Teach it anyway") or open (answer it on your own). */
   probe?: LessonProbeDto | null;
+  /** Reader workbench RD9b's seam (spec §11.2): "notebook" when the lesson's medium is a marimo notebook (teacher v2).
+   *  Not sent yet; a lesson window shows the lesson itself whenever it is absent. */
+  medium?: "notebook";
 }
 
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
@@ -10543,6 +10546,21 @@ export interface OpenLessonDto {
   goal: string | null;
   openedAt: string | null;
   learningObjectIds: string[];
+}
+
+/** Reader workbench RD9a (spec §11.1, §12.5): a lesson as its window's tab and the path view's row name it. */
+export interface LessonSummaryDto {
+  lessonId: string;
+  title: string;
+  goal: string | null;
+  openedAt: string | null;
+  closed: boolean;
+  closeReason: string | null;
+  learningObjectIds: string[];
+  /** What the tab's "made <date> from your <what>" names. */
+  madeFrom: "selection" | "check" | "question" | "suggestion" | "topic";
+  /** The lesson's `lesson_additions` pad, once the learner wrote under it. */
+  additionsPadId: string | null;
 }
 
 /** Teacher TE2-log (spec_teacher_v1 §11.6): one interval of the lesson screen, on the client's clock. */
@@ -11236,7 +11254,7 @@ export interface DeliverablePathViewDto {
   depths: Array<{ id: ReadingPathDepth; label: string; means: string }>;
   status: "no_scope" | "ask_depth" | "no_sections" | "pending" | "judging" | "failed" | "stale" | "ready" | "withheld";
   /** Rows of an LO with a due check carry `held: true`, `reason: null` and empty alternate differences. */
-  lines: Array<DeliverableLineDto & { held?: boolean; reason: string | null }>;
+  lines: Array<Omit<DeliverableLineDto, "reason"> & { held?: boolean; reason: string | null }>;
   uncovered: Array<{ learningObjectId: string; title: string; phrase: string }>;
   stateKey: string | null;
   message: string | null;

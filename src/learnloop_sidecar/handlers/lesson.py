@@ -70,6 +70,9 @@ LESSON_ACTIVITY_RPCS: tuple[str, ...] = ("lesson.activity",)
 #: Teacher TE2's RPCs (desktop only; pinned in tests/test_teacher_te2_sidecar.py; the blanket denial of
 #: tests/test_mobile_allowlist.py covers them): the typed goal's resolution, and Today's open lessons.
 LESSON_TE2_RPCS: tuple[str, ...] = ("lesson.goal", "lesson.open_lessons")
+#: Reader workbench RD9a's RPC (desktop only; pinned in tests/test_mobile_allowlist.py): the lessons a lesson window's
+#: tab and the path view's Teacher lesson row name.
+LESSON_WINDOW_RPCS: tuple[str, ...] = ("lesson.list",)
 
 
 class LessonSelection(ParamsModel):
@@ -117,6 +120,13 @@ class LessonGoalInput(ParamsModel):
 
 class LessonOpenLessonsInput(ParamsModel):
     pass
+
+
+class LessonListInput(ParamsModel):
+    """RD9a (spec §11.1, §12.5): the lessons named, or those on any of the LOs named, or all of them."""
+
+    lesson_ids: list[str] | None = Field(default=None, max_length=200)
+    learning_object_ids: list[str] | None = Field(default=None, max_length=500)
 
 
 class LessonActivityInterval(ParamsModel):
@@ -308,6 +318,26 @@ def lesson_open_lessons(ctx: SidecarContext, params: LessonOpenLessonsInput) -> 
 
     vault, repository = ctx.require_vault()
     return versioned({"lessons": S.open_lessons(vault, repository)})
+
+
+@method("lesson.list", LessonListInput)
+def lesson_list(ctx: SidecarContext, params: LessonListInput) -> dict[str, Any]:
+    """Reader workbench RD9a: lesson summaries for the lesson windows' tabs and the path view (no model call, nothing
+    written), each with its additions pad when one exists. Empty with lessons off, as Today's open lessons are."""
+
+    from learnloop.db.stores import pad_reads
+    from learnloop.teacher.summaries import lesson_summaries
+
+    vault, repository = ctx.require_vault()
+    if not S.lessons_active(vault):
+        return versioned({"lessons": []})
+    lessons = lesson_summaries(vault, repository, lesson_ids=params.lesson_ids,
+                               learning_object_ids=params.learning_object_ids)
+    with repository.connection() as connection:
+        pads = pad_reads.lesson_additions_pads(connection, [lesson["lesson_id"] for lesson in lessons])
+    for lesson in lessons:
+        lesson["additions_pad_id"] = pads.get(lesson["lesson_id"])
+    return versioned({"lessons": lessons})
 
 
 @method("lesson.activity", LessonActivityInput)

@@ -14,6 +14,9 @@ export interface ShelfRow {
   /** 0..1 through the source, when known. */
   progress: number | null;
   where: string | null;
+  /** The goal lens on this row (RD6): its mark at the right edge, a line on what it is for, and the path's ranges
+   *  on its minimap (fractions of the source). */
+  goal?: { mark: "core" | "sup" | "skip" | "later" | "shown" | "partial" | null; line: string; ranges: Array<[number, number]> } | null;
 }
 
 /** Drag farther than this before a press becomes a reorder (spec §5.2). */
@@ -149,7 +152,7 @@ function ShelfBody({
             type="button"
             data-shelf-slot={row.slot}
             data-shelf-window={row.windowId}
-            className={`desk-src${row.state ? " open" : ""}${row.state === "focus" ? " prim" : ""}${dragging === row.windowId ? " dragging" : ""}`}
+            className={`desk-src${row.state ? " open" : ""}${row.state === "focus" ? " prim" : ""}${dragging === row.windowId ? " dragging" : ""}${row.goal?.mark ? ` g-${row.goal.mark}` : ""}`}
             onPointerDown={onPointerDown(row)}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp(row)}
@@ -160,18 +163,23 @@ function ShelfBody({
               }
             }}
           >
+            {row.goal?.mark ? <i className="gm sh" aria-hidden="true" /> : null}
             <div className="k">
               <span>{row.glyph} {row.kind}</span>
               {row.state ? <span>· {row.state}</span> : null}
             </div>
             <div className="n">{row.title}</div>
-            {row.progress !== null ? (
-              <div className="bar" aria-label={`${Math.round(row.progress * 100)}% through`}>
+            {row.progress !== null || row.goal?.ranges.length ? (
+              <div className="bar" aria-label={row.progress !== null ? `${Math.round(row.progress * 100)}% through` : "on your path"}>
                 <span className="ln" />
-                <span className="rd" style={{ width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }} />
+                {(row.goal?.ranges ?? []).map(([from, to]) => (
+                  <span key={`${from}-${to}`} className="gr" style={{ left: `${(from * 100).toFixed(1)}%`, width: `${((to - from) * 100).toFixed(1)}%` }} />
+                ))}
+                {row.progress !== null ? <span className="rd" style={{ width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }} /> : null}
               </div>
             ) : null}
             {row.where ? <div className="w">{row.where}</div> : null}
+            {row.goal?.line ? <div className="gwl">◎ {row.goal.line}</div> : null}
           </button>
         ))}
       </div>

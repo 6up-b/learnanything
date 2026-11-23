@@ -2,7 +2,8 @@
 // workspace, in a browser page with no sidecar. desk-harness.html mounts it; vite.desks.config.mjs
 // builds that page (its @tauri-apps/api/core answered by fakeCore.ts) and scripts/desk_harness/run.py
 // drives it in headless Chromium.
-import React from "react";
+import React, { useEffect, useState } from "react";
+import type { LessonEntry } from "../../screens/LessonView";
 import ReactDOM from "react-dom/client";
 import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
@@ -24,6 +25,8 @@ declare global {
   interface Window {
     __deskHarnessErrors?: string[];
     __deskDebug?: DeskDebugHandle;
+    /** `?lesson=1`: ask the desks for a lesson as the app does while they are its place (RD9a). */
+    __deskLessonAsk?: (entry: LessonEntry) => void;
   }
 }
 window.__deskHarnessErrors = errors;
@@ -185,10 +188,22 @@ export function Harness({ search = window.location.search }: { search?: string }
   if (params.get("latex") === "1") return <LatexFixture />;
   if (params.get("notebook") === "1") return <NotebookFixture search={search} />;
   if (params.get("padcells") === "1") return <PadCellsFixture />;
+  return <HarnessShell lessonsOn={params.get("lesson") === "1"} />;
+}
+
+function HarnessShell({ lessonsOn }: { lessonsOn: boolean }) {
+  // The app's way in while the desks are its place: each ask once, by its seq.
+  const [request, setRequest] = useState<{ seq: number; entry: LessonEntry } | null>(null);
+  useEffect(() => {
+    if (!lessonsOn) return;
+    window.__deskLessonAsk = (entry) => setRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry }));
+  }, [lessonsOn]);
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex" }}>
       <DeskShell
         vaultKey="desk-fixture"
+        // `?lesson=1`: lessons are on (the Reader's Teach me opens a lesson window; RD9a).
+        {...(lessonsOn ? { reader: { onTeachMe: () => undefined }, lessons: { request } } : {})}
         onError={(message) => errors.push(message)}
         onLeave={() => errors.push("left for the old Reader")}
         onDebugHandle={(handle) => {

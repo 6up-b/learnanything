@@ -377,6 +377,7 @@ import type {
   LessonTurnInput,
   LessonViewDto,
   OpenLessonDto,
+  LessonSummaryDto,
   LessonSuggestionDto,
   LessonSuggestionResponseDto
 } from "./dto";
@@ -1676,6 +1677,9 @@ export const api = {
   // Teacher TE2: a typed goal resolved (one plan call; none for words resolved before) and Today's open lessons.
   lessonGoal: (input: { text: string }) => call<LessonGoalDto>("lesson_goal", { input }),
   lessonOpenLessons: () => call<{ lessons: OpenLessonDto[] }>("lesson_open_lessons", { input: {} }),
+  // Reader workbench RD9a: the lessons a lesson window's tab and the path view name (no model call).
+  lessonList: (input: { lessonIds?: string[]; learningObjectIds?: string[] }) =>
+    call<{ lessons: LessonSummaryDto[] }>("lesson_list", { input }),
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),

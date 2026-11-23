@@ -45,7 +45,8 @@ then, from the worktree root:
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd1
 
-`--stage` is `rd1`, `rd2`, `rd3` or `rd4`; `--state '<deep link>'` re-checks one state (for example
+`--stage` is `rd1`, `rd2`, `rd3`, `rd4`, `rd6` (the goal lens, on the harness's `?goal=1` page) or `rd9` (the Teacher
+lesson's tab, on the harness's `?lesson=1` page); `--state '<deep link>'` re-checks one state (for example
 `--state 'cur=sel'`); `--viewport design|laptop|both`. Each state starts from a fresh page, so states are independent.
 It prints one line per state and viewport, and writes into `<ref>/compare/`: `result__<stage>.json` (every difference
 per state, the harness's own measurements, the tokens), `findings__<stage>.json` (one row per distinct difference,
@@ -224,7 +225,7 @@ mockup's facts for the new parts without re-running it.
 | RD7 Inline checks and veils | `#goal=check`, `#goal=answered`, `#goal=checkb`, `#s12=check`, `#s12=answered` |
 | RD8a Pen and ink | `#pen=underline`, `#pen=bracket`, `#pen=note`, `#pen=lasso`, `#pen=strike`, `#pen=pad`, `#pen=ladder`, `#pen=rung2`, `#pen=veil` |
 | Figures (§13.1) | `#figmark`, `#figmove`; `#figopen` and `#figsrc` render the plain view in headless Chromium (inert links: drive them by the mockup's clicks when the stage comes) |
-| RD9a / RD9b Lesson windows and notebooks | `#tabs=distance,pad=3` (captured with the notebooks' static site served on 127.0.0.1:8777; the lesson rendered) |
+| RD9a / RD9b Lesson windows and notebooks | `#tabs=distance,pad=3` (captured with the notebooks' static site served on 127.0.0.1:8777; the lesson rendered). RD9a compares it in the `rd9` stage: the lesson pad's head, mode buttons and frame (regions `lesson_*`, measured into the existing capture with the private tool's `--add-regions`, which keeps its screenshot and earlier regions) and the open tab; the frame's content (the notebook) is RD9b's |
 | RD1 follow-ups | `#s11=fs150` and `#zoom=after` again once VR-8 is fixed |
 
 ## 8. Not verified
