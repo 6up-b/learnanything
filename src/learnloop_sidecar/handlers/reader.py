@@ -139,11 +139,8 @@ def _reader_answer_mode(vault: Any, requested: str | None) -> str:
 
 @dataclass(frozen=True)
 class ReaderAskCall:
-    """One Reader Ask, gated and with its context built: everything the model call and the reply need.
-
-    The Reader's own ``reader.ask`` runs the three steps on the request; the workbench companion
-    (``companion.ask``) prepares on the request and runs the call and the reply on a job thread, so
-    the model call never holds the sidecar's serial loop. Both run this one core."""
+    """One Reader Ask, gated and with its context built. ``reader.ask`` runs the three steps on the request;
+    ``companion.ask`` runs the model call and the reply on a job thread, off the serial loop (one core)."""
 
     vault: Any
     repository: Any
@@ -216,15 +213,13 @@ def prepare_reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> ReaderAsk
 def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
     """The model call and the exchange it records (``reader_dialogue.ask``), its failures as sidecar errors."""
 
-    vault, repository, params = call.vault, call.repository, call.params
-    provider_name, client, tools_allowed = call.provider_name, call.client, call.tools_allowed
-    lookup, binding, restricted = call.lookup, call.binding, call.restricted
-    learner_state, destination = call.learner_state, call.destination
+    vault, params, lookup, binding = call.vault, call.params, call.lookup, call.binding
+    restricted, learner_state, destination = call.restricted, call.learner_state, call.destination
     try:
         return RD.ask(
             vault,
-            repository,
-            client,
+            call.repository,
+            call.client,
             extraction_id=params.extraction_id,
             span_id=params.span_id,
             question_md=params.question,
@@ -241,7 +236,7 @@ def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
             learning_object_suggester=suggested_learning_objects,
             # Canonical sources S4: typed tool requests (the Reader spec renders them).
             # None during a cold administration: every tool is refused then (G2).
-            tool_request_handler=_reader_tool_handler(vault) if tools_allowed else None,
+            tool_request_handler=_reader_tool_handler(vault) if call.tools_allowed else None,
             **({"reader_tutor": lookup} if lookup is not None else {}),
             **({"reader_binding": binding} if binding is not None else {}),
             # Stored with the question, so nothing rebuilt from it reads wider.
@@ -260,7 +255,7 @@ def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
     except (CodexUnavailable, TimeoutError) as exc:
         raise SidecarError(
             "provider_unavailable",
-            f"{provider_label(provider_name)} is unavailable for reader Ask.",
+            f"{provider_label(call.provider_name)} is unavailable for reader Ask.",
             retryable=True,
         ) from exc
 
@@ -268,8 +263,8 @@ def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
 def reader_ask_reply(ctx: SidecarContext, call: ReaderAskCall, result: dict[str, Any]) -> dict[str, Any]:
     """The Ask's reply (before ``versioned``) for the exchange ``generate_reader_answer`` recorded."""
 
-    vault, repository, params = call.vault, call.repository, call.params
-    tools_allowed, restricted = call.tools_allowed, call.restricted
+    vault, repository, params, tools_allowed, restricted = (call.vault, call.repository, call.params,
+                                                            call.tools_allowed, call.restricted)
     from learnloop_sidecar import phone_reader as PR
     from learnloop_sidecar.handlers import reader_tutor as RTU
 
