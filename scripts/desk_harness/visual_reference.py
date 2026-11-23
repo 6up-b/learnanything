@@ -129,7 +129,9 @@ region("ov_label", ".desk-ov-label", "none")
 # The mockup draws the ring on the card itself, the desks on a ring element over it: only the ring compares.
 region("ov_ring_sel", ".desk-ov-ring.sel", "none", ("background", "background_eff", "radius", "padding", "font"))
 region("ov_ring_rel", ".desk-ov-ring.rel", "none", ("background", "background_eff", "radius", "padding", "font"))
-region("ov_card", ".desk-card", "none")
+# The mockup pads its card; the desks pad the face inside the card (compared by eye, not here).
+region("ov_card", ".desk-card", "none", ("padding",))
+region("ov_card_sel", ".desk-window.ov-selected .desk-card", "none", ("padding",))
 region("ov_card_glyph", ".desk-card-g", "none")
 region("ov_card_name", ".desk-card-n", "none")
 region("ov_card_bar", ".desk-card-bar .ln", "height")
@@ -589,7 +591,7 @@ SHELL = ("topbar", "brand", "desk_tab_on", "desk_tab", "top_chip", "shelf", "she
          "footer_note")
 WINDOWS = ("window_focus", "window_focus_head", "window_focus_glyph", "window_focus_title", "window_focus_loc", "window_focus_close",
            "window_other", "window_other_head", "book_paper", "book_prose", "book_heading", "video_paper", "video_cue")
-OVERVIEW = ("ov_label", "ov_ring_sel", "ov_ring_rel", "ov_card", "ov_card_glyph", "ov_card_name", "ov_card_bar", "ov_link", "ov_link_label",
+OVERVIEW = ("ov_label", "ov_ring_sel", "ov_ring_rel", "ov_card", "ov_card_sel", "ov_card_glyph", "ov_card_name", "ov_card_bar", "ov_link", "ov_link_label",
             "ov_ghost", "hud", "comp_pill")
 COMPANION = ("comp_panel", "comp_grab", "comp_tabs", "comp_tab_on", "comp_tab", "comp_ctx", "comp_earlier", "comp_body", "comp_bub_you",
              "comp_bub_you_who", "comp_bub_ai", "comp_bub_ai_who", "comp_bub_ai_text", "comp_claim", "comp_chip", "comp_chip_quote", "comp_input",
@@ -665,6 +667,18 @@ def primary_family(stack: str) -> str:
     return re.sub(r"\s+Variable$", "", first)
 
 
+def same_numbers(a: Any, b: Any) -> bool:
+    """Two computed values that differ only past 0.05 px are the same value: the mockup works its world sizes
+    out from 1/0.34 to more digits than the desks write (38.233 px and 38.2353 px, 4.4115 px and 4.41 px)."""
+    if a == b:
+        return True
+    if not isinstance(a, str) or not isinstance(b, str):
+        return False
+    pattern = r"-?\d+(?:\.\d+)?"
+    na, nb = re.findall(pattern, a), re.findall(pattern, b)
+    return len(na) == len(nb) and re.sub(pattern, "#", a) == re.sub(pattern, "#", b) and all(abs(float(x) - float(y)) < 0.05 for x, y in zip(na, nb, strict=True))
+
+
 def px(value: str) -> float | None:
     match = re.fullmatch(r"(-?[\d.]+)px", value.strip())
     return float(match.group(1)) if match else None
@@ -693,7 +707,7 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
         rows.append({"region": name, "kind": kind, "prop": prop, "mockup": m, "app": a})
 
     for key in COLOUR_KEYS:
-        if key in mock and mock.get(key) != app.get(key):
+        if key in mock and not same_numbers(mock.get(key), app.get(key)):
             add("colour", key, mock.get(key), app.get(key))
     # A transparent background is compared by what shows through it.
     if mock.get("background") != app.get("background") and mock.get("background_eff") != app.get("background_eff"):
@@ -708,7 +722,7 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
     if primary_family(mock["font_family"]) != primary_family(app["font_family"]):
         add("type", "font_family", mock["font_family"], app["font_family"])
     for key in TYPE_KEYS:
-        if mock.get(key) != app.get(key) and not (key in ("line_height", "letter_spacing") and near(str(mock.get(key)), str(app.get(key))) and key != "letter_spacing"):
+        if not same_numbers(mock.get(key), app.get(key)) and not (key == "line_height" and near(str(mock.get(key)), str(app.get(key)))):
             add("type", key, mock.get(key), app.get(key))
     for key in ("radius", "padding"):
         if any(not near(m, a) for m, a in zip(mock[key], app[key], strict=True)):

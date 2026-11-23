@@ -166,18 +166,20 @@
    limit), k = 1 / 0.34 world px per screen px. */
 .desk-ov-ring { position: absolute; pointer-events: none; border-radius: 6px; transform-origin: 0 0; opacity: 0; }
 .desk-shell.overview .desk-ov-ring { opacity: 1; }
-.desk-ov-ring.sel { box-shadow: 0 0 0 8.82px rgba(227, 160, 99, 1), 0 0 0 20.59px rgba(227, 160, 99, .18); }
-.desk-ov-ring.rel { box-shadow: 0 0 0 5.88px rgba(106, 208, 224, 1); }
+.desk-ov-ring.sel { box-shadow: 0 0 0 8.82px rgba(227, 160, 99, 1), 0 0 0 20.59px rgba(227, 160, 99, .25); }
+.desk-ov-ring.rel { box-shadow: 0 0 0 4.41px rgba(106, 208, 224, 1); }
 
 /* The card face: laid out at its overview size in world px (three times what it reads on screen). */
 .desk-card { position: absolute; left: 0; top: 0; transform-origin: 0 0; opacity: 0; visibility: hidden; pointer-events: none; background: #202024; }
 .desk-shell.overview .desk-card { opacity: 1; visibility: visible; }
-.desk-card-face { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; padding: 34px; color: var(--desk-t); font-family: var(--desk-mono); overflow: hidden; }
+/* The selection's card face is warm, as the mockup's focused card. */
+.desk-shell.overview .desk-window.ov-selected .desk-card { background: #2a261e; }
+.desk-card-face { position: absolute; inset: 0; display: flex; flex-direction: column; gap: calc(6px / .34); padding: calc(10px / .34); color: var(--desk-t); font-family: var(--desk-mono); overflow: hidden; }
 .desk-card-k { font-size: 28px; letter-spacing: .06em; text-transform: uppercase; color: var(--desk-t3); }
-.desk-card-g { color: var(--desk-t3); }
-.desk-card-n { font-size: 38px; line-height: 1.3; color: var(--desk-t); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-family: var(--desk-ui); }
+.desk-card-g { color: var(--desk-cyan); font-size: calc(13px / .34); font-weight: 400; line-height: normal; }
+.desk-card-n { font-size: calc(12px / .34); font-weight: 500; line-height: 1.3; color: var(--desk-t); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-family: var(--desk-ui); }
 .desk-card-bar { position: relative; height: 12px; flex: none; }
-.desk-card-bar .ln { position: absolute; left: 0; right: 0; top: 4px; height: 5px; background: #2e2e34; border-radius: 3px; }
+.desk-card-bar .ln { position: absolute; left: 0; right: 0; top: 4px; height: calc(2px / .34); background: #3a3a40; }
 .desk-card-bar .rd { position: absolute; left: 0; top: 4px; height: 5px; background: #8a7556; border-radius: 3px; }
 .desk-card-w { font-size: 26px; color: var(--desk-t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .desk-card-bands { display: flex; flex-direction: column; gap: 6px; font-size: 24px; color: var(--desk-t2); }
@@ -190,7 +192,7 @@
 .desk-mini-frame { background: #111; color: #888; display: grid; place-items: center; font-size: 28px; min-height: 120px; }
 
 /* The overview's desk labels, links and gather ghosts (world px). */
-.desk-ov-label { position: absolute; font: 500 32px var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--desk-t3); white-space: nowrap; pointer-events: none; }
+.desk-ov-label { position: absolute; font: calc(13px / .34) var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--desk-t2); white-space: nowrap; pointer-events: none; }
 .desk-ov-links { position: absolute; left: 0; top: 0; pointer-events: none; }
 .desk-ov-ghost { position: absolute; border: 6px dashed var(--desk-cyan); border-radius: 18px; pointer-events: none; }
 
@@ -243,6 +245,9 @@
 .desk-src.open { background: #1b1a17; box-shadow: inset 2px 0 0 #9a6f3a; }
 .desk-src.prim { box-shadow: inset 3px 0 0 var(--desk-amber); }
 .desk-src.dragging { opacity: .6; }
+/* In the overview no window is in view: the shelf keeps only the selection's bar, as the mockup's. */
+.desk-shell.overview .desk-src.open { background: transparent; box-shadow: none; }
+.desk-shell.overview .desk-src.prim { box-shadow: inset 3px 0 0 var(--desk-amber); }
 .desk-src .k { font: 9.5px var(--desk-mono); color: var(--desk-t3); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 6px; }
 .desk-src .n { font-size: 12px; color: var(--desk-t); line-height: 1.35; margin-top: 1px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .desk-src .bar { position: relative; height: 10px; margin-top: 5px; }
@@ -253,7 +258,7 @@
 .desk-shelf .undo { display: block; margin: 0 14px 6px; color: var(--desk-amber); font: 11px var(--desk-mono); text-align: left; }
 .desk-shelf .quiet { margin: 0 14px 6px; color: var(--desk-t3); font: 11px var(--desk-mono); }
 .desk-shelf-rail { display: flex; flex-direction: column; align-items: center; padding-top: 10px; border-right: 1px solid var(--desk-line); background: #0e0e10; }
-.desk-shelf-overlay { position: absolute; left: 44px; top: 38px; bottom: 26px; width: 260px; z-index: 60; box-shadow: 12px 0 30px rgba(0, 0, 0, .5); }
+.desk-shelf-overlay { position: absolute; left: 44px; top: 38px; bottom: 26px; width: 260px; z-index: 60; box-shadow: 12px 0 30px rgba(0, 0, 0, .6); }
 
 /* ── which-key: Alt held 400 ms ── */
 .desk-whichkey { position: fixed; z-index: 130; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(920px, calc(100vw - 40px)); background: rgba(20, 20, 22, .97); border: 1px solid #3a3a3a; border-radius: 6px; padding: 12px 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, .6); font: 11.5px var(--desk-mono); }
