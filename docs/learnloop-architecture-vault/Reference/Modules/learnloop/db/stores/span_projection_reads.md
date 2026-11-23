@@ -83,6 +83,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]] — imports `module`; statically calls `exchange_contexts`, `rows_for`
+- [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]] — imports `module`; statically calls `rows_for`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `module`; statically calls `rows_on_readings`
 
 ## Dependencies
@@ -103,7 +104,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]], [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]].
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]], [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]], [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

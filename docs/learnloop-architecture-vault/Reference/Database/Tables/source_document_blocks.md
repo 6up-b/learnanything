@@ -18,12 +18,12 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/companion/search.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
-  - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
@@ -107,6 +107,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/companion/search.py`
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/span_aliases.py`
