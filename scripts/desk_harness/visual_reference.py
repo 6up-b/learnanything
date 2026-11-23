@@ -408,7 +408,7 @@ MEASURE_JS = r"""
       filter: cs.filter,
       cursor: cs.cursor,
     };
-    if (e instanceof SVGElement) { out[name].stroke = hex(cs.stroke); out[name].fill = hex(cs.fill); out[name].stroke_width = cs.strokeWidth; }
+    if (e instanceof SVGElement) { out[name].stroke = hex(cs.stroke); out[name].fill = hex(cs.fill); out[name].stroke_width = cs.strokeWidth; out[name].stroke_opacity = cs.strokeOpacity; out[name].stroke_dasharray = cs.strokeDasharray; }
   }
   return out;
 }
@@ -1097,6 +1097,10 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
     for key in ("radius", "padding"):
         if any(not near(m, a) for m, a in zip(mock[key], app[key], strict=True)):
             add("geometry", key, " ".join(mock[key]), " ".join(app[key]))
+    # An SVG stroke's width, opacity and dashes compare exactly (in the overview's world px).
+    for key in ("stroke_width", "stroke_opacity", "stroke_dasharray"):
+        if key in mock and key in app and not same_numbers(mock[key], app[key]):
+            add("colour" if key == "stroke_opacity" else "geometry", key, mock[key], app[key])
     geom = REGIONS[name].geom
     for k in GEOM_KEYS[geom]:
         if abs(mock["box"][k] - app["box"][k]) > GEOMETRY_TOLERANCE_PX:
@@ -1257,6 +1261,14 @@ def summarise(results: list[dict[str, Any]]) -> str:
             kinds[row["kind"]] = kinds.get(row["kind"], 0) + 1
         lines.append(f"{r['state']} [{r['viewport']}]: pixels changed {r['pixel_changed_share']:.1%}; missing {len(r['missing_in_app'])}; "
                      + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())) + f"; token rows {len(r['tokens'])}")
+    # The count a record quotes: findings__<run>.json's rows per stage (one row per region, property and pair of
+    # values, so a difference with other values at the laptop size is a row of its own).
+    per_stage: dict[str, dict[str, int]] = {}
+    for row in aggregate(results):
+        counts = per_stage.setdefault(row["stage"], {})
+        counts[row["kind"]] = counts.get(row["kind"], 0) + 1
+    for stage, counts in sorted(per_stage.items()):
+        lines.append(f"findings {stage}: {sum(counts.values())} (" + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) + ")")
     return "\n".join(lines)
 
 
