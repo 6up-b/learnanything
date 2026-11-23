@@ -24,6 +24,7 @@ from learnloop.db.stores.workspace_batches import PAD
 from learnloop.desks.content_ref import WireModel
 from learnloop.desks.protocol import OpConflict, OpRefused, apply_batch, run_op
 from learnloop.ids import new_ulid
+from learnloop.pads import ink as ink_core
 from learnloop.pads.submission import tags as submission_tags
 
 BlockKind = Literal["text", "note", "source_quote", "source_piece", "tutor_quote", "figure", "sketch", "cell", "ink",
@@ -134,15 +135,24 @@ class UnlinkAnchor(_Op):
     expected_anchor_head: str | None
 
 
+class EraseInk(_Op):
+    """The pen's barrel button over an ink block's strokes: a tombstone over their ids (``pads.ink``)."""
+
+    op: Literal["erase_ink"]
+    block_id: str = Field(min_length=1)
+    stroke_ids: list[str] = Field(min_length=1)
+    erase_id: str | None = Field(default=None, min_length=1)
+
+
 PadOp = Annotated[
     Union[CreatePad, SetTitle, Keep, Unkeep, InsertBlock, EditBlock, RemoveBlock, MoveBlock, LiftOut, LinkAnchor,
-          UnlinkAnchor],
+          UnlinkAnchor, EraseInk],
     Field(discriminator="op"),
 ]
 
 PAD_OPS: tuple[str, ...] = (
     "create_pad", "set_title", "keep", "unkeep", "insert_block", "edit_block", "remove_block", "move_block",
-    "lift_out", "link_anchor", "unlink_anchor",
+    "lift_out", "link_anchor", "unlink_anchor", "erase_ink",
 )
 
 
@@ -340,6 +350,11 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
             action="link" if isinstance(op, LinkAnchor) else "unlink", now=now)
         store.touch_pad(connection, pad_id, now)
         return {"event_id": event_id}
+    if isinstance(op, EraseInk):
+        result = ink_core.erase_in_batch(connection, pad_id=pad_id, block_id=op.block_id, erase_id=op.erase_id,
+                                         stroke_ids=list(op.stroke_ids), client_id=client_id, now=now)
+        store.touch_pad(connection, pad_id, now)
+        return result
     raise OpRefused("unknown_op", f"Unknown pad op {getattr(op, 'op', None)!r}.")  # pragma: no cover
 
 

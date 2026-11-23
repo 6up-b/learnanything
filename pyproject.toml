@@ -919,6 +919,7 @@ forbidden_modules = [
     "learnloop.db.stores.pads",
     "learnloop.db.stores.pad_reads",
     "learnloop.db.stores.pad_ledgers",
+    "learnloop.db.stores.ink_strokes",
     "learnloop.db.stores.workspace_batches",
     "learnloop.intent.inline_veils",
 ]
@@ -947,6 +948,7 @@ forbidden_modules = [
     "learnloop.db.stores.pads",
     "learnloop.db.stores.pad_reads",
     "learnloop.db.stores.pad_ledgers",
+    "learnloop.db.stores.ink_strokes",
     "learnloop.db.stores.span_projection_reads",
     "learnloop.intent.inline_veils",
     "learnloop.curriculum.goal_lens",
@@ -982,6 +984,7 @@ forbidden_modules = [
     "learnloop.db.stores.pads",
     "learnloop.db.stores.pad_reads",
     "learnloop.db.stores.pad_ledgers",
+    "learnloop.db.stores.ink_strokes",
     "learnloop.db.stores.span_projection_reads",
     "learnloop.db.stores.workspace_batches",
     "learnloop.intent.inline_veils",
@@ -1035,6 +1038,7 @@ forbidden_modules = [
     # connection, so a write fails at the database even where an import would not.
     "learnloop.db.stores.pads",
     "learnloop.db.stores.pad_ledgers",
+    "learnloop.db.stores.ink_strokes",
     "learnloop.db.stores.span_projections",
     "learnloop.db.stores.desks",
     "learnloop.db.stores.workspace_batches",
