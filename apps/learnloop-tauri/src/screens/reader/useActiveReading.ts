@@ -18,6 +18,7 @@
 // a verification that failed says so with "try again" (F10); closing it drops
 // a late result (F11).
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type { InquirySelfCheck, ReaderActiveQuestionDto, ReaderActiveStyle } from "../../api/dto";
 import { errorMessage, getCommandError } from "../../errors";
@@ -182,12 +183,16 @@ export function useActiveReading({
 
   // The question being written is read back until it lands or its job ends.
   const [tick, setTick] = useState(0);
+  const whenLive = useWhenLive();
   const pendingKey = active && active.phase === "pending" && active.batchId ? active.key : null;
   useEffect(() => {
     const current = activeRef.current;
     if (pendingKey === null || !current || !current.batchId) return;
     const { key, style, anchorSpanIds, batchId } = current;
     const timer = window.setTimeout(async () => {
+      // A paused window reads nothing; back on screen it goes on reading the same job.
+      await whenLive();
+      if (keyRef.current !== key) return;
       try {
         const read = await api.readerActiveQuestionStatus({ extractionId: current.extractionId, anchorSpanIds, style, batchId });
         if (keyRef.current !== key) return;
@@ -209,7 +214,7 @@ export function useActiveReading({
       if (keyRef.current === key) setTick((value) => value + 1);
     }, POLL_MS);
     return () => window.clearTimeout(timer);
-  }, [pendingKey, tick, landed, update]);
+  }, [pendingKey, tick, landed, update, whenLive]);
 
   const act = useCallback(async (input: { action: "answered" | "self_checked" | "dismissed"; response?: string | null; selfCheck?: InquirySelfCheck }) => {
     const current = activeRef.current;

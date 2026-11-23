@@ -35,6 +35,7 @@
 // open id, what was asked and a job already running are kept, so a section
 // change never asks again for the same targets nor draws a new budget.
 import { useEffect, useRef, useState } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type { ReaderCueDiscoveryDto, ReaderCueDiscoveryJobDto } from "../../api/dto";
 import { newActivityId } from "./activity";
@@ -68,6 +69,7 @@ function foundSomething(job: ReaderCueDiscoveryJobDto): boolean {
 }
 
 export function useCueDiscovery({ extractionId, openKey: openKeyInput, discovery, offline, reloadGuidePlan }: CueDiscoveryInput): void {
+  const whenLive = useWhenLive();
   // The targets each source was asked about (requested), per source, this open.
   const askedRef = useRef<Map<string, string>>(new Map());
   // How often each (source, targets) was asked again because the answer was for others.
@@ -138,14 +140,24 @@ export function useCueDiscovery({ extractionId, openKey: openKeyInput, discovery
       }
       const pause = DISCOVERY_POLL_MS[Math.min(reads, DISCOVERY_POLL_MS.length - 1)];
       timer = setTimeout(() => {
-        void api.readerCueDiscoveryJob({ jobId })
-          .then((job) => (job.state === "done" ? finish(job) : read(jobId, reads + 1)))
+        // A paused window reads nothing; back on screen it goes on reading the same job.
+        void whenLive()
+          .then(() => {
+            if (cancelled) return;
+            return api.readerCueDiscoveryJob({ jobId })
+              .then((job) => (job.state === "done" ? finish(job) : read(jobId, reads + 1)));
+          })
           .catch(() => runningRef.current.delete(stop));
       }, pause);
     };
     // Minted at render for this open: the same id for every ask of it.
-    void api.readerCueDiscovery({ extractionId, sourceOpenId: openId })
-      .then((job) => (job.state === "done" ? finish(job) : read(job.jobId, 0)))
+    // An offscreen, hidden or preview window starts no discovery until it is on screen.
+    void whenLive()
+      .then(() => {
+        if (cancelled) return;
+        return api.readerCueDiscovery({ extractionId, sourceOpenId: openId })
+          .then((job) => (job.state === "done" ? finish(job) : read(job.jobId, 0)));
+      })
       // Quiet: the plan's marks stay; the next change of targets asks again.
       .catch(() => runningRef.current.delete(stop));
     return () => {
@@ -158,7 +170,7 @@ export function useCueDiscovery({ extractionId, openKey: openKeyInput, discovery
       // (the sidecar answers with the job already running for this source).
       if (!done && askedRef.current.get(extractionId) === targetsKey) askedRef.current.delete(extractionId);
     };
-  }, [extractionId, openId, targetsKey, offline, reask]);
+  }, [extractionId, openId, targetsKey, offline, reask, whenLive]);
 
   // F8: background work can still name a target: re-read the plan until it cannot.
   useEffect(() => {
@@ -168,7 +180,8 @@ export function useCueDiscovery({ extractionId, openKey: openKeyInput, discovery
     let timer: ReturnType<typeof setTimeout> | null = null;
     const poll = () => {
       timer = null;
-      void reloadRef.current()
+      void whenLive()
+        .then(() => (cancelled ? undefined : reloadRef.current()))
         .catch(() => undefined)
         .finally(() => {
           if (cancelled) return;
@@ -181,5 +194,5 @@ export function useCueDiscovery({ extractionId, openKey: openKeyInput, discovery
       cancelled = true;
       if (timer !== null) clearTimeout(timer);
     };
-  }, [extractionId, targetsPending, offline]);
+  }, [extractionId, targetsPending, offline, whenLive]);
 }

@@ -11,7 +11,7 @@
 // Outside the desks (the old Reader, every other screen) nothing provides these contexts, and the
 // defaults are the single-surface behaviour the app had before: active, never paused, listeners
 // registered directly.
-import { createContext, useContext, useEffect, useId, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, type ReactNode } from "react";
 
 export type WindowState = "active" | "visible" | "offscreen" | "hidden" | "preview";
 
@@ -42,6 +42,24 @@ export function mayLogReading(state: WindowState): boolean {
 
 export function useWindowPaused(): boolean {
   return isPaused(useWindowLifecycle().state);
+}
+
+/** A wait for this window to be live: it resolves at once while the window is not paused, and otherwise
+ * when it next stops being paused. A polling loop or a job reader awaits it before each request, so a
+ * paused window (offscreen, hidden, a preview) sends nothing and, back on screen, goes on reading the
+ * same job rather than starting another. Outside the desks it never waits. */
+export function useWhenLive(): () => Promise<void> {
+  const paused = useWindowPaused();
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const waiters = useRef<Array<() => void>>([]);
+  useEffect(() => {
+    if (paused) return;
+    const ready = waiters.current;
+    waiters.current = [];
+    for (const resolve of ready) resolve();
+  }, [paused]);
+  return useCallback(() => (pausedRef.current ? new Promise<void>((resolve) => waiters.current.push(resolve)) : Promise.resolve()), []);
 }
 
 /** Whether this surface may log reading activity now. Always true outside the desks. */

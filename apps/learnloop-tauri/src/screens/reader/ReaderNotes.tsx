@@ -22,6 +22,7 @@
 // transcribed by Pocket Notes". A note is never a source, never evidence and never
 // grades anything. Nothing here opens, moves focus or animates unasked.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type { NoteHitDto, NoteLinkDto, NoteMarksDto, NotesContractDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
@@ -327,6 +328,7 @@ export function usePathNotes(goalId: string | null, ready: boolean) {
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
   const linking = useRef<{ goalId: string | null; state: string | null }>({ goalId: null, state: null });
+  const whenLive = useWhenLive();
   useEffect(() => {
     if (!enabled || !goalId) { setByLo(new Map()); linking.current = { goalId: null, state: null }; return undefined; }
     let cancelled = false;
@@ -350,12 +352,13 @@ export function usePathNotes(goalId: string | null, ready: boolean) {
         });
         if ((before === "running" || before === "waiting") && out.linking === "done") ctxRef.current?.onChanged();
         const wait = out.linking === "running" ? NOTES_POLL_MS.running : out.linking === "waiting" ? NOTES_POLL_MS.waiting : null;
-        if (wait !== null) timer = setTimeout(() => { if (!cancelled) setTick((value) => value + 1); }, wait);
+        // A paused window reads nothing; back on screen the wait goes on.
+        if (wait !== null) timer = setTimeout(() => void whenLive().then(() => { if (!cancelled) setTick((value) => value + 1); }), wait);
       })
       // Notes are a convenience on the path: unreadable, none show.
       .catch(() => { if (!cancelled) setByLo(new Map()); });
     return () => { cancelled = true; if (timer !== undefined) clearTimeout(timer); };
-  }, [enabled, goalId, revision, tick]);
+  }, [enabled, goalId, revision, tick, whenLive]);
   return byLo;
 }
 

@@ -15,6 +15,7 @@
 // so the workbench is then exactly RW2b's. Nothing here moves focus,
 // animates or opens a dialog (W12).
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type { PassageTarget, WorkbenchExampleViewDto, WorkbenchHelpJobDto, WorkbenchHelpStateDto } from "../../api/dto";
 import { quietLine, quietLink } from "../../components/PlainParts";
@@ -94,6 +95,7 @@ export function useRouteExamples(options: {
   const [showMePending, setShowMePending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const alive = useRef(true);
+  const whenLive = useWhenLive();
 
   useEffect(() => {
     alive.current = true;
@@ -107,12 +109,14 @@ export function useRouteExamples(options: {
     let wait = FIRST_POLL_MS;
     while (job.jobId && job.state === "pending" && alive.current) {
       await sleep(wait);
+      // A paused window reads nothing; back on screen it goes on reading the same job.
+      await whenLive();
       if (!alive.current) break;
       wait = Math.min(MAX_POLL_MS, Math.round(wait * 1.5));
       job = await api.workbenchHelpJob(job.jobId);
     }
     return job;
-  }, []);
+  }, [whenLive]);
 
   const followExample = useCallback((hintAssistId: string, jobId: string) => {
     if (!examples) return;
