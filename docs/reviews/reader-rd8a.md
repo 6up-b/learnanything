@@ -235,3 +235,104 @@ settings' judgment routes gain `ink_transcription` and its disclosure), `test_ar
 `db/stores/ink_strokes.py`), `identity_pins_helpers.py` (site RD8a: the
 strokes hash, the prompt, the result schema; three new pins, none moved), `model.test.ts` (the pad model's
 `erase_ink`).
+
+## 10. The frontend, part 1: pen on sources and the input layer
+
+Branch `reader/rd8a-pen-ui`, from the backend's tip with its status commit, with RD3's fix round
+(`reader/rd3-fix-frontend`) and RD4's (`reader/rd4-fix-frontend`, which carries the visual reference tool) merged in.
+Part 2 (ink pads, ink blocks in `pads/*`, the pad's editable transcription) waits for the coordinator's word. The
+help ladder (`#pen=ladder`, `#pen=rung2`) and `#pen=veil` are out (owner decisions and RD7).
+
+**Where the code lives.** `screens/desks/pen/` alone: `recognizer.ts` (the rules, pure), `input.ts` (which pointers
+draw, pure), `geometry.ts` (the page's probes, ranges and boxes), `PenLayer.tsx` (the ink layer, marks, chips, the
+margin note), `host.ts` and `live.ts` (what the layer reaches), `pen.css`. Mount points, small and additive:
+`ReaderScreen.tsx` hands its text surface (`windowed.onPenSurface`: the scroller, the reading's identity, and its
+per-block selection model for any range, `nodesForRange`, which the selection now uses too); `SourceWindow.tsx`
+mounts the layer; `DeskShell.tsx` holds pen mode (`alt+p`, the ✎ chip, "simulate pen", the footer's pen hints) and
+provides `PenHostContext`; `keys/router.ts` takes `alt+p` (its `later` mark removed); `outbox.ts` and `store.ts` carry
+an `ink` batch in the one sequence. No file in `pads/*` changed.
+
+### 10.1 What each stroke becomes
+
+| Stroke (spec §10.10's geometry, the mockup's recognizer for the rest) | Persisted | Shown |
+|---|---|---|
+| closed loop: ends within 30 px, w > 30, h > 16 | nothing (the words inside become the DOM selection: `c` asks the companion about them) | the words under a `#cfe0fa` box, the chip "circle → selection · ask the tutor · c" |
+| in the margin (beyond 4 px past the text column, the first passage wider than 100 px), h > 40, w < 26 | a highlight on every paragraph spanned (each overlapping it by more than 6 px at both ends), anchored whole | the paragraphs on `#fff6d0` with the mockup's −10/+6 px spread |
+| any other margin stroke | an interpretation annotation beside the passage it overlaps (else the nearest), its ink saved with it | the note box "› your note · handwritten", its transcription (below) |
+| flat (h < 22) and wide (w > 40), through the middle of a line (the line 9 px above holds the middle between 30 % from its top and 25 % from its bottom) | a disposition annotation, "I disagree / doesn't make sense" | a 1.5 px `#a83a2b` line-through |
+| flat and wide, under a line (the line 10 px above its middle) | a highlight snapped to the words between the stroke's ends (2 px in) | the words on `#fff0b8` |
+| anything else, or a mark with no words or paragraph to attach to | nothing | plain ink, its chip saying "… not kept" |
+
+Each mark's chip reads "X → Y · undo · ✕" at the mockup's place beside the stroke (moved in from the window's edge,
+under the stroke when it would cover the words); undo files the annotation's delete intent and removes the mark and
+its ink; the barrel button erasing a mark's ink does the same (a source's ink belongs to its annotation, and the
+server erases block ink only). The strokes are saved with their annotation through `ink.save`, after the capture
+returns the annotation id. Ink already saved is drawn again on reopening (`ink.list` with `reader.source_annotations`
+for each owner's kind), its marks found again by the same geometry on today's layout.
+
+**The margin note's transcription.** Once the note's ink is acknowledged (`store.settled()`), `ink.transcribe`; a job
+is polled through the central poller under the window's id (so a paused window does not poll). On today's default
+route the reading is refused (`cannot_read_images`): the note says "handwriting can't be read yet · your ink is kept"
+and the learner may type the words. A reading, when a route can read images, fills the field labelled "transcribed ·
+may be wrong · fix it" and is never stored as the learner's words until they keep it (↵) or change it: only then is
+it written (`reader.edit_annotation`), so a model's reading is never laundered into the learner's text.
+
+**Input** (`input.ts`). A pen draws (its first touch turns pen mode on and already draws); touch never draws, nor
+does a second pointer during a stroke; the mouse draws only with "simulate pen" on and pen mode on; button 2 or 5, or
+the eraser end (buttons bit 32), erases; every coalesced sample is kept with x, y, the time since the stroke began,
+pressure (a mouse's 0 is the Pointer Events 0.5) and tilt, clamped to the Pointer Events ranges. A stroke of 3 points
+or fewer is a tap. A paused window (offscreen, hidden, a preview) refuses input, drops a stroke under way and saves
+nothing (guarded at down, move and up).
+
+### 10.2 The mockup comparison (the shared reference, stage `rd8`)
+
+The reference's pen captures had no marks: in headless Chromium the mockup's pen deep links scroll their passage off
+screen before drawing. The private capture script gained the pen regions (the mockup's `svg.ink path.stroke.*`,
+`mark.penhl`, `.p.penpara`, `mark.ctxsel`, `.recog …`, `.inknote …`, `#bPen`, `#bSimPen`, `#keys .penk`) and, for a pen
+link that drew nothing on screen, runs the mockup's own recognizer (`window.penDemo`) on a paragraph that is, with its
+own stroke shapes; the five pen links were captured again (`arxiv_v2`, both viewports; strike at the laptop size
+still drew nothing). `visual_reference.py --stage rd8` puts the harness in each state by `alt+p` and one synthetic pen
+stroke (pointer events with `pointerType: "pen"`, pressure and tilt) of the mockup's shapes on the fixture book, and
+compares; it now also measures `cursor` (compared on the text under pen mode only) and an SVG's `stroke-width`
+(exactly).
+
+| Region | Measured (harness = mockup unless noted) |
+|---|---|
+| strokes | `#2b4fa8`, 2.2 px; opacity .35 underline, .55 bracket, .5 lasso, .85 note; strike `#a83a2b` at .6 |
+| underline / bracket / lasso marks | `#fff0b8` (radius 1 px), `#fff6d0`, `#cfe0fa` |
+| chip | `#181818` on `#3a3a3a`, radius 12 px, padding 3/10, JetBrains Mono 10.5 px `#d8d8e0`; undo `#f0b878`, ✕ `#8b8b9d`, "ask the tutor · c" `#9fc2ff` |
+| note | 220 px, `#f7f5f0e6`, 2 px `#2b4fa8` left edge, padding 2/0/2/8; "›" line `#2b4fa8` 10 px; words Literata 13 px italic `#2a2825`; label `#8b8578` 9.5 px |
+| top-bar chip (on) | `#9fc2ff` on `#121a26`, `#3b5b8a` border, radius 3 px, padding 4/8; **12 px, mockup 11.5 px** |
+| footer pen hint | `#9fc2ff`, JetBrains Mono 11 px |
+| cursor over text in pen mode | `crosshair` |
+
+Tolerance: colours, type and stroke widths exact; geometry 2 px (the tool's, from §4.3). Every remaining difference
+is explained: the chip's 12 px is the desks' top-bar chips' size (VR-9, RD1's); the marks' 19 px height against 24 px
+follows the book prose's 13 px against 16.5 px (VR-4, RD1's); the note's label wraps to two lines because its words
+are the refusal's, not the mockup's mock OCR line; the note has a chip in the app and none in the mockup (the spec:
+"each recognition shows a chip"). Token rows are VR-1's (interface type, the coordinator's decision: JetBrains Mono).
+Screenshots and measurements stay in the private reference directory.
+
+### 10.3 Judgment calls
+
+1. **Plain ink on a source is not kept.** The backend's ink owners are a block or an annotation; a stroke the
+   recognizer cannot place has neither, and making an annotation for it would be the guess the brief forbids. Its chip
+   says "not kept". Options: a kind of annotation for free ink (a backend change), or a per-source scratch owner.
+2. **The bracket's and the note's anchors are whole passages** (`start 0, end 1_000_000`, as the Reader anchors a
+   block); the note goes beside the passage it overlaps, else the nearest one.
+3. **Marks are drawn as boxes under the words** (the scroller isolated, the layer at z-index −1), not by wrapping the
+   words in `<mark>` as the mockup does: React owns that text, and foreign nodes inside it break reconciliation.
+4. **The lasso's words become the DOM selection** (so `c` and the companion read them as any selection), with the
+   native selection's paint hidden while the lasso's box shows.
+5. **The eraser's reach is the pen's own width** (2.2 px either side of a stroke).
+6. **Ink is kept to a hundredth of a pixel** in the scroller's coordinates (the layer's rounding of computed floats;
+   every sample kept).
+7. **Saved ink is redrawn in the scroller's coordinates**; a reflow (another window width, another font size) moves
+   the text under it. Re-anchoring ink to words is not in the spec.
+8. **"Simulate pen" is built** (the mockup's, hidden below 1400 px as there) as the brief's mouse fallback for testing.
+
+### 10.4 What waits
+
+Part 2 (ink pads and blocks, the pad transcription, `kept_your_correction`, the refusal on a pad), the ladder and
+`#pen=veil`. The real tablet (pressure and palm behaviour on the owner's device) is unverified: the harness's pen is
+synthetic.
