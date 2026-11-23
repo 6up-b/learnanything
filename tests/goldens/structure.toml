@@ -29,7 +29,9 @@ source_text_assertions = 23
 "src/learnloop_sidecar/handlers/reader.py" = 2980
 # 269250: the diagnosis journey and grade-application goldens record every persisted row, and from mvp-0.65 each
 # applied attempt also writes its row in attempt_application_order (115 lines; no existing value moved).
-golden_json_lines = 269250
+# 269542: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
+# golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
+golden_json_lines = 269542
 
 [members]
 import_component = [
