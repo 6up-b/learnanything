@@ -56,6 +56,7 @@ from tests.due_queue_helpers import (
     SESSION,
     build_figure_vault,
     build_gate_vault,
+    build_generated_followup_vault,
     build_intent_targets_vault,
     build_probe_history_vault,
     build_rich_vault,
@@ -404,6 +405,20 @@ def test_a_serving_build_under_recall_targets_and_a_check_on_the_probes_lo(tmp_p
 def test_a_read_build_under_recall_targets(tmp_path, seeded_ids):
     _check("intent_targets_read", _record(tmp_path, lambda vault, repository, trace: read_due_queue(
         vault, repository, clock=CLOCK, offer_trace=trace), vault_builder=build_intent_targets_vault))
+
+
+def test_a_serving_build_with_a_limit_and_a_generated_follow_up(tmp_path, seeded_ids):
+    """The limit cuts the composed queue the slate and its record are written from; of two due cold retries the
+    follow-up door inserts the one whose item is not a generated probe."""
+
+    _check("limit_generated_followup_serving", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace, limit=5),
+        vault_builder=build_generated_followup_vault))
+
+
+def test_a_read_build_with_a_limit(tmp_path, seeded_ids):
+    _check("limit_read", _record(tmp_path, lambda vault, repository, trace: read_due_queue(
+        vault, repository, clock=CLOCK, offer_trace=trace, limit=3)))
 
 
 def _outside(tmp_path: Path, vault_builder: Any, prepare: Any = None) -> dict[str, Any]:

@@ -332,3 +332,22 @@ def build_intent_targets_vault(root):
     apply_choice(vault, repository, Scope("learning_object", "lo_b"), "light_touch", clock=at)
     apply_choice(vault, repository, Scope("learning_object", PROBE_LO), "check_once", clock=at)
     return load_vault(vault.root), repository
+
+
+def build_generated_followup_vault(root):
+    """``(vault, repository)``: :func:`build_rich_vault` with a due cold retry on ``pi_c1``, which also carries the
+    generated-probe identity, so the follow-up door must not insert it (FG1 §4.2); and one on ``pi_c2``, which it
+    inserts."""
+
+    from learnloop.followup_serve import identity
+
+    vault, repository = build_rich_vault(root)
+    for item_id in ("pi_c1", "pi_c2"):
+        repository.create_followup_task(
+            kind="cold_retry", case_kind="misconception", case_ref=f"mc_{item_id}", learning_object_id="lo_c",
+            not_before=(NOW - timedelta(hours=6)).isoformat().replace("+00:00", "Z"), selected_item_id=item_id,
+            expires_at=(NOW + timedelta(days=5)).isoformat().replace("+00:00", "Z"),
+            clock=FrozenClock(NOW - timedelta(days=2)),
+        )
+    identity.register(repository, practice_item_id="pi_c1", revision="rev-pi_c1", source="workflow", clock=CLOCK)
+    return load_vault(vault.root), repository
