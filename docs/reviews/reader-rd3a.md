@@ -318,4 +318,21 @@ restored from git (`git status` clean after each):
 | no unavailable branch (notes) | `test_an_unrun_search_by_meaning_is_said_per_group_never_shown_as_nothing_found` | 1 failed (`KeyError: 'reason'`) |
 | no per-group catch | `test_a_group_whose_search_by_meaning_fails_says_so_and_the_other_group_still_answers` | 1 failed (the whole job `failed`) |
 
-**Commands and results** follow the merge of main below.
+**Commands and results** (after merging main `ba7884c102`; each pytest run `-n 1 -m "not arc_close"` through the
+scratch wrapper in a 3G `systemd-run` scope, one at a time):
+
+| Command | Result |
+|---|---|
+| `tests/test_reader_rd3_fix_backend.py` | 18 passed |
+| the three RD3 files (`test_reader_rd3a_companion_ask.py`, `test_reader_rd3a_search.py`, `test_reader_rd3_fix_backend.py`) five times | 42 passed in each run |
+| `scripts/affected_tests.py --files <the 10 changed src files>` | 984 files (more than 150) |
+| the 266 of them whose names match `reader|ask|tutor|companion|search|notes|rd0|rd3|rd4|desk|text_gap|learner_gap|gaps|sidecar|context|close|switch|library|mobile|phone|prefetch|plan_first|one_ai_ok|question|model_call|receipt|load|vault_open|rw1|rw4|ca2|ca3|ca6|learner_blindness|protection_surface|explorable`, in seven chunks of at most 40 | 4,425 passed, 9 skipped, 1 xfailed, 1 error: the teardown error of `test_mobile_v3_carried.py::test_keep_going_on_a_finished_plan_commits_its_override_with_the_extension` (a post-attempt worker thread past its grace while the machine logged `database is locked`), which is ledger row L2-1, open before this round; the file alone, three runs: 5 passed each |
+| identity pins, structure ratchets, RD0 fences, effective defaults, CLI snapshot, kill switches, sqlite copies, mobile allowlist, desktop RPC contract, notes-never-read, public tip guards | 790 passed |
+| `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
+| `uv run ruff check` / `uv run lint-imports --no-cache` | All checks passed! / Contracts: 52 kept, 0 broken. |
+| `uv run python scripts/check_gate_partition.py` | collected 33452: landing 33386 + arc_close 66 |
+| `db_validate_reference.py` | exit 1: 14 config notes cite line numbers in `context.py` and `reader_dialogue.py` that this round's inserted lines moved ("cites unrelated source line"); the landing's regeneration of the vault references rewrites them (the brief leaves that to the landing). No database note is affected (no migration) |
+| `npx tsc --noEmit` (`npm run typecheck`) / `npx vitest run --maxWorkers=2 src/api` | exit 0 / 4 files, 57 tests passed |
+
+No identity pin, effective default, CLI snapshot or kill switch moved; the structure ratchets hold
+(`handlers/reader.py` stays at 3026 lines).
