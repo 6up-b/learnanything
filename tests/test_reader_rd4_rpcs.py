@@ -12,6 +12,8 @@ from tests.reading_path_fixtures import call, context
 
 RD4_RPCS = ("pad.submit_block", "pad.proposals", "proposal.label", "pad.drain", "carried.carry", "carried.list",
             "carried.mark")
+#: RD4's fix round: one read beside them.
+FIX_RPCS = ("passage.content",)
 MINIMAL = {
     "pad.submit_block": {"submissionId": "s", "blockId": "b", "versionId": "v", "as": "attempt",
                          "target": {"sessionId": "ses", "practiceItemId": "pi"}},
@@ -40,6 +42,24 @@ def test_params_refuse_an_extra_field(name):
     model.model_validate(MINIMAL[name])
     with pytest.raises(ValidationError):
         model.model_validate({**MINIMAL[name], "unexpected": True})
+
+
+def test_the_fix_rounds_read_is_desktop_only_refuses_an_extra_field_and_is_versioned(tmp_path):
+    from learnloop.db.repositories import Repository
+    from learnloop_mobile.allowlist import ALLOWLIST
+    from learnloop_sidecar.handlers.passage_union import PASSAGE_CONTENT_RPCS
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+    from tests.desk_helpers import seed_reading
+
+    assert PASSAGE_CONTENT_RPCS == FIX_RPCS
+    assert all(name in METHOD_REGISTRY and name not in ALLOWLIST for name in FIX_RPCS)
+    params = {"extractionId": "ext_book", "fromSpanId": "s1", "toSpanId": "s1"}
+    with pytest.raises(ValidationError):
+        METHOD_REGISTRY["passage.content"].params_model.model_validate({**params, "unexpected": True})
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_reading(Repository(paths.sqlite_path), source_id="src_book", revision_id="rev_book", extraction_id="ext_book",
+                 spans=["s1"])
+    assert call(context(paths.root), "passage.content", params)["version"] == 1
 
 
 def test_a_submission_target_refuses_an_extra_field_and_names_a_kind():

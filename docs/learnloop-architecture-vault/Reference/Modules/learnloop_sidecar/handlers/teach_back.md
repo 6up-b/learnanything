@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/teach_back.py](../../../../../../src/learnloop_sidecar/handlers/teach_back.py) |
-| Source lines | 565 |
+| Source lines | 577 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -58,19 +58,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class StartTeachBackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 118)
 - `class SubmitTeachBackTurnInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 125)
 - `start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 138) — Plan the conversation and persist an empty state into the checkpoint.
-- `submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 190) — Record a learner turn, then either ask the next question or finish.
-- `filter_unready_teach_back_items(vault, queue: list, *, grading_provider_override: str | None=None, offerable: Callable[[], bool] | None=None) -> list` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 276) — Drop teach_back items from a built queue when AI is unavailable for them.
-- `teach_back_offerable(vault, *, grading_provider_override: str | None=None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 310) — Both halves of a teach-back are available: the naive student and an AI grader.
+- `submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 190) — The RPC: :func:`submit_teach_back_turn_on` with a fresh conversation id when it opens one.
+- `submit_teach_back_turn_on(ctx: SidecarContext, params: SubmitTeachBackTurnInput, *, conversation_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 196) — Record a learner turn, then either ask the next question or finish.
+- `filter_unready_teach_back_items(vault, queue: list, *, grading_provider_override: str | None=None, offerable: Callable[[], bool] | None=None) -> list` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 288) — Drop teach_back items from a built queue when AI is unavailable for them.
+- `teach_back_offerable(vault, *, grading_provider_override: str | None=None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 322) — Both halves of a teach-back are available: the naive student and an AI grader.
 
 ## Internal implementation anchors
 
-- `_finish(ctx: SidecarContext, vault, repository, params: SubmitTeachBackTurnInput, state: TeachBackState) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 335)
-- `_schedule_router_summary(vault, repository, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 443)
-- `_existing_attempt_payload(vault, repository, state: TeachBackState, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 449) — Response for a finish retry whose attempt was already recorded.
-- `_conversation_offer(repository, params, bound_offer: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 498) — The scheduler offer this conversation answers, validating a new one.
-- `_require_teach_back_item(vault, practice_item_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 531)
-- `_load_state(repository, session_id: str, practice_item_id: str) -> TeachBackState | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 543)
-- `_persist_state(ctx: SidecarContext, repository, session_id: str, state: TeachBackState) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 554)
+- `_finish(ctx: SidecarContext, vault, repository, params: SubmitTeachBackTurnInput, state: TeachBackState) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 347)
+- `_schedule_router_summary(vault, repository, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 455)
+- `_existing_attempt_payload(vault, repository, state: TeachBackState, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 461) — Response for a finish retry whose attempt was already recorded.
+- `_conversation_offer(repository, params, bound_offer: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 510) — The scheduler offer this conversation answers, validating a new one.
+- `_require_teach_back_item(vault, practice_item_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 543)
+- `_load_state(repository, session_id: str, practice_item_id: str) -> TeachBackState | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 555)
+- `_persist_state(ctx: SidecarContext, repository, session_id: str, state: TeachBackState) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 566)
 
 ## Who imports or calls it
 
@@ -79,7 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `filter_unready_teach_back_items`; statically calls `filter_unready_teach_back_items`
-- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `SubmitTeachBackTurnInput`, `submit_teach_back_turn`; statically calls `SubmitTeachBackTurnInput`, `submit_teach_back_turn`
+- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `SubmitTeachBackTurnInput`, `submit_teach_back_turn_on`; statically calls `SubmitTeachBackTurnInput`, `submit_teach_back_turn_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `TEACH_BACK_PRACTICE_MODE`, `filter_unready_teach_back_items`, `teach_back_offerable`; statically calls `filter_unready_teach_back_items`, `teach_back_offerable`
 
 ## Dependencies
@@ -121,8 +122,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_reader_rd4_submission.py](../../../../../../tests/test_reader_rd4_submission.py) — direct import
-  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
-  - `test_a_teach_back_hands_the_block_to_the_teach_back_entry_and_opens_its_conversation`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_teach_back_reopened_from_a_refreshed_list_is_one_pick`
   - `test_teach_back_readiness_is_probed_once_per_offer`

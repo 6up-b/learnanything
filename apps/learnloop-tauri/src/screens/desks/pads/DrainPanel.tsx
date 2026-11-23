@@ -5,10 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import type { PadDrainDto } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
 
+/** Each settles once the server has it, and rejects (with why) when it does not. */
 export interface DrainActions {
-  keep: (padId: string, version: number) => void;
-  leave: (padId: string, version: number) => void;
-  carry: (text: string, padId: string) => void;
+  keep: (padId: string, version: number) => Promise<void>;
+  leave: (padId: string, version: number) => Promise<void>;
+  carry: (text: string, padId: string) => Promise<void>;
 }
 
 export function DrainPanel({ deskTitle, load, actions, onClose }: {
@@ -20,6 +21,9 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
   const [drain, setDrain] = useState<PadDrainDto | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [done, setDone] = useState<Record<string, string>>({});
+  // A choice on its way (said as such, its row's keys waiting) and the last one that failed (its controls kept).
+  const [pendingPad, setPendingPad] = useState<Record<string, string>>({});
+  const [failed, setFailed] = useState<Record<string, string>>({});
   // The pad a number key named, waiting for its k, l or c.
   const pending = useRef<number | null>(null);
   useEffect(() => {
@@ -58,10 +62,23 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
-  const act = (padId: string, said: string, run: () => void) => {
-    if (done[padId]) return;
-    run();
-    setDone((now) => ({ ...now, [padId]: said }));
+  // Done is said only once the save is acknowledged; a failure says why and keeps the row's controls.
+  const act = (padId: string, said: string, run: () => Promise<void>) => {
+    if (done[padId] || pendingPad[padId]) return;
+    setPendingPad((now) => ({ ...now, [padId]: said }));
+    setFailed((now) => {
+      const next = { ...now };
+      delete next[padId];
+      return next;
+    });
+    void run().then(
+      () => setDone((now) => ({ ...now, [padId]: said })),
+      (error: unknown) => setFailed((now) => ({ ...now, [padId]: error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error) })),
+    ).finally(() => setPendingPad((now) => {
+      const next = { ...now };
+      delete next[padId];
+      return next;
+    }));
   };
   return (
     <div className="desk-drain" role="dialog" aria-label={`closing ${deskTitle}`}>
@@ -73,7 +90,8 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
         <div key={pad.padId} className="pad" data-drain-pad={pad.padId}>
           <div className="title">{pad.kept ? "⚲ " : ""}{pad.title || (pad.kind === "running" ? "running" : "a pad")}</div>
           <div className="lines"><span>{pad.firstLine}</span>{pad.lastLine && pad.lastLine !== pad.firstLine ? <span> … {pad.lastLine}</span> : null}</div>
-          {done[pad.padId] ? <div className="done">{done[pad.padId]}</div> : (
+          {failed[pad.padId] ? <div className="note err">couldn't save that · {failed[pad.padId]}</div> : null}
+          {done[pad.padId] ? <div className="done">{done[pad.padId]}</div> : pendingPad[pad.padId] ? <div className="note">◐ saving…</div> : (
             <div className="acts">
               <button type="button" onClick={() => act(pad.padId, "kept", () => actions.keep(pad.padId, pad.version))}><kbd>{index + 1}k</kbd> keep</button>
               <button type="button" onClick={() => act(pad.padId, "left in the library", () => actions.leave(pad.padId, pad.version))}><kbd>{index + 1}l</kbd> leave</button>

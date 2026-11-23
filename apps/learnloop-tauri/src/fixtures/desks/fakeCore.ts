@@ -1,9 +1,10 @@
 // Stands in for @tauri-apps/api/core in the desks' visual harness (vite.desks.config.mjs): every call
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
-import type { DeskApplyInput } from "../../api/dto";
+import type { DeskApplyInput, DeskStateDto, PadViewDto } from "../../api/dto";
+import { fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
-import { FixtureDeskServer } from "./workspace";
+import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
 
@@ -15,7 +16,27 @@ export interface HarnessCall {
   at: number;
 }
 
-const server = new FixtureDeskServer();
+/** The harness's workspace: the fixture's, with every desk's running pad in a stack (as the desks ensure it), so a
+ * first visit to a desk changes no layout under the overview's transitions. */
+function harnessDeskState(): DeskStateDto {
+  const state = fixtureDeskState();
+  const extra: Record<string, string> = { fx_desk_attention: "fx_pad_running_attention", fx_desk_backprop: "fx_pad_running_backprop" };
+  for (const desk of state.desks) {
+    const padId = extra[desk.deskId];
+    if (!padId) continue;
+    desk.slots.push({ slot: desk.slots.length, windows: [{ windowId: `fx_w_pads_${desk.deskId}`, pane: 0, kind: "pad_stack", active: true, view: {}, stack: [{ kind: "pad", padId }] }] as never });
+    state.runningPadIds.push(padId);
+  }
+  return state;
+}
+
+function harnessPads(): PadViewDto[] {
+  const at = "2026-11-23T09:00:00Z";
+  const empty = (padId: string, deskId: string): PadViewDto => ({ version: 1, pad: { padId, kind: "running", title: "running", kept: false, homeDeskId: deskId, workbenchSessionId: null, lessonId: null, version: 1, createdAt: at, updatedAt: at }, blocks: [], anchors: [] });
+  return [...fixturePads(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop")];
+}
+
+const server = new FixtureDeskServer(harnessDeskState(), harnessPads());
 const companion = new FixtureCompanion();
 const goal = new FixtureGoal();
 // One carried question beside the book's third passage (project-authored).
@@ -126,6 +147,28 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return fixtureProposals(String(input.padId));
     case "proposal_label":
       return { version: 1, labelId: input.labelId, applied: true, at: new Date().toISOString() };
+    case "passage_union_range": {
+      // The pads' links on the reading's passages (every passage of the reading: the fixture's books are short).
+      const extractionId = String(input.extractionId);
+      const bySpan = new Map<string, Array<Record<string, unknown>>>();
+      for (const pad of Object.values(server.pads)) {
+        for (const anchor of pad.anchors) {
+          if (anchor.extractionId !== extractionId) continue;
+          const block = pad.blocks.find((each) => each.blockId === anchor.blockId);
+          bySpan.set(anchor.spanId, [...(bySpan.get(anchor.spanId) ?? []), { blockId: anchor.blockId, padId: pad.pad.padId, kind: block?.kind ?? "text", provenance: block?.provenance ?? "learner", eventId: anchor.eventId, annotationId: anchor.annotationId, alias: "exact" }]);
+        }
+      }
+      return { version: 1, extractionId, sections: [], spans: [...bySpan.entries()].map(([spanId, padBlocks]) => ({ spanId, sectionId: null, annotations: [], padBlocks, exchanges: [], adjustments: [] })) };
+    }
+    case "passage_content": {
+      // A passage of the fixture's books as the source has it (the render's block for the span).
+      const extractionId = String(input.extractionId);
+      const view = viewFor(extractionId);
+      const spanId = String(input.fromSpanId ?? "");
+      const block = view?.blocks.find((each) => each.spanId === spanId);
+      return { version: 1, extractionId, sourceId: view?.sourceId ?? null, title: view ? FIXTURE_LIBRARY.find((card) => card.sourceId === view.sourceId)?.title ?? null : null, withheld: false,
+        spans: block ? [{ spanId, text: block.markdown, page: 1, t0: null, t1: null, sectionId: null, sectionLabel: null, withheld: false }] : [] };
+    }
     case "pad_drain":
       return fixtureDrain(String(input.deskId));
     case "carried_list":

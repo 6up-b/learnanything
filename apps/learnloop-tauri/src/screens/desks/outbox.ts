@@ -63,6 +63,10 @@ export type FlushOutcome =
   /** The server refused the whole batch for good (its request is invalid, so it will never apply): it is
    * dropped, and the batches after it stay queued, to be rebased. Never retried. */
   | { kind: "rejected"; message: string; batch: Batch }
+  /** The batch applied, and an edit in it met a newer head: the server kept that head and put the edit's words
+   * in a block of their own. The batches after it may build on the version the client thought it made: they wait
+   * to be rebased onto where the words went. */
+  | { kind: "kept-both"; reply: PadApplyDto; batch: Batch }
   /** The server refused the batch number (a gap or a reuse): resynchronise the sequence and reload. */
   | { kind: "resync"; message: string }
   /** The sidecar could not be reached: the batch stays, and is sent again on the next flush. */
@@ -215,6 +219,10 @@ export class DeskOutbox {
         return { kind: "offline", message };
       }
       this.store.remove(batch.seq);
+      if (batch.pad && reply.results.some((result) => result.status === "ok" && result.keptBoth)) {
+        this.nextSeq = Math.max(this.nextSeq, reply.appliedSeq + 1);
+        if (!reply.results.some((result) => result.status !== "ok")) return { kind: "kept-both", reply: reply as PadApplyDto, batch };
+      }
       if (reply.results.some((result) => result.status !== "ok")) {
         // The ops queued after it expected heads that may no longer hold: they wait to be rebased.
         this.nextSeq = Math.max(this.nextSeq, reply.appliedSeq + 1);

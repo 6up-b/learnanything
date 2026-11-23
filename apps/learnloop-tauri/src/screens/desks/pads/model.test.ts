@@ -80,15 +80,51 @@ describe("applying ops", () => {
   });
 });
 
-describe("re-stamping after a conflict", () => {
-  it("a queued edit lands on top of the head another device made; an edit of a removed block is dropped", () => {
-    const remote = applyPadOp(pads(), "p1", { op: "edit_block", blockId: "b1", expectedHead: "v1", versionId: "vR", bodyMd: "elsewhere" }, NOW);
+describe("re-stamping after a conflict: the server's head is kept (RD4 review)", () => {
+  const remote = () => applyPadOp(pads(), "p1", { op: "edit_block", blockId: "b1", expectedHead: "v1", versionId: "vR", bodyMd: "elsewhere" }, NOW);
+  const keep = { blockId: "kb1", versionId: "vL.kb", label: "written over an older version" };
+
+  it("a queued edit of a head another device changed keeps that head and lands as its own labelled block right after it", () => {
+    const queued = { op: "edit_block" as const, blockId: "b1", expectedHead: "v1", versionId: "vL", bodyMd: "mine", keepBoth: keep };
+    const rebased = restampPadOp(remote(), "p1", queued, NOW);
+    expect(rebased.op).toMatchObject({ expectedHead: "v1", keepBoth: keep });
+    const blocks = rebased.pads.p1.blocks;
+    expect(blocks.find((block) => block.blockId === "b1")?.bodyMd).toBe("elsewhere");
+    const kept = blocks.find((block) => block.blockId === "kb1");
+    expect(kept).toMatchObject({ bodyMd: "mine", headVersionId: "vL.kb", kind: "text", provenance: "learner" });
+    expect(kept?.payload.conflict).toMatchObject({ of_block_id: "b1", expected_head: "v1", server_head_version_id: "vR", label: "written over an older version" });
+    expect(blocks.findIndex((block) => block.blockId === "kb1")).toBe(blocks.findIndex((block) => block.blockId === "b1") + 1);
+  });
+
+  it("an edit without keepBoth never overwrites newer words: it is refused", () => {
     const queued = { op: "edit_block" as const, blockId: "b1", expectedHead: "v1", versionId: "vL", bodyMd: "mine" };
-    const rebased = restampPadOp(remote, "p1", queued, NOW);
-    expect(rebased.op).toMatchObject({ expectedHead: "vR" });
-    expect(rebased.pads.p1.blocks[0].bodyMd).toBe("mine");
+    expect(() => restampPadOp(remote(), "p1", queued, NOW)).toThrow(PadOpRefusal);
+  });
+
+  it("a stale remove, move or lift is refused, never retried onto the newer text", () => {
+    for (const op of [
+      { op: "remove_block" as const, blockId: "b1", expectedHead: "v1" },
+      { op: "move_block" as const, blockId: "b1", expectedHead: "v1", positionKey: "z" },
+      { op: "lift_out" as const, blockId: "b1", expectedHead: "v1", newPadId: "p9", newBlockId: "b9", title: "lifted" },
+    ]) {
+      expect(() => restampPadOp(remote(), "p1", op, NOW), op.op).toThrow(PadOpRefusal);
+    }
+  });
+
+  it("an edit of a block removed elsewhere keeps its words as their own block", () => {
     const removed = applyPadOp(pads(), "p1", { op: "remove_block", blockId: "b1", expectedHead: "v1" }, NOW);
-    expect(() => restampPadOp(removed, "p1", queued, NOW)).toThrow(PadOpRefusal);
+    const queued = { op: "edit_block" as const, blockId: "b1", expectedHead: "v1", versionId: "vL", bodyMd: "mine", keepBoth: keep };
+    const rebased = restampPadOp(removed, "p1", queued, NOW);
+    expect(rebased.pads.p1.blocks.find((block) => block.blockId === "kb1")?.bodyMd).toBe("mine");
+  });
+
+  it("a second queued edit, typed on after the first, goes on in the block the first one's words landed in", () => {
+    const redirects = new Map<string, { blockId: string; versionId: string }>();
+    const first = restampPadOp(remote(), "p1", { op: "edit_block", blockId: "b1", expectedHead: "v1", versionId: "vL", bodyMd: "mine", keepBoth: keep }, NOW, redirects);
+    const second = restampPadOp(first.pads, "p1", { op: "edit_block", blockId: "b1", expectedHead: "vL", versionId: "vL2", bodyMd: "mine, more", keepBoth: { blockId: "kb2", versionId: "vL2.kb", label: "x" } }, NOW, redirects);
+    expect(second.op).toMatchObject({ blockId: "kb1", expectedHead: "vL.kb", bodyMd: "mine, more" });
+    expect(second.pads.p1.blocks.find((block) => block.blockId === "kb1")?.bodyMd).toBe("mine, more");
+    expect(second.pads.p1.blocks.some((block) => block.blockId === "kb2")).toBe(false);
   });
 });
 

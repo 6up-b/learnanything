@@ -131,11 +131,19 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
         for anchor in pad_reads.standing_anchors_for_spans(connection, readings):
             placed = placer.place(anchor["extraction_id"], anchor["span_id"])
             head = pad_reads.head(connection, anchor["block_id"]) if placed else None
+            lifted_from = None
+            # A link left on a lift-out stub (a lift made before links moved with the words) marks the block that
+            # carries the words now.
+            for _step in range(64):
+                if head is None or head["kind"] != "lifted":
+                    break
+                lifted_from = lifted_from or anchor["block_id"]
+                head = pad_reads.head(connection, str((head.get("payload") or {}).get("lifted_block_id") or ""))
             if placed and head is not None and not head["tombstone"]:
                 out[placed[0]]["pad_blocks"].append({
-                    "block_id": anchor["block_id"], "pad_id": head["pad_id"], "kind": head["kind"],
+                    "block_id": head["block_id"], "pad_id": head["pad_id"], "kind": head["kind"],
                     "provenance": head["provenance"], "event_id": anchor["event_id"],
-                    "annotation_id": anchor["annotation_id"], "alias": placed[1]})
+                    "annotation_id": anchor["annotation_id"], "alias": placed[1], "lifted_from_block_id": lifted_from})
 
         # Questions the learner carries, beside the passage they were carried from (still carried only: a quiet
         # margin mark, never a nudge; spec §10.12).

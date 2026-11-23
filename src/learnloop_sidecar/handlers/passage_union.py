@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import Field, model_validator
 
+from learnloop.passage_union.content import passage_content
 from learnloop.passage_union.union import UnionError, union_range
 from learnloop.source_retrieval import note_links as NL
 from learnloop_sidecar.context import SidecarContext
@@ -18,6 +19,8 @@ from learnloop_sidecar.registry import method
 
 #: Every RPC this module registers (pinned desktop-only).
 PASSAGE_UNION_RPCS: tuple[str, ...] = ("passage.union_range",)
+#: RD4's fix round (pinned desktop-only).
+PASSAGE_CONTENT_RPCS: tuple[str, ...] = ("passage.content",)
 
 
 class UnionRangeInput(ParamsModel):
@@ -50,5 +53,19 @@ def passage_union_range_handler(ctx: SidecarContext, params: UnionRangeInput) ->
         return versioned(union_range(vault, repository, extraction_id=params.extraction_id,
                                      from_span_id=params.from_span_id, to_span_id=params.to_span_id, t0=params.t0,
                                      t1=params.t1, notes_by_span=notes_by_span))
+    except UnionError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+
+
+@method("passage.content", UnionRangeInput)
+def passage_content_handler(ctx: SidecarContext, params: UnionRangeInput) -> dict[str, Any]:
+    """One range of a reading as the source has it: ``{extraction_id, source_id, title, withheld, spans: [{span_id,
+    text, page, t0, t1, section_id, section_label, withheld}]}`` (a ``source_piece``'s words, location and time)."""
+
+    vault, repository = ctx.require_vault()
+    try:
+        return versioned(passage_content(vault, repository, extraction_id=params.extraction_id,
+                                         from_span_id=params.from_span_id, to_span_id=params.to_span_id,
+                                         t0=params.t0, t1=params.t1))
     except UnionError as exc:
         raise SidecarError(exc.code, str(exc)) from exc

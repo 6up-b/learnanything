@@ -15,6 +15,7 @@ from pydantic import Field, model_validator
 
 from learnloop.db.stores import desks as store
 from learnloop.db.stores import pad_reads
+from learnloop.db.stores import pads as pad_store
 from learnloop.desks.content_ref import ContentRef, StackEntry, WireModel
 from learnloop.desks.protocol import OpConflict, OpRefused, apply_batch, client_seq_heads, run_op
 from learnloop.db.stores.workspace_batches import DESK
@@ -151,16 +152,48 @@ class SetGoal(_Op):
     goal_id: str | None = None
 
 
+class AddToStack(_Op):
+    """Put a pad (or a lesson) in a stack window: a union, so it commutes with every other change to the desk and
+    needs no expected version (one given is not checked). Already there: nothing changes."""
+
+    op: Literal["add_to_stack"]
+    desk_id: str
+    window_id: str
+    entry: StackEntry
+
+
+class RemoveFromStack(_Op):
+    """Take a pad (or a lesson) out of a stack window, by the same rule; not there: nothing changes."""
+
+    op: Literal["remove_from_stack"]
+    desk_id: str
+    window_id: str
+    entry: StackEntry
+
+
+class EnsureRunningPad(_Op):
+    """The desk's running pad (spec §10.5), created when it has none, and in a stack window of the desk, opened when
+    it has none: idempotent, so every desk, new or old, gets one in one place. ``pad_id`` and ``window_id`` are
+    client-minted and used only when something is created; no expected version (one given is not checked)."""
+
+    op: Literal["ensure_running_pad"]
+    desk_id: str
+    pad_id: str = Field(min_length=1)
+    window_id: str = Field(min_length=1)
+    title: str = ""
+
+
 DeskOp = Annotated[
     Union[CreateDesk, RenameDesk, ArchiveDesk, MoveDesk, OpenWindow, CloseWindow, ReopenWindow, MoveWindow,
-          MoveToDesk, Pair, Unpair, SetFocus, SetActivePane, SetView, SetDock, SetCompanionShown, SetGoal],
+          MoveToDesk, Pair, Unpair, SetFocus, SetActivePane, SetView, SetDock, SetCompanionShown, SetGoal,
+          AddToStack, RemoveFromStack, EnsureRunningPad],
     Field(discriminator="op"),
 ]
 
 DESK_OPS: tuple[str, ...] = (
     "create_desk", "rename_desk", "archive_desk", "move_desk", "open_window", "close_window", "reopen_window",
     "move_window", "move_to_desk", "pair", "unpair", "set_focus", "set_active_pane", "set_view", "set_dock",
-    "set_companion_shown", "set_goal",
+    "set_companion_shown", "set_goal", "add_to_stack", "remove_from_stack", "ensure_running_pad",
 )
 
 
@@ -420,12 +453,106 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         layout.write()
         bump(desk["desk_id"])
         return None
+    if isinstance(op, (AddToStack, RemoveFromStack)):
+        return _stack_membership(connection, op, now, bump)
+    if isinstance(op, EnsureRunningPad):
+        return _ensure_running_pad(connection, op, now, bump)
     if isinstance(op, SetView):
         window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         store.update_window(connection, op.window_id, {"view_json": json.dumps(op.view, sort_keys=True)})
         bump(desk["desk_id"])
         return None
     raise OpRefused("unknown_op", f"Unknown desk op {getattr(op, 'op', None)!r}.")  # pragma: no cover
+
+
+def _open_desk(connection: Any, desk_id: str) -> dict[str, Any]:
+    desk = store.desk(connection, desk_id)
+    if desk is None:
+        raise OpRefused("desk_not_found", f"No desk {desk_id!r}.")
+    if desk["archived_at"] is not None:
+        raise OpRefused("desk_archived", "That desk is archived.")
+    return desk
+
+
+def _same_entry(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    return a.get("kind") == b.get("kind") and a.get("pad_id") == b.get("pad_id") and a.get("lesson_id") == b.get(
+        "lesson_id")
+
+
+def _stack_of(window: dict[str, Any]) -> list[dict[str, Any]]:
+    return list((json.loads(window["spec_json"] or "{}") or {}).get("stack") or [])
+
+
+def _write_stack(connection: Any, window_id: str, stack: list[dict[str, Any]]) -> None:
+    store.update_window(connection, window_id, {"spec_json": json.dumps({"stack": stack}, sort_keys=True)})
+
+
+def _stack_membership(connection: Any, op: AddToStack | RemoveFromStack, now: str, bump: Any) -> dict[str, Any]:
+    """A stack's membership changed by one entry, whatever else changed on the desk meanwhile: the stack lives in
+    the window's spec, apart from its view, so a whole-view write never drops a tab, and a union or a removal of one
+    entry is the same at any desk version."""
+
+    _open_desk(connection, op.desk_id)
+    window = store.window(connection, op.window_id)
+    if window is None or window["desk_id"] != op.desk_id:
+        raise OpRefused("window_not_found", f"No window {op.window_id!r} on that desk.")
+    if window["kind"] != "pad_stack":
+        raise OpRefused("not_a_stack", "That window is not a pad stack.")
+    entry = op.entry.wire()
+    if entry.get("kind") == "pad" and pad_reads.pad(connection, str(entry["pad_id"])) is None:
+        raise OpRefused("pad_not_found", f"No pad {entry['pad_id']!r}.")
+    stack = _stack_of(window)
+    present = any(_same_entry(existing, entry) for existing in stack)
+    changed = False
+    if isinstance(op, AddToStack) and not present:
+        stack.append(entry)
+        changed = True
+    elif isinstance(op, RemoveFromStack) and present:
+        remaining = [existing for existing in stack if not _same_entry(existing, entry)]
+        if not remaining:
+            raise OpRefused("last_in_stack", "A stack holds at least one pad: close the window instead.")
+        stack, changed = remaining, True
+    if changed:
+        _write_stack(connection, op.window_id, stack)
+    bump(op.desk_id)
+    return {"changed": changed, "stack": stack}
+
+
+def _ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: Any) -> dict[str, Any]:
+    """The desk's running pad, and a stack window of the desk holding it: whichever is missing is created."""
+
+    _open_desk(connection, op.desk_id)
+    running = pad_reads.running_pad_ids(connection, op.desk_id)
+    created_pad = not running
+    if created_pad:
+        if pad_reads.pad(connection, op.pad_id) is not None:
+            raise OpRefused("id_collision", f"A pad {op.pad_id!r} already exists.")
+        pad_store.insert_pad(connection, pad_id=op.pad_id, kind="running", title=op.title, home_desk_id=op.desk_id,
+                             workbench_session_id=None, lesson_id=None, now=now)
+        running = [op.pad_id]
+    pad_id = running[0]
+    entry = {"kind": "pad", "pad_id": pad_id}
+    stacks = [row for row in store.open_windows(connection, op.desk_id) if row["kind"] == "pad_stack"]
+    holding = next((row for row in stacks if any(_same_entry(existing, entry) for existing in _stack_of(row))), None)
+    created_window = added = False
+    if holding is not None:
+        window_id = holding["window_id"]
+    elif stacks:
+        window_id = stacks[0]["window_id"]
+        _write_stack(connection, window_id, [*_stack_of(stacks[0]), entry])
+        added = True
+    else:
+        if store.window(connection, op.window_id) is not None:
+            raise OpRefused("window_exists", f"A window {op.window_id!r} already exists.")
+        layout = _Layout(connection, op.desk_id)
+        store.insert_window(connection, window_id=op.window_id, desk_id=op.desk_id, slot=len(layout.slots) + 1,
+                            kind="pad_stack", spec={"stack": [entry]}, view={}, now=now)
+        layout.slots.append([op.window_id])
+        layout.write()
+        window_id, created_window = op.window_id, True
+    bump(op.desk_id)
+    return {"pad_id": pad_id, "window_id": window_id, "created_pad": created_pad, "created_window": created_window,
+            "added_to_stack": added}
 
 
 def apply_desk_ops(repository: Any, *, client_id: str, seq: int, ops: list[Any], clock: Any = None) -> dict[str, Any]:

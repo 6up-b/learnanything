@@ -139,13 +139,17 @@ class PadSubmitBlockInput(ParamsModel):
     target: SubmitTarget
 
 
-def _submission_reply(row: dict[str, Any], *, duplicate: bool, entry: dict[str, Any] | None) -> dict[str, Any]:
+def _submission_reply(row: dict[str, Any], *, duplicate: bool, entry: dict[str, Any] | None,
+                      attempt_id: str | None = None, teach_back: dict[str, Any] | None = None) -> dict[str, Any]:
     return versioned({
         "submission_id": row["submission_id"], "block_id": row["block_id"], "version_id": row["version_id"],
-        "as": row["submitted_as"], "practice_item_id": row["practice_item_id"], "attempt_id": row["attempt_id"],
-        "teach_back_id": row["teach_back_id"], "duplicate": duplicate,
+        "as": row["submitted_as"], "practice_item_id": row["practice_item_id"],
+        "attempt_id": attempt_id or row["attempt_id"], "teach_back_id": row["teach_back_id"], "duplicate": duplicate,
         # The entry point's own reply (already in wire form), on the call that handed the text over.
         "entry": Verbatim(entry) if entry is not None else None,
+        # A teach-back's conversation, found by its id: completed (attempt_id set), ongoing (its state, to resume
+        # in the teach-back screen) or, on the call that opened it, as the entry point left it.
+        "teach_back": teach_back,
     })
 
 
@@ -175,48 +179,81 @@ def _hand_to_attempt(ctx: SidecarContext, vault: Any, prepared: submission_core.
     return submit_attempt_on(ctx, submission, entry_surface=submission_core.ENTRY_SURFACE, hint_window_fold=True)
 
 
-def _started_teach_back(repository: Any, prepared: submission_core.Prepared) -> str | None:
-    """The conversation this submission already opened (a retry after a lost reply), else None; refuses when
-    another teach-back of the item is under way in the session (its next turn would take the block as an answer)."""
+def _teach_back_status(repository: Any, prepared: submission_core.Prepared,
+                       conversation_id: str | None) -> tuple[str, dict[str, Any] | None, str | None]:
+    """Where the conversation ``conversation_id`` stands, found by its id alone (never by its words, which another
+    submission may share): ``completed`` (its attempt, whose evidence carries the id as its agent run), ``ongoing``
+    (the session's checkpointed state), or ``not_started``. Refuses when another teach-back of the item is under way
+    in the session: its next turn would take the block as an answer."""
 
     from learnloop.tutor.teach_back import TeachBackState
     from learnloop_sidecar.context import teach_back_envelope
 
+    if conversation_id is not None:
+        attempt_id = repository.find_attempt_id_by_evidence_agent_run(
+            practice_item_id=prepared.practice_item_id, agent_run_id=conversation_id, attempt_type="teach_back")
+        if attempt_id is not None:
+            return "completed", None, attempt_id
     checkpoint = repository.fetch_session_checkpoint(prepared.session_id) or {}
     envelope = teach_back_envelope(checkpoint.get("current_answer"))
-    if envelope is None:
-        return None
-    state = TeachBackState.from_dict(envelope["state"])
-    if state.practice_item_id != prepared.practice_item_id or not state.turns:
-        return None
-    first = state.turns[0]
-    if first.role == "learner" and first.content_md.strip() == prepared.text.strip() and state.conversation_id:
-        return str(state.conversation_id)
-    raise SidecarError("teach_back_in_progress",
-                       "A teach-back of this item is already under way in this session; finish it first.")
+    if envelope is not None:
+        state = TeachBackState.from_dict(envelope["state"])
+        if state.practice_item_id == prepared.practice_item_id and state.turns:
+            if conversation_id is not None and state.conversation_id == conversation_id:
+                return "ongoing", state.to_dict(), None
+            raise SidecarError("teach_back_in_progress",
+                               "A teach-back of this item is already under way in this session; finish it first.")
+    return "not_started", None, None
 
 
-def _hand_to_teach_back(ctx: SidecarContext, repository: Any, prepared: submission_core.Prepared,
-                        target: SubmitTarget) -> tuple[dict[str, Any] | None, str | None, str | None]:
-    from learnloop_sidecar.handlers.teach_back import SubmitTeachBackTurnInput, submit_teach_back_turn
+def _hand_to_teach_back(ctx: SidecarContext, prepared: submission_core.Prepared, target: SubmitTarget,
+                        conversation_id: str) -> tuple[dict[str, Any], str | None]:
+    """The block's words as the opening of the conversation ``conversation_id`` (reserved before this call)."""
 
-    started = _started_teach_back(repository, prepared)
-    if started is not None:
-        return None, None, started
-    entry = submit_teach_back_turn(ctx, SubmitTeachBackTurnInput(
+    from learnloop_sidecar.handlers.teach_back import SubmitTeachBackTurnInput, submit_teach_back_turn_on
+
+    entry = submit_teach_back_turn_on(ctx, SubmitTeachBackTurnInput(
         session_id=prepared.session_id, practice_item_id=prepared.practice_item_id,
         scheduler_candidate_id=target.scheduler_candidate_id, answer_md=prepared.text,
-        latency_seconds=target.latency_seconds, active_seconds=target.active_seconds))
-    if entry.get("done"):
-        # The conversation could not continue and was graded at once: the attempt carries the conversation's id.
-        return entry, entry.get("attemptId"), entry.get("agentRunId") or entry.get("attemptId")
-    return entry, None, ((entry.get("state") or {}).get("conversationId"))
+        latency_seconds=target.latency_seconds, active_seconds=target.active_seconds),
+        conversation_id=conversation_id)
+    # Done at once (the student could not ask): graded now, the attempt's evidence carrying the conversation's id.
+    return entry, (entry.get("attemptId") if entry.get("done") else None)
+
+
+def _submit_teach_back(ctx: SidecarContext, repository: Any, prepared: submission_core.Prepared,
+                       target: SubmitTarget) -> dict[str, Any]:
+    """A teach-back submission, reserved before its hand-off so a crash anywhere after it is recoverable.
+
+    The submission's row is written first, naming a conversation id minted here; the conversation is then opened
+    under that id. A retry of the same submission finds the row and asks where its conversation stands, by that id:
+    completed (its attempt), ongoing (its state, to resume), or never started (a crash before the hand-off, or the
+    entry point refused: the words are handed over again under the same id)."""
+
+    from learnloop.ids import new_ulid
+
+    row = prepared.existing
+    conversation_id = str(row["teach_back_id"]) if row is not None else new_ulid()
+    status, state, attempt_id = _teach_back_status(repository, prepared, conversation_id)
+    if row is None:
+        row = submission_core.record(repository, prepared, attempt_id=None, teach_back_id=conversation_id)
+        conversation_id = str(row["teach_back_id"])  # a concurrent first call's reservation wins
+    duplicate = prepared.existing is not None
+    entry = None
+    if status == "not_started":
+        entry, attempt_id = _hand_to_teach_back(ctx, prepared, target, conversation_id)
+        status = "completed" if attempt_id else "ongoing"
+        state = None if attempt_id else (entry.get("state") or None)
+    return _submission_reply(row, duplicate=duplicate, entry=entry, attempt_id=attempt_id or row.get("attempt_id"),
+                             teach_back={"status": status, "conversation_id": conversation_id,
+                                         "state": Verbatim(state) if state is not None else None})
 
 
 @method("pad.submit_block", PadSubmitBlockInput)
 def pad_submit_block_handler(ctx: SidecarContext, params: PadSubmitBlockInput) -> dict[str, Any]:
     """Submit one block version as an attempt or a teach-back (an explicit act): ``{submission_id, block_id,
-    version_id, as, attempt_id?, teach_back_id?, duplicate, entry?}``. Idempotent by ``submission_id``."""
+    version_id, as, attempt_id?, teach_back_id?, duplicate, entry?, teach_back?}``. Idempotent by
+    ``submission_id``."""
 
     vault, repository = ctx.require_vault()
     try:
@@ -226,18 +263,15 @@ def pad_submit_block_handler(ctx: SidecarContext, params: PadSubmitBlockInput) -
             session_id=params.target.session_id)
     except submission_core.SubmissionRefused as exc:
         raise SidecarError(exc.code, exc.message, details=exc.details) from exc
+    if params.submitted_as == submission_core.TEACH_BACK:
+        return _submit_teach_back(ctx, repository, prepared, params.target)
     if prepared.existing is not None:
         return _submission_reply(prepared.existing, duplicate=True, entry=None)
-    if params.submitted_as == submission_core.ATTEMPT:
-        entry: dict[str, Any] | None = _hand_to_attempt(ctx, vault, prepared, params.target)
-        attempt_id, teach_back_id = (entry or {}).get("attemptId"), None
-        if not attempt_id:
-            raise SidecarError("internal", "The attempt entry point recorded no attempt.")
-    else:
-        entry, attempt_id, teach_back_id = _hand_to_teach_back(ctx, repository, prepared, params.target)
-        if not teach_back_id:
-            raise SidecarError("internal", "The teach-back entry point opened no conversation.")
-    row = submission_core.record(repository, prepared, attempt_id=attempt_id, teach_back_id=teach_back_id)
+    entry: dict[str, Any] | None = _hand_to_attempt(ctx, vault, prepared, params.target)
+    attempt_id = (entry or {}).get("attemptId")
+    if not attempt_id:
+        raise SidecarError("internal", "The attempt entry point recorded no attempt.")
+    row = submission_core.record(repository, prepared, attempt_id=attempt_id, teach_back_id=None)
     return _submission_reply(row, duplicate=False, entry=entry)
 
 

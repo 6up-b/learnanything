@@ -958,6 +958,23 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     await shot(page, shots, "pads-menu")
     await page.keyboard.press("Escape")
 
+    # Ask about this, from a pad line linked to no passage: asked beside the desk's book, the block named and
+    # its words with the question.
+    await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
+    await page.locator(".desk-padmenu").get_by_text("Ask about this").click()
+    await settle(page, 500)
+    box = page.locator(".desk-companion .input")
+    cannot = await page.locator(".desk-companion .cannot").count()
+    await box.fill("why only in proportion?", timeout=5000)
+    await box.press("Enter")
+    await settle(page, 600)
+    asked = [call["input"] for call in await calls(page, "companion_ask")]
+    last = asked[-1] if asked else {}
+    results.check("Ask about this on a pad line asks (beside the desk's book), naming the block, its words with the question",
+                  cannot == 0 and last.get("padBlockIds") == ["fx_b_r1"] and last.get("extractionId") == "fx_ext_softmax" and "my pad" in str(last.get("question")), [cannot, {k: last.get(k) for k in ("padBlockIds", "extractionId", "question")}])
+    await page.locator(".desk-companion").get_by_role("button", name="c hide").click()
+    await settle(page, 600)
+
     # #s11=lift: lift out leaves a stub and adds the block's own pad to the stack.
     await page.locator('.desk-pads [data-block="fx_b_r7"]').hover()
     await page.locator('.desk-pads [data-block="fx_b_r7"] .lift').click()

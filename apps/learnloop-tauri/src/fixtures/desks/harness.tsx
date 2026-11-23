@@ -8,7 +8,7 @@ import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
 import { PadStackWindow } from "../../screens/desks/pads/PadStackWindow";
-import { PadsHostContext, type PadsHost } from "../../screens/desks/pads/host";
+import { PadsHostContext, PendingFigures, type PadsHost } from "../../screens/desks/pads/host";
 import { DeskStore } from "../../screens/desks/store";
 import { REAL_TIMERS } from "../../screens/desks/keys/router";
 import { fixtureMathPad } from "./pads";
@@ -70,8 +70,10 @@ function LatexFixture() {
     return {
       store, deskId: "fx_desk_softmax", mintId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2)}`, today: () => "2026-11-23",
       api: { padProposals: async ({ padId }) => ({ version: 1, padId, proposals: [] }) as never, proposalLabel: nothing, padSubmitBlock: nothing, carriedCarry: nothing,
-        requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }) },
+        requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }),
+        submitTeachBackTurn: nothing, getSession: nothing, passageContent: nothing },
       practiceSessionId: null, openPassage: noop, openSearch: noop, askAbout: noop, toast: noop, setView: noop, sourcePieces: () => [], register: noop, carry: noop,
+      figures: new PendingFigures(), addToStack: noop,
     };
   }, []);
   return (

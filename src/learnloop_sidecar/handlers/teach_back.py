@@ -188,7 +188,18 @@ def start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[s
 
 @method("submit_teach_back_turn", SubmitTeachBackTurnInput)
 def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput) -> dict[str, Any]:
+    """The RPC: :func:`submit_teach_back_turn_on` with a fresh conversation id when it opens one."""
+
+    return submit_teach_back_turn_on(ctx, params)
+
+
+def submit_teach_back_turn_on(ctx: SidecarContext, params: SubmitTeachBackTurnInput, *,
+                              conversation_id: str | None = None) -> dict[str, Any]:
     """Record a learner turn, then either ask the next question or finish.
+
+    ``conversation_id``: the id a conversation this call opens takes (a submitted pad
+    block reserves it before handing its words over, so a retry finds what it started);
+    ignored when a conversation is already under way.
 
     The first submitted turn is the opening explanation; later turns answer
     the pending AI question. When the plan/budget is exhausted, the client
@@ -216,6 +227,7 @@ def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput
                 item,
                 opening_md=params.answer_md,
                 scheduler_candidate_id=offer,
+                conversation_id=conversation_id,
             )
             if planned is not None:
                 state.planned = planned

@@ -5,7 +5,7 @@
 // each write goes through the vault's store (applied at once, sent by `pad.apply`). LearnLoop speaks only
 // through gutter marks and their hover cards.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import type { PadBlockDto, PadProposalDto, PadStackEntryDto } from "../../../api/dto";
+import type { PadAnchorDto, PadBlockDto, PadProposalDto, PadStackEntryDto } from "../../../api/dto";
 import { MarkdownMath } from "../../../render/MarkdownMath";
 import { LiveMarkdownEditor } from "../../../render/LiveMarkdownEditor";
 import { FitMath } from "../fitMath";
@@ -42,7 +42,8 @@ function clock(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** The pads a stack shows: its own entries, then pads added here (a new pad, a lifted block). */
+/** The pads a stack shows: its entries, then pads an earlier build added through the window's view (shown, and
+ * moved into the stack by add_to_stack when the desks open). */
 export function stackPadIds(stack: PadStackEntryDto[], view: Record<string, unknown> | undefined): string[] {
   const own = stack.filter((entry): entry is Extract<PadStackEntryDto, { kind: "pad" }> => entry.kind === "pad").map((entry) => entry.padId);
   const added = Array.isArray(view?.addedPads) ? (view?.addedPads as unknown[]).filter((id): id is string => typeof id === "string") : [];
@@ -59,13 +60,17 @@ export function tabMeta(state: PadState, today: string): string {
 }
 
 /** The words a quote block's back-link names: "§ <source> p.<page> ↩" or "▶ <video> <time> ↩". */
-export function backLink(block: PadBlockDto): { label: string; extractionId: string | null; spanId: string | null; t?: number } {
+export function backLink(block: PadBlockDto, anchors: PadAnchorDto[] = []): { label: string; extractionId: string | null; spanId: string | null; t?: number; sourceId: string | null } {
   const p = block.payload as Record<string, unknown>;
+  // The block's own link names its source (and a cue's time) even with no window of it open.
+  const link = anchors.find((anchor) => anchor.blockId === block.blockId);
+  const sourceId = typeof p.source_id === "string" ? p.source_id : link?.sourceId ?? null;
   const title = typeof p.source_title === "string" ? p.source_title : "the source";
   const extractionId = typeof p.extraction_id === "string" ? p.extraction_id : null;
   const spanId = typeof p.span_id === "string" ? p.span_id : null;
-  if (typeof p.t === "number") return { label: `▶ ${title} ${clock(p.t)} ↩`, extractionId, spanId, t: p.t };
-  return { label: `§ ${title}${typeof p.page === "number" ? ` p.${p.page}` : ""} ↩`, extractionId, spanId };
+  const t = typeof p.t === "number" ? p.t : typeof link?.t === "number" ? link.t : undefined;
+  if (t !== undefined) return { label: `▶ ${title} ${clock(t)} ↩`, extractionId, spanId, t, sourceId };
+  return { label: `§ ${title}${typeof p.page === "number" ? ` p.${p.page}` : ""} ↩`, extractionId, spanId, sourceId };
 }
 
 interface Card {
@@ -93,6 +98,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const { store } = host;
   useSyncExternalStore(store.subscribe, store.getPadVersion);
   const paused = useWindowPaused();
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   const padIds = useMemo(() => stackPadIds(stack, view), [stack, view]);
   useEffect(() => {
     if (paused) return;
@@ -103,6 +110,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
 
   const [grade] = useState<TabGrade>(readGrade);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const tabEls = useRef(new Map<string, HTMLElement>());
   const paperEls = useRef(new Map<string, HTMLElement>());
   const blockEls = useRef(new Map<string, HTMLElement>());
@@ -227,15 +235,16 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
 
   // -- writing ---------------------------------------------------------------------------------------
   const write = useCallback((padId: string, ops: Parameters<typeof store.commitPad>[1]): boolean => {
-    // A paused window writes nothing (a hidden desk's pad, a card in the overview).
-    if (paused) return false;
+    // A paused window writes nothing (a hidden desk's pad, a card in the overview), read now: an insert that
+    // waited on a read (a source piece) must not write through a closure from while it was live.
+    if (pausedRef.current) return false;
     const refused = store.commitPad(padId, ops);
     if (refused) {
       host.toast(refused.code === "not_editable" ? "a quote is the source's words · add a note under it" : `couldn't change the pad · ${refused.message}`);
       return false;
     }
     return true;
-  }, [host, paused, store]);
+  }, [host, store]);
 
   const insertAfter = useCallback((padId: string, after: string | null, block: { kind: PadBlockDto["kind"]; provenance: PadBlockDto["provenance"]; bodyMd?: string; payload?: Record<string, unknown> }, edit = false): string | null => {
     const state = store.pads[padId];
@@ -267,6 +276,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
 
   const openEditor = (padId: string, block: PadBlockDto) => {
     if (!EDITABLE_KINDS.has(block.kind) || block.kind === "sketch") return;
+    // The block being edited is never reopened: that would reset the draft to the words it had when opened.
+    if (editing?.blockId === block.blockId) return;
     if (window.getSelection?.()?.toString()) return;
     if (editing) commitEdit();
     setEditing({ padId, blockId: block.blockId, draft: block.bodyMd, original: block.bodyMd, focus: Date.now() });
@@ -318,8 +329,9 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     if (cardTimer.current) clearTimeout(cardTimer.current);
     cardTimer.current = setTimeout(() => setCard(next), next ? CARD_MS.open : CARD_MS.hide);
   };
+  // Cards are placed in the pad window's own box, which both layouts (the tab scroller and split panes) share.
   const cardFor = (padId: string, blockId: string, kind: Card["kind"], mark: HTMLElement) => {
-    const scroller = scrollerRef.current;
+    const scroller = rootRef.current;
     if (!scroller) return null;
     const box = mark.getBoundingClientRect();
     const frame = scroller.getBoundingClientRect();
@@ -378,7 +390,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       const padId = host.mintId("pad");
       const name = `Scratchpad · ${title ? `“${title.slice(0, 40)}”` : "new notes"}`;
       if (!write(padId, [{ op: "create_pad", kind: "named", title: name, homeDeskId: host.deskId }])) return;
-      host.setView(windowId, { ...view, addedPads: [...(Array.isArray(view.addedPads) ? (view.addedPads as string[]) : []), padId] });
+      host.addToStack(windowId, padId);
       setTimeout(() => scrollToPad(padIds.length), 50);
     },
     sketchBlock() {
@@ -412,6 +424,18 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     return () => host.register(windowId, null);
   }, [host, windowId, proxy]);
 
+  // Figures Show me finished are written while the window is live; paused, they wait for its return.
+  const figureVersion = useSyncExternalStore(host.figures.subscribe, host.figures.getVersion);
+  useEffect(() => {
+    if (paused) return;
+    for (const figure of host.figures.take(windowId)) {
+      if (!store.pads[figure.padId]) continue;
+      insertAfter(figure.padId, figure.afterBlockId, { kind: "figure", provenance: "learnloop", bodyMd: figure.line, payload: { figure_id: figure.figureId } });
+    }
+    // insertAfter reads the store as it is now.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, figureVersion, windowId]);
+
   // A passage's ✎ link scrolls the pad to its block and flashes it.
   useHubListener<CustomEvent<{ blockId: string }>>("window", "learnloop:pad-flash", (event) => {
     const element = blockEls.current.get(event.detail.blockId);
@@ -435,7 +459,11 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     const markLeave = () => scheduleCard(null);
     const markTap = (kind: Card["kind"]) => (event: React.MouseEvent<HTMLElement>) => {
       event.stopPropagation();
-      setCard((now) => (now?.blockId === block.blockId && now.kind === kind ? null : cardFor(padId, block.blockId, kind, event.currentTarget)));
+      // The mark is read now: the event's currentTarget is gone by the time the state updater runs.
+      const markEl = event.currentTarget;
+      const next = cardFor(padId, block.blockId, kind, markEl);
+      if (cardTimer.current) clearTimeout(cardTimer.current);
+      setCard((now) => (now?.blockId === block.blockId && now.kind === kind ? null : next));
     };
     const mark = (kind: Card["kind"], glyph: string, className: string) => (
       <button type="button" className={`mark ${className}`} data-mark={kind} aria-label={`${kind} mark`} onMouseEnter={markEnter(kind)} onMouseLeave={markLeave} onClick={markTap(kind)}>{glyph}</button>
@@ -443,12 +471,12 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     switch (block.kind) {
       case "source_quote":
       case "source_piece": {
-        const link = backLink(block);
+        const link = backLink(block, state.anchors);
         gutter = mark("source", "§", "src");
         body = (
           <div className={`quote${block.kind === "source_piece" ? " piece" : ""}`}>
             <FitMath><MarkdownMath value={`“${block.bodyMd}”`} /></FitMath>
-            {link.extractionId ? <button type="button" className="back" onClick={() => host.openPassage(link.extractionId as string, link.spanId, link.t)}>{link.label}</button> : null}
+            {link.extractionId ? <button type="button" className="back" onClick={() => host.openPassage(link.extractionId as string, link.spanId, link.t, link.sourceId)}>{link.label}</button> : null}
           </div>
         );
         break;
@@ -536,7 +564,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
           if (hovered.current?.blockId === block.blockId) hovered.current = null;
         }}
         onClick={(event) => {
-          if ((event.target as Element).closest("button, a, svg, .desk-sketch")) return;
+          // A click inside the editor (moving the caret) is the editor's, not a request to open the block.
+          if ((event.target as Element).closest("button, a, svg, .desk-sketch, [data-pad-editor]")) return;
           openEditor(padId, block);
         }}
         onContextMenu={(event) => {
@@ -548,6 +577,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         <div className="gut">{gutter}{proposal && gutter && block.kind !== "text" ? null : null}</div>
         <div className="bx">
           {body}
+          {(block.payload as { conflict?: { label?: string } }).conflict ? <span className="conflict" data-conflict="">⇄ {(block.payload as { conflict: { label?: string } }).conflict.label || "written over an older version"}</span> : null}
           {submission ? <span className="submitted">{submission.current ? `submitted · ${submission.as === "teach_back" ? "teach-back" : `attempt, ${shortDate(submission.createdAt)}`}` : "submitted (an earlier version)"}</span> : null}
           {question && !isEditing ? <button type="button" className="carry" onClick={() => host.carry(block.bodyMd.trim(), { kind: "block", ref: block.blockId })}>? carry</button> : null}
         </div>
@@ -557,7 +587,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             const newPadId = host.mintId("pad");
             const title = firstLine(block.bodyMd).slice(0, 48) || "lifted";
             if (write(padId, [{ op: "lift_out", blockId: block.blockId, expectedHead: block.headVersionId, newPadId, newBlockId: host.mintId("blk"), title, newVersionId: host.mintId("ver"), stubVersionId: host.mintId("ver"), positionKey: "m" }])) {
-              host.setView(windowId, { ...view, addedPads: [...(Array.isArray(view.addedPads) ? (view.addedPads as string[]) : []), newPadId] });
+              host.addToStack(windowId, newPadId);
             }
           }}>lift out</button>
         ) : null}
@@ -629,7 +659,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const cardProposal = card ? (proposals[card.padId] ?? []).find((each) => each.blockId === card.blockId && each.shown) ?? null : null;
 
   return (
-    <div className="desk-pads" data-pad-stack={windowId}>
+    <div className="desk-pads" data-pad-stack={windowId} ref={rootRef}>
       <div className="pbar"><button type="button" className="pinfo" aria-label="where your words go" aria-expanded={info} onClick={() => setInfo((now) => !now)}>ⓘ yours</button></div>
       {info ? (
         <div className="pinfo-pop" role="dialog" aria-label="where your words go">
@@ -666,19 +696,22 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             <>
               <div className="head">{backLink(cardBlock).label.replace(" ↩", "")} · the passage this quote came from</div>
               <FitMath><MarkdownMath value={cardBlock.bodyMd.slice(0, 320)} /></FitMath>
-              {backLink(cardBlock).extractionId ? <button type="button" onClick={() => host.openPassage(backLink(cardBlock).extractionId as string, backLink(cardBlock).spanId, backLink(cardBlock).t)}>open it beside ↩</button> : null}
+              {backLink(cardBlock).extractionId ? <button type="button" onClick={() => {
+                const link = backLink(cardBlock, store.pads[card.padId]?.anchors ?? []);
+                host.openPassage(link.extractionId as string, link.spanId, link.t, link.sourceId);
+              }}>open it beside ↩</button> : null}
             </>
           ) : card.kind === "tutor" ? (
             <>
               <div className="head">◇ the tutor's words</div>
               <FitMath><MarkdownMath value={cardBlock.bodyMd} /></FitMath>
-              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd))}>open the thread</button>
+              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd), padContext(card.padId, cardBlock, store.pads[card.padId]?.anchors))}>open the thread</button>
             </>
           ) : card.kind === "figure" ? (
             <>
               <div className="head">a figure LearnLoop made for this line · help, not a check</div>
               <FitMath><MarkdownMath value={cardBlock.bodyMd} /></FitMath>
-              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd))}>open it in the tutor</button>
+              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd), padContext(card.padId, cardBlock, store.pads[card.padId]?.anchors))}>open it in the tutor</button>
             </>
           ) : cardProposal ? (
             <>
@@ -687,9 +720,9 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
               <div className="acts">
                 <button type="button" onClick={() => {
                   labelProposal(cardProposal, "opened");
-                  const target = cardProposal.target as { content?: { extraction_id?: string; extractionId?: string }; target?: { span_id?: string } };
+                  const target = cardProposal.target as { content?: { extraction_id?: string; extractionId?: string; source_id?: string; sourceId?: string; t?: number }; target?: { span_id?: string; t?: number } };
                   const extractionId = target.content?.extraction_id ?? target.content?.extractionId;
-                  if (extractionId) host.openPassage(extractionId, target.target?.span_id ?? null);
+                  if (extractionId) host.openPassage(extractionId, target.target?.span_id ?? null, target.target?.t ?? target.content?.t, target.content?.source_id ?? target.content?.sourceId ?? null);
                   setCard(null);
                 }}>open beside</button>
                 <button type="button" onClick={() => { labelProposal(cardProposal, "not_this"); setCard(null); }}>not this</button>
@@ -703,6 +736,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         <PadMenu
           request={menu}
           host={host}
+          windowId={windowId}
           state={store.pads[menu.padId] ?? null}
           muted={muted.includes(menu.padId)}
           onClose={() => setMenu(null)}
@@ -734,6 +768,15 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     </div>
   );
 });
+
+/** A pad block as the companion asks about it: the block, and the passage it links to (its first anchor). */
+function padContext(padId: string, block: PadBlockDto, anchors: Array<{ blockId: string; extractionId: string; spanId: string }> = []) {
+  const p = block.payload as Record<string, unknown>;
+  const own = anchors.find((anchor) => anchor.blockId === block.blockId);
+  const anchor = own ? { extractionId: own.extractionId, spanId: own.spanId }
+    : typeof p.extraction_id === "string" && typeof p.span_id === "string" ? { extractionId: p.extraction_id, spanId: p.span_id } : null;
+  return { padId, blockId: block.blockId, anchor };
+}
 
 function setRef(map: Map<string, HTMLElement>, key: string, node: HTMLElement | null) {
   if (node) map.set(key, node);

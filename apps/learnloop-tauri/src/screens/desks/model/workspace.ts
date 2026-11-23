@@ -51,6 +51,8 @@ export interface Workspace {
   windows: Record<string, DeskWindow>;
   /** Windows closed on each desk, newest last: what "undo close" reopens. */
   closed: Record<string, ClosedWindow[]>;
+  /** The running pads the server knows (a desk's running pad is the one of these its stacks hold). */
+  runningPadIds?: string[];
 }
 
 export const EMPTY_WORKSPACE: Workspace = { desks: [], windows: {}, closed: {} };
@@ -87,7 +89,7 @@ export function fromDeskState(state: DeskStateDto): Workspace {
       slots,
     };
   });
-  return { desks: orderDesks(desks), windows, closed: {} };
+  return { desks: orderDesks(desks), windows, closed: {}, runningPadIds: [...(state.runningPadIds ?? [])] };
 }
 
 // -- reads ------------------------------------------------------------------------------------------
@@ -214,6 +216,10 @@ function requireOpen(desk: Desk, windowId: string): number {
   const index = slotIndexOf(desk, windowId);
   if (index < 0) throw new OpRefusal("window_not_open", "That window is not open on this desk.");
   return index;
+}
+
+function sameEntry(a: PadStackEntryDto, b: PadStackEntryDto): boolean {
+  return a.kind === b.kind && (a.kind === "pad" ? a.padId === (b as { padId?: string }).padId : (a as { lessonId?: string }).lessonId === (b as { lessonId?: string }).lessonId);
 }
 
 function bump(desk: Desk, fields: Partial<Desk> = {}): Desk {
@@ -380,6 +386,43 @@ export function applyDeskOp(ws: Workspace, op: DeskOpDto): Workspace {
       const window = ws.windows[op.windowId];
       return { ...replaceDesk(ws, bump(desk)), windows: { ...ws.windows, [op.windowId]: { ...window, view: op.view } } };
     }
+    case "add_to_stack":
+    case "remove_from_stack": {
+      // A stack's membership by one entry: a union or a removal, the same at any desk version (no expected
+      // version is checked), in the window's spec apart from its view. It bumps the desk either way.
+      const desk = requireDesk(ws, op.deskId);
+      const window = ws.windows[op.windowId];
+      if (!window || window.deskId !== desk.deskId) throw new OpRefusal("window_not_found", `No window ${op.windowId} on that desk.`);
+      if (window.kind !== "pad_stack") throw new OpRefusal("not_a_stack", "That window is not a pad stack.");
+      const stack = window.stack ?? [];
+      const present = stack.some((entry) => sameEntry(entry, op.entry));
+      let next = stack;
+      if (op.op === "add_to_stack" && !present) next = [...stack, op.entry];
+      if (op.op === "remove_from_stack" && present) {
+        next = stack.filter((entry) => !sameEntry(entry, op.entry));
+        if (next.length === 0) throw new OpRefusal("last_in_stack", "A stack holds at least one pad: close the window instead.");
+      }
+      return { ...replaceDesk(ws, bump(desk)), windows: { ...ws.windows, [op.windowId]: { ...window, stack: next } } };
+    }
+    case "ensure_running_pad": {
+      // The desk's running pad, and a stack window of the desk holding it: whichever is missing is created.
+      const desk = requireDesk(ws, op.deskId);
+      const running = new Set(ws.runningPadIds ?? []);
+      const stacks = desk.slots.flat().map((id) => ws.windows[id]).filter((window): window is DeskWindow => window?.kind === "pad_stack");
+      const holding = stacks.find((window) => (window.stack ?? []).some((entry) => entry.kind === "pad" && running.has(entry.padId)));
+      if (holding) return replaceDesk(ws, bump(desk));
+      const runningPadIds = [...(ws.runningPadIds ?? []), op.padId];
+      const entry: PadStackEntryDto = { kind: "pad", padId: op.padId };
+      if (stacks.length) {
+        const first = stacks[0];
+        return { ...replaceDesk(ws, bump(desk)), runningPadIds, windows: { ...ws.windows, [first.windowId]: { ...first, stack: [...(first.stack ?? []), entry] } } };
+      }
+      if (ws.windows[op.windowId]) throw new OpRefusal("window_exists", "That window exists.");
+      const window: DeskWindow = { windowId: op.windowId, deskId: desk.deskId, kind: "pad_stack", content: null, stack: [entry], active: true, view: {} };
+      const next = bump(desk, { slots: [...desk.slots.map((slot) => [...slot]), [op.windowId]] });
+      const withWindow = { ...ws, runningPadIds, windows: { ...ws.windows, [op.windowId]: window } };
+      return { ...replaceDesk(withWindow, next), windows: normalizeActive(withWindow, next, activeSet(withWindow, next)) };
+    }
   }
 }
 
@@ -457,6 +500,27 @@ export function openBeside(
   });
   step = push(step, { op: "set_focus", deskId, windowId });
   return { ...step, windowId, existed: false };
+}
+
+/** A pad joins a stack window (spec §10; a union by one entry, never a whole-view write, so a tab another device
+ * added, or a desk change meanwhile, cannot drop it). Already there: nothing to send. */
+export function addToStack(ws: Workspace, deskId: string, windowId: string, padId: string): Step {
+  const window = ws.windows[windowId];
+  if (window?.stack?.some((entry) => entry.kind === "pad" && entry.padId === padId)) return start(ws);
+  return push(start(ws), { op: "add_to_stack", deskId, windowId, entry: { kind: "pad", padId } });
+}
+
+/** The desk's running pad (spec §10.5), ensured: created with a stack window when the desk has none in its
+ * stacks (the op is idempotent on the server; ids are used only for what it creates). */
+export function ensureRunningPad(ws: Workspace, deskId: string, mintPad: () => string, mintWindow: () => string): Step {
+  return push(start(ws), { op: "ensure_running_pad", deskId, padId: mintPad(), windowId: mintWindow(), title: "running" });
+}
+
+/** Whether a desk's stacks hold one of the running pads the server knows. */
+export function hasRunningPad(ws: Workspace, deskId: string): boolean {
+  const desk = deskById(ws, deskId);
+  const running = new Set(ws.runningPadIds ?? []);
+  return Boolean(desk?.slots.flat().some((id) => (ws.windows[id]?.stack ?? []).some((entry) => entry.kind === "pad" && running.has(entry.padId))));
 }
 
 /** A pad stack window opened beside the focus (alt+n away from a stack: spec §10.5). */

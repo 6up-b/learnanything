@@ -1,15 +1,17 @@
 // DeskShell in jsdom (spec §18.2): the key router reaching the workspace, the writes the outbox sends,
 // a conflict taking the server's state, first-run desks, the typing scope, hidden desks and which-key.
 // Layout, pixels and real iframes are the real-webview harness's (scripts/desk_harness/run.py).
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useState } from "react";
 import type { DeskStateDto, SourceLibraryCard } from "../../api/dto";
 import { FixtureDeskServer, fixtureDeskState } from "../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../fixtures/desks/sources";
-import { DeskShell, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { DeskShell, groundingFor, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { fromDeskState } from "./model/workspace";
 import { Poller } from "../../api/poller";
 import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
+import { usePadsHost } from "./pads/host";
 import { useBareAltClear } from "../reader/bareAlt";
 
 vi.mock("../../api/client", () => ({ api: {} }));
@@ -472,7 +474,9 @@ describe("gather", () => {
     });
     await flush();
     const gathered = server.state().desks.find((desk) => desk.title.startsWith("gathered · "));
-    expect(gathered?.slots.map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path"]);
+    // The gathered windows, then the new desk's running pad in its stack (every desk has one).
+    expect(gathered?.slots.slice(0, 3).map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path"]);
+    expect(gathered?.slots[3]?.windows[0].kind).toBe("pad_stack");
     expect(gathered?.focusWindowId).toBe("fx_w_book");
     expect(server.state().desks[0].slots.map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_video", "fx_w_paper", "fx_w_pads"]);
   });
@@ -1596,6 +1600,9 @@ describe("RD4b: pads in the desks", () => {
         passageUnionRange: async () => ({ sections: [] }) as never,
         authorPracticeItem: async () => ({ practiceItemId: "x" }),
         workbenchOpenProblems: async () => ({ problems: [] }),
+        submitTeachBackTurn: async () => ({ done: true }) as never,
+        getSession: async () => ({ checkpoint: null }) as never,
+        passageContent: async () => ({ version: 1, extractionId: "", sourceId: null, title: null, withheld: false, spans: [] }) as never,
         padDrain: async ({ deskId }: { deskId: string }) => ({
           version: 1, deskId, day: "2026-11-23",
           pads: [{ padId: "fx_pad_running", kind: "running", title: "running", kept: false, version: 1, firstLine: "softmax keeps the winner", lastLine: "is it the same move?", carryCandidate: "is it the same move?", updatedAt: "2026-11-23T10:00:00Z" }],
@@ -1668,7 +1675,63 @@ describe("RD4b: pads in the desks", () => {
     });
     expect(shelf.querySelectorAll(".q")).toHaveLength(3);
     expect(shelf.textContent).toContain("since 20 Nov");
-    expect(shelf.textContent).toContain("1 more in the library");
+    // The rest is a working link to every carried question (not a mention of the library).
+    expect(within(shelf).getByRole("button", { name: /all carried questions \(1 more\)/ })).toBeTruthy();
+  });
+
+  it("the shelf's link opens every carried question, page by page, each with fruitful, not now and let it go", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const question = (n: number) => ({ carriedId: `c${n}`, text: `question ${n}?`, originKind: "typed", originRef: null, anchor: null, deskId: null, since: "2026-11-20T10:00:00Z", state: "carried", carried: true, version: n, updatedAt: "2026-11-20T10:00:00Z" });
+    const pages: Array<string | undefined> = [];
+    fakes.transport.carriedList = (async (input: { cursor?: string }) => {
+      pages.push(input.cursor);
+      return input.cursor ? { carried: [question(5)], shelfLimit: 3, cursor: null } : { carried: [1, 2, 3, 4].map(question), shelfLimit: 3, cursor: "c4" };
+    }) as never;
+    const marks: unknown[] = [];
+    fakes.transport.carriedMark = async (input: unknown) => {
+      marks.push(input);
+      return {};
+    };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const shelf = document.querySelector("[data-shelf-carried]") as HTMLElement;
+    expect(shelf.querySelectorAll(".q")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: /all carried questions/ }));
+    const list = await screen.findByRole("dialog", { name: "carried questions" });
+    expect(list.querySelectorAll("[data-carried-row]")).toHaveLength(4);
+    fireEvent.click(screen.getByRole("button", { name: /older/ }));
+    await flush();
+    expect(list.querySelectorAll("[data-carried-row]")).toHaveLength(5);
+    expect(pages).toContain("c4");
+    const row = list.querySelector('[data-carried-row="c2"]') as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "let it go" }));
+    await flush();
+    expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c2", event: "let_go", expectedVersion: 2 });
+    expect(list.querySelector('[data-carried-row="c2"]')).toBeNull();
+  });
+
+  it("a passage's ✎ marks come from the passage union (no pad loaded), an alias that needs re-anchoring marked as such", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const asked: unknown[] = [];
+    fakes.transport.passageUnionRange = (async (input: unknown) => {
+      asked.push(input);
+      return { version: 1, extractionId: FIXTURE_SOURCES.book.extractionId, sections: [], spans: [
+        { spanId: "fx_w_book_s1", sectionId: null, annotations: [], exchanges: [], adjustments: [], padBlocks: [{ blockId: "b_old", padId: "p_old", kind: "text", provenance: "learner", eventId: "e1", annotationId: null, alias: "needs_reanchor" }] },
+        { spanId: "fx_w_book_s2", sectionId: null, annotations: [], exchanges: [], adjustments: [], padBlocks: [{ blockId: "b9", padId: "p9", kind: "source_quote", provenance: "source", eventId: "e2", annotationId: null, alias: "exact" }] },
+      ] };
+    }) as never;
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport, renderPane: (input) => <PassagePane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    await flush();
+    expect(asked.some((input) => (input as { extractionId: string }).extractionId === FIXTURE_SOURCES.book.extractionId)).toBe(true);
+    const marks = [...document.querySelectorAll<HTMLElement>(".desk-pmark.pad")];
+    expect(marks).toHaveLength(2);
+    expect(marks.filter((mark) => mark.classList.contains("reanchor"))).toHaveLength(1);
+    expect(marks.find((mark) => mark.classList.contains("reanchor"))?.getAttribute("title")).toMatch(/re-anchor/);
   });
 
   it("a carried question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {
@@ -1691,6 +1754,25 @@ describe("RD4b: pads in the desks", () => {
     fireEvent.click(screen.getByRole("button", { name: "let it go" }));
     await flush();
     expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c1", event: "let_go", expectedVersion: 3 });
+  });
+
+  it("the drain says carried or kept only once it is saved; a failed carry keeps its controls and says why", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    fakes.transport.carriedCarry = async () => {
+      throw { code: "sidecar_unavailable", message: "LearnLoop is not running" };
+    };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyQ", "Q", { shiftKey: true });
+    const drain = await screen.findByRole("dialog", { name: "closing softmax and cross-entropy" });
+    press("1", "Digit1");
+    press("c", "KeyC");
+    await flush();
+    await flush();
+    expect(drain.textContent).not.toContain("carried");
+    expect(drain.textContent).toContain("LearnLoop is not running");
+    expect(drain.querySelector("[data-drain-pad] .acts")).not.toBeNull();
   });
 
   it("an answer proposes a diff into the desk's running pad; accept writes it as the tutor's words", async () => {
@@ -1723,5 +1805,98 @@ describe("RD4b: pads in the desks", () => {
     const inserted = server.padBatches.flatMap((batch) => batch.ops).find((op) => op.op === "insert_block");
     expect(inserted).toMatchObject({ op: "insert_block", kind: "tutor_quote", provenance: "tutor", bodyMd: "Because the factor cancels." });
     expect(server.padBatches[0].padId).toBe("fx_pad_running");
+  });
+});
+
+describe("RD4 review: asking from a pad line", () => {
+  const ws = (() => {
+    const state = fixtureDeskState();
+    return { ...fromDeskState(state), closed: {} };
+  })();
+  it("an anchored pad line grounds the question in its passage, with the pad block named", () => {
+    const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r2", anchor: { extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3" } } }, ws.windows.fx_w_pads, {});
+    expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3", padBlockId: "fx_b_r2" });
+  });
+
+  it("an unanchored pad line is asked beside the desk's book (where the learner reads), the line named", () => {
+    const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, { fx_w_book: { readingSpan: "fx_ext_softmax_s2_1" } });
+    expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s2_1", windowId: "fx_w_pads", spanWindowId: "fx_w_book", padBlockId: "fx_b_r1" });
+  });
+
+  it("an unanchored pad line on a desk with no book or video says why it cannot ask", () => {
+    const empty = { ...ws, windows: { fx_w_pads: ws.windows.fx_w_pads } };
+    const grounding = groundingFor(empty, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, {});
+    expect(grounding.reason).toMatch(/linked to no passage/);
+  });
+});
+
+describe("RD4 review: the running pad and stack membership on the desks", () => {
+  it("a desk with no running pad in its stacks gets one ensured (an idempotent desk op) when it opens", async () => {
+    const state = fixtureDeskState();
+    const server = new FixtureDeskServer({ ...state, runningPadIds: [] });
+    mount(server, { transport: { ...transportFor(server), padGet: async ({ padId }: { padId: string }) => server.padGet(padId) } });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const ensured = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "ensure_running_pad");
+    expect(ensured).toHaveLength(1);
+    expect(ensured[0]).toMatchObject({ op: "ensure_running_pad", deskId: "fx_desk_softmax", title: "running" });
+  });
+
+  it("a desk whose stacks hold its running pad sends nothing", async () => {
+    const server = new FixtureDeskServer();
+    mount(server);
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    expect(server.batches.flatMap((batch) => batch.ops).some((op) => op.op === "ensure_running_pad")).toBe(false);
+  });
+
+  it("pads an earlier build kept in a stack window's view join its stack by add_to_stack", async () => {
+    const state = fixtureDeskState();
+    const desk = state.desks[0];
+    const stackSlot = desk.slots.find((slot) => slot.windows.some((window) => window.kind === "pad_stack"))!;
+    stackSlot.windows = stackSlot.windows.map((window) => (window.kind === "pad_stack" ? { ...window, view: { addedPads: ["fx_pad_deriving", "fx_pad_lifted_old"] } } : window));
+    const server = new FixtureDeskServer(state);
+    mount(server);
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const added = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "add_to_stack");
+    // fx_pad_deriving is already in the stack: only the other one is added.
+    expect(added.map((op) => (op as { entry: { padId: string } }).entry.padId)).toEqual(["fx_pad_lifted_old"]);
+  });
+});
+
+describe("RD4 review: a pad's back-link reopens its source", () => {
+  function BackLinkPane({ input, target }: { input: PaneRenderInput; target: [string, string, number | undefined, string | undefined] }) {
+    const host = usePadsHost();
+    return (
+      <div data-testid={`pane-${input.window.windowId}`} data-state={input.lifecycle.state}>
+        <button type="button" onClick={() => host?.openPassage(...target)}>{`back from ${input.window.windowId}`}</button>
+      </div>
+    );
+  }
+
+  it("a quote's back-link to a source on no desk opens it beside, at the stored passage", async () => {
+    const server = new FixtureDeskServer();
+    mount(server, { renderPane: (input) => <BackLinkPane input={input} target={["fx_ext_closed", "fx_ext_closed_s4", undefined, "fx_src_closed"]} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByText("back from fx_w_book"));
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? [opened.content, opened.view] : null).toMatchObject([{ kind: "source", sourceId: "fx_src_closed", extractionId: "fx_ext_closed" }, { spanId: "fx_ext_closed_s4" }]);
+  });
+
+  it("a video piece's back-link with no source id reads it from the reading and opens the video at its time", async () => {
+    const server = new FixtureDeskServer();
+    const library = [...FIXTURE_LIBRARY, { ...FIXTURE_LIBRARY[0], sourceId: "fx_src_closed_video", title: "a closed video", kindNoun: "video", acquisitionKind: "youtube" }];
+    mount(server, {
+      transport: { ...transportFor(server, library as never), sourceOfExtraction: async () => "fx_src_closed_video" },
+      renderPane: (input) => <BackLinkPane input={input} target={["fx_ext_closed_video", "fx_ext_closed_video_c3", 72, undefined]} />,
+    });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByText("back from fx_w_book"));
+    await flush();
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: "fx_src_closed_video", extractionId: "fx_ext_closed_video", t: 72 });
   });
 });
