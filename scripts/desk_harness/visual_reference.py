@@ -20,7 +20,7 @@ Build the harness page first (apps/learnloop-tauri: `npx vite build --config vit
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \\
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd4
 
-`--stage` is rd1, rd2, rd3, rd4 or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
+`--stage` is rd1, rd2, rd3, rd4, rd5 or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
 Exit status 0 when the run completed (differences are findings, not failures), 2 when the reference is
 missing. `--dump NAME` prints the harness's element tree in that state (for mapping new regions).
 """
@@ -196,11 +196,14 @@ region("pad_mark_fig", ".desk-pads .mark.fig", "none")
 region("pad_lift", ".desk-pads .lift", "none")
 region("pad_lifted", ".desk-pads .lifted", "none")
 region("pad_info_pop", ".desk-pads .pinfo-pop", "none")
-region("pad_info_button", ".desk-pads .pinfo", "none")
+region("pad_info_button", ".desk-pane-head .pinfo, .desk-pads .pinfo", "none")
 region("pad_card", ".desk-pads .pcard", "size")
-region("pad_menu", ".desk-padmenu", "size")
-region("pad_menu_row", ".desk-padmenu button", "height")
-region("pad_menu_head", ".desk-padmenu h5, .desk-padmenu .head", "none")
+# ── the context menu (RD5): one menu for passages, cues, highlights, notes, window headers and pad lines ──
+region("pad_menu", ".desk-menu:not(.submenu)", "size")
+region("pad_menu_row", ".desk-menu > .mi", "height")
+region("pad_menu_head", ".desk-menu .mh", "none")
+region("auto:div.pro", ".desk-menu .pro", "width")
+region("auto:span.why", ".desk-menu .why", "none")
 region("arrange_panel", ".desk-arrange", "none")
 region("arrange_card", ".desk-arrange .card, .desk-arrange li", "none")
 region("split_pane", ".desk-pads .split .pane", "none")
@@ -518,7 +521,10 @@ async def d_sketch(page: Page) -> None:
 
 async def d_info(page: Page) -> None:
     await pads_beside_book(page)
-    await page.locator(".desk-pads .pinfo").click()
+    # Its ⓘ sits in the pad stack's title bar ("Scratchpads ⓘ yours").
+    await page.locator(".desk-window:has(.desk-pads) .desk-pane-head .pinfo").click()
+    # The mockup's link opens it without a pointer over the ⓘ: leave its hover state out of the measure.
+    await page.mouse.move(5, 5)
     await wait(page, 300)
 
 
@@ -550,10 +556,30 @@ async def d_backlink(page: Page) -> None:
         await wait(page, 600)
 
 
-async def d_padmenu(page: Page) -> None:
-    await pads_beside_book(page)
-    await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
-    await wait(page, 300)
+async def menu_settled(page: Page) -> None:
+    # The cheap rows come at once; the judged rows through the job on the poller (two reads, about 3 s).
+    await page.wait_for_selector(".desk-menu")
+    await wait(page, 3600)
+
+
+async def d_menu_cue(page: Page) -> None:
+    # The first desk's video window shows its transcript beside the book.
+    cue = page.locator("[data-transcript-span]:visible").first
+    await cue.click(button="right")
+    await menu_settled(page)
+
+
+async def d_menu_hl(page: Page) -> None:
+    # The fixture's book has no saved highlight: a passage's menu stands for it (the same menu, headed "a passage").
+    await page.locator('[data-desk-window="fx_w_book"] [data-span-id]').nth(2).click(button="right", position={"x": 60, "y": 8})
+    await menu_settled(page)
+
+
+async def d_menu_selection(page: Page) -> None:
+    await select_passage(page, "largest score")
+    target = page.locator('[data-desk-window="fx_w_book"] [data-span-id]').filter(has_text="largest score").first
+    await target.click(button="right", position={"x": 60, "y": 8})
+    await menu_settled(page)
 
 
 async def d_arrange(page: Page) -> None:
@@ -603,6 +629,8 @@ PADS = ("pad_window_head", "pad_tab_open", "pad_tab", "pad_tab_title", "pad_tab_
         "pad_prose", "pad_quote", "pad_backlink", "pad_tutor", "pad_tutor_who", "pad_submitted", "pad_carry", "pad_jot", "pad_mark_src",
         "pad_mark_ll", "pad_mark_fig")
 
+MENU = ("pad_menu", "pad_menu_row", "pad_menu_head", "auto:div.pro", "auto:span.why")
+
 STATES: list[State] = [
     State("plain", "rd1", d_plain, SHELL + WINDOWS + ("comp_panel", "comp_closed_tab")),
     State("desk=1", "rd1", d_desk1, SHELL + WINDOWS),
@@ -639,7 +667,10 @@ STATES: list[State] = [
     State("append", "rd4", d_append, PADS),
     State("markback", "rd4", d_markback, PADS + ("pass_mark_pad", "pad_flash")),
     State("backlink", "rd4", d_backlink, PADS + ("book_prose",)),
-    State("s11=menu", "rd4", d_padmenu, ("pad_menu", "pad_menu_row", "pad_menu_head")),
+    # The mockup's #s11=menu is a selection's menu over the book: RD5's menu (the pad line's menu is the same one).
+    State("s11=menu", "rd5", d_menu_selection, MENU),
+    State("menu=cue", "rd5", d_menu_cue, MENU),
+    State("menuhl", "rd5", d_menu_hl, MENU),
     State("s11=arrange", "rd4", d_arrange, ("arrange_panel", "arrange_card", "pad_window_head")),
     State("s11=split", "rd4", d_split, PADS + ("split_pane",)),
 ]
@@ -868,7 +899,7 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")

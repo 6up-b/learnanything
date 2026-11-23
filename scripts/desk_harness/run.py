@@ -927,11 +927,11 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     results.check("a submitted block shows its tag; a quote is marked as not read as your words (#s12=submitted)", tag == "submitted · teach-back" and quote_emits == "no", [tag, quote_emits])
 
     # #s12=info: the ⓘ popover says where the words go.
-    await page.locator(".desk-pads .pinfo").click()
+    await page.locator(".desk-pane-head .pinfo").click()
     info = await page.locator(".desk-pads .pinfo-pop").inner_text()
     results.check("ⓘ says where your words go and that only submitted blocks count (#s12=info)", "where your words go" in info and "Only blocks you submit" in info, info[:80])
     await shot(page, shots, "pads-info")
-    await page.locator(".desk-pads .pinfo").click()
+    await page.locator(".desk-pane-head .pinfo").click()
 
     # The editor: the jot line opens a block; typing and ↵ keep it; the write goes out by pad.apply.
     await page.locator(".desk-pads .paper.k-running .pb.jot").click()
@@ -948,7 +948,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
 
     # #s11=menu: right-click a line of yours.
     await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
-    menu = await page.locator(".desk-padmenu").inner_text()
+    menu = await page.locator(".desk-menu").inner_text()
     results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE, marimo arriving with notebooks (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "marimo cell · arrives with notebooks" in menu, menu[:160])
     await shot(page, shots, "pads-menu")
     await page.keyboard.press("Escape")
@@ -956,7 +956,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     # Ask about this, from a pad line linked to no passage: asked beside the desk's book, the block named and
     # its words with the question.
     await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
-    await page.locator(".desk-padmenu").get_by_text("Ask about this").click()
+    await page.locator(".desk-menu").get_by_text("Ask about this").click()
     await settle(page, 500)
     box = page.locator(".desk-companion .input")
     cannot = await page.locator(".desk-companion .cannot").count()
@@ -1043,6 +1043,80 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     await shot(page, shots, "companion-math")
 
 
+async def run_menus(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """The context menu (spec §9.1; RD5): one menu on a passage, promoted rows by passage, judged rows from the job."""
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector('[data-desk-window="fx_w_book"] [data-span-id]')
+    await settle(page, 1500)
+    spans = page.locator('[data-desk-window="fx_w_book"] p[data-span-id], [data-desk-window="fx_w_book"] div[data-span-id]')
+    ids: list[str] = []
+    for index in range(await spans.count()):
+        span = spans.nth(index)
+        text = (await span.inner_text()).strip()
+        if len(text) > 20 and await span.is_visible():
+            ids.append(str(await span.get_attribute("data-span-id")))
+        if len(ids) == 2:
+            break
+    first = page.locator(f'[data-desk-window="fx_w_book"] [data-span-id="{ids[0]}"]')
+    second = page.locator(f'[data-desk-window="fx_w_book"] [data-span-id="{ids[1]}"]')
+    old_menu = '[style*="z-index: 320"]'
+
+    # A right-click on a passage: one menu (the Reader's own tag menu stays shut), its header, the cheap row at once.
+    await page.evaluate("() => window.addEventListener('contextmenu', (e) => { window.__menuAt = [e.clientX, e.clientY]; }, true)")
+    await first.click(button="right", position={"x": 40, "y": 8})
+    await page.wait_for_selector(".desk-menu .pro .mi")
+    count = await page.locator(".desk-menu:not(.submenu)").count()
+    old = await page.locator(old_menu).count()
+    head = await page.locator(".desk-menu .mh").first.inner_text()
+    rows_first = await page.locator(".desk-menu .pro .mi").all_inner_texts()
+    results.check("a right-click on a passage opens one menu (the window's own stays shut), headed by its kind and words", count == 1 and old == 0 and head.startswith("a passage · “"), [count, old, head[:60]])
+    # Placed 2 px down and right of the pointer (§4.3's menu placement), 360 wide, in the mockup's face and colours.
+    at = await page.evaluate("() => window.__menuAt")
+    menu_box = await page.locator(".desk-menu:not(.submenu)").bounding_box()
+    look = await page.locator(".desk-menu:not(.submenu)").evaluate("(m) => { const cs = getComputedStyle(m); return [cs.backgroundColor, cs.borderTopColor, cs.borderRadius, cs.boxShadow, cs.fontSize, cs.fontFamily.split(',')[0]]; }")
+    results.check("the menu opens 2 px down and right of the pointer, 360 px wide, styled as the mockup's",
+                  at is not None and menu_box is not None and abs(menu_box["x"] - (at[0] + 2)) <= 1 and abs(menu_box["y"] - (at[1] + 2)) <= 1 and abs(menu_box["width"] - 360) <= 0.5
+                  and look[:5] == ["rgb(24, 24, 24)", "rgb(58, 58, 58)", "4px", "rgba(0, 0, 0, 0.6) 0px 18px 50px 0px", "12px"] and "JetBrains Mono" in look[5], [at, menu_box, look])
+    # The judged row arrives through the job on the poller, said to be found by search and not checked.
+    await page.wait_for_selector('.desk-menu .pro .mi:has-text("the same step in another source")', timeout=8000)
+    judged = await page.locator('.desk-menu .pro .mi:has-text("the same step in another source")').inner_text()
+    results.check("a judged row arrives through the job and says it was found by search, not checked", "found by search, not checked" in judged, judged[:120])
+    verbs = [line.split("\n")[0] for line in await page.locator(".desk-menu > .mi .t").all_inner_texts()]
+    results.check("the passage's fixed verbs follow the promoted block", len(verbs) >= 10 and verbs[0] == "Ask" and verbs[-1] == "What this knows", verbs)
+    await shot(page, shots, "menu-passage")
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+
+    # The acceptance: promoted rows differ by passage.
+    await second.click(button="right", position={"x": 40, "y": 8})
+    await page.wait_for_selector(".desk-menu .pro .mi")
+    rows_second = await page.locator(".desk-menu .pro .mi").all_inner_texts()
+    results.check("promoted rows differ by passage (each passage's own question is promoted on it)",
+                  any(ids[0] in row for row in rows_first) and any(ids[1] in row for row in rows_second) and not any(ids[0] in row for row in rows_second), [rows_first[:1], rows_second[:1]])
+    # Closed before the job is done, the job is cancelled.
+    await page.keyboard.press("Escape")
+    await settle(page, 400)
+    cancelled = await calls(page, "passage_promoted_cancel")
+    results.check("a menu closed before its judged rows arrive cancels their job", len(cancelled) >= 1, len(cancelled))
+
+    # A window header's menu: the desks' moves on that window.
+    await page.locator('[data-desk-window="fx_w_book"] .desk-pane-head .t').click(button="right")
+    await page.wait_for_selector(".desk-menu")
+    window_verbs = [line.split("\n")[0] for line in await page.locator(".desk-menu > .mi .t").all_inner_texts()]
+    results.check("a right-click on a window header opens the window's menu", any("New desk from these" in verb for verb in window_verbs) and any("Gather linked sources" in verb for verb in window_verbs), window_verbs)
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+
+    # `.` on the hovered passage, through the key router.
+    await second.hover(position={"x": 40, "y": 8})
+    before = len(await calls(page, "passage_promoted"))
+    await page.keyboard.press(".")
+    await page.wait_for_selector(".desk-menu")
+    asked = await calls(page, "passage_promoted")
+    results.check("`.` opens the menu on the hovered passage", len(asked) == before + 1 and asked[-1]["input"].get("spanId") == ids[1], asked[-1]["input"] if asked else None)
+    await page.keyboard.press("Escape")
+
+
 async def drag_select(page: Page, text: str) -> None:
     """Select a passage of the book window the way a learner does: a real mouse drag across its text."""
     box = await page.evaluate("""(text) => { const p = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].find((e) => e.textContent.includes(text));
@@ -1114,7 +1188,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
-    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, latex, preview); all by default")
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -1130,7 +1204,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "latex", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex") else browser).new_context(viewport=VIEWPORT)
@@ -1147,6 +1221,8 @@ async def main() -> int:
                         await run_intent(page, base, results, args.shots)
                     elif runner == "pads":
                         await run_pads(page, base, results, args.shots)
+                    elif runner == "menus":
+                        await run_menus(page, base, results, args.shots)
                     elif runner == "latex":
                         await run_latex(page, base, results, args.shots)
                     else:
