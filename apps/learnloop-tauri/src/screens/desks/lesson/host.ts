@@ -97,9 +97,23 @@ export class LessonDesk {
   private learn(lessons: LessonSummaryDto[]): void {
     for (const lesson of lessons) {
       this.summaries.set(lesson.lessonId, lesson);
-      if (lesson.additionsPadId && !this.additions.has(lesson.lessonId)) this.additions.set(lesson.lessonId, lesson.additionsPadId);
+      // The stored pad is the lesson's, over one made here that the sidecar refused (another window made it first).
+      if (lesson.additionsPadId) this.additions.set(lesson.lessonId, lesson.additionsPadId);
     }
     this.emit();
+  }
+
+  /** Whether the lesson's summary has landed, so a missing additions pad is known to be missing (not still being
+   * read, or a read that failed): only then may a note under it create one. */
+  additionsKnown(lessonId: string): boolean {
+    return this.summaries.has(lessonId) || this.additions.has(lessonId);
+  }
+
+  /** Older additions pads naming the lesson besides its own (made before one pad per lesson was enforced): their
+   * notes are shown too, never dropped. */
+  olderAdditions(lessonId: string): string[] {
+    const own = this.additions.get(lessonId);
+    return (this.summaries.get(lessonId)?.additionsPadIds ?? []).filter((padId) => padId !== own);
   }
 
   /** Every lesson (the path view's Teacher lesson rows), read once per path opening; null until it lands. */

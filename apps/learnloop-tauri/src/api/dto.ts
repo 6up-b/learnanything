@@ -10564,6 +10564,8 @@ export interface LessonSummaryDto {
   madeFrom: "selection" | "check" | "question" | "suggestion" | "topic";
   /** The lesson's `lesson_additions` pad, once the learner wrote under it. */
   additionsPadId: string | null;
+  /** Every additions pad naming the lesson, oldest first (the first is where notes go; older duplicates are kept). */
+  additionsPadIds?: string[];
   /** A check is due on what it teaches: its title is neutral and its goal withheld. */
   held?: boolean;
 }

@@ -58,7 +58,8 @@ function quietPadsApi(): PadsApi {
 
 let minted = 0;
 
-function mount(options: { stack: PadStackEntryDto[]; state?: WindowState; summaries?: LessonSummaryDto[]; withAdditions?: boolean; host?: Partial<LessonsHost> }) {
+function mount(options: { stack: PadStackEntryDto[]; state?: WindowState; summaries?: LessonSummaryDto[]; withAdditions?: boolean; host?: Partial<LessonsHost>;
+  list?: (input: { lessonIds?: string[] }) => Promise<{ lessons: LessonSummaryDto[] }> }) {
   const server = new FixtureDeskServer(undefined, [...fixturePads(), ...(options.withAdditions ? [fixtureAdditionsPad()] : [])]);
   const timers = new ManualTimers();
   const store = new DeskStore("me", {
@@ -71,10 +72,10 @@ function mount(options: { stack: PadStackEntryDto[]; state?: WindowState; summar
   const summaries = options.summaries ?? [FIXTURE_LESSON_SUMMARY];
   const opened: Array<{ opening: Opening; lessonId: string }> = [];
   const desk = new LessonDesk({
-    list: async (input) => {
+    list: options.list ?? (async (input) => {
       listed.push(input);
       return { lessons: summaries.filter((each) => !input.lessonIds || input.lessonIds.includes(each.lessonId)) };
-    },
+    }),
   }, (opening, lessonId) => opened.push({ opening, lessonId }));
   const lessons: LessonsHost = { desk, onError: vi.fn(), openLesson: vi.fn(), ...options.host };
   const host: PadsHost = {
@@ -264,6 +265,21 @@ describe("your additions under a lesson", () => {
     fireEvent.keyDown(editor, { key: "Enter" });
     await flush();
     expect(sentPadOps(server)[0]).toMatchObject({ op: "create_pad", kind: "lesson_additions", title: "your additions" });
+  });
+
+  it("a note written before the lesson's summary lands creates no pad (its notes may exist already)", async () => {
+    const { server, flush } = mount({ stack: WITH_LESSON, list: () => new Promise(() => undefined) });
+    await screen.findByText("If every score goes up by 3, what happens to the loss?");
+    fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("your additions"));
+    fireEvent.click(screen.getByText("write under this lesson"));
+    await flush();
+    expect(sentPadOps(server).some((op) => op.op === "create_pad")).toBe(false);
+  });
+
+  it("older additions pads naming the lesson are shown too, never dropped", async () => {
+    const summaries = [{ ...FIXTURE_LESSON_SUMMARY, additionsPadId: "fx_pad_deriving", additionsPadIds: ["fx_pad_deriving", FIXTURE_ADDITIONS_PAD_ID] }];
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }], summaries, withAdditions: true });
+    await screen.findByText("why does the gradient not depend on which wrong class got the mass?");
   });
 
   it("notes already under a lesson show beneath its review", async () => {
