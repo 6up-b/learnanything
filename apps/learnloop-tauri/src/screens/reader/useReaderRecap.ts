@@ -32,6 +32,7 @@ import { errorMessage } from "../../errors";
 import { screenLeavesKey } from "../../app/keymap";
 import type { NarrativePollFailure, NarrativeView } from "./DigestNarrative";
 import { phaseForError } from "./ModelActionState";
+import { useListenerHub } from "../desks/lifecycle";
 
 export interface ReaderRecapInput {
   /** recap.enabled, with a real source open. */
@@ -227,6 +228,7 @@ export function useReaderRecap({
 
   // `w` (UX §3.5): outside text fields, without modifiers, once there is
   // something to wrap up.
+  const hub = useListenerHub();
   useEffect(() => {
     if (!wrapUpEnabled || !wrapUpAvailable || !extractionId || suspended) return;
     const onKey = (event: KeyboardEvent) => {
@@ -237,9 +239,8 @@ export function useReaderRecap({
       event.preventDefault();
       void openWrapUp();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [wrapUpEnabled, wrapUpAvailable, extractionId, suspended, openWrapUp]);
+    return hub.listen("window", "keydown", onKey);
+  }, [wrapUpEnabled, wrapUpAvailable, extractionId, suspended, openWrapUp, hub]);
 
   // Re-read an open Wrap up after an action, so its lines follow the chips.
   useEffect(() => {

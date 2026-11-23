@@ -227,7 +227,9 @@ function windowListenersIgnoringModifiers(files: Array<{ file: string; source: s
   const keys = chordBaseKeys();
   const found: string[] = [];
   for (const { file, source } of files) {
-    for (const match of source.matchAll(/window\.addEventListener\(\s*"keydown"\s*,\s*([^,)]+)/g)) {
+    // A window listener registered through a desk window's listener hub (screens/desks/lifecycle.tsx) is
+    // still a window keydown listener: the scan reads both forms.
+    for (const match of source.matchAll(/(?:window\.addEventListener\(|\.listen\(\s*"window"\s*,)\s*"keydown"\s*,\s*([^,)]+)/g)) {
       const name = match[1].trim();
       if (!/^\w+$/.test(name)) {
         found.push(`${file}: an inline keydown listener (name it so this scan can read it)`);
@@ -307,7 +309,7 @@ it("requires screenLeavesKey in every window and document keydown listener", () 
   for (const file of sourceFiles(SRC)) {
     if (SHELL_FILES.has(file)) continue;
     const source = readFileSync(join(SRC, file), "utf8");
-    for (const match of source.matchAll(/(?:window|document)\.addEventListener\(\s*"keydown"\s*,\s*([^,)]+)/g)) {
+    for (const match of source.matchAll(/(?:(?:window|document)\.addEventListener\(|\.listen\(\s*"(?:window|document)"\s*,)\s*"keydown"\s*,\s*([^,)]+)/g)) {
       listeners += 1;
       const name = match[1].trim();
       const body = /^\w+$/.test(name) ? handlerBody(source, name, match.index) : null;

@@ -39,6 +39,7 @@ import { PdfSelectionLayer } from "./pdfSelection/PdfSelectionLayer";
 import { usePdfSelection, type HeldSelection, type PagePoint } from "./pdfSelection/usePdfSelection";
 import { screenLeavesKey } from "../app/keymap";
 import { scrollIntoViewWithin } from "./scrollWithin";
+import { useListenerHub } from "../screens/desks/lifecycle";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -352,6 +353,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
   );
 
   // Standard chrome keys while the pane is mounted: ctrl+f find, ctrl+±/0 zoom.
+  const hub = useListenerHub();
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (screenLeavesKey(event, { ownChords: true })) return;
@@ -374,9 +376,8 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
         setZoom(1);
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [openFind, zoomIn, zoomOut]);
+    return hub.listen("window", "keydown", handler);
+  }, [openFind, zoomIn, zoomOut, hub]);
 
   // Ctrl+wheel zoom needs a non-passive listener to preventDefault.
   useEffect(() => {

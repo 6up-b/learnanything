@@ -15,6 +15,7 @@
 // the hard-coded demo question remains confined to the offline fixture.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
@@ -65,6 +66,7 @@ import { PreparingView } from "./reader/PreparingView";
 import { readerKeyBarKeys } from "./reader/readerKeys";
 import { type ReadingPosition } from "./reader/readingPosition";
 import { useBareAltClear } from "./reader/bareAlt";
+import { useListenerHub, useWindowPaused } from "./desks/lifecycle";
 import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
@@ -260,6 +262,23 @@ export interface ReaderOpenSource {
   besideTrail?: ReturnStack | null;
 }
 
+/** Reader workbench v2 (spec §7.1, §21.1): this Reader is one source window on a desk. It shows the
+ *  source pane only; the window's frame carries the title, and the rail (Guide, Ask, Notes) shows in a
+ *  panel window bound to this book when the desk has one (`railHost`), else nowhere. */
+export interface ReaderWindowing {
+  /** The panel window's body to show the rail in, and the tab it opens on. */
+  railHost?: { node: HTMLElement; tab: "guide" | "notes" } | null;
+  /** The book's title once known, for the window's frame and the shelf. */
+  onTitle?: (title: string) => void;
+  /** The desk's way into this window: jump to a passage (a path row, a shelf row). */
+  onJumpReady?: (jump: ((spanId: string) => void) | null) => void;
+  /** Where the learner is, for the shelf's row: the passage under the marker, how far through the book,
+   *  and the section's words. */
+  onStatus?: (status: { readingSpan: string | null; progress: number; where: string | null }) => void;
+  /** A video source's play/pause, for the desk's `space` (null when this source has no player). */
+  onMediaReady?: (toggle: (() => void) | null) => void;
+}
+
 /** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
  *  your own, and the passage to come back to after its feedback. */
 export interface ReaderCheckMeRequest extends CueCheckMeRequest {
@@ -315,7 +334,10 @@ export function ReaderScreen({
   onSkimmingChange,
   askRequest,
   initialLibrarySearch = "",
+  windowed = null,
 }: {
+  /** Reader workbench v2: a source window on a desk (absent: the Reader place, as before). */
+  windowed?: ReaderWindowing | null;
   onError: (message: string) => void;
   /** TE2 landing ruling R2: the across-source search's words when the Reader mounts (a lesson's "Look in my
    *  library" on a typed goal's leftover); empty, the box starts empty as before. */
@@ -351,6 +373,11 @@ export function ReaderScreen({
    *  arms no wrap-up offer where the learner lands; review F9). */
   onSkimmingChange?: (muted: boolean) => void;
 }) {
+  // Window-level listeners go through the hub: on a desk, the window's own share of the shell's router
+  // (only the active window hears keys); elsewhere, the real window, as before.
+  const hub = useListenerHub();
+  // A paused window (offscreen, hidden, a preview) polls nothing until it is shown again.
+  const windowPaused = useWindowPaused();
   // The prompt contract only changes with settings, so it is cached until a
   // settings mutation invalidates it; the picker's library list is shared with
   // the Ingest sidebar. Both repaint at once when the learner returns here.
@@ -1383,9 +1410,8 @@ export function ReaderScreen({
       event.preventDefault();
       void undoRemove();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [removed, undoRemove]);
+    return hub.listen("window", "keydown", onKey);
+  }, [removed, undoRemove, hub]);
   // A highlight's "open note" on the page: its card in Notes, its note open.
   const openAnnotationNote = useCallback((annotationId: string) => {
     const target = annotations.find((a) => a.annotationId === annotationId);
@@ -1703,16 +1729,15 @@ export function ReaderScreen({
     const move = (moved: PointerEvent) => {
       if (rect.width > 0) setSbsSplit(clampSplit((moved.clientX - rect.left) / rect.width));
     };
+    const offs: Array<() => void> = [];
     const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
+      offs.forEach((off) => off());
       setSbsSplit((value) => {
         writeSplit(value);
         return value;
       });
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    offs.push(hub.listen("window", "pointermove", move), hub.listen("window", "pointerup", up));
   };
   // The main pane leads once the learner's hand is on it (scroll, click, select).
   const touchMain = () => {
@@ -1755,9 +1780,8 @@ export function ReaderScreen({
         }
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [sbs.enabled]);
+    return hub.listen("window", "keydown", onKey);
+  }, [sbs.enabled, hub]);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false,
     anchor?: SourceIdentity) => {
     if (!render || offline) return;
@@ -1785,9 +1809,8 @@ export function ReaderScreen({
       libraryCtl.close();
       setLibraryCompose(selection ? (selection.editedText ?? selection.quote).slice(0, 400) : "");
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [libraryCtl, render, offline, working, selection]);
+    return hub.listen("window", "keydown", onKey);
+  }, [libraryCtl, render, offline, working, selection, hub]);
 
   const onMouseUp = useCallback(() => {
     const sel = window.getSelection();
@@ -1884,13 +1907,9 @@ export function ReaderScreen({
       // Ctrl already released mid-drag: this box completes the gesture.
       if (!(event.ctrlKey || event.metaKey)) commitDomBoxesRef.current();
     };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [domDrafting, domPointFromClient]);
+    const offs = [hub.listen("window", "mousemove", onMove), hub.listen("window", "mouseup", onUp)];
+    return () => offs.forEach((off) => off());
+  }, [domDrafting, domPointFromClient, hub]);
 
   // Boxes → per-block nodes: word-level clipping against every [data-span-id]
   // block (markdown paragraphs, transcript cues), in document order. Hidden
@@ -1985,15 +2004,13 @@ export function ReaderScreen({
       if (!domDragRef.current) commitDomBoxesRef.current();
     };
     const onBlur = () => setDomArmed(false);
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, []);
+    const offs = [
+      hub.listen("window", "keydown", onKeyDown),
+      hub.listen("window", "keyup", onKeyUp),
+      hub.listen("window", "blur", onBlur),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [hub]);
 
   // The capture was cleared — drop the painted boxes with it.
   useEffect(() => {
@@ -2132,9 +2149,8 @@ export function ReaderScreen({
       if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Escape") setTagMenu(null);
     };
-    window.addEventListener("keydown", handler, true);
-    return () => window.removeEventListener("keydown", handler, true);
-  }, [tagMenu]);
+    return hub.listen("window", "keydown", handler, true);
+  }, [tagMenu, hub]);
 
   // A single bare Alt press is the quick "clear capture" gesture (K7: it
   // completes on release, and never when Alt was part of a chord, so Alt+←,
@@ -2149,6 +2165,34 @@ export function ReaderScreen({
     noteIntentCleared();
   }, [noteIntentCleared]);
   useBareAltClear(clearSelection);
+
+  // A source window: its rail opens on the tab its panel window asked for; the frame and the desk hear the
+  // book's title and get a way to jump to a passage.
+  const railHostTab = windowed?.railHost?.tab ?? null;
+  useEffect(() => {
+    if (railHostTab) setRailTab(railHostTab);
+  }, [railHostTab]);
+  const onWindowTitle = windowed?.onTitle;
+  useEffect(() => {
+    if (onWindowTitle && sourceTitle) onWindowTitle(sourceTitle);
+  }, [onWindowTitle, sourceTitle]);
+  const onWindowStatus = windowed?.onStatus;
+  const windowWhere = currentGuideSection ? sectionWords(currentGuideSection.label) : null;
+  useEffect(() => {
+    onWindowStatus?.({ readingSpan, progress: readingProgress, where: windowWhere });
+  }, [onWindowStatus, readingSpan, readingProgress, windowWhere]);
+  const onWindowMediaReady = windowed?.onMediaReady;
+  useEffect(() => {
+    if (!onWindowMediaReady) return;
+    onWindowMediaReady(watch ? () => watchRef.current?.togglePlay() : null);
+    return () => onWindowMediaReady(null);
+  }, [onWindowMediaReady, watch]);
+  const onWindowJumpReady = windowed?.onJumpReady;
+  useEffect(() => {
+    if (!onWindowJumpReady) return;
+    onWindowJumpReady(render ? (spanId: string) => jumpToSpan(spanId, "start") : null);
+    return () => onWindowJumpReady(null);
+  }, [onWindowJumpReady, render, jumpToSpan]);
 
   // Rail card click → jump to the annotation on the current surface: the PDF
   // pane scrolls to its page/block; the text surface scrolls to its block.
@@ -2204,9 +2248,8 @@ export function ReaderScreen({
         setAlsoExpandToken((token) => token + 1);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [inquiry, render]);
+    return hub.listen("window", "keydown", onKey);
+  }, [inquiry, render, hub]);
   useEffect(() => {
     try {
       window.localStorage.setItem("learnloop.reader.rail-collapsed", railCollapsed ? "on" : "off");
@@ -2557,7 +2600,7 @@ export function ReaderScreen({
   const exerciseImportActive =
     exerciseImport != null && ["queued", "running", "blocked"].includes(exerciseImport.status);
   useEffect(() => {
-    if (!exerciseImportBatchId || !exerciseImportActive || offline) return;
+    if (!exerciseImportBatchId || !exerciseImportActive || offline || windowPaused) return;
     const timer = setInterval(async () => {
       try {
         const status = await api.readerExerciseImportStatus({ batchId: exerciseImportBatchId });
@@ -2589,7 +2632,7 @@ export function ReaderScreen({
       }
     }, 2000);
     return () => clearInterval(timer);
-  }, [exerciseImportBatchId, exerciseImportActive, offline]);
+  }, [exerciseImportBatchId, exerciseImportActive, offline, windowPaused]);
 
   const saveOwnQuestion = useCallback(async () => {
     if (!render || !authoredQuestion.trim() || !authoredAnswer.trim()) return;
@@ -3001,6 +3044,15 @@ export function ReaderScreen({
         }}
         onError={onError}
       />
+    );
+  }
+
+  // A source window opens one book: while it opens (or if it cannot) the window says so in one line.
+  if (!render && windowed) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, padding: "18px 22px" }}>
+        <Faint style={{ fontSize: 12 }}>{opening ? `◐ Opening ${openingTitle ?? "the source"}…` : "This source didn't open here."}</Faint>
+      </div>
     );
   }
 
@@ -3613,6 +3665,14 @@ export function ReaderScreen({
     );
   };
 
+  // On a desk the rail shows in the panel window bound to this book, if the desk has one; menus that
+  // position themselves on the screen leave the window (its own box would otherwise place them).
+  const placeRail = (rail: ReactNode): ReactNode => {
+    if (!windowed) return rail;
+    return windowed.railHost ? createPortal(rail, windowed.railHost.node) : null;
+  };
+  const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
+
   // The book's own TeX macros, for every formula the Reader shows of it (its blocks, the Ask chip, answers about
   // it): the extraction keeps \vvec but not the page's definition of it.
   return (
@@ -3620,6 +3680,19 @@ export function ReaderScreen({
     <NotesContext.Provider value={notesCtl.context}>
     <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      {windowed ? (
+        // A source window's frame carries the title; only the view switch stays with the source.
+        pdfView && !offline ? (
+          <div data-window-source-bar="" style={{ flexShrink: 0, padding: "4px 22px", borderBottom: `1px solid ${COLOR.border}` }}>
+            <span
+              onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}
+              style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
+            >
+              {surface === "pdf" ? "extracted text →" : "original pdf →"}
+            </span>
+          </div>
+        ) : null
+      ) : (
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.18em", color: COLOR.textFaint }}>READER</span>
@@ -3680,6 +3753,7 @@ export function ReaderScreen({
           </div>
         ) : null}
       </div>
+      )}
 
       {inquiry ? (
         <DetourStrip
@@ -4147,7 +4221,7 @@ export function ReaderScreen({
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
-        {((inquiry && railCollapsed) || sbsPanes) && !working && !comparing && !sbsRailOverlay ? (
+        {!windowed && ((inquiry && railCollapsed) || sbsPanes) && !working && !comparing && !sbsRailOverlay ? (
           <button
             type="button"
             onClick={() => (sbsPanes ? setSbsRailOverlay(true) : setRailCollapsed(false))}
@@ -4158,23 +4232,25 @@ export function ReaderScreen({
             ◂
           </button>
         ) : null}
+        {placeRail(
         <div
           ref={railRef}
           role="complementary"
           aria-label={railTab === "guide" ? "Reading guide" : railTab === "ask" ? "Ask" : "Notes"}
           style={{
-            width: 360,
+            width: windowed ? "100%" : 360,
             height: "100%",
             minHeight: 0,
             flexShrink: 0,
-            borderLeft: `1px solid ${COLOR.border}`,
+            borderLeft: windowed ? 0 : `1px solid ${COLOR.border}`,
+            ...(windowed ? { boxSizing: "border-box" as const } : {}),
             padding: "18px 20px",
             overflowX: "hidden",
             overflowY: "auto",
             overscrollBehaviorY: "contain",
             scrollbarGutter: "stable",
             // Reader CA6: side by side folds the rail to its gutter; \\ reopens it as an overlay at the right.
-            display: sbsPanes ? (sbsRailOverlay ? undefined : "none") : (inquiry && railCollapsed) || working || comparing ? "none" : undefined,
+            display: windowed ? undefined : sbsPanes ? (sbsRailOverlay ? undefined : "none") : (inquiry && railCollapsed) || working || comparing ? "none" : undefined,
             ...(sbsPanes && sbsRailOverlay
               ? { position: "absolute" as const, right: 0, top: 0, bottom: 0, zIndex: 25, background: COLOR.bg, boxShadow: "-6px 0 18px rgba(0,0,0,0.18)" }
               : {}),
@@ -4673,9 +4749,10 @@ export function ReaderScreen({
             </div>
           ) : null}
         </div>
+        )}
       </div>
 
-      {tagMenu ? (
+      {tagMenu ? overDesk(
         <div
           style={{ position: "fixed", inset: 0, zIndex: 320 }}
           onClick={() => setTagMenu(null)}
@@ -4744,14 +4821,14 @@ export function ReaderScreen({
         </div>
       ) : null}
 
-      {notePicker && render && notesCtl.enabled ? (
+      {notePicker && render && notesCtl.enabled ? overDesk(
         // Curriculum C2: link one of your notes to this passage (by hand: yours, never re-judged).
         <div style={{ position: "fixed", left: Math.min(notePicker.x, window.innerWidth - 440), top: Math.min(notePicker.y, window.innerHeight - 360), width: 420, maxHeight: 340, overflowY: "auto", zIndex: 320, boxShadow: "0 16px 48px rgba(0,0,0,0.55)" }}>
           <NoteLinkPicker extractionId={render.extractionId} spanId={notePicker.spanId} onClose={() => setNotePicker(null)} onError={onError} />
         </div>
       ) : null}
 
-      <KeyBar
+      {windowed ? null : <KeyBar
         keys={[
           // In plain words (UX Phase 1 re-test #9).
           ...readerKeyBarKeys(pdfSurfaceActive),
@@ -4771,7 +4848,7 @@ export function ReaderScreen({
           ...(inquiry && alsoOn && alsoAvailable && !alsoHidden && !working && !comparing ? [{ key: "x", label: "also in your books" }] : []),
         ]}
         right={{ key: "^p", label: "palette" }}
-      />
+      />}
     </div>
     </CompareKeepContext.Provider>
     </NotesContext.Provider>

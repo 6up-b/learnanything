@@ -14,6 +14,7 @@ import { Workbench } from "../workbench/Workbench";
 import { WORKBENCH_COPY } from "../workbench/stepModel";
 import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "../workbench/splitWidth";
 import type { ActiveWorkbench, ReaderWorkbench } from "./useReaderWorkbench";
+import { useListenerHub } from "../desks/lifecycle";
 
 /** The palette's ask while a problem is open (UX Phase 2 fix round 3). */
 export const WORKING_ASK_WAITS = "Ask the tutor is beside the book. Leave for now (your steps are kept) and Ask opens.";
@@ -55,6 +56,7 @@ export function ReaderWorkingPosture({
    *  paid for) until the learner leaves; a line says so. */
   compareWaiting?: { text: string; onDismiss: () => void } | null;
 }) {
+  const hub = useListenerHub();
   // Reader CA2 (§7.1, §7.6): asking about a step no longer means leaving the
   // problem. With the panel on and the problem bound to an item, Ask opens
   // inline under the focused step; the palette's Ask opens it too, instead of
@@ -109,12 +111,9 @@ export function ReaderWorkingPosture({
             const startX = event.clientX;
             const startWidth = wbCtl.width;
             const onMove = (move: MouseEvent) => wbCtl.setWidth(startWidth + (startX - move.clientX));
-            const onUp = () => {
-              window.removeEventListener("mousemove", onMove);
-              window.removeEventListener("mouseup", onUp);
-            };
-            window.addEventListener("mousemove", onMove);
-            window.addEventListener("mouseup", onUp);
+            const offs: Array<() => void> = [];
+            const onUp = () => offs.forEach((off) => off());
+            offs.push(hub.listen("window", "mousemove", onMove), hub.listen("window", "mouseup", onUp));
           }}
           style={{ width: 6, flexShrink: 0, cursor: "col-resize", borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg }}
         />
