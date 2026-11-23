@@ -3,9 +3,11 @@ write-through equal to a rebuild row for row, idempotent replayers, and the hook
 
 from __future__ import annotations
 
+import pytest
+
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.db.stores import span_projections as store
+from learnloop.db.stores import span_projection_reads as store
 from learnloop.substrate.passage_spans import (
     project_gap,
     project_question_event,
@@ -95,14 +97,15 @@ def test_each_gap_adapter_places_rows_by_its_recipe(tmp_path):
     assert "g_chat" not in rows
 
 
-def test_a_hidden_note_link_places_nothing(tmp_path):
+def test_a_note_link_hidden_before_the_gap_was_read_places_nothing(tmp_path):
     from tests.desk_helpers import seed_note_link, stub_vault
 
     _paths, repository = _repository(tmp_path)
     with repository.connection() as connection:
-        seed_note_link(connection, note_id="ln_h", note_key="tend:h", extraction_id=BOOK, span_id="s1")
         seed_note_link(connection, note_id="ln_h", note_key="tend:h", extraction_id=BOOK, span_id="s1",
-                       status="rejected", created_at="2026-05-19T10:00:00Z")
+                       created_at="2026-05-19T07:00:00Z")
+        seed_note_link(connection, note_id="ln_h", note_key="tend:h", extraction_id=BOOK, span_id="s1",
+                       status="rejected", created_at="2026-05-19T08:00:00Z")
         seed_gap(connection, gap_id="g_hidden", source_kind="learner_note", source_id="ln_h")
         project_gap(connection, stub_vault(), "g_hidden")
         assert store.rows_for(connection, "learner_text_gap_spans", ["g_hidden"]) == []
@@ -180,3 +183,104 @@ def test_a_practice_question_is_projected_as_the_tutor_records_it(tmp_path):
         (None, None, "context", "unanchored", "lo_svd_definition")}
     rebuild_question_event_spans(vault, repository)
     assert _snapshot(repository) == live
+
+
+@pytest.mark.parametrize("later", ["hidden", "linked"])
+def test_a_note_link_changed_after_the_gap_was_read_keeps_live_equal_to_rebuild(tmp_path, later):
+    """The gap places the links that stood when its text was read, in the live write and in a rebuild alike:
+    a link hidden afterwards still places it (both paths), a link made afterwards does not (both paths)."""
+
+    from tests.desk_helpers import seed_note_link, stub_vault
+
+    _paths, repository = _repository(tmp_path)
+    with repository.connection() as connection:
+        if later == "hidden":
+            seed_note_link(connection, note_id="n", note_key="tend:n", extraction_id=BOOK, span_id="s1")
+        seed_gap(connection, gap_id="g", source_kind="learner_note", source_id="n", learning_object_id="lo_n")
+        project_gap(connection, stub_vault(), "g")  # the write-through, when the text is read
+        seed_note_link(connection, note_id="n", note_key="tend:n", extraction_id=BOOK, span_id="s1",
+                       status="rejected" if later == "hidden" else "accepted", created_at="2026-05-19T10:00:00Z")
+        connection.commit()
+    live = _snapshot(repository)
+    expected = ({(BOOK, "s1", "selection", "exact_selection", None)} if later == "hidden"
+                else {(None, None, "context", "unanchored", "lo_n")})
+    assert _by(live["learner_text_gap_spans"], "gap_id")["g"] == expected
+    rebuild_learner_text_gap_spans(stub_vault(), repository)
+    assert _snapshot(repository) == live
+
+
+@pytest.mark.parametrize("source_id", ["fpr_1", "fpr_1:explained"])
+def test_a_figure_prediction_gap_is_placed_on_its_figures_passages(tmp_path, source_id):
+    from tests.desk_helpers import stub_vault
+
+    _paths, repository = _repository(tmp_path)
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO interactive_figures (id, extraction_id, span_ids_json, origin, spec_version, verification, "
+            "prompt_version, input_hash, created_at) VALUES ('fig', ?, '[\"s3\", \"s4\"]', 'show_me', 'v1', "
+            "'failed', 'p', 'h', 't')", (BOOK,))
+        connection.execute(
+            "INSERT INTO figure_predictions (id, figure_id, extraction_id, prediction_index, learner_answer, "
+            "observed_json, matched, created_at) VALUES ('fpr_1', 'fig', ?, 0, 'up', '{}', 0, 't')", (BOOK,))
+        seed_gap(connection, gap_id="g", source_kind="reader_formative", source_id=source_id)
+        project_gap(connection, stub_vault(), "g")
+        connection.commit()
+    # Written while looking at a figure made for these passages: the context, not a selection.
+    assert _by(_snapshot(repository)["learner_text_gap_spans"], "gap_id")["g"] == {
+        (BOOK, "s3", "context", "source_context", None), (BOOK, "s4", "context", "source_context", None)}
+
+
+def test_the_explanation_suffix_is_the_gap_pipelines():
+    from learnloop.diagnosis.text_gaps.figure_inputs import FIGURE_EXPLANATION_SUFFIX as PIPELINES
+    from learnloop.substrate.passage_spans import FIGURE_EXPLANATION_SUFFIX
+
+    assert FIGURE_EXPLANATION_SUFFIX == PIPELINES
+
+
+def test_projecting_a_practice_question_reads_no_reader_answer(tmp_path):
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from tests.desk_helpers import stub_vault
+
+    paths, repository = _repository(tmp_path)
+    with repository.connection() as connection:
+        seed_practice_question(connection, question_event_id="q", practice_item_id="pi_x")
+        seed_reader_exchange(connection, question_event_id="qe_r", extraction_id=BOOK, anchor="s1")
+        connection.commit()
+    statements: list[str] = []
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.set_trace_callback(statements.append)
+        project_question_event(connection, stub_vault(), "q")
+        assert not any("interaction_events" in sql for sql in statements)
+        project_question_event(connection, stub_vault(), "qe_r")
+        assert any("interaction_events" in sql for sql in statements)
+
+
+def test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once(tmp_path):
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+    from tests.reading_path_fixtures import context
+
+    paths, repository = _repository(tmp_path)
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+    with repository.connection() as connection:
+        # History written before the projections existed: nothing wrote through for it.
+        seed_reader_exchange(connection, question_event_id="qe_old", extraction_id=BOOK, anchor="s2", selection=["s3"])
+        seed_gap(connection, gap_id="g_old", source_kind="tutor_question", source_id="qe_old")
+        connection.commit()
+    assert _snapshot(repository) == {"question_event_spans": [], "learner_text_gap_spans": []}
+    context(paths.root)  # the app opens the vault
+    opened = _snapshot(repository)
+    assert _by(opened["question_event_spans"], "question_event_id")["qe_old"] == {
+        (BOOK, "s2", "selection", "exact_selection", None), (BOOK, "s3", "selection", "exact_selection", None)}
+    assert _by(opened["learner_text_gap_spans"], "gap_id")["g_old"]
+    with repository.connection() as connection:
+        receipts = connection.execute("SELECT projection, sources, rows FROM projection_initializations "
+                                      "ORDER BY projection").fetchall()
+    assert [tuple(row) for row in receipts] == [("learner_text_gap_spans", 1, 2), ("question_event_spans", 1, 2)]
+    # A second open finds both receipts and projects nothing again.
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM question_event_spans")
+        connection.commit()
+    context(paths.root)
+    assert _snapshot(repository)["question_event_spans"] == []

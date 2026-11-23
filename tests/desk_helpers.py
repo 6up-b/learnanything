@@ -136,7 +136,11 @@ def seed_workbench_stuck(connection: Any, *, step_id: str, session_id: str, extr
 
 
 def seed_note_link(connection: Any, *, note_id: str, note_key: str, extraction_id: str, span_id: str,
-                   link_id: str | None = None, status: str = "accepted", created_at: str = T0) -> None:
+                   link_id: str | None = None, status: str = "accepted",
+                   created_at: str = "2026-05-19T08:00:00Z") -> None:
+    """A note snapshot and the learner's link of it to a passage, made (by default) before the gaps seeded at
+    ``T0`` read it: a gap places only the links that stood when its text was read."""
+
     if connection.execute("SELECT 1 FROM learner_notes WHERE id = ?", (note_id,)).fetchone() is None:
         connection.execute(
             "INSERT INTO learner_notes (id, note_key, path, line, content_hash, title, origin, text_md, created_at) "
