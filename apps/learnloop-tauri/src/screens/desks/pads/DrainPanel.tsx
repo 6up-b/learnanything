@@ -3,6 +3,7 @@
 // when the last line is a question. Skipping costs nothing; leave keeps a pad in the desk's history.
 import { useEffect, useRef, useState } from "react";
 import type { PadDrainDto } from "../../../api/dto";
+import { screenLeavesKey } from "../../../app/keymap";
 
 export interface DrainActions {
   keep: (padId: string, version: number) => void;
@@ -30,8 +31,9 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
   }, [load]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      // Its keys are bare letters and digits: a chord (alt+l moving the focus) is not "l, leave".
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      // A modal panel: it owns the keyboard while it is open. Its keys are bare letters and digits: a chord
+      // (alt+l moving the focus) is not "l, leave".
+      if (screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
@@ -53,8 +55,8 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
       pending.current = null;
       event.preventDefault();
     };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   });
   const act = (padId: string, said: string, run: () => void) => {
     if (done[padId]) return;

@@ -2,6 +2,7 @@
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
 import { useEffect, useMemo, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
+import { screenLeavesKey } from "../../../app/keymap";
 import { useListenerHub, useWindowLifecycle } from "../lifecycle";
 import type { PadsHost } from "./host";
 import { isLearnersWords, type PadState } from "./model";
@@ -99,7 +100,8 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (practicing || event.altKey || event.ctrlKey || event.metaKey) return;
+      // A modal menu: it owns the keyboard while it is open, but never a chord.
+      if (practicing || screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
@@ -123,7 +125,7 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
     const onDown = (event: MouseEvent) => {
       if (!(event.target as Element).closest?.(".desk-padmenu, .desk-sheet")) onClose();
     };
-    const offs = [hub.listen("window", "keydown", onKey, true), hub.listen("window", "mousedown", onDown, true)];
+    const offs = [hub.listen("window", "keydown", onKey), hub.listen("window", "mousedown", onDown, true)];
     return () => offs.forEach((off) => off());
   }, [hub, index, onClose, practicing, runnable]);
 
@@ -216,7 +218,8 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
   const hub = useListenerHub();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      // A modal overlay: it owns the keyboard while it is open, but never a chord.
+      if (screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
       if (!again) {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -258,7 +261,7 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
       else return;
       event.preventDefault();
     };
-    return hub.listen("window", "keydown", onKey, true);
+    return hub.listen("window", "keydown", onKey);
   }, [again, hub, index, onCancel, onConfirm, order, shown]);
   const titles = new Map(pads.map((pad) => [pad.padId, pad.title]));
   const lines = new Map(pads.map((pad) => [pad.padId, pad.line ?? ""]));
