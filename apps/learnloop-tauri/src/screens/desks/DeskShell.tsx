@@ -81,7 +81,7 @@ import {
   type DeskAction,
   type Timers,
 } from "./keys/router";
-import { DeskListenerRouter, WINDOW_ATTRIBUTE } from "./keys/listeners";
+import { DeskListenerRouter, WINDOW_ATTRIBUTE, windowOfTarget } from "./keys/listeners";
 import { WindowScope, isPaused, windowState, type ClaimedScope, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./lifecycle";
 import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
@@ -450,6 +450,20 @@ export function DeskShell({
     }
     return out;
   }, [ws, deskId, visibility, focusId, focusMode, overview]);
+  // The DOM focus follows the activation: when another window becomes the active one (a key, a click,
+  // another desk), focus held inside a window that is no longer active moves to the new active window,
+  // so typing never edits a hidden desk's field or reaches an inactive window's iframe.
+  const activeWindowId = Object.values(lifecycles).find((each) => each.state === "active")?.windowId ?? null;
+  useEffect(() => {
+    const held = document.activeElement;
+    const owner = held && held !== document.body ? windowOfTarget(held) : null;
+    if (owner === activeWindowId && owner !== null) return;
+    const target = activeWindowId ? document.querySelector<HTMLElement>(`[${WINDOW_ATTRIBUTE}="${activeWindowId}"]`) : null;
+    // Focus elsewhere in the shell (the top bar, the shelf's filter) stays where the learner put it.
+    if (owner === null && held && held !== document.body && !(held instanceof HTMLIFrameElement)) return;
+    if (target) target.focus({ preventScroll: true });
+    else if (held instanceof HTMLElement && owner !== null) held.blur();
+  }, [activeWindowId]);
   const lifecyclesRef = useRef(lifecycles);
   lifecyclesRef.current = lifecycles;
   const focusIdRef = useRef(focusId);
@@ -1664,6 +1678,10 @@ export function DeskShell({
                     >
                       <div
                         {...{ [WINDOW_ATTRIBUTE]: id }}
+                        // A paused window (another desk, out of view, a card in the overview) takes no DOM input:
+                        // no focus, no typing, no tab stop, no clicks into its controls or its iframes.
+                        {...(paused ? { inert: "" } : {})}
+                        tabIndex={-1}
                         data-window-state={lifecycle.state}
                         data-window-kind={window.kind}
                         className={`desk-pane${paired && window.active ? " active-pane" : ""}`}

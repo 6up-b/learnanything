@@ -215,6 +215,20 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
     commands_a = await frame_a.locator("#s").inner_text()
     results.check("space plays the focused video", "playVideo" in commands_a, commands_a)
 
+    # A field focused in the active window, then alt+j to the next desk: the typing goes nowhere on the
+    # hidden desk, the focus is in the new active window, and the hidden desk's windows are inert.
+    await page.evaluate("""() => { const body = document.querySelector('[data-desk-window="fx_w_video"] [data-desk-pane-body]');
+      const field = document.createElement('input'); field.id = 'harness-draft'; body.prepend(field); field.focus(); }""")
+    await page.keyboard.press("Alt+j")
+    await settle(page, 900)
+    await page.keyboard.type("zz")
+    typed = await page.evaluate("""() => ({ value: document.getElementById('harness-draft').value,
+      owner: document.activeElement?.closest('[data-desk-window]')?.getAttribute('data-desk-window') ?? null,
+      inert: document.querySelector('[data-desk-window="fx_w_book"]').inert })""")
+    results.check("a field on a desk left behind takes no typing; the focus follows the active window",
+                  typed == {"value": "", "owner": "fx_w_video2", "inert": True}, typed)
+    await page.evaluate("() => document.getElementById('harness-draft').remove()")
+
     # #desk=1: the attention desk; the first desk's windows are hidden and its player paused.
     await page.get_by_role("button", name="attention", exact=True).click()
     await settle(page, 1500)
@@ -249,7 +263,11 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
         all(abs(rects_before[k][dim] - rects_after[k][dim]) <= 1 for dim in ("x", "y", "w", "h")) for k in rects_before)
     results.check("leaving focus mode restores every window's rect within 1 px", same, [rects_before, rects_after])
 
-    # Pairs: alt+, stacks the two windows top and bottom; alt+. gives one back its slot.
+    # Pairs: alt+, stacks the two windows top and bottom; alt+. gives one back its slot. A mark left in each
+    # window's content shows that neither is remounted by pairing or unpairing.
+    await page.evaluate("""() => { for (const id of ['fx_w_video2', 'fx_w_paper2']) {
+      const mark = document.createElement('span'); mark.dataset.harnessMark = id;
+      document.querySelector(`[data-desk-window="${id}"] [data-desk-pane-body]`).append(mark); } }""")
     await page.keyboard.press("Alt+Comma")
     await settle(page, 700)
     pair = [w for w in await windows(page) if w["id"] in ("fx_w_video2", "fx_w_paper2")]
@@ -263,6 +281,9 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
     await page.keyboard.press("Alt+Period")
     await settle(page, 700)
     results.check("alt+. gives the window its own slot", len({round(w["slot"]["x"]) for w in await windows(page) if w["id"] in ("fx_w_video2", "fx_w_paper2")}) == 2)
+    marks = await page.evaluate("() => [...document.querySelectorAll('[data-harness-mark]')].map((m) => [m.dataset.harnessMark, m.closest('[data-desk-window]')?.getAttribute('data-desk-window')])")
+    results.check("pairing and unpairing remount neither window (its content keeps a mark)",
+                  sorted(marks) == [["fx_w_paper2", "fx_w_paper2"], ["fx_w_video2", "fx_w_video2"]], marks)
 
     # Close and undo.
     count = len([w for w in await windows(page) if w["state"] != "hidden"])

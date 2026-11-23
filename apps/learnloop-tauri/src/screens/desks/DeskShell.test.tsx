@@ -665,3 +665,38 @@ describe("fix round: one Alt tracker (finding 9)", () => {
     expect(cleared).toEqual(["fx_w_book"]);
   });
 });
+
+describe("fix round: a window that loses activation loses the DOM's input (finding 4)", () => {
+  function InputPane({ input }: { input: PaneRenderInput }) {
+    return (
+      <>
+        <Pane input={input} />
+        <input aria-label={`compose ${input.window.windowId}`} />
+      </>
+    );
+  }
+
+  it("switching desks moves the focus out of the old desk's input into the new active window, and the old desk is inert", async () => {
+    mount(new FixtureDeskServer(), { renderPane: (input) => <InputPane input={input} /> });
+    const compose = (await screen.findByLabelText("compose fx_w_book")) as HTMLInputElement;
+    act(() => compose.focus());
+    expect(document.activeElement).toBe(compose);
+    alt("KeyJ", "j");
+    await screen.findByTestId("pane-fx_w_video2");
+    expect(document.activeElement).not.toBe(compose);
+    expect(document.activeElement?.closest("[data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_video2");
+    expect(document.querySelector('[data-desk-window="fx_w_book"]')?.hasAttribute("inert")).toBe(true);
+    expect(document.querySelector('[data-desk-window="fx_w_video2"]')?.hasAttribute("inert")).toBe(false);
+  });
+
+  it("moving the activation to the next window on the same desk takes the focus with it", async () => {
+    mount(new FixtureDeskServer(), { renderPane: (input) => <InputPane input={input} /> });
+    const compose = (await screen.findByLabelText("compose fx_w_book")) as HTMLInputElement;
+    act(() => compose.focus());
+    alt("KeyL", "l");
+    expect(document.activeElement?.closest("[data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_video");
+    // A visible, inactive window stays clickable (not inert); only paused ones are.
+    expect(document.querySelector('[data-desk-window="fx_w_book"]')?.hasAttribute("inert")).toBe(false);
+    expect(document.querySelector('[data-desk-window="fx_w_paper"]')?.hasAttribute("inert")).toBe(true);
+  });
+});
