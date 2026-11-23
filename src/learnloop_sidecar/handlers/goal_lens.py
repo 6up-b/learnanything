@@ -138,6 +138,7 @@ def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
                 "failure": ({"reason": covering.get("reason"), "message": covering.get("message")}
                             if covering.get("state") == "failed" else None)}
     return versioned(reads.band_view(vault, repository, model, due=due, answered=answered,
+                                     protection=reads.protection(vault, repository, due, model),
                                      likely=curriculum._likely(vault, repository),
                                      pace=_pace(vault, repository, model.goal), progress=progress))
 
@@ -184,7 +185,9 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
     due, answered = _checks(vault, repository, params.goal_id)
     model = _model(ctx, vault, repository, params.goal_id, due, answered)
     try:
-        return versioned(reads.lens_view(vault, repository, model, resolved, from_span_id=params.from_span_id,
+        return versioned(reads.lens_view(vault, repository, model, resolved,
+                                         protection=reads.protection(vault, repository, due, model),
+                                         from_span_id=params.from_span_id,
                                          to_span_id=params.to_span_id, t0=params.t0, t1=params.t1))
     except RangeError as exc:
         raise SidecarError(exc.code, str(exc)) from exc

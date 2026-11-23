@@ -218,8 +218,8 @@ def test_a_due_check_hides_its_los_purpose_text_and_comes_first_next(tmp_path):
     assert line["held"] and line["reason"] is None
     eigen = levels(ctx, goal_id, "ext_book")["ch_eigen"]
     assert eigen["held"] and eigen["reasonMd"] == GL.HELD_REASON and eigen["coverageLine"] is None
-    # The LO's name is hidden (the section's own heading is the book's text, shown as ever).
-    assert "Eigenvalues" not in json.dumps({key: value for key, value in eigen.items() if key != "title"})
+    # The LO's name is hidden, the section's heading included (it names the LO; RD6's fix round).
+    assert "Eigenvalues" not in json.dumps(eigen)
     # Answered on the learner's own today: the ◇ fills and the purpose text returns.
     C.satisfy_single_check(repository, commitment_id=commitment_id)
     band = call(ctx, "goal.band", {"goal_id": goal_id})

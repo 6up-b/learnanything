@@ -140,7 +140,9 @@ export function hereLine(index: LensIndex | null, readingSpan: string | null, wh
   if (!section) return { where: place, lo: null, tag: null, loId: null };
   if (section.level === "skippable") return { where: place, lo: null, tag: "not needed for your goal", loId: null };
   if (section.level === "unmapped") return { where: place, lo: null, tag: "not mapped for this goal yet", loId: null };
-  if (section.held) return { where: place, lo: null, tag: "a cold check is due here", loId: null };
+  // A section treating an LO whose check is due names nothing: not the window's own place words (the book's heading
+  // may be the LO's name), only the server's neutral title (D15).
+  if (section.held) return { where: section.title, lo: null, tag: "a cold check is due here", loId: null };
   const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
   const dot = band?.learningObjects?.find((each) => each.learningObjectId === section.determiningLoId);
   const tag = section.level === "later" ? "later"
