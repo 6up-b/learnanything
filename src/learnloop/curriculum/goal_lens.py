@@ -126,6 +126,9 @@ class SectionReads:
     protection: str | None = None
     #: The learner's choice on this section for this goal (``read_anyway``), if any.
     choice: str | None = None
+    #: Goal LOs whose rows here were written against an earlier version of the section and none stands now: what
+    #: they say of it is unknown (a changed section never reads as "not about" them).
+    stale: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -227,12 +230,13 @@ def section_level(section: SectionReads, goal: GoalReads) -> SectionLevel:
     needed = [entry for entry in ordered if entry.level in NEED_ORDER]
     covered = {row.learning_object_id for row in about}
     unplaced = [lo_id for lo_id in section.placed if lo_id not in covered]
-    if not section.coverage and not unplaced:
+    if not section.coverage and not unplaced and not section.stale:
         return done("unmapped", "unmapped", "unmapped")
     best = needed[0] if needed else None
     # A topic not checked yet could still raise any level but core (the highest); a placement coverage
     # no longer names leaves the section's mapping incomplete whatever it shows.
-    unsettled = bool(goal.unsettled) and (best is None or best.level != "core")
+    unsettled = (bool(goal.unsettled) or any(lo_id in goal.los for lo_id in section.stale)) and (
+        best is None or best.level != "core")
     if unplaced or unsettled:
         return done("partial", "partial", "partial_unplaced" if unplaced else "partial_unsettled",
                     levels=ordered, known=best.level if best is not None else None)

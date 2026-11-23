@@ -217,8 +217,9 @@ def reading_sections(vault: Any, repository: Repository, model: GoalModel, extra
     library = model.library
     reading = library.reading(extraction_id) if library is not None else None
     with repository.connection() as connection:
-        named = (coverage_store.learning_objects_in_reading(connection, extraction_id)
-                 if coverage_store.table_present(connection) else [])
+        present = coverage_store.table_present(connection)
+        named = coverage_store.learning_objects_in_reading(connection, extraction_id) if present else []
+        hashes = coverage_store.section_hashes_in_reading(connection, extraction_id) if present else {}
     standing = SC.standing(vault, repository, library, named) if library is not None and reading is not None else {}
     out = []
     for row in rows:
@@ -239,8 +240,15 @@ def reading_sections(vault: Any, repository: Repository, model: GoalModel, extra
                 coverage.append(GL.Coverage(lo_id, entry.treatment if entry.treatment is not None
                                             else GL.LEARNER_ABOUT))
         placed = tuple(lo for lo in dict.fromkeys(model.placed.get(ref, ())) if model.reads and lo in model.reads.los)
+        # A goal LO whose rows here were all written against an earlier version of the section (no standing row
+        # now): what it says of the section is unknown, never "not about it" (RD6's fix round).
+        current = library.section(extraction_id, section_id) if library is not None else None
+        stale = tuple(sorted(lo_id for (sid, lo_id), seen in hashes.items()
+                             if sid == section_id and model.reads and lo_id in model.reads.los
+                             and current is not None and current.section_hash not in seen
+                             and not any(entry.learning_object_id == lo_id for entry in coverage)))
         reads = GL.SectionReads(ref=ref, title=str(row["label"]), coverage=tuple(coverage), placed=placed,
-                                protection=protection, choice=model.choices.get(ref))
+                                protection=protection, choice=model.choices.get(ref), stale=stale)
         place = {"section_id": section_id, "title": str(row["label"]), "start_span_id": str(row["start_span_id"]),
                  "span_ids": spans}
         out.append((place, reads))

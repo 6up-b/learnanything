@@ -65,7 +65,7 @@ def _progress(ctx: SidecarContext, goal_id: str) -> reads.Progress:
     return read
 
 
-def _settled(ctx: SidecarContext, vault: Any, goal_id: str) -> set[str]:
+def _settled(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> set[str]:
     """The unjudged LOs this sidecar's coverage already tried for the goal with nothing left to judge (no
     candidate section): their sections are settled. None while it runs, or after it failed."""
 
@@ -73,9 +73,11 @@ def _settled(ctx: SidecarContext, vault: Any, goal_id: str) -> set[str]:
     with work.lock:
         state = (work.covering.get(goal_id) or {}).get("state")
         attempted = set(work.attempted.get(goal_id, ()))
-    if state in ("running", "failed"):
+    if state in ("running", "failed") or not attempted:
         return set()
-    return {lo_id for lo_id, key in attempted if key == DP.coverage_key(vault, lo_id)}
+    # Settled only against the library it was tried in: a reading added since may hold the LO (RD6's fix round).
+    keys = DP.attempt_keys(vault, repository, sorted({lo_id for lo_id, _key in attempted}))
+    return {lo_id for lo_id, key in attempted if key == keys.get(lo_id)}
 
 
 def _checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -88,7 +90,7 @@ def _model(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str,
            due: list[dict[str, Any]], answered: list[dict[str, Any]]) -> reads.GoalModel:
     try:
         return reads.read_goal(vault, repository, goal_id, held={row["lo_id"] for row in due},
-                               answered={row["lo_id"] for row in answered}, settled=_settled(ctx, vault, goal_id),
+                               answered={row["lo_id"] for row in answered}, settled=_settled(ctx, vault, repository, goal_id),
                                progress=_progress(ctx, goal_id))
     except DL.DeliverableError as exc:
         raise curriculum._error(exc) from exc
