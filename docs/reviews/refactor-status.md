@@ -85,9 +85,9 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | D7 batch 3 part 2 | Retire the lesson, teacher and data capture switches | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
 | D7 batch 3 last group | Retire the plan, router and restraint switches | dropped | — | [refactor-d7e.md](refactor-d7e.md) | Owner kept all three, Nov 17 |
 | D7 batch 4 | Retire router objective switches at the floor | deferred | — | [refactor-d7-inventory.md](refactor-d7-inventory.md) | Arc E opens their file |
-| D8 | Fix the four replay gaps pinned by tests | not started | — | — | — |
+| D8 | Fix the four replay gaps pinned by tests | in progress | — | — | One landing per gap, in the design's order: same-second grades, retired items, the mastery seed, provenance |
 | D8 retired items | Replay retirement at the correct point in history | not started | — | — | — |
-| D8 same-second grades | Preserve commit order for grades sharing a timestamp | not started | — | — | — |
+| D8 same-second grades | Preserve commit order for grades sharing a timestamp | landed | this commit | [algorithm-mvp-0.65.md](algorithm-mvp-0.65.md) | mvp-0.65, migration 261: each new application records its sequence in `attempt_application_order`, and every prefix reader breaks a same-second tie by it. Attempts recorded before the tag keep their old order, labelled unknown |
 | D8 claims | Re-anchor claims created after replay materializes state | not started | — | — | Design for re-anchoring |
 | D8 provenance | Fix the two reopened input provenance gaps | waiting on | — | — | One capture point for diagnosis inputs |
 | D close fix 1 | Fix arc close serving and test gaps | landed | `7131b464c5` | [refactor-adfix1.md](refactor-adfix1.md) | — |
