@@ -45,10 +45,12 @@ proposals), both read when the work runs, not when it was planned.
 from __future__ import annotations
 
 import io
+import logging
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -1096,23 +1098,42 @@ def _cancel_rest_of_batch(ctx) -> None:
             )
 
 
-def auto_apply_allowed(ctx) -> bool:
+def auto_apply_refusal(ctx) -> str | None:
     """Read immediately before an automatic build applies (F4, F5): the kill
-    switches and the Undo generation, as they are now. A ``False`` keeps the
-    build's result as an unapplied record."""
+    switches and the Undo generation, as they are now. A refusal (``auto_build_off``,
+    ``auto_apply_off``, ``undone``) keeps the build's result as an unapplied record."""
 
     from learnloop.vault.loader import load_vault
 
     auto = ctx.payload.get("auto_build")
     if not isinstance(auto, Mapping):
-        return True
+        return None
     config = load_vault(ctx.vault_root).config
+    if not config.ingest.auto_build:
+        return "auto_build_off"
+    if not config.ingest.auto_apply_passing_builds:
+        return "auto_apply_off"
     source_id = str(auto.get("source_id") or "")
-    return (
-        bool(config.ingest.auto_build)
-        and bool(config.ingest.auto_apply_passing_builds)
-        and int(ctx.repo.source_auto_build_state(source_id)["generation"]) == int(auto.get("generation") or 0)
-    )
+    if int(ctx.repo.source_auto_build_state(source_id)["generation"]) != int(auto.get("generation") or 0):
+        return "undone"
+    return None
+
+
+def auto_apply_allowed(ctx) -> bool:
+    return auto_apply_refusal(ctx) is None
+
+
+class AutoApplyGate:
+    """``apply_gate`` for a synthesis job: :func:`auto_apply_allowed`, keeping the refusal it last read so the run's
+    auto-apply record can say which switch or Undo kept the build unapplied."""
+
+    def __init__(self, ctx) -> None:
+        self._ctx = ctx
+        self.refusal: str | None = None
+
+    def __call__(self) -> bool:
+        self.refusal = auto_apply_refusal(self._ctx)
+        return self.refusal is None
 
 
 # ---------------------------------------------------------------------------
@@ -1438,9 +1459,23 @@ class BuildPlanChoice:
                 "whole_source": self.whole}
 
 
+@dataclass(frozen=True)
+class ScopeDecision:
+    """What :func:`_choose_scope` decided and from what: the choice (``None`` when nothing is built), the rule that
+    picked it, and what it passed over, for the build's decision record (:func:`build_scope_record`)."""
+
+    choice: BuildPlanChoice | None
+    rule: str
+    #: Exam-material units left out; ``None``: the whole reading is exam material.
+    withheld: frozenset[str] | None
+    #: The chapters left once exam material is out, and the book's automatic-build coverage then.
+    chapters: tuple[Chapter, ...] = ()
+    coverage: Coverage | None = None
+
+
 def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str], *,
                   chapter_ids: Sequence[str] | None, start_unit_id: str | None,
-                  exclude_job_id: str | None) -> BuildPlanChoice | None:
+                  exclude_job_id: str | None) -> ScopeDecision:
     from learnloop.content.pipeline.build_plan import build_build_plan
     from learnloop.content.sources.source_outline import build_source_outline
 
@@ -1448,11 +1483,14 @@ def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str]
     outline = build_source_outline(repo, extraction_id)
     withheld = exam_material_units(vault, repo, source_id, revision_id, extraction_id)
     if withheld is None:
-        return None  # the whole book is exam material: nothing is built from it
+        # The whole book is exam material: nothing is built from it.
+        return ScopeDecision(None, SCOPE_WHOLE_READING_EXAM, None)
     chapters = _without_units(outline_chapters(outline), withheld)
-    covered = coverage(repo, source_id, exclude_job_id=exclude_job_id).covered
+    book_coverage = coverage(repo, source_id, exclude_job_id=exclude_job_id)
+    covered = book_coverage.covered
     whole = False
     if chapter_ids:
+        rule = SCOPE_CHAPTERS_ASKED
         wanted = set(chapter_ids)
         picked = [
             chapter for chapter in chapters
@@ -1461,14 +1499,17 @@ def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str]
     else:
         cap = int(config.ingest.budgets.quick_add_scope_input_tokens)
         if not covered and outline.approx_tokens <= cap:
+            rule = SCOPE_WHOLE_SOURCE
             picked, whole = list(chapters), True
         else:
+            rule = SCOPE_READING_ORDER
             picked = reading_order_scope(
                 chapters, built=covered, start_unit_id=start_unit_id,
                 cap_tokens=cap, floor_tokens=min(FLOOR_TOKENS, max(cap // 4, 1)),
             )
+    decided = partial(ScopeDecision, withheld=frozenset(withheld), chapters=tuple(chapters), coverage=book_coverage)
     if not picked:
-        return None
+        return decided(None, rule)
     unit_ids = [unit_id for chapter in picked for unit_id in chapter.unit_ids]
     plan = build_build_plan(
         repo, config, vault, subject_id=None,
@@ -1476,11 +1517,85 @@ def _choose_scope(repo, config, vault, source_id: str, resolved: tuple[str, str]
     ).as_dict()
     stages = {str(stage.get("stage")): int(stage.get("input_tokens") or 0) + int(stage.get("max_output_tokens") or 0)
               for stage in plan.get("stages") or []}
-    return BuildPlanChoice(
+    return decided(BuildPlanChoice(
         extraction_id=extraction_id, revision_id=revision_id, chapters=picked, whole=whole and not withheld,
         unit_ids=unit_ids, stages=stages, totals=dict(plan["totals"]), outline=outline,
         withheld_unit_ids=frozenset(withheld),
+    ), rule)
+
+
+#: The decision record of an automatic build's scope: which chapters it takes and which it passes over, and why.
+INGEST_BUILD_SCOPE = "ingest_build_scope"
+#: How :func:`_choose_scope` picked: the chapters the learner asked for, the whole book (it fits the cap and nothing
+#: is built), reading order from where the learner is (up to the cap), or nothing (the reading is all exam material).
+SCOPE_CHAPTERS_ASKED = "chapters_asked"
+SCOPE_WHOLE_SOURCE = "whole_source"
+SCOPE_READING_ORDER = "reading_order"
+SCOPE_WHOLE_READING_EXAM = "whole_reading_exam_material"
+
+
+def build_scope_record(decision: ScopeDecision, *, source_id: str, job_id: str | None,
+                       resolved: tuple[str, str]) -> Any:
+    """The build scope's decision record (pure): the chapters chosen, the exam-material units withheld, the chapters
+    skipped because a build already covers them (built or being built), and how many were left for later."""
+
+    from learnloop import provenance
+
+    revision_id, extraction_id = resolved
+    choice = decision.choice
+    chosen = {chapter.unit_id for chapter in choice.chapters} if choice is not None else set()
+    alternatives: list[dict[str, Any]] = []
+    if decision.withheld:
+        alternatives += [{"ref": provenance.ref(unit_id), "lost_by": "exam_material"}
+                         for unit_id in sorted(decision.withheld)]
+    built = decision.coverage.built if decision.coverage is not None else set()
+    reserved = decision.coverage.reserved if decision.coverage is not None else set()
+    left = 0
+    for chapter in decision.chapters:
+        if chapter.unit_id in chosen:
+            continue
+        if chapter.unit_id in built:
+            alternatives.append({"ref": provenance.ref(chapter.unit_id), "lost_by": "already_built"})
+        elif chapter.unit_id in reserved:
+            alternatives.append({"ref": provenance.ref(chapter.unit_id), "lost_by": "being_built"})
+        else:
+            left += 1
+    job = provenance.ref(job_id)
+    return provenance.DecisionRecord(
+        kind=INGEST_BUILD_SCOPE,
+        status="chosen" if choice is not None else "excluded",
+        subject_kind="job" if job else None,
+        subject_id=job,
+        chosen_ref=provenance.ref(source_id),
+        decided_by="auto_study_map",
+        rule=decision.rule,
+        alternatives=tuple(alternatives),
+        facts={
+            "source_id": provenance.ref(source_id),
+            "revision_id": provenance.ref(revision_id),
+            "extraction_id": provenance.ref(extraction_id),
+            "chapter_ids": [provenance.ref(chapter.unit_id) for chapter in choice.chapters] if choice else [],
+            "unit_count": len(choice.unit_ids) if choice else 0,
+            "whole_source": bool(choice.whole) if choice else False,
+            "withheld_unit_count": len(decision.withheld) if decision.withheld is not None else None,
+            "chapters_left_for_later": left,
+        },
     )
+
+
+def _record_build_scope(ctx, decision: ScopeDecision, *, source_id: str, resolved: tuple[str, str]) -> None:
+    """Write :func:`build_scope_record` in a short transaction of its own; never raises."""
+
+    from learnloop import provenance
+    from learnloop.db.stores.provenance import write_decision
+
+    try:
+        record = build_scope_record(decision, source_id=source_id, job_id=ctx.job_id, resolved=resolved)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        logging.getLogger(__name__).warning("decision record %r not built (trace %s): %s", INGEST_BUILD_SCOPE,
+                                            provenance.current_trace(), type(exc).__name__)
+        return
+    write_decision(ctx.repo, record)
 
 
 def exam_material_units(vault, repo, source_id: str, revision_id: str | None,
@@ -1554,7 +1669,7 @@ def preview_auto_build(vault_root: Path, repo, source_id: str, *, whole_book: bo
 
         chapter_ids = [chapter.unit_id for chapter in outline_chapters(build_source_outline(repo, resolved[1]))]
     choice = _choose_scope(repo, config, vault, source_id, resolved, chapter_ids=chapter_ids,
-                           start_unit_id=None, exclude_job_id=None)
+                           start_unit_id=None, exclude_job_id=None).choice
     if choice is None:
         return {**report, "status": "nothing_to_build"}
     route = route or authoring_route_for(vault.root, config)
@@ -1620,11 +1735,13 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
     generation = current_generation(ctx.repo, source_id)
 
     ctx.report("inventoried", message="Choosing what to build first")
-    choice = _choose_scope(
+    decision = _choose_scope(
         ctx.repo, config, vault, source_id, resolved,
         chapter_ids=payload.get("chapter_ids"), start_unit_id=payload.get("start_unit_id"),
         exclude_job_id=ctx.job_id,
     )
+    _record_build_scope(ctx, decision, source_id=source_id, resolved=resolved)
+    choice = decision.choice
     if choice is None:
         return {"outcome": "skipped", "reason": "nothing_to_build", **base}
     plan_info = choice.info

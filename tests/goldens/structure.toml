@@ -37,7 +37,7 @@ source_text_assertions = 23
 # unanchored rows naming the case's LO; no existing value moved).
 # 281654: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
 # golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
-golden_json_lines = 281654
+golden_json_lines = 283402
 
 [members]
 import_component = [

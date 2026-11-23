@@ -1771,6 +1771,16 @@ def _effective_inventory_inputs(
     return effective_specs
 
 
+def _build_trace_id(ctx: JobContext) -> str:
+    """The trace a synthesis job's decision records (and model receipts) join: the automatic build's planner job
+    when there is one, so its scope, the inventory rows the run read and what it applied answer as one trace in
+    ``learnloop why``; the job itself otherwise. The ingest drain opens no trace of its own."""
+
+    auto = ctx.payload.get("auto_build")
+    planner = auto.get("planner_job_id") if isinstance(auto, Mapping) else None
+    return str(planner or ctx.job_id)
+
+
 def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     """bootstrap_synthesis: N-way study-map synthesis over a source set (ING M6).
 
@@ -1780,6 +1790,13 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     through the existing pipeline; the manifest hash is the agent-run cache seam
     so an identical manifest re-drains at zero tokens."""
 
+    from learnloop import provenance
+
+    with provenance.trace_scope(_build_trace_id(ctx)):
+        return _bootstrap_synthesis(ctx)
+
+
+def _bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     from learnloop.content.synthesis.source_set_synthesis import (
         StudyMapError,
         create_study_map,
@@ -1790,7 +1807,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     source_set_id = str(payload.get("source_set_id") or "").strip()
     if not source_set_id:
         raise IngestRunnerError("bootstrap_synthesis job requires a 'source_set_id'.")
-    from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
+    from learnloop.content.pipeline.add_source import AutoApplyGate, admit_auto_build_job, after_auto_build
 
     if not payload.get("reuse_candidate"):
         # A model run: automatic builds are admitted again (kill switch, Undo
@@ -1807,7 +1824,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
         vault = load_vault(ctx.vault_root)
         source_set = next((item for item in vault.source_sets if item.id == source_set_id), None)
         if source_set is not None and subject_has_applied_study_map(vault, source_set.subject_id):
-            return handle_append_synthesis(ctx)
+            return _append_synthesis(ctx)
 
     ctx.report("inventoried", message="Preparing study-map synthesis")
     try:
@@ -1819,7 +1836,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
                 ctx.vault_root,
                 str(payload["synthesis_run_id"]),
                 apply=bool(payload.get("apply", False)),
-                apply_gate=lambda: auto_apply_allowed(ctx),
+                apply_gate=AutoApplyGate(ctx),
                 create_goal=bool(payload.get("create_goal", False)),
                 repair=bool(payload.get("repair_candidate", False)),
                 repair_ops=[dict(op) for op in payload.get("repair_ops") or []],
@@ -1836,7 +1853,7 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
                 brief=payload.get("brief") or {},
                 mode=str(payload.get("mode") or "auto"),
                 apply=bool(payload.get("apply", False)),
-                apply_gate=lambda: auto_apply_allowed(ctx),
+                apply_gate=AutoApplyGate(ctx),
                 create_goal=bool(payload.get("create_goal", False)),
                 repository=ctx.repo,
                 clock=ctx.clock,
@@ -1923,10 +1940,17 @@ def _record_step(ctx: JobContext, **facts: Any) -> None:
 def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
     """append_synthesis: bounded reconciliation against an existing study map."""
 
+    from learnloop import provenance
+
+    with provenance.trace_scope(_build_trace_id(ctx)):
+        return _append_synthesis(ctx)
+
+
+def _append_synthesis(ctx: JobContext) -> dict[str, Any]:
     from learnloop.content.synthesis.source_append import APPEND_INPUT_OVER_CEILING, append_source
     from learnloop.content.synthesis.source_set_synthesis import StudyMapError
 
-    from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
+    from learnloop.content.pipeline.add_source import AutoApplyGate, admit_auto_build_job, after_auto_build
 
     payload = ctx.payload
     source_set_id = str(payload.get("source_set_id") or payload.get("set_id") or "").strip()
@@ -1953,7 +1977,7 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             revision_diff=dict(payload.get("revision_diff") or {}),
             brief=dict(payload.get("brief") or {}),
             auto_apply=bool(payload.get("apply", payload.get("auto_apply", True))),
-            apply_gate=lambda: auto_apply_allowed(ctx),
+            apply_gate=AutoApplyGate(ctx),
             repository=ctx.repo,
             clock=ctx.clock,
             budget_overrides=dict(payload.get("synthesis_budgets") or {}),
@@ -4092,9 +4116,12 @@ def handle_auto_study_map(ctx: JobContext) -> dict[str, Any]:
     ledger entry the book card's status line reads; see
     ``learnloop.content.pipeline.add_source``."""
 
+    from learnloop import provenance
     from learnloop.content.pipeline.add_source import run_auto_study_map
 
-    return run_auto_study_map(ctx)
+    # The planner's job id is its build's trace (``_build_trace_id``): the scope it chose joins the run it caused.
+    with provenance.trace_scope(ctx.job_id):
+        return run_auto_study_map(ctx)
 
 
 DEFAULT_HANDLERS: dict[str, Handler] = {

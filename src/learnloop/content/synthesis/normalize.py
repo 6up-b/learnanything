@@ -74,6 +74,9 @@ class Normalized:
     # The client ids §10.3 lets an append apply without review; None where the mode has no such lane, so its run
     # record names none.
     auto_apply_ids: list[str] | None = None
+    # client id -> the §10.3 condition that kept an item of that lane out of ``auto_apply_ids``, for the run's
+    # auto-apply decision record.
+    auto_apply_refusals: dict[str, str] = field(default_factory=dict)
 
 
 def _dump(obj: Any) -> dict[str, Any]:

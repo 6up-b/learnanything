@@ -145,9 +145,46 @@ def best_inventory(
     means "not known here" and prefers nothing.
     """
 
+    return inventory_choice(
+        rows, unit_id, semantic_hash=semantic_hash, prompt_version=prompt_version, provider=provider, model=model,
+        profile=profile,
+    ).row
+
+
+#: The preferences :func:`best_inventory` ranks rows by, in order; the first a losing row is worse on is why it lost.
+#: ``newest`` breaks a tie on all of them.
+INVENTORY_PREFERENCES: tuple[str, ...] = ("unit_text", "prompt_version", "route", "combined_profile", "profile")
+
+
+@dataclass(frozen=True)
+class InventoryChoice:
+    """Which inventory row a unit's synthesis reads (``row``, ``None`` when the unit has none), and why: ``rule`` is
+    the preference that set it above the next row (``only_row``, ``newest``, ``no_row``, or one of
+    :data:`INVENTORY_PREFERENCES`), with ``profile_unsatisfied`` when no row satisfied the requested profile; ``lost``
+    pairs each other row's id with the preference it lost on."""
+
+    row: dict[str, Any] | None
+    rule: str
+    candidates: int
+    lost: tuple[tuple[str, str], ...] = ()
+    profile_satisfied: bool = True
+
+
+def inventory_choice(
+    rows: list[dict[str, Any]],
+    unit_id: str,
+    *,
+    semantic_hash: str | None,
+    prompt_version: str,
+    provider: str | None,
+    model: str | None,
+    profile: str,
+) -> InventoryChoice:
+    """:func:`best_inventory` with its reasons (the same row, by the same ranking)."""
+
     candidates = [row for row in rows if row["unit_id"] == unit_id]
     if not candidates:
-        return None
+        return InventoryChoice(None, "no_row", 0)
     satisfying = [
         row
         for row in candidates
@@ -158,17 +195,32 @@ def best_inventory(
         key=lambda row: (str(row.get("created_at") or ""), str(row.get("id") or "")),
         reverse=True,
     )
-    # A stable sort keeps newest-first within each preference class.
-    pool.sort(
-        key=lambda row: (
+
+    def preference(row: dict[str, Any]) -> tuple[Any, ...]:
+        return (
             row.get("unit_semantic_hash") != semantic_hash,
             row.get("prompt_version") != prompt_version,
             (row.get("provider"), row.get("model")) != (provider, model),
             row["inventory_profile"] != "combined",
             row["inventory_profile"],
         )
+
+    # A stable sort keeps newest-first within each preference class.
+    pool.sort(key=preference)
+    winner = pool[0]
+
+    def lost_by(row: dict[str, Any]) -> str:
+        if satisfying and row not in satisfying:
+            return "profile_unsatisfied"
+        mine, best = preference(row), preference(winner)
+        return next((name for name, a, b in zip(INVENTORY_PREFERENCES, mine, best, strict=True) if a != b), "newest")
+
+    others = [row for row in candidates if row is not winner]
+    rule = "only_row" if not others else lost_by(pool[1]) if len(pool) > 1 else "profile_unsatisfied"
+    return InventoryChoice(
+        winner, rule, len(candidates), tuple((str(row.get("id") or ""), lost_by(row)) for row in others),
+        profile_satisfied=bool(satisfying),
     )
-    return pool[0]
 
 
 def choose_unit_inventory(
@@ -183,8 +235,21 @@ def choose_unit_inventory(
     label and ``route`` (``current_inventory_identity``), for synthesis's
     combined request."""
 
+    return choose_unit_inventory_with_reasons(rows, unit_id, unit_ids, ir=ir, route=route).row
+
+
+def choose_unit_inventory_with_reasons(
+    rows: list[dict[str, Any]],
+    unit_id: str,
+    unit_ids: list[str],
+    *,
+    ir: DocumentIR | None,
+    route: tuple[str, str] | None,
+) -> InventoryChoice:
+    """:func:`choose_unit_inventory` with its reasons (:func:`inventory_choice`)."""
+
     provider, model = route or (None, None)
-    return best_inventory(
+    return inventory_choice(
         rows,
         unit_id,
         semantic_hash=current_unit_semantic_hash(ir, unit_ids),
