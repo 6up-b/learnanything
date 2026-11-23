@@ -10800,3 +10800,131 @@ export interface ChecksDueDto {
     host: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
     provenance: Record<string, string> }[];
 }
+
+// -- Reader workbench v2 RD3 (spec §3.4, §8.6, §9.3): the companion's ask as a polled job, search in context.
+// The typed calls only; no component calls them yet.
+
+export type CompanionAskSurface = "desk" | "reader" | "lesson" | "notebook";
+
+/** companion.ask: reader.ask's input plus where it was asked. `requestId` is client-minted: a retry with the same
+ *  id answers the same job (another question under it is refused, `request_reused`). */
+export interface CompanionAskInput extends ReaderAskInput {
+  requestId: string;
+  surface: CompanionAskSurface;
+  /** Required on a desk; its goal and focused window are read on the server. */
+  deskId?: string | null;
+  /** Selected pad blocks (recorded with the exchange; not sent to the tutor). */
+  padBlockIds?: string[];
+  /** Required in a notebook. */
+  notebookRef?: string | null;
+}
+
+export type CompanionAskStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+
+export interface PolledJobErrorDto {
+  code: string;
+  message: string;
+  retryable: boolean;
+  details?: Record<string, unknown>;
+}
+
+/** The job, read at once (companion.ask, companion.ask_job, companion.ask_cancel). */
+export interface CompanionAskJobDto {
+  version: number;
+  requestId: string;
+  status: CompanionAskStatus;
+  /** Stop polling: finished, failed, expired, or cancelled once its thread has ended. */
+  done: boolean;
+  /** Empty until the answer is whole (no transport streams answer text), then the answer. */
+  partialMd: string;
+  citations: TutorCitationDto[];
+  /** Output pieces the request in flight has streamed (0 where the transport does not stream). */
+  streamedPieces: number;
+  /** The exchange, once recorded (also on a cancelled job whose answer was already being written). */
+  questionEventId: string | null;
+  /** Cancelled after its request was sent: the answer is kept in the history, not delivered. */
+  kept: boolean;
+  /** reader.ask's reply, when done. */
+  answer: ReaderAnswerDto | null;
+  error: PolledJobErrorDto | null;
+}
+
+export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges";
+
+export interface SearchEverythingInput {
+  query: string;
+  deskId?: string | null;
+  /** The groups to search (all when omitted); "open on this desk" is the client's own group. */
+  scopes?: SearchScope[];
+}
+
+/** What a result opens: a ContentRef plus where in it (a span, a time or a pad block). */
+export interface SearchRowBase {
+  ref: ContentRefDto | null;
+  target: { spanId?: string; t?: number; blockId?: string } | null;
+}
+
+export interface SearchSourceRowDto extends SearchRowBase {
+  sourceId: string; extractionId: string | null; title: string; readerEnabled: boolean;
+  openOnDeskIds: string[]; onThisDesk: boolean;
+}
+export interface SearchPassageRowDto extends SearchRowBase {
+  sourceId: string; sourceTitle: string; extractionId: string; spanId: string; section: string | null;
+  page: number | null; snippet: string; byMeaning: boolean;
+}
+export type SearchNoteRowDto = SearchRowBase & (
+  | { noteKind: "note"; noteKey: string; title: string; heading: string | null; snippet: string;
+      capturedOn: string | null; byMeaning: boolean }
+  | { noteKind: "gap_reading"; gapId: string; sourceKind: string; kind: string; snippet: string; createdAt: string });
+export interface SearchPadRowDto extends SearchRowBase {
+  padId: string; blockId: string; padTitle: string; kind: PadBlockKind; provenance: PadProvenance;
+  /** Transcribed ink: "your handwriting". */
+  handwriting: boolean; snippet: string; onThisDesk: boolean; createdAt: string;
+}
+export interface SearchThreadRowDto extends SearchRowBase {
+  questionEventId: string; exchangeId: string | null; rootExchangeId: string | null; questionMd: string;
+  snippet: string; createdAt: string; passage: ContentRefDto | null;
+}
+export interface SearchExchangeRowDto extends SearchRowBase {
+  questionEventId: string; questionMd: string; answerFirstSentence: string; surface: string; where: string;
+  origin: "live" | "backfill"; createdAt: string; deskId: string | null;
+}
+
+export interface SearchGroupDto {
+  group: SearchScope;
+  label: string;
+  basis: "words" | "meaning";
+  /** `off`: the group could not be searched (`reason` says why), never "nothing found". */
+  status: "ok" | "off";
+  reason?: string;
+  rows: (SearchSourceRowDto | SearchPassageRowDto | SearchNoteRowDto | SearchPadRowDto | SearchThreadRowDto
+    | SearchExchangeRowDto)[];
+  /** More rows exist than the group returns. */
+  more: boolean;
+  /** A meaning group over the library: the retrieval's basis, and its coverage when partial. */
+  retrievalBasis?: string;
+  coverage?: string;
+}
+
+export interface SearchEverythingDto {
+  version: number;
+  query: string;
+  groups: SearchGroupDto[];
+  meaning: {
+    status: "pending" | "unavailable";
+    jobId: string | null;
+    /** The groups the job searches by meaning (pending only). */
+    groups?: SearchScope[];
+    unavailable: { group: SearchScope; reason: string }[];
+  };
+}
+
+export interface SearchJobDto {
+  version: number;
+  jobId: string;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  /** The groups found by meaning (results the words found are left out); empty unless done. */
+  groups: SearchGroupDto[];
+  error: PolledJobErrorDto | null;
+}
