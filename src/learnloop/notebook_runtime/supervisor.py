@@ -28,7 +28,6 @@ import signal
 import subprocess
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Protocol
 
 from learnloop.notebook_runtime import adapter, hostfiles, settings
@@ -461,14 +460,3 @@ async def _drain(process: Any, session: Session) -> None:
         tail += chunk
         if len(tail) > OUTPUT_TAIL_BYTES:
             del tail[:len(tail) - OUTPUT_TAIL_BYTES]
-
-
-def run_dir_bytes(run_dir: Path) -> int:
-    total = 0
-    for root, _dirs, files in os.walk(run_dir):
-        for name in files:
-            try:
-                total += os.lstat(os.path.join(root, name)).st_size
-            except OSError:
-                pass
-    return total

@@ -78,7 +78,6 @@ const STOPPED_WORDS: Record<string, string> = {
   closed: "closed",
   replaced: "replaced by a newer version",
   vault_switch: "closed when the vault changed",
-  run_dir_full: "stopped: it wrote more than a notebook may",
 };
 
 /** The one line a view says (interface text, JetBrains Mono). */

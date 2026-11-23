@@ -2,7 +2,8 @@
 
 Inside the sandbox the server sees: the system and interpreter read-only (the profile), the notebook read-only at
 a fixed path, this package's launcher read-only, marimo's config read-only, a two-line hosts file, its token
-read-only, and a size-capped tmpfs as its home and working directory. No host path is writable: the server
+read-only, and size-capped tmpfs mounts as its home and working directory and as its ``/tmp`` (each at the scratch
+size, and charged to the scope's memory). No host path is writable: the server
 listens on a socket trusted code created and handed to it as a descriptor (``hostfiles``), so nothing the
 unsandboxed side reads, writes or connects to lies in a directory the sandbox can change. The root is remounted
 read-only last. No network namespace but its own loopback, no session bus, no GPU.
@@ -173,6 +174,8 @@ def launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, 
              "--ro-bind", str(layout.config_dir), SANDBOX_CONFIG,
              "--ro-bind", str(layout.hosts_file), "/etc/hosts",
              "--size", str(limits.scratch_mib * 1024 * 1024), "--tmpfs", SANDBOX_SCRATCH,
+             # The profile's /tmp, mounted again with the scratch's cap: nothing a notebook writes is unbounded.
+             "--size", str(limits.scratch_mib * 1024 * 1024), "--tmpfs", "/tmp",
              "--chdir", SANDBOX_SCRATCH,
              # Last: nothing but /tmp and the scratch (both tmpfs) is writable, including the root's own mount
              # points.

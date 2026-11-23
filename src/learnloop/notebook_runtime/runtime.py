@@ -45,7 +45,6 @@ from learnloop.notebook_runtime.supervisor import (
     Session,
     Supervisor,
     notebook_revision,
-    run_dir_bytes,
 )
 
 LOG = logging.getLogger(__name__)
@@ -388,7 +387,8 @@ class NotebookRuntime:
         return {"session_id": session_id, "ran": [name for name, _code in cells]}
 
     async def sweep(self, now: float | None = None) -> list[str]:
-        """Stop sessions idle past their limit, or whose run directory grew past its bound; their ids."""
+        """Stop sessions idle past their limit; their ids. (The sandbox writes no host directory, so there is no
+        size to watch: its tmpfs mounts are capped and charged to its scope.)"""
 
         now = time.monotonic() if now is None else now
         stopped = []
@@ -398,9 +398,6 @@ class NotebookRuntime:
                 continue
             if session.frames == 0 and now - session.last_activity >= entry.idle_minutes * 60:
                 await entry.supervisor.stop("idle")
-                stopped.append(session.session_id)
-            elif run_dir_bytes(session.layout.run_dir) > settings.RUN_DIR_MAX_BYTES:
-                await entry.supervisor.stop("run_dir_full")
                 stopped.append(session.session_id)
         return stopped
 

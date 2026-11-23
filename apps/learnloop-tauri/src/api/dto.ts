@@ -11309,7 +11309,7 @@ export interface NotebookSessionDto {
   sessionId: string;
   owner: NotebookOwner;
   state: NotebookSessionState;
-  /** Why a stopped session stopped: closed, idle, make_room, replaced, run_dir_full or vault_switch. */
+  /** Why a stopped session stopped: closed, idle, make_room, replaced or vault_switch. */
   stopReason: string | null;
   error: string | null;
   restarts: number;

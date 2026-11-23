@@ -264,17 +264,6 @@ def test_a_session_with_a_frame_attached_is_not_idle(runtime):
     assert runtime.run_on_loop(lambda: runtime.sweep(now=runtime.sessions()[0].last_activity + 3600)) == []
 
 
-def test_a_run_directory_past_its_bound_stops_the_session(runtime, monkeypatch):
-    view = _open(runtime)
-    _ready(runtime, "/v1", view["session_id"])
-    session = runtime.sessions()[0]
-    session.frames = 1
-    session.layout.run_dir.mkdir(parents=True, exist_ok=True)
-    (session.layout.run_dir / "filler").write_bytes(b"x" * (settings.RUN_DIR_MAX_BYTES + 1))
-    assert runtime.run_on_loop(lambda: runtime.sweep()) == [view["session_id"]]
-    assert runtime.status(vault_key="/v1", session_id=view["session_id"])["stop_reason"] == "run_dir_full"
-
-
 def test_release_and_run_need_a_frame_and_known_cells(runtime):
     from learnloop.notebook_runtime.runtime import CellUnknown, NotConnected
 

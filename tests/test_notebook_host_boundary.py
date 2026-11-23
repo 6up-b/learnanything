@@ -153,8 +153,6 @@ ALLOWED = {
     ("proxy.py", "read_bytes"): "serving a vendored font from the installed package (not sandbox-writable)",
     ("runtime.py", "read_text"): "the session's cgroup memory from /proc and /sys (kernel files, not sandbox-writable)",
     ("lessons.py", "is_file"): "whether the vault holds a lesson's notebook (the vault; the sandbox never sees it)",
-    ("supervisor.py", "walk"): "run_dir_bytes: the session's private run directory (the sandbox never sees it)",
-    ("supervisor.py", "lstat"): "run_dir_bytes: sizes in the private run directory, never following a link",
     ("proxy.py", "unix_connect"): "after hostfiles.check_socket on the session's socket",
     ("proxy.py", "AsyncHTTPTransport"): "after hostfiles.check_socket on the session's socket",
     ("supervisor.py", "AsyncHTTPTransport"): "after hostfiles.check_socket on the session's socket",
@@ -248,5 +246,59 @@ def test_a_running_sessions_secret_is_in_no_command_line():
                     except OSError:
                         pass
             assert leaked == []
+        finally:
+            runtime.close()
+
+
+# -- storage: nothing a notebook writes outlives its caps -------------------------------------------------------
+
+def test_the_sandboxes_tmp_is_size_capped_like_its_scratch(tmp_path):
+    from learnloop.notebook_runtime.sandbox import Layout, Limits, launch_command
+
+    layout = Layout(run_dir=tmp_path / "run", notebook=tmp_path / "nb.py", config_dir=tmp_path / "cfg",
+                    hosts_file=tmp_path / "hosts")
+    argv, _env = launch_command(layout, Limits(memory_mib=512, scratch_mib=64), base_url="/s/x", unit="u",
+                                scoped=False, socket_fd=7, bwrap="/usr/bin/bwrap")
+    tmpfs = [i for i, arg in enumerate(argv) if arg == "--tmpfs" and argv[i + 1] == "/tmp"]
+    assert tmpfs and argv[tmpfs[-1] - 2:tmpfs[-1]] == ["--size", str(64 * 1024 * 1024)]
+
+
+def test_a_notebook_cannot_write_past_its_caps():
+    from learnloop.notebook_runtime.runtime import NotebookRuntime
+
+    source = '''import marimo
+
+app = marimo.App()
+
+
+@app.cell
+def fill():
+    import errno
+    import marimo as mo
+    found = {}
+    for where in ("/tmp", "/scratch"):
+        try:
+            with open(where + "/fill", "wb") as handle:
+                for _ in range(80):
+                    handle.write(b"x" * (1024 * 1024))
+            found[where] = "wrote"
+        except OSError as exc:
+            found[where] = "full" if exc.errno == errno.ENOSPC else str(exc.errno)
+    mo.md("fi" + "lled " + " ".join(f"{k}={v}" for k, v in sorted(found.items())) + " END")
+    return
+
+
+if __name__ == "__main__":
+    app.run()
+'''
+    with short_base_dir() as base:
+        runtime = NotebookRuntime(base_dir=base)
+        try:
+            view = runtime.open(vault_key="/v1", owner="pad:p1", source=source.encode(), view="app", limits=LIMITS,
+                                idle_minutes=10, max_sessions=2)
+            view = wait_state(runtime, "/v1", view["session_id"], "ready")
+            seen = asyncio.run(frame_round_trip(view["frame_url"], marimo_session="s_fill", wanted=["filled "],
+                                                pattern=r"filled ([^E]*) END"))
+            assert seen["matches"] == ["/scratch=full /tmp=full"], seen.get("matches")
         finally:
             runtime.close()

@@ -29,7 +29,7 @@ READY_TIMEOUT_SECONDS = 60.0
 STOP_TIMEOUT_SECONDS = 10.0
 RESTART_LIMIT = 3
 RESTART_BACKOFF_SECONDS = 0.5
-#: How often idle sessions and run-directory sizes are checked.
+#: How often idle sessions are checked.
 SWEEP_SECONDS = 30.0
 #: The largest notebook file a session is opened on.
 NOTEBOOK_MAX_BYTES = 2 * 1024 * 1024
@@ -37,6 +37,3 @@ NOTEBOOK_MAX_BYTES = 2 * 1024 * 1024
 # memory, outside the session's caps, so each is bounded by the size of the notebook itself.
 REQUEST_MAX_BYTES = NOTEBOOK_MAX_BYTES
 UI_VALUES_MAX_BYTES = NOTEBOOK_MAX_BYTES
-#: The run directory (socket and token) is the one writable host path a session has; a session whose run directory
-#: grows past this is stopped (it holds two small files when nothing writes there).
-RUN_DIR_MAX_BYTES = 8 * 1024 * 1024
