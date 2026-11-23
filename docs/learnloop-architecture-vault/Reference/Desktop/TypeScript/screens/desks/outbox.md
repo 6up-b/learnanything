@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/outbox.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/outbox.ts) |
-| Source lines | 226 |
+| Source lines | 234 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -60,30 +60,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export class MemoryOutboxStore implements OutboxStore` — class, line 34
 - `export interface OutboxTransport` — interface, line 51
 - `export type FlushOutcome = |` — type, line 57
-- `export function isPermanentRefusal(code: string): boolean` — function, line 75
-- `export function clientIdFor(vaultKey: string, storage: Pick<Storage, "getItem" | "setItem"> | null, mint: ()` — function, line 91
-- `export class DeskOutbox` — class, line 104
+- `export function isPermanentRefusal(code: string): boolean` — function, line 79
+- `export function clientIdFor(vaultKey: string, storage: Pick<Storage, "getItem" | "setItem"> | null, mint: ()` — function, line 95
+- `export class DeskOutbox` — class, line 108
 
 ## Internal implementation anchors
 
 - `function emptyBody(body: BatchBody): boolean` — function, line 22
-- `const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"])` — const, line 73
-- `function errorText(error: unknown): string` — function, line 79
-- `const key = `learnloop.desks.client.$` — const, line 92
-- `const stored = storage?.getItem(key)` — const, line 94
-- `const minted = mint()` — const, line 96
-- `const head = state.serverSeq.find((entry)` — const, line 116
-- `const pending = this.store.load()` — const, line 117
-- `const maxPending = pending.length ? pending[pending.length - 1].seq : 0` — const, line 118
-- `let seq = fromSeq` — let, line 136
-- `const body: BatchBody = Array.isArray(each) ?` — const, line 138
-- `const seq = this.nextSeq` — const, line 162
-- `const seq = this.nextSeq` — const, line 171
-- `let last: FlushOutcome =` — let, line 188
-- `let reply: DeskApplyDto | PadApplyDto` — let, line 192
-- `const message = errorText(error)` — const, line 201
-- `const code = error && typeof error === "object" && "code" in error ? String((error as` — const, line 202
-- `const rest = this.store.load().map((each): BatchBody` — const, line 211
+- `const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"])` — const, line 77
+- `function errorText(error: unknown): string` — function, line 83
+- `const key = `learnloop.desks.client.$` — const, line 96
+- `const stored = storage?.getItem(key)` — const, line 98
+- `const minted = mint()` — const, line 100
+- `const head = state.serverSeq.find((entry)` — const, line 120
+- `const pending = this.store.load()` — const, line 121
+- `const maxPending = pending.length ? pending[pending.length - 1].seq : 0` — const, line 122
+- `let seq = fromSeq` — let, line 140
+- `const body: BatchBody = Array.isArray(each) ?` — const, line 142
+- `const seq = this.nextSeq` — const, line 166
+- `const seq = this.nextSeq` — const, line 175
+- `let last: FlushOutcome =` — let, line 192
+- `let reply: DeskApplyDto | PadApplyDto` — let, line 196
+- `const message = errorText(error)` — const, line 205
+- `const code = error && typeof error === "object" && "code" in error ? String((error as` — const, line 206
+- `const rest = this.store.load().map((each): BatchBody` — const, line 215
 
 ## Who imports or calls it
 
