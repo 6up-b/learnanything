@@ -36,6 +36,7 @@
 // hit's); `compareAgain` re-runs a v1 comparison by point (one comparison,
 // named before it runs). Off, `byPoint` is false and neither is offered.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type {
   CompareDoor,
@@ -338,6 +339,7 @@ export function useLibraryAsk({
   // Each stage's job in flight, and its epoch: a cancel (or a newer run of the
   // stage) bumps the epoch, so the older job's result is dropped on arrival.
   const jobsRef = useRef<Partial<Record<JobStage, string>>>({});
+  const whenLive = useWhenLive();
   const epochsRef = useRef<Record<JobStage, number>>({ ask: 0, notes: 0, compare: 0, tutor: 0, scope: 0 });
 
   const cancelStage = useCallback((stage: JobStage) => {
@@ -364,6 +366,8 @@ export function useLibraryAsk({
       jobsRef.current[stage] = job.jobId;
       while (job.state === "pending") {
         await pause(JOB_POLL_MS);
+        // A paused window reads nothing; back on screen it goes on reading the same job.
+        await whenLive();
         if (!live()) return null;
         job = await api.readerLibraryJob<T>({ jobId: job.jobId });
         if (!live()) return null;
@@ -375,7 +379,7 @@ export function useLibraryAsk({
       if (jobsRef.current[stage]) delete jobsRef.current[stage];
       throw error;
     }
-  }, [cancelStage]);
+  }, [cancelStage, whenLive]);
 
   const loadNotes = useCallback(async (key: number, askId: string) => {
     update(key, () => ({ notes: { phase: "pending", value: null, failure: null } }));

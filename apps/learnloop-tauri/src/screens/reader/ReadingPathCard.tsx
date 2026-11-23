@@ -2,6 +2,7 @@
 // Moment 0, W1). Shown only while the prompt contract carries readingPaths;
 // absent, the Guide is today's (the goal card). Display only.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type { ReadingPathChoice, ReadingPathDepth, ReadingPathDto, ReadingPathExerciseDto, ReadingPathSectionDto } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill } from "../../components/term";
@@ -92,11 +93,17 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
   }, [okAsked, waitingForOk, read]);
 
   // A judgment runs in the background: read the path again, paced, until it lands.
+  // A paused window (a hidden panel, a preview) reads nothing; back on screen the wait goes on.
+  const whenLive = useWhenLive();
   useEffect(() => {
     if (!shouldPoll(path)) return undefined;
-    const timer = window.setTimeout(() => void read(), READING_PATH_POLL_MS);
-    return () => window.clearTimeout(timer);
-  }, [path, read]);
+    let cancelled = false;
+    const timer = window.setTimeout(() => void whenLive().then(() => (cancelled ? undefined : read())), READING_PATH_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [path, read, whenLive]);
 
   useEffect(() => {
     if (focusToken > 0) scrollIntoViewWithin(cardRef.current, { block: "nearest" });
@@ -110,9 +117,13 @@ export function ReadingPathCard({ extractionId, onJump: jumpTo, onJumpSection, o
   useEffect(() => {
     if (refreshedFor.current === refreshKey) return undefined;
     refreshedFor.current = refreshKey;
-    const timer = window.setTimeout(() => void read(), READING_PATH_REFRESH_MS);
-    return () => window.clearTimeout(timer);
-  }, [refreshKey, read]);
+    let cancelled = false;
+    const timer = window.setTimeout(() => void whenLive().then(() => (cancelled ? undefined : read())), READING_PATH_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [refreshKey, read, whenLive]);
 
   const chooseDepth = async (depth: ReadingPathDepth) => {
     setBusy(true);

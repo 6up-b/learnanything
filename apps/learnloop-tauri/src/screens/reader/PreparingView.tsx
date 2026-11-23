@@ -6,6 +6,7 @@
 
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
+import { useWindowPaused } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type { ReaderPdfViewDto, SourceActionKind, SourceActionResultDto, SourceLibraryCard } from "../../api/dto";
 import { readableTitle, StatusLine } from "../../components/BookCard";
@@ -60,7 +61,10 @@ export function PreparingView({
     };
   }, [card.sourceId]);
 
+  // A paused window (offscreen, hidden, a preview) checks nothing; back on screen the checks go on.
+  const paused = useWindowPaused();
   useEffect(() => {
+    if (paused) return undefined;
     let alive = true;
     const check = () => {
       api
@@ -79,7 +83,7 @@ export function PreparingView({
       alive = false;
       window.clearInterval(timer);
     };
-  }, [card.sourceId]);
+  }, [card.sourceId, paused]);
 
   const noun = current.kindNoun ?? card.kindNoun ?? "book";
   const line = current.statusLine?.text ?? `Getting this ${noun} ready`;

@@ -6,7 +6,7 @@ Builds nothing: run it after building the harness page once,
 
 then, from the repository root (Playwright is not a project dependency; uv fetches it for this run):
 
-    uv run --no-project --with playwright==1.65.2 python scripts/desk_harness/run.py [--shots DIR]
+    uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 python scripts/desk_harness/run.py [--shots DIR]
 
 It serves the built page on 127.0.0.1, drives it in headless Chromium (no window opens), and checks
 what jsdom cannot: geometry (every window fills its slot's height, focus mode is the whole viewport,
@@ -16,6 +16,15 @@ preview logging no reading activity, which-key on an Alt hold, close and undo, a
 outbox sent. YouTube is never contacted: its embed URL is answered by a local stub player, and every
 other outside request is refused. WebKit is the target engine (WebKitGTK in the packaged app); the
 Playwright WebKit build is not installed here, so this harness runs Chromium only.
+
+The overview's run (RD2) adds: the zoom's last frame against the committed overview, and back, as
+screenshots compared under a documented tolerance (a pixel counts as changed when a channel differs by
+more than PIXEL_THRESHOLD; at most MAX_CHANGED_SHARE of the stage may change); the four ways back
+restoring the reading layout within 1 px; every navigation path keeping the selection inside the view;
+the alt + wheel zoom and ctrl+drag on the background; a zoom's frames writing only transforms,
+opacities, visibility and the selection's edge, inserting no element and touching no custom property;
+previews logging nothing; the laptop rail. It records the zoom's frame times as information (the owner
+deferred the frame budget). Pillow compares the screenshots (`--with pillow`).
 
 Exit status: 0 when every check passes, 1 otherwise. Screenshots go to --shots when given.
 """
@@ -55,6 +64,11 @@ window.addEventListener("message", (event) => {
   }
 });
 </script></body></html>"""
+
+# The screenshot tolerance for the commit-identity check (spec §6.3, §18.3): rasterising text and 1 px
+# borders under a transform and after a layout differs a little; anything larger is a different frame.
+PIXEL_THRESHOLD = 24
+MAX_CHANGED_SHARE = 0.001
 
 # The two fixture videos report different times, so each panel's clock shows whose messages it took.
 STUB_TIMES = {"fxSoftmax01": 75, "fxMasks0002": 42}
@@ -188,16 +202,32 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
     results.check("opening a source already on the desk opens no second window", len(after) == before, [before, len(after)])
     results.check("…and focuses the window that shows it", [w["id"] for w in after if w["state"] == "active"] == ["fx_w_book"])
 
-    # Two players: the video window's frame reports its own time; press space on it to play.
+    # Two players: the video window's frame reports its own time; press space on it to play. The clocks are
+    # read from the DOM's text: a paused window's content is not rendered (content-visibility), so it has
+    # no rendered text to read.
     await page.keyboard.press("Alt+l")
     await settle(page, 1200)
-    clock_a = await page.locator('[data-desk-window="fx_w_video"]').inner_text()
+    clock_a = await page.locator('[data-desk-window="fx_w_video"]').text_content() or ''
     results.check("the first player shows its own time", "1:15" in clock_a, clock_a[:120])
     await page.keyboard.press("Space")
     await settle(page, 400)
     frame_a = page.frame_locator('[data-desk-window="fx_w_video"] iframe')
     commands_a = await frame_a.locator("#s").inner_text()
     results.check("space plays the focused video", "playVideo" in commands_a, commands_a)
+
+    # A field focused in the active window, then alt+j to the next desk: the typing goes nowhere on the
+    # hidden desk, the focus is in the new active window, and the hidden desk's windows are inert.
+    await page.evaluate("""() => { const body = document.querySelector('[data-desk-window="fx_w_video"] [data-desk-pane-body]');
+      const field = document.createElement('input'); field.id = 'harness-draft'; body.prepend(field); field.focus(); }""")
+    await page.keyboard.press("Alt+j")
+    await settle(page, 900)
+    await page.keyboard.type("zz")
+    typed = await page.evaluate("""() => ({ value: document.getElementById('harness-draft').value,
+      owner: document.activeElement?.closest('[data-desk-window]')?.getAttribute('data-desk-window') ?? null,
+      inert: document.querySelector('[data-desk-window="fx_w_book"]').inert })""")
+    results.check("a field on a desk left behind takes no typing; the focus follows the active window",
+                  typed == {"value": "", "owner": "fx_w_video2", "inert": True}, typed)
+    await page.evaluate("() => document.getElementById('harness-draft').remove()")
 
     # #desk=1: the attention desk; the first desk's windows are hidden and its player paused.
     await page.get_by_role("button", name="attention", exact=True).click()
@@ -207,8 +237,8 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
                   states.get("fx_w_book") == "hidden" and states.get("fx_w_video2") == "active", states)
     commands_after = await frame_a.locator("#s").inner_text()
     results.check("a hidden desk's player is paused", commands_after.endswith("pauseVideo"), commands_after)
-    clock_b = await page.locator('[data-desk-window="fx_w_video2"]').inner_text()
-    clock_a_again = await page.locator('[data-desk-window="fx_w_video"]').inner_text()
+    clock_b = await page.locator('[data-desk-window="fx_w_video2"]').text_content() or ''
+    clock_a_again = await page.locator('[data-desk-window="fx_w_video"]').text_content() or ''
     results.check("two players each keep their own clock (event.source)", "0:42" in clock_b and "1:15" in clock_a_again and "1:15" not in clock_b,
                   [clock_a_again[:80], clock_b[:80]])
     await shot(page, shots, "desk-1")
@@ -233,7 +263,11 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
         all(abs(rects_before[k][dim] - rects_after[k][dim]) <= 1 for dim in ("x", "y", "w", "h")) for k in rects_before)
     results.check("leaving focus mode restores every window's rect within 1 px", same, [rects_before, rects_after])
 
-    # Pairs: alt+, stacks the two windows top and bottom; alt+. gives one back its slot.
+    # Pairs: alt+, stacks the two windows top and bottom; alt+. gives one back its slot. A mark left in each
+    # window's content shows that neither is remounted by pairing or unpairing.
+    await page.evaluate("""() => { for (const id of ['fx_w_video2', 'fx_w_paper2']) {
+      const mark = document.createElement('span'); mark.dataset.harnessMark = id;
+      document.querySelector(`[data-desk-window="${id}"] [data-desk-pane-body]`).append(mark); } }""")
     await page.keyboard.press("Alt+Comma")
     await settle(page, 700)
     pair = [w for w in await windows(page) if w["id"] in ("fx_w_video2", "fx_w_paper2")]
@@ -247,6 +281,9 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
     await page.keyboard.press("Alt+Period")
     await settle(page, 700)
     results.check("alt+. gives the window its own slot", len({round(w["slot"]["x"]) for w in await windows(page) if w["id"] in ("fx_w_video2", "fx_w_paper2")}) == 2)
+    marks = await page.evaluate("() => [...document.querySelectorAll('[data-harness-mark]')].map((m) => [m.dataset.harnessMark, m.closest('[data-desk-window]')?.getAttribute('data-desk-window')])")
+    results.check("pairing and unpairing remount neither window (its content keeps a mark)",
+                  sorted(marks) == [["fx_w_paper2", "fx_w_paper2"], ["fx_w_video2", "fx_w_video2"]], marks)
 
     # Close and undo.
     count = len([w for w in await windows(page) if w["state"] != "hidden"])
@@ -267,9 +304,10 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
     seqs = [row[1] for row in sent]
     results.check("the outbox sent numbered batches, in order, from one client", seqs == list(range(1, len(seqs) + 1)) and len({row[0] for row in sent}) == 1, sent)
     server_slots = await page.evaluate("() => window.__deskHarness.server.state().desks.find((d) => d.deskId === 'fx_desk_attention').slots.map((s) => s.windows.map((w) => w.windowId))")
+    # Each window is its own element, placed at desk:slot:pane.
     screen_slots = await page.evaluate("""() => { const out = {}; for (const el of document.querySelectorAll('[data-desk-slot^="fx_desk_attention:"]')) {
-      out[el.dataset.deskSlot.split(':')[1]] = [...el.querySelectorAll('[data-desk-window]')].map((p) => p.dataset.deskWindow); }
-      return Object.keys(out).sort().map((k) => out[k]); }""")
+      const [, slot, pane] = el.dataset.deskSlot.split(':'); (out[slot] ??= [])[Number(pane)] = el.dataset.deskSlotWindow; }
+      return Object.keys(out).sort((a, b) => Number(a) - Number(b)).map((k) => out[k]); }""")
     results.check("the server's slots equal the screen's", server_slots == screen_slots, [server_slots, screen_slots])
     fonts = await page.evaluate("""async () => {
       const families = ["Inter Variable", "Literata Variable", "Source Serif 4 Variable", "JetBrains Mono Variable", "Caveat Variable"];
@@ -279,6 +317,255 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
     results.check("the five desk fonts load from the app itself", fonts == [], fonts)
     errors = await page.evaluate("() => window.__deskHarnessErrors")
     results.check("no error reached the shell's error line", errors == [], errors)
+
+
+def changed_share(first: bytes, second: bytes, box: dict[str, float]) -> float:
+    """The share of the stage's pixels that differ by more than the threshold in any channel."""
+
+    import io
+
+    from PIL import Image, ImageChops
+
+    def crop(data: bytes) -> Any:
+        image = Image.open(io.BytesIO(data)).convert("RGB")
+        return image.crop((int(box["x"]), int(box["y"]), int(box["x"] + box["w"]), int(box["y"] + box["h"])))
+
+    a, b = crop(first), crop(second)
+    diff = ImageChops.difference(a, b).convert("RGB")
+    pixels = diff.getdata()
+    changed = sum(1 for r, g, bl in pixels if max(r, g, bl) > PIXEL_THRESHOLD)
+    return changed / max(1, a.size[0] * a.size[1])
+
+
+async def slot_rects(page: Page) -> dict[str, list[float]]:
+    return await page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('[data-desk-slot]')]
+      .filter((el) => getComputedStyle(el).visibility !== 'hidden')
+      .map((el) => { const r = el.getBoundingClientRect(); return [el.dataset.deskSlot, [r.x, r.y, r.width, r.height]]; }))""")
+
+
+async def overview_on(page: Page) -> bool:
+    return await page.evaluate("() => document.querySelector('[data-desk-shell]').dataset.overview === 'on'")
+
+
+async def selection_inside(page: Page) -> bool:
+    return await page.evaluate("""() => {
+      const sel = document.querySelector('.ov-selected'); const st = document.querySelector('[data-desk-stage]');
+      if (!sel || !st) return false;
+      const r = sel.getBoundingClientRect(), s = st.getBoundingClientRect();
+      return r.left >= s.left + 47.5 && r.right <= s.right - 47.5 && r.top >= s.top + 73.5 && r.bottom <= s.bottom - 47.5;
+    }""")
+
+
+async def run_overview(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    box = await stage_box(page)
+    reading = await slot_rects(page)
+
+    # A first trip builds the cards' miniatures; the identity check then compares like with like.
+    await page.keyboard.press("Alt+o")
+    await settle(page, 900)
+    results.check("alt+o zooms into the overview", await overview_on(page))
+    await shot(page, shots, "overview")
+    states = await page.evaluate("() => [...new Set([...document.querySelectorAll('[data-desk-window]')].map((p) => p.dataset.windowState))]")
+    results.check("in the overview every window is a preview card", states == ["preview"], states)
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+    results.check("esc zooms back to the reading view", not await overview_on(page))
+
+    # The commit-identity invariant, entering: the zoom's last frame against the committed overview.
+    began = await page.evaluate("() => window.__deskDebug.beginZoom()")
+    await page.evaluate("() => window.__deskDebug.setZoomProgress(1)")
+    await page.wait_for_timeout(100)
+    last_frame = await page.screenshot()
+    await page.evaluate("() => window.__deskDebug.finishZoom(1)")
+    await page.wait_for_timeout(100)
+    committed = await page.screenshot()
+    share_in = changed_share(last_frame, committed, box)
+    results.check(f"entering: the last frame equals the committed overview (changed {share_in:.4%} ≤ {MAX_CHANGED_SHARE:.1%})", began and share_in <= MAX_CHANGED_SHARE, share_in)
+    if shots is not None:
+        (shots / "identity-in-last.png").write_bytes(last_frame)
+        (shots / "identity-in-committed.png").write_bytes(committed)
+
+    # And leaving: the zoom's last frame against the committed reading view.
+    await page.evaluate("() => window.__deskDebug.beginZoom()")
+    await page.evaluate("() => window.__deskDebug.setZoomProgress(0)")
+    await page.wait_for_timeout(100)
+    last_frame = await page.screenshot()
+    await page.evaluate("() => window.__deskDebug.finishZoom(0)")
+    await page.wait_for_timeout(300)
+    committed = await page.screenshot()
+    share_out = changed_share(last_frame, committed, box)
+    results.check(f"leaving: the last frame equals the committed reading view (changed {share_out:.4%} ≤ {MAX_CHANGED_SHARE:.1%})", share_out <= MAX_CHANGED_SHARE, share_out)
+    if shots is not None:
+        (shots / "identity-out-last.png").write_bytes(last_frame)
+        (shots / "identity-out-committed.png").write_bytes(committed)
+
+    # A zoom's frames: transforms and opacities only, no element inserted, no custom property touched.
+    await page.evaluate("""() => {
+      window.__zoomMutations = { styles: new Set(), props: new Set(), added: 0, custom: 0 };
+      const seen = new WeakMap();
+      for (const el of document.querySelectorAll('[data-desk-world], [data-desk-world] *')) seen.set(el, el.getAttribute('style') || '');
+      window.__zoomObserver = new MutationObserver((records) => {
+        for (const r of records) {
+          if (r.type === 'childList') { window.__zoomMutations.added += r.addedNodes.length; continue; }
+          const el = r.target, before = (r.oldValue || ''), after = el.getAttribute('style') || '';
+          const props = (text) => Object.fromEntries(text.split(';').map((x) => x.trim()).filter(Boolean).map((x) => { const i = x.indexOf(':'); return [x.slice(0, i).trim(), x.slice(i + 1).trim()]; }));
+          const a = props(before), b = props(after);
+          for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[key] !== b[key]) { window.__zoomMutations.props.add(key); if (key.startsWith('--')) window.__zoomMutations.custom += 1; }
+        }
+      });
+    }""")
+    await page.evaluate("() => window.__deskDebug.beginZoom()")
+    await page.evaluate("""() => window.__zoomObserver.observe(document.querySelector('[data-desk-shell]'), { attributes: true, attributeFilter: ['style'], attributeOldValue: true, subtree: true, childList: true })""")
+    for p in (0.1, 0.25, 0.5, 0.75, 0.9):
+        await page.evaluate(f"() => window.__deskDebug.setZoomProgress({p})")
+        await page.wait_for_timeout(30)
+    mutations = await page.evaluate("() => { window.__zoomObserver.disconnect(); const m = window.__zoomMutations; return { props: [...m.props].sort(), added: m.added, custom: m.custom }; }")
+    allowed = {"transform", "opacity", "box-shadow"}
+    results.check("a zoom's frames write only transforms, opacities and the selection's edge", set(mutations["props"]) <= allowed and mutations["custom"] == 0, mutations)
+    results.check("a zoom's frames insert no element", mutations["added"] == 0, mutations["added"])
+    await page.evaluate("() => window.__deskDebug.finishZoom(1)")
+    await settle(page, 500)
+
+    # Navigation keeps the selection inside the view (48 px, 74 from the top) on every path.
+    inside = []
+    for key in ["l", "l", "l", "l", "l", "j", "j", "k", "h", "h", "ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Alt+j", "Alt+l", "Alt+k", "Alt+h"]:
+        await page.keyboard.press(key)
+        await page.wait_for_timeout(260)
+        inside.append((key, await selection_inside(page)))
+    results.check("every navigation path keeps the selection inside the view", all(ok for _key, ok in inside), [k for k, ok in inside if not ok])
+    await shot(page, shots, "overview-navigated")
+
+    # Previews log nothing: in the overview, panning with the wheel opens no visit and saves no progress.
+    async def reading_activity() -> int:
+        logged = await calls(page, "reader_log_activity")
+        opened = sum(1 for c in logged for e in c["input"].get("events", []) if e.get("kind") != "reader_view_closed")
+        return opened + len(await calls(page, "reader_note_reading_progress"))
+
+    await settle(page, 2000)
+    before_activity = await reading_activity()
+    await page.mouse.move(800, 500)
+    for _ in range(4):
+        await page.mouse.wheel(0, 120)
+        await page.wait_for_timeout(120)
+    await settle(page, 2500)
+    after_activity = await reading_activity()
+    results.check("in the overview nothing opens a visit or saves reading progress", after_activity == before_activity, [before_activity, after_activity])
+
+    # The four ways back restore the reading layout within 1 px: esc, o, alt+o, and ↵ / a click on the
+    # card it was entered from.
+    def same(a: dict[str, list[float]], b: dict[str, list[float]]) -> bool:
+        return a.keys() == b.keys() and all(all(abs(x - y) <= 1 for x, y in zip(a[k], b[k], strict=True)) for k in a)
+
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+    restored = {"esc": same(reading, await slot_rects(page))}
+    for way in ("o", "Alt+o"):
+        await page.keyboard.press("Alt+o")
+        await settle(page, 900)
+        await page.keyboard.press(way)
+        await settle(page, 900)
+        restored[way] = same(reading, await slot_rects(page))
+    await page.keyboard.press("Alt+o")
+    await settle(page, 900)
+    await page.keyboard.press("Enter")
+    await settle(page, 900)
+    restored["enter"] = same(reading, await slot_rects(page))
+    await page.keyboard.press("Alt+o")
+    await settle(page, 900)
+    await page.locator('.ov-selected').click()
+    await settle(page, 900)
+    restored["click"] = same(reading, await slot_rects(page))
+    results.check("the four ways back restore the reading layout within 1 px", all(restored.values()), restored)
+
+    # The frame trace of one alt+o zoom (information: the owner deferred the frame budget).
+    await page.keyboard.press("Alt+o")
+    await settle(page, 900)
+    times = await page.evaluate("() => window.__deskDebug.zoomFrameTimes()")
+    gaps = sorted(b - a for a, b in zip(times, times[1:], strict=False))
+    if gaps:
+        p95 = gaps[min(len(gaps) - 1, int(len(gaps) * 0.95))]
+        results.check(f"frame trace (information): {len(times)} frames, median {gaps[len(gaps) // 2]:.1f} ms, p95 {p95:.1f} ms, max {gaps[-1]:.1f} ms", True)
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+
+    # alt + a mouse-wheel notch zooms all the way; the other way comes back.
+    await page.mouse.move(800, 500)
+    await page.keyboard.down("Alt")
+    await page.mouse.wheel(0, 120)
+    await page.keyboard.up("Alt")
+    await settle(page, 900)
+    results.check("alt + a wheel notch zooms out to the overview", await overview_on(page))
+    await page.wait_for_timeout(200)
+    await page.keyboard.down("Alt")
+    await page.mouse.wheel(0, -120)
+    await page.keyboard.up("Alt")
+    await settle(page, 900)
+    results.check("alt + a notch the other way zooms back in", not await overview_on(page))
+
+    # ctrl+drag on the stage background scrubs the zoom; letting go past 40 % completes it.
+    gap_x = box["x"] + 34 + (box["w"] - 78) / 2 + 5
+    await page.mouse.move(gap_x, box["y"] + 200)
+    await page.keyboard.down("Control")
+    await page.mouse.down()
+    await page.mouse.move(gap_x, box["y"] + 260, steps=4)
+    hud = await page.locator(".desk-hud").inner_text() if await page.locator(".desk-hud").count() else ""
+    await page.mouse.move(gap_x, box["y"] + 400, steps=6)
+    await page.mouse.up()
+    await page.keyboard.up("Control")
+    await settle(page, 900)
+    results.check("ctrl+drag on the background scrubs the zoom, with the HUD saying so", await overview_on(page) and "ctrl + drag" in hud, hud)
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+
+    # A paused window's content is not rendered (content-visibility), as the lifecycle contract asks.
+    paused_cv = await page.evaluate("""() => [...document.querySelectorAll('.desk-window.paused .desk-pane-body')].map((b) => getComputedStyle(b).contentVisibility)""")
+    results.check("a paused window's content is not rendered (content-visibility: auto)", bool(paused_cv) and set(paused_cv) == {"auto"}, paused_cv)
+
+    # alt + a sideways swipe pans the strip, then snaps to the nearest window and focuses it.
+    before_focus = [w["id"] for w in await windows(page) if w["state"] == "active"]
+    await page.mouse.move(800, 500)
+    await page.keyboard.down("Alt")
+    for _ in range(6):
+        await page.mouse.wheel(110, 0)
+        await page.wait_for_timeout(16)
+    await page.keyboard.up("Alt")
+    await settle(page, 900)
+    after_focus = [w["id"] for w in await windows(page) if w["state"] == "active"]
+    left_edges = await page.evaluate("""() => [...document.querySelectorAll('[data-desk-slot]')].map((el) => el.getBoundingClientRect().left - document.querySelector('[data-desk-stage]').getBoundingClientRect().left)""")
+    snapped = any(abs(x - 34) <= 1 for x in left_edges)
+    results.check("alt + a sideways swipe pans the strip and snaps to a window, which takes the focus", after_focus != before_focus and snapped, [before_focus, after_focus])
+
+    # In the overview a card dragged onto another desk's row moves there.
+    await page.keyboard.press("Alt+o")
+    await settle(page, 900)
+    source = page.locator('[data-desk-slot-window="fx_w_paper"]')
+    target = page.locator('[data-desk-slot-window="fx_w_video2"]')
+    sb, tb = await source.bounding_box(), await target.bounding_box()
+    if sb and tb:
+        await page.mouse.move(sb["x"] + sb["width"] / 2, sb["y"] + sb["height"] / 2)
+        await page.mouse.down()
+        await page.mouse.move(tb["x"] + tb["width"] * 0.8, tb["y"] + tb["height"] / 2, steps=8)
+        await page.mouse.up()
+        await settle(page, 700)
+    moved_to = await page.evaluate("() => window.__deskHarness.server.state().desks.find((d) => d.slots.some((s) => s.windows.some((w) => w.windowId === 'fx_w_paper'))).deskId")
+    results.check("in the overview a card dragged onto another desk's row moves there", moved_to == "fx_desk_attention", moved_to)
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+
+    # The laptop rail: below 1400 px the shelf folds to 44 px; ☰ overlays it at 260 px.
+    await page.set_viewport_size({"width": 1280, "height": 800})
+    await settle(page, 600)
+    rail = await page.evaluate("() => { const r = document.querySelector('.desk-shelf-rail')?.getBoundingClientRect(); return r ? r.width : 0; }")
+    await page.get_by_role("button", name="show the strip").click()
+    await settle(page, 300)
+    overlay = await page.evaluate("() => { const r = document.querySelector('.desk-shelf-overlay')?.getBoundingClientRect(); return r ? r.width : 0; }")
+    results.check("below 1400 px the shelf is a 44 px rail whose ☰ overlays it at 260 px", abs(rail - 44) <= 1 and abs(overlay - 260) <= 1, [rail, overlay])
+    await shot(page, shots, "laptop-rail")
+    errors = await page.evaluate("() => window.__deskHarnessErrors")
+    results.check("no error reached the shell's error line (overview run)", errors == [], errors)
 
 
 async def run_preview(page: Page, base: str, results: Results) -> None:
@@ -314,13 +601,15 @@ async def main() -> int:
     try:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(headless=True)
-            for runner in ("desks", "preview"):
+            for runner in ("desks", "overview", "preview"):
                 context = await browser.new_context(viewport=VIEWPORT)
                 await context.route(lambda url: not url.startswith(base), route_outside)
                 page = await context.new_page()
                 try:
                     if runner == "desks":
                         await run_desks(page, base, results, args.shots)
+                    elif runner == "overview":
+                        await run_overview(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints

@@ -7,6 +7,7 @@
 // book, RW7a's card and, under it, the way to make a deliverable or review yours (§5;
 // Codex review F4). Display only.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type {
   DeliverableLineDto, DeliverablePathChoice, DeliverableReadyDto, DeliverableScopeDto, DeliverableSliceDto, NoteLinkDto,
@@ -75,19 +76,29 @@ export function GuidePathSlot({ extractionId, readingPathCard, onJump, onError, 
     void read();
   }, [extractionId, read]);
 
+  // A paused window reads nothing; back on screen the wait goes on.
+  const whenLive = useWhenLive();
   useEffect(() => {
     if (!shouldPollSlice(slice)) return undefined;
-    const timer = window.setTimeout(() => void read(), DELIVERABLE_POLL_MS);
-    return () => window.clearTimeout(timer);
-  }, [slice, read]);
+    let cancelled = false;
+    const timer = window.setTimeout(() => void whenLive().then(() => (cancelled ? undefined : read())), DELIVERABLE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [slice, read, whenLive]);
 
   const refreshedFor = useRef(refreshKey);
   useEffect(() => {
     if (refreshedFor.current === refreshKey) return undefined;
     refreshedFor.current = refreshKey;
-    const timer = window.setTimeout(() => void read(), DELIVERABLE_POLL_MS);
-    return () => window.clearTimeout(timer);
-  }, [refreshKey, read]);
+    let cancelled = false;
+    const timer = window.setTimeout(() => void whenLive().then(() => (cancelled ? undefined : read())), DELIVERABLE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [refreshKey, read, whenLive]);
 
   if (slice === null) return null;
   if (!sliceShown(slice)) {

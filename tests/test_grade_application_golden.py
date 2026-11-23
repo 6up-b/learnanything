@@ -127,3 +127,11 @@ def test_the_history_reaches_every_kind_of_grade(tmp_path, monkeypatch, seeded_i
     assert any(entry["replay"] for entry in record["live_applications"])
     replayed = {entry["attempt_id"] for entry in record["rebuild_applications"]}
     assert set(labels.values()) <= replayed
+    # The core returns a live grade's records and a replay's none; the history reaches every verdict and the hold.
+    assert all(entry["application"]["grade_decision"] is None
+               for entry in record["live_applications"] + record["rebuild_applications"] if entry["replay"])
+    decisions = {label: live[attempt_id]["grade_decision"] for label, attempt_id in labels.items()}
+    assert {decision["grade"]["rule"] for decision in decisions.values()} == {
+        "full_credit", "partial_credit", "no_credit", "dont_know", "stuck"}
+    assert [label for label, decision in decisions.items() if decision["hold"]] == ["held"]
+    assert decisions["held"]["hold"]["rule"] == "grade_held_for_review"

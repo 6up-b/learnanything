@@ -8,6 +8,7 @@
 // With the contract's `figures` absent (figures.enabled off) the hook is inert:
 // no RPC is ever called and nothing renders (U13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useWhenLive } from "../../desks/lifecycle";
 import { api } from "../../../api/client";
 import type { CorrespondentFigureDto, FigureBuildResultDto, FigurePredictionResultDto, FigureRichPendingDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
 import { errorMessage, getCommandError } from "../../../errors";
@@ -167,6 +168,7 @@ export function useFigures({
 }): FiguresCtl {
   const enabled = Boolean(contract && extractionId);
   const followOn = enabled && followEnabled;
+  const whenLive = useWhenLive();
   const [figures, setFigures] = useState<FigureViewDto[]>([]);
   const [pending, setPending] = useState<FigurePending[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -257,7 +259,9 @@ export function useFigures({
     if (!enabled || !extractionId || !richRunning) return;
     const mine = generation.current;
     const timer = setTimeout(() => {
-      void Promise.resolve(api.readerFigures({ extractionId }))
+      // A paused window reads nothing; back on screen the wait goes on.
+      void whenLive()
+        .then(() => (generation.current === mine ? api.readerFigures({ extractionId }) : null))
         .then((found) => {
           if (generation.current === mine && found) {
             setFigures(found.figures ?? []);
@@ -268,7 +272,7 @@ export function useFigures({
         .catch(() => undefined);
     }, RICH_POLL_MS);
     return () => clearTimeout(timer);
-  }, [enabled, extractionId, richRunning, figures, richPending, prefetchPending]);
+  }, [enabled, extractionId, richRunning, figures, richPending, prefetchPending, whenLive]);
 
   const land = useCallback((figure: FigureViewDto) => {
     const sameRequest = (item: FigureViewDto) => item.spanIds.join(",") === figure.spanIds.join(",")
@@ -316,6 +320,7 @@ export function useFigures({
           jobId = job.jobId;
           while (job.state === "pending") {
             await sleep(FIGURE_POLL_MS);
+            await whenLive();
             if (!live()) return "cancelled";
             job = await api.readerFigureJob({ jobId: job.jobId });
           }
@@ -354,7 +359,7 @@ export function useFigures({
         }
       })();
     },
-    [land],
+    [land, whenLive],
   );
 
   const request = useCallback(
@@ -458,12 +463,13 @@ export function useFigures({
         const jobId = started?.jobId;
         while (jobId && state === "pending") {
           await sleep(FIGURE_POLL_MS);
+          await whenLive();
           state = (await api.readerFigureJob({ jobId })).state;
         }
         if (jobId) refresh();
       })().catch(() => undefined);
     },
-    [enabled, refresh],
+    [enabled, refresh, whenLive],
   );
 
   const patchPrediction = useCallback((found: FigurePredictionResultDto) => {

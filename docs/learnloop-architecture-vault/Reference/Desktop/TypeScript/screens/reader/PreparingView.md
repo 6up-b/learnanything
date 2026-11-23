@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/PreparingView.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/PreparingView.tsx) |
-| Source lines | 169 |
+| Source lines | 173 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,28 +54,29 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function PreparingView(` — function, line 25
+- `export function PreparingView(` — function, line 26
 
 ## Internal implementation anchors
 
-- `const POLL_MS = 3000` — const, line 17
-- `const NO_SPANS = new Set<string>()` — const, line 18
-- `const BOOK_ACTIONS: ReadonlySet<SourceActionKind> = new Set<SourceActionKind>([ "retry", "text_recognition", "allow_upload", "build_now", "restore_reading", "mark_exam_material" ])` — const, line 21
-- `const readyRef = useRef(onReady)` — const, line 41
-- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 43
-- `let alive = true` — let, line 46
-- `let alive = true` — let, line 64
-- `const check = ()` — const, line 65
-- `const next = library.sources.find((entry)` — const, line 70
-- `const timer = window.setInterval(check, POLL_MS)` — const, line 77
-- `const noun = current.kindNoun ?? card.kindNoun ?? "book"` — const, line 84
-- `const line = current.statusLine?.text ?? `Getting this $` — const, line 85
-- `const working = !current.statusLine || current.statusLine.tone === "working"` — const, line 88
-- `const statusLine = current.statusLine` — const, line 89
-- `const runAction = (kind: SourceActionKind)` — const, line 90
-- `const ask = (result: SourceActionResultDto): Promise<unknown> | undefined` — const, line 96
-- `const confirmation = result.needsConfirmation ? result.confirmation : undefined` — const, line 97
-- `const binding = confirmation.proposalHash ?` — const, line 99
+- `const POLL_MS = 3000` — const, line 18
+- `const NO_SPANS = new Set<string>()` — const, line 19
+- `const BOOK_ACTIONS: ReadonlySet<SourceActionKind> = new Set<SourceActionKind>([ "retry", "text_recognition", "allow_upload", "build_now", "restore_reading", "mark_exam_material" ])` — const, line 22
+- `const readyRef = useRef(onReady)` — const, line 42
+- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 44
+- `let alive = true` — let, line 47
+- `const paused = useWindowPaused()` — const, line 65
+- `let alive = true` — let, line 68
+- `const check = ()` — const, line 69
+- `const next = library.sources.find((entry)` — const, line 74
+- `const timer = window.setInterval(check, POLL_MS)` — const, line 81
+- `const noun = current.kindNoun ?? card.kindNoun ?? "book"` — const, line 88
+- `const line = current.statusLine?.text ?? `Getting this $` — const, line 89
+- `const working = !current.statusLine || current.statusLine.tone === "working"` — const, line 92
+- `const statusLine = current.statusLine` — const, line 93
+- `const runAction = (kind: SourceActionKind)` — const, line 94
+- `const ask = (result: SourceActionResultDto): Promise<unknown> | undefined` — const, line 100
+- `const confirmation = result.needsConfirmation ? result.confirmation : undefined` — const, line 101
+- `const binding = confirmation.proposalHash ?` — const, line 103
 
 ## Who imports or calls it
 
@@ -94,6 +95,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export; imports `PdfReaderPane`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/reader/readingPosition|src/screens/reader/readingPosition.ts]] — import-or-re-export; imports `ReadingPosition`, `readingPositionIn`
 
 ### Assets, platform, and third-party dependencies

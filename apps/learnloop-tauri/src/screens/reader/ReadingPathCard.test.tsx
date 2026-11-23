@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReadingPathDto, ReadingPathExerciseDto, ReadingPathSectionDto } from "../../api/dto";
 import { GuideRail, type GuideRailProps } from "./GuideRail";
 import { ReadingPathCard } from "./ReadingPathCard";
+import { DIRECT_HUB, WindowScope, type WindowState } from "../desks/lifecycle";
 import { READING_PATH_REFRESH_MS, exercisesWorthTrying, offeredChoice, readingPathRefreshKey, shouldPoll } from "./readingPath";
 import { SEEN_REPORT_MS } from "./useReadingProgress";
 
@@ -143,6 +144,26 @@ it("reads the path again while it is being judged and stops once it lands", asyn
   expect(api.readerReadingPath).toHaveBeenCalledTimes(2);
   expect(screen.getByText(/Next: read/)).toBeTruthy();
   await act(async () => { vi.advanceTimersByTime(5000); await Promise.resolve(); });
+  expect(api.readerReadingPath).toHaveBeenCalledTimes(2);
+});
+
+it("a hidden panel does not read the path while it is judged; back on screen it reads it again", async () => {
+  vi.useFakeTimers();
+  api.readerReadingPath
+    .mockResolvedValueOnce(path({ status: "judging", sections: [], next: null }))
+    .mockResolvedValueOnce(path());
+  const card = (state: WindowState) => (
+    <WindowScope lifecycle={{ windowId: "p1", state }} hub={DIRECT_HUB}>
+      <ReadingPathCard extractionId="ext" onJump={vi.fn()} onTryExercise={vi.fn()} onError={vi.fn()} />
+    </WindowScope>
+  );
+  const { rerender } = render(card("hidden"));
+  await act(async () => { await Promise.resolve(); });
+  expect(api.readerReadingPath).toHaveBeenCalledTimes(1);
+  await act(async () => { vi.advanceTimersByTime(20_000); await Promise.resolve(); });
+  expect(api.readerReadingPath).toHaveBeenCalledTimes(1);
+  rerender(card("visible"));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(api.readerReadingPath).toHaveBeenCalledTimes(2);
 });
 

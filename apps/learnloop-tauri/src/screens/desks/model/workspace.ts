@@ -296,6 +296,8 @@ export function applyDeskOp(ws: Workspace, op: DeskOpDto): Workspace {
     case "reopen_window": {
       const desk = requireDesk(ws, op.deskId);
       const list = ws.closed[desk.deskId] ?? [];
+      // An open window cannot be reopened (the server refuses it with window_open).
+      if (ws.windows[op.windowId]) throw new OpRefusal("window_open", "That window is already open.");
       const entry = list.find((closed) => closed.window.windowId === op.windowId);
       if (!entry) throw new OpRefusal("window_not_found", "No such closed window.");
       const at = Math.min(op.slot ?? desk.slots.length, desk.slots.length);
@@ -407,6 +409,13 @@ function push(step: Step, op: DeskOpDto): Step {
   return { ...step, ws: applyDeskOp(step.ws, versioned), ops: [...step.ops, versioned] };
 }
 
+/** One queued op re-applied on a newer workspace (after a conflict): its expected versions stamped from
+ * that workspace. Throws OpRefusal when it no longer applies there. */
+export function restampOp(ws: Workspace, op: DeskOpDto): { ws: Workspace; op: DeskOpDto } {
+  const step = push({ ws, ops: [] }, op);
+  return { ws: step.ws, op: step.ops[0] };
+}
+
 function start(ws: Workspace): Step {
   return { ws, ops: [] };
 }
@@ -473,7 +482,8 @@ export function closeWindow(ws: Workspace, deskId: string, windowId: string): St
 export function undoClose(ws: Workspace, deskId: string): Step {
   const list = ws.closed[deskId] ?? [];
   const entry = list[list.length - 1];
-  if (!entry) return start(ws);
+  // A window that is open again (its close was refused) is nothing to undo.
+  if (!entry || ws.windows[entry.window.windowId]) return start(ws);
   let step = push(start(ws), { op: "reopen_window", deskId, windowId: entry.window.windowId, slot: entry.slot });
   step = push(step, { op: "set_focus", deskId, windowId: entry.window.windowId });
   return step;
@@ -571,4 +581,34 @@ export function swapInView(ws: Workspace, deskId: string, otherSlot: number): St
   const index = slotIndexOf(desk, id);
   if (!id || index < 0 || otherSlot < 0 || otherSlot >= desk.slots.length || otherSlot === index) return start(ws);
   return push(start(ws), { op: "move_window", deskId, windowId: id, toSlot: otherSlot });
+}
+
+/** Reorder a desk's slots to `order` (the same slots, each named by its windows), as move_window ops:
+ * slot by slot from the left, each moved to its place. Gather and ungather use it (spec §6.6). */
+export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): Step {
+  let step = start(ws);
+  order.forEach((slot, index) => {
+    const desk = requireDesk(step.ws, deskId);
+    const at = slotIndexOf(desk, slot[0]);
+    if (at < 0 || at === index) return;
+    step = push(step, { op: "move_window", deskId, windowId: slot[0], toSlot: index });
+  });
+  return step;
+}
+
+/** A window to another desk, after `afterWindowId` there (or at the end), keeping its focus on the old
+ * desk's neighbour. Its pair partner, if any, stays. */
+export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step {
+  const desk = requireDesk(ws, deskId);
+  if (deskId === toDeskId || slotIndexOf(desk, windowId) < 0) return start(ws);
+  const index = slotIndexOf(desk, windowId);
+  const wasFocus = focusedWindowId(ws, desk) === windowId;
+  let step = push(start(ws), { op: "move_to_desk", deskId, windowId, toDeskId, toExpectedVersion: 0, afterWindowId });
+  if (wasFocus) {
+    const after = requireDesk(step.ws, deskId);
+    const at = Math.min(index, after.slots.length - 1);
+    const next = at >= 0 ? after.slots[at][0] : null;
+    if (next) step = push(step, { op: "set_focus", deskId, windowId: next });
+  }
+  return step;
 }

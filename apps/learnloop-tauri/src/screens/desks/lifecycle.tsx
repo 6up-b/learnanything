@@ -11,7 +11,7 @@
 // Outside the desks (the old Reader, every other screen) nothing provides these contexts, and the
 // defaults are the single-surface behaviour the app had before: active, never paused, listeners
 // registered directly.
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, type ReactNode } from "react";
 
 export type WindowState = "active" | "visible" | "offscreen" | "hidden" | "preview";
 
@@ -42,6 +42,24 @@ export function mayLogReading(state: WindowState): boolean {
 
 export function useWindowPaused(): boolean {
   return isPaused(useWindowLifecycle().state);
+}
+
+/** A wait for this window to be live: it resolves at once while the window is not paused, and otherwise
+ * when it next stops being paused. A polling loop or a job reader awaits it before each request, so a
+ * paused window (offscreen, hidden, a preview) sends nothing and, back on screen, goes on reading the
+ * same job rather than starting another. Outside the desks it never waits. */
+export function useWhenLive(): () => Promise<void> {
+  const paused = useWindowPaused();
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const waiters = useRef<Array<() => void>>([]);
+  useEffect(() => {
+    if (paused) return;
+    const ready = waiters.current;
+    waiters.current = [];
+    for (const resolve of ready) resolve();
+  }, [paused]);
+  return useCallback(() => (pausedRef.current ? new Promise<void>((resolve) => waiters.current.push(resolve)) : Promise.resolve()), []);
 }
 
 /** Whether this surface may log reading activity now. Always true outside the desks. */
@@ -120,10 +138,38 @@ export function useHubListener<E extends Event = Event>(
   }, [hub, target, type, capture, passive, enabled]);
 }
 
-export function WindowScope({ lifecycle, hub, children }: { lifecycle: WindowLifecycle; hub: ListenerHub; children: ReactNode }) {
+// -- scopes the hosted content claims (spec §5.4's matrix) ----------------------------------------
+
+/** A key scope a window's content opens: an open menu or overlay, a check card, or a place that takes
+ * typed text without having the DOM focus (the Reader's intent box over a selection). */
+export type ClaimedScope = "menu" | "check" | "typing";
+
+export interface ScopeClaims {
+  claim(scope: ClaimedScope, owner: string, open: boolean): void;
+}
+
+const NO_CLAIMS: ScopeClaims = { claim: () => undefined };
+
+export const ScopeClaimsContext = createContext<ScopeClaims>(NO_CLAIMS);
+
+/** Tell the desk's key router that this content has `scope` open: while it is, the router resolves keys
+ * as that scope does (the content's own keys first) before the desk's reading or focus bindings. Outside
+ * the desks it does nothing. */
+export function useScopeClaim(scope: ClaimedScope, open: boolean): void {
+  const claims = useContext(ScopeClaimsContext);
+  const owner = useId();
+  useEffect(() => {
+    claims.claim(scope, owner, open);
+    return () => claims.claim(scope, owner, false);
+  }, [claims, scope, owner, open]);
+}
+
+export function WindowScope({ lifecycle, hub, claims = NO_CLAIMS, children }: { lifecycle: WindowLifecycle; hub: ListenerHub; claims?: ScopeClaims; children: ReactNode }) {
   return (
     <WindowLifecycleContext.Provider value={lifecycle}>
-      <ListenerHubContext.Provider value={hub}>{children}</ListenerHubContext.Provider>
+      <ListenerHubContext.Provider value={hub}>
+        <ScopeClaimsContext.Provider value={claims}>{children}</ScopeClaimsContext.Provider>
+      </ListenerHubContext.Provider>
     </WindowLifecycleContext.Provider>
   );
 }

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/DeliverableSliceCard.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/DeliverableSliceCard.tsx) |
-| Source lines | 402 |
+| Source lines | 413 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,43 +54,46 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface GuidePathSlotProps` — interface, line 38
-- `export function GuidePathSlot(` — function, line 49
-- `export interface DeliverableSliceCardProps` — interface, line 127
-- `export function DeliverableSliceCard(` — function, line 136
+- `export interface GuidePathSlotProps` — interface, line 39
+- `export function GuidePathSlot(` — function, line 50
+- `export interface DeliverableSliceCardProps` — interface, line 138
+- `export function DeliverableSliceCard(` — function, line 147
 
 ## Internal implementation anchors
 
-- `const LINK =` — const, line 31
-- `const QUIET_CODES = new Set(["curriculum_disabled", "reader_disabled"])` — const, line 35
-- `const NONE: DeliverableSliceDto =` — const, line 36
-- `const shown = useRef(extractionId)` — const, line 53
-- `const read = useCallback(async (params:` — const, line 55
-- `const asked = extractionId` — const, line 56
-- `const result = await api.curriculumGuideSlice(` — const, line 58
-- `const code = getCommandError(error)?.code` — const, line 66
-- `const timer = window.setTimeout(()` — const, line 80
-- `const refreshedFor = useRef(refreshKey)` — const, line 84
-- `const timer = window.setTimeout(()` — const, line 88
-- `const goalId = slice.goal?.id ?? ""` — const, line 145
-- `const pathNotes = usePathNotes(goalId || null, slice.status === "ready" || slice.status === "stale")` — const, line 147
-- `const act = async (work: ()` — const, line 149
-- `const toggleScope = async ()` — const, line 161
-- `const scopeChanged = (next: DeliverableScopeDto)` — const, line 173
-- `const chooseDepth = (depth: ReadingPathDepth)` — const, line 178
-- `const choose = (line: DeliverableLineDto, choice: DeliverablePathChoice, ref?: string)` — const, line 184
-- `const notWhatINeed = (line: DeliverableLineDto, text: string)` — const, line 188
-- `const out = await api.curriculumSetScope(` — const, line 189
-- `const amIReady = async ()` — const, line 200
-- `const out = await api.curriculumReadyCheck(` — const, line 203
-- `const askDepth = slice.status === "ask_depth" || choosing` — const, line 219
-- `const lines = slice.lines ?? []` — const, line 220
-- `const notNeeded = slice.notNeeded ?? []` — const, line 221
-- `function LineRow(` — function, line 313
-- `const offered = offeredChoices(line)` — const, line 324
-- `const onPath = line.effectiveLabel === "core" || line.effectiveLabel === "prerequisite"` — const, line 325
-- `const crossed = line.effectiveLabel === "skipped" || line.effectiveLabel === "check_pending"` — const, line 326
-- `function ReadyLines(` — function, line 388
+- `const LINK =` — const, line 32
+- `const QUIET_CODES = new Set(["curriculum_disabled", "reader_disabled"])` — const, line 36
+- `const NONE: DeliverableSliceDto =` — const, line 37
+- `const shown = useRef(extractionId)` — const, line 54
+- `const read = useCallback(async (params:` — const, line 56
+- `const asked = extractionId` — const, line 57
+- `const result = await api.curriculumGuideSlice(` — const, line 59
+- `const code = getCommandError(error)?.code` — const, line 67
+- `const whenLive = useWhenLive()` — const, line 80
+- `let cancelled = false` — let, line 83
+- `const timer = window.setTimeout(()` — const, line 84
+- `const refreshedFor = useRef(refreshKey)` — const, line 91
+- `let cancelled = false` — let, line 95
+- `const timer = window.setTimeout(()` — const, line 96
+- `const goalId = slice.goal?.id ?? ""` — const, line 156
+- `const pathNotes = usePathNotes(goalId || null, slice.status === "ready" || slice.status === "stale")` — const, line 158
+- `const act = async (work: ()` — const, line 160
+- `const toggleScope = async ()` — const, line 172
+- `const scopeChanged = (next: DeliverableScopeDto)` — const, line 184
+- `const chooseDepth = (depth: ReadingPathDepth)` — const, line 189
+- `const choose = (line: DeliverableLineDto, choice: DeliverablePathChoice, ref?: string)` — const, line 195
+- `const notWhatINeed = (line: DeliverableLineDto, text: string)` — const, line 199
+- `const out = await api.curriculumSetScope(` — const, line 200
+- `const amIReady = async ()` — const, line 211
+- `const out = await api.curriculumReadyCheck(` — const, line 214
+- `const askDepth = slice.status === "ask_depth" || choosing` — const, line 230
+- `const lines = slice.lines ?? []` — const, line 231
+- `const notNeeded = slice.notNeeded ?? []` — const, line 232
+- `function LineRow(` — function, line 324
+- `const offered = offeredChoices(line)` — const, line 335
+- `const onPath = line.effectiveLabel === "core" || line.effectiveLabel === "prerequisite"` — const, line 336
+- `const crossed = line.effectiveLabel === "skipped" || line.effectiveLabel === "check_pending"` — const, line 337
+- `function ReadyLines(` — function, line 399
 
 ## Who imports or calls it
 
@@ -107,6 +110,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeliverableLineDto`, `DeliverablePathChoice`, `DeliverableReadyDto`, `DeliverableScopeDto`, `DeliverableSliceDto`, `NoteLinkDto`, `ReadingPathDepth`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/DeliverableScope|src/screens/reader/DeliverableScope.tsx]] — import-or-re-export; imports `DeliverableEntry`, `DeliverableScopePanel`, `scopeNotice`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export; imports `PathLineNotes`, `usePathNotes`
 - [[Reference/Desktop/TypeScript/screens/reader/deliverableSlice|src/screens/reader/deliverableSlice.ts]] — import-or-re-export; imports `COPY`, `DELIVERABLE_POLL_MS`, `offeredChoices`, `sectionMarker`, `sectionRef`, `shouldPollSlice`, `sliceHeading`, `sliceShown`

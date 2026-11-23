@@ -24,7 +24,7 @@ import { paletteActions, visiblePalette } from "./intentPalette";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { screenLeavesKey } from "../../app/keymap";
 import { passageKeys } from "./readerShared";
-import { useListenerHub } from "../desks/lifecycle";
+import { useListenerHub, useScopeClaim } from "../desks/lifecycle";
 
 /** How long after mouse-up the box appears, so a drag never flickers it. */
 export const SHOW_AFTER_MS = 150;
@@ -344,6 +344,9 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   // keys go to the box; Enter, Tab, `?` and Esc are its own; scroll and copy
   // keys are untouched.
   const hub = useListenerHub();
+  // Open over a selection, the box takes typed keys even while the DOM focus is on the page: the desk's
+  // bare keys (x, o, space) must not act first.
+  useScopeClaim("typing", enabled && (open || armed));
   useEffect(() => {
     if (!enabled || !(open || armed)) return;
     const onKey = (event: KeyboardEvent) => {

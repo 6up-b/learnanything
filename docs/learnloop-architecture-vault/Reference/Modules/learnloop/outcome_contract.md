@@ -188,6 +188,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_held_grade_is_no_intervention_outcome`
 - [tests/test_teacher_te0_fix_round2.py](../../../../../tests/test_teacher_te0_fix_round2.py) — direct import
   - `test_the_live_history_keeps_the_ledgers_hold`
+- [tests/test_why_cases.py](../../../../../tests/test_why_cases.py) — direct import
+  - `test_the_staged_cases_are_every_rule_code_the_two_cores_return`
 
 ## Modification guidance
 

@@ -18,6 +18,7 @@
 // check nor a hint nor a suggestion is asked for (they would read older
 // steps than the ones on screen); the learner's choice on the ladder stays.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type {
   CheckViewDto,
@@ -148,6 +149,7 @@ export function useWorkbenchHelp(options: {
   const [helpStyle, setHelpStyleState] = useState<HelpStyle | null>(null);
   const [storedHelpStyle, setStoredHelpStyle] = useState<HelpStyle>(options.storedHelpStyle);
   const alive = useRef(true);
+  const whenLive = useWhenLive();
   const generation = useRef(0);
   const onRecordRef = useRef(options.onRecord);
   onRecordRef.current = options.onRecord;
@@ -201,6 +203,8 @@ export function useWorkbenchHelp(options: {
     try {
       while (job.jobId && job.state === "pending" && alive.current) {
         await sleep(wait);
+        // A paused window reads nothing; back on screen it goes on reading the same job.
+        await whenLive();
         // F7: gone while waiting: no delivering read (the unmount cancels it).
         if (!alive.current) break;
         wait = Math.min(MAX_POLL_MS, Math.round(wait * 1.5));
@@ -210,7 +214,7 @@ export function useWorkbenchHelp(options: {
       if (jobId && alive.current) pendingJobs.current.delete(jobId);
     }
     return job;
-  }, []);
+  }, [whenLive]);
 
   const followBridge = useCallback(async (hintAssistId: string, jobId: string) => {
     setBridges((current) => ({ ...current, [hintAssistId]: { status: "pending" } }));

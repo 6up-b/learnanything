@@ -4,13 +4,13 @@
 // The workspace model (model/workspace.ts) is the truth on screen; every change the learner makes is
 // applied there at once and queued as `desk.apply` ops in the outbox (outbox.ts), which sends them in
 // order. A conflict takes the server's state: the shell reads `desk.state` again.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { api } from "../../api/client";
 import { cachedSourceRead } from "../reader/readerCache";
 import { poller } from "../../api/poller";
 import type { ContentRefDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard } from "../../api/dto";
 import {
-  EMPTY_WORKSPACE,
   closeWindow,
   createDesk,
   deskById,
@@ -18,12 +18,13 @@ import {
   focusPane,
   focusedSlot,
   focusedWindowId,
-  fromDeskState,
   moveFocused,
+  moveToDesk,
   moveWindowTo,
   openBeside,
   pairFocused,
   renameDesk,
+  reorderSlots,
   setFocus,
   setView,
   slotIndexOf,
@@ -43,10 +44,33 @@ import {
   sliverSlots,
   slotRects,
   slotVisibility,
+  slotWidth,
   softCropMask,
   stepZoom,
+  type Rect,
   type Stage,
 } from "./geometry";
+import {
+  IDENTITY,
+  OVERVIEW,
+  classifyWheel,
+  dragProgress,
+  dropTarget,
+  enteringCamera,
+  followSelection,
+  moveSelection,
+  newZoomGesture,
+  normalizedDelta,
+  overviewLayout,
+  zoomWheel,
+  type Camera,
+  type ZoomGesture,
+  type ZoomSource,
+} from "./overview/engine";
+import { ANIMATION_FRAMES, ZoomController, cameraTransform, type FrameClock, type SlotElements, type ZoomPlan } from "./overview/controller";
+import { CardFace, LinkLayer } from "./overview/Card";
+import { DRAWN_RELATIONS, curvedLinks, gatherOrder, relationsOf, type Relation } from "./overview/links";
+import { MiniatureBook, cloneForMiniature } from "./overview/miniature";
 import {
   BareAltTracker,
   DESK_BINDINGS,
@@ -57,9 +81,10 @@ import {
   type DeskAction,
   type Timers,
 } from "./keys/router";
-import { DeskListenerRouter, WINDOW_ATTRIBUTE } from "./keys/listeners";
-import { WindowScope, isPaused, windowState, type ListenerHub, type WindowLifecycle } from "./lifecycle";
-import { DeskOutbox, clientIdFor, type OutboxTransport } from "./outbox";
+import { DeskListenerRouter, WINDOW_ATTRIBUTE, windowOfTarget } from "./keys/listeners";
+import { WindowScope, isPaused, windowState, type ClaimedScope, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./lifecycle";
+import { clientIdFor, type OutboxTransport } from "./outbox";
+import { deskStoreFor } from "./store";
 import { Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
 import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
@@ -102,10 +127,36 @@ export interface PaneRenderInput {
 const UNDO_CLOSE_MS = 9_000;
 /** A toast stays 2.2 s (spec §4.3). */
 const TOAST_MS = 2_200;
-/** Ops are sent shortly after the last change, so a burst of moves is one batch. */
-const FLUSH_IDLE_MS = 250;
 /** A window's reading place is saved once the learner settles on it. */
 const VIEW_SAVE_IDLE_MS = 2_000;
+/** A gather to a new desk leaves a placeholder sliver this long (spec §6.6). */
+const MOVED_NOTICE_MS = 6_000;
+
+/** What the visual harness may drive directly: the zoom's progress, for the commit-identity check. */
+export interface DeskDebugHandle {
+  beginZoom(): boolean;
+  setZoomProgress(p: number): void;
+  finishZoom(goal: 0 | 1): void;
+  zoomFrameTimes(): number[];
+  overview(): boolean;
+}
+
+function prefersReducedMotion(): boolean {
+  try {
+    return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
+/** A slot's key: its desk and the windows in it. */
+function slotKey(deskId: string, slot: string[]): string {
+  return `${deskId}:${slot.join("+")}`;
+}
+
+function intersects(rect: Rect, stage: Stage): boolean {
+  return rect.x + rect.w > 0 && rect.x < stage.width && rect.y + rect.h > 0 && rect.y < stage.height;
+}
 
 export const KIND_GLYPH: Record<string, string> = {
   source: "§",
@@ -175,6 +226,12 @@ export interface DeskShellProps {
   initialViewport?: Stage;
   mintId?: (prefix: string) => string;
   timers?: Timers;
+  /** The zoom's frames (tests drive them by hand). */
+  frameClock?: FrameClock;
+  /** Reduced motion; absent, the system's setting. */
+  reducedMotion?: boolean;
+  /** The harness's handle on the zoom. */
+  onDebugHandle?: (handle: DeskDebugHandle) => void;
 }
 
 export function DeskShell({
@@ -188,9 +245,20 @@ export function DeskShell({
   initialViewport,
   mintId = defaultMintId,
   timers = REAL_TIMERS,
+  frameClock = ANIMATION_FRAMES,
+  reducedMotion,
+  onDebugHandle,
 }: DeskShellProps) {
-  const [ws, setWs] = useState<Workspace | null>(null);
-  const wsRef = useRef<Workspace>(EMPTY_WORKSPACE);
+  // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
+  // second outbox for the same client.
+  const store = useMemo(
+    () => deskStoreFor(vaultKey, transport, timers, () => clientIdFor(vaultKey, typeof window === "undefined" ? null : window.localStorage, () => mintId("client"))),
+    [vaultKey, transport, timers, mintId],
+  );
+  const storeWs = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const [storeReady, setStoreReady] = useState(store.loaded);
+  const ws: Workspace | null = storeReady ? storeWs : null;
+  const wsRef = useMemo(() => ({ get current(): Workspace { return store.ws; } }), [store]);
   const [library, setLibrary] = useState<SourceLibraryCard[] | null>(null);
   const deskKey = `learnloop.desks.current.${vaultKey}`;
   const [currentDeskId, setCurrentDeskIdState] = useState<string | null>(() => readStored(deskKey));
@@ -199,7 +267,7 @@ export function DeskShell({
   const [focusMode, setFocusMode] = useState(false);
   const [whichKey, setWhichKey] = useState(false);
   const [toast, setToast] = useState<{ text: string; key: number } | null>(null);
-  const [undo, setUndo] = useState<{ deskId: string; title: string; until: number } | null>(null);
+  const [undo, setUndo] = useState<{ deskId: string; windowId: string; title: string; until: number } | null>(null);
   const [status, setStatus] = useState<Record<string, SourceStatus>>({});
   const [entering, setEntering] = useState<Set<string>>(() => new Set());
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -214,14 +282,42 @@ export function DeskShell({
     return { width: viewport.width - shelf, height: viewport.height - DESK_SIZES.topBar - DESK_SIZES.footer };
   });
   const [viewportWidth, setViewportWidth] = useState(() => (initialViewport ?? { width: window.innerWidth }).width);
+  // The overview (spec §6): the committed view, its camera and selection, and what a zoom needs.
+  const [overview, setOverview] = useState(false);
+  const [ovCam, setOvCam] = useState<Camera>({ x: 24, y: 70, s: OVERVIEW.scale });
+  const [selection, setSelection] = useState<{ deskId: string; windowId: string } | null>(null);
+  const [zooming, setZooming] = useState(false);
+  // While a zoom leaves the overview: the desk it lands on and its camera, so the soft crop and the
+  // slivers it will show are already there on its last frame (the commit then changes nothing).
+  const [leaveTarget, setLeaveTarget] = useState<{ deskId: string; cams: Record<string, number> } | null>(null);
+  const [showRelations, setShowRelations] = useState(true);
+  const [gatherPreview, setGatherPreview] = useState(false);
+  const [panEase, setPanEase] = useState(false);
+  const [hud, setHud] = useState("");
+  const [ungather, setUngather] = useState<{ deskId: string; order: string[][] } | null>(null);
+  const [movedNotice, setMovedNotice] = useState<{ deskId: string; title: string; until: number } | null>(null);
+  const preOverview = useRef<{ deskId: string; focusId: string | null } | null>(null);
+  const worldRef = useRef<HTMLDivElement | null>(null);
+  // Each slot's three elements, by slot key. Kept apart because React attaches a parent's ref after its
+  // children's, so one record per slot would lose the children on every render.
+  const boxEls = useRef(new Map<string, HTMLElement>());
+  const innerEls = useRef(new Map<string, HTMLElement>());
+  const cardEls = useRef(new Map<string, HTMLElement>());
+  const ringEls = useRef(new Map<string, HTMLElement>());
+  const slotElements = useCallback((): Map<string, SlotElements> => {
+    const out = new Map<string, SlotElements>();
+    for (const [key, box] of boxEls.current) out.set(key, { box, inner: innerEls.current.get(key) ?? null, card: cardEls.current.get(key) ?? null });
+    return out;
+  }, []);
+  const lateEls = useRef(new Map<string, HTMLElement>());
+  const sliverEls = useRef(new Map<string, HTMLElement>());
+  const miniatures = useMemo(() => new MiniatureBook(), []);
+  const miniHosts = useRef(new Map<string, HTMLDivElement>());
+  const onEndRef = useRef<(goal: 0 | 1, base: 0 | 1) => void>(() => undefined);
+  const controller = useMemo(() => new ZoomController(frameClock, (goal, base) => onEndRef.current(goal, base)), [frameClock]);
   const jumps = useRef(new Map<string, (spanId: string) => void>());
   const media = useRef(new Map<string, () => void>());
   const pendingJump = useRef(new Map<string, string>());
-
-  const outbox = useMemo(
-    () => new DeskOutbox(clientIdFor(vaultKey, typeof window === "undefined" ? null : window.localStorage, () => mintId("client")), transport),
-    [vaultKey, transport, mintId],
-  );
 
   const toastNow = useCallback((text: string) => setToast({ text, key: Date.now() }), []);
   useEffect(() => {
@@ -237,28 +333,20 @@ export function DeskShell({
     if (deskId) writeStored(deskKey, deskId);
   }, [deskKey]);
 
-  const flushTimer = useRef<unknown>(null);
-  const reloadRef = useRef<() => Promise<void>>(async () => undefined);
-  const scheduleFlush = useCallback(() => {
-    if (flushTimer.current !== null) timers.clear(flushTimer.current);
-    flushTimer.current = timers.set(() => {
-      flushTimer.current = null;
-      void outbox.flush().then((outcome) => {
-        if (outcome.kind === "conflict" || outcome.kind === "resync") void reloadRef.current();
-        else if (outcome.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
-      });
-    }, FLUSH_IDLE_MS);
-  }, [outbox, timers, toastNow]);
-
   const commit = useCallback((step: Step) => {
-    wsRef.current = step.ws;
-    setWs(step.ws);
+    store.commit(step);
     if (step.notice) toastNow(step.notice);
-    if (step.ops.length > 0) {
-      outbox.enqueue(step.ops);
-      scheduleFlush();
-    }
-  }, [outbox, scheduleFlush, toastNow]);
+  }, [store, toastNow]);
+
+  // What the store could not save, said in one line.
+  useEffect(() => store.onNotice((notice) => {
+    if (notice.kind === "rejected") toastNow("that change couldn't be saved, and was undone");
+    else if (notice.kind === "conflict") {
+      const total = notice.dropped + notice.lost;
+      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn't be kept`);
+    } else if (notice.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
+    else onError(notice.message);
+  }), [store, toastNow, onError]);
 
   const chain = useCallback((first: Step, next: (ws: Workspace) => Step): Step => {
     const second = next(first.ws);
@@ -275,29 +363,26 @@ export function DeskShell({
     return chain(created, (next) => openBeside(next, deskId, contentForCard(card, extractionId), () => mintId("win")));
   }, [chain, firstSourceId, mintId, transport]);
 
-  const load = useCallback(async () => {
-    try {
-      const [state, cards] = await Promise.all([transport.state(), transport.library().catch(() => null)]);
-      setLibrary(cards);
-      outbox.syncSeq(state);
-      const loaded = fromDeskState(state);
-      if (loaded.desks.length === 0) {
-        commit(await firstRun(loaded, cards));
-      } else {
-        // Keep the closed windows this session can still undo.
-        commit({ ws: { ...loaded, closed: wsRef.current.closed }, ops: [] });
-      }
-    } catch (error) {
-      onError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error));
-    }
-  }, [transport, outbox, commit, firstRun, onError]);
-  reloadRef.current = load;
-
   useEffect(() => {
-    void load();
-    // Loaded once per vault; a conflict reloads through reloadRef.
+    let live = true;
+    void (async () => {
+      try {
+        const [state, cards] = await Promise.all([store.load(), transport.library().catch(() => null)]);
+        if (!live) return;
+        setLibrary(cards);
+        if (state && store.ws.desks.length === 0) store.commit(await firstRun(store.ws, cards));
+        if (live) setStoreReady(true);
+      } catch (error) {
+        if (live) onError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error));
+      }
+    })();
+    // A load that lands after this shell unmounted changes nothing here.
+    return () => {
+      live = false;
+    };
+    // Loaded once per store; a conflict reconciles inside the store.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultKey]);
+  }, [store]);
 
   // -- the current desk, focus and camera ------------------------------------------------------------
 
@@ -357,13 +442,28 @@ export function DeskShell({
         for (const id of slot) {
           out[id] = {
             windowId: id,
-            state: windowState({ onCurrentDesk: onCurrent, inView: onCurrent && Boolean(visibility[index]?.inView), focused: onCurrent && id === focusId, focusMode }),
+            // In the overview every window is a card (a preview): paused, and it logs no reading.
+            state: windowState({ onCurrentDesk: onCurrent, inView: onCurrent && Boolean(visibility[index]?.inView), focused: onCurrent && id === focusId, focusMode, preview: overview }),
           };
         }
       });
     }
     return out;
-  }, [ws, deskId, visibility, focusId, focusMode]);
+  }, [ws, deskId, visibility, focusId, focusMode, overview]);
+  // The DOM focus follows the activation: when another window becomes the active one (a key, a click,
+  // another desk), focus held inside a window that is no longer active moves to the new active window,
+  // so typing never edits a hidden desk's field or reaches an inactive window's iframe.
+  const activeWindowId = Object.values(lifecycles).find((each) => each.state === "active")?.windowId ?? null;
+  useEffect(() => {
+    const held = document.activeElement;
+    const owner = held && held !== document.body ? windowOfTarget(held) : null;
+    if (owner === activeWindowId && owner !== null) return;
+    const target = activeWindowId ? document.querySelector<HTMLElement>(`[${WINDOW_ATTRIBUTE}="${activeWindowId}"]`) : null;
+    // Focus elsewhere in the shell (the top bar, the shelf's filter) stays where the learner put it.
+    if (owner === null && held && held !== document.body && !(held instanceof HTMLIFrameElement)) return;
+    if (target) target.focus({ preventScroll: true });
+    else if (held instanceof HTMLElement && owner !== null) held.blur();
+  }, [activeWindowId]);
   const lifecyclesRef = useRef(lifecycles);
   lifecyclesRef.current = lifecycles;
   const focusIdRef = useRef(focusId);
@@ -400,6 +500,277 @@ export function DeskShell({
     return KIND_WORD[content.kind] ?? content.kind;
   }, [status, library]);
 
+  // -- the overview: its layout, a zoom's plan and its commit (spec §6.2, §6.3) -----------------------
+
+  const ovLayout = useMemo(() => (ws ? overviewLayout(ws.desks.map((each) => each.slots.length), slotWidth(stage), stage) : null), [ws, stage]);
+  const ovLayoutRef = useRef(ovLayout);
+  ovLayoutRef.current = ovLayout;
+  const stageNow = useRef(stage);
+  stageNow.current = stage;
+  const camXRef = useRef(camX);
+  camXRef.current = camX;
+  const overviewRef = useRef(overview);
+  overviewRef.current = overview;
+  const ovCamRef = useRef(ovCam);
+  ovCamRef.current = ovCam;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  const visitedRef = useRef(visited);
+  visitedRef.current = visited;
+  const showRelationsRef = useRef(showRelations);
+  showRelationsRef.current = showRelations;
+  const reduced = reducedMotion ?? prefersReducedMotion();
+  const pendingLeave = useRef<{ deskId: string; windowId: string | null; cams: Record<string, number>; focusMode: boolean } | null>(null);
+
+  /** Where a window's card is in the overview's world. */
+  const cardOf = useCallback((windowId: string | null | undefined): Rect | null => {
+    const layout = ovLayoutRef.current;
+    const current = wsRef.current;
+    if (!layout || !windowId) return null;
+    for (const [row, each] of current.desks.entries()) {
+      const index = slotIndexOf(each, windowId);
+      if (index >= 0) return layout.cards[row]?.[index] ?? null;
+    }
+    return null;
+  }, []);
+
+  /** A slot's reading rect in world coordinates, with `readingDeskId`'s row in view and `cams` each desk's
+   * camera: where the reading view lays it out. */
+  const readingRectOf = useCallback((current: Workspace, row: number, index: number, readingRow: number, cams: Record<string, number>, st: Stage): Rect => {
+    const each = current.desks[row];
+    const rect = slotRects(each.slots.length, st)[index];
+    return { x: rect.x - (cams[each.deskId] ?? 0), y: rect.y + rowTop(row, st) - rowTop(readingRow, st), w: rect.w, h: rect.h };
+  }, []);
+
+  const relatedTo = useCallback((windowId: string | null | undefined): Relation[] => (windowId ? relationsOf(wsRef.current, windowId).slice(0, DRAWN_RELATIONS) : []), []);
+
+  /** Whether a slot recedes in the overview: the selection has relations, and this slot is neither it nor one. */
+  const recedes = useCallback((slot: string[], selected: string | null, related: Relation[], relationsOn: boolean): boolean => {
+    if (!relationsOn || !selected || related.length === 0) return false;
+    return !slot.includes(selected) && !slot.some((id) => related.some((relation) => relation.windowId === id));
+  }, []);
+
+  const planZoom = useCallback((base: 0 | 1, readingDeskId: string, cams: Record<string, number>, selected: string | null, B: Camera): ZoomPlan | null => {
+    const current = wsRef.current;
+    const layout = ovLayoutRef.current;
+    const st = stageNow.current;
+    if (!layout) return null;
+    const readingRow = Math.max(0, current.desks.findIndex((each) => each.deskId === readingDeskId));
+    const related = relatedTo(selected);
+    const items: ZoomPlan["items"] = [];
+    const rings: ZoomPlan["rings"] = [];
+    current.desks.forEach((each, row) => each.slots.forEach((slot, index) => {
+      const a = readingRectOf(current, row, index, readingRow, cams, st);
+      const b = layout.cards[row][index];
+      const readingPanes = paneRects(a, slot.length);
+      const cardPanes = paneRects(b, slot.length);
+      const live = visitedRef.current.has(each.deskId) && each.deskId === readingDeskId && intersects(a, st);
+      const recede = recedes(slot, selected, related, showRelationsRef.current);
+      const focus = selected !== null && slot.includes(selected);
+      const isRelated = showRelationsRef.current && slot.some((id) => related.some((relation) => relation.windowId === id));
+      slot.forEach((id, pane) => {
+        const pa = readingPanes[pane];
+        const pb = cardPanes[pane];
+        items.push({ key: id, a: pa, b: pb, base: base === 0 ? pa : pb, live, recede, focus: focus && id === selected });
+      });
+      if (focus || isRelated) rings.push({ key: slotKey(each.deskId, slot), a, b });
+    }));
+    return { base, A: IDENTITY, B, items, rings };
+  }, [readingRectOf, relatedTo, recedes]);
+
+  const zoomTargets = useCallback(() => ({
+    world: worldRef.current as HTMLElement,
+    slots: slotElements(),
+    rings: new Map(ringEls.current),
+    late: [...lateEls.current.values()],
+    slivers: [...sliverEls.current.values()],
+  }), [slotElements]);
+
+  /** Start a zoom from the reading view (into the overview); returns false when one cannot start. */
+  const beginEnter = useCallback((): boolean => {
+    if (controller.active || overviewRef.current || !worldRef.current) return false;
+    const id = deskIdRef.current;
+    if (!id) return false;
+    if (focusModeRef.current) flushSync(() => setFocusMode(false));
+    const selected = focusIdRef.current;
+    preOverview.current = { deskId: id, focusId: selected };
+    const B = enteringCamera(cardOf(selected), stageNow.current);
+    flushSync(() => {
+      setZooming(true);
+      setSelection(selected ? { deskId: id, windowId: selected } : null);
+    });
+    const plan = planZoom(0, id, camXRef.current, selected, B);
+    if (!plan) return false;
+    controller.begin(plan, zoomTargets());
+    return true;
+  }, [controller, cardOf, planZoom, zoomTargets]);
+
+  /** Start a zoom from the overview back into a desk: the selected card's, or where the overview was
+   * entered from. */
+  const beginLeave = useCallback((to: { deskId: string; windowId: string | null } | null, focusAfter = false): boolean => {
+    if (controller.active || !overviewRef.current || !worldRef.current) return false;
+    const target = to ?? preOverview.current ?? (selectionRef.current ? { deskId: selectionRef.current.deskId, focusId: selectionRef.current.windowId } : null);
+    if (!target) return false;
+    const deskIdTo = target.deskId;
+    const windowTo = "windowId" in target ? target.windowId : target.focusId;
+    const current = wsRef.current;
+    const each = deskById(current, deskIdTo);
+    if (!each) return false;
+    const cams = { ...camXRef.current };
+    const index = windowTo ? slotIndexOf(each, windowTo) : -1;
+    cams[deskIdTo] = ensureVisible(cams[deskIdTo] ?? 0, index >= 0 ? index : focusedSlot(current, each), each.slots.length, stageNow.current);
+    const plan = planZoom(1, deskIdTo, cams, windowTo, ovCamRef.current);
+    if (!plan) return false;
+    pendingLeave.current = { deskId: deskIdTo, windowId: windowTo, cams, focusMode: focusAfter };
+    flushSync(() => {
+      setZooming(true);
+      setLeaveTarget({ deskId: deskIdTo, cams });
+    });
+    controller.begin(plan, zoomTargets());
+    return true;
+  }, [controller, planZoom, zoomTargets]);
+
+  /** The zoom ended: the one commit, whose layout is the zoom's last frame. */
+  onEndRef.current = (goal, base) => {
+    const plan = controller.plan;
+    controller.clean();
+    if (goal === base) {
+      flushSync(() => {
+        setZooming(false);
+        setLeaveTarget(null);
+      });
+      pendingLeave.current = null;
+      return;
+    }
+    if (goal === 1) {
+      flushSync(() => {
+        setOverview(true);
+        if (plan) setOvCam(plan.B);
+        setZooming(false);
+      });
+      return;
+    }
+    const leave = pendingLeave.current;
+    pendingLeave.current = null;
+    flushSync(() => {
+      setOverview(false);
+      // `zooming` stays one more frame: the windows' left/top transitions must not animate the commit's
+      // layout from the cards back to the slots it already shows.
+      if (leave) {
+        setCamX(leave.cams);
+        setCurrentDeskId(leave.deskId);
+        if (leave.windowId) commit(setFocus(wsRef.current, leave.deskId, leave.windowId));
+        if (leave.focusMode) setFocusMode(true);
+      }
+    });
+    frameClock.request(() => frameClock.request(() => {
+      setZooming(false);
+      setLeaveTarget(null);
+    }));
+  };
+
+  /** alt+o, o, the button, esc, ↵: the fast eased zoom (a crossfade with reduced motion). */
+  const toggleOverview = useCallback((to: { deskId: string; windowId: string | null } | null = null, focusAfter = false) => {
+    if (controller.active) {
+      controller.go(overviewRef.current ? 1 : 0);
+      return;
+    }
+    if (reduced) {
+      // Reduced motion: no zoom, a short crossfade (spec §6.3).
+      const world = worldRef.current;
+      world?.classList.remove("desk-fadeswap");
+      void world?.offsetWidth;
+      world?.classList.add("desk-fadeswap");
+      if (!overviewRef.current) {
+        const id = deskIdRef.current;
+        if (!id) return;
+        if (focusModeRef.current) setFocusMode(false);
+        preOverview.current = { deskId: id, focusId: focusIdRef.current };
+        setSelection(focusIdRef.current ? { deskId: id, windowId: focusIdRef.current } : null);
+        setOvCam(enteringCamera(cardOf(focusIdRef.current), stageNow.current));
+        setOverview(true);
+      } else {
+        const target = to ?? (preOverview.current ? { deskId: preOverview.current.deskId, windowId: preOverview.current.focusId } : null);
+        setOverview(false);
+        if (target) {
+          setCurrentDeskId(target.deskId);
+          if (target.windowId) commit(setFocus(wsRef.current, target.deskId, target.windowId));
+        }
+        if (focusAfter) setFocusMode(true);
+      }
+      return;
+    }
+    if (overviewRef.current) {
+      if (beginLeave(to, focusAfter)) controller.go(0);
+    } else if (beginEnter()) {
+      controller.go(1);
+    }
+  }, [controller, reduced, beginEnter, beginLeave, cardOf, setCurrentDeskId, commit]);
+
+  /** Move the overview's selection; the camera follows over .2 s, keeping it 48 px inside. */
+  const moveOverviewSelection = useCallback((direction: "left" | "right" | "up" | "down") => {
+    const layout = ovLayoutRef.current;
+    const current = wsRef.current;
+    const sel = selectionRef.current;
+    if (!layout) return;
+    let row = sel ? current.desks.findIndex((each) => each.deskId === sel.deskId) : 0;
+    let slot = sel ? slotIndexOf(current.desks[row] ?? current.desks[0], sel.windowId) : 0;
+    if (row < 0 || slot < 0) {
+      row = 0;
+      slot = 0;
+    }
+    const next = moveSelection(layout, { row, slot }, direction);
+    const each = current.desks[next.row];
+    const windowId = each?.slots[next.slot]?.find((id) => current.windows[id]?.active) ?? each?.slots[next.slot]?.[0];
+    if (!each || !windowId) return;
+    setSelection({ deskId: each.deskId, windowId });
+    setPanEase(true);
+    setOvCam((cam) => followSelection(cam, layout.cards[next.row][next.slot], stageNow.current));
+  }, []);
+
+  /** Gather around the focus (spec §6.6): linked windows to its right, or to a new desk. */
+  const gather = useCallback((toNewDesk: boolean) => {
+    const current = wsRef.current;
+    const id = deskIdRef.current;
+    const focus = focusIdRef.current;
+    const each = id ? deskById(current, id) : null;
+    if (!id || !focus || !each) return;
+    if (!toNewDesk && ungather && ungather.deskId === id) {
+      commit(reorderSlots(current, id, ungather.order));
+      setUngather(null);
+      return;
+    }
+    const related = relationsOf(current, focus).filter((relation) => current.windows[relation.windowId]?.deskId === id);
+    if (related.length === 0) {
+      toastNow("nothing on this desk is linked to this window yet");
+      return;
+    }
+    const { order, stayed } = gatherOrder(each.slots, focus, related);
+    if (!toNewDesk) {
+      setUngather({ deskId: id, order: each.slots.map((slot) => [...slot]) });
+      commit(reorderSlots(current, id, order));
+      if (stayed > 0) toastNow(`gathered · and ${stayed} more stayed (four move along at most)`);
+      return;
+    }
+    // To a new desk: the focus and its linked windows (four at most), the focus first.
+    const moving = [focus, ...related.slice(0, DRAWN_RELATIONS).map((relation) => relation.windowId)];
+    const newDeskId = mintId("desk");
+    const title = `gathered · ${shortName(titleOf(current.windows[focus]))}`;
+    let step = createDesk(current, newDeskId, title);
+    let after: string | null = null;
+    for (const windowId of moving) {
+      const next = moveToDesk(step.ws, id, windowId, newDeskId, after);
+      step = { ws: next.ws, ops: [...step.ops, ...next.ops] };
+      after = windowId;
+    }
+    const focused = setFocus(step.ws, newDeskId, focus);
+    step = { ws: focused.ws, ops: [...step.ops, ...focused.ops] };
+    commit(step);
+    setMovedNotice({ deskId: id, title, until: timers.now() + MOVED_NOTICE_MS });
+    if (related.length > DRAWN_RELATIONS) toastNow(`moved to “${title}” · and ${related.length - DRAWN_RELATIONS} more stayed`);
+    setCurrentDeskId(newDeskId);
+  }, [commit, mintId, setCurrentDeskId, timers, titleOf, toastNow, ungather]);
+
   const run = useCallback((action: DeskAction): boolean => {
     const current = wsRef.current;
     const id = deskIdRef.current;
@@ -415,8 +786,52 @@ export function DeskShell({
         else switchDesk(action.direction);
         return true;
       }
-      case "moveWindow":
+      case "moveWindow": {
+        const sel = overviewRef.current ? selectionRef.current : null;
+        if (sel) {
+          const each = deskById(current, sel.deskId);
+          const index = each ? slotIndexOf(each, sel.windowId) : -1;
+          if (each && index >= 0) commit(moveWindowTo(current, sel.deskId, sel.windowId, index + action.direction));
+          return true;
+        }
         commit(moveFocused(current, id, action.direction));
+        return true;
+      }
+      case "moveToDesk": {
+        const sel = selectionRef.current;
+        if (!overviewRef.current || !sel) return true;
+        const row = current.desks.findIndex((each) => each.deskId === sel.deskId);
+        const to = current.desks[row + action.direction];
+        const from = current.desks[row];
+        if (!to || !from) return true;
+        const index = slotIndexOf(from, sel.windowId);
+        const afterSlot = to.slots[Math.min(index, to.slots.length) - 1];
+        commit(moveToDesk(current, sel.deskId, sel.windowId, to.deskId, afterSlot ? afterSlot[afterSlot.length - 1] : null));
+        setSelection({ deskId: to.deskId, windowId: sel.windowId });
+        return true;
+      }
+      case "overview":
+        toggleOverview();
+        return true;
+      case "overviewMove":
+        moveOverviewSelection(action.direction);
+        return true;
+      case "overviewOpen": {
+        const sel = selectionRef.current;
+        toggleOverview(sel ? { deskId: sel.deskId, windowId: sel.windowId } : null, action.focusMode);
+        return true;
+      }
+      case "leaveOverview":
+        toggleOverview(null);
+        return true;
+      case "toggleRelations":
+        setShowRelations((on) => !on);
+        return true;
+      case "gatherPreview":
+        setGatherPreview(true);
+        return true;
+      case "gather":
+        gather(action.toNewDesk);
         return true;
       case "pair":
         commit(pairFocused(current, id));
@@ -428,7 +843,7 @@ export function DeskShell({
         if (!focus) return true;
         const title = titleOf(current.windows[focus]);
         commit(closeWindow(current, id, focus));
-        setUndo({ deskId: id, title, until: timers.now() + UNDO_CLOSE_MS });
+        setUndo({ deskId: id, windowId: focus, title, until: timers.now() + UNDO_CLOSE_MS });
         return true;
       }
       case "toggleFocusMode":
@@ -466,7 +881,7 @@ export function DeskShell({
       default:
         return false;
     }
-  }, [commit, switchDesk, timers, titleOf]);
+  }, [commit, switchDesk, timers, titleOf, toggleOverview, moveOverviewSelection, gather]);
   const visibilityRef = useRef(visibility);
   visibilityRef.current = visibility;
   const runRef = useRef(run);
@@ -501,27 +916,42 @@ export function DeskShell({
       }
       if (type === "mousedown") {
         altTracker.cancel();
+        // A pointer press during a zoom settles it at once (spec §6.3).
+        if (controller.active) controller.settle();
         return false;
       }
       if (!(event instanceof KeyboardEvent)) return false;
       if (type === "keyup") {
         modifiers.keyup(event);
-        // Alt held long enough to show which-key: its release belongs to the panel, never to a window's
-        // capture-clearing tap.
-        return altTracker.release(event) === "hold";
+        if (event.key === "g" || event.key === "G") setGatherPreview(false);
+        // The shell's tracker is the one that saw every key while Alt was down (a chord it took never reaches
+        // a window): only a confirmed tap's release goes on to a window's capture-clearing gesture. A hold
+        // (which-key) or a chord keeps it.
+        const outcome = altTracker.release(event);
+        return outcome !== null && outcome !== "tap";
       }
       if (type !== "keydown") return false;
       modifiers.keydown(event);
       altTracker.keydown(event);
       if (event.key === "Alt" || event.key === "Control" || event.key === "Shift" || event.key === "Meta") return false;
-      const resolution = resolveKey(event, { typing: isTypingTarget(event.target), focus: focusModeRef.current }, modifiers.read(event));
+      // A key press during a zoom settles it first (spec §6.3); a repeat does not.
+      if (controller.active && !event.repeat) controller.settle();
+      const open = claimed.current.get(focusIdRef.current ?? "");
+      const has = (scope: ClaimedScope) => (open?.get(scope)?.size ?? 0) > 0;
+      const resolution = resolveKey(event, {
+        typing: isTypingTarget(event.target) || has("typing"),
+        menu: has("menu"),
+        check: has("check"),
+        focus: focusModeRef.current,
+        overview: overviewRef.current,
+      }, modifiers.read(event));
       if (!resolution || resolution.binding.later) return false;
       if (!runRef.current(resolution.binding.action)) return false;
       event.preventDefault();
       event.stopPropagation();
       return true;
     },
-  }), [modifiers, altTracker, commit]);
+  }), [modifiers, altTracker, commit, controller]);
   useEffect(() => {
     router.ensure("window", "keydown");
     router.ensure("window", "keyup");
@@ -529,6 +959,27 @@ export function DeskShell({
     router.ensure("window", "blur");
     return () => router.dispose();
   }, [router]);
+  // The scopes each window's content has open (a Reader's menu, its intent box): the router reads the
+  // active window's before the desk's own bindings.
+  const claimed = useRef(new Map<string, Map<ClaimedScope, Set<string>>>());
+  const claimsByWindow = useRef(new Map<string, ScopeClaims>());
+  const claimsFor = useCallback((windowId: string): ScopeClaims => {
+    let claims = claimsByWindow.current.get(windowId);
+    if (!claims) {
+      claims = {
+        claim: (scope, owner, open) => {
+          const byScope = claimed.current.get(windowId) ?? new Map<ClaimedScope, Set<string>>();
+          const owners = byScope.get(scope) ?? new Set<string>();
+          if (open) owners.add(owner);
+          else owners.delete(owner);
+          byScope.set(scope, owners);
+          claimed.current.set(windowId, byScope);
+        },
+      };
+      claimsByWindow.current.set(windowId, claims);
+    }
+    return claims;
+  }, []);
   const hubs = useRef(new Map<string, ListenerHub>());
   const hubFor = useCallback((windowId: string): ListenerHub => {
     let hub = hubs.current.get(windowId);
@@ -538,6 +989,255 @@ export function DeskShell({
     }
     return hub;
   }, [router]);
+
+  // -- the world's camera at rest, the wheel router, ctrl+drag, the overview's drags (spec §5.5, §6.2) -------
+
+  // At rest the world's transform is the committed view's camera; a zoom writes it itself.
+  useLayoutEffect(() => {
+    const world = worldRef.current;
+    if (!world || controller.active) return;
+    world.style.transform = overview ? cameraTransform(ovCam) : "";
+  });
+
+  const mainRef = useRef<HTMLElement | null>(null);
+  const gesture = useRef<{ kind: "pan" | "zoom" | "scroll" | "ovpan"; source?: ZoomSource; zoom?: ZoomGesture; timer: unknown; panned: boolean } | null>(null);
+  const endGesture = useCallback(() => {
+    const g = gesture.current;
+    gesture.current = null;
+    setHud("");
+    if (!g) return;
+    if (g.kind === "zoom" && g.zoom && !g.zoom.latch && controller.active) {
+      // The fingers lifted mid-zoom: complete past 40 % of the way, else spring back.
+      controller.release();
+    }
+    if (g.kind === "pan" && g.panned) {
+      // Snap to the nearest window's left edge and focus it.
+      const current = wsRef.current;
+      const id = deskIdRef.current;
+      const each = id ? deskById(current, id) : null;
+      if (!id || !each || each.slots.length === 0) return;
+      const st = stageNow.current;
+      const rects = slotRects(each.slots.length, st);
+      const cam = camXRef.current[id] ?? 0;
+      let best = 0;
+      rects.forEach((rect, index) => {
+        if (Math.abs(rect.x - DESK_SIZES.side - cam) < Math.abs(rects[best].x - DESK_SIZES.side - cam)) best = index;
+      });
+      const snapped = ensureVisible(rects[best].x - DESK_SIZES.side, best, each.slots.length, st);
+      setCamX((cams) => ({ ...cams, [id]: snapped }));
+      const target = each.slots[best].find((windowId) => current.windows[windowId]?.active) ?? each.slots[best][0];
+      commit(setFocus(current, id, target));
+    }
+  }, [controller, commit]);
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    const onWheel = (event: WheelEvent) => {
+      const target = event.target as Element | null;
+      if (!target || !target.closest("[data-desk-stage], .desk-shelf, .desk-shelf-rail")) return;
+      const st = stageNow.current;
+      const now = performance.now();
+      let g = gesture.current;
+      if (!g) {
+        const kind = classifyWheel(event, modifiers.read(event), st.height);
+        // In the overview a plain wheel pans its camera; alt or ctrl zooms back in.
+        const ovPlain = overviewRef.current && kind.kind !== "zoom";
+        g = gesture.current = {
+          kind: ovPlain ? "ovpan" : kind.kind,
+          source: kind.source,
+          zoom: kind.kind === "zoom" && kind.source ? newZoomGesture(kind.source, now) : undefined,
+          timer: null,
+          panned: false,
+        };
+      }
+      if (g.kind === "scroll") {
+        // A plain scroll is the window's own (it never pans the strip).
+        timers.clear(g.timer);
+        g.timer = timers.set(endGesture, OVERVIEW.gestureIdleMs);
+        return;
+      }
+      event.preventDefault();
+      const { dx, dy } = normalizedDelta(event, st.height);
+      if (g.kind === "ovpan") {
+        setPanEase(false);
+        setOvCam((cam) => ({ ...cam, x: cam.x - (event.shiftKey ? dy : dx), y: cam.y - (event.shiftKey ? 0 : dy) }));
+        timers.clear(g.timer);
+        g.timer = timers.set(endGesture, OVERVIEW.gestureIdleMs);
+        return;
+      }
+      if (g.kind === "pan") {
+        if (overviewRef.current || focusModeRef.current) return;
+        const id = deskIdRef.current;
+        const each = id ? deskById(wsRef.current, id) : null;
+        if (!id || !each) return;
+        const travel = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        const max = Math.max(0, slotRects(each.slots.length, st).reduce((end, rect) => Math.max(end, rect.x + rect.w), 0) + DESK_SIZES.side - st.width);
+        setCamX((cams) => ({ ...cams, [id]: Math.max(0, Math.min(max, (cams[id] ?? 0) + travel)) }));
+        g.panned = true;
+        setHud("alt + swipe · moving along the strip · lift to snap");
+        timers.clear(g.timer);
+        g.timer = timers.set(endGesture, OVERVIEW.panSnapMs);
+        return;
+      }
+      // The zoom: alt + vertical, ctrl + scroll, or a pinch.
+      if (!g.zoom) return;
+      const result = zoomWheel(g.zoom, dy, now, { active: controller.active, inOverview: overviewRef.current, target: controller.target });
+      g.zoom = result.gesture;
+      const stepped = result.step;
+      if (stepped.kind === "begin-and-target") {
+        const began = overviewRef.current ? beginLeave(selectionRef.current ? { deskId: selectionRef.current.deskId, windowId: selectionRef.current.windowId } : null) : beginEnter();
+        if (began) controller.setTarget(stepped.target);
+      } else if (stepped.kind === "target") {
+        controller.setTarget(stepped.target);
+      } else if (stepped.kind === "goal") {
+        if (!controller.active) {
+          const began = stepped.goal === 1 ? beginEnter() : beginLeave(selectionRef.current ? { deskId: selectionRef.current.deskId, windowId: selectionRef.current.windowId } : null);
+          if (!began) return;
+        }
+        controller.go(stepped.goal);
+      }
+      if (stepped.kind === "target" || stepped.kind === "begin-and-target") {
+        const how = g.source === "pinch" ? "pinch" : modifiers.read(event).alt ? "alt + scroll" : "ctrl + scroll";
+        setHud(`${how} · zooming ${dy > 0 ? "out" : "in"} · lift to settle`);
+      } else {
+        setHud("");
+      }
+      timers.clear(g.timer);
+      g.timer = timers.set(endGesture, stepped.armMs);
+    };
+    main.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => main.removeEventListener("wheel", onWheel, { capture: true });
+  }, [ws === null, modifiers, timers, controller, beginEnter, beginLeave, endGesture]);
+
+  // Ctrl+drag on the stage background scrubs the zoom (320 px is the whole zoom); in the overview a drag
+  // on the background pans, and a card dragged farther than 8 px moves.
+  const drag = useRef<{ kind: "scrub" | "pan" | "card"; x: number; y: number; base: 0 | 1; cam: Camera; key?: string; windowId?: string; deskId?: string; moved: boolean } | null>(null);
+  const onStagePointerDown = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const target = event.target as Element;
+    const onCard = target.closest("[data-desk-slot]");
+    const inContent = target.closest(".desk-slot-inner, .desk-sliver, button, input, textarea");
+    if (overviewRef.current) {
+      if (onCard) {
+        const key = onCard.getAttribute("data-desk-slot-key") ?? undefined;
+        const windowId = onCard.getAttribute("data-desk-slot-window") ?? undefined;
+        const deskOf = onCard.getAttribute("data-desk-slot-desk") ?? undefined;
+        drag.current = { kind: "card", x: event.clientX, y: event.clientY, base: 1, cam: ovCamRef.current, key, windowId, deskId: deskOf, moved: false };
+      } else {
+        drag.current = { kind: "pan", x: event.clientX, y: event.clientY, base: 1, cam: ovCamRef.current, moved: false };
+      }
+      (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+      return;
+    }
+    if ((event.ctrlKey || modifiers.read().ctrl) && !inContent && !focusModeRef.current) {
+      drag.current = { kind: "scrub", x: event.clientX, y: event.clientY, base: 0, cam: IDENTITY, moved: false };
+      (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    }
+  }, [modifiers]);
+  const onStagePointerMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = event.clientX - d.x;
+    const dy = event.clientY - d.y;
+    if (d.kind === "scrub") {
+      if (!controller.active && !beginEnter()) {
+        drag.current = null;
+        return;
+      }
+      d.moved = true;
+      controller.setTarget(dragProgress(d.base, dy));
+      setHud("ctrl + drag · zooming · let go to settle");
+      return;
+    }
+    if (d.kind === "pan") {
+      d.moved = d.moved || Math.hypot(dx, dy) > 3;
+      setPanEase(false);
+      setOvCam({ ...d.cam, x: d.cam.x + dx, y: d.cam.y + dy });
+      return;
+    }
+    if (!d.moved && Math.hypot(dx, dy) <= OVERVIEW.cardDragPx) return;
+    d.moved = true;
+    const element = d.windowId ? boxEls.current.get(d.windowId) : null;
+    if (element) {
+      element.style.transform = `translate(${dx / d.cam.s}px, ${dy / d.cam.s}px)`;
+      element.style.zIndex = "30";
+    }
+  }, [controller, beginEnter]);
+  const onStagePointerUp = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    if (d.kind === "scrub") {
+      setHud("");
+      if (controller.active) controller.release();
+      return;
+    }
+    if (d.kind !== "card" || !d.windowId || !d.deskId) return;
+    const element = d.windowId ? boxEls.current.get(d.windowId) : null;
+    if (element) {
+      element.style.transform = "";
+      element.style.zIndex = "";
+    }
+    if (!d.moved) {
+      // A click on a card opens it.
+      setSelection({ deskId: d.deskId, windowId: d.windowId });
+      toggleOverview({ deskId: d.deskId, windowId: d.windowId });
+      return;
+    }
+    const layout = ovLayoutRef.current;
+    const stageBox = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    if (!layout) return;
+    const point = { x: (event.clientX - stageBox.left - d.cam.x) / d.cam.s, y: (event.clientY - stageBox.top - d.cam.y) / d.cam.s };
+    const drop = dropTarget(layout, point);
+    const current = wsRef.current;
+    const to = drop ? current.desks[drop.row] : null;
+    if (!drop || !to) return;
+    if (to.deskId === d.deskId) {
+      const from = slotIndexOf(to, d.windowId);
+      commit(moveWindowTo(current, d.deskId, d.windowId, Math.min(drop.slot > from ? drop.slot - 1 : drop.slot, to.slots.length - 1)));
+    } else {
+      const afterSlot = to.slots[drop.slot - 1];
+      commit(moveToDesk(current, d.deskId, d.windowId, to.deskId, afterSlot ? afterSlot[afterSlot.length - 1] : null));
+      setSelection({ deskId: to.deskId, windowId: d.windowId });
+    }
+  }, [controller, toggleOverview, commit]);
+
+  // Miniatures: after the overview opens, when idle, each opened window's picture is (re)built if it changed.
+  useEffect(() => {
+    if (!overview) return;
+    const handle = timers.set(() => {
+      for (const [windowId, host] of miniHosts.current) {
+        const body = [...document.querySelectorAll<HTMLElement>("[data-desk-window]")].find((pane) => pane.getAttribute("data-desk-window") === windowId) ?? null;
+        if (!body) continue;
+        if (miniatures.needs(windowId)) {
+          const { node, restoreScroll } = cloneForMiniature(body);
+          node.style.width = `${body.offsetWidth}px`;
+          node.style.height = `${body.offsetHeight}px`;
+          miniatures.store(windowId, node);
+          host.replaceChildren(node);
+          restoreScroll();
+        } else if (!host.firstChild) {
+          const node = miniatures.get(windowId);
+          if (node) host.replaceChildren(node);
+        }
+        const node = host.firstElementChild as HTMLElement | null;
+        if (node && body.offsetWidth > 0) node.style.transform = `scale(${host.clientWidth / body.offsetWidth})`;
+      }
+    }, 120);
+    return () => timers.clear(handle);
+  }, [overview, timers, miniatures]);
+
+  // The harness's handle on the zoom (the commit-identity check drives p itself).
+  useEffect(() => {
+    onDebugHandle?.({
+      beginZoom: () => (overviewRef.current ? beginLeave(null) : beginEnter()),
+      setZoomProgress: (p) => controller.setProgress(p),
+      finishZoom: (goal) => onEndRef.current(goal, controller.plan?.base ?? (goal === 1 ? 0 : 1)),
+      zoomFrameTimes: () => [...controller.frameTimes],
+      overview: () => overviewRef.current,
+    });
+  }, [onDebugHandle, controller, beginEnter, beginLeave]);
 
   // -- opening windows -------------------------------------------------------------------------------
 
@@ -558,11 +1258,15 @@ export function DeskShell({
     }
     if (!step.existed) {
       setEntering((now) => new Set([...now, step.windowId]));
-      timers.set(() => setEntering((now) => {
-        const next = new Set(now);
-        next.delete(step.windowId);
-        return next;
-      }), 450);
+      const handle = timers.set(() => {
+        shellTimers.current.delete(handle);
+        setEntering((now) => {
+          const next = new Set(now);
+          next.delete(step.windowId);
+          return next;
+        });
+      }, 450);
+      shellTimers.current.add(handle);
     }
     setOpener(false);
   }, [commit, mintId, timers]);
@@ -576,31 +1280,51 @@ export function DeskShell({
 
   // -- window status from inside (title, reading place, rail hosts, media) ------------------------
 
-  const viewTimers = useRef(new Map<string, unknown>());
+  const viewTimers = useRef(new Map<string, { handle: unknown; save: () => void }>());
+  const shellTimers = useRef(new Set<unknown>());
+  // The shell's own timers (an entering fade) end with it. A reading place still waiting for its idle save
+  // is handed to the vault's store at once, which outlives the shell and sends it.
+  useEffect(() => () => {
+    for (const pending of viewTimers.current.values()) {
+      timers.clear(pending.handle);
+      pending.save();
+    }
+    viewTimers.current.clear();
+    for (const handle of shellTimers.current) timers.clear(handle);
+    shellTimers.current.clear();
+  }, [timers]);
   const statusFor = useMemo(() => new Map<string, (next: SourceStatus) => void>(), []);
   const onStatusFor = useCallback((windowId: string) => {
     let handler = statusFor.get(windowId);
     if (!handler) {
       handler = (next: SourceStatus) => {
         setStatus((all) => ({ ...all, [windowId]: { ...all[windowId], ...next } }));
+        // The window changed: its card's picture is rebuilt the next time the overview shows it.
+        miniatures.invalidate(windowId);
         // The reading place, saved as the window's scroll anchor by passage once the learner settles
         // (spec §3.5: span-based, never pixels), and only for the window the learner is reading.
         if (next.readingSpan && focusIdRef.current === windowId) {
           const previous = viewTimers.current.get(windowId);
-          if (previous !== undefined) timers.clear(previous);
-          viewTimers.current.set(windowId, timers.set(() => {
-            viewTimers.current.delete(windowId);
-            const current = wsRef.current;
+          if (previous !== undefined) timers.clear(previous.handle);
+          const save = () => {
+            const current = store.ws;
             const window = current.windows[windowId];
             if (!window || window.view?.spanId === next.readingSpan) return;
-            commit(setView(current, window.deskId, windowId, { ...window.view, spanId: next.readingSpan }));
-          }, VIEW_SAVE_IDLE_MS));
+            store.commit(setView(current, window.deskId, windowId, { ...window.view, spanId: next.readingSpan }));
+          };
+          viewTimers.current.set(windowId, {
+            save,
+            handle: timers.set(() => {
+              viewTimers.current.delete(windowId);
+              save();
+            }, VIEW_SAVE_IDLE_MS),
+          });
         }
       };
       statusFor.set(windowId, handler);
     }
     return handler;
-  }, [statusFor, timers, commit]);
+  }, [statusFor, timers, store, miniatures]);
 
   const jumpReadyFor = useMemo(() => new Map<string, (jump: ((spanId: string) => void) | null) => void>(), []);
   const onJumpReadyFor = useCallback((windowId: string) => {
@@ -671,7 +1395,9 @@ export function DeskShell({
 
   // -- rendering ------------------------------------------------------------------------------------
 
-  const undoShown = undo && undo.deskId === deskId && undo.until > timers.now() ? undo : null;
+  // An undo offer holds only while the window is still closed (a close the server refused is no close).
+  const undoShown = undo && undo.deskId === deskId && undo.until > timers.now()
+    && (ws?.closed[undo.deskId] ?? []).some((entry) => entry.window.windowId === undo.windowId) ? undo : null;
   useEffect(() => {
     if (!undo) return;
     const handle = timers.set(() => setUndo(null), Math.max(0, undo.until - timers.now()));
@@ -706,7 +1432,7 @@ export function DeskShell({
             card={card}
             libraryLoaded={library !== null}
             startSpan={typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null}
-            railHost={railNode ? { node: railNode, tab: railTab } : null}
+            railHost={railNode && railPanel ? { node: railNode, tab: railTab, lifecycle: lifecycles[railPanel] ?? { windowId: railPanel, state: "hidden" }, hub: hubFor(railPanel), claims: claimsFor(railPanel) } : null}
             onStatus={onStatusFor(window.windowId)}
             onJumpReady={onJumpReadyFor(window.windowId)}
             onMediaReady={onMediaReadyFor(window.windowId)}
@@ -753,9 +1479,57 @@ export function DeskShell({
     }
   };
 
+  // The overview's relations, links and gather ghosts for the selection (or, entering, the focus).
+  const linkedFrom = overview || zooming ? selection?.windowId ?? focusId : null;
+  const selectedRelations = relatedTo(linkedFrom);
+  const linkRects = new Map<string, Rect>();
+  ws.desks.forEach((each, row) => each.slots.forEach((slot, index) => {
+    const rect = ovLayout?.cards[row]?.[index];
+    if (rect) for (const id of slot) linkRects.set(id, rect);
+  }));
+  const fromCard = linkedFrom ? linkRects.get(linkedFrom) ?? null : null;
+  const links = fromCard
+    ? curvedLinks(fromCard, selectedRelations.filter((relation) => linkRects.has(relation.windowId)).map((relation) => ({ rect: linkRects.get(relation.windowId) as Rect, relation })))
+    : [];
+  const ghosts: Array<{ key: string; rect: Rect }> = [];
+  if (overview && gatherPreview && selection && ovLayout) {
+    const row = ws.desks.findIndex((each) => each.deskId === selection.deskId);
+    const each = ws.desks[row];
+    if (each) {
+      const sameDesk = selectedRelations.filter((relation) => ws.windows[relation.windowId]?.deskId === each.deskId);
+      const { order } = gatherOrder(each.slots, selection.windowId, sameDesk);
+      order.forEach((slot, index) => {
+        // Only the linked cards: where each would go.
+        const linked = slot.some((id) => sameDesk.some((relation) => relation.windowId === id));
+        if (linked && each.slots[index]?.[0] !== slot[0] && ovLayout.cards[row][index]) ghosts.push({ key: slot.join("+"), rect: ovLayout.cards[row][index] });
+      });
+    }
+  }
+  const movedShown = movedNotice && movedNotice.deskId === deskId && movedNotice.until > timers.now() ? movedNotice : null;
   const focusWindow = focusId ? ws.windows[focusId] : undefined;
   const focusZoom = typeof focusWindow?.view?.zoom === "number" ? (focusWindow.view.zoom as number) : 1;
-  const slivers = desk && !focusMode ? sliverSlots(cam, slotCount, stage) : { left: null, right: null };
+  // Every window's place: its slot, its pane, its reading rect and its card rect. Rendered in window-id
+  // order, so reordering slots moves no element in the DOM (a moved iframe would reload its player).
+  const windowPlaces = ws.desks.flatMap((each, rowIndex) => {
+    const eachCam = camX[each.deskId] ?? 0;
+    const rects = slotRects(each.slots.length, stage);
+    const top = rowTop(rowIndex, stage) - rowTop(deskIndex, stage);
+    return each.slots.flatMap((slot, index) => {
+      const slotReading = { x: rects[index].x - eachCam, y: top + rects[index].y, w: rects[index].w, h: rects[index].h };
+      const slotCard = ovLayout?.cards[rowIndex]?.[index] ?? slotReading;
+      const readingPanes = paneRects(slotReading, slot.length);
+      const cardPanes = paneRects(slotCard, slot.length);
+      return slot.flatMap((id, pane) => {
+        const window = ws.windows[id];
+        return window ? [{ window, each, rowIndex, index, pane, slot, reading: readingPanes[pane], card: cardPanes[pane] }] : [];
+      });
+    });
+  }).sort((a, b) => (a.window.windowId < b.window.windowId ? -1 : a.window.windowId > b.window.windowId ? 1 : 0));
+
+  // The slivers: the current desk's; while a zoom leaves the overview, the desk it lands on.
+  const sliverDesk = leaveTarget ? deskById(ws, leaveTarget.deskId) : desk;
+  const sliverCam = leaveTarget && sliverDesk ? leaveTarget.cams[sliverDesk.deskId] ?? 0 : cam;
+  const slivers = sliverDesk && !focusMode ? sliverSlots(sliverCam, sliverDesk.slots.length, stage) : { left: null, right: null };
   const shelfRows: ShelfRow[] = desk
     ? desk.slots.flatMap((slot, index) => slot.map((id) => {
       const window = ws.windows[id];
@@ -773,12 +1547,14 @@ export function DeskShell({
     }))
     : [];
 
-  const hints = focusMode
+  const hints = overview
+    ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]]
+    : focusMode
     ? [["alt+↵ / esc", "leave focus"], ["= − 0", "zoom"], ["alt+h/l", "next window"]]
     : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"]];
 
   return (
-    <div className={`desk-shell${focusMode ? " focus-mode" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"}>
+    <div className={`desk-shell${focusMode ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
         <span className="desk-brand">◇ LearnLoop</span>
         <nav className="desk-tabs" aria-label="desks">
@@ -827,63 +1603,98 @@ export function DeskShell({
           </button>
         </nav>
         <span className="grow" />
+        <button type="button" className="tb" aria-pressed={overview} title="alt+o" onClick={() => toggleOverview()}>o overview</button>
         <button type="button" className="tb" aria-expanded={opener} onClick={() => setOpener((open) => !open)}>+ open beside</button>
         {onLeave ? <button type="button" className="tb" onClick={onLeave}>old Reader</button> : null}
       </header>
-      <main className={`desk-main${viewportWidth < DESK_SIZES.shelfFoldBelow ? " rail" : ""}`}>
+      <main className={`desk-main${viewportWidth < DESK_SIZES.shelfFoldBelow ? " rail" : ""}`} ref={mainRef}>
         <Shelf
           rows={shelfRows}
           folded={viewportWidth < DESK_SIZES.shelfFoldBelow}
           undo={undoShown ? { title: undoShown.title, onUndo: () => { commit(undoClose(wsRef.current, undoShown.deskId)); setUndo(null); } } : null}
-          onFocus={(id) => deskId && commit(setFocus(wsRef.current, deskId, id))}
+          onFocus={(id) => {
+            if (!deskId) return;
+            // In the overview a row's click opens its window (and leaves the overview).
+            if (overviewRef.current) toggleOverview({ deskId, windowId: id });
+            else commit(setFocus(wsRef.current, deskId, id));
+          }}
           onReorder={(id, toSlot) => {
             if (!deskId) return;
             commit(moveWindowTo(wsRef.current, deskId, id, toSlot));
           }}
         />
-        <section className="desk-stage" ref={stageRef} data-desk-stage="">
-          {ws.desks.map((each, rowIndex) => {
-            if (!visited.has(each.deskId) && each.deskId !== deskId) return null;
-            const onCurrent = each.deskId === deskId;
-            const eachCam = camX[each.deskId] ?? 0;
-            const rects = slotRects(each.slots.length, stage);
-            const top = rowTop(rowIndex, stage) - rowTop(deskIndex, stage);
-            const eachVisibility = onCurrent ? visibility : slotVisibility(eachCam, each.slots.length, stage);
-            return each.slots.map((slot, index) => {
-              const rect = rects[index];
-              const full = onCurrent && focusMode && slot.includes(focusId ?? "");
-              const left = full ? 0 : rect.x - eachCam;
-              const style = full
-                ? { left: 0, top: 0, width: stage.width, height: stage.height }
-                : { left, top: top + rect.y, width: rect.w, height: rect.h };
-              const mask = !full && onCurrent && !focusMode ? softCropMask(eachVisibility[index], rect.w) : null;
-              const slotPaused = slot.every((id) => isPaused(lifecycles[id]?.state ?? "hidden"));
-              const panes = full ? slot.filter((id) => id === focusId) : slot;
+        <section
+          className="desk-stage"
+          ref={stageRef}
+          data-desk-stage=""
+          onPointerDown={onStagePointerDown}
+          onPointerMove={onStagePointerMove}
+          onPointerUp={onStagePointerUp}
+        >
+          <div className={`desk-world${panEase && overview ? " pan-ease" : ""}`} ref={worldRef} data-desk-world="">
+            {/* One element per window, keyed by the window: pairing, unpairing and focus mode change its
+                style, never its place in the tree, so the Reader inside is never remounted (its drafts,
+                selection and scroll stay). */}
+            {windowPlaces.map((place) => {
+              const { window, each, rowIndex, index, pane, slot } = place;
+              const id = window.windowId;
+              const onCurrent = each.deskId === deskId;
+              const opened = visited.has(each.deskId) || onCurrent;
+              const full = !overview && onCurrent && focusMode && id === focusId;
+              const hiddenInFocus = !overview && onCurrent && focusMode && !full;
+              const reading = full ? { x: 0, y: 0, w: stage.width, h: stage.height } : place.reading;
+              const card = place.card;
+              const box = overview ? card : reading;
+              const leavingTo = leaveTarget?.deskId === each.deskId;
+              const slotCut = leavingTo
+                ? slotVisibility(leaveTarget.cams[each.deskId] ?? 0, each.slots.length, stage)[index]
+                : onCurrent ? visibility[index] : null;
+              const mask = full || focusMode || !slotCut ? null : leavingTo || (!overview && !zooming && onCurrent) ? softCropMask(slotCut, reading.w) : null;
+              const lifecycle = lifecycles[id] ?? { windowId: id, state: "hidden" as const };
+              const paused = isPaused(lifecycle.state);
+              const paired = slot.length > 1;
+              const selected = overview && selection !== null && slot.includes(selection.windowId);
+              const receding = overview && recedes(slot, selection?.windowId ?? null, selectedRelations, showRelations);
+              const measure = FOCUS_MEASURE[window.kind] ?? FOCUS_MEASURE.source;
               return (
                 <div
-                  key={slot.join("+")}
-                  data-desk-slot={`${each.deskId}:${index}`}
-                  className={`desk-window${onCurrent && slot.includes(focusId ?? "") ? " focus" : ""}${full ? " focused-full" : ""}${slotPaused ? " paused" : ""}${slot.some((id) => entering.has(id)) ? " entering" : ""}`}
+                  key={id}
+                  ref={(node) => {
+                    if (node) boxEls.current.set(id, node);
+                    else boxEls.current.delete(id);
+                  }}
+                  data-desk-slot={`${each.deskId}:${index}:${pane}`}
+                  data-desk-slot-key={slotKey(each.deskId, slot)}
+                  data-desk-slot-desk={each.deskId}
+                  data-desk-slot-window={id}
+                  className={`desk-window${!overview && onCurrent && id === focusId ? " focus" : ""}${full ? " focused-full" : ""}${paired && !full ? (pane === 0 ? " pair-top" : " pair-bottom") : ""}${paused ? " paused" : ""}${entering.has(id) ? " entering" : ""}${selected ? " ov-selected" : ""}${receding ? " ov-recede" : ""}`}
                   style={{
-                    ...style,
+                    left: box.x,
+                    top: box.y,
+                    width: box.w,
+                    height: box.h,
                     ...(mask ? { WebkitMaskImage: mask, maskImage: mask } : {}),
-                    ...(onCurrent && focusMode && !full ? { visibility: "hidden" as const } : {}),
+                    ...(hiddenInFocus ? { visibility: "hidden" as const } : {}),
                   }}
                 >
-                  {panes.map((id, pane) => {
-                    const window = ws.windows[id];
-                    if (!window) return null;
-                    const lifecycle = lifecycles[id] ?? { windowId: id, state: "hidden" as const };
-                    const paired = panes.length > 1;
-                    const measure = FOCUS_MEASURE[window.kind] ?? FOCUS_MEASURE.source;
-                    return (
+                  {opened ? (
+                    <div
+                      className="desk-slot-inner"
+                      ref={(node) => {
+                        if (node) innerEls.current.set(id, node);
+                        else innerEls.current.delete(id);
+                      }}
+                      style={{ width: reading.w, height: reading.h }}
+                    >
                       <div
-                        key={id}
                         {...{ [WINDOW_ATTRIBUTE]: id }}
+                        // A paused window (another desk, out of view, a card in the overview) takes no DOM input:
+                        // no focus, no typing, no tab stop, no clicks into its controls or its iframes.
+                        {...(paused ? { inert: "" } : {})}
+                        tabIndex={-1}
                         data-window-state={lifecycle.state}
                         data-window-kind={window.kind}
                         className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
-                        style={paired ? { flex: `0 0 ${paneRects({ x: 0, y: 0, w: rect.w, h: style.height as number }, 2)[pane].h}px` } : undefined}
                       >
                         <div className="desk-pane-head">
                           <span className="g">{KIND_GLYPH[window.kind] ?? "§"}</span>
@@ -900,7 +1711,7 @@ export function DeskShell({
                               event.stopPropagation();
                               const title = titleOf(window);
                               commit(closeWindow(wsRef.current, each.deskId, id));
-                              setUndo({ deskId: each.deskId, title, until: timers.now() + UNDO_CLOSE_MS });
+                              setUndo({ deskId: each.deskId, windowId: id, title, until: timers.now() + UNDO_CLOSE_MS });
                             }}
                           >
                             ✕
@@ -909,42 +1720,127 @@ export function DeskShell({
                         <div className="desk-pane-body" data-desk-pane-body="">
                           {/* A window that fails to render fails alone: the desk and its other windows stay. */}
                           <ScreenErrorBoundary resetKey={id}>
-                          <WindowScope lifecycle={lifecycle} hub={hubFor(id)}>
-                            {full ? (
-                              <div
-                                className="desk-measure"
-                                style={{ ["--desk-measure" as string]: `${measure}px`, zoom: focusZoom, display: "flex", flexDirection: "column", minHeight: 0, height: "100%" } as React.CSSProperties}
-                              >
-                                {paneBody(window, lifecycle)}
-                              </div>
-                            ) : paneBody(window, lifecycle)}
+                          <WindowScope lifecycle={lifecycle} hub={hubFor(id)} claims={claimsFor(id)}>
+                            {/* The measure wrapper is always there (focus mode only restyles it), so entering
+                                focus mode never remounts the content. */}
+                            <div
+                              className="desk-measure"
+                              style={{
+                                ...(full ? { ["--desk-measure" as string]: `${measure}px`, zoom: focusZoom } : {}),
+                                display: "flex",
+                                flexDirection: "column",
+                                minHeight: 0,
+                                height: "100%",
+                              } as CSSProperties}
+                            >
+                              {paneBody(window, lifecycle)}
+                            </div>
                           </WindowScope>
                           </ScreenErrorBoundary>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ) : null}
+                  {/* The card face: laid out at its overview size, scaled to the box it sits in (static per
+                      layout; the zoom scales the box). */}
+                  <div
+                    className="desk-card"
+                    ref={(node) => {
+                      if (node) cardEls.current.set(id, node);
+                      else cardEls.current.delete(id);
+                    }}
+                    style={{ width: card.w, height: card.h, transform: `scale(${box.w / card.w}, ${box.h / card.h})` }}
+                  >
+                    <CardFace
+                      glyph={KIND_GLYPH[window.kind] ?? "§"}
+                      kind={KIND_WORD[window.kind] ?? window.kind}
+                      title={titleOf(window)}
+                      where={status[id]?.where ?? null}
+                      progress={typeof status[id]?.progress === "number" ? status[id].progress as number : null}
+                      paper={window.kind === "source" || window.kind === "video"}
+                      extra={window.stack ? <div className="desk-card-bands">{window.stack.map((entry, band) => <span key={band}>› {entry.kind === "pad" ? "pad" : "lesson"} {band + 1}</span>)}</div> : undefined}
+                      miniatureHost={opened ? (node) => {
+                        if (node) miniHosts.current.set(id, node);
+                        else miniHosts.current.delete(id);
+                      } : null}
+                    />
+                  </div>
                 </div>
               );
-            });
-          })}
-          {desk && slivers.left !== null ? (
-            <Sliver side="l" title={titleOf(ws.windows[desk.slots[slivers.left][0]])} kind={ws.windows[desk.slots[slivers.left][0]]?.kind ?? "source"}
-              onClick={() => commit(setFocus(wsRef.current, desk.deskId, desk.slots[slivers.left as number][0]))} />
+            })}
+            {overview || zooming ? (
+              <>
+                {ws.desks.map((each, rowIndex) => (
+                  <div
+                    key={`label-${each.deskId}`}
+                    className="desk-ov-label"
+                    ref={(node) => {
+                      if (node) lateEls.current.set(`label-${each.deskId}`, node);
+                      else lateEls.current.delete(`label-${each.deskId}`);
+                    }}
+                    style={{ left: ovLayout?.labels[rowIndex]?.x ?? 0, top: (ovLayout?.labels[rowIndex]?.y ?? 0) - 34 }}
+                  >
+                    {each.title}
+                  </div>
+                ))}
+                {showRelations && links.length > 0 ? (
+                  <div className="desk-ov-links" ref={(node) => { if (node) lateEls.current.set("links", node); else lateEls.current.delete("links"); }}>
+                    <LinkLayer links={links} rects={linkRects} />
+                  </div>
+                ) : null}
+                {/* Rings around the selection (amber) and its related cards (cyan, the top four): siblings laid
+                    out at the cards' rects, so a zoom's last frame draws them exactly as the overview does. */}
+                {ws.desks.flatMap((each, rowIndex) => each.slots.map((slot, index) => {
+                  const ringId = linkedFrom;
+                  const isSel = ringId !== null && slot.includes(ringId);
+                  const isRel = !isSel && showRelations && slot.some((id) => selectedRelations.some((relation) => relation.windowId === id));
+                  const rect = ovLayout?.cards[rowIndex]?.[index];
+                  if ((!isSel && !isRel) || !rect) return null;
+                  const key = slotKey(each.deskId, slot);
+                  return (
+                    <div
+                      key={`ring-${key}`}
+                      className={`desk-ov-ring ${isSel ? "sel" : "rel"}`}
+                      ref={(node) => {
+                        if (node) ringEls.current.set(key, node);
+                        else ringEls.current.delete(key);
+                      }}
+                      style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+                    />
+                  );
+                }))}
+                {overview && gatherPreview ? ghosts.map((ghost) => (
+                  <div key={ghost.key} className="desk-ov-ghost" style={{ left: ghost.rect.x, top: ghost.rect.y, width: ghost.rect.w, height: ghost.rect.h }} />
+                )) : null}
+              </>
+            ) : null}
+          </div>
+          {sliverDesk && slivers.left !== null && (!overview || leaveTarget) ? (
+            <Sliver side="l" title={titleOf(ws.windows[sliverDesk.slots[slivers.left][0]])} kind={ws.windows[sliverDesk.slots[slivers.left][0]]?.kind ?? "source"}
+              register={(node) => { if (node) sliverEls.current.set("l", node); else sliverEls.current.delete("l"); }}
+              onClick={() => commit(setFocus(wsRef.current, sliverDesk.deskId, sliverDesk.slots[slivers.left as number][0]))} />
           ) : null}
-          {desk && slivers.right !== null ? (
-            <Sliver side="r" title={titleOf(ws.windows[desk.slots[slivers.right][0]])} kind={ws.windows[desk.slots[slivers.right][0]]?.kind ?? "source"}
-              onClick={() => commit(setFocus(wsRef.current, desk.deskId, desk.slots[slivers.right as number][0]))} />
+          {sliverDesk && slivers.right !== null && (!overview || leaveTarget) ? (
+            <Sliver side="r" title={titleOf(ws.windows[sliverDesk.slots[slivers.right][0]])} kind={ws.windows[sliverDesk.slots[slivers.right][0]]?.kind ?? "source"}
+              register={(node) => { if (node) sliverEls.current.set("r", node); else sliverEls.current.delete("r"); }}
+              onClick={() => commit(setFocus(wsRef.current, sliverDesk.deskId, sliverDesk.slots[slivers.right as number][0]))} />
           ) : null}
-          {desk && desk.slots.length === 0 ? (
+          {movedShown && !overview ? (
+            <div className="desk-sliver r desk-moved" role="status"><span className="sg">→</span><span className="st">moved to “{movedShown.title}”</span></div>
+          ) : null}
+          {desk && desk.slots.length === 0 && !overview ? (
             <div className="desk-panel desk-quiet" style={{ position: "absolute", left: DESK_SIZES.side, top: DESK_SIZES.inset }}>
               This desk is empty. <button type="button" onClick={() => setOpener(true)}>open a source beside</button>
             </div>
           ) : null}
+          {hud ? <div className="desk-hud" role="status">{hud}</div> : null}
         </section>
       </main>
       <footer className="desk-keys">
         {hints.map(([keys, label]) => <span key={keys}><kbd>{keys}</kbd> {label}</span>)}
+        {ungather && ungather.deskId === deskId && !overview ? (
+          <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ ungather</button>
+        ) : null}
         {undoShown && viewportWidth < DESK_SIZES.shelfFoldBelow ? (
           // With the shelf folded to its rail, its undo line moves here.
           <button type="button" style={{ color: "var(--desk-amber)" }} onClick={() => { commit(undoClose(wsRef.current, undoShown.deskId)); setUndo(null); }}>
@@ -1000,9 +1896,9 @@ export function contentForCard(card: SourceLibraryCard, extractionId: string): C
     : { kind: "source", sourceId: card.sourceId, extractionId, view: "render" };
 }
 
-function Sliver({ side, title, kind, onClick }: { side: "l" | "r"; title: string; kind: string; onClick: () => void }) {
+function Sliver({ side, title, kind, onClick, register }: { side: "l" | "r"; title: string; kind: string; onClick: () => void; register?: (node: HTMLButtonElement | null) => void }) {
   return (
-    <button type="button" className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} onClick={onClick}>
+    <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} onClick={onClick}>
       <span className="sg">{side === "l" ? "‹" : "›"}</span>
       <span className="sgl">{KIND_GLYPH[kind] ?? "§"}</span>
       <span className="st">{title}</span>
@@ -1098,7 +1994,7 @@ function OpenBeside({
         ) : null}
         <div className="wkt">the library</div>
         <div className="wkr"><span /><button type="button" style={{ textAlign: "left" }} onClick={() => onOpen({ kind: "panel", panel: "library" })}>◇ ask across the library</button></div>
-        <div className="wkr"><span /><button type="button" style={{ textAlign: "left" }} onClick={() => onOpen({ kind: "compare", query: filter.trim() || undefined })}>⇄ compare{filter.trim() ? ` “${filter.trim()}”` : ""}</button></div>
+        <div className="wkr"><span /><button type="button" style={{ textAlign: "left" }} onClick={() => onOpen(filter.trim() ? { kind: "compare", query: filter.trim() } : { kind: "panel", panel: "library" })}>⇄ compare{filter.trim() ? ` “${filter.trim()}”` : ""}</button></div>
         <div className="wkt" style={{ marginTop: 8 }}>sources</div>
         {library === null ? <div className="desk-quiet">◐ reading the library…</div> : null}
         {sources.map((card) => (

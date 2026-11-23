@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/outbox.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/outbox.ts) |
-| Source lines | 153 |
+| Source lines | 199 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -59,30 +59,35 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export class MemoryOutboxStore implements OutboxStore` — class, line 24
 - `export interface OutboxTransport` — interface, line 41
 - `export type FlushOutcome = |` — type, line 45
-- `export function clientIdFor(vaultKey: string, storage: Pick<Storage, "getItem" | "setItem"> | null, mint: ()` — function, line 66
-- `export class DeskOutbox` — class, line 79
+- `export function isPermanentRefusal(code: string): boolean` — function, line 63
+- `export function clientIdFor(vaultKey: string, storage: Pick<Storage, "getItem" | "setItem"> | null, mint: ()` — function, line 79
+- `export class DeskOutbox` — class, line 92
 
 ## Internal implementation anchors
 
-- `function errorText(error: unknown): string` — function, line 54
-- `const key = `learnloop.desks.client.$` — const, line 67
-- `const stored = storage?.getItem(key)` — const, line 69
-- `const minted = mint()` — const, line 71
-- `const head = state.serverSeq.find((entry)` — const, line 91
-- `const pending = this.store.load()` — const, line 92
-- `const maxPending = pending.length ? pending[pending.length - 1].seq : 0` — const, line 93
-- `const seq = this.nextSeq` — const, line 109
-- `let last: FlushOutcome =` — let, line 126
-- `let reply: DeskApplyDto` — let, line 130
-- `const message = errorText(error)` — const, line 134
-- `const code = error && typeof error === "object" && "code" in error ? String((error as` — const, line 135
+- `const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"])` — const, line 61
+- `function errorText(error: unknown): string` — function, line 67
+- `const key = `learnloop.desks.client.$` — const, line 80
+- `const stored = storage?.getItem(key)` — const, line 82
+- `const minted = mint()` — const, line 84
+- `const head = state.serverSeq.find((entry)` — const, line 104
+- `const pending = this.store.load()` — const, line 105
+- `const maxPending = pending.length ? pending[pending.length - 1].seq : 0` — const, line 106
+- `let seq = fromSeq` — let, line 124
+- `const seq = this.nextSeq` — const, line 149
+- `let last: FlushOutcome =` — let, line 166
+- `let reply: DeskApplyDto` — let, line 170
+- `const message = errorText(error)` — const, line 174
+- `const code = error && typeof error === "object" && "code" in error ? String((error as` — const, line 175
+- `const rest = this.store.load().map((each)` — const, line 184
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `DeskOutbox`, `OutboxTransport`, `clientIdFor`; references `DeskOutbox`, `OutboxTransport`, `clientIdFor`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `OutboxTransport`, `clientIdFor`; references `OutboxTransport`, `clientIdFor`
+- [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`; references `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`
 
 ## Dependencies
 

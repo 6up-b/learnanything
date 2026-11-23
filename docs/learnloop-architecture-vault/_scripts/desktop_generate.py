@@ -51,6 +51,7 @@ AREA_RESPONSIBILITIES = {
     "TypeScript/screens/practice": "Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen.",
     "TypeScript/screens/desks": "The Reader workbench's desks: the shell, the window lifecycle contract, the shelf, reading-view geometry and the desk outbox.",
     "TypeScript/screens/desks/keys": "The desks' key router (the scope and precedence matrix, the bare-Alt hold rule) and the one listener router for every window.",
+    "TypeScript/screens/desks/overview": "The desks' overview: the zoom engine (layout, camera, frame function, spring, wheel), its one frame writer, cards, curved links, gather and live miniatures.",
     "TypeScript/screens/desks/model": "The client workspace model: desks, windows, slots and pairs, mirroring desk.apply op for op.",
     "TypeScript/screens/desks/windows": "Desk windows: the Reader's source pane as a scoped source or video window, and the panel windows hosting v1 Reader surfaces.",
     "TypeScript/screens/reader": "Reader request-state coordination extracted from the main reader screen.",

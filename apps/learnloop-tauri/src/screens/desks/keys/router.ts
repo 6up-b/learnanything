@@ -20,6 +20,11 @@ export type DeskAction =
   | { kind: "closeWindow" }
   | { kind: "gather"; toNewDesk: boolean }
   | { kind: "overview" }
+  | { kind: "overviewMove"; direction: "left" | "right" | "up" | "down" }
+  | { kind: "overviewOpen"; focusMode: boolean }
+  | { kind: "leaveOverview" }
+  | { kind: "toggleRelations" }
+  | { kind: "gatherPreview" }
   | { kind: "pair" }
   | { kind: "unpair" }
   | { kind: "newPad" }
@@ -85,13 +90,13 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   alt("move.up", "alt+k", "pane above, then the desk above", "KeyK", { kind: "paneOrDesk", direction: -1 }, ["typing", "reading"], { group: "move" }),
   alt("move.window-left", "alt+[", "move window left", "BracketLeft", { kind: "moveWindow", direction: -1 }, ["typing", "overview", "reading"], { group: "move" }),
   alt("move.window-right", "alt+]", "move window right", "BracketRight", { kind: "moveWindow", direction: 1 }, ["typing", "overview", "reading"], { group: "move" }),
-  { id: "move.to-desk-below", keys: "alt+shift+j", label: "window to the desk below", chord: { code: "KeyJ", alt: true, shift: true }, action: { kind: "moveToDesk", direction: 1 }, scopes: ["overview"], later: "RD2", group: "move" },
-  { id: "move.to-desk-above", keys: "alt+shift+k", label: "window to the desk above", chord: { code: "KeyK", alt: true, shift: true }, action: { kind: "moveToDesk", direction: -1 }, scopes: ["overview"], later: "RD2", group: "move" },
+  { id: "move.to-desk-below", keys: "alt+shift+j", label: "window to the desk below", chord: { code: "KeyJ", alt: true, shift: true }, action: { kind: "moveToDesk", direction: 1 }, scopes: ["overview"], group: "move" },
+  { id: "move.to-desk-above", keys: "alt+shift+k", label: "window to the desk above", chord: { code: "KeyK", alt: true, shift: true }, action: { kind: "moveToDesk", direction: -1 }, scopes: ["overview"], group: "move" },
   alt("windows.focus", "alt+↵", "focus (full screen)", "Enter", { kind: "toggleFocusMode" }, ALT_TYPING, { group: "windows" }),
   alt("windows.close", "alt+w", "close (undo on the shelf)", "KeyW", { kind: "closeWindow" }, ["focus", "reading"], { group: "windows" }),
-  alt("windows.gather", "alt+g", "gather", "KeyG", { kind: "gather", toNewDesk: false }, READING, { later: "RD2", group: "windows" }),
-  { id: "windows.gather-new", keys: "alt+shift+g", label: "gather to a new desk", chord: { code: "KeyG", alt: true, shift: true }, action: { kind: "gather", toNewDesk: true }, scopes: READING, later: "RD2", group: "windows" },
-  alt("windows.overview", "alt+o", "overview", "KeyO", { kind: "overview" }, ["overview", "focus", "reading"], { later: "RD2", group: "windows" }),
+  alt("windows.gather", "alt+g", "gather", "KeyG", { kind: "gather", toNewDesk: false }, READING, { group: "windows" }),
+  { id: "windows.gather-new", keys: "alt+shift+g", label: "gather to a new desk", chord: { code: "KeyG", alt: true, shift: true }, action: { kind: "gather", toNewDesk: true }, scopes: READING, group: "windows" },
+  alt("windows.overview", "alt+o", "overview", "KeyO", { kind: "overview" }, ["overview", "focus", "reading"], { group: "windows" }),
   alt("windows.pair", "alt+,", "share a slot", "Comma", { kind: "pair" }, ["typing", "reading"], { group: "windows" }),
   alt("windows.unpair", "alt+.", "own slot", "Period", { kind: "unpair" }, ["typing", "reading"], { group: "windows" }),
   alt("pads.new", "alt+n", "new pad", "KeyN", { kind: "newPad" }, READING, { later: "RD4", group: "pads" }),
@@ -110,10 +115,27 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   { id: "reading.prev-pad", keys: "ctrl+shift+tab", label: "previous pad", chord: { key: "Tab", ctrl: true, shift: true }, action: { kind: "nextPad", direction: -1 }, scopes: READING, later: "RD4" },
   bare("reading.path", "p", "your path", "p", { kind: "path" }, READING, { later: "RD6" }),
   bare("reading.note", "n", "a margin note on the hovered passage", "n", { kind: "marginNote" }, READING, { later: "RD5" }),
-  bare("reading.promoted", "b", "the first promoted action", "b", { kind: "promoted" }, ["overview", "reading"], { later: "RD5" }),
+  bare("reading.promoted", "b", "the first promoted action", "b", { kind: "promoted" }, READING, { later: "RD5" }),
   bare("reading.follow", "u", "follow along", "u", { kind: "follow" }, READING, { later: "RD10" }),
-  bare("reading.overview", "o", "overview", "o", { kind: "overview" }, ["overview", "reading"], { later: "RD2" }),
+  bare("reading.overview", "o", "overview", "o", { kind: "overview" }, ["overview", "reading"]),
   bare("reading.swap", "x", "swap the two windows in view", "x", { kind: "swap" }, READING),
+  // The overview (spec §6.2): h/j/k/l, the arrows or alt+h/j/k/l move the selection; ↵ opens it, alt+↵ in
+  // focus mode; esc goes back to where the overview was entered from; b toggles the relations; g held
+  // previews a gather.
+  ...(["left", "down", "up", "right"] as const).flatMap((direction, index) => {
+    const letter = "hjkl"[index];
+    const arrow = { left: "ArrowLeft", down: "ArrowDown", up: "ArrowUp", right: "ArrowRight" }[direction];
+    return [
+      bare(`overview.${direction}`, letter, `select ${direction}`, letter, { kind: "overviewMove", direction }, ["overview"]),
+      bare(`overview.${direction}-arrow`, arrow.replace("Arrow", "").toLowerCase(), `select ${direction}`, arrow, { kind: "overviewMove", direction }, ["overview"]),
+      alt(`overview.alt-${direction}`, `alt+${letter}`, `select ${direction}`, `Key${letter.toUpperCase()}`, { kind: "overviewMove", direction }, ["overview"]),
+    ];
+  }),
+  bare("overview.open", "↵", "open the selected card", "Enter", { kind: "overviewOpen", focusMode: false }, ["overview"]),
+  alt("overview.open-focus", "alt+↵", "open it in focus mode", "Enter", { kind: "overviewOpen", focusMode: true }, ["overview"]),
+  bare("overview.leave", "esc", "back to where you were", "Escape", { kind: "leaveOverview" }, ["overview"]),
+  bare("overview.relations", "b", "relations on / off", "b", { kind: "toggleRelations" }, ["overview"]),
+  bare("overview.gather-preview", "g (hold)", "preview a gather", "g", { kind: "gatherPreview" }, ["overview"]),
   bare("focus.zoom-in", "=", "document zoom in", "=", { kind: "docZoom", direction: 1 }, ["focus"]),
   bare("focus.zoom-in-plus", "+", "document zoom in", "+", { kind: "docZoom", direction: 1 }, ["focus"]),
   bare("focus.zoom-out", "-", "document zoom out", "-", { kind: "docZoom", direction: -1 }, ["focus"]),

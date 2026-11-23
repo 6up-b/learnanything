@@ -10,6 +10,7 @@
 // D39), the values table (`t`) and "not right?". Nothing here takes focus,
 // animates by itself or opens a modal (W12, G54).
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useWindowPaused } from "../../desks/lifecycle";
 import type { FigurePredictionDto, FigureViewDto } from "../../../api/dto";
 import { COLOR, FONT_MONO } from "../../../components/term";
 import { errorMessage } from "../../../errors";
@@ -447,6 +448,14 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
   useEffect(() => () => {
     if (timer.current) clearInterval(timer.current);
   }, []);
+  // A paused window plays nothing: its animation stops where it is.
+  const paused = useWindowPaused();
+  useEffect(() => {
+    if (!paused || !timer.current) return;
+    clearInterval(timer.current);
+    timer.current = null;
+    setPlaying(null);
+  }, [paused]);
 
   const setParam = (name: string, raw: number) => {
     const parameter = compiled.parameters.find((item) => item.name === name);

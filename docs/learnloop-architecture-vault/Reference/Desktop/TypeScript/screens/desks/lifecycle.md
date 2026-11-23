@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/lifecycle.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/lifecycle.tsx) |
-| Source lines | 129 |
+| Source lines | 175 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -61,31 +61,43 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function isPaused(state: WindowState): boolean` — function, line 33
 - `export function mayLogReading(state: WindowState): boolean` — function, line 39
 - `export function useWindowPaused(): boolean` — function, line 43
-- `export function useReadingActivityAllowed(): boolean` — function, line 48
-- `export function useReadingActivityRef():` — function, line 53
-- `export interface WindowStateInput` — interface, line 60
-- `export function windowState(input: WindowStateInput): WindowState` — function, line 70
-- `export type ListenTarget = "window" | "document"` — type, line 80
-- `export interface ListenerHub` — interface, line 82
-- `export const DIRECT_HUB: ListenerHub =` — const, line 88
-- `export const ListenerHubContext = createContext<ListenerHub>(DIRECT_HUB)` — const, line 97
-- `export function useListenerHub(): ListenerHub` — function, line 99
-- `export function useHubListener<E extends Event = Event>( target: ListenTarget, type: string, handler: (event: E)` — function, line 104
-- `export function WindowScope(` — function, line 123
+- `export function useWhenLive(): ()` — function, line 51
+- `export function useReadingActivityAllowed(): boolean` — function, line 66
+- `export function useReadingActivityRef():` — function, line 71
+- `export interface WindowStateInput` — interface, line 78
+- `export function windowState(input: WindowStateInput): WindowState` — function, line 88
+- `export type ListenTarget = "window" | "document"` — type, line 98
+- `export interface ListenerHub` — interface, line 100
+- `export const DIRECT_HUB: ListenerHub =` — const, line 106
+- `export const ListenerHubContext = createContext<ListenerHub>(DIRECT_HUB)` — const, line 115
+- `export function useListenerHub(): ListenerHub` — function, line 117
+- `export function useHubListener<E extends Event = Event>( target: ListenTarget, type: string, handler: (event: E)` — function, line 122
+- `export type ClaimedScope = "menu" | "check" | "typing"` — type, line 145
+- `export interface ScopeClaims` — interface, line 147
+- `export const ScopeClaimsContext = createContext<ScopeClaims>(NO_CLAIMS)` — const, line 153
+- `export function useScopeClaim(scope: ClaimedScope, open: boolean): void` — function, line 158
+- `export function WindowScope(` — function, line 167
 
 ## Internal implementation anchors
 
 - `const SINGLE_SURFACE: WindowLifecycle =` — const, line 24
-- `const allowed = useReadingActivityAllowed()` — const, line 54
-- `const ref = useRef(allowed)` — const, line 55
-- `const node: EventTarget = target === "window" ? window : document` — const, line 90
-- `const listener = handler as EventListener` — const, line 91
-- `const hub = useListenerHub()` — const, line 110
-- `const handlerRef = useRef(handler)` — const, line 111
-- `const capture = options?.capture ?? false` — const, line 113
-- `const passive = options?.passive` — const, line 114
-- `const enabled = options?.enabled ?? true` — const, line 115
-- `const onEvent = (event: E)` — const, line 118
+- `const paused = useWindowPaused()` — const, line 52
+- `const pausedRef = useRef(paused)` — const, line 53
+- `const waiters = useRef<Array<()` — const, line 55
+- `const ready = waiters.current` — const, line 58
+- `const allowed = useReadingActivityAllowed()` — const, line 72
+- `const ref = useRef(allowed)` — const, line 73
+- `const node: EventTarget = target === "window" ? window : document` — const, line 108
+- `const listener = handler as EventListener` — const, line 109
+- `const hub = useListenerHub()` — const, line 128
+- `const handlerRef = useRef(handler)` — const, line 129
+- `const capture = options?.capture ?? false` — const, line 131
+- `const passive = options?.passive` — const, line 132
+- `const enabled = options?.enabled ?? true` — const, line 133
+- `const onEvent = (event: E)` — const, line 136
+- `const NO_CLAIMS: ScopeClaims =` — const, line 151
+- `const claims = useContext(ScopeClaimsContext)` — const, line 159
+- `const owner = useId()` — const, line 160
 
 ## Who imports or calls it
 
@@ -94,24 +106,40 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
 - [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `DIRECT_HUB`, `WindowScope`, `WindowState`; references `DIRECT_HUB`, `WindowScope`, `WindowState`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `useListenerHub`, `useWindowPaused`; references `useListenerHub`, `useWindowPaused`
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `ListenerHub`, `WindowLifecycle`, `WindowScope`, `isPaused`, `windowState`; references `ListenerHub`, `WindowLifecycle`, `WindowScope`, `isPaused`, `windowState`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `useListenerHub`, `useScopeClaim`, `useWindowLifecycle`, `useWindowPaused`; references `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `useListenerHub`, `useScopeClaim`, `useWindowLifecycle`, `useWindowPaused`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `ClaimedScope`, `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `windowState`; references `ClaimedScope`, `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `windowState`
 - [[Reference/Desktop/TypeScript/screens/desks/keys/listeners|src/screens/desks/keys/listeners.ts]] — import-or-re-export: `ListenTarget`, `ListenerHub`; references `ListenTarget`, `ListenerHub`
 - [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|src/screens/reader/ComparePointTable.tsx]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|src/screens/reader/DeliverableSliceCard.tsx]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryPane|src/screens/reader/LibraryPane.tsx]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/reader/PreparingView|src/screens/reader/PreparingView.tsx]] — import-or-re-export: `useWindowPaused`; references `useWindowPaused`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderWorkingPosture|src/screens/reader/ReaderWorkingPosture.tsx]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
-- [[Reference/Desktop/TypeScript/screens/reader/WrapUpPanel|src/screens/reader/WrapUpPanel.tsx]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/reader/WrapUpPanel|src/screens/reader/WrapUpPanel.tsx]] — import-or-re-export: `useListenerHub`, `useScopeClaim`; references `useListenerHub`, `useScopeClaim`
 - [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|src/screens/reader/YouTubeWatchPanel.tsx]] — import-or-re-export: `useListenerHub`, `useWindowPaused`; references `useListenerHub`, `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/reader/bareAlt|src/screens/reader/bareAlt.ts]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `useWindowPaused`; references `useWindowPaused`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|src/screens/reader/figures/useFigures.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/reader/guidePlan|src/screens/reader/guidePlan.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/reader/useActiveReading|src/screens/reader/useActiveReading.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/reader/useCueDiscovery|src/screens/reader/useCueDiscovery.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/useCueImpressions|src/screens/reader/useCueImpressions.ts]] — import-or-re-export: `useListenerHub`, `useReadingActivityAllowed`; references `useListenerHub`, `useReadingActivityAllowed`
-- [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|src/screens/reader/useIntentBox.ts]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|src/screens/reader/useIntentBox.ts]] — import-or-re-export: `useListenerHub`, `useScopeClaim`; references `useListenerHub`, `useScopeClaim`
+- [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/reader/useLibraryExercises|src/screens/reader/useLibraryExercises.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderCues|src/screens/reader/useReaderCues.ts]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
-- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `useListenerHub`, `useWindowPaused`; references `useListenerHub`, `useWindowPaused`
-- [[Reference/Desktop/TypeScript/screens/reader/useReaderRecap|src/screens/reader/useReaderRecap.ts]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `useListenerHub`, `useScopeClaim`, `useWindowPaused`; references `useListenerHub`, `useScopeClaim`, `useWindowPaused`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderRecap|src/screens/reader/useReaderRecap.ts]] — import-or-re-export: `useListenerHub`, `useWhenLive`; references `useListenerHub`, `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderRequests|src/screens/reader/useReaderRequests.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderVisit|src/screens/reader/useReaderVisit.ts]] — import-or-re-export: `useReadingActivityAllowed`; references `useReadingActivityAllowed`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderWorkbench|src/screens/reader/useReaderWorkbench.ts]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
 - [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|src/screens/reader/useReadingProgress.ts]] — import-or-re-export: `useListenerHub`, `useReadingActivityRef`, `useWindowPaused`; references `useListenerHub`, `useReadingActivityRef`, `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/workbench/RouteExample|src/screens/workbench/RouteExample.tsx]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `useWindowPaused`; references `useWindowPaused`
+- [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchHelp|src/screens/workbench/useWorkbenchHelp.ts]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
+- [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|src/screens/workbench/useWorkbenchSession.ts]] — import-or-re-export: `useWindowPaused`; references `useWindowPaused`
 
 ## Dependencies
 
@@ -131,7 +159,11 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/scopeClaims.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/scopeClaims.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/pausedProducers.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/pausedProducers.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/YouTubeWatchPanel.instance.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/YouTubeWatchPanel.instance.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.recap.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.recap.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.lifecycle.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.lifecycle.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/ReaderScreen.discoveredCues.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/ReaderScreen.discoveredCues.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

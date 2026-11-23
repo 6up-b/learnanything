@@ -45,11 +45,24 @@ export interface OutboxTransport {
 export type FlushOutcome =
   | { kind: "idle" }
   | { kind: "applied"; reply: DeskApplyDto }
-  /** At least one op hit a stale head or was refused: the server's state wins, reload it. */
-  | { kind: "conflict"; reply: DeskApplyDto }
+  /** At least one op of `batch` hit a stale head or was refused: the server's state wins for those ops.
+   * The batches queued after it stay queued, to be rebased on the server's state (`requeue`). */
+  | { kind: "conflict"; reply: DeskApplyDto; batch: Batch }
+  /** The server refused the whole batch for good (its request is invalid, so it will never apply): it is
+   * dropped, and the batches after it stay queued, to be rebased. Never retried. */
+  | { kind: "rejected"; message: string; batch: Batch }
   /** The server refused the batch number (a gap or a reuse): resynchronise the sequence and reload. */
   | { kind: "resync"; message: string }
+  /** The sidecar could not be reached: the batch stays, and is sent again on the next flush. */
   | { kind: "offline"; message: string };
+
+/** Errors that mean the request itself is wrong: sending it again can never succeed. Anything else
+ * (an unreachable or restarting sidecar, a busy database) is a transport failure and is retried. */
+const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"]);
+
+export function isPermanentRefusal(code: string): boolean {
+  return PERMANENT_REFUSALS.has(code);
+}
 
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -100,6 +113,33 @@ export class DeskOutbox {
     return this.store.load().length;
   }
 
+  /** The queued batches, oldest first (for rebasing after a conflict or a rejection). */
+  queued(): Batch[] {
+    return this.store.load();
+  }
+
+  /** Replace every queued batch with `batches` (rebased ops), numbered from `fromSeq`. */
+  requeue(batches: DeskOpDto[][], fromSeq: number): void {
+    for (const stale of this.store.load()) this.store.remove(stale.seq);
+    let seq = fromSeq;
+    for (const ops of batches) {
+      if (ops.length === 0) continue;
+      this.store.put({ seq, ops });
+      seq += 1;
+    }
+    this.nextSeq = seq;
+  }
+
+  /** Resolves once no batch is being sent. */
+  async idle(): Promise<void> {
+    while (this.sending) await this.sending.catch(() => undefined);
+  }
+
+  /** The number the next batch takes. */
+  get next(): number {
+    return this.nextSeq;
+  }
+
   get durable(): boolean {
     return this.store.durable;
   }
@@ -138,14 +178,20 @@ export class DeskOutbox {
           for (const stale of this.store.load()) this.store.remove(stale.seq);
           return { kind: "resync", message };
         }
+        if (isPermanentRefusal(code)) {
+          // The server consumed no number for a request it refused at validation: the rest move up one.
+          this.store.remove(batch.seq);
+          const rest = this.store.load().map((each) => each.ops);
+          this.requeue(rest, batch.seq);
+          return { kind: "rejected", message, batch };
+        }
         return { kind: "offline", message };
       }
       this.store.remove(batch.seq);
       if (reply.results.some((result) => result.status !== "ok")) {
-        // The ops queued after a conflict expected heads that no longer hold; the server's state wins.
-        for (const stale of this.store.load()) this.store.remove(stale.seq);
-        this.nextSeq = reply.appliedSeq + 1;
-        return { kind: "conflict", reply };
+        // The ops queued after it expected heads that may no longer hold: they wait to be rebased.
+        this.nextSeq = Math.max(this.nextSeq, reply.appliedSeq + 1);
+        return { kind: "conflict", reply, batch };
       }
       last = { kind: "applied", reply };
     }

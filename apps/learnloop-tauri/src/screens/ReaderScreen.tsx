@@ -66,7 +66,7 @@ import { PreparingView } from "./reader/PreparingView";
 import { readerKeyBarKeys } from "./reader/readerKeys";
 import { type ReadingPosition } from "./reader/readingPosition";
 import { useBareAltClear } from "./reader/bareAlt";
-import { useListenerHub, useWindowPaused } from "./desks/lifecycle";
+import { WindowScope, isPaused, useListenerHub, useScopeClaim, useWindowLifecycle, useWindowPaused, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./desks/lifecycle";
 import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
@@ -262,12 +262,20 @@ export interface ReaderOpenSource {
   besideTrail?: ReturnStack | null;
 }
 
+/** The rail's box in a panel window, marked with the window it lives by (read from the scope around it). */
+function RailScope({ children }: { children: ReactNode }) {
+  const lifecycle = useWindowLifecycle();
+  return <div data-rail-window={lifecycle.windowId ?? ""} data-rail-state={lifecycle.state} style={{ display: "contents" }}>{children}</div>;
+}
+
 /** Reader workbench v2 (spec §7.1, §21.1): this Reader is one source window on a desk. It shows the
  *  source pane only; the window's frame carries the title, and the rail (Guide, Ask, Notes) shows in a
  *  panel window bound to this book when the desk has one (`railHost`), else nowhere. */
 export interface ReaderWindowing {
-  /** The panel window's body to show the rail in, and the tab it opens on. */
-  railHost?: { node: HTMLElement; tab: "guide" | "notes" } | null;
+  /** The panel window's body to show the rail in, the tab it opens on, and that panel's own lifecycle,
+   *  listener hub and scope claims: the rail is shown in the panel, so its keys, timers and exposure go
+   *  by the panel, not by this source window. */
+  railHost?: { node: HTMLElement; tab: "guide" | "notes"; lifecycle: WindowLifecycle; hub: ListenerHub; claims?: ScopeClaims } | null;
   /** The book's title once known, for the window's frame and the shelf. */
   onTitle?: (title: string) => void;
   /** The desk's way into this window: jump to a passage (a path row, a shelf row). */
@@ -857,7 +865,13 @@ export function ReaderScreen({
     reveal: showGuideRail,
     onError,
   });
-  const recapShown = Boolean(recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working);
+  // The card counts as shown only where it is on screen: the rail is rendered (on a desk, only in a panel
+  // window bound to this book) and the window it shows in is not paused (offscreen, hidden, a preview).
+  const sourceLifecycleState = useWindowLifecycle().state;
+  const railOnScreen = windowed
+    ? Boolean(windowed.railHost) && !isPaused(windowed.railHost?.lifecycle.state ?? "hidden")
+    : !isPaused(sourceLifecycleState);
+  const recapShown = Boolean(railOnScreen && recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working);
   // Leaving while skimming offers no wrap-up where the learner lands (F9).
   useEffect(() => {
     onSkimmingChange?.(muted);
@@ -1508,6 +1522,16 @@ export function ReaderScreen({
   // Curriculum C2: the › marks of the learner's linked notes (off: none, nothing read).
   const notesCtl = useNoteMarks({ settings: contract?.notes, extractionId: render?.extractionId ?? null, offline });
   const [notePicker, setNotePicker] = useState<{ spanId: string; x: number; y: number } | null>(null);
+  // An open tag menu or note picker owns the keys (esc closes it) before the desk's bindings.
+  useScopeClaim("menu", tagMenu !== null || notePicker !== null);
+  // They are portaled over the whole desk: when this window stops being the active one (another window,
+  // another desk, the overview) they close, so no backdrop or action of a hidden source stays on screen.
+  const windowActive = useWindowLifecycle().state === "active";
+  useEffect(() => {
+    if (windowActive) return;
+    setTagMenu(null);
+    setNotePicker(null);
+  }, [windowActive]);
   // RW4d on the original PDF (Codex review F10): the ⇄ marks join the page's
   // overlay gutter beside the cue marks. They are the learner's own marks:
   // added after the cue placement, so the density setting never counts them.
@@ -3674,7 +3698,14 @@ export function ReaderScreen({
   // position themselves on the screen leave the window (its own box would otherwise place them).
   const placeRail = (rail: ReactNode): ReactNode => {
     if (!windowed) return rail;
-    return windowed.railHost ? createPortal(rail, windowed.railHost.node) : null;
+    const host = windowed.railHost;
+    if (!host) return null;
+    return createPortal(
+      <WindowScope lifecycle={host.lifecycle} hub={host.hub} claims={host.claims}>
+        <RailScope>{rail}</RailScope>
+      </WindowScope>,
+      host.node,
+    );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
 
@@ -4767,7 +4798,7 @@ export function ReaderScreen({
         )}
       </div>
 
-      {tagMenu ? overDesk(
+      {tagMenu && windowActive ? overDesk(
         <div
           style={{ position: "fixed", inset: 0, zIndex: 320 }}
           onClick={() => setTagMenu(null)}
@@ -4836,7 +4867,7 @@ export function ReaderScreen({
         </div>
       ) : null}
 
-      {notePicker && render && notesCtl.enabled ? overDesk(
+      {notePicker && windowActive && render && notesCtl.enabled ? overDesk(
         // Curriculum C2: link one of your notes to this passage (by hand: yours, never re-judged).
         <div style={{ position: "fixed", left: Math.min(notePicker.x, window.innerWidth - 440), top: Math.min(notePicker.y, window.innerHeight - 360), width: 420, maxHeight: 340, overflowY: "auto", zIndex: 320, boxShadow: "0 16px 48px rgba(0,0,0,0.55)" }}>
           <NoteLinkPicker extractionId={render.extractionId} spanId={notePicker.spanId} onClose={() => setNotePicker(null)} onError={onError} />

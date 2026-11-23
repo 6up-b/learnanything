@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useLibraryExercises.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useLibraryExercises.ts) |
-| Source lines | 143 |
+| Source lines | 147 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,23 +54,24 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface LibraryExercisesSettings` — interface, line 39
-- `export interface LibraryExercisesState` — interface, line 43
-- `export function useLibraryExercises(` — function, line 54
+- `export interface LibraryExercisesSettings` — interface, line 42
+- `export interface LibraryExercisesState` — interface, line 46
+- `export function useLibraryExercises(` — function, line 57
 
 ## Internal implementation anchors
 
-- `async function finish<T>(started: Promise<LibraryJobDto<T>>, wanted: ()` — function, line 22
-- `let job = await started` — let, line 23
-- `const proposalId = practice?.proposalId ?? null` — const, line 67
-- `const currentProposal = useRef<string | null>(null)` — const, line 70
-- `const mounted = useRef(true)` — const, line 75
-- `const keys = proposalKeys(practice)` — const, line 89
-- `let live = true` — let, line 94
-- `const shown = fromProposal(practice, value)` — const, line 100
-- `const findInSources = useCallback(()` — const, line 119
-- `const asked = currentProposal.current` — const, line 121
-- `const landed = view && view.proposalId === proposalId ? view : null` — const, line 134
+- `async function finish<T>(started: Promise<LibraryJobDto<T>>, wanted: ()` — function, line 23
+- `let job = await started` — let, line 24
+- `const proposalId = practice?.proposalId ?? null` — const, line 70
+- `const whenLive = useWhenLive()` — const, line 71
+- `const currentProposal = useRef<string | null>(null)` — const, line 74
+- `const mounted = useRef(true)` — const, line 79
+- `const keys = proposalKeys(practice)` — const, line 93
+- `let live = true` — let, line 98
+- `const shown = fromProposal(practice, value)` — const, line 104
+- `const findInSources = useCallback(()` — const, line 123
+- `const asked = currentProposal.current` — const, line 125
+- `const landed = view && view.proposalId === proposalId ? view : null` — const, line 138
 
 ## Who imports or calls it
 
@@ -85,6 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ExerciseCandidatesDto`, `FindExercisesDto`, `FindPracticeResultDto`, `LibraryJobDto`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/reader/exerciseCandidates (ts)|src/screens/reader/exerciseCandidates.ts]] — import-or-re-export; imports `ExerciseCandidate`, `fromFallback`, `fromProposal`, `proposalKeys`
 - [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export; imports `JOB_POLL_MS`

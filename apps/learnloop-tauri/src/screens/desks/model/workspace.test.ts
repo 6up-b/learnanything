@@ -214,3 +214,12 @@ describe("desks", () => {
     expect(ws.windows.w1.deskId).toBe("d2");
   });
 });
+
+describe("reopening (fix round, finding 11)", () => {
+  it("refuses to reopen a window that is open, even with a stale closed entry for it (as the server does)", () => {
+    const ws = deskWith(2);
+    const stale: Workspace = { ...ws, closed: { d1: [{ window: ws.windows.w2, slot: 0 }] } };
+    expect(() => applyDeskOp(stale, { op: "reopen_window", deskId: "d1", windowId: "w2", slot: 0, expectedVersion: 5 })).toThrow(/already open/);
+    expect(undoClose(stale, "d1").ops).toEqual([]);
+  });
+});

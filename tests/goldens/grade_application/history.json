@@ -925,7 +925,73 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_self",
+      "chosen_ref": "partial_credit",
+      "decided_by": "self_grade",
+      "rule": "partial_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 3.0,
+       "max_points": 4.0,
+       "correctness": 0.75,
+       "grader_confidence": 1.0,
+       "grading_source": "self",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "good",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 3,
+        "rating_uncapped": 3,
+        "hints_used": 0,
+        "elapsed_days": 31.916667,
+        "weights": "default",
+        "prior_stability": 1.2931,
+        "prior_difficulty": 8.124439,
+        "prior_due_at": "2026-05-02T21:02:03Z",
+        "stability": 9.797031,
+        "difficulty": 8.117315,
+        "interval_days": 9.797031,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-12T07:07:43Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_self",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -1933,7 +1999,77 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_model",
+      "chosen_ref": "partial_credit",
+      "decided_by": "joint_grader",
+      "rule": "partial_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 2.0,
+       "max_points": 4.0,
+       "correctness": 0.5,
+       "grader_confidence": 0.85,
+       "grading_source": "ai",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "hard",
+       "error_types": [
+        "conceptual_slip"
+       ],
+       "error_types_n": 2,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 2,
+        "rating_uncapped": 2,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 9.797031,
+        "prior_difficulty": 8.117315,
+        "prior_due_at": "2026-06-12T07:07:43Z",
+        "stability": 9.797031,
+        "difficulty": 10.0,
+        "interval_days": 9.797031,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-13T07:07:43Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>",
+       "grading_prompt_version": "blind-test",
+       "output_schema_version": "BlindGradingProposal"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_model",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -2848,7 +2984,73 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_hinted",
+      "chosen_ref": "partial_credit",
+      "decided_by": "self_grade",
+      "rule": "partial_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 2.0,
+       "max_points": 4.0,
+       "correctness": 0.5,
+       "grader_confidence": 1.0,
+       "grading_source": "self",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "hinted_attempt",
+       "hints_used": 1,
+       "primed": false,
+       "fsrs_rating": "hard",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 2,
+        "rating_uncapped": 2,
+        "hints_used": 1,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 9.797031,
+        "prior_difficulty": 10.0,
+        "prior_due_at": "2026-06-13T07:07:43Z",
+        "stability": 9.797031,
+        "difficulty": 10.0,
+        "interval_days": 9.797031,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-14T07:07:43Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_hinted",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -3765,7 +3967,73 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_primed",
+      "chosen_ref": "full_credit",
+      "decided_by": "self_grade",
+      "rule": "full_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 4.0,
+       "max_points": 4.0,
+       "correctness": 1.0,
+       "grader_confidence": 1.0,
+       "grading_source": "self",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": true,
+       "fsrs_rating": "easy",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": false,
+        "skipped": "causal_activity",
+        "rating": 4,
+        "rating_uncapped": 4,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 9.797031,
+        "prior_difficulty": 10.0,
+        "prior_due_at": "2026-06-14T07:07:43Z",
+        "stability": 9.797031,
+        "difficulty": 10.0,
+        "interval_days": null,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-14T07:07:43Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_primed",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -4825,7 +5093,75 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_dont_know",
+      "chosen_ref": "dont_know",
+      "decided_by": "self_grade",
+      "rule": "dont_know",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 0.0,
+       "max_points": 4.0,
+       "correctness": 0.0,
+       "grader_confidence": 1.0,
+       "grading_source": "self",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "dont_know",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "again",
+       "error_types": [
+        "retrieval_failure"
+       ],
+       "error_types_n": 1,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 1,
+        "rating_uncapped": 1,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 9.797031,
+        "prior_difficulty": 10.0,
+        "prior_due_at": "2026-06-14T07:07:43Z",
+        "stability": 1.14672,
+        "difficulty": 10.0,
+        "interval_days": 1.14672,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-07T15:31:16Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_dont_know",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -5826,7 +6162,73 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_stuck",
+      "chosen_ref": "stuck",
+      "decided_by": "self_grade",
+      "rule": "stuck",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 1.0,
+       "max_points": 4.0,
+       "correctness": 0.25,
+       "grader_confidence": 1.0,
+       "grading_source": "self",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "hard",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 2,
+        "rating_uncapped": 2,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 1.14672,
+        "prior_difficulty": 10.0,
+        "prior_due_at": "2026-06-07T15:31:16Z",
+        "stability": 1.14672,
+        "difficulty": 10.0,
+        "interval_days": 1.14672,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-08T15:31:16Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_stuck",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -6660,7 +7062,73 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_unassessed",
+      "chosen_ref": "partial_credit",
+      "decided_by": "joint_grader",
+      "rule": "partial_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 2.0,
+       "max_points": 4.0,
+       "correctness": 0.5,
+       "grader_confidence": 0.85,
+       "grading_source": "ai",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "hard",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 2,
+        "rating_uncapped": 2,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 1.14672,
+        "prior_difficulty": 10.0,
+        "prior_due_at": "2026-06-08T15:31:16Z",
+        "stability": 1.14672,
+        "difficulty": 10.0,
+        "interval_days": 1.14672,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-09T15:31:16Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_unassessed",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -7222,7 +7690,104 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_held",
+      "chosen_ref": "no_credit",
+      "decided_by": "joint_grader",
+      "rule": "no_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 0.0,
+       "max_points": 4.0,
+       "correctness": 0.0,
+       "grader_confidence": 0.85,
+       "grading_source": "ai",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": true,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "again",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": false,
+        "skipped": "held",
+        "rating": 1,
+        "rating_uncapped": 1,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 1.14672,
+        "prior_difficulty": 10.0,
+        "prior_due_at": "2026-06-09T15:31:16Z",
+        "stability": 1.14672,
+        "difficulty": 10.0,
+        "interval_days": null,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-09T15:31:16Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_held",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": {
+      "__type__": "DecisionRecord",
+      "kind": "grade_held",
+      "status": "deferred",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_held",
+      "chosen_ref": null,
+      "decided_by": "held_grade_predicate",
+      "rule": "grade_held_for_review",
+      "alternatives": [],
+      "facts": {
+       "review_reason": null,
+       "review_reason_ids": [],
+       "unverified_criteria": [
+        "result",
+        "setup"
+       ],
+       "unverified_criteria_n": 2,
+       "evidence": "withheld"
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_held",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     }
+    }
    }
   },
   {
@@ -8223,7 +8788,73 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_repeat",
+      "chosen_ref": "full_credit",
+      "decided_by": "self_grade",
+      "rule": "full_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 4.0,
+       "max_points": 4.0,
+       "correctness": 1.0,
+       "grader_confidence": 1.0,
+       "grading_source": "self",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "easy",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 4,
+        "rating_uncapped": 4,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 1.14672,
+        "prior_difficulty": 10.0,
+        "prior_due_at": "2026-06-09T15:31:16Z",
+        "stability": 5.26874,
+        "difficulty": 6.974619,
+        "interval_days": 5.26874,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-15T18:26:59Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_repeat",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -9223,7 +9854,73 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "att_i1_sibling",
+      "chosen_ref": "partial_credit",
+      "decided_by": "self_grade",
+      "rule": "partial_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 3.0,
+       "max_points": 4.0,
+       "correctness": 0.75,
+       "grader_confidence": 1.0,
+       "grading_source": "self",
+       "grader_mode": null,
+       "review_reason": null,
+       "review_reason_ids": [],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "good",
+       "error_types": [],
+       "error_types_n": 0,
+       "agent_run_id": null,
+       "practice_item_id": "pi_svd_compute_002",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 3,
+        "rating_uncapped": 3,
+        "hints_used": 0,
+        "elapsed_days": 40.208333,
+        "weights": "default",
+        "prior_stability": 8.2956,
+        "prior_difficulty": 4.016381,
+        "prior_due_at": "2026-05-10T02:05:39Z",
+        "stability": 63.158407,
+        "difficulty": 4.013364,
+        "interval_days": 63.158407,
+        "interval_factor": 1.0,
+        "due_at": "2026-08-13T03:48:06Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "att_i1_sibling",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -10319,7 +11016,79 @@
      "basis": "captured_at_application",
      "policy_version": "active_item_evidence_facets_v1"
     },
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": {
+     "__type__": "GradeDecision",
+     "grade": {
+      "__type__": "DecisionRecord",
+      "kind": "grade",
+      "status": "chosen",
+      "subject_kind": "attempt",
+      "subject_id": "<ulid:0>",
+      "chosen_ref": "no_credit",
+      "decided_by": "blind_grader",
+      "rule": "no_credit",
+      "alternatives": [],
+      "facts": {
+       "rubric_score": 0.0,
+       "max_points": 4.0,
+       "correctness": 0.0,
+       "grader_confidence": 0.9,
+       "grading_source": "ai",
+       "grader_mode": "blind",
+       "review_reason": "unanchored_diagnosis_facet",
+       "review_reason_ids": [
+        "recall"
+       ],
+       "held": false,
+       "attempt_type": "independent_attempt",
+       "hints_used": 0,
+       "primed": false,
+       "fsrs_rating": "again",
+       "error_types": [
+        "conceptual_schema_error"
+       ],
+       "error_types_n": 1,
+       "agent_run_id": "<ulid:5>",
+       "practice_item_id": "pi_svd_compute_001",
+       "learning_object_id": "lo_svd_compute",
+       "plan_presentation_id": null,
+       "probe_presentation_id": null,
+       "session_id": null,
+       "fsrs": {
+        "applied": true,
+        "skipped": null,
+        "rating": 1,
+        "rating_uncapped": 1,
+        "hints_used": 0,
+        "elapsed_days": 1.0,
+        "weights": "default",
+        "prior_stability": 5.26874,
+        "prior_difficulty": 6.974619,
+        "prior_due_at": "2026-06-15T18:26:59Z",
+        "stability": 0.833751,
+        "difficulty": 10.0,
+        "interval_days": 0.833751,
+        "interval_factor": 1.0,
+        "due_at": "2026-06-12T08:00:36Z"
+       }
+      },
+      "versions": {
+       "algorithm_version": "<head tag>",
+       "grading_prompt_version": "grading_prompt_v2_1_blind_reference_policy+own-route-v2",
+       "output_schema_version": "blind_grading_proposal_v1"
+      },
+      "detail_table": "practice_attempts",
+      "detail_id": "<ulid:0>",
+      "error_type": null,
+      "error_where": null,
+      "parent_id": null,
+      "trace_id": null,
+      "id": null,
+      "created_at": null
+     },
+     "hold": null
+    }
    }
   },
   {
@@ -11273,7 +12042,8 @@
      "due_at": "2026-05-02T17:02:03Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -12154,7 +12924,8 @@
      "due_at": "2026-05-09T18:05:39Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -13109,7 +13880,8 @@
      "due_at": "2026-05-02T21:02:03Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -14066,7 +14838,8 @@
      "due_at": "2026-05-10T02:05:39Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -14951,7 +15724,8 @@
      "due_at": "2026-06-12T07:07:43Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -15836,7 +16610,8 @@
      "due_at": "2026-06-14T18:26:16Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -16721,7 +17496,8 @@
      "due_at": "2026-06-15T18:26:16Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -17608,7 +18384,8 @@
      "due_at": "2026-06-15T18:26:16Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -18632,7 +19409,8 @@
      "due_at": "2026-06-07T17:27:15Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -19603,7 +20381,8 @@
      "due_at": "2026-06-08T17:27:15Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -20407,7 +21186,8 @@
      "due_at": "2026-06-09T17:27:15Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -20948,7 +21728,8 @@
      "due_at": "2026-06-09T20:21:13Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -21919,7 +22700,8 @@
      "due_at": "2026-06-14T02:32:09Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -22889,7 +23671,8 @@
      "due_at": "2026-08-13T03:48:06Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -23930,7 +24713,8 @@
      "due_at": "2026-06-12T04:13:01Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   }
  ],
@@ -25277,7 +26061,8 @@
      "due_at": "2026-05-02T20:02:03Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -26231,7 +27016,8 @@
      "due_at": "2026-05-02T17:02:03Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -27112,7 +27898,8 @@
      "due_at": "2026-05-09T18:05:39Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -28067,7 +28854,8 @@
      "due_at": "2026-05-02T21:02:03Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -29024,7 +29812,8 @@
      "due_at": "2026-05-10T02:05:39Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -29909,7 +30698,8 @@
      "due_at": "2026-06-03T19:02:03Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -30794,7 +31584,8 @@
      "due_at": "2026-06-05T08:24:48Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -31679,7 +32470,8 @@
      "due_at": "2026-06-06T08:24:48Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -32566,7 +33358,8 @@
      "due_at": "2026-06-06T08:24:48Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -33590,7 +34383,8 @@
      "due_at": "2026-06-06T22:52:49Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -34561,7 +35355,8 @@
      "due_at": "2026-06-07T22:52:49Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -35365,7 +36160,8 @@
      "due_at": "2026-06-08T22:52:49Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -35906,7 +36702,8 @@
      "due_at": "2026-06-09T16:10:27Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -36877,7 +37674,8 @@
      "due_at": "2026-06-13T05:18:10Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -37847,7 +38645,8 @@
      "due_at": "2026-08-13T03:48:06Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -38888,7 +39687,8 @@
      "due_at": "2026-06-12T01:45:59Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -39691,7 +40491,8 @@
      "due_at": "2026-05-01T14:05:16Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   },
   {
@@ -40484,7 +41285,8 @@
      "due_at": "2026-05-01T17:05:16Z"
     },
     "lifecycle_inputs": null,
-    "mastery_seed_inputs": null
+    "mastery_seed_inputs": null,
+    "grade_decision": null
    }
   }
  ],

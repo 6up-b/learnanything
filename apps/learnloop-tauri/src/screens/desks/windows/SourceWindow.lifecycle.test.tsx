@@ -1,13 +1,15 @@
 // A source window is the Reader's source pane as one scoped instance (spec §3.6, §7.1): a preview logs
 // no reading activity, an active window opens a visit, a window that leaves the view closes it, and the
 // window shows the pane alone, its rail in the panel window it is given.
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
 import type { ReaderActivityEvent, SourceLibraryCard } from "../../../api/dto";
 import { flushReaderActivity, resetReaderActivityForTests } from "../../reader/activity";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { SourceWindow } from "./SourceWindow";
+import type { ReaderWindowing } from "../../ReaderScreen";
+import type { ListenerHub } from "../lifecycle";
 
 const api = vi.hoisted(() => ({
   readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
@@ -28,7 +30,7 @@ vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { val
 const card = { sourceId: view.sourceId, title: "Matrices", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard;
 const noop = () => undefined;
 
-function Window({ state, railHost = null }: { state: WindowState; railHost?: { node: HTMLElement; tab: "guide" | "notes" } | null }) {
+function Window({ state, railHost = null }: { state: WindowState; railHost?: ReaderWindowing["railHost"] }) {
   return (
     <WindowScope lifecycle={{ windowId: "w1", state }} hub={DIRECT_HUB}>
       <SourceWindow
@@ -92,10 +94,39 @@ it("shows the source pane alone: no Reader header, no key bar, no rail without a
 it("renders its rail into the panel window it is given, on that window's tab", async () => {
   const host = document.createElement("div");
   document.body.appendChild(host);
-  render(<Window state="active" railHost={{ node: host, tab: "notes" }} />);
+  render(<Window state="active" railHost={{ node: host, tab: "notes", lifecycle: { windowId: "p1", state: "visible" }, hub: DIRECT_HUB }} />);
   await screen.findByText(view.blocks[1].markdown);
   const rail = host.querySelector('[role="complementary"]');
   expect(rail).not.toBeNull();
   expect(rail?.getAttribute("aria-label")).toBe("Notes");
+  host.remove();
+});
+
+it("a tag menu portaled over the desks closes when its window stops being the active one", async () => {
+  const { rerender } = render(<Window state="active" />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  act(() => {
+    fireEvent.contextMenu(block, { clientX: 40, clientY: 40 });
+  });
+  expect(screen.getByText(/^tag .* as$/, { selector: "div" })).toBeTruthy();
+  rerender(<Window state="hidden" />);
+  expect(screen.queryByText(/^tag .* as$/, { selector: "div" })).toBeNull();
+  // Back on its desk it does not reappear: it was closed, not hidden.
+  rerender(<Window state="active" />);
+  expect(screen.queryByText(/^tag .* as$/, { selector: "div" })).toBeNull();
+});
+
+it("the rail in a panel window lives in that panel's window scope (its lifecycle, hub and claims), not the source's", async () => {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const panelHub: ListenerHub = { listen: (target, type, handler, options) => DIRECT_HUB.listen(target, type, handler, options) };
+  // The source is active; its panel is not: the Wrap up's esc, the rail's cues and its timers belong to
+  // the panel the learner sees them in.
+  render(<Window state="active" railHost={{ node: host, tab: "guide", lifecycle: { windowId: "p1", state: "visible" }, hub: panelHub }} />);
+  await screen.findByText(view.blocks[1].markdown);
+  const rail = host.querySelector('[role="complementary"]') as HTMLElement;
+  expect(rail).not.toBeNull();
+  expect(rail.closest("[data-rail-window]")?.getAttribute("data-rail-window")).toBe("p1");
+  expect(rail.closest("[data-rail-window]")?.getAttribute("data-rail-state")).toBe("visible");
   host.remove();
 });
