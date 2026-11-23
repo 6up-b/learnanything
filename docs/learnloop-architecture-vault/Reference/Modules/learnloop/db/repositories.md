@@ -1713,6 +1713,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_graph_identifiability_report_publishes_the_rank`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
   - `test_claimed_label_when_only_a_learner_claim_covers_the_cell`
+- [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
 - [tests/test_method_phrasing_report.py](../../../../../../tests/test_method_phrasing_report.py) — direct import
   - `test_f3_a_repair_refuses_a_rubric_edited_before_acceptance`
   - `test_f6_the_writers_verdicts_reach_the_ledger_linked_to_the_repair`

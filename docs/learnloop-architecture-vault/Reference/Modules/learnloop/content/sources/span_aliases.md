@@ -117,6 +117,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `reading_source`; statically calls `reading_source`
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `reading_source`; statically calls `reading_source`
 - [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `reading_source`; statically calls `reading_source`
+- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `reading_source`; statically calls `reading_source`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `STATUS_CURRENT`, `SpanTranslator`, `other_readings`, `reading_source`; statically calls `SpanTranslator`, `other_readings`, `reading_source`
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `SpanTranslator`; statically calls `SpanTranslator`
 - [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `SpanTranslator`, `current_reading`, `reading_source`; statically calls `SpanTranslator`, `current_reading`, `reading_source`
@@ -129,6 +130,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `CITATION_MADE_AT_SQL`, `CitationResolver`; statically calls `CitationResolver`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `CITATION_MADE_AT_SQL`, `CitationResolver`, `CurrentKeys`; statically calls `CitationResolver`, `CurrentKeys`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `is_span_locator`, `locator_key`; statically calls `is_span_locator`, `locator_key`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `reading_source`; statically calls `reading_source`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `STATUS_STALE`, `legacy_place_origin`, `other_readings`, `resolve_span`; statically calls `legacy_place_origin`, `other_readings`, `resolve_span`
 
 ## Dependencies
@@ -153,7 +155,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] and 15 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

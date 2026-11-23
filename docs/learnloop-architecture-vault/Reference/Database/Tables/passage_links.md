@@ -18,8 +18,8 @@ source_paths:
   - "migrations/215_reader_discovered_cues.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/db/stores/passage_link_reads.py"
   - "src/learnloop/db/stores/reader_cue_links.py"
-  - "src/learnloop/pads/proposals.py"
   - "src/learnloop/passage_union/union.py"
   - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/source_retrieval/passage_cues.py"
@@ -98,8 +98,8 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/db/stores/passage_link_reads.py`
 - `src/learnloop/db/stores/reader_cue_links.py`
-- `src/learnloop/pads/proposals.py`
 - `src/learnloop/passage_union/union.py`
 - `src/learnloop/reader/reader_report.py`
 

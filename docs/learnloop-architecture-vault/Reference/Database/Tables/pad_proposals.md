@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/db/stores/pad_ledgers.py"
   - "src/learnloop/db/stores/pad_reads.py"
   - "src/learnloop/pads/proposals.py"
+  - "src/learnloop/passage_union/elsewhere.py"
   - "src/learnloop_sidecar/handlers/pads.py"
 tags:
   - "learnloop/database/table"
@@ -109,6 +110,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/reader_rd4_migration_helpers.py`
+- `tests/test_menu_elsewhere_and_proposals.py`
 - `tests/test_reader_rd4_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

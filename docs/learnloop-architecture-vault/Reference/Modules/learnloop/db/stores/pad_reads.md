@@ -142,6 +142,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `module`; statically calls `head`, `heads`, `label`, `labels_for`, `pad`, `proposal`, `proposal_for_version`, `proposals_for_versions`
 - [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `module`; statically calls `head`, `pad`, `submission`, `submissions_for_blocks`, `version`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `module`; statically calls `carried_on_readings`, `head`, `standing_anchors_for_spans`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `head`, `labels_for`
 
 ## Dependencies
 
@@ -161,7 +162,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]], [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]], [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -177,8 +178,10 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]]
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../../../tests/test_reader_rd4_carried_and_proposals.py) — imports consumer [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]]
 - [tests/reader_rd4_helpers.py](../../../../../../../tests/reader_rd4_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]]
+- [tests/test_menu_elsewhere_and_proposals.py](../../../../../../../tests/test_menu_elsewhere_and_proposals.py) — imports consumer [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]]
 - [tests/test_reader_rd4_submission.py](../../../../../../../tests/test_reader_rd4_submission.py) — imports consumer [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]]
 - [tests/test_reader_rd0_reads.py](../../../../../../../tests/test_reader_rd0_reads.py) — imports consumer [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]]
+- [tests/test_mobile_allowlist.py](../../../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]]
 
 ## Modification guidance
 

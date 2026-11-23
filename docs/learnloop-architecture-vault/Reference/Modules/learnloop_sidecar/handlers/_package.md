@@ -211,18 +211,18 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 354 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 355 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 56 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 52 static module edges
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 45 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 42 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 53 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 46 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 44 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 33 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 31 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 28 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 29 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 27 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 26 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 21 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 21 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 19 static module edges
@@ -244,15 +244,16 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 7 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 7 static module edges
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 7 static module edges
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
-- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
 - [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 4 static module edges
+- [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 4 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 4 static module edges
 - [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] — 3 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 3 static module edges
@@ -260,7 +261,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 2 static module edges
-- [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 2 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
@@ -289,15 +289,15 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_sidecar -->|5| center
-    center -->|354| n_learnloop_sidecar
+    center -->|355| n_learnloop_sidecar
     center -->|56| n_learnloop_reader
-    center -->|52| n_learnloop
-    center -->|45| n_learnloop_source_retrieval
-    center -->|42| n_learnloop_ai
+    center -->|53| n_learnloop
+    center -->|46| n_learnloop_source_retrieval
+    center -->|44| n_learnloop_ai
     center -->|39| n_learnloop_instructional
     center -->|33| n_learnloop_diagnosis
     center -->|31| n_learnloop_attempts
-    center -->|28| n_learnloop_db_stores
+    center -->|29| n_learnloop_db_stores
     center -->|28| n_learnloop_learner
 ```
 
