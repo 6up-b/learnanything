@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/learner_profile.py](../../../../../../src/learnloop/learner/learner_profile.py) |
-| Source lines | 88 |
+| Source lines | 94 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -106,6 +106,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_global_claim_made_after_materialization_rebuilds_to_live`
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
+  - `test_below_mvp067_a_global_claim_made_after_materialization_rebuilds_to_other_mastery`
+- [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
+  - `test_a_reanchor_before_the_first_attempt_reads_the_claims_made_by_its_point`
+  - `test_a_reanchoring_claim_that_materializes_the_row_is_in_its_seed_and_never_applied_again`
+  - `test_a_starting_level_changed_after_materialization_leaves_live_mastery_as_it_was`
+  - `test_a_starting_level_changed_after_materialization_rebuilds_to_live`
+  - `test_an_attempt_free_lo_replays_its_seed_then_the_reanchors_after_it`
+  - `test_an_attempt_on_an_lo_without_a_row_records_the_seed_its_prior_read`
+  - `test_an_interrupted_materialization_leaves_neither_the_row_nor_its_record`
+  - `test_an_lo_no_writer_materialized_is_materialized_and_recorded_by_the_rebuild`
+  - `test_below_the_tag_nothing_is_recorded_and_the_rebuild_reads_the_claims_in_force_now`
+  - `test_several_starting_level_changes_around_an_attempt_rebuild_to_live`
+  - `test_the_upgrade_freezes_the_predecessors_seeds_then_new_claims_seed_nothing`
 - [tests/test_rerun_proposals.py](../../../../../../tests/test_rerun_proposals.py) — direct import
   - `test_an_append_resolves_its_brief_and_inherits_the_learners_level`
 

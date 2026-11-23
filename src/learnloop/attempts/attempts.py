@@ -20,6 +20,8 @@ from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
 from learnloop.attempts.lifecycle_inputs import application_required_facets, recorded_for_replay
 from learnloop.db.attempt_lifecycle_inputs import LifecycleInputs
+from learnloop.db.mastery_seed_inputs import MasterySeedInputs
+from learnloop.learner.mastery_seed import attempt_seed_capture
 from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.records import FacetUncertaintyState
 from learnloop.db.repositories import (
@@ -44,6 +46,7 @@ from learnloop.scheduling.fsrs import (
     interval_for_retention,
     rating_from_score,
 )
+from learnloop.attempts import grade_records
 from learnloop.attempts.ability_transition import estimate_ability_transition
 from learnloop.attempts.fact_predicates import fsrs_cap_value
 from learnloop.attempts.hint_fold import ServerHintFold, attach_held, attach_keyed, attach_keyless, refolded_draft
@@ -76,9 +79,10 @@ from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
     MasteryObservation,
     MasteryObservationTrace,
+    MasterySeed,
     display_mastery,
-    initial_mastery_state_for_learning_object,
     item_irt_params,
+    seed_for_learning_object,
     resolve_item_irt_params,
     update_item_difficulty,
     update_mastery_traced,
@@ -541,6 +545,8 @@ class AttemptPriorState:
     item_facet_recall: dict[str, FacetRecallState | None]
     facet_uncertainty: dict[str, FacetUncertaintyState | None]
     item_parameter_state: ItemParameterState | None = None
+    #: The seed ``mastery`` was built from when the learning object had no row yet (None when the row was read).
+    mastery_seed: MasterySeed | None = None
 
     def facet_recall_state(self, facet_id: str, practice_item_id: str | None = None) -> FacetRecallState | None:
         if practice_item_id is None:
@@ -598,6 +604,10 @@ class AttemptApplication:
     fsrs_review: dict[str, Any] | None = None
     #: mvp-0.66: a live application's required facet set, recorded with its attempt (None when nothing is new).
     lifecycle_inputs: LifecycleInputs | None = None
+    #: mvp-0.67: a live application's prior seed when its learning object had no mastery row, recorded with the row.
+    mastery_seed_inputs: MasterySeedInputs | None = None
+    #: The live grade's decision records, which the attempt step writes last in its transaction (None on replay).
+    grade_decision: grade_records.GradeDecision | None = None
 
 
 class AttemptValidationError(ValueError):
@@ -3274,42 +3284,9 @@ def _apply_attempt_in_transaction(
             # brought to the replay's here, in the same transaction.
             _project_canonical_belief(vault, repository, clock=clock)
     if not attempt.replace_existing:
-        _record_grade_decision(vault, repository, attempt, application)
+        # Last in the attempt's transaction; never raises, so the attempt commits whatever happens to its records.
+        grade_records.write_grade_decision(repository, application.grade_decision)
     return application.result
-
-
-def _record_grade_decision(
-    vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, application: AttemptApplication,
-) -> None:
-    """The live grade's decision record, and its hold's (refactor B7), last in the attempt's transaction.
-
-    Live only: replay re-applies a recorded attempt and must not claim to have decided it again. Never raises
-    (``grade_records.record_grade``), so the attempt commits whatever happens to its records.
-    """
-
-    from learnloop.attempts.grade_records import error_types_of, record_grade
-
-    result, draft = application.result, attempt.draft
-    try:
-        max_points = application.rubric.max_points if application.rubric is not None else None
-    except Exception:  # noqa: BLE001 - a record never changes the decision it describes
-        max_points = None
-    record_grade(
-        repository,
-        attempt_id=result.attempt_id, practice_item_id=result.practice_item_id,
-        learning_object_id=result.learning_object_id, rubric_score=result.rubric_score,
-        max_points=max_points, correctness=result.correctness, grader_confidence=result.grader_confidence,
-        grading_source=result.grading_source, grader_mode=attempt.grader_mode,
-        manual_review_reason=result.manual_review_reason, fallback_reason=result.fallback_reason,
-        agent_run_id=attempt.grading_agent_run_id or result.agent_run_id, attempt_type=draft.attempt_type,
-        hints_used=draft.hints_used, declared_dont_know=bool(draft.declared_dont_know),
-        declared_stuck=bool(draft.declared_stuck), primed=bool(draft.primed), fsrs_rating=result.fsrs_rating,
-        error_types=error_types_of(application.error_events), held=application.grade_held,
-        unverified_criterion_ids=attempt.unverified_criterion_ids,
-        plan_presentation_id=draft.plan_presentation_id, probe_presentation_id=draft.probe_presentation_id,
-        session_id=draft.session_id, algorithm_version=vault.config.algorithms.algorithm_version,
-        grader_identity=attempt.grader_identity, fsrs=application.fsrs_review,
-    )
 
 
 def _save_completion_work(
@@ -3438,6 +3415,7 @@ def compute_attempt_application(
         agent_run_id=attempt.grading_agent_run_id or attempt.fallback_agent_run_id,
         fallback_reason=attempt.fallback_reason,
         grader_identity=attempt.grader_identity,
+        grader_mode=attempt.grader_mode,
         unassessed_criterion_ids=attempt.unverified_criterion_ids,
         grade_held_for_review=attempt.grade_held_for_review,
         grade_contract_unrecorded=attempt.grade_contract_unrecorded,
@@ -3688,6 +3666,7 @@ def _persist_attempt_application(
     else:
         repository.record_attempt_outcome(
             lifecycle_inputs=application.lifecycle_inputs,
+            mastery_seed_inputs=application.mastery_seed_inputs,
             attempt=application.attempt_record,
             evidence_rows=application.evidence_rows,
             error_events=application.error_events,
@@ -4002,12 +3981,9 @@ def load_attempt_prior_state(
     """
 
     facet_ids = list(dict.fromkeys(facets))
-    mastery = repository.mastery_state(learning_object_id) or initial_mastery_state_for_learning_object(
-        vault,
-        repository,
-        learning_object_id,
-        now_iso,
-    )
+    mastery = repository.mastery_state(learning_object_id)
+    mastery_seed = None if mastery is not None else seed_for_learning_object(vault, repository, learning_object_id, now_iso)
+    mastery = mastery_seed.state if mastery_seed is not None else mastery
     # KM2b: the belief priors this attempt reads come from the canonical shared
     # state (folded through aliases + merges). One reader build per attempt.
     reader = CanonicalFacetStateReader(vault, repository)
@@ -4059,6 +4035,7 @@ def load_attempt_prior_state(
             if vault.config.mastery.irt.eb_difficulty_enabled
             else None
         ),
+        mastery_seed=mastery_seed,
     )
 
 
@@ -4110,6 +4087,9 @@ class GradeInputs:
     unrecorded_correctness: float | None = None
     #: A request for a variant that leaves its source item's review state as it was (``replay_reading``).
     variant_request: bool = False
+    grader_mode: str | None = None
+    #: A replay re-applies a recorded attempt and must not claim to have decided its grade again: no records.
+    replay: bool = False
 
     def canonical_facet_id(self, facet_id: str) -> str:
         """``LoadedVault.canonical_facet_id`` over the same alias map."""
@@ -4163,6 +4143,7 @@ def _compute_resolved_grade_application(
     agent_run_id: str | None = None,
     fallback_reason: str | None = None,
     grader_identity: tuple[str, str] | None = None,
+    grader_mode: str | None = None,
     unassessed_criterion_ids: Iterable[str] = (),
     grade_held_for_review: bool = False,
     grade_contract_unrecorded: bool = False,
@@ -4210,6 +4191,7 @@ def _compute_resolved_grade_application(
         grade_contract_unrecorded=grade_contract_unrecorded,
         unrecorded_correctness=unrecorded_correctness,
         variant_request=withholds_review_as_variant_request(vault, repository, attempt_id),
+        grader_mode=grader_mode, replay=replay,
     )
     scope = grade_scope(inputs)
     if prior_state is None:
@@ -4255,7 +4237,8 @@ def _compute_resolved_grade_application(
         error_event_ids=error_event_ids,
         grading_evidence=grading_evidence,
     )
-    return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs)
+    seed = attempt_seed_capture(vault, learning_object.id, prior_state.mastery_seed, replay=replay, now_iso=now_iso)
+    return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs, mastery_seed_inputs=seed)
 
 
 def _interpretation_variance(
@@ -4603,6 +4586,21 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         rubric=rubric,
         grade_contract_unrecorded=inputs.grade_contract_unrecorded,
         fsrs_review=review.summary,
+        grade_decision=None if inputs.replay else grade_records.grade_decision(
+            attempt_id=result.attempt_id, practice_item_id=result.practice_item_id,
+            learning_object_id=result.learning_object_id, rubric_score=result.rubric_score,
+            max_points=rubric.max_points, correctness=result.correctness, grader_confidence=result.grader_confidence,
+            grading_source=result.grading_source, grader_mode=inputs.grader_mode,
+            manual_review_reason=result.manual_review_reason, fallback_reason=result.fallback_reason,
+            agent_run_id=result.agent_run_id, attempt_type=draft.attempt_type, hints_used=draft.hints_used,
+            declared_dont_know=bool(draft.declared_dont_know), declared_stuck=bool(draft.declared_stuck),
+            primed=bool(draft.primed), fsrs_rating=result.fsrs_rating,
+            error_types=grade_records.error_types_of(error_events), held=held,
+            unverified_criterion_ids=inputs.unassessed_criterion_ids, plan_presentation_id=draft.plan_presentation_id,
+            probe_presentation_id=draft.probe_presentation_id, session_id=draft.session_id,
+            algorithm_version=config.algorithms.algorithm_version, grader_identity=inputs.grader_identity,
+            fsrs=review.summary,
+        ),
     )
 
 

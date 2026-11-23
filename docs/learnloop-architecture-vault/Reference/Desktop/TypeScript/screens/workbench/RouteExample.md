@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/RouteExample.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/RouteExample.tsx) |
-| Source lines | 300 |
+| Source lines | 304 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
@@ -54,47 +54,48 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const EXAMPLE_COPY =` — const, line 25
-- `export interface ExampleState` — interface, line 34
-- `export interface RouteExamples` — interface, line 58
-- `export function useRouteExamples(options:` — function, line 78
-- `export function PassageExtras(` — function, line 253
-- `export function ShowMeExample(` — function, line 279
+- `export const EXAMPLE_COPY =` — const, line 26
+- `export interface ExampleState` — interface, line 35
+- `export interface RouteExamples` — interface, line 59
+- `export function useRouteExamples(options:` — function, line 79
+- `export function PassageExtras(` — function, line 257
+- `export function ShowMeExample(` — function, line 283
 
 ## Internal implementation anchors
 
-- `const FIRST_POLL_MS = 350` — const, line 40
-- `const MAX_POLL_MS = 1500` — const, line 41
-- `function sleep(ms: number): Promise<void>` — function, line 43
-- `function viewOf(result: NonNullable<WorkbenchHelpJobDto["result"]>, hintAssistId: string | null): WorkbenchExampleViewDto | null` — function, line 47
-- `const beforeRef = useRef(options.beforeRequest)` — const, line 88
-- `const alive = useRef(true)` — const, line 96
-- `const poll = useCallback(async (started: WorkbenchHelpJobDto): Promise<WorkbenchHelpJobDto>` — const, line 105
-- `let job = started` — let, line 106
-- `let wait = FIRST_POLL_MS` — let, line 107
-- `const followExample = useCallback((hintAssistId: string, jobId: string)` — const, line 117
-- `const job = await poll(await api.workbenchHelpJob(jobId))` — const, line 122
-- `const view = job.result ? viewOf(job.result, hintAssistId) : null` — const, line 124
-- `const next =` — const, line 127
-- `const next =` — const, line 134
-- `const restore = useCallback((state: WorkbenchHelpStateDto)` — const, line 142
-- `const restored: Record<string, ExampleState> =` — const, line 145
-- `const showMe = useCallback(async (focusedStepId: string | null)` — const, line 153
-- `const job = await poll(await api.workbenchShowExample(` — const, line 164
-- `const result = job.result` — const, line 166
-- `const view = result ? viewOf(result, null) : null` — const, line 167
-- `const bridgeFor = useCallback((hintAssistId: string, bridge: BridgeState | undefined)` — const, line 178
-- `const anotherBridge = useCallback(async (hintAssistId: string, bridge: BridgeState)` — const, line 182
-- `const picked = await api.workbenchAnotherPassage(` — const, line 185
-- `const view = picked.passage` — const, line 187
-- `const anotherExample = useCallback(async (key:` — const, line 199
-- `const picked = await api.workbenchAnotherPassage(` — const, line 202
-- `const next: ExampleState =` — const, line 204
-- `function targetOf(view: WorkbenchExampleViewDto): PassageTarget` — function, line 220
-- `function ExampleLine(` — function, line 224
-- `const view = state.view` — const, line 235
-- `const example = rw2c.underHint[hintAssistId]` — const, line 259
-- `const anotherBridge = rw2c.passageDraw && bridge?.status === "ready" && bridge.alternatives ? bridge : null` — const, line 260
+- `const FIRST_POLL_MS = 350` — const, line 41
+- `const MAX_POLL_MS = 1500` — const, line 42
+- `function sleep(ms: number): Promise<void>` — function, line 44
+- `function viewOf(result: NonNullable<WorkbenchHelpJobDto["result"]>, hintAssistId: string | null): WorkbenchExampleViewDto | null` — function, line 48
+- `const beforeRef = useRef(options.beforeRequest)` — const, line 89
+- `const alive = useRef(true)` — const, line 97
+- `const whenLive = useWhenLive()` — const, line 98
+- `const poll = useCallback(async (started: WorkbenchHelpJobDto): Promise<WorkbenchHelpJobDto>` — const, line 107
+- `let job = started` — let, line 108
+- `let wait = FIRST_POLL_MS` — let, line 109
+- `const followExample = useCallback((hintAssistId: string, jobId: string)` — const, line 121
+- `const job = await poll(await api.workbenchHelpJob(jobId))` — const, line 126
+- `const view = job.result ? viewOf(job.result, hintAssistId) : null` — const, line 128
+- `const next =` — const, line 131
+- `const next =` — const, line 138
+- `const restore = useCallback((state: WorkbenchHelpStateDto)` — const, line 146
+- `const restored: Record<string, ExampleState> =` — const, line 149
+- `const showMe = useCallback(async (focusedStepId: string | null)` — const, line 157
+- `const job = await poll(await api.workbenchShowExample(` — const, line 168
+- `const result = job.result` — const, line 170
+- `const view = result ? viewOf(result, null) : null` — const, line 171
+- `const bridgeFor = useCallback((hintAssistId: string, bridge: BridgeState | undefined)` — const, line 182
+- `const anotherBridge = useCallback(async (hintAssistId: string, bridge: BridgeState)` — const, line 186
+- `const picked = await api.workbenchAnotherPassage(` — const, line 189
+- `const view = picked.passage` — const, line 191
+- `const anotherExample = useCallback(async (key:` — const, line 203
+- `const picked = await api.workbenchAnotherPassage(` — const, line 206
+- `const next: ExampleState =` — const, line 208
+- `function targetOf(view: WorkbenchExampleViewDto): PassageTarget` — function, line 224
+- `function ExampleLine(` — function, line 228
+- `const view = state.view` — const, line 239
+- `const example = rw2c.underHint[hintAssistId]` — const, line 263
+- `const anotherBridge = rw2c.passageDraw && bridge?.status === "ready" && bridge.alternatives ? bridge : null` — const, line 264
 
 ## Who imports or calls it
 
@@ -111,6 +112,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `PassageTarget`, `WorkbenchExampleViewDto`, `WorkbenchHelpJobDto`, `WorkbenchHelpStateDto`
 - [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `quietLine`, `quietLink`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`
 - [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchHelp|src/screens/workbench/useWorkbenchHelp.ts]] — import-or-re-export; imports `BridgeState`
 

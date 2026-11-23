@@ -671,7 +671,7 @@ class AdjacencyBasis(StrEnum):
 def randomization_draw(seed: str) -> float:
     """A deterministic uniform draw in [0, 1) from a seed string.
 
-    Deterministic on purpose. ``build_due_queue`` must produce the same slate
+    Deterministic on purpose. ``serve_due_queue`` must produce the same slate
     twice for the same session — the scheduler already relies on this for its
     seeded exploration — and a nondeterministic coin would make the queue
     unreproducible for the sake of a control that exists to REMOVE a nuisance

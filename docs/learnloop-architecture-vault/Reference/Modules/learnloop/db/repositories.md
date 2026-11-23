@@ -383,6 +383,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] — imports `Repository`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `MasteryState`; statically calls `MasteryState`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `ItemParameterState`, `MasteryState`; statically calls `ItemParameterState`, `MasteryState`
+- [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `Repository`
 - [[Reference/Modules/learnloop/learner/overconfidence|learnloop.learner.overconfidence]] — imports `Repository`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `MasteryState`, `Repository`; statically calls `MasteryState`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `MasteryState`, `Repository`
@@ -608,7 +609,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 407 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 408 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1329,6 +1330,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_submit_eliciting_response_records_a_factor_response`
 - [tests/test_difficulty_band_guards.py](../../../../../../tests/test_difficulty_band_guards.py) — direct import
   - `test_diagnostic_plan_band_is_never_degenerate`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
+  - `test_the_prefix_replay_predicts_as_ads_own_observer_does`
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
   - `test_a_discriminating_profile_passes_and_plants_every_profile`
   - `test_profile_whose_signature_equals_the_answer_key_is_blocked`
@@ -1595,6 +1598,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pre_first_practice_doctor_watermark`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
+- [tests/test_ingest_eligibility_contract.py](../../../../../../tests/test_ingest_eligibility_contract.py) — direct import
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_a_build_asked_for_its_goal_carries_create_goal_to_the_synthesis_job`
   - `test_background_reader_drain_records_model_call_receipts`
@@ -1697,6 +1701,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_gap_promotion_interrupted_before_its_row_applies_its_claim_once_on_retry`
   - `test_f6_get_feedback_attaches_the_line_to_the_resolving_review_only`
 - [tests/test_mastery.py](../../../../../../tests/test_mastery.py) — direct import
+- [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
+  - `test_an_interrupted_materialization_leaves_neither_the_row_nor_its_record`
 - [tests/test_matching.py](../../../../../../tests/test_matching.py) — direct import
 - [tests/test_measurement_corrections.py](../../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
@@ -2041,6 +2047,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_history_pages_by_cursor_and_reaches_every_exchange`
 - [tests/test_reader_rd0_rpcs.py](../../../../../../tests/test_reader_rd0_rpcs.py) — direct import
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
+- [tests/test_reader_rd1_model_parity.py](../../../../../../tests/test_reader_rd1_model_parity.py) — direct import
+  - `test_the_sidecar_gives_the_scripts_results_and_final_state`
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
   - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`
@@ -2625,6 +2633,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/voi_forecasts_helpers.py](../../../../../../tests/voi_forecasts_helpers.py) — direct import
 - [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
+- [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance
 

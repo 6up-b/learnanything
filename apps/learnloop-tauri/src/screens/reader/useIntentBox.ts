@@ -24,6 +24,7 @@ import { paletteActions, visiblePalette } from "./intentPalette";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { screenLeavesKey } from "../../app/keymap";
 import { passageKeys } from "./readerShared";
+import { useListenerHub, useScopeClaim } from "../desks/lifecycle";
 
 /** How long after mouse-up the box appears, so a drag never flickers it. */
 export const SHOW_AFTER_MS = 150;
@@ -342,6 +343,10 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   // Keys while the box shows (or, in skim mode, after a selection): printable
   // keys go to the box; Enter, Tab, `?` and Esc are its own; scroll and copy
   // keys are untouched.
+  const hub = useListenerHub();
+  // Open over a selection, the box takes typed keys even while the DOM focus is on the page: the desk's
+  // bare keys (x, o, space) must not act first.
+  useScopeClaim("typing", enabled && (open || armed));
   useEffect(() => {
     if (!enabled || !(open || armed)) return;
     const onKey = (event: KeyboardEvent) => {
@@ -424,9 +429,8 @@ export function useIntentBox(args: UseIntentBoxArgs) {
         input?.focus({ preventScroll: true });
       }
     };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [enabled, open, armed, paletteOpen, correcting, text, show, close, submit, setText, hostRef]);
+    return hub.listen("window", "keydown", onKey, true);
+  }, [enabled, open, armed, paletteOpen, correcting, text, show, close, submit, setText, hostRef, hub]);
 
   // A click elsewhere closes it, recording nothing.
   useEffect(() => {
@@ -435,9 +439,8 @@ export function useIntentBox(args: UseIntentBoxArgs) {
       if (boxRef.current && event.target instanceof Node && boxRef.current.contains(event.target)) return;
       close();
     };
-    document.addEventListener("mousedown", onDown, true);
-    return () => document.removeEventListener("mousedown", onDown, true);
-  }, [open, close]);
+    return hub.listen("document", "mousedown", onDown, true);
+  }, [open, close, hub]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
   // Another book: nothing carries over.

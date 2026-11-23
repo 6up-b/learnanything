@@ -192,6 +192,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `VaultPaths`
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `VaultPaths`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `VaultPaths`
 
 ## Dependencies
@@ -241,7 +242,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/reading_request_sweep_helpers.py](../../../../../../tests/reading_request_sweep_helpers.py) — direct import
 - [tests/ro1_availability_reads_helpers.py](../../../../../../tests/ro1_availability_reads_helpers.py) — direct import
-- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../../tests/sim_probe_validation_helpers.py) — direct import
@@ -283,6 +283,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ux7_add_it_in_a_library_with_no_subject_yet_files_the_topic_under_a_first_subject`
 - [tests/test_diagnostic_generation.py](../../../../../../tests/test_diagnostic_generation.py) — direct import
 - [tests/test_diagnostic_pack.py](../../../../../../tests/test_diagnostic_pack.py) — direct import
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
+  - `test_arm_a_equals_a_plain_shadow_rebuild`
+  - `test_the_prefix_replay_predicts_as_ads_own_observer_does`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
 - [tests/test_facet_authority.py](../../../../../../tests/test_facet_authority.py) — direct import

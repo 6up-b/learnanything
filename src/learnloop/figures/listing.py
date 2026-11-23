@@ -22,32 +22,26 @@ from learnloop.clock import Clock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
-from learnloop.figure_admission import figures_enabled, rich_tiers_enabled, show_me_enabled
+from learnloop.figure_admission import figures_enabled, rich_tiers_enabled
 from learnloop.figures import rich as RICH
 from learnloop.figures import sketch as K
 from learnloop.figures import spec as S
-from learnloop.figures import verify as V
 from learnloop.figures.protection import figure_homes, item_passages, rich_base_keys, row_withheld, show_me_row
 from learnloop.figures.request import FigureRefused, FigureRequest
 from learnloop.figures.spec import ALL_SPEC_VERSIONS, RICH_SPEC_VERSIONS, SPEC_VERSIONS
 from learnloop.figures.view import (
-    _RECHECKED,
-    _RECHECKED_GUARD,
+    SKETCH_OFF_KIND,
     _anchor_span,
     _figure_request,
     _label,
     _prebuilt_pressed,
-    _source_rejected_row,
-    advanced_off_row,
+    _presented_row,
+    available_row,
     drawable_now,
     figure_view,
-    rich_off_row,
-    shown_row,
-    sketch_off_row,
     sketch_rechecked,
     sketch_row,
     source_rejected,
-    worded_row,
 )
 
 
@@ -79,9 +73,6 @@ def _listed(vault: Any, repository: Repository,
     # RW5d P2b: a rich figure that follows a quick one is that figure's fuller
     # version (one line, two versions), never a line of its own.
     rows = [row for row in rows if row["spec_version"] in ALL_SPEC_VERSIONS and not row.get("fuller_of_id")]
-    if not show_me_enabled(vault):
-        # RW5d off: a figure built from a goal (or with no passage) is absent.
-        rows = [row for row in rows if not show_me_row(row)]
     if any(row.get("origin") == "prefetch" for row in rows):
         # RW5d P5: with figures ahead of need switched off, a prebuilt figure
         # nobody pressed for is absent (rev 1 exactly).
@@ -296,20 +287,11 @@ def section_figures(vault: Any, repository: Repository, extraction_id: str,
     seen: set[tuple[str, str]] = set()
     picks = sorted(_listed(vault, repository, extraction_id), key=lambda found: str(found[0]["created_at"]))
     for pick, _versions, homes in picks:
-        # Codex review F3: the list's own presentation, minus the sketch
-        # re-verification (it runs the engine and appends to judgment_ledger):
-        # that happens when the figure is opened, through its own book's
-        # listing. A verdict this process already reached is honoured.
-        row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(pick))))
-        if sketch_row(row) and row.get("verification") in store.SHOWN:
-            from learnloop.figures import sketch_verify as SV
-            from learnloop.figures.sketch_engine import ENGINE_SHA256
-
-            with _RECHECKED_GUARD:
-                cached = _RECHECKED.get((str(row["id"]), ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION))
-            if cached is not None and cached["outcome"] != V.ILLUSTRATIVE:
-                continue
-        row = worded_row(_source_rejected_row(vault, repository, row))
+        # The list's own presentation without the sketch re-verification (it
+        # runs the engine and appends to judgment_ledger, and this read writes
+        # nothing): that happens when the figure is opened, through its own
+        # book's listing. A failure this process already found is honoured.
+        row = _presented_row(vault, repository, pick, reverify=False)
         if row.get("verification") not in store.SHOWN:
             continue
         asked = _figure_request(repository, row)
@@ -435,8 +417,6 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
         elif state["state"] == "failed" and payload.get("input_hash") in {row["input_hash"] for row in stored_rows()}:
             # A stored row (the figure, or its stored failure) lists itself.
             continue
-        if base.get("goal_text") is not None and not show_me_enabled(vault):
-            continue
         from learnloop.figures.protection import _withheld
 
         if _withheld(vault, repository, base) is not None:
@@ -482,20 +462,19 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
     if row["verification"] not in store.SHOWN or row["spec_version"] not in SPEC_VERSIONS or not row.get("spec_json"):
         # A rich figure (RW5d P2b) has no predictions and is shown through its view only.
         raise FigureRefused("not_found", "That figure is not shown.")
-    if advanced_off_row(vault, row) is not row:
-        raise FigureRefused("not_found", "That figure uses a panel kind that is switched off.")
-    if sketch_off_row(vault, row) is not row:
-        raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch tier is switched off "
-                                               "(figures.sketch_enabled).")
+    available = available_row(vault, row)
+    if available is not row and available.get("unsupported_kind") == SKETCH_OFF_KIND:
+        raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch engine can't run here.")
+    if available is not row:
+        raise FigureRefused("not_found", "That figure can't be drawn here.")
     if sketch_row(row):
         # Codex review F9: the rechecked row is the one delivered and
         # predicted on (its dropped predictions are this engine's).
         row = dict(sketch_rechecked(row, repository))
         if row.get("verification") not in store.SHOWN:
             raise FigureRefused("not_found", "That simulation couldn't run under this version.")
-    if show_me_row(row) and not show_me_enabled(vault):
-        raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
-                                                "(figures.show_me_enabled).")
+    if show_me_row(row) and not figures_enabled(vault):
+        raise FigureRefused("figures_disabled", "Explorable figures are switched off (figures.enabled).")
     if row_withheld(vault, repository, row) is not None:
         raise FigureRefused("exam_material", "That figure's passage is held out now.")
     if source_rejected(vault, repository, row):

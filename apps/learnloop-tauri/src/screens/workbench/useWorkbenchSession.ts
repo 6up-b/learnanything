@@ -29,6 +29,7 @@
 // against the vault the steps belong to; closing the window waits for it too
 // (review F8). Nothing a write or a poll returns moves focus (W12).
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWindowPaused } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import type {
   WorkbenchRecordDto,
@@ -582,8 +583,10 @@ export function useWorkbenchSession(
 
   // Opening at once (UX S2): wait quietly for the import to bind the item.
   const waiting = !readOnly && session.status !== "submitted" && session.importStatus === "pending" && !session.parts;
+  // A paused window asks nothing; back on screen the wait goes on.
+  const windowPaused = useWindowPaused();
   useEffect(() => {
-    if (!waiting) return undefined;
+    if (!waiting || windowPaused) return undefined;
     const timer = setInterval(() => {
       const sentIn = liveNow();
       void api.workbenchRefreshImport({ sessionId: sessionRef.current.sessionId })
@@ -603,7 +606,7 @@ export function useWorkbenchSession(
         });
     }, 2000);
     return () => clearInterval(timer);
-  }, [waiting, commitSession]);
+  }, [waiting, windowPaused, commitSession]);
 
   // Leaving the screen sends every resting edit; the queue finishes on its
   // own. While a vault switch holds these steps, everything was already

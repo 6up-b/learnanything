@@ -527,7 +527,7 @@ HTTP_MODULES = {
     "learnloop/content/pipeline/source_ingestion.py": "source fetch",
     "learnloop/ingest/extractors/datalab.py": "Datalab OCR",
     "learnloop/ingest/extractors/glm_ocr.py": "GLM OCR",
-    "learnloop/ingest/fetchers.py": "web fetch",
+    "learnloop/ingest/youtube.py": "YouTube oEmbed title and channel",
 }
 _HTTP_ROOTS = ("urllib", "http.client", "httpx", "requests", "openai", "aiohttp", "openai_codex")
 

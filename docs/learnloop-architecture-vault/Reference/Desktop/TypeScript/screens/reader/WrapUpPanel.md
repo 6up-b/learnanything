@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/WrapUpPanel.tsx) |
-| Source lines | 125 |
+| Source lines | 128 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,22 +54,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface WrapUpPanelProps` — interface, line 17
-- `export function WrapUpPanel(` — function, line 47
+- `export interface WrapUpPanelProps` — interface, line 18
+- `export function WrapUpPanel(` — function, line 48
 
 ## Internal implementation anchors
 
-- `const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> =` — const, line 30
-- `const headingStyle: CSSProperties =` — const, line 37
-- `const listStyle: CSSProperties =` — const, line 38
-- `const lineStyle: CSSProperties =` — const, line 39
-- `function reinforceLine(line: ReaderWrapUpReinforceLineDto): string` — function, line 41
-- `const onKey = (event: KeyboardEvent)` — const, line 50
-- `const actionsFor = (line: ReaderWrapUpInquiryLineDto)` — const, line 58
-- `const withHelp = wrapUp.worthReinforcing.filter((line)` — const, line 61
-- `const reinforce = wrapUp.worthReinforcing.filter((line)` — const, line 62
-- `const empty = wrapUp.resolved.length === 0 && wrapUp.stillOpen.length === 0 && reinforce.length === 0` — const, line 63
-- `const renderInquiry = (line: ReaderWrapUpInquiryLineDto, glyph: string)` — const, line 65
+- `const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> =` — const, line 31
+- `const headingStyle: CSSProperties =` — const, line 38
+- `const listStyle: CSSProperties =` — const, line 39
+- `const lineStyle: CSSProperties =` — const, line 40
+- `function reinforceLine(line: ReaderWrapUpReinforceLineDto): string` — function, line 42
+- `const hub = useListenerHub()` — const, line 50
+- `const onKey = (event: KeyboardEvent)` — const, line 54
+- `const actionsFor = (line: ReaderWrapUpInquiryLineDto)` — const, line 61
+- `const withHelp = wrapUp.worthReinforcing.filter((line)` — const, line 64
+- `const reinforce = wrapUp.worthReinforcing.filter((line)` — const, line 65
+- `const empty = wrapUp.resolved.length === 0 && wrapUp.stillOpen.length === 0 && reinforce.length === 0` — const, line 66
+- `const renderInquiry = (line: ReaderWrapUpInquiryLineDto, glyph: string)` — const, line 68
 
 ## Who imports or calls it
 
@@ -86,6 +87,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderWrapUpActionDto`, `ReaderWrapUpDto`, `ReaderWrapUpInquiryLineDto`, `ReaderWrapUpReinforceLineDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`, `useScopeClaim`
 - [[Reference/Desktop/TypeScript/screens/reader/ComingUp|src/screens/reader/ComingUp.tsx]] — import-or-re-export; imports `ComingUp`, `ComingUpProps`
 - [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export; imports `DigestNarrative`
 - [[Reference/Desktop/TypeScript/screens/reader/RecapCard|src/screens/reader/RecapCard.tsx]] — import-or-re-export; imports `Quoted`, `RecapLink`
@@ -106,6 +108,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/scopeClaims.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/scopeClaims.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/WrapUp.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/WrapUp.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/DigestNarrative.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/DigestNarrative.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

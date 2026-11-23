@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/bareAlt.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/bareAlt.ts) |
-| Source lines | 57 |
+| Source lines | 63 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,18 +54,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function useBareAltClear(onClear: ()` — function, line 19
+- `export function useBareAltClear(onClear: ()` — function, line 22
 
 ## Internal implementation anchors
 
-- `function editable(target: EventTarget | null): boolean` — function, line 12
-- `const onClearRef = useRef(onClear)` — const, line 20
-- `let pending: boolean | null = null` — let, line 24
-- `const onKeyDown = (event: KeyboardEvent)` — const, line 25
-- `const onKeyUp = (event: KeyboardEvent)` — const, line 34
-- `const clear = pending === true && !editable(event.target)` — const, line 36
-- `const cancel = ()` — const, line 40
-- `const reset = ()` — const, line 43
+- `function editable(target: EventTarget | null): boolean` — function, line 15
+- `const onClearRef = useRef(onClear)` — const, line 23
+- `const nowRef = useRef(now)` — const, line 25
+- `const hub = useListenerHub()` — const, line 27
+- `let pending: boolean | null = null` — let, line 30
+- `let pressedAt = 0` — let, line 31
+- `const onKeyDown = (event: KeyboardEvent)` — const, line 32
+- `const onKeyUp = (event: KeyboardEvent)` — const, line 42
+- `const tap = nowRef.current() - pressedAt < WHICH_KEY_HOLD_MS` — const, line 44
+- `const clear = pending === true && tap && !editable(event.target)` — const, line 45
+- `const cancel = ()` — const, line 49
+- `const reset = ()` — const, line 52
+- `const offs = [ hub.listen("window", "keydown", onKeyDown, true), hub.listen("window", "keyup", onKeyUp, true), hub.listen("window", "mousedown", cancel, true), hub.listen("window", "blur", reset), ]` — const, line 55
 
 ## Who imports or calls it
 
@@ -79,6 +84,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
+- [[Reference/Desktop/TypeScript/screens/desks/keys/router|src/screens/desks/keys/router.ts]] — import-or-re-export; imports `WHICH_KEY_HOLD_MS`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`
 
 ### Assets, platform, and third-party dependencies
 
@@ -95,6 +102,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/bareAlt.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/bareAlt.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

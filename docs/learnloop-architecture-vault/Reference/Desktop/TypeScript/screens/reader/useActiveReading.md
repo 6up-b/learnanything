@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useActiveReading.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useActiveReading.ts) |
-| Source lines | 345 |
+| Source lines | 350 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,73 +54,74 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface AnotherWayHit` — interface, line 30
-- `export interface ActiveReadingState` — interface, line 40
-- `export interface AnotherWayState` — interface, line 61
-- `export const UNDONE_EARLIER = "You undid this reconstruction earlier, so it won't be asked."` — const, line 72
-- `export function anotherWayOutcome(status: unknown):` — function, line 77
-- `export function useActiveReading(` — function, line 92
-- `export type ActiveReadingController = ReturnType<typeof useActiveReading>` — type, line 345
+- `export interface AnotherWayHit` — interface, line 31
+- `export interface ActiveReadingState` — interface, line 41
+- `export interface AnotherWayState` — interface, line 62
+- `export const UNDONE_EARLIER = "You undid this reconstruction earlier, so it won't be asked."` — const, line 73
+- `export function anotherWayOutcome(status: unknown):` — function, line 78
+- `export function useActiveReading(` — function, line 93
+- `export type ActiveReadingController = ReturnType<typeof useActiveReading>` — type, line 350
 
 ## Internal implementation anchors
 
-- `const POLL_MS = 2000` — const, line 28
-- `const NO_RECONSTRUCT =` — const, line 70
-- `const NO_PRACTICE =` — const, line 71
-- `const value = typeof status === "string" ? status : "ok"` — const, line 78
-- `const why = value.includes(":") ? value.slice(value.indexOf(":") + 1).trim() : value` — const, line 80
-- `function failureLine(code: string | null | undefined, message: string | null | undefined): string` — function, line 86
-- `const keyRef = useRef(0)` — const, line 112
-- `const activeRef = useRef<ActiveReadingState | null>(null)` — const, line 113
-- `const anotherRef = useRef<AnotherWayState | null>(null)` — const, line 115
-- `const update = useCallback((key: number, patch: Partial<ActiveReadingState>)` — const, line 118
-- `const commitReconstruct = useCallback(async (key: number, question: ReaderActiveQuestionDto)` — const, line 122
-- `const made = await api.readerReconstruct(` — const, line 134
-- `const code = getCommandError(error)?.code` — const, line 137
-- `const landed = useCallback((key: number, question: ReaderActiveQuestionDto)` — const, line 153
-- `const start = useCallback(async (style: ReaderActiveStyle, spanIds: string[], localFold: string[])` — const, line 159
-- `const key = ++keyRef.current` — const, line 161
-- `const asked = await api.readerActiveQuestion(` — const, line 170
-- `const code = getCommandError(error)?.code` — const, line 178
-- `const pendingKey = active && active.phase === "pending" && active.batchId ? active.key : null` — const, line 185
-- `const current = activeRef.current` — const, line 187
-- `const timer = window.setTimeout(async ()` — const, line 190
-- `const read = await api.readerActiveQuestionStatus(` — const, line 192
-- `const code = read.job.errorCode ?? null` — const, line 199
-- `const act = useCallback(async (input:` — const, line 214
-- `const current = activeRef.current` — const, line 215
-- `const key = current.key` — const, line 217
-- `const result = await api.readerActiveQuestionAction(` — const, line 220
-- `const answer = useCallback((response: string)` — const, line 234
-- `const showMe = useCallback(()` — const, line 235
-- `const selfCheck = useCallback((value: InquirySelfCheck)` — const, line 236
-- `const dismiss = useCallback(()` — const, line 237
-- `const unfold = useCallback(()` — const, line 241
-- `const current = activeRef.current` — const, line 242
-- `const close = useCallback(()` — const, line 245
-- `const retry = useCallback(()` — const, line 249
-- `const current = activeRef.current` — const, line 250
-- `const addToPractice = useCallback(async ()` — const, line 255
-- `const current = activeRef.current` — const, line 256
-- `const question = current?.question` — const, line 257
-- `const key = current.key` — const, line 259
-- `const made = await api.readerEscalateAuthoredQuestion(` — const, line 262
-- `const undoReconstruct = useCallback(async ()` — const, line 273
-- `const current = activeRef.current` — const, line 274
-- `const key = current.key` — const, line 276
-- `const undone = await api.readerReconstructUndo(` — const, line 278
-- `const anotherWay = useCallback(async (quote: string, spanIds: string[])` — const, line 286
-- `const key = ++keyRef.current` — const, line 288
-- `const found = await api.findSources(` — const, line 293
-- `const outcome = anotherWayOutcome(found.status)` — const, line 298
-- `const hits = ((found.hits as Array<Record<string, unknown>> | undefined) ?? []).slice(0, 2).map((hit)` — const, line 303
-- `const retryAnother = useCallback(()` — const, line 314
-- `const current = anotherRef.current` — const, line 315
-- `const closeAnother = useCallback(()` — const, line 319
-- `const readingKey = openKey === undefined ? extractionId : openKey` — const, line 326
-- `const setDraft = useCallback((text: string)` — const, line 333
-- `const current = activeRef.current` — const, line 334
-- `const folded = new Set(active && !active.foldOpen ? active.foldedSpanIds : [])` — const, line 338
+- `const POLL_MS = 2000` — const, line 29
+- `const NO_RECONSTRUCT =` — const, line 71
+- `const NO_PRACTICE =` — const, line 72
+- `const value = typeof status === "string" ? status : "ok"` — const, line 79
+- `const why = value.includes(":") ? value.slice(value.indexOf(":") + 1).trim() : value` — const, line 81
+- `function failureLine(code: string | null | undefined, message: string | null | undefined): string` — function, line 87
+- `const keyRef = useRef(0)` — const, line 113
+- `const activeRef = useRef<ActiveReadingState | null>(null)` — const, line 114
+- `const anotherRef = useRef<AnotherWayState | null>(null)` — const, line 116
+- `const update = useCallback((key: number, patch: Partial<ActiveReadingState>)` — const, line 119
+- `const commitReconstruct = useCallback(async (key: number, question: ReaderActiveQuestionDto)` — const, line 123
+- `const made = await api.readerReconstruct(` — const, line 135
+- `const code = getCommandError(error)?.code` — const, line 138
+- `const landed = useCallback((key: number, question: ReaderActiveQuestionDto)` — const, line 154
+- `const start = useCallback(async (style: ReaderActiveStyle, spanIds: string[], localFold: string[])` — const, line 160
+- `const key = ++keyRef.current` — const, line 162
+- `const asked = await api.readerActiveQuestion(` — const, line 171
+- `const code = getCommandError(error)?.code` — const, line 179
+- `const whenLive = useWhenLive()` — const, line 186
+- `const pendingKey = active && active.phase === "pending" && active.batchId ? active.key : null` — const, line 187
+- `const current = activeRef.current` — const, line 189
+- `const timer = window.setTimeout(async ()` — const, line 192
+- `const read = await api.readerActiveQuestionStatus(` — const, line 197
+- `const code = read.job.errorCode ?? null` — const, line 204
+- `const act = useCallback(async (input:` — const, line 219
+- `const current = activeRef.current` — const, line 220
+- `const key = current.key` — const, line 222
+- `const result = await api.readerActiveQuestionAction(` — const, line 225
+- `const answer = useCallback((response: string)` — const, line 239
+- `const showMe = useCallback(()` — const, line 240
+- `const selfCheck = useCallback((value: InquirySelfCheck)` — const, line 241
+- `const dismiss = useCallback(()` — const, line 242
+- `const unfold = useCallback(()` — const, line 246
+- `const current = activeRef.current` — const, line 247
+- `const close = useCallback(()` — const, line 250
+- `const retry = useCallback(()` — const, line 254
+- `const current = activeRef.current` — const, line 255
+- `const addToPractice = useCallback(async ()` — const, line 260
+- `const current = activeRef.current` — const, line 261
+- `const question = current?.question` — const, line 262
+- `const key = current.key` — const, line 264
+- `const made = await api.readerEscalateAuthoredQuestion(` — const, line 267
+- `const undoReconstruct = useCallback(async ()` — const, line 278
+- `const current = activeRef.current` — const, line 279
+- `const key = current.key` — const, line 281
+- `const undone = await api.readerReconstructUndo(` — const, line 283
+- `const anotherWay = useCallback(async (quote: string, spanIds: string[])` — const, line 291
+- `const key = ++keyRef.current` — const, line 293
+- `const found = await api.findSources(` — const, line 298
+- `const outcome = anotherWayOutcome(found.status)` — const, line 303
+- `const hits = ((found.hits as Array<Record<string, unknown>> | undefined) ?? []).slice(0, 2).map((hit)` — const, line 308
+- `const retryAnother = useCallback(()` — const, line 319
+- `const current = anotherRef.current` — const, line 320
+- `const closeAnother = useCallback(()` — const, line 324
+- `const readingKey = openKey === undefined ? extractionId : openKey` — const, line 331
+- `const setDraft = useCallback((text: string)` — const, line 338
+- `const current = activeRef.current` — const, line 339
+- `const folded = new Set(active && !active.foldOpen ? active.foldedSpanIds : [])` — const, line 343
 
 ## Who imports or calls it
 
@@ -138,6 +139,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `InquirySelfCheck`, `ReaderActiveQuestionDto`, `ReaderActiveStyle`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `passageKeys`
 

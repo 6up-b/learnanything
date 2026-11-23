@@ -4,7 +4,7 @@ A Ctrl+drag box over a figure on the original page is cropped by
 ``build_block_region`` (the box clipped to the figure block's own box) and
 only that crop goes to the figure author, as an image, with the caption and
 the paragraphs around it. A route that cannot read images is refused before
-any call; ``figures.region_enabled`` off refuses a region.
+any call.
 """
 
 from __future__ import annotations
@@ -21,11 +21,9 @@ from tests.figure_fixtures import (
     AuthorFake,
     build,
     build_figure_vault,
-    call,
     context,
     flagship,
     rows,
-    set_config,
 )
 from tests.figure_region_helpers import PAGE_RENDERS, REGION
 from tests.figure_region_helpers import crops  # noqa: F401 - fixtures, used by parameter name
@@ -93,16 +91,6 @@ def test_a_selection_without_a_figure_sends_no_image(tmp_path, crops):
     author = AuthorFake([flagship(kind="illustrative")], images=True)
     build(context(paths.root, author=author), {"extractionId": EXTRACTION, "spanIds": ["p3"]})
     assert author.request_images == [()] and crops == []
-
-
-def test_region_switch_off_refuses_a_region(tmp_path, crops):
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    set_config(paths, "figures", region_enabled=False)
-    ctx = context(paths.root, author=AuthorFake(images=True))
-    assert call(ctx, "reader.prompt_contract", {})["figures"]["region"] is False
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": [], "region": REGION})
-    assert caught.value.code == "region_disabled" and crops == []
 
 
 def test_an_image_request_is_refused_by_a_transport_that_cannot_read_images():

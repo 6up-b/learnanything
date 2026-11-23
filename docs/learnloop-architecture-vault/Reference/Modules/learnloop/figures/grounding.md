@@ -136,7 +136,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
-- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s`
 - [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
@@ -159,7 +158,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
   - `test_build_key_holds_the_switch_and_the_reuse_key_does_not`
 - [tests/test_sketch_service.py](../../../../../../tests/test_sketch_service.py) — direct import
-  - `test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte`
+  - `test_without_the_engine_the_contract_prompt_and_key_are_rw5bs_byte_for_byte`
 
 ## Modification guidance
 

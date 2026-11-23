@@ -7,6 +7,7 @@ import { SecondaryButton } from "../../components/goldenpath/shared";
 import type { TagMenuRequest } from "../../components/PdfReaderPane";
 import { SEEN_SETTLE_MS } from "./useReadingProgress";
 import { screenLeavesKey } from "../../app/keymap";
+import { useListenerHub, useWindowPaused } from "../desks/lifecycle";
 
 // The playing cue is the one with the latest start at most this far ahead of
 // the player's time.
@@ -107,6 +108,8 @@ function groupTranscriptCues(cues: TranscriptCue[]): TranscriptSection[] {
 export interface WatchPanelHandle {
   /** Seek the video (and transcript) to the cue backing a span id. */
   seekToSpan: (spanId: string) => boolean;
+  /** Play or pause (a desk's `space` on a focused video window). */
+  togglePlay: () => void;
 }
 
 export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
@@ -235,9 +238,14 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     setPlayerReady(true);
   }, [post, transcriptCues, noteSeek]);
 
+  const hub = useListenerHub();
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      // Every player shares YouTube's origin: only this panel's own frame is this panel's player, so two
+      // players on one desk never take each other's time.
       if (event.origin !== YT_ORIGIN) return;
+      const frame = iframeRef.current?.contentWindow ?? null;
+      if (frame === null || event.source !== frame) return;
       let data: { event?: string; info?: number | { currentTime?: number; playerState?: number } };
       try {
         data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
@@ -256,9 +264,15 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
         }
       }
     };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [acceptPlayerTime]);
+    return hub.listen("window", "message", onMessage);
+  }, [acceptPlayerTime, hub]);
+
+  // A window that leaves the view (offscreen, another desk, a preview) stops its player: media plays only
+  // where the learner can see it.
+  const paused = useWindowPaused();
+  useEffect(() => {
+    if (paused && playerReady) post("pauseVideo");
+  }, [paused, playerReady, post]);
 
   // Keep playback anchored in a dedicated transcript scroller, rather than
   // scrolling the whole Reader and pushing the video out of view. A learner who
@@ -372,9 +386,8 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
         openFind();
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [findShortcutEnabled, openFind]);
+    return hub.listen("window", "keydown", handler);
+  }, [findShortcutEnabled, openFind, hub]);
 
   // Imperative jump for the guide rail (contents outline, quick-check "show me
   // the passage", suggested passages): seek the video to the cue's start
@@ -390,6 +403,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
       setFollowTranscript(true);
       return true;
     },
+    togglePlay: () => post(playingRef.current ? "pauseVideo" : "playVideo"),
   }), [transcriptCues, post, noteSeek]);
 
   return (

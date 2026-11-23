@@ -45,7 +45,8 @@ it("pins every capture-phase key listener on window or document, with why the ch
   const found = new Set<string>();
   for (const file of sourceFiles(SRC)) {
     const text = readFileSync(join(SRC, file), "utf8");
-    if (/(?:window|document)\.addEventListener\(\s*"key(?:down|up|press)"\s*,\s*[^)]*,\s*(?:true|\{\s*capture:\s*true\s*\})\s*\)/.test(text)) found.add(file);
+    // Through a desk window's listener hub (screens/desks/lifecycle.tsx) as well as directly.
+    if (/(?:(?:window|document)\.addEventListener\(|\.listen\(\s*"(?:window|document)"\s*,)\s*"key(?:down|up|press)"\s*,\s*[^)]*,\s*(?:true|\{\s*capture:\s*true\s*\})\s*\)/.test(text)) found.add(file);
   }
   expect([...found].sort()).toEqual(Object.keys(CAPTURE_LISTENERS).sort());
 });

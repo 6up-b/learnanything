@@ -1,0 +1,108 @@
+---
+title: "Desktop module · src/screens/desks/overview/miniature.ts"
+type: "desktop-module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+module: "desktop.src.screens.desks.overview.miniature"
+language: "TypeScript"
+area: "TypeScript/screens/desks/overview"
+source_path: "apps/learnloop-tauri/src/screens/desks/overview/miniature.ts"
+source_paths:
+  - "apps/learnloop-tauri/src/screens/desks/overview/miniature.ts"
+activation_kind: "entry-reachable build graph"
+activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
+generated: true
+generated_at: "2026-08-18"
+tags:
+  - "learnloop/docs"
+  - "learnloop/reference/module"
+  - "learnloop/desktop"
+  - "learnloop/desktop/typescript"
+  - "refactor/active"
+---
+
+# `src/screens/desks/overview/miniature.ts`
+
+Area: [[Reference/Desktop/TypeScript/screens/desks/overview/_area|TypeScript/screens/desks/overview]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+Provides `cloneForMiniature`, `MiniatureBook` within the desktop's TypeScript/screens/desks/overview ownership area.
+
+The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
+
+^desktop-module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [apps/learnloop-tauri/src/screens/desks/overview/miniature.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/miniature.ts) |
+| Source lines | 76 |
+| Language | `TypeScript` |
+| Area | [[Reference/Desktop/TypeScript/screens/desks/overview/_area|TypeScript/screens/desks/overview]] |
+| Refactor status | `ACTIVE` |
+| Activation kind | `entry-reachable build graph` |
+
+## Activation and status evidence
+
+> [!success] ACTIVE
+> A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
+>
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/overview/miniature|src/screens/desks/overview/miniature.ts]]
+
+## Public API
+
+- `export function cloneForMiniature(source: HTMLElement):` — function, line 7
+- `export class MiniatureBook` — class, line 51
+
+## Internal implementation anchors
+
+- `const scrolls: Array<` — const, line 8
+- `const walk = (element: Element, path: number[])` — const, line 9
+- `const node = source.cloneNode(true) as HTMLElement` — const, line 16
+- `const placeholder = document.createElement("div")` — const, line 23
+- `const box = (frame as HTMLElement).getBoundingClientRect?.()` — const, line 26
+- `const restoreScroll = ()` — const, line 36
+- `let element: Element | undefined = node` — let, line 38
+
+## Who imports or calls it
+
+> [!note] Static-evidence boundary
+> “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
+
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `MiniatureBook`, `cloneForMiniature`; references `MiniatureBook`, `cloneForMiniature`
+
+## Dependencies
+
+### Desktop source modules
+
+No local TypeScript/TSX or Rust module dependency was detected.
+
+### Assets, platform, and third-party dependencies
+
+No explicit asset, standard-library, package, or crate dependency was detected.
+
+## Larger desktop and workflow participation
+
+- [[Architecture/Adapter Architecture#Request flow|adapter request flow]] — places this module on the UI/sidecar boundary.
+
+The workflow note owns end-to-end sequencing; this module note describes only its local participation and edges.
+
+## Tests that define behavior
+
+- [apps/learnloop-tauri/src/screens/desks/overview/controller.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/controller.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+
+## Modification guidance
+
+- Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
+- When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
+
+### Regeneration checklist
+
+1. Modify [apps/learnloop-tauri/src/screens/desks/overview/miniature.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/miniature.ts) and focused tests.
+2. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_generate.py`.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_validate.py`.

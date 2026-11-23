@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderRecap.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderRecap.ts) |
-| Source lines | 327 |
+| Source lines | 330 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,51 +54,53 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReaderRecapInput` — interface, line 36
-- `export interface ReaderRecapCtl` — interface, line 57
-- `export const NARRATIVE_POLL_MS = 10_000` — const, line 76
-- `export function useReaderRecap(` — function, line 94
+- `export interface ReaderRecapInput` — interface, line 37
+- `export interface ReaderRecapCtl` — interface, line 58
+- `export const NARRATIVE_POLL_MS = 10_000` — const, line 77
+- `export function useReaderRecap(` — function, line 95
 
 ## Internal implementation anchors
 
-- `type NarrativeSurface = "recap" | "wrapUp"` — type, line 78
-- `type NarrativePollFailures = Partial<Record<NarrativeSurface, NarrativePollFailure>>` — type, line 79
-- `function pollFailureFor(error: unknown): NarrativePollFailure` — function, line 82
-- `function withPollFailure<T extends` — function, line 87
-- `const autoFoldedRef = useRef(false)` — const, line 105
-- `const shownRef = useRef<string | null>(null)` — const, line 106
-- `const extractionRef = useRef<string | null>(extractionId)` — const, line 107
-- `const visitIdRef = useRef(visitId)` — const, line 109
-- `const revealRef = useRef(reveal)` — const, line 111
-- `const record = useCallback((event: ReaderRecapEvent)` — const, line 114
-- `const extraction = extractionRef.current` — const, line 115
-- `let cancelled = false` — let, line 127
-- `let cancelled = false` — let, line 170
-- `const noteShown = useCallback(()` — const, line 184
-- `const extraction = extractionRef.current` — const, line 185
-- `const key = `$` — const, line 187
-- `const expand = useCallback(()` — const, line 193
-- `const continueReading = useCallback(()` — const, line 194
-- `const dismiss = useCallback(async ()` — const, line 198
-- `const reload = useCallback(()` — const, line 206
-- `const openWrapUp = useCallback(async ()` — const, line 208
-- `const extraction = extractionRef.current` — const, line 209
-- `let result: ReaderWrapUpDto` — let, line 213
-- `const closeWrapUp = useCallback(()` — const, line 226
-- `const onKey = (event: KeyboardEvent)` — const, line 232
-- `const target = event.target` — const, line 235
-- `let cancelled = false` — let, line 247
-- `const recapWaiting = enabled && recap?.narrative?.state === "pending"` — const, line 262
-- `const wrapUpWaiting = wrapUpOpen?.narrative?.state === "pending"` — const, line 263
-- `const noteRead = useCallback((surface: NarrativeSurface, failure: NarrativePollFailure | undefined)` — const, line 264
-- `const readNarratives = useCallback((surfaces:` — const, line 267
-- `const stale = ()` — const, line 269
-- `const reads: Promise<unknown>[] = []` — const, line 270
-- `let cancelled = false` — let, line 294
-- `const timer = window.setTimeout(()` — const, line 295
-- `const retryNarrative = useCallback(()` — const, line 315
-- `const recapShown = useMemo(()` — const, line 318
-- `const wrapUpShown = useMemo(()` — const, line 320
+- `type NarrativeSurface = "recap" | "wrapUp"` — type, line 79
+- `type NarrativePollFailures = Partial<Record<NarrativeSurface, NarrativePollFailure>>` — type, line 80
+- `function pollFailureFor(error: unknown): NarrativePollFailure` — function, line 83
+- `function withPollFailure<T extends` — function, line 88
+- `const whenLive = useWhenLive()` — const, line 105
+- `const autoFoldedRef = useRef(false)` — const, line 107
+- `const shownRef = useRef<string | null>(null)` — const, line 108
+- `const extractionRef = useRef<string | null>(extractionId)` — const, line 109
+- `const visitIdRef = useRef(visitId)` — const, line 111
+- `const revealRef = useRef(reveal)` — const, line 113
+- `const record = useCallback((event: ReaderRecapEvent)` — const, line 116
+- `const extraction = extractionRef.current` — const, line 117
+- `let cancelled = false` — let, line 129
+- `let cancelled = false` — let, line 172
+- `const noteShown = useCallback(()` — const, line 186
+- `const extraction = extractionRef.current` — const, line 187
+- `const key = `$` — const, line 189
+- `const expand = useCallback(()` — const, line 195
+- `const continueReading = useCallback(()` — const, line 196
+- `const dismiss = useCallback(async ()` — const, line 200
+- `const reload = useCallback(()` — const, line 208
+- `const openWrapUp = useCallback(async ()` — const, line 210
+- `const extraction = extractionRef.current` — const, line 211
+- `let result: ReaderWrapUpDto` — let, line 215
+- `const closeWrapUp = useCallback(()` — const, line 228
+- `const hub = useListenerHub()` — const, line 232
+- `const onKey = (event: KeyboardEvent)` — const, line 235
+- `const target = event.target` — const, line 238
+- `let cancelled = false` — let, line 249
+- `const recapWaiting = enabled && recap?.narrative?.state === "pending"` — const, line 264
+- `const wrapUpWaiting = wrapUpOpen?.narrative?.state === "pending"` — const, line 265
+- `const noteRead = useCallback((surface: NarrativeSurface, failure: NarrativePollFailure | undefined)` — const, line 266
+- `const readNarratives = useCallback((surfaces:` — const, line 269
+- `const stale = ()` — const, line 271
+- `const reads: Promise<unknown>[] = []` — const, line 272
+- `let cancelled = false` — let, line 296
+- `const timer = window.setTimeout(()` — const, line 297
+- `const retryNarrative = useCallback(()` — const, line 318
+- `const recapShown = useMemo(()` — const, line 321
+- `const wrapUpShown = useMemo(()` — const, line 323
 
 ## Who imports or calls it
 
@@ -115,6 +117,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderRecapCardDto`, `ReaderRecapEvent`, `ReaderWrapUpDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`, `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/DigestNarrative|src/screens/reader/DigestNarrative.tsx]] — import-or-re-export; imports `NarrativePollFailure`, `NarrativeView`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `phaseForError`
 

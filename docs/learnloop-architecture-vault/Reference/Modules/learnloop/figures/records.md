@@ -228,7 +228,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_f1_a_spec_saying_it_matches_the_book_gets_the_repair_call`
 - [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
-  - `test_a_goal_candidate_is_kept_only_with_figures_and_show_me_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 
 ## Modification guidance

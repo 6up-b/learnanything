@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AddToCollection.tsx](../../../../../../apps/learnloop-tauri/src/components/AddToCollection.tsx) |
-| Source lines | 276 |
+| Source lines | 280 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,30 +54,35 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SYLLABUS_ROLE_HINT = "syllabus: used only to scope what your deliverables need — never taught from, never practice, never protected (don't give it the exam role, or LearnLoop hides it whole)"` — const, line 30
-- `export function AddToCollectionPanel(` — function, line 40
+- `export function useSourceRoles(): SourceRoleDto[]` — function, line 19
+- `export function roleOptions(roles: SourceRoleDto[], current: string): string[]` — function, line 25
+- `export const SYLLABUS_ROLE_HINT = "syllabus: used only to scope what your deliverables need — never taught from, never practice, never protected (don't give it the exam role, or LearnLoop hides it whole)"` — const, line 32
+- `export function AddToCollectionPanel(` — function, line 42
 
 ## Internal implementation anchors
 
-- `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes", "syllabus" ] as const` — const, line 16
-- `function kebab(value: string): string` — function, line 33
-- `let cancelled = false` — let, line 73
-- `const list = setsSnap.sourceSets ?? []` — const, line 77
-- `const confirm = useCallback(async ()` — const, line 93
-- `const member =` — const, line 98
-- `let payload: SourceSetDto` — let, line 109
-- `let title: string` — let, line 110
-- `const members = [ ...sourceSet.members.filter((m)` — const, line 119
-- `const id = kebab(newName)` — const, line 126
-- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 150
-- `function ModeChip(` — function, line 259
+- `const query = useCachedQuery(["get_source_roles"], ()` — const, line 20
+- `const names = roles.map((row)` — const, line 26
+- `function kebab(value: string): string` — function, line 35
+- `const roles = useSourceRoles()` — const, line 70
+- `const scopeOnly = roles.find((row)` — const, line 71
+- `let cancelled = false` — let, line 77
+- `const list = setsSnap.sourceSets ?? []` — const, line 81
+- `const confirm = useCallback(async ()` — const, line 97
+- `const member =` — const, line 102
+- `let payload: SourceSetDto` — let, line 113
+- `let title: string` — let, line 114
+- `const members = [ ...sourceSet.members.filter((m)` — const, line 123
+- `const id = kebab(newName)` — const, line 130
+- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 154
+- `function ModeChip(` — function, line 263
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/components/OutlineAndPlan|src/components/OutlineAndPlan.tsx]] — import-or-re-export: `AddToCollectionPanel`, `SYLLABUS_ROLE_HINT`; references `AddToCollectionPanel`, `SYLLABUS_ROLE_HINT`
+- [[Reference/Desktop/TypeScript/components/OutlineAndPlan|src/components/OutlineAndPlan.tsx]] — import-or-re-export: `AddToCollectionPanel`, `SYLLABUS_ROLE_HINT`, `roleOptions`, `useSourceRoles`; references `AddToCollectionPanel`, `SYLLABUS_ROLE_HINT`, `roleOptions`, `useSourceRoles`
 - [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|src/components/SourceLibrarySidebar.tsx]] — import-or-re-export: `AddToCollectionPanel`; references `AddToCollectionPanel`
 
 ## Dependencies
@@ -85,7 +90,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `SourceSetDto`, `SourceSetSummaryDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `SourceRoleDto`, `SourceSetDto`, `SourceSetSummaryDto`
+- [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
+- [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/components/NewSubjectControl|src/components/NewSubjectControl.tsx]] — import-or-re-export; imports `NewSubjectControl`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `TermSelect`
 

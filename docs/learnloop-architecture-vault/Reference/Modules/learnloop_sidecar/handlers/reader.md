@@ -252,9 +252,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `module`; calls `ArcError`, `answer_prime`, `create_arc`, `offer_prime`, `pause_arc`, `project_arc`, `set_depth_policy`, `shrink_envelope`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `note_reading_progress`; calls `PlanEnv`, `note_reading_progress`
-- [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] — imports `youtube_video_id`; calls `youtube_video_id`
 - [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] — imports `UnsupportedSourceError`
 - [[Reference/Modules/learnloop/ingest/originals|learnloop.ingest.originals]] — imports `backfill_original`, `is_pdf_file`, `stored_original_path`; calls `backfill_original`, `is_pdf_file`, `stored_original_path`
+- [[Reference/Modules/learnloop/ingest/youtube|learnloop.ingest.youtube]] — imports `youtube_video_id`; calls `youtube_video_id`
 - [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] — imports `caller_for`; calls `caller_for`
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `propose_practice`, `service_enabled`; calls `propose_practice`, `service_enabled`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `tutor_request_handler`; calls `tutor_request_handler`

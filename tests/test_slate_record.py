@@ -30,7 +30,7 @@ from learnloop.content.authoring.item_authoring import retire_item
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import slate_record
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue, explain_practice_item
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, read_due_queue, explain_practice_item
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_placement_vault
@@ -85,7 +85,7 @@ def test_a_persisting_build_writes_one_slate_record_with_its_exclusions(tmp_path
     paths, vault, repository = _setup(tmp_path)
     vault = _retire(paths, repository, "pi_eig_hard")
     with provenance.trace_scope("TRACE_SLATE"):
-        queue = build_due_queue(vault, repository, clock=_at(5), session=SchedulerSession(session_id="s1"), limit=2)
+        queue = serve_due_queue(vault, repository, clock=_at(5), session=SchedulerSession(session_id="s1"), limit=2)
     assert queue, "sanity: new material is served"
     slate_id = _slate_id(paths, "s1")
     with connect(paths.sqlite_path, read_only=True) as connection:
@@ -117,10 +117,10 @@ def test_reads_write_no_slate_record(tmp_path):
     explain_practice_item(vault, repository, "pi_eig_easy")
     # A sessionless build records no slate row, so no record either: a plan read that changes nothing commits
     # nothing (``test_curriculum_c1_fix_round3``'s memo depends on it).
-    build_due_queue(vault, repository, clock=_at(5))
+    serve_due_queue(vault, repository, clock=_at(5))
     assert _all_records(paths) == []
     # The same build persisting writes exactly one.
-    build_due_queue(vault, repository, clock=_at(5), session=session)
+    serve_due_queue(vault, repository, clock=_at(5), session=session)
     assert [kind for _id, kind in _all_records(paths)] == ["slate"]
 
 
@@ -137,11 +137,19 @@ def test_a_record_that_cannot_be_written_changes_nothing_served(tmp_path, monkey
 
             monkeypatch.setattr(store, "write_decision", refused)
         with provenance.trace_scope(f"TRACE_{name.upper()}"), caplog.at_level(logging.WARNING):
-            queue = build_due_queue(vault, repository, clock=_at(5), session=SchedulerSession(session_id="s1"))
+            queue = serve_due_queue(vault, repository, clock=_at(5), session=SchedulerSession(session_id="s1"))
         served.append([(s.practice_item_id, s.priority, s.selected_mode, s.components) for s in queue])
         assert [kind for _id, kind in _all_records(paths)] == ([] if broken else ["slate"])
     assert served[0] == served[1]
     assert "decision record 'slate' not written (trace TRACE_BROKEN): RuntimeError" in caplog.text
+
+
+def test_a_record_that_cannot_be_built_changes_nothing_and_writes_nothing(caplog):
+    with provenance.trace_scope("TRACE_UNBUILT"), caplog.at_level(logging.WARNING):
+        assert slate_record.slate_decision(withheld={}, teach_back_value=False, cold_deferrals=(),
+                                           greedy=[], considered=[]) is None
+    assert "decision record 'slate' not written (trace TRACE_UNBUILT): TypeError" in caplog.text
+    assert slate_record.record_slate(object(), None, slate_id="SLATE1") is None
 
 
 def test_a_placement_check_records_why_its_lo_items_were_not_candidates(tmp_path):
@@ -155,7 +163,7 @@ def test_a_placement_check_records_why_its_lo_items_were_not_candidates(tmp_path
         kind="cold_retry", case_kind="diagnosis", case_ref="case-1",
         not_before="2026-07-01T00:00:00Z", selected_item_id="pi_diag_mid", clock=_at(2),
     )
-    queue = build_due_queue(vault, repository, clock=_at(14 * 24 * 60 + 5), session=SchedulerSession(session_id="s2"))
+    queue = serve_due_queue(vault, repository, clock=_at(14 * 24 * 60 + 5), session=SchedulerSession(session_id="s2"))
     assert [s.practice_item_id for s in queue if s.components.get("assumed_check")] != ["pi_diag_mid"]
     (record,) = _records(paths)
     assert record.facts["placement_check_exclusions"]["out_of_timing"] == {"n": 1, "ids": ["pi_diag_mid"]}
@@ -200,7 +208,7 @@ def test_the_rule_that_put_the_head_first():
     assert rule(item("a"), pinned_item_id=None, check_item_ids=(), greedy_head_id="b") == "composition_order"
     record = slate_record.slate_record(
         served=[item("odd id")], considered=[item("odd id"), item("pi_b")], greedy=[item("odd id")],
-        exclusions={}, placement_check_exclusions={}, propensity={}, limit=None, slate_id=None, session_id=None,
+        exclusions={}, placement_check_exclusions={}, propensity={}, limit=None, session_id=None,
         pinned_item_id=None, check_item_ids=(), probe_block_reason=None, algorithm_version="mvp-0.57",
         selection_policy="composed_offer_v2",
     )
@@ -219,11 +227,16 @@ def test_a_recorded_slate_keeps_ten_alternatives_and_counts_the_rest():
     common = dict(considered=considered, greedy=considered, exclusions={}, placement_check_exclusions={},
                   propensity={}, session_id="s1", pinned_item_id=None, check_item_ids=(), probe_block_reason=None,
                   algorithm_version="mvp-0.57", selection_policy="composed_offer_v2")
-    with_row = slate_record.slate_record(served=considered[:5], limit=5, slate_id="SLATE1", **common)
+    without_row = slate_record.slate_record(served=considered[:5], limit=5, **common)
+    assert len(without_row.alternatives) == 29 and "alternatives_overflow" not in without_row.facts
+    assert slate_record.with_slate_row(without_row, None) is without_row
+    with_row = slate_record.with_slate_row(without_row, "SLATE1")
     assert [a["ref"] for a in with_row.alternatives] == [f"pi_{index:02d}" for index in range(1, 11)]
     assert with_row.facts["alternatives_overflow"] == {"beyond_limit": 19}
-    without_row = slate_record.slate_record(served=considered[:5], limit=5, slate_id=None, **common)
-    assert len(without_row.alternatives) == 29 and "alternatives_overflow" not in without_row.facts
+    assert (with_row.subject_kind, with_row.subject_id, with_row.detail_table, with_row.detail_id) == (
+        "slate", "SLATE1", "scheduler_slates", "SLATE1")
+    # The record the ranking returned is left as it was.
+    assert len(without_row.alternatives) == 29 and without_row.subject_id is None
 
 
 # -- why -----------------------------------------------------------------------------------------------------
@@ -236,7 +249,7 @@ def test_why_names_the_rule_that_kept_an_item_off_the_slate(tmp_path):
 
     paths, vault, repository = _setup(tmp_path)
     vault = _retire(paths, repository, "pi_eig_hard")
-    build_due_queue(vault, repository, clock=_at(5), session=SchedulerSession(session_id="s1"))
+    serve_due_queue(vault, repository, clock=_at(5), session=SchedulerSession(session_id="s1"))
     slate_id = _slate_id(paths, "s1")
     runner = CliRunner()
     result = runner.invoke(app, ["why", "item:pi_eig_hard", "--json", "--vault", str(paths.root)])

@@ -232,8 +232,8 @@ def test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals
     # Teacher TE2-log's teacher.episode_log off in every case: the prompt is TE1's with TE2's paragraph alone (every
     # lesson opens under TE2; tests/test_teacher_te2log_episodes.py pins the episode switch the same way).
     off = {("teacher", "episode_log"): False}
-    cases = (({("teacher", "visuals"): False, **off}, True), ({("figures", "show_me_enabled"): False, **off}, True),
-             ({("figures", "enabled"): False, **off}, True), (off, False))
+    cases = (({("teacher", "visuals"): False, **off}, True), ({("figures", "enabled"): False, **off}, True),
+             (off, False))
     for index, (config, builder) in enumerate(cases):
         paths, repository, fake, author, view, _ = _open(tmp_path / f"case{index}", [plan_turn],
                                                          config=config, builder=builder)

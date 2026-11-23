@@ -56,7 +56,7 @@ caller, never by what the follow-up request names (Codex review F4); a
 question about held-out material is refused before anything is retrieved
 (F1); the organizer's daily cap is a durable, atomic reservation (F5).
 
-RW5b (``figures.offers_enabled``): when an equation or a figure block is
+RW5b (with ``figures.enabled``): when an equation or a figure block is
 among the passages, the organizer's same call also answers ``explorable:
 yes | no`` on each (its own prompt version per request; code names the
 blocks, an old output without the field reads as no), and a note on such a
@@ -94,7 +94,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as gap_store
 from learnloop.db.stores import library_asks as ask_store
 from learnloop.db.stores.source_block_fts import blocks_by_key
-from learnloop.figure_admission import EXPLORABLE, explorable_yes, offer_kind, offers_enabled
+from learnloop.figure_admission import EXPLORABLE, explorable_yes, figures_enabled, offer_kind
 from learnloop.goals.goal_certification import lo_certification
 from learnloop.ids import new_ulid
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps, task_output_tokens
@@ -253,7 +253,7 @@ ORGANIZER_ROLES_TASK = ListwiseTask(
 # RW5b: "make this explorable" offered by the organizer's own judgment
 # ---------------------------------------------------------------------------
 
-#: RW5b (``figures.offers_enabled``): the same request, plus ``explorable``
+#: RW5b (with ``figures.enabled``): the same request, plus ``explorable``
 #: on each judged passage; its own prompt version per base request.
 EXPLORABLE_SUFFIX = "-explorable"
 
@@ -343,10 +343,10 @@ _EXPLORABLE_SENTENCE = (
 
 def organizer_task(vault: LoadedVault) -> ListwiseTask:
     """RW4a's organizer request, or RW4e's while ``roles.on_demand_enabled`` is
-    on; either with RW5b's ``explorable`` while ``figures.offers_enabled`` is on."""
+    on; either with RW5b's ``explorable`` while ``figures.enabled`` is on."""
 
     task = ORGANIZER_ROLES_TASK if RS.on_demand_enabled(vault) else ORGANIZER_TASK
-    if offers_enabled(vault):
+    if figures_enabled(vault):
         return ORGANIZER_ROLES_EXPLORABLE_TASK if task is ORGANIZER_ROLES_TASK else ORGANIZER_EXPLORABLE_TASK
     return task
 
@@ -362,7 +362,7 @@ def shown_organizer(vault: LoadedVault, organizer: Mapping[str, Any]) -> dict[st
     carries ``explorable`` (a stored one from while they were on included), so
     the output is RW4a's/RW4e's, key for key."""
 
-    if offers_enabled(vault):
+    if figures_enabled(vault):
         return dict(organizer)
     notes = organizer.get("notes")
     if not isinstance(notes, list) or not any(isinstance(note, Mapping) and "explorable" in note for note in notes):

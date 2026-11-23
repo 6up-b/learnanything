@@ -2696,56 +2696,58 @@ class FiguresPrefetchConfig(BaseModel):
     pressed_waits: bool = True
 
 
-class FiguresConfig(BaseModel):
+class FiguresConfig(KeepsRetiredFields):
     """Reader workbench: explorable figures.
 
     ``enabled``: "make this explorable" on a selected equation, figure block
     or passage builds a declarative figure spec (route ``figure_author``),
-    verifies it before it shows (structure, invariants and shaded areas; no
-    source claim: every figure is an illustration, the source check is
-    ``checked_labels_enabled``'s), and draws it inline under its passage.
-    Off: the Reader shows no figures, the RPCs refuse and no route is called.
-    ``predictions_enabled``: one prediction before the first change, the
-    observed before/after readout and "what changed?" (formative; a missed
-    one is a ``reader_formative`` learner text). ``region_enabled``: a
-    Ctrl+drag region of a figure on the original page, of which only the crop
-    is sent. ``revisions_enabled``: "not right?" asks for a new version with
-    the learner's note (the earlier one is kept).
-
-    ``advanced_panels_enabled``: heat maps, vector fields,
+    verifies it before it shows (structure, invariants and shaded areas, then
+    the source check below), and draws it inline under its passage. With it:
+    one prediction before the first change, the observed before/after readout
+    and "what changed?" (formative; a missed one is a ``reader_formative``
+    learner text); a Ctrl+drag region of a figure on the original page, of
+    which only the crop is sent; "not right?", a new version with the
+    learner's note (the earlier one is kept); heat maps, vector fields,
     trajectories (fixed-step RK4) and iterated maps in the same declarative
-    grammar; off, the author is not told of them and may not emit them, and a
-    stored figure that uses one shows as "can't draw this yet".
-    ``offers_enabled``: the library organizer and the Reader tutor judge, in
-    the call they already make, whether a cited equation or
-    figure block could become an explorable figure, and a yes adds "make this
-    explorable" to that passage or answer (pressing it builds through the same
-    pipeline, origin ``library`` | ``tutor``); off, their prompts, outputs and
-    what the Reader shows carry no offer.
+    grammar; the library organizer's and the Reader tutor's judgment, in the
+    call they already make, of whether a cited equation or figure block could
+    become an explorable figure (a yes adds "make this explorable", origin
+    ``library`` | ``tutor``); and "show me", which takes the learner's words,
+    with or without a passage (the intent box's "show me…", *show me* in the
+    Reader's Ask rail, and the Reader tutor's optional ``figure_goal``). A
+    request with no passage is grounded in the learner's books (verified
+    retrieval, at most three passages) and, when nothing is found, built
+    anyway and labelled "not from your books". Off: the Reader shows no
+    figures, the RPCs refuse and no route is called.
 
-    ``show_me_enabled``: "show me"
-    takes the learner's words, with or without a passage (the intent box's
-    "show me…", *show me* in the Reader's Ask rail, and the Reader tutor's
-    optional ``figure_goal``, a button the learner presses). A request with
-    no passage is grounded in the learner's books (verified retrieval, at
-    most three passages) and, when nothing is found, built anyway and
-    labelled "not from your books". Off: figures start only from a passage,
-    and the tutor's prompt and output are the predecessor's.
-
-    ``sketch_enabled``: the sketch tier. When the declarative grammar
-    cannot express an idea (a random process, a simulation with state, a
-    geometric construction, a discrete structure), the author may write a
-    small program instead (``SketchProgramV1``), which runs in a sealed
-    interpreter (QuickJS compiled to WebAssembly: no files, network, clock or
-    app access) in the desktop and, for verification, in the sidecar; it
-    returns a display list the Reader draws and declared probes that code
-    checks against the claims it states. Labelled an AI-written simulation,
-    never "checked against the book". Off: the author's contract is the
-    predecessor's byte for byte, and stored sketches list as "can't draw
-    this yet". Default **on**: the engine's Worker runs from a blob inside a
+    The sketch tier, wherever the sealed engine loads: when the declarative
+    grammar cannot express an idea (a random process, a simulation with
+    state, a geometric construction, a discrete structure), the author may
+    write a small program instead (``SketchProgramV1``), which runs in a
+    sealed interpreter (QuickJS compiled to WebAssembly: no files, network,
+    clock or app access) in the desktop and, for verification, in the
+    sidecar; it returns a display list the Reader draws and declared probes
+    that code checks against the claims it states. Labelled an AI-written
+    simulation, never "checked against the book". Where the engine can't
+    load, the author's contract has no sketch and stored sketches list as
+    "can't draw this yet". The engine's Worker runs from a blob inside a
     sandboxed, opaque-origin frame whose CSP has ``connect-src 'none'``, and
     an IPC probe from inside it in the real Tauri webview cannot reach the
     app (a URL-loaded Worker could).
+
+    The source check: after the structural checks, code reads the book's
+    equations from a grammar figure's own input spans and compares each
+    definition drawn by bare reference with them, exactly, in the sandbox (no
+    model call); an element that passes reads "matches the book's equation
+    (checked)", and every label of that figure is code-owned. A stated claim
+    proved different gets the second author attempt and is otherwise not
+    shown.
+
+    Eight switches that each turned one of these off one by one were retired
+    (``predictions_enabled``, ``region_enabled``, ``revisions_enabled``,
+    ``advanced_panels_enabled``, ``offers_enabled``, ``show_me_enabled``,
+    ``sketch_enabled``, ``checked_labels_enabled``): a vault that still sets
+    one loads, and nothing reads it (``config.retired``).
 
     ``rich_tiers_enabled``:
     the rich tiers. When a rich tier is available on this machine the
@@ -2760,7 +2762,7 @@ class FiguresConfig(BaseModel):
     ``bwrap`` and Manim installed only, and only after the standing opt-in
     ``manim_opt_in = "standing"`` (asked once, inline, on a press; "not now"
     writes ``"declined"``; ``manim_opt_in_at`` records the date). Off: the
-    author's contract is V2's (or V1's) byte for byte, no rich menu entry, and stored rich figures
+    author's contract is V2's (or V1's), no rich menu entry, and stored rich figures
     list as "can't show this kind here". Nothing in scoring, scheduling,
     projection or serving reads these keys.
 
@@ -2802,16 +2804,6 @@ class FiguresConfig(BaseModel):
     hash. Default **on**. Off: nothing builds in the background, no decision
     is written, and a prebuilt figure nobody pressed for is not listed.
 
-    ``checked_labels_enabled``: after the structural checks, code reads the book's equations from a grammar figure's own
-    input spans and compares each definition drawn by bare reference with them,
-    exactly, in the sandbox (no model call); an element that passes reads
-    "matches the book's equation (checked)", and every label of that figure is
-    code-owned. A stated claim proved different gets the second author attempt
-    and is otherwise not shown. Default **on**. Off: nothing is checked,
-    nothing reads ``figure_source_checks``, and every view is the
-    predecessor's exactly; existing rows are kept and show again when it is
-    back on.
-
     Caps: two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2821,18 +2813,10 @@ class FiguresConfig(BaseModel):
     """
 
     enabled: bool = True
-    predictions_enabled: bool = True
-    region_enabled: bool = True
-    revisions_enabled: bool = True
-    advanced_panels_enabled: bool = True
-    offers_enabled: bool = True
-    show_me_enabled: bool = True
-    sketch_enabled: bool = True
     rich_tiers_enabled: bool = True
     author_learner_state: bool = True
     help_kind_enabled: bool = True
     prefetch_enabled: bool = True
-    checked_labels_enabled: bool = True
     prefetch: FiguresPrefetchConfig = Field(default_factory=FiguresPrefetchConfig)
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None
@@ -4446,7 +4430,7 @@ class TeacherConfig(KeepsRetiredFields):
       (spend; unset, a metered lesson turn is refused before sending).
 
     ``visuals``: the kill switch of the teacher's manipulatives. On (with
-    ``figures.enabled`` and ``figures.show_me_enabled``), the teacher's turn may
+    ``figures.enabled``), the teacher's turn may
     carry a ``visual`` and plan nodes a planned one, built by the figure service
     (grammar and sketch tiers) with origin ``teacher``, its own predictions off in
     the lesson; the teacher's prompt carries the visuals paragraph. Off, the

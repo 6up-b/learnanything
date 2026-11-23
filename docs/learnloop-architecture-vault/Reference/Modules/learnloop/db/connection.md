@@ -282,6 +282,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `connect`
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `connect`
 
 ## Dependencies
 

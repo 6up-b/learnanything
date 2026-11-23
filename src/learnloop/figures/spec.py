@@ -13,8 +13,7 @@ whose sum is its readout), ``linear_map_2d`` (the unit square and its image
 under a 2x2 matrix) and ``readout`` (a labelled value, which may use
 ``integral()`` and ``sum()``).
 
-RW5b's panels (§8.7; the same grammar, the same evaluators, behind
-``figures.advanced_panels_enabled``): ``heatmap_2d`` (an expression over a
+RW5b's panels (§8.7; the same grammar, the same evaluators): ``heatmap_2d`` (an expression over a
 grid of ``x`` and ``y``, with contour levels), ``vector_field_2d`` (``u``
 and ``v`` over a grid, with an optional heat map under the arrows),
 ``trajectory_2d`` (a 2-D system integrated by fixed-step RK4, written in the
@@ -79,7 +78,7 @@ MAX_STEPS = 10_000
 #: The widest a function plot's x range may be (fix round 4): its samples are
 #: computed from it, and the renderer pads it.
 MAX_DOMAIN_SPAN = 1e12
-#: RW5b (§8.7): the panels behind ``figures.advanced_panels_enabled``.
+#: RW5b (§8.7): the advanced panels.
 ADVANCED_KINDS = ("heatmap_2d", "vector_field_2d", "trajectory_2d", "iterate_2d")
 #: Code-owned caps on computation (W4): a grid's cells per axis (cells + 1
 #: samples), a trajectory's RK4 steps, a map's iterations and contour levels.
@@ -780,8 +779,8 @@ def advanced_kinds(spec: InteractiveFigureSpecV1 | Mapping[str, Any]) -> list[st
 def parse_spec(raw: str | Mapping[str, Any], *, advanced: bool = True) -> CompiledFigure:
     """A spec from its JSON (or mapping), validated and compiled, or :class:`SpecError`.
 
-    ``advanced`` (``figures.advanced_panels_enabled``): False refuses RW5b's
-    panels, so an author may not emit them while the switch is off."""
+    ``advanced``: False refuses RW5b's panels (a contract that does not name
+    them)."""
 
     try:
         data = json.loads(raw) if isinstance(raw, str) else dict(raw)

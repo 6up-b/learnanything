@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from learnloop.clock import Clock
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.repositories import REBUILD_STAMPED_TABLES, Repository
 from learnloop.db.scopes import atomic_repository_call
@@ -25,7 +25,14 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.learner.facet_diagnostics import coverage_denominator_version
 from learnloop.learner.identifiability import graph_identifiability_report
 from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
-from learnloop.learner.mastery import initial_mastery_state_for_learning_object
+from learnloop.algorithm_versions import mastery_seed_on
+from learnloop.learner.mastery import (
+    initial_mastery_state_for_learning_object,
+    live_seed_inputs,
+    recorded_seed_state,
+    seed_for_learning_object,
+)
+from learnloop.learner.mastery_seed import note_rebuilt_seed, recorded_seed_for_replay
 from learnloop.vault.models import LoadedVault
 
 
@@ -386,13 +393,16 @@ def _run_learning_state(
     if context.learning_object_ids is None:
         existing = set(context.repository.mastery_states())
         for learning_object_id in sorted(set(context.vault.learning_objects) - existing):
-            state = initial_mastery_state_for_learning_object(
-                context.vault,
-                context.repository,
-                learning_object_id,
-                COLD_MASTERY_BASELINE_AT,
-            )
-            context.repository.upsert_mastery_state(state)
+            if mastery_seed_on(context.vault.config):
+                _seed_attempt_free(context, learning_object_id)
+            else:
+                state = initial_mastery_state_for_learning_object(
+                    context.vault,
+                    context.repository,
+                    learning_object_id,
+                    COLD_MASTERY_BASELINE_AT,
+                )
+                context.repository.upsert_mastery_state(state)
             cold_mastery_rows += 1
 
     rebuilt = set(result.learning_object_ids)
@@ -415,6 +425,31 @@ def _run_learning_state(
             "learning_object_ids": list(result.learning_object_ids),
         },
     )
+
+
+def _seed_attempt_free(context: _ReplayContext, learning_object_id: str) -> None:
+    """An attempt-free learning object's row at mvp-0.67: the seed recorded where it was first persisted, then every
+    re-anchoring claim made after it at its own point, as live applied them (the same claim stream the attempts'
+    replay opens). A learning object no writer ever materialized is materialized here, and its seed recorded as
+    sync would record it; inside the upgrade's observation pass it is handed to the observer instead."""
+
+    from learnloop.substrate.replay import _ClaimStream
+
+    vault, repository = context.vault, context.repository
+    recorded = recorded_seed_for_replay(vault, repository, learning_object_id)
+    if recorded is None:
+        seed = seed_for_learning_object(vault, repository, learning_object_id, COLD_MASTERY_BASELINE_AT)
+        repository.upsert_mastery_state(seed.state)
+        if not note_rebuilt_seed(learning_object_id, seed):
+            now = utc_now_iso(context.clock)
+            inputs = live_seed_inputs(vault, learning_object_id, seed, materialized_at=now)
+            if inputs is not None:
+                repository.record_mastery_seed_inputs(inputs, recorded_at=now)
+        return
+    repository.upsert_mastery_state(recorded_seed_state(vault, recorded, COLD_MASTERY_BASELINE_AT))
+    stream = _ClaimStream.open(vault, repository, learning_object_id, [], seeded_with=recorded.claim_ids)
+    if stream is not None:
+        stream.finish()
 
 
 def _run_canonical_projection(

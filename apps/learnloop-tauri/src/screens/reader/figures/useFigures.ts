@@ -8,6 +8,7 @@
 // With the contract's `figures` absent (figures.enabled off) the hook is inert:
 // no RPC is ever called and nothing renders (U13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useWhenLive } from "../../desks/lifecycle";
 import { api } from "../../../api/client";
 import type { CorrespondentFigureDto, FigureBuildResultDto, FigurePredictionResultDto, FigureRichPendingDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
 import { errorMessage, getCommandError } from "../../../errors";
@@ -67,9 +68,9 @@ export interface FiguresContract {
   predictions: boolean;
   region: boolean;
   revisions: boolean;
-  /** RW5b: "make this explorable" offers (present only while figures.offers_enabled is on). */
+  /** RW5b: "make this explorable" offers (sent with figures on). */
   offers?: boolean;
-  /** RW5d P1: "show me" in the learner's words (present only while figures.show_me_enabled is on). */
+  /** RW5d P1: "show me" in the learner's words (sent with figures on). */
   showMe?: boolean;
   /** RW5d P2: the sketch tier. */
   sketch?: boolean;
@@ -167,6 +168,7 @@ export function useFigures({
 }): FiguresCtl {
   const enabled = Boolean(contract && extractionId);
   const followOn = enabled && followEnabled;
+  const whenLive = useWhenLive();
   const [figures, setFigures] = useState<FigureViewDto[]>([]);
   const [pending, setPending] = useState<FigurePending[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -257,7 +259,9 @@ export function useFigures({
     if (!enabled || !extractionId || !richRunning) return;
     const mine = generation.current;
     const timer = setTimeout(() => {
-      void Promise.resolve(api.readerFigures({ extractionId }))
+      // A paused window reads nothing; back on screen the wait goes on.
+      void whenLive()
+        .then(() => (generation.current === mine ? api.readerFigures({ extractionId }) : null))
         .then((found) => {
           if (generation.current === mine && found) {
             setFigures(found.figures ?? []);
@@ -268,7 +272,7 @@ export function useFigures({
         .catch(() => undefined);
     }, RICH_POLL_MS);
     return () => clearTimeout(timer);
-  }, [enabled, extractionId, richRunning, figures, richPending, prefetchPending]);
+  }, [enabled, extractionId, richRunning, figures, richPending, prefetchPending, whenLive]);
 
   const land = useCallback((figure: FigureViewDto) => {
     const sameRequest = (item: FigureViewDto) => item.spanIds.join(",") === figure.spanIds.join(",")
@@ -316,6 +320,7 @@ export function useFigures({
           jobId = job.jobId;
           while (job.state === "pending") {
             await sleep(FIGURE_POLL_MS);
+            await whenLive();
             if (!live()) return "cancelled";
             job = await api.readerFigureJob({ jobId: job.jobId });
           }
@@ -334,7 +339,7 @@ export function useFigures({
             return "not_shown";
           }
           const figure = job.state === "done" ? job.result?.figure ?? null : null;
-          const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
+          const shown = figure !== null && figure.shown;
           if (figure && figure.supersedesId && !shown) {
             // A "not right?" version that did not verify: the earlier one stays.
             setPending((list) => [...list, { key, anchorSpanId, state: "failed", message: figure.reason ? `${frameBadge(figure.verification)} (${figure.reason})` : frameBadge(figure.verification), code: figure.verification, retry, cancel }]);
@@ -354,7 +359,7 @@ export function useFigures({
         }
       })();
     },
-    [land],
+    [land, whenLive],
   );
 
   const request = useCallback(
@@ -458,12 +463,13 @@ export function useFigures({
         const jobId = started?.jobId;
         while (jobId && state === "pending") {
           await sleep(FIGURE_POLL_MS);
+          await whenLive();
           state = (await api.readerFigureJob({ jobId })).state;
         }
         if (jobId) refresh();
       })().catch(() => undefined);
     },
-    [enabled, refresh],
+    [enabled, refresh, whenLive],
   );
 
   const patchPrediction = useCallback((found: FigurePredictionResultDto) => {
@@ -503,7 +509,7 @@ export function useFigures({
         return refuse();
       }
       if (!current()) return false;
-      if (!found || (found.verification !== "verified" && found.verification !== "illustrative")) return refuse();
+      if (!found || !found.shown) return refuse();
       // Shown here, under the passage the learner is reading; a fuller version still
       // being built stays with its own book (only a ready one comes along).
       const figure: FigureViewDto = { ...found, anchorSpanId: at,

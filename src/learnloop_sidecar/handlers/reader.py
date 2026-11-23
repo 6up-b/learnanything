@@ -1906,7 +1906,7 @@ class ReaderWatchPlanInput(ParamsModel):
 
 @method("reader.watch_plan", ReaderWatchPlanInput)
 def reader_watch_plan(ctx: SidecarContext, params: ReaderWatchPlanInput) -> dict[str, Any]:
-    from learnloop.ingest.fetchers import youtube_video_id
+    from learnloop.ingest.youtube import youtube_video_id
     from learnloop.ingest.models import UnsupportedSourceError
 
     vault, repository = _require_reader(ctx)

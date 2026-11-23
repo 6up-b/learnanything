@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
+from learnloop.ingest.source_kinds import source_kind
 from learnloop.content.pipeline.acquisition_preview import build_acquisition_preview
 from learnloop.content.pipeline.build_plan import build_build_plan
-from learnloop.content.sources.role_authority import is_scope_only_role
+from learnloop.content.sources.role_authority import authority_matrix, is_scope_only_role
 from learnloop.content.sources.source_outline import (
     OutlineNotFound,
     build_source_outline,
@@ -30,8 +31,8 @@ _RECENT_LIMIT = 30
 # (min, max, label, error code). Three entry points let a ceiling be moved — the
 # failed-synthesis retry panel, the build-plan per-run override, and Settings →
 # Token budgets — and they previously carried their own copies of these numbers.
-# Backend validation bounds; SettingsScreen and OutlineAndPlan read them via `get_settings`.
-# IngestActivity still keeps its own bounds.
+# Backend validation bounds; SettingsScreen, OutlineAndPlan and IngestActivity's retry panel read them via
+# `get_settings`.
 BUDGET_BOUNDS: dict[str, tuple[int, int, str, str]] = {
     "inventory_input_tokens": (1_000, 2_000_000, "Inventory input ceiling", "invalid_inventory_budget"),
     "inventory_output_tokens": (1_000, 100_000, "Inventory output budget", "invalid_inventory_budget"),
@@ -92,6 +93,12 @@ def validated_budget_overrides(overrides: dict[str, int] | None) -> dict[str, in
     return validated
 
 
+# PDF extraction engine a learner may pick per import: GLM-OCR, marker-pdf (structured Markdown, math,
+# OCR), the pypdf native-text fallback, or the native PDF model. "auto" defers to the vault's [ingest.pdf].
+PdfEngine = Literal["auto", "glm_ocr", "marker", "pypdf", "native"]
+PDF_ENGINES: tuple[str, ...] = get_args(PdfEngine)
+
+
 class ClassifyIngestSourceInput(ParamsModel):
     source: str
 
@@ -100,9 +107,7 @@ class StartIngestInput(ParamsModel):
     source: str
     subject_id: str
     mode: Literal["canonical", "exam"] = "canonical"
-    # PDF extraction engine: marker-pdf (structured Markdown, math, OCR) or the
-    # pypdf native-text fallback. "auto" defers to the vault's [ingest.pdf].
-    pdf_engine: Literal["auto", "glm_ocr", "marker", "pypdf", "native"] = "auto"
+    pdf_engine: PdfEngine = "auto"
 
 
 class IngestJobInput(ParamsModel):
@@ -134,9 +139,7 @@ class StartImportBatchInput(ParamsModel):
     # Sources the learner opted OUT of the reader loop at ingest setup (e.g.
     # practice exams). Everything else defaults to reader-enabled.
     reader_disabled_sources: list[str] = []
-    # PDF extraction engine for this batch: marker-pdf or the pypdf fallback.
-    # "auto" defers to the vault's [ingest.pdf] configuration.
-    pdf_engine: Literal["auto", "glm_ocr", "marker", "pypdf", "native"] = "auto"
+    pdf_engine: PdfEngine = "auto"
 
 
 class IngestBatchInput(ParamsModel):
@@ -168,7 +171,17 @@ def classify_ingest_source(_ctx: SidecarContext, params: ClassifyIngestSourceInp
         resolved = resolve_source(params.source)
     except UnsupportedSourceError as exc:
         raise SidecarError("unsupported_source", str(exc)) from exc
-    return versioned({"kind": resolved.category, "normalized_source": resolved.source})
+    kind = source_kind(resolved.category)
+    # The kind's display row, so the desktop names it as the table does instead of a copy of its own.
+    return versioned({"kind": resolved.category, "normalized_source": resolved.source, "label": kind.label,
+                      "noun": kind.noun})
+
+
+@method("get_source_roles")
+def get_source_roles(_ctx: SidecarContext, _params) -> dict[str, Any]:
+    """The source-role vocabulary and its authority matrix (role_authority), for every role picker."""
+
+    return versioned({"roles": authority_matrix()})
 
 
 def _is_pdf_source(source: str) -> bool:
@@ -178,21 +191,41 @@ def _is_pdf_source(source: str) -> bool:
         return False
 
 
-def _native_pdf_preflight(vault, pdf_engine: str, sources: list[str], *, has_page_ranges: bool) -> None:
-    """Refuse at enqueue time what the import would reject anyway.
+def _native_pdf_road(config, pdf_engine: str):
+    """The native PDF model's readiness when a PDF under ``pdf_engine`` goes to it (whole, or refused when it
+    is unready); ``None`` when the import reads the PDF locally, which honours page ranges.
 
-    The pipeline makes the same judgement (learnloop.ai.native_media) when the
-    job runs; surfacing it here means the learner sees why before a batch is
-    created, instead of a failed job a moment later."""
+    The pipeline makes the same judgement (learnloop.ai.native_media) when the job runs."""
 
     from learnloop.ai.native_media import native_modality_readiness
 
-    engine = pdf_engine if pdf_engine != "auto" else vault.config.ingest.pdf.engine
-    if engine != "native" or not any(_is_pdf_source(source) for source in sources):
+    engine = pdf_engine if pdf_engine != "auto" else config.ingest.pdf.engine
+    if engine != "native":
+        return None
+    readiness = native_modality_readiness(config, "pdf", requested=True)
+    if not readiness.ready and config.ingest.native.fallback_when_unavailable:
+        return None  # the job takes the local road
+    return readiness
+
+
+def pdf_engines_refusing_page_ranges(config) -> list[str]:
+    """The engines (``auto`` resolved through the vault's [ingest.pdf]) under which an import batch with a page
+    range is refused, so the Ingest screen disables the range control for exactly those."""
+
+    return [engine for engine in PDF_ENGINES if _native_pdf_road(config, engine) is not None]
+
+
+def _native_pdf_preflight(vault, pdf_engine: str, sources: list[str], *, has_page_ranges: bool) -> None:
+    """Refuse at enqueue time what the import would reject anyway.
+
+    Surfacing it here means the learner sees why before a batch is created,
+    instead of a failed job a moment later."""
+
+    if not any(_is_pdf_source(source) for source in sources):
         return
-    readiness = native_modality_readiness(vault.config, "pdf", requested=True)
-    if not readiness.ready and vault.config.ingest.native.fallback_when_unavailable:
-        return  # the job takes the local road, which honours page ranges
+    readiness = _native_pdf_road(vault.config, pdf_engine)
+    if readiness is None:
+        return
     if has_page_ranges:
         raise SidecarError(
             "invalid_page_range",

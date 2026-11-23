@@ -34,7 +34,7 @@ from learnloop.diagnosis.probe_episodes import (
     enter_episode,
     episode_hypothesis_set,
 )
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -211,7 +211,7 @@ def test_diagnostic_probe_is_servable_when_injected_by_id_via_followup_task(tmp_
         clock=CLOCK,
     )
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault,
         repository,
         clock=CLOCK,
@@ -229,7 +229,7 @@ def test_diagnostic_probe_is_servable_when_injected_by_id_via_followup_task(tmp_
         attempt_type="diagnostic_probe",
         attempt_id="att_diag_followup_consume",
     )
-    queue_after = build_due_queue(
+    queue_after = serve_due_queue(
         vault,
         repository,
         clock=CLOCK,
@@ -347,7 +347,7 @@ def test_probe_selection_hard_excludes_an_already_seen_surface_group(tmp_path):
     # The scheduler neither serves it as a probe nor lets it leak into the
     # ordinary pool — and the exclusion is annotated on the persisted slate
     # rather than failing silently.
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault,
         repository,
         clock=CLOCK,

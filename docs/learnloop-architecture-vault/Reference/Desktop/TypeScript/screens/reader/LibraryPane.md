@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/LibraryPane.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/LibraryPane.tsx) |
-| Source lines | 170 |
+| Source lines | 167 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,27 +54,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function useComparingStacked(enabled: boolean): boolean` — function, line 39
-- `export function LibraryPane(` — function, line 51
+- `export function useComparingStacked(enabled: boolean): boolean` — function, line 40
+- `export function LibraryPane(` — function, line 52
 
 ## Internal implementation anchors
 
-- `const WIDTH_KEY = "ll.library.splitWidth"` — const, line 18
-- `function readWidth(): number | null` — function, line 20
-- `const value = Number(window.localStorage.getItem(WIDTH_KEY) ?? Number.NaN)` — const, line 22
-- `function writeWidth(width: number): void` — function, line 29
-- `const onResize = ()` — const, line 43
-- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 82
-- `const reclamp = ctl.byPoint` — const, line 83
-- `const onResize = ()` — const, line 87
-- `const composing = compose !== null` — const, line 91
-- `const onKey = (event: KeyboardEvent)` — const, line 97
+- `const WIDTH_KEY = "ll.library.splitWidth"` — const, line 19
+- `function readWidth(): number | null` — function, line 21
+- `const value = Number(window.localStorage.getItem(WIDTH_KEY) ?? Number.NaN)` — const, line 23
+- `function writeWidth(width: number): void` — function, line 30
+- `const hub = useListenerHub()` — const, line 42
+- `const onResize = ()` — const, line 45
+- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 83
+- `const reclamp = ctl.byPoint` — const, line 84
+- `const hub = useListenerHub()` — const, line 85
+- `const onResize = ()` — const, line 89
+- `const composing = compose !== null` — const, line 92
+- `const onKey = (event: KeyboardEvent)` — const, line 98
 - `const resize = (next: number)` — const, line 107
 - `const clamped = clampSplitWidth(next, window.innerWidth)` — const, line 108
 - `const startX = event.clientX` — const, line 129
 - `const startWidth = width` — const, line 130
 - `const onMove = (move: MouseEvent)` — const, line 131
-- `const onUp = ()` — const, line 132
+- `const offs: Array<()` — const, line 132
+- `const onUp = ()` — const, line 133
 
 ## Who imports or calls it
 
@@ -82,6 +85,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `LibraryPane`, `useComparingStacked`; references `LibraryPane`, `useComparingStacked`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `LibraryPane`; references `LibraryPane`
 
 ## Dependencies
 
@@ -90,6 +94,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `LibraryHitDto`, `ProposedItemDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|src/screens/reader/LibraryAnswer.tsx]] — import-or-re-export; imports `ExplorableOutcome`, `LibraryAnswer`, `LibraryExercisesProps`
 - [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export; imports `LIBRARY_COPY`, `LibraryAskController`
 - [[Reference/Desktop/TypeScript/screens/workbench/splitWidth|src/screens/workbench/splitWidth.ts]] — import-or-re-export; imports `MIN_WORKBENCH_WIDTH`, `SPLIT_STEP`, `clampSplitWidth`, `isNarrow`

@@ -96,7 +96,7 @@ from learnloop.diagnosis.diagnostic_gate import (
     BACKFILL_SKIPPED_UNREGISTERED,
     backfill_discrimination_rows,
 )
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, explain_practice_item
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, explain_practice_item
 from learnloop.content.pipeline.source_ingestion import SourceIngestionError, ingest_canonical_source
 from learnloop.ops.startup import run_startup_maintenance
 from learnloop.substrate.state_sync import sync_vault_state

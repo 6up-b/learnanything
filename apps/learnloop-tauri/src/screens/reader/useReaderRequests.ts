@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useWhenLive } from "../desks/lifecycle";
 import { api } from "../../api/client";
 import { errorMessage } from "../../errors";
 
@@ -62,6 +63,7 @@ function flattenSourceObjects(heads: Array<Record<string, unknown>>): Map<string
  * overlapping polls.
  */
 export function useReaderRequests(sourceId: string | null, enabled: boolean) {
+  const whenLive = useWhenLive();
   const activeSourceId = enabled ? sourceId : null;
   const activeScope = useMemo(() => ({ sourceId: activeSourceId }), [activeSourceId]);
   // Async results commit only while their scope object is still current; a
@@ -166,16 +168,18 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
         }
       }
       if (!cancelled && activeScopeRef.current === targetScope && pollAgain) {
-        timer = window.setTimeout(() => void poll(), 2000);
+        timer = window.setTimeout(next, 2000);
       }
     };
+    // A paused window reads nothing; back on screen the polling goes on.
+    const next = () => void whenLive().then(() => (cancelled ? undefined : poll()));
 
-    timer = window.setTimeout(() => void poll(), 2000);
+    timer = window.setTimeout(next, 2000);
     return () => {
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [activeSourceId, activeScope, polling, loadArtifacts]);
+  }, [activeSourceId, activeScope, polling, loadArtifacts, whenLive]);
 
   return { requests, proposalCount, synthesizedObjects, openProposalIds, loadError, refresh };
 }

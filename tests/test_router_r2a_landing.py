@@ -11,7 +11,7 @@ model-context protection (R2b will send the card), so it is not behind
 topic and status but not its statement.
 
 The staged frame has no exam rule of its own: it evaluates only what the
-scheduler admitted (``build_due_queue``, whose routine exclusions hold exam
+scheduler admitted (``serve_due_queue``, whose routine exclusions hold exam
 reservations out and, behind ``goals.held_out_selection``, items made from
 held-out material). So its handling agrees with exam protection's: a reserved
 item (a sitting's withdrawn items stay reserved until the sitting ends) is

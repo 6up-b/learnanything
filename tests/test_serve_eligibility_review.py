@@ -196,7 +196,7 @@ def test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practi
     either way, accepted, and no cold check follows thirty seconds later.
     Fail-first: the branch refused the 10:00 submit as a primed cold retry."""
 
-    from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_decision
+    from learnloop.scheduling.scheduler import serve_due_queue, cold_check_serve_decision
 
     for submit_offset in (timedelta(0), timedelta(seconds=-30)):
         root = tmp_path / f"run{abs(int(submit_offset.total_seconds()))}"
@@ -208,7 +208,7 @@ def test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practi
             clock=FrozenClock(now - timedelta(hours=2)),
         )
         monday = now + timedelta(days=1, hours=1)
-        build_due_queue(vault, repository, clock=FrozenClock(monday))
+        serve_due_queue(vault, repository, clock=FrozenClock(monday))
         assert repository.followup_task(task["id"])["status"] == "expired"
 
         tuesday = monday + timedelta(days=1)
@@ -218,7 +218,7 @@ def test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practi
         answered = _self_grade(vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="x"),
                                tuesday + submit_offset)
         assert repository.consumed_followup_task_for_attempt(answered.attempt_id) is None
-        soon = build_due_queue(vault, repository, clock=FrozenClock(tuesday + timedelta(seconds=30)))
+        soon = serve_due_queue(vault, repository, clock=FrozenClock(tuesday + timedelta(seconds=30)))
         assert cold_item not in [item.practice_item_id for item in soon if item.followup_kind == "cold_retry"]
 
 
@@ -229,7 +229,7 @@ def test_f3_a_cold_check_is_never_served_on_an_item_practised_since_it_was_set(t
     attempt as a hard exposure and the retrieval delay fails, so the check is
     withdrawn when it falls due instead of being served."""
 
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
 
     vault, repository, cold_item, task, now = _f3_setup(tmp_path)
     due = now + timedelta(days=1)
@@ -237,7 +237,7 @@ def test_f3_a_cold_check_is_never_served_on_an_item_practised_since_it_was_set(t
                 due - timedelta(seconds=30))
     assert repository.followup_task(task["id"])["status"] in {"pending", "served"}
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(due + timedelta(seconds=30)))
+    queue = serve_due_queue(vault, repository, clock=FrozenClock(due + timedelta(seconds=30)))
 
     assert cold_item not in [item.practice_item_id for item in queue if item.followup_kind == "cold_retry"]
     assert repository.followup_task(task["id"])["status"] == "expired"
@@ -250,12 +250,12 @@ def test_f3_a_cold_check_served_unpractised_is_still_served(tmp_path):
     """Control: no reveal, no practice since the check was set: the cold lane
     serves the cold retry when it falls due, and its answer consumes it."""
 
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
 
     vault, repository, cold_item, task, now = _f3_setup(tmp_path)
     due = now + timedelta(days=1, minutes=5)
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(due))
+    queue = serve_due_queue(vault, repository, clock=FrozenClock(due))
 
     assert cold_item in [item.practice_item_id for item in queue if item.followup_kind == "cold_retry"]
     answered = _self_grade(vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="x"), due)
@@ -274,7 +274,7 @@ def test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor(
     )
 
     assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27" == SUCCESSOR_CHAIN[18]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.66"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.67"
     assert SUCCESSOR_CHAIN[17] == REGRADE_CONTRACT_ALGORITHM_VERSION
 
 
@@ -287,7 +287,7 @@ def test_f4_new_vaults_start_at_the_successor(tmp_path):
     # A new vault starts at the latest successor (mvp-0.40 since curriculum C1, after Reader RW6b's mvp-0.39, the cold-retry reschedule's mvp-0.38, mobile PR-4's mvp-0.37, the kept replaced claims' mvp-0.36, Reader CA2's mvp-0.35 and rebuild equivalence's
     # mvp-0.34, LP-min (a)'s mvp-0.33, RW7b's mvp-0.32, RW2d's mvp-0.31, AD2+AD3's mvp-0.30 and the intent successor mvp-0.29),
     # which keeps this one.
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.66"
+    assert fresh.config.algorithms.algorithm_version == "mvp-0.67"
 
 
 def test_f4_a_probe_of_an_item_submit_would_prime_is_refused(tmp_path):

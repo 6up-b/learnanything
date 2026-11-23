@@ -1,7 +1,6 @@
 """Reader RW5c P1: step 3, "matches the book's equation (checked)" (spec_reader_rw5c_checked_labels_v1 §4-§6, §10).
 
-After steps 1-2 (:mod:`.verify`, unchanged), with ``figures.checked_labels_enabled``
-on, code reads the book's equations (:mod:`.book_math`) from the healthy,
+After steps 1-2 (:mod:`.verify`, unchanged), wherever figures are on, code reads the book's equations (:mod:`.book_math`) from the healthy,
 non-withheld blocks of the figure's own input spans, and a fixed harness in the
 PF-b sandbox (:mod:`.source_check_harness`) compares each definition drawn by
 bare reference with them, exactly, on the same domain, runs negative controls and
@@ -44,7 +43,7 @@ from learnloop.content.sources import block_health as BH
 from learnloop.db.connection import connect
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import FiguresChanged, FiguresGate, checked_labels_enabled, figures_enabled
+from learnloop.figure_admission import FiguresChanged, FiguresGate, figures_enabled
 from learnloop.figures import book_math as BM
 from learnloop.figures import display_format as DF
 from learnloop.figures import elements as E
@@ -96,15 +95,15 @@ HARNESS_SHA256 = hashlib.sha256((HARNESS + "\n" + _DISPLAY_FORMAT).encode("utf-8
 
 
 def enabled(vault: Any) -> bool:
-    """``figures.checked_labels_enabled`` under ``figures.enabled``, as configured now."""
+    """The source check runs wherever figures are on (``figures.enabled``, as configured now)."""
 
-    return checked_labels_enabled(vault)
+    return figures_enabled(vault)
 
 
 def recheck_key(vault: Any) -> tuple[Any, ...]:
     """A recheck's gate key (§6.7): it makes no model request, but stops at any switch change."""
 
-    return (str(vault.root), figures_enabled(vault), checked_labels_enabled(vault))
+    return (str(vault.root), figures_enabled(vault))
 
 
 @dataclass(frozen=True)

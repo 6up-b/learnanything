@@ -165,6 +165,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/sim/ad_memory_synthetic|learnloop.sim.ad_memory_synthetic]] — imports `module`; statically calls `Bank`, `band_probability`, `category_probabilities`, `cell_name`
 - [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] — imports `module`; statically calls `Bank`, `Structure`, `band_probability`, `cell_information`, `cell_name`, `dose_basis`, `expected_success`, `facet_name`, `residual_success`, `sigmoid`
 
+### Repository tooling consumers
+
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `cell_name`
+
 ## Dependencies
 
 ### LearnLoop dependencies

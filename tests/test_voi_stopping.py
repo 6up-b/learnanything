@@ -31,7 +31,7 @@ from learnloop.diagnosis.probe_presentations import (
 )
 from learnloop.diagnosis.probes import build_hypothesis_set
 from learnloop.diagnosis import voi_stopping as voi
-from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -1113,7 +1113,7 @@ def test_the_decision_features_receipt_reads_the_overlay_and_says_so(tmp_path):
     submit(vault, repository, client)
     drain_jobs(vault, repository, client)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
-    build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id))
+    serve_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id))
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         rows = connection.execute(
             "SELECT ability_vector_json, context_json FROM decision_features WHERE decision_type = 'selection'"
@@ -1239,7 +1239,7 @@ def test_an_explored_probe_carries_its_own_forecast(tmp_path, monkeypatch):
 
     monkeypatch.setattr(S, "_exploration_support", support)
     monkeypatch.setattr(S, "_exploration_draws", lambda queue, session, now, alternatives: (0.0, 0.0))
-    S.build_due_queue(
+    S.serve_due_queue(
         vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id),
     )
     presentation = repository.active_probe_presentation_for_session(session_id)
@@ -1281,7 +1281,7 @@ def test_a_served_probe_records_its_probability_over_the_composed_queue(tmp_path
     )
     trace = OfferTrace()
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
-    queue = S.build_due_queue(
+    queue = S.serve_due_queue(
         vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id), offer_trace=trace,
     )
     assert trace.greedy_item_ids[0] == "pi_svd_teach_001"  # the draw's sure pick

@@ -10,7 +10,7 @@ import pytest
 from learnloop.clock import FrozenClock, utc_now_iso
 from learnloop.daily_plan.engine import PlanEnv
 from learnloop.goals.certification_cold_probe import schedule_certification_cold_probes
-from learnloop.scheduling.scheduler import build_due_queue, exclusion_now, pool_admission, read_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue, exclusion_now, pool_admission, read_due_queue
 from learnloop.scheduling.serving_exclusions import routine_serving_exclusions
 from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, _attempt, _certify, _tasks
 from tests.helpers import NOW
@@ -164,7 +164,7 @@ def test_the_reserved_question_is_administered_by_its_check_on_its_day(reserved)
     _paths, vault, repository, task = reserved
     assert HELD_OUT_ITEM not in {item.practice_item_id for item in read_due_queue(vault, repository)}
     due = FrozenClock(NOW + timedelta(days=14))
-    queue = build_due_queue(vault, repository, clock=due)
+    queue = serve_due_queue(vault, repository, clock=due)
     selected = [item for item in queue if item.practice_item_id == HELD_OUT_ITEM]
     assert len(selected) == 1
     assert selected[0].followup_kind == "certification_cold_probe"

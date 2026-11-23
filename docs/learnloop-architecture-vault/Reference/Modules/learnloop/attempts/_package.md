@@ -81,7 +81,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] | [[Reference/Modules/learnloop/attempts/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 12 | 36 |
 | [[Reference/Modules/learnloop/attempts/answer_check|learnloop.attempts.answer_check]] | [[Reference/Modules/learnloop/attempts/answer_check#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] | [[Reference/Modules/learnloop/attempts/attempt_trace#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] | [[Reference/Modules/learnloop/attempts/attempts#^module-purpose|purpose]] | `ACTIVE` | 36 | 261 |
+| [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] | [[Reference/Modules/learnloop/attempts/attempts#^module-purpose|purpose]] | `ACTIVE` | 36 | 263 |
 | [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] | [[Reference/Modules/learnloop/attempts/blind_grading#^module-purpose|purpose]] | `ACTIVE` | 12 | 26 |
 | [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] | [[Reference/Modules/learnloop/attempts/calibration_streams#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] | [[Reference/Modules/learnloop/attempts/clarification#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
@@ -92,7 +92,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/fact_predicates|learnloop.attempts.fact_predicates]] | [[Reference/Modules/learnloop/attempts/fact_predicates#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/attempts/facts|learnloop.attempts.facts]] | [[Reference/Modules/learnloop/attempts/facts#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 | [[Reference/Modules/learnloop/attempts/grade_classifier|learnloop.attempts.grade_classifier]] | [[Reference/Modules/learnloop/attempts/grade_classifier#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] | [[Reference/Modules/learnloop/attempts/grade_records#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] | [[Reference/Modules/learnloop/attempts/grade_records#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] | [[Reference/Modules/learnloop/attempts/grade_resolution#^module-purpose|purpose]] | `ACTIVE` | 7 | 18 |
 | [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] | [[Reference/Modules/learnloop/attempts/grader_calibration#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] | [[Reference/Modules/learnloop/attempts/grading#^module-purpose|purpose]] | `ACTIVE` | 33 | 42 |
@@ -117,12 +117,12 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 47 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 22 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 23 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 18 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 15 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 14 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 6 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges
@@ -192,9 +192,9 @@ flowchart LR
     n_learnloop_diagnosis -->|24| center
     center -->|22| n_learnloop_diagnosis
     n_learnloop_sidecar_handlers -->|30| center
-    center -->|22| n_learnloop_db
+    center -->|23| n_learnloop_db
     n_learnloop_learner -->|5| center
-    center -->|14| n_learnloop_learner
+    center -->|15| n_learnloop_learner
     n_learnloop_substrate -->|5| center
     center -->|14| n_learnloop_substrate
     center -->|18| n_learnloop_vault

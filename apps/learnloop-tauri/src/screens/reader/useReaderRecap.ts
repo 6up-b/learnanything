@@ -32,6 +32,7 @@ import { errorMessage } from "../../errors";
 import { screenLeavesKey } from "../../app/keymap";
 import type { NarrativePollFailure, NarrativeView } from "./DigestNarrative";
 import { phaseForError } from "./ModelActionState";
+import { useListenerHub, useWhenLive } from "../desks/lifecycle";
 
 export interface ReaderRecapInput {
   /** recap.enabled, with a real source open. */
@@ -101,6 +102,7 @@ export function useReaderRecap({
   const [wrapUpOpen, setWrapUpOpen] = useState<ReaderWrapUpDto | null>(null);
   const [reloads, setReloads] = useState(0);
   const [narrativePolls, setNarrativePolls] = useState(0);
+  const whenLive = useWhenLive();
   const [pollFailures, setPollFailures] = useState<NarrativePollFailures>({});
   const autoFoldedRef = useRef(false);
   const shownRef = useRef<string | null>(null);
@@ -227,6 +229,7 @@ export function useReaderRecap({
 
   // `w` (UX §3.5): outside text fields, without modifiers, once there is
   // something to wrap up.
+  const hub = useListenerHub();
   useEffect(() => {
     if (!wrapUpEnabled || !wrapUpAvailable || !extractionId || suspended) return;
     const onKey = (event: KeyboardEvent) => {
@@ -237,9 +240,8 @@ export function useReaderRecap({
       event.preventDefault();
       void openWrapUp();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [wrapUpEnabled, wrapUpAvailable, extractionId, suspended, openWrapUp]);
+    return hub.listen("window", "keydown", onKey);
+  }, [wrapUpEnabled, wrapUpAvailable, extractionId, suspended, openWrapUp, hub]);
 
   // Re-read an open Wrap up after an action, so its lines follow the chips.
   useEffect(() => {
@@ -293,8 +295,9 @@ export function useReaderRecap({
     if (!extractionId || (!recapWaiting && !wrapUpWaiting)) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      // The next interval, whether or not a read failed (each read settles itself).
-      void readNarratives({ recap: recapWaiting, wrapUp: wrapUpWaiting }, () => cancelled).then(() => {
+      // The next interval, whether or not a read failed (each read settles itself). A paused window
+      // reads nothing; back on screen the wait goes on.
+      void whenLive().then(() => (cancelled ? undefined : readNarratives({ recap: recapWaiting, wrapUp: wrapUpWaiting }, () => cancelled))).then(() => {
         if (!cancelled) setNarrativePolls((count) => count + 1);
       });
     }, NARRATIVE_POLL_MS);
@@ -302,7 +305,7 @@ export function useReaderRecap({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [extractionId, recapWaiting, wrapUpWaiting, narrativePolls, readNarratives]);
+  }, [extractionId, recapWaiting, wrapUpWaiting, narrativePolls, readNarratives, whenLive]);
   // A failure belongs to the payload it was read for: any new card or Wrap up
   // (a successful read, a reload, another source, Wrap up closed) clears it.
   useEffect(() => {

@@ -11,12 +11,12 @@
   | ``tutor`` and the judgment's ``offerRef`` runs RW5a's pipeline (the same
   author, the same verification) and stores that origin; a block the judgment
   did not offer is refused before any call.
-* **Switches.** ``figures.offers_enabled`` off: the organizer's and tutor's
-  prompts are their own versions byte for byte, no ``explorable`` reaches the
-  output, the contract has no ``offers`` and the press is refused. With no
-  equation or figure among the passages the request is unchanged too.
-* **Admission (FiguresGate).** An offered build stops, sending nothing more,
-  when offers or the advanced panels are switched off mid-build.
+* **Switches.** Offers have no switch of their own: with ``figures.enabled``
+  off the organizer's and tutor's prompts are their own versions byte for
+  byte and no ``explorable`` reaches the output. With no equation or figure
+  among the passages the request is unchanged too.
+* **Admission (FiguresGate).** An offered build is admitted under the build's
+  key and stops, sending nothing more, when figures are switched off.
 """
 from __future__ import annotations
 
@@ -27,7 +27,6 @@ import pytest
 from learnloop.ai.execution import model_call
 from learnloop.figure_admission import FiguresChanged, FiguresGate, explorable_yes, offerable
 from learnloop.figures import routes as R
-from learnloop.figures import build as FB
 from learnloop.figures import request as FQ
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.tutor import ai_contracts as C
@@ -113,7 +112,7 @@ def test_with_no_equation_or_figure_the_request_is_rw4a_byte_for_byte(tmp_path):
     prose = [KEYS[0], KEYS[3]]
     on = ExplorableOrganizer()
     result = _organize(paths, repository, on, keys=prose)
-    paths_off, repository_off = _vault(tmp_path / "off", offers_enabled=False)
+    paths_off, repository_off = _vault(tmp_path / "off", enabled=False)
     off = ExplorableOrganizer()
     result_off = _organize(paths_off, repository_off, off, keys=prose)
     assert on.models == off.models == ["OrganizerResult"]
@@ -123,8 +122,8 @@ def test_with_no_equation_or_figure_the_request_is_rw4a_byte_for_byte(tmp_path):
         {k: v for k, v in n.items() if k != "ledger_id"} for n in result_off["notes"]]
 
 
-def test_offers_off_the_organizer_is_its_own_version_and_shows_no_explorable(tmp_path):
-    paths, repository = _vault(tmp_path, offers_enabled=False)
+def test_figures_off_the_organizer_is_its_own_version_and_shows_no_explorable(tmp_path):
+    paths, repository = _vault(tmp_path, enabled=False)
     fake = ExplorableOrganizer()
     result = _organize(paths, repository, fake)
     assert fake.models == ["OrganizerResult"]
@@ -134,13 +133,13 @@ def test_offers_off_the_organizer_is_its_own_version_and_shows_no_explorable(tmp
     assert result["prompt_version"] == LA.PROMPT_VERSION
 
 
-def test_a_stored_answer_with_offers_is_shown_without_them_once_offers_are_off(tmp_path):
+def test_a_stored_answer_with_offers_is_shown_without_them_once_figures_are_off(tmp_path):
     paths, repository = _vault(tmp_path)
     vault = load_vault(paths.root)
     ask_id = _ask(repository)
     first = LA.organize(vault, repository, ask_id, client=ExplorableOrganizer())
     assert any(note["explorable"] for note in first["notes"])
-    set_config(paths, "figures", offers_enabled=False)
+    set_config(paths, "figures", enabled=False)
     again = LA.organize(load_vault(paths.root), repository, ask_id, client=ExplorableOrganizer())
     assert again["reused"] is True
     assert all("explorable" not in note for note in again["notes"])
@@ -217,7 +216,7 @@ def test_the_tutor_buttons_are_make_explorable_on_this_books_equation_and_figure
     buttons = handler.offers(vault, repository, result, extraction_id=EXTRACTION)["buttons"]
     assert [(b["kind"], b["span_id"], b["role"]) for b in buttons] == [
         ("make_explorable", "p3", "equation"), ("make_explorable", "p4", "figure")]
-    set_config(paths, "figures", offers_enabled=False)
+    set_config(paths, "figures", enabled=False)
     off = handler.offers(load_vault(paths.root), repository, result, extraction_id=EXTRACTION)
     assert off == {"buttons": []}
 
@@ -240,7 +239,7 @@ def test_the_tutor_context_asks_for_explorable_only_with_a_block_to_judge(tmp_pa
     assert type(built(equation, explorable=False)) is C.ReaderTutorQAContext
     vault = load_vault(paths.root)
     assert TQ.tutor_explorable_enabled(vault) is bool(vault.config.reader_tutor.offers_enabled)
-    set_config(paths, "figures", offers_enabled=False)
+    set_config(paths, "figures", enabled=False)
     assert TQ.tutor_explorable_enabled(load_vault(paths.root)) is False
 
 
@@ -303,105 +302,18 @@ def test_a_block_the_judgment_did_not_offer_is_refused_before_any_call(tmp_path,
     assert counts(repository, ["interactive_figures"]) == {"interactive_figures": 0}
 
 
-def test_offers_off_the_contract_has_none_and_the_press_is_refused(tmp_path):
-    paths, repository = _vault(tmp_path)
-    vault = load_vault(paths.root)
-    ask_id = _ask(repository)
-    LA.organize(vault, repository, ask_id, client=ExplorableOrganizer())
-    ctx = context(paths.root, author=AuthorFake())
-    assert call(ctx, "reader.prompt_contract", {})["figures"]["offers"] is True
-    set_config(paths, "figures", offers_enabled=False)
-    author = AuthorFake()
-    ctx = context(paths.root, author=author)
-    # RW5d P1's show_me is its own switch (on by default), not the offers'.
-    assert call(ctx, "reader.prompt_contract", {})["figures"] == {"predictions": True, "region": True,
-                                                                  "revisions": True, "showMe": True,
-                                                                  "help": True}
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"], "origin": "library",
-                                            "offerRef": ask_id})
-    assert caught.value.code == "offers_disabled"
-    # The service refuses it too (not only the RPC).
-    with pytest.raises(FQ.FigureRefused) as refused:
-        FQ.check_request(load_vault(paths.root), repository, FQ.FigureRequest(
-            extraction_id=EXTRACTION, span_ids=["p3"], origin="library"))
-    assert refused.value.code == "offers_disabled"
-    # A selection is unaffected.
-    assert build(ctx)["figure"]["origin"] == "selection"
-    assert author.calls == 1
-
-
 # --- admission: one gate, the offer path included -------------------------------------------------------
 
-def test_an_offered_build_stops_when_offers_are_switched_off_before_its_request(tmp_path):
-    paths, repository = _vault(tmp_path)
-    vault = load_vault(paths.root)
-    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="library")
-    author = GatedAuthor()
-    # The switch flips between the build's start and its first physical request.
-    original = R.FigureRoute.ask
-
-    def flip_then_ask(self, *args, **kwargs):
-        set_config(paths, "figures", offers_enabled=False)
-        return original(self, *args, **kwargs)
-
-    import unittest.mock as mock
-
-    with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
-        with pytest.raises(FQ.FigureRefused) as caught:
-            FB.build_figure(vault, repository, request, author_client=author)
-    assert caught.value.code == "figures_changed"
-    assert author.calls == 0
-    assert counts(repository, ["interactive_figures"]) == {"interactive_figures": 0}
-
-
-def test_a_selection_build_does_not_stop_for_the_offers_switch(tmp_path):
-    paths, repository = _vault(tmp_path)
-    vault = load_vault(paths.root)
-    author = GatedAuthor()
-    original = R.FigureRoute.ask
-
-    def flip_then_ask(self, *args, **kwargs):
-        set_config(paths, "figures", offers_enabled=False)
-        return original(self, *args, **kwargs)
-
-    import unittest.mock as mock
-
-    with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
-        outcome = FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
-                                  author_client=author)
-    assert outcome.view["origin"] == "selection" and author.calls == 1
-
-
-def test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build(tmp_path):
-    paths, repository = _vault(tmp_path)
-    vault = load_vault(paths.root)
-    author = GatedAuthor()
-    original = R.FigureRoute.ask
-
-    def flip_then_ask(self, *args, **kwargs):
-        set_config(paths, "figures", advanced_panels_enabled=False)
-        return original(self, *args, **kwargs)
-
-    import unittest.mock as mock
-
-    with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
-        with pytest.raises(FQ.FigureRefused) as caught:
-            FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
-                            author_client=author)
-    assert caught.value.code == "figures_changed" and author.calls == 0
-
-
-def test_the_gate_key_of_an_offered_build_includes_the_offers_switch(tmp_path):
+def test_an_offered_build_is_admitted_under_the_builds_key_and_stops_when_figures_go_off(tmp_path):
     paths, _repository = _vault(tmp_path)
     vault = load_vault(paths.root)
     offered = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor")
     revision = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor", supersedes_id="fig_x")
-    assert FQ.key_for(offered) is FQ.offer_build_key
+    assert FQ.key_for(offered) is FQ.build_key
     assert FQ.key_for(revision) is FQ.build_key  # a "not right?" version is a revision
     gate = FiguresGate(vault, FQ.key_for(offered), live_vault=lambda: vault)
     gate.check()
-    set_config(paths, "figures", offers_enabled=False)
+    set_config(paths, "figures", enabled=False)
     later = load_vault(paths.root)
     gate = FiguresGate(vault, FQ.key_for(offered), live_vault=lambda: later)
     with pytest.raises(FiguresChanged):
@@ -428,26 +340,6 @@ def test_with_the_panels_on_the_author_is_told_of_them_and_a_field_is_shown(tmp_
     assert R.ADVANCED_PROMPT_VERSION in author.prompts[0]
     assert json.loads(result["figure"]["specJson"])["panels"][0]["kind"] == "vector_field_2d"
     assert rows(repository, "interactive_figures")[0]["prompt_version"] == R.ADVANCED_PROMPT_VERSION
-
-
-def test_with_the_panels_off_the_author_may_not_emit_them_and_stored_ones_are_cant_draw(tmp_path):
-    paths, repository = _vault(tmp_path)
-    ctx = context(paths.root, author=AuthorFake([gradient_field()]))
-    shown = build(ctx, {"extractionId": EXTRACTION, "spanIds": ["p2"]})["figure"]
-    assert shown["verification"] == "illustrative"
-    set_config(paths, "figures", advanced_panels_enabled=False)
-    author = AuthorFake([gradient_field(), gradient_field()])
-    ctx = context(paths.root, author=author)
-    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
-    assert [(f["verification"], f["specJson"]) for f in listed] == [("unsupported", None)]
-    assert "switched off" in listed[0]["unsupportedKind"] and listed[0]["label"].startswith("can't draw this yet")
-    # A new build is RW5a's prompt, and a field in the answer is refused (two attempts, then failed).
-    failed = build(ctx, {"extractionId": EXTRACTION, "spanIds": ["p5"]})["figure"]
-    assert failed["verification"] == "failed"
-    assert author.calls == 2 and all(R.AUTHOR_PROMPT_VERSION in prompt for prompt in author.prompts)
-    assert "switched off" in failed["reason"]
-    with pytest.raises(SidecarError):
-        call(ctx, "reader.figure_predict", {"figureId": shown["figureId"], "predictionIndex": 0, "answer": "same"})
 
 
 def test_the_reader_report_counts_offered_figures_only_while_offers_are_on(tmp_path):

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/useGlobalAdd.ts](../../../../../../apps/learnloop-tauri/src/app/useGlobalAdd.ts) |
-| Source lines | 55 |
+| Source lines | 60 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -54,19 +54,19 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function looksLikeSource(text: string): boolean` — function, line 13
-- `export function useGlobalAdd(` — function, line 19
+- `export function looksLikeSource(text: string): boolean` — function, line 18
+- `export function useGlobalAdd(` — function, line 24
 
 ## Internal implementation anchors
 
-- `const ARXIV_ID = /^(arxiv:)?\d` — const, line 9
-- `const LOCAL_FILE = /^(~|\/|[A-Za-z]:\\).+\.(pdf|md|markdown|txt|html?|vtt|srt|mp3|wav|m4a|flac|ogg|oga|opus|aac)$/i` — const, line 10
-- `const value = (text || "").trim()` — const, line 14
-- `const handlers = useRef(` — const, line 28
-- `const onKey = (event: KeyboardEvent)` — const, line 33
-- `const onPaste = (event: Event)` — const, line 40
-- `const clipboard = (event as ClipboardEvent).clipboardData` — const, line 42
-- `const text = clipboard?.getData("text") ?? clipboard?.getData("text/plain") ?? ""` — const, line 43
+- `const ARXIV_ID = /^(arxiv:)?\d` — const, line 10
+- `const LOCAL_FILE = new RegExp( `^(~|\\/|[A-Za-z]:\\\\).+($` — const, line 12
+- `const value = (text || "").trim()` — const, line 19
+- `const handlers = useRef(` — const, line 33
+- `const onKey = (event: KeyboardEvent)` — const, line 38
+- `const onPaste = (event: Event)` — const, line 45
+- `const clipboard = (event as ClipboardEvent).clipboardData` — const, line 47
+- `const text = clipboard?.getData("text") ?? clipboard?.getData("text/plain") ?? ""` — const, line 48
 
 ## Who imports or calls it
 
@@ -79,6 +79,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/api/sourceKinds|src/api/sourceKinds.ts]] — import-or-re-export; imports `SOURCE_FILE_EXTENSIONS`
 - [[Reference/Desktop/TypeScript/app/keyboard|src/app/keyboard.ts]] — import-or-re-export; imports `isTypingTarget`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `ADD_FILES_CHORD`, `matchesChord`
 
@@ -95,6 +96,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/app/useGlobalAdd.test.tsx](../../../../../../apps/learnloop-tauri/src/app/useGlobalAdd.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/api/sourceKinds.test.ts](../../../../../../apps/learnloop-tauri/src/api/sourceKinds.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

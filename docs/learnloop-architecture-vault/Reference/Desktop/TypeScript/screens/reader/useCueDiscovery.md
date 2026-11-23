@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useCueDiscovery.ts) |
-| Source lines | 185 |
+| Source lines | 198 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,44 +54,45 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const DISCOVERY_POLL_MS: readonly number[] = [1_500, 3_000, 5_000, 10_000]` — const, line 43
-- `export const DISCOVERY_MAX_READS = 60` — const, line 45
-- `export const DISCOVERY_MAX_REASKS = 3` — const, line 47
-- `export const TARGETS_PENDING_POLL_MS = 4_000` — const, line 49
-- `export const TARGETS_PENDING_POLL_MAX_MS = 60_000` — const, line 50
-- `export interface CueDiscoveryInput` — interface, line 52
-- `export function useCueDiscovery(` — function, line 70
+- `export const DISCOVERY_POLL_MS: readonly number[] = [1_500, 3_000, 5_000, 10_000]` — const, line 44
+- `export const DISCOVERY_MAX_READS = 60` — const, line 46
+- `export const DISCOVERY_MAX_REASKS = 3` — const, line 48
+- `export const TARGETS_PENDING_POLL_MS = 4_000` — const, line 50
+- `export const TARGETS_PENDING_POLL_MAX_MS = 60_000` — const, line 51
+- `export interface CueDiscoveryInput` — interface, line 53
+- `export function useCueDiscovery(` — function, line 71
 
 ## Internal implementation anchors
 
-- `function foundSomething(job: ReaderCueDiscoveryJobDto): boolean` — function, line 66
-- `const askedRef = useRef<Map<string, string>>(new Map())` — const, line 72
-- `const reasksRef = useRef<Map<string, number>>(new Map())` — const, line 74
-- `const reloadRef = useRef(reloadGuidePlan)` — const, line 76
-- `const targetsKey = discovery?.targetsKey ?? null` — const, line 78
-- `const targetsPending = Boolean(discovery?.targetsPending)` — const, line 79
-- `const openKey = openKeyInput === undefined ? extractionId : openKeyInput` — const, line 80
-- `const openRef = useRef<` — const, line 83
-- `const openId = openRef.current?.id ?? null` — const, line 89
-- `const paused = openId !== null && !extractionId` — const, line 91
-- `const pausedRef = useRef(paused)` — const, line 92
-- `const runningRef = useRef<Set<()` — const, line 96
-- `const running = runningRef.current` — const, line 98
-- `let cancelled = false` — let, line 109
-- `let done = false` — let, line 110
-- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 111
-- `const stop = ()` — const, line 112
-- `const finish = (job: ReaderCueDiscoveryJobDto)` — const, line 118
-- `const answered = job.result?.targetsKey ?? null` — const, line 124
-- `const stale = job.result?.status === "cancelled" || (answered !== null && answered !== targetsKey)` — const, line 125
-- `const key = `$` — const, line 126
-- `const asked = reasksRef.current.get(key) ?? 0` — const, line 127
-- `const read = (jobId: string, reads: number)` — const, line 134
-- `const pause = DISCOVERY_POLL_MS[Math.min(reads, DISCOVERY_POLL_MS.length - 1)]` — const, line 139
-- `let cancelled = false` — let, line 166
-- `let delay = TARGETS_PENDING_POLL_MS` — let, line 167
-- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 168
-- `const poll = ()` — const, line 169
+- `function foundSomething(job: ReaderCueDiscoveryJobDto): boolean` — function, line 67
+- `const whenLive = useWhenLive()` — const, line 72
+- `const askedRef = useRef<Map<string, string>>(new Map())` — const, line 74
+- `const reasksRef = useRef<Map<string, number>>(new Map())` — const, line 76
+- `const reloadRef = useRef(reloadGuidePlan)` — const, line 78
+- `const targetsKey = discovery?.targetsKey ?? null` — const, line 80
+- `const targetsPending = Boolean(discovery?.targetsPending)` — const, line 81
+- `const openKey = openKeyInput === undefined ? extractionId : openKeyInput` — const, line 82
+- `const openRef = useRef<` — const, line 85
+- `const openId = openRef.current?.id ?? null` — const, line 91
+- `const paused = openId !== null && !extractionId` — const, line 93
+- `const pausedRef = useRef(paused)` — const, line 94
+- `const runningRef = useRef<Set<()` — const, line 98
+- `const running = runningRef.current` — const, line 100
+- `let cancelled = false` — let, line 111
+- `let done = false` — let, line 112
+- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 113
+- `const stop = ()` — const, line 114
+- `const finish = (job: ReaderCueDiscoveryJobDto)` — const, line 120
+- `const answered = job.result?.targetsKey ?? null` — const, line 126
+- `const stale = job.result?.status === "cancelled" || (answered !== null && answered !== targetsKey)` — const, line 127
+- `const key = `$` — const, line 128
+- `const asked = reasksRef.current.get(key) ?? 0` — const, line 129
+- `const read = (jobId: string, reads: number)` — const, line 136
+- `const pause = DISCOVERY_POLL_MS[Math.min(reads, DISCOVERY_POLL_MS.length - 1)]` — const, line 141
+- `let cancelled = false` — let, line 178
+- `let delay = TARGETS_PENDING_POLL_MS` — let, line 179
+- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 180
+- `const poll = ()` — const, line 181
 
 ## Who imports or calls it
 
@@ -106,6 +107,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderCueDiscoveryDto`, `ReaderCueDiscoveryJobDto`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `newActivityId`
 
 ### Assets, platform, and third-party dependencies
@@ -123,6 +125,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/rw3bReview.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/rw3bReview.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/pausedProducers.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/pausedProducers.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

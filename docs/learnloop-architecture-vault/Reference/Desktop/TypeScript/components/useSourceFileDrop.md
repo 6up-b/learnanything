@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/useSourceFileDrop.ts](../../../../../../apps/learnloop-tauri/src/components/useSourceFileDrop.ts) |
-| Source lines | 121 |
+| Source lines | 120 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,27 +54,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function isSupportedSourceFile(path: string): boolean` — function, line 50
-- `export async function pickSourceFile(): Promise<string | null>` — function, line 63
-- `export async function pickSourceFiles(): Promise<string[]>` — function, line 78
-- `export function useSourceFileDrop(` — function, line 92
+- `export function isSupportedSourceFile(path: string): boolean` — function, line 49
+- `export async function pickSourceFile(): Promise<string | null>` — function, line 62
+- `export async function pickSourceFiles(): Promise<string[]>` — function, line 77
+- `export function useSourceFileDrop(` — function, line 91
 
 ## Internal implementation anchors
 
-- `const SOURCE_EXTENSIONS = [ ".pdf", ".png", ".jpg", ".jpeg", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt", ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac" ]` — const, line 6
-- `type Subscriber =` — type, line 11
-- `const subscribers = new Map<symbol, Subscriber>()` — const, line 18
-- `let unlistenPromise: Promise<UnlistenFn> | null = null` — let, line 19
-- `function activeSubscriber(): Subscriber | null` — function, line 21
-- `function setDragging(active: Subscriber | null, dragging: boolean)` — function, line 27
-- `function ensureNativeListener()` — function, line 33
-- `const active = activeSubscriber()` — const, line 36
-- `const supported = event.payload.paths.filter(isSupportedSourceFile)` — const, line 44
-- `const lower = path.toLowerCase()` — const, line 51
-- `const selected = await openDialog(` — const, line 64
-- `const selected = await openDialog(` — const, line 79
-- `const callbackRef = useRef(onDrop)` — const, line 102
-- `const id = Symbol("source-file-drop")` — const, line 106
+- `const SOURCE_EXTENSIONS = SOURCE_FILE_EXTENSIONS` — const, line 8
+- `type Subscriber =` — type, line 10
+- `const subscribers = new Map<symbol, Subscriber>()` — const, line 17
+- `let unlistenPromise: Promise<UnlistenFn> | null = null` — let, line 18
+- `function activeSubscriber(): Subscriber | null` — function, line 20
+- `function setDragging(active: Subscriber | null, dragging: boolean)` — function, line 26
+- `function ensureNativeListener()` — function, line 32
+- `const active = activeSubscriber()` — const, line 35
+- `const supported = event.payload.paths.filter(isSupportedSourceFile)` — const, line 43
+- `const lower = path.toLowerCase()` — const, line 50
+- `const selected = await openDialog(` — const, line 63
+- `const selected = await openDialog(` — const, line 78
+- `const callbackRef = useRef(onDrop)` — const, line 101
+- `const id = Symbol("source-file-drop")` — const, line 105
 
 ## Who imports or calls it
 
@@ -91,7 +91,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-No local TypeScript/TSX or Rust module dependency was detected.
+- [[Reference/Desktop/TypeScript/api/sourceKinds|src/api/sourceKinds.ts]] — import-or-re-export; imports `SOURCE_FILE_EXTENSIONS`
 
 ### Assets, platform, and third-party dependencies
 
@@ -107,6 +107,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/api/sourceKinds.test.ts](../../../../../../apps/learnloop-tauri/src/api/sourceKinds.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_source_ingestion.py](../../../../../../tests/test_source_ingestion.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

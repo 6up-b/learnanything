@@ -16,13 +16,14 @@ from pathlib import Path
 import pytest
 
 from tests.library_ask_fixtures import build_library_vault, call, context, set_config
+from tests.figure_fixtures import end_sketch_engine_absence, sketch_engine_absent
 from tests.figures_switch_off_helpers import _switch
 
 GOLDEN = Path(__file__).parent / "fixtures" / "figures_switch_off.json"
 WRITE = os.environ.get("RW5A_WRITE_GOLDEN") == "1"
 
 
-def _record(tmp_path: Path, *, enabled: bool | None, sketch: bool | None = None) -> dict:
+def _record(tmp_path: Path, *, enabled: bool | None, engine: bool = True) -> dict:
     paths, _repository, _spans = build_library_vault(tmp_path / "vault")
     if not WRITE:
         # The learner-blindness relax (after this golden): off, so the contract's
@@ -30,8 +31,8 @@ def _record(tmp_path: Path, *, enabled: bool | None, sketch: bool | None = None)
         set_config(paths, "reader_tutor", learner_state_enabled=False)
     if enabled is not None:
         set_config(paths, "figures", enabled=enabled)
-    if sketch is not None:
-        set_config(paths, "figures", sketch_enabled=sketch)
+    if not engine:
+        sketch_engine_absent()
     ctx = context(paths.root)
     contract = call(ctx, "reader.prompt_contract", {})
     return {"contract": contract if WRITE else _without_later_stages(contract)}
@@ -79,10 +80,9 @@ def test_figures_on_adds_only_its_key_and_its_action(tmp_path):
         pytest.skip("the golden is written by the switch-off case")
     recorded = _record(tmp_path, enabled=True)["contract"]
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))["contract"]
-    # RW5b adds offers (figures.offers_enabled, on by default); RW5d P1 show_me;
-    # RW5d P2's sketch (figures.sketch_enabled, on by default since G-SM14 passed
-    # from inside the sketch compartment, with the engine ready here); RW5d P3's
-    # help (figures.help_kind_enabled, on by default).
+    # RW5b adds offers; RW5d P1 show_me (neither has a switch of its own); RW5d
+    # P2's sketch (wherever the sealed engine runs: it does here); RW5d P3's help
+    # (figures.help_kind_enabled, on by default).
     assert recorded.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True,
                                        "showMe": True, "sketch": True, "help": True}
     added = []
@@ -95,12 +95,14 @@ def test_figures_on_adds_only_its_key_and_its_action(tmp_path):
 
 
 def test_sketch_on_adds_only_its_flag(tmp_path):
-    """RW5d P2's sketch, on by default (the engine is ready here): the contract
-    gains figures.sketch and nothing else; off is P1's contract byte for byte."""
+    """RW5d P2's sketch, wherever the sealed engine runs (it does here): the
+    contract gains figures.sketch and nothing else; where it can't run, the
+    contract is P1's byte for byte."""
 
     if WRITE:
         pytest.skip("the golden is written by the switch-off case")
-    off = _record(tmp_path / "off", enabled=True, sketch=False)["contract"]
+    off = _record(tmp_path / "off", enabled=True, engine=False)["contract"]
+    end_sketch_engine_absence()
     on = _record(tmp_path / "on", enabled=True)["contract"]
     assert "sketch" not in off["figures"]
     assert on["figures"].pop("sketch") is True

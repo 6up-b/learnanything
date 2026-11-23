@@ -45,6 +45,7 @@ import {
   type ReadingPosition,
   type SectionHistory,
 } from "./readingPosition";
+import { useListenerHub, useReadingActivityRef, useWindowPaused } from "../desks/lifecycle";
 
 // Following the learner (usability round 1): how long a jump or a resume
 // takes to settle before scrolling counts as reading again, and how long
@@ -381,6 +382,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   } = input;
   const [readingSpan, setReadingSpan] = useState<string | null>(null);
   const [restoredSpan, setRestoredSpan] = useState<string | null>(null);
+  // On a desk, only an active or visible window's reading counts, and a paused one polls nothing
+  // (desks/lifecycle.tsx). Elsewhere both always allow, as before.
+  const activityRef = useReadingActivityRef();
+  const paused = useWindowPaused();
   // How far into the reading passage's page the reading marker is, when the
   // original PDF only knows each passage's page (usability round 1, U2).
   const [readingOffset, setReadingOffset] = useState<number | null>(null);
@@ -1018,7 +1023,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // While authoring is in flight, re-fetch the guide plan (a cheap local read)
   // until the section gains its question or a bounded number of polls passes.
   useEffect(() => {
-    if (!render || offline || authoringSections.length === 0) return;
+    if (!render || offline || paused || authoringSections.length === 0) return;
     const extractionId = render.extractionId;
     let attempts = 0;
     const timer = window.setInterval(() => {
@@ -1051,7 +1056,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
         });
     }, 4000);
     return () => window.clearInterval(timer);
-  }, [render, offline, authoringSections.length, setGuidePlan]);
+  }, [render, offline, paused, authoringSections.length, setGuidePlan]);
 
   // A "Revisit this to resolve" reason names the error type until the
   // attempt's diagnosis lands; re-read the plan while it waits on one so the
@@ -1262,9 +1267,11 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     startViewRef.current = { at: now, spanIds: [...new Set([...kept, ...viewNowRef.current()])] };
   }, []);
   const noteUserScroll = useCallback(() => {
+    // A window the learner cannot see (offscreen, hidden, a preview) is never read by scrolling it.
+    if (!activityRef.current) return;
     userScrollAtRef.current = Date.now();
     noteMovementStart();
-  }, [noteMovementStart]);
+  }, [noteMovementStart, activityRef]);
   // Watching is reading too: playback that moves past the cue a video
   // resumed at counts, as the learner's own scrolling does on a page. A seek
   // (a jump, a resume, a click in the transcript) only sets the cue playback
@@ -1273,7 +1280,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   const onPlaybackSpan = useCallback((spanId: string | null, advancing: boolean) => {
     const last = lastPlaybackSpanRef.current;
     lastPlaybackSpanRef.current = spanId;
-    if (advancing && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) {
+    if (advancing && activityRef.current && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) {
       setMoved(true);
       // Playback moved on from that cue, so it was played: the cue a seek, a resume or a pause left it at too
       // (the marker's rule only reaches cues that playback arrives at while already moving).
@@ -1295,6 +1302,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     lastPlaybackSpanRef.current = spanId;
     if (spanId) setReadingSpan(spanId);
   }, [setMoved]);
+  const hub = useListenerHub();
   useEffect(() => {
     if (!render) return;
     const onKey = (event: KeyboardEvent) => {
@@ -1308,9 +1316,8 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       userScrollAtRef.current = Date.now();
       noteMovementStart();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [render, noteMovementStart]);
+    return hub.listen("window", "keydown", onKey);
+  }, [render, noteMovementStart, hub]);
 
   // Resume the last stable span after the chosen surface has mounted. The
   // position is local to the source and never becomes learner evidence.

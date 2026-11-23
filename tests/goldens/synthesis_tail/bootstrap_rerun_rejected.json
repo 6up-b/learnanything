@@ -27,6 +27,109 @@
     }
    ]
   },
+  "decision_records": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "alternatives_json": {
+      "<json>": []
+     },
+     "chosen_ref": "01M3250V00TP209AYDNCPVR747",
+     "created_at": "<wall>",
+     "decided_by": "synthesis_inputs",
+     "detail_id": "01M3250V00TP209AYDNCPVR747",
+     "detail_table": "synthesis_runs",
+     "error_type": null,
+     "error_where": null,
+     "facts_json": {
+      "<json>": {
+       "mode": "bootstrap",
+       "units": [
+        {
+         "candidates": 1,
+         "profile_satisfied": true,
+         "row": "inv_01M3250V00TP209AYDNCPVR73Q",
+         "rule": "only_row",
+         "unit": "rev_text:chapter_symmetry"
+        }
+       ],
+       "units_without_row": 0
+      }
+     },
+     "id": "01M3250V00HPT3VB0Y0486EAJH",
+     "kind": "ingest_inventory_choice",
+     "parent_id": null,
+     "rule": "best_inventory",
+     "status": "chosen",
+     "subject_id": null,
+     "subject_kind": null,
+     "trace_id": "01M3250V00HPT3VB0Y0486EAJJ",
+     "versions_json": {
+      "<json>": {}
+     }
+    },
+    {
+     "<rowid>": 4,
+     "alternatives_json": {
+      "<json>": [
+       {
+        "lost_by": "apply_not_requested",
+        "ref": "01M3250V00TP209AYDNCPVR74K"
+       },
+       {
+        "lost_by": "apply_not_requested",
+        "ref": "01M3250V00TP209AYDNCPVR74F"
+       },
+       {
+        "lost_by": "apply_not_requested",
+        "ref": "01M3250V00TP209AYDNCPVR74G"
+       },
+       {
+        "lost_by": "apply_not_requested",
+        "ref": "01M3250V00TP209AYDNCPVR74H"
+       },
+       {
+        "lost_by": "apply_not_requested",
+        "ref": "01M3250V00TP209AYDNCPVR74J"
+       },
+       {
+        "lost_by": "apply_not_requested",
+        "ref": "01M3250V00TP209AYDNCPVR74M"
+       },
+       {
+        "lost_by": "apply_not_requested",
+        "ref": "01M3250V00TP209AYDNCPVR74N"
+       }
+      ]
+     },
+     "chosen_ref": "01M3250V00TP209AYDNCPVR74P",
+     "created_at": "<wall>",
+     "decided_by": "synthesis_apply",
+     "detail_id": "01M3250V00TP209AYDNCPVR747",
+     "detail_table": "synthesis_runs",
+     "error_type": null,
+     "error_where": null,
+     "facts_json": {
+      "<json>": {
+       "applied_count": 0,
+       "mode": "bootstrap",
+       "waiting_count": 7
+      }
+     },
+     "id": "01M3250V00HPT3VB0Y0486EAJK",
+     "kind": "ingest_auto_apply",
+     "parent_id": null,
+     "rule": "apply_not_requested",
+     "status": "deferred",
+     "subject_id": null,
+     "subject_kind": null,
+     "trace_id": "01M3250V00HPT3VB0Y0486EAJM",
+     "versions_json": {
+      "<json>": {}
+     }
+    }
+   ]
+  },
   "model_work_checkpoints": {
    "added": [
     {

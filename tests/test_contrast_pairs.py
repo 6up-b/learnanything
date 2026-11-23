@@ -38,7 +38,7 @@ from learnloop.diagnosis.contrast_pairs import (
     record_contrast_pair_servings,
 )
 from learnloop.content.authoring.persona_gate import InstrumentClass, classify_instrument, contrast_pair_key
-from learnloop.scheduling.scheduler import build_due_queue, SchedulerSession
+from learnloop.scheduling.scheduler import serve_due_queue, SchedulerSession
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
@@ -457,7 +457,7 @@ def _pair_vault(tmp_path):
 def test_the_draw_is_deterministic_per_session_and_varies_across_them():
     """Reproducible slates, accumulating balance. Both are required.
 
-    `build_due_queue` is called repeatedly for one session and must produce the
+    `serve_due_queue` is called repeatedly for one session and must produce the
     same order; the balance the control depends on accumulates ACROSS sessions.
     """
 
@@ -535,7 +535,7 @@ def test_the_scheduler_records_a_serving_for_a_real_session(tmp_path):
 
     _paths, vault, repository = _pair_vault(tmp_path)
 
-    build_due_queue(
+    serve_due_queue(
         vault,
         repository,
         session=SchedulerSession(session_id="sess_live"),

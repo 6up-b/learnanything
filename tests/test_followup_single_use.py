@@ -6,7 +6,7 @@ import pytest
 
 from learnloop.diagnosis.probe_remint import ProbeRemintError, remint_probe_as_practice_item
 from learnloop.followup_serve import identity
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.scheduling.serving_exclusions import (
     ROUTINE_GATES,
     admission_reason,
@@ -62,7 +62,7 @@ def test_reserved_until_served_then_closed_for_every_selector(tmp_path):
     assert _reasons(vault, repository) == "generated_probe_reserved"
     assert identity.door_refusal(repository, ITEM) == identity.GENERATED_PROBE_RESERVED
     assert identity.door_refusal(repository, ITEM, workflow_id=outcome.workflow_id) is None
-    assert ITEM not in {item.practice_item_id for item in build_due_queue(vault, repository, limit=None)}
+    assert ITEM not in {item.practice_item_id for item in serve_due_queue(vault, repository, limit=None)}
     identity.claim_serve(repository, ITEM, surface="desktop", presentation_id="pp_1", clock=CLOCK)
     assert _reasons(vault, repository) == "generated_probe_closed"
     assert identity.door_refusal(repository, ITEM, workflow_id=outcome.workflow_id) == identity.GENERATED_PROBE_CLOSED

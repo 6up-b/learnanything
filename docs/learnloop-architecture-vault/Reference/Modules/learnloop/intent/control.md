@@ -179,6 +179,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_paths.py](../../../../../../tests/test_reading_paths.py) — direct import
   - `test_dl2_intent_preselects_the_depth_and_the_newer_setting_wins_without_writing_dl2`
   - `test_each_dl2_choice_maps_onto_a_depth_or_asks`
+- [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance
 

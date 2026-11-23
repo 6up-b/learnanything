@@ -82,15 +82,6 @@ def test_the_formative_switches_keep_predictions_out_of_learner_text(tmp_path):
     assert rows(repository, "figure_predictions") and _gap_jobs(repository) == []
 
 
-def test_predictions_switch_off(tmp_path):
-    _paths, repository, ctx, figure = _figure(tmp_path, config={"figures": {"predictions_enabled": False}})
-    assert figure["predictions"] == []
-    assert call(ctx, "reader.prompt_contract", {})["figures"]["predictions"] is False
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0, "answer": "rises"})
-    assert caught.value.code == "predictions_disabled" and not rows(repository, "figure_predictions")
-
-
 def test_a_prediction_is_answered_once_and_validated(tmp_path):
     _paths, repository, ctx, figure = _figure(tmp_path)
     with pytest.raises(SidecarError) as caught:

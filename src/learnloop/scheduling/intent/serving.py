@@ -51,7 +51,7 @@ probe-episode gates, a candidate asked as the request it becomes). A
 candidate the build would not serve (retired, held out, a fresh diagnostic
 surface outside its probe episode, ...) can neither be the check nor
 suppress one that can (DL2 Codex re-review F11, verify reopening). The split
-is made on first use: ``build_due_queue`` binds its own admission
+is made on first use: ``serve_due_queue`` binds its own admission
 (:meth:`IntentServing.bind_admission`) before it reads a check; any other
 view (the plan, the practice view, settling) gets the same predicate over its
 own reads (``scheduler.check_admission``).
@@ -229,7 +229,7 @@ class IntentServing:
     # -- the checks, split among admitted candidates (R1) ----------------------
 
     def bind_admission(self, admitted: Any) -> None:
-        """Split the due checks with this admission (``build_due_queue``'s own)."""
+        """Split the due checks with this admission (``serve_due_queue``'s own)."""
 
         self._admission = admitted
         self._checks = None

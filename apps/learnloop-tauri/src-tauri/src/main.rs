@@ -322,6 +322,7 @@ fn main() {
                 get_concept_graph,
                 get_vault_tree,
                 classify_ingest_source,
+                get_source_roles,
                 start_ingest,
                 get_ingest_job,
                 get_ingest_jobs,

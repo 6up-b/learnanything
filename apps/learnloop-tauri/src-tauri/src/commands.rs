@@ -357,6 +357,11 @@ pub async fn get_vault_tree(sidecar: State<'_, SidecarManager>) -> Result<Value,
 
 sidecar_passthrough!(classify_ingest_source, "classify_ingest_source");
 
+#[tauri::command]
+pub async fn get_source_roles(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_source_roles", json!({})).await
+}
+
 sidecar_passthrough!(start_ingest, "start_ingest");
 
 #[tauri::command]

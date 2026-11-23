@@ -3,7 +3,7 @@ from __future__ import annotations
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
@@ -63,7 +63,7 @@ def test_many_open_text_practice_items_schedule_and_record_attempt(tmp_path):
         )
     )
 
-    queue = build_due_queue(vault, repository, clock=clock)
+    queue = serve_due_queue(vault, repository, clock=clock)
 
     assert len(queue) >= 100
     assert "pi_bulk_open_text_000" in {item.practice_item_id for item in queue}

@@ -38,7 +38,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/components/AddSource|AddSource.tsx]] | `ACTIVE` | Provides the reusable `AddSource` interaction surface used by one or more desktop workflows. | 7 | 3 |
-| [[Reference/Desktop/TypeScript/components/AddToCollection|AddToCollection.tsx]] | `ACTIVE` | Provides the reusable `AddToCollection` interaction surface used by one or more desktop workflows. | 4 | 2 |
+| [[Reference/Desktop/TypeScript/components/AddToCollection|AddToCollection.tsx]] | `ACTIVE` | Provides the reusable `AddToCollection` interaction surface used by one or more desktop workflows. | 6 | 2 |
 | [[Reference/Desktop/TypeScript/components/AdjudicationOverlay|AdjudicationOverlay.tsx]] | `ACTIVE` | Provides the reusable `AdjudicationOverlay` interaction surface used by one or more desktop workflows. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/components/AnimationPlayer|AnimationPlayer.tsx]] | `ACTIVE` | Provides the reusable `AnimationPlayer` interaction surface used by one or more desktop workflows. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/components/AsPrinted|AsPrinted.tsx]] | `ACTIVE` | Provides the reusable `AsPrinted` interaction surface used by one or more desktop workflows. | 5 | 6 |
@@ -67,7 +67,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/GoalTrajectoryChart|GoalTrajectoryChart.tsx]] | `ACTIVE` | Provides the reusable `GoalTrajectoryChart` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/GoalWizard|GoalWizard.tsx]] | `ACTIVE` | Provides the reusable `GoalWizard` interaction surface used by one or more desktop workflows. | 4 | 3 |
 | [[Reference/Desktop/TypeScript/components/InboxStrip|InboxStrip.tsx]] | `ACTIVE` | Provides the reusable `InboxStrip` interaction surface used by one or more desktop workflows. | 8 | 2 |
-| [[Reference/Desktop/TypeScript/components/IngestActivity|IngestActivity.tsx]] | `ACTIVE` | Provides the reusable `IngestActivity` interaction surface used by one or more desktop workflows. | 5 | 1 |
+| [[Reference/Desktop/TypeScript/components/IngestActivity|IngestActivity.tsx]] | `ACTIVE` | Provides the reusable `IngestActivity` interaction surface used by one or more desktop workflows. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/components/InspectorOverlay|InspectorOverlay.tsx]] | `ACTIVE` | Provides the reusable `InspectorOverlay` interaction surface used by one or more desktop workflows. | 17 | 1 |
 | [[Reference/Desktop/TypeScript/components/IntentCheckFeedback|IntentCheckFeedback.tsx]] | `ACTIVE` | Provides the reusable `IntentCheckFeedback` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/IntentControl|IntentControl.tsx]] | `ACTIVE` | Provides the reusable `IntentControl` interaction surface used by one or more desktop workflows. | 4 | 2 |
@@ -81,7 +81,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/OpenInSource|OpenInSource.tsx]] | `ACTIVE` | Provides the reusable `OpenInSource` interaction surface used by one or more desktop workflows. | 4 | 9 |
 | [[Reference/Desktop/TypeScript/components/OutlineAndPlan|OutlineAndPlan.tsx]] | `ACTIVE` | Provides the reusable `OutlineAndPlan` interaction surface used by one or more desktop workflows. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/components/PageRangeSelector|PageRangeSelector.tsx]] | `ACTIVE` | Provides the reusable `PageRangeSelector` interaction surface used by one or more desktop workflows. | 1 | 3 |
-| [[Reference/Desktop/TypeScript/components/PdfReaderPane|PdfReaderPane.tsx]] | `ACTIVE` | Provides the reusable `PdfReaderPane` interaction surface used by one or more desktop workflows. | 12 | 6 |
+| [[Reference/Desktop/TypeScript/components/PdfReaderPane|PdfReaderPane.tsx]] | `ACTIVE` | Provides the reusable `PdfReaderPane` interaction surface used by one or more desktop workflows. | 13 | 6 |
 | [[Reference/Desktop/TypeScript/components/PlacementControls|PlacementControls.tsx]] | `ACTIVE` | Provides the reusable `PlacementControls` interaction surface used by one or more desktop workflows. | 3 | 4 |
 | [[Reference/Desktop/TypeScript/components/PlainParts|PlainParts.tsx]] | `ACTIVE` | Provides the reusable `PlainParts` interaction surface used by one or more desktop workflows. | 1 | 18 |
 | [[Reference/Desktop/TypeScript/components/PlanFallbackOffer|PlanFallbackOffer.tsx]] | `ACTIVE` | Provides the reusable `PlanFallbackOffer` interaction surface used by one or more desktop workflows. | 4 | 1 |
@@ -117,7 +117,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/sourceTail|sourceTail.ts]] | `ACTIVE` | Provides shared `sourceTail` state or utility behavior for desktop components. | 0 | 3 |
 | [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 167 |
 | [[Reference/Desktop/TypeScript/components/ui|ui.tsx]] | `ACTIVE` | Provides the reusable `ui` interaction surface used by one or more desktop workflows. | 3 | 23 |
-| [[Reference/Desktop/TypeScript/components/useSourceFileDrop|useSourceFileDrop.ts]] | `ACTIVE` | Provides shared `useSourceFileDrop` state or utility behavior for desktop components. | 0 | 5 |
+| [[Reference/Desktop/TypeScript/components/useSourceFileDrop|useSourceFileDrop.ts]] | `ACTIVE` | Provides shared `useSourceFileDrop` state or utility behavior for desktop components. | 1 | 5 |
 
 ## Modification guidance
 

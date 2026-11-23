@@ -70,7 +70,6 @@ class GatedFind(FindFake):
 
 
 FLIPS = {
-    "show_me": lambda paths: set_config(paths, "figures", show_me_enabled=False),
     "figures": lambda paths: set_config(paths, "figures", enabled=False),
 }
 
@@ -102,7 +101,7 @@ def test_f1_the_control_admits_every_grounding_call(tmp_path):
     assert find.admitted == 2 and author.calls == 1 and outcome.view["grounding"] == "retrieved"
 
 
-def test_f1_a_reuse_after_show_me_is_switched_off_is_refused(tmp_path):
+def test_f1_a_reuse_after_figures_are_switched_off_is_refused(tmp_path):
     paths, repository = _vault(tmp_path)
     find = FindFake([("ext_book", "s2")])
     author = AuthorFake([flagship(kind="illustrative")])
@@ -110,7 +109,7 @@ def test_f1_a_reuse_after_show_me_is_switched_off_is_refused(tmp_path):
                                        goal_author="learner", reading_at={"extraction_id": EXTRACTION, "span_id": "p2"})
     FB.build_figure(load_vault(paths.root), repository, request(), author_client=author, find=find)
     flipping = GatedFind([("ext_book", "s2")], calls=1, after=1,
-                         flip=lambda: set_config(paths, "figures", show_me_enabled=False))
+                         flip=lambda: set_config(paths, "figures", enabled=False))
     with pytest.raises(FQ.FigureRefused) as caught:
         FB.build_figure(load_vault(paths.root), repository, request(), author_client=author, find=flipping)
     assert caught.value.code == "figures_changed"

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -91,7 +91,7 @@ def test_shadow_intent_logs_practice_integration_at_the_right_moment(tmp_path):
     loaded = load_vault(paths.root)
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     sync_vault_state(loaded, repository, clock=FrozenClock(NOW))
-    queue = build_due_queue(
+    queue = serve_due_queue(
         loaded, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id="s_intent")
     )
     assert any(i.practice_item_id == "pi_integration_001" for i in queue)

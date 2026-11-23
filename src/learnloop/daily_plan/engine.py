@@ -820,11 +820,11 @@ class PlanEnv:
         self.last_trace = None
         if self.eligible is not None:
             return list(self.eligible(minutes))
-        from learnloop.scheduling.scheduler import OfferTrace, build_due_queue
+        from learnloop.scheduling.scheduler import OfferTrace, serve_due_queue
 
         # Data capture A1: the build's trace, for the prefilter receipt (it changes nothing built).
         self.last_trace = OfferTrace() if receipts_on(self.vault.config) else None
-        return build_due_queue(
+        return serve_due_queue(
             self.vault,
             self.repository,
             clock=self.clock,

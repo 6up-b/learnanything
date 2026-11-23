@@ -133,13 +133,13 @@ Indexes and uniqueness:
 - `tests/test_learner_claim_superseded_migration.py`
 - `tests/test_learner_report_superseded.py`
 - `tests/test_lp_claim_fixes_rereview.py`
+- `tests/test_mastery_seed_inputs_migration.py`
+- `tests/test_mastery_seed_replay.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_pr4_superseded_claims_landing.py`
 - `tests/test_question_promotions.py`
 - `tests/test_rebuild_equivalence.py`
 - `tests/test_retrieval_spaces_migration.py`
-- `tests/test_section_coverage_migration.py`
-- `tests/test_tutor_promotion_service.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

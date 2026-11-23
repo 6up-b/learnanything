@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/reader_tutor.py](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py) |
-| Source lines | 466 |
+| Source lines | 465 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -68,8 +68,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted: ReaderRestriction, binding: Any=None) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 281) — The ``ReaderTutorRequest`` for one ``reader.ask``, or None while retrieval is off.
 - `tools_refused(restricted: ReaderRestriction) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 367) — No tool, practice request or offer lookup may run for this question (G48, Codex review F2, re-review F2): during a cold administration, whether the client says so (``coldActive``) or the server derives it from the bound item, and inside a bound session, where a tool's own caller…
 - `offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 378) — The Reader's own buttons under an answer (None while ``offers_enabled`` is off): RW1c's "try the next step first" and RW5b's "make this explorable".
-- `fallback_practice_request(vault: Any, question: str, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 420) — Without the sources service, "Practice this" is a plain ``find_practice`` on the learner's question (§4.6; the same RPC S0 later fills).
-- `record_excerpt_exposure(vault: Any, repository: Any, result: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 433) — The "From your books" excerpt's text is shown: one exposure row (best effort).
+- `fallback_practice_request(vault: Any, question: str, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 419) — Without the sources service, "Practice this" is a plain ``find_practice`` on the learner's question (§4.6; the same RPC S0 later fills).
+- `record_excerpt_exposure(vault: Any, repository: Any, result: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 432) — The "From your books" excerpt's text is shown: one exposure row (best effort).
 
 ### Module constants
 
@@ -111,7 +111,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `offers_enabled`, `show_me_enabled`; calls `offers_enabled`, `show_me_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`; calls `figures_enabled`
 - [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] — imports `record_shown_spans`; calls `record_shown_spans`
 - [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] — imports `propose_sources`, `resolve_misconceptions`; calls `propose_sources`, `resolve_misconceptions`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `ask_history`, `inquiry_enabled`

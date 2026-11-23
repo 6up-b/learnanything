@@ -17,9 +17,10 @@ import type { ExerciseCandidatesDto, FindExercisesDto, FindPracticeResultDto, Li
 import { fromFallback, fromProposal, proposalKeys, type ExerciseCandidate } from "./exerciseCandidates";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { JOB_POLL_MS } from "./useLibraryAsk";
+import { useWhenLive } from "../desks/lifecycle";
 
 /** Read a library job until it is done; null once no longer wanted (cancelled). */
-async function finish<T>(started: Promise<LibraryJobDto<T>>, wanted: () => boolean): Promise<T | null> {
+async function finish<T>(started: Promise<LibraryJobDto<T>>, wanted: () => boolean, whenLive: () => Promise<void>): Promise<T | null> {
   let job = await started;
   while (job.state === "pending") {
     if (!wanted()) {
@@ -27,6 +28,8 @@ async function finish<T>(started: Promise<LibraryJobDto<T>>, wanted: () => boole
       return null;
     }
     await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
+    // A paused window reads nothing; back on screen it goes on reading the same job.
+    await whenLive();
     if (!wanted()) {
       void api.readerLibraryJobCancel({ jobId: job.jobId }).catch(() => undefined);
       return null;
@@ -65,6 +68,7 @@ export function useLibraryExercises({
   extractionId: string | null;
 }): LibraryExercisesState {
   const proposalId = practice?.proposalId ?? null;
+  const whenLive = useWhenLive();
   const [view, setView] = useState<{ proposalId: string; phase: "pending" | "landed" | "failed"; value: ExerciseCandidatesDto | null } | null>(null);
   const [fallback, setFallback] = useState<{ proposalId: string | null; phase: ModelActionPhase; value: FindExercisesDto | null; failure: string | null } | null>(null);
   const currentProposal = useRef<string | null>(null);
@@ -93,7 +97,7 @@ export function useLibraryExercises({
     }
     let live = true;
     setView({ proposalId, phase: "pending", value: null });
-    finish(api.readerExerciseCandidates({ proposalId, keys }), () => live)
+    finish(api.readerExerciseCandidates({ proposalId, keys }), () => live, whenLive)
       .then((value) => {
         if (!live || value === null) return;
         setView({ proposalId, phase: "landed", value });
@@ -120,7 +124,7 @@ export function useLibraryExercises({
     if (!settings?.fallback || !query.trim()) return;
     const asked = currentProposal.current;
     setFallback({ proposalId: asked, phase: "pending", value: null, failure: null });
-    finish(api.readerFindExercises({ query, learningObjectIds, extractionId }), () => mounted.current && currentProposal.current === asked)
+    finish(api.readerFindExercises({ query, learningObjectIds, extractionId }), () => mounted.current && currentProposal.current === asked, whenLive)
       .then((value) => {
         if (value !== null && currentProposal.current === asked) setFallback({ proposalId: asked, phase: "landed", value, failure: null });
       })

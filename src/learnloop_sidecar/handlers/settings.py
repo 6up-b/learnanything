@@ -49,6 +49,7 @@ from learnloop_sidecar.handlers.chatgpt_plan import chatgpt_plan_payload
 from learnloop_sidecar.handlers.ingest import (
     BUDGET_BOUNDS,
     PLAN_BUDGET_FIELDS,
+    pdf_engines_refusing_page_ranges,
     validated_budget_overrides,
 )
 from learnloop_sidecar.registry import method
@@ -186,11 +187,13 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
                 field: getattr(config.ingest.budgets, field) for field in PLAN_BUDGET_FIELDS
             },
             # Accepted range per ceiling, so the UI validates with the same
-            # numbers the handler enforces instead of its own copies.
+            # numbers the handler enforces instead of its own copies: the plan's
+            # ceilings and the failed-synthesis retry panel's.
             "budget_bounds": {
-                field: {"min": BUDGET_BOUNDS[field][0], "max": BUDGET_BOUNDS[field][1]}
-                for field in PLAN_BUDGET_FIELDS
+                field: {"min": low, "max": high} for field, (low, high, _label, _code) in BUDGET_BOUNDS.items()
             },
+            # The engines under which an import with a page range is refused.
+            "pdf_engines_refusing_page_ranges": pdf_engines_refusing_page_ranges(config),
             "provider_limits": _provider_limits(config),
         },
         "animation": {

@@ -14,6 +14,7 @@ import type { ReaderGuidePlanDto } from "../../api/dto";
 import { peek, type QueryKey } from "../../api/queryCache";
 import { TAG } from "../../api/queryTags";
 import { cachedSourceRead } from "./readerCache";
+import { useWhenLive } from "../desks/lifecycle";
 
 /** First re-read after the plan is seen waiting; later ones back off. */
 export const GUIDE_DIAGNOSIS_POLL_MS = 4_000;
@@ -72,6 +73,7 @@ export function useGuideDiagnosisRefresh(
   const waitingOn = plan !== null && plan.extractionId === extractionId ? pendingDiagnoses(plan).join("\n") : "";
   const onPlanRef = useRef(onPlan);
   onPlanRef.current = onPlan;
+  const whenLive = useWhenLive();
 
   useEffect(() => {
     if (!sourceId || !extractionId || !waitingOn) return;
@@ -80,9 +82,11 @@ export function useGuideDiagnosisRefresh(
     let timer: ReturnType<typeof setTimeout> | null = null;
     const poll = () => {
       timer = null;
-      readGuidePlan(sourceId, extractionId, { force: true })
+      // A paused window reads nothing until it is back on screen.
+      whenLive()
+        .then(() => (cancelled ? null : readGuidePlan(sourceId, extractionId, { force: true })))
         .then((next) => {
-          if (!cancelled && next.extractionId === extractionId) onPlanRef.current(next);
+          if (next && !cancelled && next.extractionId === extractionId) onPlanRef.current(next);
         })
         .catch(() => undefined)
         .finally(() => {
@@ -96,5 +100,5 @@ export function useGuideDiagnosisRefresh(
       cancelled = true;
       if (timer !== null) clearTimeout(timer);
     };
-  }, [sourceId, extractionId, waitingOn]);
+  }, [sourceId, extractionId, waitingOn, whenLive]);
 }

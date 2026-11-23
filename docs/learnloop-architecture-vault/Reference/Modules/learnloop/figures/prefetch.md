@@ -245,7 +245,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/figure_prefetch|learnloop.db.stores.figure_prefetch]] — imports `module`; calls `close_decision`, `insert_decisions`, `insert_pause`, `link_request`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `SHOWN`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `FiguresChanged`, `FiguresGate`, `show_me_enabled`; calls `FiguresGate`, `show_me_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `FiguresChanged`, `FiguresGate`, `figures_enabled`; calls `FiguresGate`, `figures_enabled`
 - [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; calls `build_prefetch_figure`
 - [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] — imports `module`; calls `wait_idle`
 - [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `module`; calls `source_context`
@@ -301,8 +301,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unreadable_protection_cuts_the_whole_pass_and_says_so`
 - [tests/test_figure_prompts_golden.py](../../../../../../tests/test_figure_prompts_golden.py) — direct import
 - [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
-  - `test_a_goal_candidate_is_kept_only_with_figures_and_show_me_on`
-  - `test_where_a_pass_runs_the_predicates_read_what_the_raw_settings_read`
+  - `test_a_goal_candidate_is_kept_only_with_figures_on`
+  - `test_a_pass_and_the_offer_trigger_run_only_with_figures_ahead_of_need_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_a_judge_that_never_answers_well_decides_nothing`

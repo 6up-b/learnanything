@@ -38,14 +38,17 @@ from learnloop.algorithm_versions import (
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
+    MASTERY_SEED_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
 )
 from learnloop.attempts.lifecycle_inputs import reconstructing_legacy_lifecycle_inputs
+from learnloop.learner.mastery_seed import reconstructing_legacy_mastery_seeds
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
 from learnloop.db.stores.attempts import rank_legacy_attempts
+from learnloop.db.stores.practice_state import record_legacy_mastery_seeds
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.attempts import record_legacy_lifecycle_inputs
 from learnloop.ops.settings_store import updated_config_text
@@ -174,6 +177,40 @@ legacy_lifecycle_inputs_then_rebuild = Activation(
 )
 
 
+def _observe_legacy_mastery_seeds(vault: LoadedVault, repository: Repository, clock: Clock | None):
+    # The predecessor's own whole-vault rebuild, inside a savepoint that is rolled back: for every learning object
+    # without a record it takes the seed that rebuild gives it (a practised one from the claims made before its first
+    # attempt, an attempt-free one from the claims in force now), and nothing it wrote survives. Re-deriving those
+    # claim sets beside the rebuild would have to repeat where the claim stream places each claim.
+    with reconstructing_legacy_mastery_seeds() as observed:
+        try:
+            with repository.atomic():
+                rebuild_all_derived_state(vault, repository, clock=clock)
+                raise _ObservationOnly
+        except _ObservationOnly:
+            pass
+    return dict(observed)
+
+
+def _seed_then_rebuild(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None:
+    observed = _observe_legacy_mastery_seeds(vault, repository, clock)
+    with repository.connection() as connection:
+        record_legacy_mastery_seeds(connection, observed, recorded_at=utc_now_iso(clock))
+    rebuild_all_derived_state(vault, repository, clock=clock)
+
+
+#: mvp-0.67: record, for every learning object without a record, the claims the predecessor's rebuild seeds it from
+#: ('legacy_reconstructed', when it was first materialized unknown), then a whole-vault rebuild under the tag, which
+#: seeds from those records. Both run in the activation's one transaction, and the rebuild's receipt is the
+#: completion record, so a re-run after a committed activation does nothing and one after a death before the commit
+#: reconstructs from no records again.
+legacy_mastery_seeds_then_rebuild = Activation(
+    "the legacy mastery seeds, reconstructed, then a whole-vault rebuild under it",
+    _seed_then_rebuild,
+    _rebuild_committed,
+)
+
+
 @dataclass(frozen=True)
 class Link:
     tag: str
@@ -211,6 +248,10 @@ UPGRADES: tuple[Link, ...] = (
     # wherever a sibling's lifecycle changed between answers. The attempts applied before the upgrade get the
     # predecessor's reading first, labelled a reconstruction.
     Link(LIFECYCLE_INPUTS_ALGORITHM_VERSION, legacy_lifecycle_inputs_then_rebuild),
+    # A learning object's mastery seeds from the claims recorded where its row was first persisted: what a rebuild
+    # derives moves wherever a claim that does not re-anchor was made after a learning object was materialized. The
+    # learning objects materialized before the upgrade get the predecessor's seed first, labelled a reconstruction.
+    Link(MASTERY_SEED_ALGORITHM_VERSION, legacy_mastery_seeds_then_rebuild),
 )
 
 
@@ -505,6 +546,7 @@ __all__ = [
     "complete_interrupted_activation",
     "idempotent_projection",
     "legacy_lifecycle_inputs_then_rebuild",
+    "legacy_mastery_seeds_then_rebuild",
     "legacy_order_then_rebuild",
     "publish_algorithm_version",
     "published_algorithm_version",

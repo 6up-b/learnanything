@@ -102,7 +102,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `trace_scope`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `ref`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `trace_scope`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `ref`
 - [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`, `ref`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_record_id`, `new_trace_id`, `ref`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `read`, `where`, `write`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `current_trace`, `read`, `write`
@@ -145,7 +147,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] and 22 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] and 24 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -170,7 +172,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_grading_call_with_records_present_sees_none_of_them`
   - `test_a_held_grade_gets_a_record_when_the_hold_first_applies`
   - `test_a_job_with_no_enqueue_record_keeps_a_trace_of_its_own`
-  - `test_a_live_held_attempt_writes_its_hold_record_in_the_attempt_step`
+  - `test_a_live_held_attempt_writes_the_records_its_core_returned`
+  - `test_a_record_that_cannot_be_built_leaves_the_grade_and_logs`
   - `test_a_record_that_cannot_be_written_changes_no_grade`
   - `test_a_rejected_probe_value_and_a_learner_lane_offer_are_recorded`
   - `test_continue_trace_switches_the_scope_in_place_and_its_exit_restores`
@@ -187,6 +190,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_withdrawal_names_the_forced_probe_its_workflow_and_the_next_decision_points_to_it`
   - `test_the_builders_keep_ids_numbers_and_codes_only`
+- [tests/test_ingest_decision_records.py](../../../../../tests/test_ingest_decision_records.py) — direct import
+  - `test_a_build_waiting_for_a_look_says_why_each_item_waits`
+  - `test_the_scope_record_names_withheld_built_and_reserved_chapters`
 - [tests/test_objective_decision_record.py](../../../../../tests/test_objective_decision_record.py) — direct import
   - `test_the_cores_record_is_the_one_the_container_derived`
 - [tests/test_probe_records.py](../../../../../tests/test_probe_records.py) — direct import
@@ -249,8 +255,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_sampling_points.py](../../../../../tests/test_router_sampling_points.py) — direct import
 - [tests/test_slate_record.py](../../../../../tests/test_slate_record.py) — direct import
   - `test_a_persisting_build_writes_one_slate_record_with_its_exclusions`
+  - `test_a_record_that_cannot_be_built_changes_nothing_and_writes_nothing`
   - `test_a_record_that_cannot_be_written_changes_nothing_served`
   - `test_the_rule_that_put_the_head_first`
+- [tests/test_synthesis_tail_golden.py](../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_why_cases.py](../../../../../tests/test_why_cases.py) — direct import
   - `test_case_3_a_figure_stored_failed_has_one_author_record_per_attempt_with_typed_codes`
   - `test_why_wasnt_this_probe_answer_read`

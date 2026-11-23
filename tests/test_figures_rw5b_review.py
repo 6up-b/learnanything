@@ -1,14 +1,14 @@
 """RW5b Codex review fixes (docs/reviews/reader-rw5b-codex-review.md).
 
-F2: a figure of a block is reused whatever offered it, and across the
-panels switch when it can be drawn now. F4: a figure using a panel kind
-that is switched off is not revised. F5: with the panels off, a chain shows
-its newest version that can still be drawn. Fakes only: no model is called.
+F2: a figure of a block is reused whatever offered it, and one stored
+before the panels is reused under them. (F4 and F5 concerned the panels'
+switch, retired since.) Fakes only: no model is called.
 """
 
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 
 import pytest
 
@@ -22,7 +22,6 @@ from learnloop_sidecar.errors import SidecarError
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, call, context, rows
 from tests.figure_panels_corpus import gradient_field
 from tests.figure_offers_helpers import ExplorableOrganizer, _ask, _vault
-from tests.figures_rw5b_review_helpers import _panels
 
 
 def _offered_library(paths, repository) -> str:
@@ -56,70 +55,37 @@ def test_the_reuse_key_never_names_the_origin_and_keeps_rw5as_keys():
     assert FB.REUSE_ORIGIN == "selection"
 
 
+@contextmanager
+def _before_the_panels():
+    """A build as before the panels: every prompt version it names is RW5a's (the reuse key's alternates still
+    read those, for figures stored then)."""
+
+    real = R.author_prompt_version
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(R, "author_prompt_version", lambda **kwargs: real(**{**kwargs, "advanced": False}))
+        yield
+
+
 def test_a_figure_built_before_the_panels_came_on_is_reused_with_them_on(tmp_path):
-    paths, repository = _vault(tmp_path, advanced_panels_enabled=False)
+    paths, repository = _vault(tmp_path)
     author = AuthorFake()
-    first = build(context(paths.root, author=author), {"extractionId": EXTRACTION, "spanIds": ["p3"]})["figure"]
+    with _before_the_panels():
+        first = build(context(paths.root, author=author), {"extractionId": EXTRACTION, "spanIds": ["p3"]})["figure"]
     assert rows(repository, "interactive_figures")[0]["prompt_version"] == R.AUTHOR_PROMPT_VERSION
-    _panels(paths, True)
     again = build(context(paths.root, author=author), {"extractionId": EXTRACTION, "spanIds": ["p3"]})
     assert again["reused"] is True and again["figure"]["figureId"] == first["figureId"]
     assert author.calls == 1
 
 
-def test_a_figure_that_cant_be_drawn_now_is_not_reused_across_the_switch(tmp_path):
-    paths, repository = _vault(tmp_path)
-    build(context(paths.root, author=AuthorFake([gradient_field()])), {"extractionId": EXTRACTION, "spanIds": ["p2"]})
-    _panels(paths, False)
-    author = AuthorFake()
-    again = build(context(paths.root, author=author), {"extractionId": EXTRACTION, "spanIds": ["p2"]})
-    assert again["reused"] is False and author.calls == 1
-    assert again["figure"]["specJson"] is not None
-
-
 def test_another_prompts_cant_draw_verdict_is_not_reused(tmp_path):
-    paths, repository = _vault(tmp_path, advanced_panels_enabled=False)
-    first = build(context(paths.root, author=AuthorFake([("unsupported", "a vector field")])),
-                  {"extractionId": EXTRACTION, "spanIds": ["p2"]})["figure"]
+    paths, repository = _vault(tmp_path)
+    with _before_the_panels():
+        first = build(context(paths.root, author=AuthorFake([("unsupported", "a vector field")])),
+                      {"extractionId": EXTRACTION, "spanIds": ["p2"]})["figure"]
     assert first["verification"] == "unsupported"
-    _panels(paths, True)
     author = AuthorFake([gradient_field()])
     again = build(context(paths.root, author=author), {"extractionId": EXTRACTION, "spanIds": ["p2"]})
     assert author.calls == 1 and again["figure"]["verification"] == "illustrative"
-
-
-# --- F4: no revision of a figure whose panels are switched off --------------------------------------
-
-def test_a_figure_using_a_switched_off_panel_is_not_revised(tmp_path):
-    paths, repository = _vault(tmp_path)
-    shown = build(context(paths.root, author=AuthorFake([gradient_field()])),
-                  {"extractionId": EXTRACTION, "spanIds": ["p2"]})["figure"]
-    _panels(paths, False)
-    author = AuthorFake()
-    ctx = context(paths.root, author=author)
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.figure_revise", {"figureId": shown["figureId"], "note": "show the minimum"})
-    assert caught.value.code == "advanced_disabled"
-    assert author.calls == 0
-    assert len(rows(repository, "interactive_figures")) == 1
-
-
-# --- F5: the newest version that can still be drawn -----------------------------------------------
-
-def test_with_the_panels_off_a_chain_shows_its_newest_drawable_version(tmp_path):
-    paths, repository = _vault(tmp_path)
-    author = AuthorFake()  # the flagship function plot (RW5a's kinds) first
-    ctx = context(paths.root, author=author)
-    first = build(ctx, {"extractionId": EXTRACTION, "spanIds": ["p3"]})["figure"]
-    author.answers = [gradient_field()]
-    revised = build(ctx, {"figureId": first["figureId"], "note": "as a field"}, rpc="reader.figure_revise")["figure"]
-    assert json.loads(revised["specJson"])["panels"][0]["kind"] == "vector_field_2d"
-    on = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
-    assert [figure["figureId"] for figure in on] == [revised["figureId"]]
-    _panels(paths, False)
-    off = call(context(paths.root, author=AuthorFake()), "reader.figures", {"extractionId": EXTRACTION})["figures"]
-    assert [(figure["figureId"], figure["verification"]) for figure in off] == [(first["figureId"], "illustrative")]
-    assert off[0]["specJson"] is not None and off[0]["versions"] == 2
 
 
 # --- F3: the explorable verdict is in judgment_ledger, and the press reads it there -------------------
@@ -138,8 +104,8 @@ def test_the_organizers_explorable_verdict_is_in_its_ledger_rows(tmp_path):
     assert all("text" in details and "pick_rank" in details for details in recorded.values())
 
 
-def test_with_offers_off_the_organizers_ledger_rationale_is_rw4as(tmp_path):
-    paths, repository = _vault(tmp_path, offers_enabled=False)
+def test_with_figures_off_the_organizers_ledger_rationale_is_rw4as(tmp_path):
+    paths, repository = _vault(tmp_path, enabled=False)
     _offered_library(paths, repository)
     assert all(set(json.loads(row["rationale"])) == {"text", "pick_rank"}
                for row in _ledger(repository, "library_contribution"))

@@ -17,6 +17,7 @@
 // chords itself, so none clash (Ctrl+K stays free for RW2b's check).
 // Nothing a save, a poll or a result does moves focus or opens a dialog.
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useWindowPaused } from "../desks/lifecycle";
 import type { PassageTarget, WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ItemPresentation } from "../../components/ItemPresentation";
@@ -157,10 +158,14 @@ export function Workbench(props: WorkbenchProps) {
   }, [activeClock, hostClock, session.sessionId]);
 
   // "saved · 2 min ago" ages quietly (a text change, never a motion).
+  const paused = useWindowPaused();
   useEffect(() => {
+    // A paused window ages nothing; back on screen it catches up at once.
+    if (paused) return undefined;
+    setNowMs(Date.now());
     const timer = setInterval(() => setNowMs(Date.now()), 30000);
     return () => clearInterval(timer);
-  }, []);
+  }, [paused]);
 
   const title = problemTitle(session.stemMd);
   const fromBook = session.origin === "reader";

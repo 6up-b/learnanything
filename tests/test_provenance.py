@@ -389,7 +389,7 @@ _REGISTRIES = frozenset({"learnloop.db.table_roles", "learnloop.adaptive_difficu
                          "learnloop.adaptive_difficulty.column_classes"})
 
 #: Record writers inside the closure, each with its proof that replay never calls it. The slate's record
-#: (refactor B6) is written only by a persisting queue build (``build_due_queue``, statically in the closure through
+#: (refactor B6) is written only by a persisting queue build (``serve_due_queue``, statically in the closure through
 #: the simulator and the state sync's imports); no rebuild, replay or upgrade builds a queue, and
 #: ``test_a_rebuild_never_calls_the_record_and_keeps_its_rows`` refuses it at run time. The store enters the closure
 #: through these writers alone.
@@ -493,7 +493,7 @@ def test_a_rebuild_never_calls_the_record_and_keeps_its_rows(tmp_path: Path, mon
     import learnloop.diagnosis.chain_records as chain_records
 
     chain_calls: list[str] = []
-    monkeypatch.setattr(grade_records, "record_grade", lambda *a, **k: chain_calls.append("grade"))
+    monkeypatch.setattr(grade_records, "write_grade_decision", lambda *a, **k: chain_calls.append("grade"))
     monkeypatch.setattr(chain_records, "_write", lambda _repo, kind, _build: chain_calls.append(kind))
     monkeypatch.setattr(store, "record_job_enqueued", lambda *a, **k: chain_calls.append("job_enqueued"))
     monkeypatch.setattr(store, "continue_job_trace", lambda *a, **k: chain_calls.append("continue_job_trace"))

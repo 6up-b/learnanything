@@ -22,7 +22,7 @@ from learnloop.diagnosis.remediation import (
     start_remediation_episode,
     start_remediation_treatment,
 )
-from learnloop.scheduling.scheduler import build_due_queue, exclusion_now
+from learnloop.scheduling.scheduler import serve_due_queue, exclusion_now
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, add_followup_item, create_basic_vault, seed_due_item, set_algorithm_version
 
@@ -102,7 +102,7 @@ def _iso(at: datetime) -> str:
 
 
 def _queued(vault, repository, item_id: str, at: datetime) -> bool:
-    return item_id in [item.practice_item_id for item in build_due_queue(vault, repository, clock=FrozenClock(at))]
+    return item_id in [item.practice_item_id for item in serve_due_queue(vault, repository, clock=FrozenClock(at))]
 
 
 # -- below the tag: the episode has no end ------------------------------------------------------------------------

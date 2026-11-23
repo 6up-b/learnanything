@@ -242,7 +242,7 @@ const FLAGSHIP = corpus.figures.find((item) => item.id === "two_sided_exponentia
 function teacherFigure(overrides: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_t1", extractionId: null as unknown as string, spanIds: [], anchorSpanId: null, region: null,
-    origin: "teacher", verification: "illustrative", kind: "illustrative",
+    origin: "teacher", verification: "illustrative", shown: true, labelCode: "illustrative", kind: "illustrative",
     label: "AI-built illustration of an interpretation · not checked against the book", reason: null,
     unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-11-02T00:00:00",
     specJson: JSON.stringify(FLAGSHIP), demonstrates: FLAGSHIP.demonstrates, assumptions: [],

@@ -14,6 +14,7 @@ import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth, isNarrow } from "../w
 import { LibraryAnswer, type ExplorableOutcome, type LibraryExercisesProps } from "./LibraryAnswer";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
 import { screenLeavesKey } from "../../app/keymap";
+import { useListenerHub } from "../desks/lifecycle";
 
 const WIDTH_KEY = "ll.library.splitWidth";
 
@@ -38,13 +39,13 @@ function writeWidth(width: number): void {
  *  breakpoint), re-read on resize; always false while `enabled` is false. */
 export function useComparingStacked(enabled: boolean): boolean {
   const [narrow, setNarrow] = useState(() => isNarrow(window.innerWidth));
+  const hub = useListenerHub();
   useEffect(() => {
     if (!enabled) return undefined;
     const onResize = () => setNarrow(isNarrow(window.innerWidth));
     onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [enabled]);
+    return hub.listen("window", "resize", onResize);
+  }, [enabled, hub]);
   return enabled && narrow;
 }
 
@@ -81,13 +82,13 @@ export function LibraryPane({
   const [width, setWidth] = useState(() => clampSplitWidth(readWidth() ?? Math.floor(window.innerWidth / 2), window.innerWidth));
   const inputRef = useRef<HTMLInputElement | null>(null);
   const reclamp = ctl.byPoint;
+  const hub = useListenerHub();
   useEffect(() => {
     // CA4: a resized window re-clamps the pane (RW4a computed it once, at mount).
     if (!reclamp) return undefined;
     const onResize = () => setWidth((current) => clampSplitWidth(current, window.innerWidth));
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [reclamp]);
+    return hub.listen("window", "resize", onResize);
+  }, [reclamp, hub]);
   const composing = compose !== null;
   useEffect(() => {
     // Ctrl+Shift+F was the learner's key: the ask box takes the cursor.
@@ -101,9 +102,8 @@ export function LibraryPane({
       if (ctl.state?.peek) ctl.closePeek();
       else onClose();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [ctl, onClose]);
+    return hub.listen("window", "keydown", onKey);
+  }, [ctl, onClose, hub]);
   const resize = (next: number) => {
     const clamped = clampSplitWidth(next, window.innerWidth);
     setWidth(clamped);
@@ -129,12 +129,9 @@ export function LibraryPane({
           const startX = event.clientX;
           const startWidth = width;
           const onMove = (move: MouseEvent) => resize(startWidth + (startX - move.clientX));
-          const onUp = () => {
-            window.removeEventListener("mousemove", onMove);
-            window.removeEventListener("mouseup", onUp);
-          };
-          window.addEventListener("mousemove", onMove);
-          window.addEventListener("mouseup", onUp);
+          const offs: Array<() => void> = [];
+          const onUp = () => offs.forEach((off) => off());
+          offs.push(hub.listen("window", "mousemove", onMove), hub.listen("window", "mouseup", onUp));
         }}
         style={{ width: 6, flexShrink: 0, cursor: "col-resize", borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg }}
       />}

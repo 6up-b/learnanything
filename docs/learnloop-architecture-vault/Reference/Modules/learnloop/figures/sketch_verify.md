@@ -113,7 +113,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `verify_sketch`
-- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`
 - [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `module`; statically calls `prediction_outcome`
 - [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `VERIFIER_REPORT_VERSION`, `module`; statically calls `prediction_target_step`, `verify_sketch`
 
@@ -138,7 +137,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -165,6 +164,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sketch_service.py](../../../../../../tests/test_sketch_service.py) — direct import
   - `test_a_failed_reverification_is_recorded_as_failed`
   - `test_a_prediction_an_upgrade_dropped_is_refused`
+  - `test_a_read_without_a_run_honours_only_a_failure_already_found`
   - `test_a_report_from_an_older_verifier_is_reverified_before_it_is_shown`
   - `test_a_report_from_this_verifier_and_engine_is_not_reverified`
   - `test_a_verifier_version_bump_reverifies_a_current_engines_report`

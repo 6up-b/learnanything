@@ -24,7 +24,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
 )
 from learnloop.diagnosis.probe_controls import next_probe_item
-from learnloop.scheduling.scheduler import _insert_pending_followups, build_due_queue
+from learnloop.scheduling.scheduler import _insert_pending_followups, serve_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
@@ -46,7 +46,7 @@ def _set_lo_status(root, status: str) -> None:
 
 
 def _queue_ids(root, repository) -> list[str]:
-    return [entry.practice_item_id for entry in build_due_queue(load_vault(root), repository, clock=CLOCK)]
+    return [entry.practice_item_id for entry in serve_due_queue(load_vault(root), repository, clock=CLOCK)]
 
 
 @pytest.mark.parametrize("status", INACTIVE)

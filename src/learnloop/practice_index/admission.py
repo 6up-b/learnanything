@@ -1,6 +1,6 @@
 """Read-only admission for learner-requested practice (``find_practice``).
 
-``build_due_queue`` decides what the scheduler SERVES. A tool that only PROPOSES
+``serve_due_queue`` decides what the scheduler SERVES. A tool that only PROPOSES
 practice must not propose anything the scheduler would refuse to serve, so this
 module applies the same ordinary-practice eligibility rules, built from the
 same predicates and reads, without writing anything:
@@ -26,7 +26,7 @@ an item outside the scheduler's timing:
 
 The routine queue's cold-start gate (never-attempted LOs wait for a goal or an
 episode) does NOT apply: an explicit request for practice is the learner
-adopting the material, as with requested cards. When ``build_due_queue``
+adopting the material, as with requested cards. When ``serve_due_queue``
 gains a new eligibility rule, add it here too; the parity test pins them.
 """
 from __future__ import annotations

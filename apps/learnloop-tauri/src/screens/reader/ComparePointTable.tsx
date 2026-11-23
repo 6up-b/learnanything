@@ -37,6 +37,7 @@ import { KEEP_COPY, fineLabel } from "./CompareKeep";
 import { useCompareKeep } from "./compareKeepContext";
 import { MeaningLabel, SpokenOnly } from "./voices";
 import { NotesTakeBand, type NoteTakeOutcome } from "./ReaderNotes";
+import { useListenerHub } from "../desks/lifecycle";
 
 export const POINT_COPY = {
   header: "differences kept · each line quotes its own book",
@@ -118,11 +119,11 @@ function useWidth(ref: RefObject<HTMLElement | null>): number | null {
 
 function useWindowWidth(): number {
   const [width, setWidth] = useState(() => window.innerWidth);
+  const hub = useListenerHub();
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    return hub.listen("window", "resize", onResize);
+  }, [hub]);
   return width;
 }
 

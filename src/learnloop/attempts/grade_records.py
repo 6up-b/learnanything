@@ -1,17 +1,20 @@
 """The grade's decision records (refactor B7, ADR-017): what the grader decided, and when a hold first applied.
 
-A ``grade`` record is written once per live grade, by the attempt step's live
-branch (``attempts.apply_attempt``, every recording door) and by a regrade,
-inside their transactions and after the grade is computed. It carries ids, the
-verdict class, the numbers and the versions: never the answer, the rubric's
-prose or the feedback (the attempt row and the receipts hold those). When the
-grade is held for review (``outcome_contract.grade_is_held``, evaluated in flight
-by the step), a ``grade_held`` record follows it as its child. The hold stays a
-predicate (``held_grades.held_for_review_attempts`` decides it on every read);
-the record says when it first applied and why, so ``why attempt:<id>`` can.
+A ``grade`` record goes with every live grade. The grade application's core
+(``attempts.grade_application``) returns it with its result, built by
+:func:`grade_decision` from the values it decided with, and the attempt step
+(``attempts.apply_attempt``, every recording door) writes it last in its
+transaction; a regrade builds and writes its own after it re-applies the
+attempt. It carries ids, the verdict class, the numbers and the versions: never
+the answer, the rubric's prose or the feedback (the attempt row and the receipts
+hold those). When the grade is held for review (``outcome_contract.grade_is_held``,
+evaluated in flight by the core), a ``grade_held`` record follows it as its child.
+The hold stays a predicate (``held_grades.held_for_review_attempts`` decides it on
+every read); the record says when it first applied and why, so ``why attempt:<id>``
+can.
 
 Replay re-applies recorded attempts (``replace_existing``) and never reaches the
-writers here (``tests/test_provenance.py``). The grader never reads the table.
+writer here (``tests/test_provenance.py``). The grader never reads the table.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
 from typing import Any
 
 from learnloop import provenance
@@ -109,7 +113,8 @@ def grade_record(
     fsrs: Mapping[str, Any] | None = None,
 ) -> provenance.DecisionRecord:
     """One grade's record (pure): the verdict class as ``rule``; the score, its maximum and the review reason's code
-    in ``facts``; the grader's identity in ``versions``. ``decided_by`` overrides the grader's name (``regrade``)."""
+    in ``facts``; the grader's identity in ``versions``. ``decided_by`` overrides the grader's name (``regrade``).
+    Its parent, the work that caused it, is named when it is written (:func:`write_grade_decision`)."""
 
     verdict = verdict_class(rubric_score=rubric_score, max_points=max_points, correctness=correctness,
                             attempt_type=attempt_type, declared_dont_know=declared_dont_know,
@@ -146,7 +151,7 @@ def grade_record(
     return provenance.DecisionRecord(
         kind=GRADE, status="fallback" if fallback_reason else "chosen", subject_kind="attempt",
         subject_id=attempt_id, chosen_ref=verdict, decided_by=grader, rule=verdict, facts=facts, versions=versions,
-        detail_table="practice_attempts", detail_id=attempt_id, parent_id=provenance.current_cause(),
+        detail_table="practice_attempts", detail_id=attempt_id,
     )
 
 
@@ -171,11 +176,22 @@ def held_record(*, attempt_id: str, parent_id: str | None, manual_review_reason:
     )
 
 
-def record_grade(repository: Any, *, held: bool, unverified_criterion_ids: Iterable[Any] = (),
-                 **grade: Any) -> str | None:
-    """Write the grade's record, and its hold's when ``held``, in the caller's transaction; the grade record's id.
+@dataclass(frozen=True)
+class GradeDecision:
+    """A grade's records as its decider returns them: the grade's, and its hold's when the grade is held.
 
-    Never raises: a record that cannot be built or written logs a warning with the trace and the grade stands.
+    Neither names a parent yet: the grade's is the work running when it is written, and the hold's is the grade's
+    record, whose id exists only once it is written."""
+
+    grade: provenance.DecisionRecord
+    hold: provenance.DecisionRecord | None = None
+
+
+def grade_decision(*, held: bool, unverified_criterion_ids: Iterable[Any] = (), **grade: Any) -> GradeDecision | None:
+    """The grade's record, and its hold's when ``held`` (pure); ``grade`` is :func:`grade_record`'s inputs.
+
+    Never raises: a record that cannot be built logs a warning with the trace and is left out (the grade's takes
+    its hold's with it), and the grade stands.
     """
 
     try:
@@ -184,18 +200,31 @@ def record_grade(repository: Any, *, held: bool, unverified_criterion_ids: Itera
         LOG.warning("decision record %r not written (trace %s): %s", GRADE, provenance.current_trace(),
                     type(exc).__name__)
         return None
-    grade_id = decision_store.write_decision(repository, record)
+    hold = None
     if held:
         try:
-            hold = held_record(attempt_id=str(grade["attempt_id"]), parent_id=grade_id,
+            hold = held_record(attempt_id=str(grade["attempt_id"]), parent_id=None,
                                manual_review_reason=grade.get("manual_review_reason"),
                                unverified_criterion_ids=unverified_criterion_ids,
                                algorithm_version=grade.get("algorithm_version"))
         except Exception as exc:  # noqa: BLE001 - as above
             LOG.warning("decision record %r not written (trace %s): %s", GRADE_HELD, provenance.current_trace(),
                         type(exc).__name__)
-        else:
-            decision_store.write_decision(repository, hold)
+    return GradeDecision(grade=record, hold=hold)
+
+
+def write_grade_decision(repository: Any, decision: GradeDecision | None) -> str | None:
+    """Write a grade's records in the caller's transaction, the grade's first; the grade record's id.
+
+    The grade's parent is the work running now (a queued job's ``job_enqueued``) and the hold's the grade's record,
+    or none when that write failed. Never raises: a failed write logs a warning and the grade stands.
+    """
+
+    if decision is None:
+        return None
+    grade_id = decision_store.write_decision(repository, replace(decision.grade, parent_id=provenance.current_cause()))
+    if decision.hold is not None:
+        decision_store.write_decision(repository, replace(decision.hold, parent_id=grade_id))
     return grade_id
 
 

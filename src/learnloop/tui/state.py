@@ -6,7 +6,7 @@ from pathlib import Path
 from learnloop.ai.execution import record_model_calls
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.scheduling.scheduler import SchedulerSession, ScheduledItem, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, ScheduledItem, serve_due_queue
 from learnloop.ops.startup import StartupMaintenanceResult, run_startup_maintenance
 from learnloop.substrate.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -52,7 +52,7 @@ class TuiState:
         self.state_sync = sync_vault_state(self.vault, self.repository)
         with self.model_receipts():
             self.startup_maintenance = run_startup_maintenance(self.vault, self.repository)
-        self.queue = build_due_queue(
+        self.queue = serve_due_queue(
             self.vault,
             self.repository,
             session=session or SchedulerSession(),
