@@ -57,7 +57,7 @@ STATUSES = frozenset({
 #: Subject kinds ``why <kind>:<id>`` looks up. A writer may name another kind;
 #: only these are read as a ``kind:id`` target.
 SUBJECT_KINDS = frozenset({"attempt", "item", "block", "offer", "figure", "job", "presentation", "decision", "slate",
-                           "factor", "goal", "lesson"})
+                           "factor", "goal", "lesson", "figure_request"})
 
 #: Alternatives kept per record; the rest are counted per losing rule in
 #: ``facts["alternatives_overflow"]``.

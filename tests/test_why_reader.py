@@ -429,7 +429,8 @@ def test_why_is_still_a_pure_read_with_the_new_options(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(("subject_kind", "kind"), [("goal", "curriculum_path_refresh"),
-                                                    ("lesson", "spend_admission")])
+                                                    ("lesson", "spend_admission"),
+                                                    ("figure_request", "figure_request")])
 def test_why_resolves_goal_and_lesson_subjects(tmp_path, subject_kind, kind):
     """Fail-first: before ``goal`` and ``lesson`` were subject kinds, ``why goal:<id>`` was read as a trace id and
     answered ``not_found`` (B8 writes records about both)."""

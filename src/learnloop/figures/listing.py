@@ -23,6 +23,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.figure_admission import figures_enabled, rich_tiers_enabled
+from learnloop.figures import records as FR
 from learnloop.figures import rich as RICH
 from learnloop.figures import sketch as K
 from learnloop.figures import spec as S
@@ -58,11 +59,13 @@ def _root(rows_by_id: Mapping[str, Mapping[str, Any]], row: Mapping[str, Any]) -
     return str(current["id"])
 
 
-def _listed(vault: Any, repository: Repository,
-            extraction_id: str) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]:
+def _listed(vault: Any, repository: Repository, extraction_id: str, withheld: list[str] | None = None
+            ) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]:
     """The rows :func:`list_figures` presents, with no presentation (RW5d P4a,
     Codex review F3): per version chain, the pick, the chain's length and its
-    placements in this source. Read-only: nothing is verified or written."""
+    placements in this source. Read-only: nothing is verified or written; a
+    chain left out because its pick is withheld now has the pick's id
+    appended to ``withheld`` when given."""
 
     if not figures_enabled(vault):
         return []
@@ -90,6 +93,8 @@ def _listed(vault: Any, repository: Repository,
         drawable = [row for row in shown if drawable_now(vault, row) and not source_rejected(vault, repository, row)]
         pick = (drawable or shown or chain)[-1]
         if row_withheld(vault, repository, pick) is not None:
+            if withheld is not None:
+                withheld.append(str(pick["id"]))
             continue
         # RW5d (Codex review F3): a figure with no passage is listed at every
         # paragraph of this source it was asked at (one view per placement),
@@ -259,11 +264,15 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
     the current spec version, and never one whose passage is held out now."""
 
     views = []
-    for pick, versions, homes in _listed(vault, repository, extraction_id):
+    withheld: list[str] = []
+    for pick, versions, homes in _listed(vault, repository, extraction_id, withheld):
         try:
             views.extend(figure_view(vault, repository, pick, versions=versions, home=home) for home in homes)
         except (S.SpecError, K.SketchError):
+            FR.write_withheld_once(repository, str(pick["id"]), FR.SPEC_UNPARSABLE, where="list")
             continue
+    for figure_id in withheld:
+        FR.write_withheld_once(repository, figure_id, FR.WITHHELD_PICK, where="list")
     return sorted(views, key=lambda view: view["created_at"])
 
 

@@ -66,7 +66,13 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import FiguresChanged, FiguresGate, author_learner_state_enabled, figures_enabled
+from learnloop.figure_admission import (
+    FiguresChanged,
+    FiguresGate,
+    author_learner_state_enabled,
+    figures_enabled,
+    hold_reason,
+)
 from learnloop.figure_admission import manim_opt_in as admission_manim_opt_in
 from learnloop.figure_admission import rich_tiers_enabled as admission_rich_tiers_enabled
 from learnloop.figures import labels as L
@@ -184,15 +190,65 @@ def manim_opt_in_needed(vault: Any) -> bool:
     return bool(manim_runtime_state(vault, probe=False)["ready"])
 
 
-def tiers_allowed(vault: Any, *, sketch: bool) -> tuple[str, ...]:
-    """The author's menu (module docstring), in the spec's order."""
+#: Why a tier is not on the author's menu, as the request's record names it: the sketch engine absent; a lesson's
+#: or an attempt host's request (their tiers name no rich one); no way to start a rich job; the rich tiers off;
+#: no standing Manim opt-in; or this machine (``manim_runtime_state``'s reasons).
+TIER_ABSENT_CODES = ("no_engine", "lesson_host", "attempt_host", "no_spawner", "rich_off", "no_opt_in", "off_linux",
+                     "models_off", "no_bwrap", "no_manim")
 
-    tiers = ["grammar"]
-    if sketch:
+
+@dataclass(frozen=True)
+class MenuFacts:
+    """What the menu is decided from, read by :func:`menu_facts`: the sketch tier as ready on this machine;
+    whether a rich job can be started (a spawner), and when it can't, the request's host; the rich tiers' switch,
+    the Manim opt-in, and ``manim_runtime_state`` when it was asked (None: not reached, so never probed)."""
+
+    sketch: bool
+    spawner: bool
+    host: str | None = None
+    rich_switch: bool = False
+    opt_in: str | None = None
+    runtime: Mapping[str, Any] | None = None
+
+
+def tier_menu(facts: MenuFacts) -> tuple[tuple[str, ...], dict[str, str]]:
+    """The author's menu (module docstring), in the spec's order, and a code (:data:`TIER_ABSENT_CODES`) for each
+    tier left off it."""
+
+    tiers, absent = ["grammar"], {}
+    if facts.sketch:
         tiers.append("sketch")
-    if manim_tier_ready(vault):
+    else:
+        absent["sketch"] = "no_engine"
+    if not facts.spawner:
+        absent["manim"] = ("lesson_host" if facts.host == "lesson" else "attempt_host" if facts.host == "attempt"
+                           else "rich_off" if not facts.rich_switch else "no_spawner")
+    elif not facts.rich_switch:
+        absent["manim"] = "rich_off"
+    elif facts.opt_in != "standing":
+        absent["manim"] = "no_opt_in"
+    elif not (facts.runtime or {}).get("ready"):
+        absent["manim"] = str((facts.runtime or {}).get("reason") or "no_manim")
+    else:
         tiers.append("manim")
-    return tuple(tiers)
+    return tuple(tiers), absent
+
+
+def menu_facts(vault: Any, *, sketch: bool, spawner: bool, host: str | None = None) -> MenuFacts:
+    """The facts :func:`tier_menu` decides from, read in :func:`manim_tier_ready`'s order: the Manim probe is asked
+    only with a spawner, the rich tiers on and the standing opt-in (as before), never otherwise."""
+
+    switch = rich_tiers_switch(vault)
+    opt_in = admission_manim_opt_in(vault) if switch else None
+    runtime = manim_runtime_state(vault) if spawner and switch and opt_in == "standing" else None
+    return MenuFacts(sketch=sketch, spawner=spawner, host=None if spawner else host, rich_switch=switch,
+                     opt_in=opt_in, runtime=runtime)
+
+
+def tiers_allowed(vault: Any, *, sketch: bool) -> tuple[str, ...]:
+    """The author's menu (module docstring), in the spec's order, for a request that can start a rich job."""
+
+    return tier_menu(menu_facts(vault, sketch=sketch, spawner=True))[0]
 
 
 def rich_on_menu(tiers: Sequence[str]) -> bool:
@@ -483,7 +539,7 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
             raise RichJobStopped("exam_material", message)
 
         def hold(current: Any) -> str | None:
-            return _inherited_withheld(current, repository, payload)
+            return hold_reason(_inherited_withheld(current, repository, payload), "learner_state")
 
     if _carries_learner_state(payload):
         # Learner data-relax 2 (Codex review F2): the saved context carries
@@ -501,8 +557,8 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
             return (*rich_build_key(current), author_learner_state_enabled(current))
 
         def hold(current: Any) -> str | None:
-            return _learner_state_withheld(current, repository, payload) or _inherited_withheld(
-                current, repository, payload)
+            return hold_reason(_learner_state_withheld(current, repository, payload) or _inherited_withheld(
+                current, repository, payload), "learner_state")
 
     prefetch = payload.get("build_mode") == "prefetch"
     if prefetch:
@@ -529,7 +585,8 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         own_hold = hold
 
         def hold(current: Any) -> str | None:  # the prebuild's hold wraps the learner-state one
-            return held(current) or rich_base_item_protected(current, repository, base, clock=clock) or (
+            return held(current) or hold_reason(rich_base_item_protected(current, repository, base, clock=clock),
+                                                "item_protection") or (
                 own_hold(current) if own_hold is not None else None)
 
     gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold, wait=_prefetch_wait if prefetch else None,
@@ -579,9 +636,9 @@ def _prefetch_hold(repository: Repository, client: Any | None) -> Callable[[Any]
         if reason is not None:
             return reason
         if plan_route(current, RICH_TASK, client).billing != "subscription":
-            return PREFETCH_NOT_PLAN
+            return hold_reason(PREFETCH_NOT_PLAN, "plan")
         if render_minutes_left(current, repository.sqlite_path) <= 0:
-            return PREFETCH_RENDER_CAP
+            return hold_reason(PREFETCH_RENDER_CAP, "render_cap")
         return None
 
     return hold
@@ -1060,4 +1117,8 @@ __all__ = [
     "rich_prompt",
     "run_rich_job",
     "tiers_allowed",
+    "tier_menu",
+    "menu_facts",
+    "MenuFacts",
+    "TIER_ABSENT_CODES",
 ]

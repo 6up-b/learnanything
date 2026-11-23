@@ -2083,8 +2083,9 @@ def why(
             metavar="[TARGET]",
             help=(
                 "latest (the default), a trace id, a decision record id, <kind>:<id> (attempt, item, block, offer, "
-                "figure, job, presentation, decision, slate, factor, goal, lesson), a router decision, figure or offer "
-                "response id (old rows, reconstructed), or a practice item id (its scheduler explanation)."
+                "figure, figure_request, job, presentation, decision, slate, factor, goal, lesson), a router decision, "
+                "figure or offer response id (old rows, reconstructed), or a practice item id (its scheduler "
+                "explanation)."
             ),
         ),
     ] = None,
