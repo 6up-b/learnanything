@@ -664,6 +664,20 @@ def protect_chapters(chapters: Sequence[Mapping[str, Any]], protection: Protecti
     return out
 
 
+def protect_lessons(lessons: Sequence[Mapping[str, Any]], protection: Protection) -> list[dict[str, Any]]:
+    """Lesson summaries (``lesson.list``: the lesson windows' tabs, the path view's lesson row): a lesson on a held LO,
+    or whose title or goal names one, keeps its ids and dates, its title neutral and its goal withheld."""
+
+    out = []
+    for lesson in lessons:
+        row = dict(lesson)
+        if protection.active and (any(protection.lo_masked(lo_id) for lo_id in row.get("learning_object_ids") or ())
+                                  or protection.names_held(row.get("title")) or protection.names_held(row.get("goal"))):
+            row["title"], row["goal"], row["held"] = NEUTRAL_LO, None, True
+        out.append(row)
+    return out
+
+
 def protect_follow(reply: Mapping[str, Any], protection: Protection,
                    sections: Sequence[tuple[str, float, float | None]] = ()) -> dict[str, Any]:
     """``reader.follow_along``: the chapter and transcript section a chip names, and the book's correspondent
@@ -700,5 +714,5 @@ __all__ = [
     "BandLo", "Coverage", "GoalLo", "GoalReads", "LoLevel", "NEUTRAL_EXERCISE", "NEUTRAL_LO", "NEUTRAL_SECTION",
     "NextLine", "PathPlace", "Protection", "SectionLevel", "SectionReads", "band_counts", "band_learning_objects",
     "chapter_held", "level_view", "lo_level", "next_for_goal", "protect_band", "protect_chapters", "protect_follow",
-    "protect_lens", "protect_path", "section_level",
+    "protect_lens", "protect_lessons", "protect_path", "section_level",
 ]

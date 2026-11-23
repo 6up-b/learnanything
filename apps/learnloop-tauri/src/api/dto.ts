@@ -10564,6 +10564,8 @@ export interface LessonSummaryDto {
   madeFrom: "selection" | "check" | "question" | "suggestion" | "topic";
   /** The lesson's `lesson_additions` pad, once the learner wrote under it. */
   additionsPadId: string | null;
+  /** A check is due on what it teaches: its title is neutral and its goal withheld. */
+  held?: boolean;
 }
 
 /** Reader workbench RD10 (spec §7.5): what a book window follows at a video's time (reader.follow_along). */

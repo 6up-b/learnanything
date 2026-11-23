@@ -345,7 +345,12 @@ def lesson_list(ctx: SidecarContext, params: LessonListInput) -> dict[str, Any]:
         pads = pad_reads.lesson_additions_pads(connection, [lesson["lesson_id"] for lesson in lessons])
     for lesson in lessons:
         lesson["additions_pad_id"] = pads.get(lesson["lesson_id"])
-    return versioned({"lessons": lessons})
+    # A tab names nothing a due check covers (the goal lens's protection, D15).
+    from learnloop.curriculum import goal_lens as GL
+    from learnloop_sidecar.handlers.goal_lens import protection_now
+
+    protection, _next_due = protection_now(vault, repository)
+    return versioned({"lessons": GL.protect_lessons(lessons, protection)})
 
 
 @method("lesson.activity", LessonActivityInput)

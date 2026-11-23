@@ -695,7 +695,9 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     if (padId && !store.pads[padId]) return; // still being read
     if (!padId) {
       padId = host.mintId("pad");
-      const topic = lessons.desk.summary(lessonId)?.title;
+      // A lesson held for a due check names no topic: the pad's title is stored, and outlives the check.
+      const summary = lessons.desk.summary(lessonId);
+      const topic = summary?.held ? null : summary?.title;
       if (!write(padId, [{ op: "create_pad", kind: "lesson_additions", title: `your additions${topic ? ` · ${topic}` : ""}`, lessonId }])) return;
       lessons.desk.noteAdditions(lessonId, padId);
     }
