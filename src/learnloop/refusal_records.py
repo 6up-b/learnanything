@@ -266,12 +266,17 @@ def lesson_budget_record(*, lesson_id: Any, exc: BaseException | None, refusal: 
     )
 
 
-def figure_gate_record(*, rule: str, purpose: Any) -> DecisionRecord:
-    """The figure gate refused a figure-derived request; every later request of the unit is refused with it."""
+def figure_gate_record(*, rule: str, purpose: Any, held: str | None = None,
+                       subject: tuple[str, str] | None = None) -> DecisionRecord:
+    """The figure gate refused a figure-derived request; every later request of the unit is refused with it. For a
+    hold, ``held`` is why (``figure_admission.HOLD_CODES``); ``subject`` is the unit (a figure request, a job) when
+    its owner named it."""
 
+    subject_kind, subject_id = subject if subject is not None else (None, None)
     return DecisionRecord(
         kind=FIGURE_ADMISSION, status="refused", decided_by="figures_gate", rule=_code(rule) or "refused",
-        facts=_compact({"purpose": _code(purpose)}), parent_id=provenance.current_cause(),
+        subject_kind=_code(subject_kind), subject_id=_ref(subject_id),
+        facts=_compact({"purpose": _code(purpose), "held": _code(held)}), parent_id=provenance.current_cause(),
     )
 
 

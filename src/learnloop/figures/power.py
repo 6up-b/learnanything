@@ -280,16 +280,18 @@ def background_hold(vault: Any, *, wait_foreground: float = 0.0) -> str | None:
     prebuild's every request yields to the learner; ``wait_foreground`` seconds
     it may wait for that work to end first, as the durable rich job does)."""
 
+    from learnloop.figure_admission import hold_reason
     from learnloop.figures import foreground as FG
 
     if not prefetch_switch(vault):
-        return SWITCHED_OFF
+        return hold_reason(SWITCHED_OFF, "prefetch_off")
     if not power_state().on_mains:
-        return NOT_ON_MAINS
+        return hold_reason(NOT_ON_MAINS, "power")
     if FG.busy() and not FG.wait_idle(wait_foreground):
-        return YIELDED
+        return hold_reason(YIELDED, "foreground")
     if not prefetch_switch(vault) or not power_state().on_mains:
-        return SWITCHED_OFF if not prefetch_switch(vault) else NOT_ON_MAINS
+        return hold_reason(SWITCHED_OFF, "prefetch_off") if not prefetch_switch(vault) else hold_reason(
+            NOT_ON_MAINS, "power")
     return None
 
 

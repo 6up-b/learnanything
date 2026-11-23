@@ -310,6 +310,29 @@ class FiguresChanged(BaseException):
 #: :attr:`FiguresGate.rule`'s codes, in the order the gate asks.
 GATE_RULES = ("vault_closed", "figures_off", "config_changed", "held")
 
+#: Why a hold held, as the gate's record names it (:attr:`HoldReason.code`); ``unclassified`` for a hold whose
+#: reason carries no code.
+HOLD_CODES = ("learner_state", "item_protection", "prefetch_off", "power", "foreground", "plan", "render_cap",
+              "cancelled", "unclassified")
+
+
+class HoldReason(str):
+    """A hold's reason: the prose the unit's error carries, as before, with the code the gate's record keeps (a
+    record holds codes, never prose). A plain string from a hold still holds, recorded as ``unclassified``."""
+
+    code: str
+
+    def __new__(cls, text: str, code: str) -> HoldReason:
+        reason = super().__new__(cls, text)
+        reason.code = code
+        return reason
+
+
+def hold_reason(text: str | None, code: str) -> str | None:
+    """``text`` with its hold ``code`` (None and the empty string pass through: no hold)."""
+
+    return HoldReason(text, code) if text else text
+
 
 class FiguresGate:
     """Admit a figure-derived unit of work's requests only while its key holds.
@@ -355,6 +378,11 @@ class FiguresGate:
         self.rule: str | None = None
         #: Whether :attr:`changed` came from ``hold`` (not a setting).
         self.held = False
+        #: Why the hold held (:data:`HOLD_CODES`), when it did.
+        self.hold_code: str | None = None
+        #: What the unit is about, ``(subject_kind, subject_id)``, for the refusal's record; the owner sets it
+        #: once it knows (a build, after hashing its input).
+        self.subject: tuple[str, str] | None = None
 
     def _current(self) -> Any | None:
         try:
@@ -384,12 +412,14 @@ class FiguresGate:
                     reason = self._hold(vault)
                     if reason:
                         self.changed, self.held, self.rule = reason, True, "held"
+                        self.hold_code = getattr(reason, "code", None) or "unclassified"
                 if self.changed is not None and self._repository is not None:
                     from learnloop import refusal_records
 
-                    rule = self.rule or "refused"
+                    rule, held, subject = self.rule or "refused", self.hold_code, self.subject
                     refusal_records.write(self._repository, refusal_records.FIGURE_ADMISSION,
-                                          lambda: refusal_records.figure_gate_record(rule=rule, purpose=purpose))
+                                          lambda: refusal_records.figure_gate_record(
+                                              rule=rule, purpose=purpose, held=held, subject=subject))
             if self.changed is not None:
                 raise FiguresChanged(f"{purpose} not sent: {self.changed}; nothing more is asked")
 
@@ -415,12 +445,15 @@ __all__ = [
     "EXPLORABLE",
     "FiguresChanged",
     "FiguresGate",
+    "HOLD_CODES",
+    "HoldReason",
     "OFFER_BLOCK_TYPES",
     "FIGURE_GOAL_OFFERED",
     "TUTOR_EXPLORABLE_TASK",
     "TUTOR_FIGURE_GOAL_TASK",
     "author_learner_state_enabled",
     "help_kind_enabled",
+    "hold_reason",
     "explorable_yes",
     "figure_goal_digest",
     "figure_home_keys",

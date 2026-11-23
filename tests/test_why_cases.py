@@ -188,6 +188,36 @@ def test_case_3_since_the_drop_a_bad_prediction_drops_only_itself(tmp_path):
     assert "If lam grows" not in json.dumps(only)
 
 
+# -- why didn't Show me work? (K10.11) ----------------------------------------------------------------------------
+
+
+def test_why_didnt_show_me_work_names_the_refusal_and_the_menu(tmp_path, monkeypatch):
+    """A press whose figure author has no price, then a press during a check on your own: ``why`` answers each from
+    its ``figure_request`` record alone (the code it was refused with; for the build, the menu it would have
+    offered and why each other tier was off)."""
+
+    from learnloop.figures import routes as R
+    from learnloop_sidecar.errors import SidecarError
+    from tests.figure_fixtures import EXTRACTION, AuthorFake, build_figure_vault, call, context
+
+    paths, _repository = build_figure_vault(tmp_path / "vault")
+    ctx = context(paths.root, author=AuthorFake())
+    monkeypatch.setattr(R.FigureRoute, "problem", lambda self: R.FigureUnavailable("unpriced", "no price set"))
+    with pytest.raises(SidecarError) as unpriced:  # the build job runs inline here: its error is the read's
+        call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
+    assert unpriced.value.code == "unpriced"
+    (refused,) = why(paths.root, "latest", "--kind", "figure_request")["records"]
+    assert (refused["status"], refused["rule"]) == ("refused", "unpriced")
+    assert refused["facts"]["tiers_allowed"] == ["grammar"]
+    assert refused["facts"]["tiers_absent"] == {"manim": "rich_off", "sketch": "no_engine"}
+    with pytest.raises(SidecarError):
+        call(ctx, "figure.request", {"origin": "selection", "coldActive": True,
+                                     "anchor": {"extractionId": EXTRACTION, "spanIds": ["p3"]}})
+    (cold,) = why(paths.root, "latest", "--kind", "figure_request")["records"]
+    assert (cold["status"], cold["rule"]) == ("refused", "cold_check")
+    assert all(provenance.is_code(value) for value in (cold["rule"], refused["rule"]))
+
+
 # -- case 4: pre-builds after a run of skips ---------------------------------------------------------------------
 
 

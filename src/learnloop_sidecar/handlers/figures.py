@@ -61,9 +61,11 @@ certification, FSRS, scheduler state or a plan.
 """
 from __future__ import annotations
 
-from contextlib import closing
+from contextlib import closing, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any, Literal
+from types import SimpleNamespace
+from typing import Any, Iterator, Literal
 
 from pydantic import Field
 
@@ -72,6 +74,7 @@ from learnloop.figure_admission import figures_enabled, help_kind_enabled, rich_
 from learnloop.figures import power as P
 from learnloop.figures import build as FB
 from learnloop.figures import predictions as FPR
+from learnloop.figures import records as FR
 from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.figures import rich as RICH
@@ -151,6 +154,33 @@ def _refused(exc: FQ.FigureRefused) -> SidecarError:
     return SidecarError(exc.code, exc.message, retryable=exc.code in ("unavailable", "capped", FB.STORAGE_BUSY))
 
 
+#: Set once the request's build job is started (:func:`_start`): an error after that is the job's (a job that
+#: finished before its first read raises its error from the start), and the build has recorded it.
+_JOB_STARTED: ContextVar[bool] = ContextVar("figure_job_started", default=False)
+
+
+@contextmanager
+def _refusals_recorded(ctx: SidecarContext, request: Any) -> Iterator[None]:
+    """A request refused on the request path (before any build job) leaves its ``figure_request`` record with the
+    code it was refused with; a request that reaches its build is recorded by the build. Never changes the
+    refusal."""
+
+    started = _JOB_STARTED.set(False)
+    try:
+        yield
+    except SidecarError as exc:
+        repository = getattr(ctx, "repository", None)
+        if repository is not None and not _JOB_STARTED.get():
+            try:
+                FR.write_records(repository, FR.in_one_trace([FR.request_record(request, status="refused",
+                                                                                rule=str(exc.code))]))
+            except Exception:  # noqa: BLE001 - the refusal stands without its record
+                pass
+        raise
+    finally:
+        _JOB_STARTED.reset(started)
+
+
 def _event(repository: Any, event: str, payload: dict[str, Any], *, extraction_id: str | None) -> None:
     log_interaction_event(repository, kind="reader_action_invoked", origin="learner",
                           subject_type="reader_extraction", subject_id=extraction_id,
@@ -181,6 +211,8 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
     # Rechecked on the stored row: every span the author was sent, the
     # paragraphs around the selection included (Codex review F1).
     if figure and figure_withheld(vault, repository, str(figure.get("figure_id") or "")):
+        if figure.get("figure_id"):
+            FR.write_withheld_once(repository, str(figure["figure_id"]), FR.WITHHELD_AT_DELIVERY, where="delivery")
         return {"figure": None, "reused": False, "withheld": True}
     if figure:
         # Follow-ups Nov 2: the kept view's fuller version is rebuilt from the
@@ -242,6 +274,7 @@ def _start(ctx: SidecarContext, request: FQ.FigureRequest, *, attempt: dict[str,
     from learnloop_sidecar.handlers.library_ask import _job_payload
 
     vault, _repository = _require(ctx)
+    _JOB_STARTED.set(True)
     author = getattr(ctx, "figure_author_client", None)
     # RW5d: the grounding retrieval (the sources service's, unset; a fake in tests).
     find = getattr(ctx, "figure_find_sources", None)
@@ -419,12 +452,21 @@ def _host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str
 
 
 def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
-                    region: dict[str, Any] | None, goal_text: str | None, reading_at: dict[str, Any] | None,
-                    offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool,
-                    span_keys: list[str] | None = None, take_step: str | None = None) -> dict[str, Any]:
-    """One figure request, from either RPC: validated, its caller derived and
-    its held-out material refused here, on the request path, before any job or
-    model call; then a build job."""
+                    region: dict[str, Any] | None, **kwargs: Any) -> dict[str, Any]:
+    """One figure request, from either RPC (:func:`_admitted_request`), with its refusal recorded."""
+
+    with _refusals_recorded(ctx, SimpleNamespace(origin=origin, span_ids=span_ids, region=region)):
+        return _admitted_request(ctx, origin=origin, extraction_id=extraction_id, span_ids=span_ids,
+                                 region=region, **kwargs)
+
+
+def _admitted_request(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
+                      region: dict[str, Any] | None, goal_text: str | None, reading_at: dict[str, Any] | None,
+                      offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool,
+                      span_keys: list[str] | None = None, take_step: str | None = None) -> dict[str, Any]:
+    """One figure request: validated, its caller derived and its held-out
+    material refused here, on the request path, before any job or model call;
+    then a build job."""
 
     from learnloop.source_retrieval.policy import derive_policy
     from learnloop_sidecar.handlers.library_ask import reader_caller
@@ -608,8 +650,13 @@ class FigureReviseInput(ParamsModel):
 
 @method("reader.figure_revise", FigureReviseInput)
 def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict[str, Any]:
-    """"Not right?": a new version with the learner's note (a build job)."""
+    """"Not right?": a new version with the learner's note (a build job), with its refusal recorded."""
 
+    with _refusals_recorded(ctx, SimpleNamespace(origin="revision")):
+        return _admitted_revision(ctx, params)
+
+
+def _admitted_revision(ctx: SidecarContext, params: FigureReviseInput) -> dict[str, Any]:
     from learnloop.db.connection import connect
     from learnloop.db.stores import figures as store
 

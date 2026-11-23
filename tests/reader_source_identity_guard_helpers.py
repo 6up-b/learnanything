@@ -54,14 +54,26 @@ def _ir(prefix: str, count: int) -> DocumentIR:
                       health=ExtractionHealth())
 
 
+#: The RPCs whose refusal leaves one ``figure_request`` decision record (refactor K10.11), and nothing else.
+_RECORDED_REFUSALS = {"reader.figure_request", "figure.request"}
+
+
 def _refused(ctx, repository, method: str, params: dict[str, Any]) -> SidecarError:
-    """The call is refused with the typed mismatch, and nothing is written."""
+    """The call is refused with the typed mismatch, and nothing is written (a figure request: nothing but the
+    refusal's own record, naming the mismatch)."""
 
     before = table_counts(repository)
     with pytest.raises(SidecarError) as raised:
         call(ctx, method, params)
     assert raised.value.code == MISMATCH, (method, raised.value.code, raised.value.message)
-    assert table_counts(repository) == before, method
+    after = table_counts(repository)
+    if method in _RECORDED_REFUSALS:
+        assert after.pop("decision_records") == before.pop("decision_records") + 1, method
+        with repository.connection() as connection:
+            kind, status, rule = connection.execute(
+                "SELECT kind, status, rule FROM decision_records ORDER BY created_at DESC, id DESC LIMIT 1").fetchone()
+        assert (kind, status, rule) == ("figure_request", "refused", MISMATCH), method
+    assert after == before, method
     return raised.value
 
 
