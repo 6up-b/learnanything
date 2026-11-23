@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/emission.py](../../../../../../src/learnloop/pads/emission.py) |
-| Source lines | 232 |
+| Source lines | 258 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,11 +57,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `emittable(version: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/pads/emission.py), line 55) — A version of the learner's own, standing words (spec §10.11 "What is emitted").
 - `lineage(connection: Any, block_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/emission.py), line 78) — The versions whose words this block carries, oldest first: its own versions since its last lift-out stub (earlier ones went to the lifted block), after the versions of the block it was lifted from, if it was.
 - `words_version(versions: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/emission.py), line 85) — The version where the head's words were written: the earliest of the run of versions, ending at the head, with the head's kind and words.
-- `snapshot(connection: Any, repository: Any, head: Mapping[str, Any], words: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/emission.py), line 130) — What the gap pipeline is handed for one wording: the learner's words and the facts about them, frozen.
-- `class Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 147) — What one pass did: jobs queued, readings set aside before they ran, gaps reversed.
-  - `merge(self, other: 'Settled') -> None` (line 154; public)
-- `settle_blocks(vault: Any, repository: Any, block_ids: Iterable[str], *, clock: Any=None) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 216) — After a pad batch: emit the blocks' new words, supersede what they replaced, retract what was removed.
-- `reconcile(vault: Any, repository: Any, *, clock: Any=None) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 222) — Every block, the same way (a vault's open, after the gap worker drains): words committed while emission could not run are queued, and a reading that finished after its words were replaced is set aside.
+- `context_blocks(connection: Any, head: Mapping[str, Any]) -> tuple[list[str], list[str]]` ([source](../../../../../../src/learnloop/pads/emission.py), line 100) — The blocks and pads whose links and quotes a block's words carry: the block itself, every block of its lift lineage (a lifted block's words came from there, and a lift made before anchors moved with the words left its links on the stub), and the block each of them is a note unde…
+- `passages_of(connection: Any, head: Mapping[str, Any]) -> list[list[str]]` ([source](../../../../../../src/learnloop/pads/emission.py), line 122) — The passages a block's words are linked to, through :func:`context_blocks`, in written order.
+- `quotes_of(connection: Any, repository: Any, head: Mapping[str, Any], passages: list[list[str]] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/pads/emission.py), line 134) — Someone else's words a block of the learner's might carry: the quote blocks of every pad its words passed through (:func:`context_blocks`) and the text of the passages it is linked to.
+- `snapshot(connection: Any, repository: Any, head: Mapping[str, Any], words: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/emission.py), line 156) — What the gap pipeline is handed for one wording: the learner's words and the facts about them, frozen.
+- `class Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 173) — What one pass did: jobs queued, readings set aside before they ran, gaps reversed.
+  - `merge(self, other: 'Settled') -> None` (line 180; public)
+- `settle_blocks(vault: Any, repository: Any, block_ids: Iterable[str], *, clock: Any=None) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 242) — After a pad batch: emit the blocks' new words, supersede what they replaced, retract what was removed.
+- `reconcile(vault: Any, repository: Any, *, clock: Any=None) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 248) — Every block, the same way (a vault's open, after the gap worker drains): words committed while emission could not run are queued, and a reading that finished after its words were replaced is set aside.
 
 ### Module constants
 
@@ -83,8 +86,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SNAPSHOT_KEY`
 - `SUPERSEDED`
 - `Settled`
+- `context_blocks`
 - `emittable`
 - `lineage`
+- `passages_of`
+- `quotes_of`
 - `reconcile`
 - `settle_blocks`
 - `snapshot`
@@ -93,18 +99,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_lineage_until(connection: Any, block_id: str, stop: int | None, depth: int) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/emission.py), line 62)
-- `_passages(connection: Any, block: Mapping[str, Any]) -> list[list[str]]` ([source](../../../../../../src/learnloop/pads/emission.py), line 100)
-- `_quotes(connection: Any, repository: Any, pad_id: str, passages: list[list[str]]) -> list[str]` ([source](../../../../../../src/learnloop/pads/emission.py), line 113)
-- `_settle_block(connection: Any, repository: Any, block_id: str, *, emit: bool, gaps: Mapping[str, Mapping[str, Any]], reversed_ids: set[str], now: str) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 160)
-- `_settle(vault: Any, repository: Any, block_ids: Iterable[str] | None, clock: Any) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 195)
+- `_settle_block(connection: Any, repository: Any, block_id: str, *, emit: bool, gaps: Mapping[str, Mapping[str, Any]], reversed_ids: set[str], now: str) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 186)
+- `_settle(vault: Any, repository: Any, block_ids: Iterable[str] | None, clock: Any) -> Settled` ([source](../../../../../../src/learnloop/pads/emission.py), line 221)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `emittable`, `lineage`, `words_version`; statically calls `emittable`, `lineage`, `words_version`
-- [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `QUOTE_KINDS`, `lineage`, `words_version`; statically calls `lineage`, `words_version`
+- [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `context_blocks`; statically calls `context_blocks`
+- [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `emittable`, `lineage`, `passages_of`, `words_version`; statically calls `emittable`, `lineage`, `passages_of`, `words_version`
+- [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `lineage`, `quotes_of`, `words_version`; statically calls `lineage`, `quotes_of`, `words_version`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `reconcile`; statically calls `reconcile`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `module`; statically calls `settle_blocks`
 
@@ -130,7 +135,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]], [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]].
+Static participation evidence comes from [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]], [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

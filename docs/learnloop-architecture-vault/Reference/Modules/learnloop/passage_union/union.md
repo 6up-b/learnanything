@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/passage_union/union.py](../../../../../../src/learnloop/passage_union/union.py) |
-| Source lines | 282 |
+| Source lines | 290 |
 | Owning package | [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -84,6 +84,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `UnionError`, `_range`; statically calls `UnionError`, `_range`
 - [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `UnionError`, `union_range`; statically calls `union_range`
 
 ## Dependencies
@@ -111,16 +112,20 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]].
+Static participation evidence comes from [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]], [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — direct import
+  - `test_a_pads_link_on_an_older_reading_marks_the_newer_one_from_the_union_alone`
 - [tests/test_reader_rd0_reads.py](../../../../../../tests/test_reader_rd0_reads.py) — direct import
   - `test_a_same_place_alias_is_flagged_never_shown_as_the_cited_text`
   - `test_a_time_range_reads_a_transcripts_cues_and_a_bad_range_is_refused`
   - `test_the_union_returns_every_kind_for_a_passage_across_readings`
+- [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — direct import
+  - `test_a_lift_made_before_links_moved_still_carries_them`
 
 ## Modification guidance
 

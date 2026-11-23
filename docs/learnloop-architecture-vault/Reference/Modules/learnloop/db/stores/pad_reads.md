@@ -134,13 +134,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]] — imports `module`; statically calls `head`
-- [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `module`; statically calls `running_pad_ids`
-- [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `module`; statically calls `anchor_event_exists`, `first_versions`, `head`, `heads`, `latest_anchor_event`, `list_pads`, `pad`, `standing_anchors_for_blocks`, `version_exists`
+- [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `module`; statically calls `pad`, `running_pad_ids`
+- [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `module`; statically calls `anchor_event_exists`, `first_versions`, `head`, `heads`, `latest_anchor_event`, `list_pads`, `pad`, `standing_anchors_for_blocks`, `version`, `version_exists`
 - [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `module`; statically calls `carried`, `carried_event_exists`, `carried_events`, `list_carried`
 - [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] — imports `module`; statically calls `heads`, `list_pads`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `module`; statically calls `block_ids`, `chain`, `head`, `heads`, `lift_stub_for`, `pad`, `standing_anchors_for_blocks`
-- [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `module`; statically calls `head`, `heads`, `label`, `labels_for`, `pad`, `proposal`, `proposal_for_version`, `proposals_for_versions`, `standing_anchors_for_blocks`
-- [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `module`; statically calls `head`, `heads`, `pad`, `standing_anchors_for_blocks`, `submission`, `submissions_for_blocks`, `version`
+- [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `module`; statically calls `head`, `heads`, `label`, `labels_for`, `pad`, `proposal`, `proposal_for_version`, `proposals_for_versions`
+- [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `module`; statically calls `head`, `pad`, `submission`, `submissions_for_blocks`, `version`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `module`; statically calls `carried_on_readings`, `head`, `standing_anchors_for_spans`
 
 ## Dependencies
@@ -171,11 +171,12 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../../../tests/test_reader_rd3a_companion_ask.py) — imports consumer [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]]
 - [tests/desk_helpers.py](../../../../../../../tests/desk_helpers.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
+- [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd0_protocol.py](../../../../../../../tests/test_reader_rd0_protocol.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd1_model_parity.py](../../../../../../../tests/test_reader_rd1_model_parity.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
+- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]]
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../../../tests/test_reader_rd4_carried_and_proposals.py) — imports consumer [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]]
 - [tests/reader_rd4_helpers.py](../../../../../../../tests/reader_rd4_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]]
-- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]]
 - [tests/test_reader_rd4_submission.py](../../../../../../../tests/test_reader_rd4_submission.py) — imports consumer [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]]
 - [tests/test_reader_rd0_reads.py](../../../../../../../tests/test_reader_rd0_reads.py) — imports consumer [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]]
 

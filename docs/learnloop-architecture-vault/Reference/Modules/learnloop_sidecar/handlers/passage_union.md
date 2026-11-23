@@ -50,20 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py) |
-| Source lines | 54 |
+| Source lines | 71 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class UnionRangeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 23)
-  - `_one_range(self) -> UnionRangeInput` (line 31; internal)
-- `passage_union_range_handler(ctx: SidecarContext, params: UnionRangeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 41) — ``{extraction_id, spans: [{span_id, …everything tied to it}], sections}``.
+- `class UnionRangeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 26)
+  - `_one_range(self) -> UnionRangeInput` (line 34; internal)
+- `passage_union_range_handler(ctx: SidecarContext, params: UnionRangeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 44) — ``{extraction_id, spans: [{span_id, …everything tied to it}], sections}``.
+- `passage_content_handler(ctx: SidecarContext, params: UnionRangeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 61) — One range of a reading as the source has it: ``{extraction_id, source_id, title, withheld, spans: [{span_id, text, page, t0, t1, section_id, section_label, withheld}]}`` (a ``source_piece``'s words, location and time).
 
 ### Module constants
 
-- `PASSAGE_UNION_RPCS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 20)
+- `PASSAGE_UNION_RPCS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 21)
+- `PASSAGE_CONTENT_RPCS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 23)
 
 ## Internal implementation anchors
 
@@ -80,6 +82,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `passage_content`; calls `passage_content`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `UnionError`, `union_range`; calls `union_range`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; calls `enabled`, `marks`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
@@ -110,8 +113,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_rd0_rpcs_are_all_of_them`
+  - `test_the_pinned_rd4_fix_rpcs_are_all_of_them`
 - [tests/test_reader_rd0_rpcs.py](../../../../../../tests/test_reader_rd0_rpcs.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`
+- [tests/test_reader_rd4_rpcs.py](../../../../../../tests/test_reader_rd4_rpcs.py) — direct import
+  - `test_the_fix_rounds_read_is_desktop_only_refuses_an_extra_field_and_is_versioned`
 
 ## Modification guidance
 
