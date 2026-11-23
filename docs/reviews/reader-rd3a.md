@@ -240,3 +240,15 @@ On backup-API copies (`learnloop.db.copies`), never a live vault; no model call 
    `reader_tutor_fakes.reader_ctx` does), one `companion.ask` per surface (`reader`, and `desk` on a desk made through
    `desk.apply`), polled to `done`; the `companion_exchange_context` row and the exchange's `question_event_spans`
    rows equal to `rebuild_question_event_spans` on the copy; a cancel while held.
+
+## After the first landing attempt (orchestrator's merge of main)
+
+Running the RD3a files with the structure, identity and fence tests at `-n 2` showed one teardown error in six runs.
+The cause was two background writes from the gap-reading worker, not only a leftover job thread: a late decision
+record from the post-attempt worker, and the search fixture's hand-seeded `tutor_question` gap colliding with the
+pipeline's own row for the same question. Every test now makes its contexts through a `workbench` fixture that
+releases held fakes, closes the context, joins every polled job and background thread and fails the test naming any
+still alive; the search fixture waits for the gap queue to drain before seeding and reading; `BackgroundJobs.close`
+logs jobs still running after its bounded join. The combined set ran 10 times at `-n 2` and the two RD3a files 10
+times at `-n 1`, all clean.
+
