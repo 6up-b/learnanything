@@ -19,6 +19,7 @@ import type { DeskStore } from "../store";
 import type { MenuObjectInput, PromotedRowDto } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
 import type { PromotedApi } from "../menu/ContextMenu";
+import type { LessonsHost } from "../lesson/host";
 import type { SearchRow } from "../search/model";
 
 export interface PadsApi {
@@ -85,6 +86,8 @@ export interface PadsHost {
   addToStack: (windowId: string, padId: string) => void;
   /** A window's keys reach its stack through this handle. */
   register: (windowId: string, handle: PadStackHandle | null) => void;
+  /** Teacher lessons as tabs of a stack (spec §11.1); absent where the desks give none (a stack then shows pads only). */
+  lessons?: LessonsHost;
   /** Carry a question (shared with the shelf). */
   carry: (text: string, origin: { kind: CarryInput["originKind"]; ref?: string | null; anchor?: CarryInput["anchor"] }) => Promise<void> | void;
 }

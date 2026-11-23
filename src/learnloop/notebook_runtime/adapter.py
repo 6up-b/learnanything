@@ -63,6 +63,11 @@ APP_VIEW_PARAMS: tuple[tuple[str, str], ...] = (("view-as", "present"), ("show-c
 KIOSK_PARAM = "kiosk"
 SESSION_ID_PARAM = "session_id"
 
+#: What marimo's server sends a page that reconnects to a running session: a ``banner`` (with a Restart action) or
+#: an ``alert`` titled "Reconnected". The proxy drops both on the way to the frame.
+RECONNECTED_TITLE = "Reconnected"
+RECONNECTED_OPS = ("banner", "alert")
+
 #: The WebSocket message that names the session's cells (ids, names and code, in order).
 KERNEL_READY_OP = "kernel-ready"
 
@@ -121,6 +126,44 @@ def kernel_ready_cells(message: str) -> tuple[dict[str, str], dict[str, str]] | 
     return dict(zip(names, ids, strict=False)), dict(zip(ids, codes, strict=False))
 
 
+def is_reconnected_notice(message: str) -> bool:
+    """Whether a WebSocket message is marimo's "Reconnected" banner or toast."""
+
+    if RECONNECTED_TITLE not in message[:400]:
+        return False
+    try:
+        data = json.loads(message)
+    except ValueError:
+        return False
+    body = data.get("data", data) if isinstance(data, dict) else {}
+    op = data.get("op") if isinstance(data, dict) else None
+    return op in RECONNECTED_OPS and isinstance(body, dict) and body.get("title") == RECONNECTED_TITLE
+
+
+#: The WebSocket message that reports a cell's state (``status``: queued, running, idle, …) with its time.
+CELL_OP = "cell-op"
+
+
+def cell_progress(message: str) -> tuple[str, str | None, float | None, bool] | None:
+    """From a ``cell-op`` message: ``(cell id, status or None, timestamp, whether its output is an error)``."""
+
+    if CELL_OP not in message[:60]:
+        return None
+    try:
+        data = json.loads(message)
+    except ValueError:
+        return None
+    body = data.get("data", data) if isinstance(data, dict) else {}
+    if not isinstance(body, dict) or data.get("op") != CELL_OP or not isinstance(body.get("cell_id"), str):
+        return None
+    output = body.get("output")
+    error = isinstance(output, dict) and "error" in str(output.get("mimetype") or "")
+    stamp = body.get("timestamp")
+    status = body.get("status")
+    return (body["cell_id"], status if isinstance(status, str) else None,
+            float(stamp) if isinstance(stamp, (int, float)) else None, bool(error))
+
+
 def ui_values(set_request_body: bytes) -> dict[str, Any]:
     """The UI element values a ``set_ui_element_value`` request sets (object id to value)."""
 
@@ -151,6 +194,50 @@ def instantiate_with_values(body: bytes, recorded: dict[str, Any]) -> bytes | No
     data["objectIds"] = list(recorded)
     data["values"] = list(recorded.values())
     return json.dumps(data).encode("utf-8")
+
+
+# -- notebooks generated from cells (a pad's marimo cells) --------------------------------------------------------
+
+def cell_name(block_id: str) -> str:
+    """A cell's marimo name from the block that holds it: stable, a valid identifier, unique per block id."""
+
+    import hashlib
+
+    safe = re.sub(r"[^0-9A-Za-z_]", "_", block_id).lower()
+    if safe != block_id.lower():
+        # Two ids that differ only in characters an identifier cannot hold must not share a name.
+        safe = f"{safe}_{hashlib.sha256(block_id.encode()).hexdigest()[:8]}"
+    return f"c_{safe}"
+
+
+def _cell_source(name: str, code: str) -> str:
+    import ast
+
+    try:
+        ast.parse(code)
+    except SyntaxError:
+        # marimo's own form for a cell that does not parse, so the notebook still loads and the cell says why.
+        literal = (f'"""\n{code.replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34))}\n"""'
+                   if '"""' in code else f'r"""\n{code}\n"""')
+        body = "\n".join("    " + line if line else line for line in f"{literal},\nname={name!r}".splitlines())
+        return f"app._unparsable_cell(\n{body}\n)"
+    # Tabs become the spaces Python reads them as (to the next multiple of 8), so indenting the body under the
+    # function never mixes the two.
+    lines = [("    " + line if line.strip() else "") for line in code.expandtabs(8).rstrip().splitlines()]
+    return "\n".join([f"@app.cell\ndef {name}():", *lines, "    return"])
+
+
+def notebook_from_cells(cells: list[tuple[str, str]]) -> str:
+    """A marimo notebook file from ``(name, code)`` pairs, in order: the same cells always give the same bytes.
+
+    A cell's signature is left empty: marimo reads each cell's references and definitions from its code (the
+    runtime never saves the file, so marimo's canonical signatures are never needed)."""
+
+    parts = ["import marimo", "", 'app = marimo.App(width="medium")']
+    for name, code in cells:
+        parts += ["", "", _cell_source(name, code)]
+    parts += ["", "", 'if __name__ == "__main__":', "    app.run()", ""]
+    return "\n".join(parts)
 
 
 def cell_config_body(cell_ids: list[str], *, disabled: bool) -> dict[str, Any]:
@@ -247,6 +334,22 @@ def interface_problems() -> list[str]:
     if ready is None or KERNEL_READY_OP not in repr(getattr(ready, "__struct_config__", "")) + inspect.getsource(
             ready):
         problems.append(f"the {KERNEL_READY_OP!r} WebSocket message is gone")
+    probe = notebook_from_cells([("c_one", "x = 2"), ("c_two", "y = x * 3\ny"), ("c_bad", "def (")])
+    try:
+        load = importlib.import_module("marimo._ast.load")
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "probe.py")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(probe)
+            app = load.load_app(path)
+            names = [cell.name for _id, cell in app._cell_manager.valid_cells()]
+            refs = {cell.name: sorted(cell.refs) for _id, cell in app._cell_manager.valid_cells()}
+        if names != ["c_one", "c_two"] or refs.get("c_two") != ["x"]:
+            problems.append(f"a notebook generated from cells loads as {names} {refs}, not as its cells")
+    except Exception as exc:  # noqa: BLE001 - any failure to load the generated form is the problem itself
+        problems.append(f"marimo no longer loads a notebook generated from cells: {type(exc).__name__}: {exc}")
     if 'Listener(family="AF_INET")' not in inspect.getsource(kernel):
         problems.append("the edit kernel no longer connects over an AF_INET listener (the sandbox's hosts file "
                         "may be unneeded, or something else may be)")
@@ -264,6 +367,10 @@ def interface_problems() -> list[str]:
         pass
     if not bundle:
         problems.append("the frontend no longer reads the view-as and show-chrome URL parameters")
+    handler = importlib.import_module("marimo._server.api.endpoints.ws.session_handler")
+    source = inspect.getsource(handler)
+    if f'title="{RECONNECTED_TITLE}"' not in source or "BannerNotification(" not in source:
+        problems.append("marimo's reconnect notice is no longer a banner titled Reconnected")
     return problems
 
 

@@ -84,13 +84,27 @@ def missing_requirements() -> list[str]:
     return problems
 
 
-def runtime_base_dir() -> Path:
-    """Where sessions' run directories go: the user's runtime directory (short paths, private, gone at logout),
-    else the temporary directory. A Unix socket's path must stay under about 100 bytes."""
+#: A session's socket sits at ``<base>/run/<16 hex>/marimo.sock``: this many bytes past the base directory.
+SOCKET_SUFFIX_BYTES = len("/run/") + 16 + len("/marimo.sock")
+#: A Unix socket's path must fit ``sun_path`` (108 bytes on Linux, with its terminating zero), with room to spare.
+SOCKET_PATH_MAX_BYTES = 100
 
+
+def runtime_base_dir() -> Path:
+    """Where sessions' run directories go: the user's runtime directory (short, private, gone at logout), else the
+    temporary directory. A runtime directory too deep for a socket's path (a session started under another
+    runtime directory) is passed over for the temporary directory rather than refusing every notebook."""
+
+    name = f"learnloop-notebooks-{os.getuid()}"
+    candidates = []
     runtime = os.environ.get("XDG_RUNTIME_DIR")
-    base = Path(runtime) if runtime and Path(runtime).is_dir() else Path(tempfile.gettempdir())
-    return base / f"learnloop-notebooks-{os.getuid()}"
+    if runtime and Path(runtime).is_dir():
+        candidates.append(Path(runtime) / name)
+    candidates.append(Path(tempfile.gettempdir()) / name)
+    for base in candidates:
+        if len(str(base).encode()) + SOCKET_SUFFIX_BYTES <= SOCKET_PATH_MAX_BYTES:
+            return base
+    return candidates[-1]
 
 
 def write_shared_files(base: Path) -> tuple[Path, Path]:

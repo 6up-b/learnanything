@@ -1,12 +1,13 @@
 // Stands in for @tauri-apps/api/core in the desks' visual harness (vite.desks.config.mjs): every call
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
-import type { DeskApplyInput, DeskStateDto, PadViewDto } from "../../api/dto";
+import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto } from "../../api/dto";
 import { FIXTURE_INK_PAD, fixtureInkOwners, fixtureInkPad, fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_SOURCES, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
+import { FIXTURE_LESSON_ID, FixtureLessons, fixtureAdditionsPad } from "./lessons";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -15,6 +16,9 @@ export interface HarnessCall {
   input: Record<string, unknown>;
   at: number;
 }
+
+/** The harness's `?lesson=1` page: a finished Teacher lesson in the softmax desk's stack (RD9a), with its additions. */
+const LESSON_PAGE = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lesson") === "1";
 
 /** The harness's workspace: the fixture's, with every desk's running pad in a stack (as the desks ensure it), so a
  * first visit to a desk changes no layout under the overview's transitions. */
@@ -35,6 +39,10 @@ function harnessDeskState(): DeskStateDto {
       }
     }
   }
+  if (LESSON_PAGE) {
+    const stack = state.desks.find((desk) => desk.deskId === "fx_desk_softmax")?.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_pads");
+    stack?.stack?.push({ kind: "lesson", lessonId: FIXTURE_LESSON_ID });
+  }
   return state;
 }
 
@@ -43,12 +51,14 @@ const INK_PAD_SHOWN = typeof window !== "undefined" && new URLSearchParams(windo
 function harnessPads(): PadViewDto[] {
   const at = "2026-11-23T09:00:00Z";
   const empty = (padId: string, deskId: string): PadViewDto => ({ version: 1, pad: { padId, kind: "running", title: "running", kept: false, homeDeskId: deskId, workbenchSessionId: null, lessonId: null, version: 1, createdAt: at, updatedAt: at }, blocks: [], anchors: [] });
-  return [...fixturePads(), fixtureInkPad(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop")];
+  return [...fixturePads(), fixtureInkPad(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop"),
+    ...(LESSON_PAGE ? [fixtureAdditionsPad()] : [])];
 }
 
 const server = new FixtureDeskServer(harnessDeskState(), harnessPads());
 const companion = new FixtureCompanion();
 const goal = new FixtureGoal();
+const lessons = new FixtureLessons();
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -80,10 +90,10 @@ const calls: HarnessCall[] = [];
 
 declare global {
   interface Window {
-    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal };
+    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons };
   }
 }
-window.__deskHarness = { calls, server, companion, goal };
+window.__deskHarness = { calls, server, companion, goal, lessons };
 
 function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
@@ -281,6 +291,13 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return companion.search(input as { query: string });
     case "search_job":
       return companion.searchJob(String(input.jobId));
+    case "notebook_open":
+    case "notebook_status":
+    case "notebook_run_cells":
+    case "notebook_release":
+      // The harness script answers these from a real sandboxed session when it exposes its bridge.
+      if (window.__nbRpc) return window.__nbRpc(command, input);
+      return notebookSession(command, input);
     // The goal lens (RD6): one goal over the book and the note; the desks' default goal is its primary.
     case "goals_list":
       // The goal lens is the harness's `?goal=1` page; without it the desks have no goal, as before.
@@ -300,9 +317,51 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "curriculum_set_scope":
     case "curriculum_scope_decide":
       return { status: "ready", created: null, scope: null };
+    // Teacher lessons (RD9a): a finished lesson replayed by lesson.view; an opening makes a new one after a wait.
+    case "lesson_turn":
+      return lessons.turn(input as never);
+    case "lesson_view":
+      return notebookLesson(lessons.view(input as { lessonId: string }));
+    case "lesson_list":
+      return lessons.list(input as { lessonIds?: string[] });
+    case "lesson_activity":
+      return { recorded: 0, enabled: false };
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }
+}
+
+/** The notebook fixture (`?notebook=1`): a real sandboxed session the harness script started (its frame URL in
+ * `window.__notebookHarness`), or a forced state (`?nbstate=`) for the frame's honest states. */
+declare global {
+  interface Window {
+    __notebookHarness?: { frameUrl: string; sessionId: string; padCells?: Array<{ blockId: string; code: string }> };
+    __nbRpc?: (command: string, input: Record<string, unknown>) => Promise<unknown>;
+  }
+}
+
+/** `?nblesson=open|review`: the fixture lesson's medium is a notebook (spec §11.2), open (its commit points
+ * release) or finished (its review); the harness script serves the notebook from a real sandboxed session. */
+function notebookLesson(view: LessonViewDto): LessonViewDto {
+  const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson");
+  if (mode !== "open" && mode !== "review") return view;
+  return { ...view, medium: "notebook", notebookPath: `notebooks/lessons/${view.lessonId}.py`, closed: mode === "review",
+    closeReason: mode === "review" ? view.closeReason ?? "learner_stop" : null };
+}
+
+function notebookSession(command: string, input: Record<string, unknown>) {
+  const forced = new URLSearchParams(window.location.search).get("nbstate");
+  const real = window.__notebookHarness;
+  if (forced === "unavailable" || (!real && !forced)) {
+    throw { code: "notebook_runtime_unavailable", message: "Notebooks can't run here: bubblewrap (bwrap) is not installed; notebooks run only inside it.", retryable: false };
+  }
+  const state = forced && forced !== "ready" ? forced : "ready";
+  return {
+    version: 1, sessionId: real?.sessionId ?? "nbs_fixture", owner: (input.owner as string) ?? "lesson:fx", state,
+    stopReason: state === "stopped" ? "idle" : null, error: state === "failed" ? "the notebook server stopped 4 times; it was not started again" : null,
+    restarts: state === "restarting" ? 1 : 0, framesAttached: 0, cells: [], startSeconds: [0.4],
+    frameUrl: real?.frameUrl ?? "http://127.0.0.1:9/s/none/", memoryBytes: null, command,
+  };
 }
 
 export async function invoke<T>(command: string, args: InvokeArgs = {}): Promise<T> {

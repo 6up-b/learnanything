@@ -10514,6 +10514,12 @@ export interface LessonViewDto {
   te2?: boolean;
   /** Teacher TE2: the quick question, being prepared (with "Teach it anyway") or open (answer it on your own). */
   probe?: LessonProbeDto | null;
+  /** Reader workbench RD9b (spec §11.2): "notebook" when the lesson's medium is a marimo notebook, sent when the
+   *  vault holds the lesson's notebook (`notebooks/lessons/<lesson id>.py`); nothing writes one yet (NA4's teacher
+   *  half). A lesson window shows the lesson itself whenever it is absent. */
+  medium?: "notebook";
+  /** The lesson's notebook, relative to the vault, with `medium`. */
+  notebookPath?: string;
 }
 
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
@@ -10543,6 +10549,21 @@ export interface OpenLessonDto {
   goal: string | null;
   openedAt: string | null;
   learningObjectIds: string[];
+}
+
+/** Reader workbench RD9a (spec §11.1, §12.5): a lesson as its window's tab and the path view's row name it. */
+export interface LessonSummaryDto {
+  lessonId: string;
+  title: string;
+  goal: string | null;
+  openedAt: string | null;
+  closed: boolean;
+  closeReason: string | null;
+  learningObjectIds: string[];
+  /** What the tab's "made <date> from your <what>" names. */
+  madeFrom: "selection" | "check" | "question" | "suggestion" | "topic";
+  /** The lesson's `lesson_additions` pad, once the learner wrote under it. */
+  additionsPadId: string | null;
 }
 
 /** Teacher TE2-log (spec_teacher_v1 §11.6): one interval of the lesson screen, on the client's clock. */
@@ -11227,6 +11248,76 @@ export interface SearchJobDto {
   error: PolledJobErrorDto | null;
 }
 
+// Notebook runtime: one sandboxed marimo server per owner (a pad's cells or a lesson notebook), shown in a frame
+// whose URL the session carries. A session is process state, never evidence.
+export type NotebookOwner = `pad:${string}` | `lesson:${string}`;
+
+export interface NotebookOpenInput {
+  owner: NotebookOwner;
+  /** The notebook file, relative to the vault root; the session runs a snapshot of its bytes. Left out for a pad
+   * (`pad:<id>`): its notebook is generated from the pad's marimo cells. */
+  path?: string;
+  view?: "app" | "edit";
+}
+
+export type NotebookSessionState = "starting" | "ready" | "restarting" | "stopping" | "stopped" | "failed";
+
+export interface NotebookSessionDto {
+  version: number;
+  sessionId: string;
+  owner: NotebookOwner;
+  state: NotebookSessionState;
+  /** Why a stopped session stopped: closed, idle, make_room, replaced, run_dir_full or vault_switch. */
+  stopReason: string | null;
+  error: string | null;
+  restarts: number;
+  framesAttached: number;
+  /** The cell names marimo reported once a frame connected. */
+  cells: string[];
+  /** Seconds each recent start took to answer on the socket. */
+  startSeconds: number[];
+  /** Load only once state is "ready": `http://127.0.0.1:<port>/s/<secret>/?...`. */
+  frameUrl: string;
+  /** The session's scope memory, when it runs in a scope of its own. */
+  memoryBytes: number | null;
+  /** Per cell name, its last run as marimo reported it. */
+  cellRuns?: Record<string, NotebookCellRunDto>;
+  /** A pad's session (from notebook.open only): each cell block's marimo name. */
+  padCells?: Record<string, string>;
+  /** A lesson's session: its commit points, what was committed and released, and whether it is a review. */
+  lesson?: NotebookLessonDto;
+}
+
+/** A lesson notebook's commit points (spec §11.2). A review (a finished lesson) commits and releases nothing. */
+export interface NotebookLessonDto {
+  review: boolean;
+  released: string[];
+  commitPoints: Array<{ name: string; held: string[]; committed: boolean }>;
+}
+
+export interface NotebookCellRunDto {
+  status: "queued" | "running" | "idle" | "stale" | "disabled-transitively" | null;
+  ms: number | null;
+  error: boolean;
+}
+
+export interface NotebookCellInput {
+  name: string;
+  code: string;
+}
+
+export interface NotebookReleaseDto {
+  version: number;
+  sessionId: string;
+  released: string[];
+}
+
+export interface NotebookRunCellsDto {
+  version: number;
+  sessionId: string;
+  ran: string[];
+}
+
 // -- Reader workbench v2 RD6 (spec §12.2-§12.5, §12.8): the goal band, the goal lens and read it anyway on a
 // section. The typed calls only; no component calls them yet. Display of the real model: nothing here is
 // evidence, and while a cold check is due on an LO its name and purpose text are withheld (`held`, §12.6.1).
@@ -11402,56 +11493,6 @@ export interface GoalSectionChoiceDto {
   version: number;
   choice: { operationId: string; goalId: string; extractionId: string; sectionId: string;
     choice: "read_anyway" | "none"; replayed: boolean; createdAt: string };
-}
-
-// Notebook runtime: one sandboxed marimo server per owner (a pad's cells or a lesson notebook), shown in a frame
-// whose URL the session carries. A session is process state, never evidence.
-export type NotebookOwner = `pad:${string}` | `lesson:${string}`;
-
-export interface NotebookOpenInput {
-  owner: NotebookOwner;
-  /** The notebook file, relative to the vault root; the session runs a snapshot of its bytes. */
-  path: string;
-  view?: "app" | "edit";
-}
-
-export type NotebookSessionState = "starting" | "ready" | "restarting" | "stopping" | "stopped" | "failed";
-
-export interface NotebookSessionDto {
-  version: number;
-  sessionId: string;
-  owner: NotebookOwner;
-  state: NotebookSessionState;
-  /** Why a stopped session stopped: closed, idle, make_room, replaced, run_dir_full or vault_switch. */
-  stopReason: string | null;
-  error: string | null;
-  restarts: number;
-  framesAttached: number;
-  /** The cell names marimo reported once a frame connected. */
-  cells: string[];
-  /** Seconds each recent start took to answer on the socket. */
-  startSeconds: number[];
-  /** Load only once state is "ready": `http://127.0.0.1:<port>/s/<secret>/?...`. */
-  frameUrl: string;
-  /** The session's scope memory, when it runs in a scope of its own. */
-  memoryBytes: number | null;
-}
-
-export interface NotebookCellInput {
-  name: string;
-  code: string;
-}
-
-export interface NotebookReleaseDto {
-  version: number;
-  sessionId: string;
-  released: string[];
-}
-
-export interface NotebookRunCellsDto {
-  version: number;
-  sessionId: string;
-  ran: string[];
 }
 
 // Reader workbench v2 RD8a (spec §3.4, §10.10): the learner's ink and LearnLoop's reading of it. Desktop only.

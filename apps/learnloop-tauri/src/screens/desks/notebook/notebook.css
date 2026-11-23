@@ -1,0 +1,116 @@
+/* A notebook in a window (spec §11.2): the frame on the window's paper with even margins (the mockup's lesson
+   body: 10 px above, 12 px at each side and below), a 1 px paper rule round the frame, and the status line in the
+   workbench's interface face. */
+.ll-nb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px 12px 12px;
+  background: var(--desk-pad-paper, #fdfdfc);
+}
+.ll-nb-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 1px solid var(--desk-rule, #dcd7cc);
+  box-sizing: border-box;
+  background: var(--desk-paper, #f7f5f0);
+  display: block;
+}
+.ll-nb-frame[data-paused] { pointer-events: none; }
+.ll-nb-status {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 2px 8px;
+  font: 11.5px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink2, #55524c);
+}
+.ll-nb-status button {
+  font: inherit;
+  color: var(--desk-ll-ink, #5b4a9a);
+  background: none;
+  border: 1px solid var(--desk-rule, #dcd7cc);
+  border-radius: 4px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.ll-nb[data-notebook-state="failed"] .ll-nb-status,
+.ll-nb[data-notebook-state="unavailable"] .ll-nb-status { color: var(--desk-ink, #1f1e1c); }
+.ll-nb-placeholder {
+  align-items: center;
+  justify-content: center;
+  font: 12px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink2, #55524c);
+}
+.ll-nb-placeholder .glyph { color: var(--desk-ll-ink, #5b4a9a); }
+
+/* A marimo cell in a pad (spec §11.5): a paper card with the purple voice edge; its header in the interface face;
+   its code in JetBrains Mono; under the pad's last cell, the framed group of every cell's output. */
+.ll-cell {
+  border: 1px solid #e3e0d8;
+  border-left: 3px solid var(--desk-ll-ink, #5b4a9a);
+  border-radius: 4px;
+  background: #fbfaf7;
+  margin: 2px 0;
+}
+.ll-cell-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 8px 3px;
+  font: 10.5px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink3, #7a766e);
+}
+.ll-cell-head .what { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ll-cell-head .state { color: var(--desk-ink2, #55524c); white-space: nowrap; }
+.ll-cell-head .run {
+  font: inherit;
+  color: var(--desk-ll-ink, #5b4a9a);
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.ll-cell-code, .ll-cell-editor textarea {
+  margin: 0;
+  padding: 4px 10px 8px;
+  font: 12px/1.55 var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink, #1f1e1c);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
+.ll-cell-code { cursor: text; min-height: 1.55em; }
+.ll-cell-editor textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  background: transparent;
+}
+.ll-cell-editor .hintline { padding: 0 10px 4px; font: 10px var(--desk-mono, monospace); color: var(--desk-ink3, #7a766e); }
+.ll-cell-group { margin: 6px -3px -1px; border-top: 1px solid #e3e0d8; }
+.ll-cell-group .ll-nb { padding: 8px 0 0; height: auto; }
+
+/* A notebook lesson in its lesson window (spec §11.2): the lesson paper's frame (.lframe, its 1 px rule and the
+   paper's own margins) holds the notebook directly, so the frame adds neither padding nor a second rule. It fills
+   the stack window below the lesson's head and modes, as the mockup's does (its 100vh less the 372 px above and
+   below it, at both of its viewports). */
+.ll-lesson-nb { display: flex; flex-direction: column; height: max(320px, calc(100vh - 372px)); }
+.ll-lesson-nb .ll-nb { flex: 1 1 auto; padding: 0; background: transparent; }
+.ll-lesson-nb .ll-nb-frame { border: 0; }
+.ll-lesson-nb .ll-nb-status { padding: 6px 10px; }
+.ll-lesson-nb-line {
+  flex: none;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--desk-rule, #dcd7cc);
+  font: 11px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink2, #55524c);
+}

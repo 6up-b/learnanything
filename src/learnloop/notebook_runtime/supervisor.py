@@ -98,6 +98,16 @@ class Session:
     cell_ids: dict[str, str] = field(default_factory=dict)
     cell_codes: dict[str, str] = field(default_factory=dict)
     ui_values: dict[str, Any] = field(default_factory=dict)
+    #: Per cell name, what its last run said: ``{"status", "ms", "error"}`` (read from marimo's cell messages).
+    cell_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _run_started: dict[str, float] = field(default_factory=dict, repr=False)
+    #: A lesson notebook's commit points and held cells (``lessons.lesson_contract``); None for any other notebook.
+    contract: dict[str, Any] | None = None
+    #: A closed lesson's notebook: shown as it is, nothing committed, nothing released.
+    review: bool = False
+    #: The commit points the learner answered, and the held cells released in this server process.
+    commits: set[str] = field(default_factory=set)
+    released: set[str] = field(default_factory=set)
     frames: int = 0
     last_activity: float = field(default_factory=time.monotonic)
     output_tail: bytearray = field(default_factory=bytearray, repr=False)
@@ -114,7 +124,57 @@ class Session:
         return {"session_id": self.session_id, "owner": self.owner, "state": self.state,
                 "stop_reason": self.stop_reason, "error": self.last_error, "restarts": self.restarts,
                 "frames_attached": self.frames, "cells": sorted(self.cell_ids),
-                "start_seconds": [round(value, 3) for value in self.start_seconds[-5:]]}
+                "cell_runs": {name: dict(run) for name, run in sorted(self.cell_runs.items())},
+                "start_seconds": [round(value, 3) for value in self.start_seconds[-5:]],
+                **({"lesson": self.lesson_view()} if self.contract is not None else {})}
+
+    def lesson_view(self) -> dict[str, Any]:
+        assert self.contract is not None
+        return {"review": self.review, "released": sorted(self.released),
+                "commit_points": [{"name": point["name"], "held": list(point["held"]),
+                                   "committed": point["name"] in self.commits} for point in self.contract["points"]]}
+
+    def releasable(self) -> set[str]:
+        """The held cells the learner's commits have unlocked (none in a review)."""
+
+        if self.contract is None or self.review:
+            return set()
+        return {name for point in self.contract["points"] if point["name"] in self.commits for name in point["held"]}
+
+
+def note_cell_progress(session: Session, cell_id: str, status: str | None, stamp: float | None, error: bool) -> None:
+    """A cell's run as marimo reports it: running starts its clock, idle stops it (``ms``), an error output marks it."""
+
+    names = {value: key for key, value in session.cell_ids.items()}
+    name = names.get(cell_id)
+    if name is None:
+        return
+    run = session.cell_runs.setdefault(name, {"status": None, "ms": None, "error": False})
+    if status is not None:
+        run["status"] = status
+        if status == "running" and stamp is not None:
+            session._run_started[name] = stamp
+            run["error"] = False
+        elif status == "idle" and stamp is not None and name in session._run_started:
+            run["ms"] = round(max(0.0, stamp - session._run_started.pop(name)) * 1000, 1)
+    if error:
+        run["error"] = True
+
+
+def note_commits(session: Session, values: dict[str, Any]) -> None:
+    """Controls set by the frame (object id to value): a non-empty value on a commit point's own control commits it.
+    marimo names a control ``<cell id>-<n>``. A review commits nothing."""
+
+    from learnloop.notebook_runtime.lessons import committed_value
+
+    if session.contract is None or session.review:
+        return
+    points = {point["name"] for point in session.contract["points"]}
+    names = {value: key for key, value in session.cell_ids.items()}
+    for object_id, value in values.items():
+        name = names.get(object_id.rsplit("-", 1)[0])
+        if name in points and committed_value(value):
+            session.commits.add(name)
 
 
 def notebook_revision(source: bytes) -> str:
@@ -153,6 +213,8 @@ class Supervisor:
     async def _launch(self) -> bool:
         session = self.session
         session.generation += 1
+        # A new server process loads the notebook as shipped: every held cell is held again.
+        session.released.clear()
         session.unit = f"learnloop-notebook-{secrets.token_hex(6)}"
         began = time.monotonic()
         try:
@@ -268,8 +330,11 @@ class Supervisor:
 class SandboxBackend:
     """The real backend: a sandboxed ``marimo edit`` on a Unix socket, reached with httpx over the socket."""
 
-    def __init__(self, *, scoped: bool) -> None:
+    def __init__(self, *, scoped: bool, python: str | None = None) -> None:
         self.scoped = scoped
+        #: The interpreter the server runs on (default: this process's); a harness whose own interpreter is a
+        #: throwaway environment names the project's.
+        self.python = python
 
     def _client(self, session: Session, timeout: float = 5.0) -> Any:
         import httpx
@@ -287,7 +352,7 @@ class SandboxBackend:
         layout.token_file.write_text(session.token, encoding="utf-8")
         os.chmod(layout.token_file, 0o600)
         argv, env = launch_command(layout, session.limits, base_url=session.base_url, unit=session.unit,
-                                   scoped=self.scoped)
+                                   scoped=self.scoped, python=self.python)
         process = await asyncio.create_subprocess_exec(*argv, env=env, stdin=subprocess.DEVNULL,
                                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                                        start_new_session=True)

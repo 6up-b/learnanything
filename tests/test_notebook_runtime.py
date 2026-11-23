@@ -5,6 +5,7 @@ The real sandbox is tests/test_notebook_runtime_sandbox.py."""
 from __future__ import annotations
 
 import asyncio
+import json
 import signal
 from pathlib import Path
 
@@ -373,13 +374,69 @@ def test_the_frame_csp_contains_the_page():
     assert directives["object-src"] == "'none'" and directives["form-action"] == "'none'"
 
 
-def test_the_bridge_is_injected_and_names_only_the_workbench_origins():
+def test_the_bridge_and_the_paper_theme_are_injected_and_the_bridge_names_only_the_workbench_origins():
     html = proxy.inject_bridge(b"<html><head><title>x</title></head></html>", "/s/abc")
-    assert html.startswith(b'<html><head><script src="/s/abc/__ll/bridge.js"></script>')
+    assert html.startswith(b'<html><head><link rel="stylesheet" href="/s/abc/__ll/theme.css">'
+                           b'<script src="/s/abc/__ll/bridge.js"></script>')
     script = proxy.bridge_script().decode()
     for origin in settings.WORKBENCH_ORIGINS:
         assert origin in script
     assert '"companion"' in script and '"menu"' in script and '"click"' in script and '"escape"' in script
+    # It addresses each workbench origin in turn rather than reading the parent's from location.ancestorOrigins,
+    # which not every engine has; the browser drops a post whose target origin is not the parent's.
+    assert "ancestorOrigins" not in script and "postMessage(msg, origins[i])" in script
+
+
+def test_the_paper_theme_sets_variables_and_serves_its_faces_from_the_frames_origin(tmp_path, monkeypatch):
+    from learnloop.notebook_runtime import theme
+
+    css = theme.theme_css("/s/abc")
+    for variable, value in (("--background", theme.PAGE), ("--foreground", theme.INK), ("--card", theme.SURFACE),
+                            ("--border", theme.RULE), ("--primary", theme.PURPLE), ("--tw-prose-headings", theme.INK)):
+        assert f"{variable}: {value} !important" in css
+    assert 'url("/s/abc/__ll/fonts/literata.woff2")' in css and "--marimo-heading-font" in css
+    assert ".ll-commit" in css and f"border-left: 3px solid {theme.PURPLE}" in css
+    # Variables plus exactly one rule: prose at the mockup's measured size and line.
+    rules = [line for line in css.splitlines() if "{" in line and not line.lstrip().startswith(("@font-face", ":root", ".prose, .markdown {", "html, body", ".ll-"))]
+    assert rules == [".markdown .paragraph, .markdown p, .markdown li, .prose .paragraph, .prose p, .prose li "
+                     "{ font-size: 14.4px !important; line-height: 24px !important; }"]
+    package = tmp_path / "literata" / "files"
+    package.mkdir(parents=True)
+    (package / "literata-latin-wght-normal.woff2").write_bytes(b"wOF2")
+    monkeypatch.setenv(theme.FONT_PACKAGES_ENV, str(tmp_path))
+    assert theme.font_file("literata.woff2").read_bytes() == b"wOF2"
+    assert theme.font_file("../../etc/passwd") is None and theme.font_file("jetbrains-mono.woff2") is None
+
+
+def test_the_frame_may_load_the_theme_and_its_fonts_and_nothing_else_of_the_proxys():
+    assert proxy.frame_may("GET", proxy.THEME_PATH) and proxy.frame_may("GET", proxy.FONTS_PREFIX + "literata.woff2")
+    assert not proxy.frame_may("POST", proxy.THEME_PATH) and not proxy.frame_may("GET", "__ll/other")
+
+
+def test_marimos_reconnected_notice_is_recognised_and_nothing_else():
+    banner = json.dumps({"op": "banner", "data": {"op": "banner", "title": "Reconnected",
+                                                  "description": "You have reconnected to an existing session.",
+                                                  "action": "restart"}})
+    alert = json.dumps({"op": "alert", "data": {"title": "Reconnected", "description": "x"}})
+    assert adapter.is_reconnected_notice(banner) and adapter.is_reconnected_notice(alert)
+    other = json.dumps({"op": "banner", "data": {"title": "Kernel restarted", "description": "x"}})
+    cell = json.dumps({"op": "cell-op", "data": {"output": "Reconnected"}})
+    assert not adapter.is_reconnected_notice(other) and not adapter.is_reconnected_notice(cell)
+    assert not adapter.is_reconnected_notice("Reconnected but not json")
+
+
+def test_a_runtime_directory_too_deep_for_a_socket_is_passed_over(tmp_path, monkeypatch):
+    from learnloop.notebook_runtime import sandbox
+
+    deep = tmp_path / ("d" * 90)
+    deep.mkdir()
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(deep))
+    chosen = sandbox.runtime_base_dir()
+    assert not str(chosen).startswith(str(deep))
+    short = Path("/run/user") / str(__import__("os").getuid())
+    if short.is_dir():
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(short))
+        assert sandbox.runtime_base_dir().parent == short
 
 
 def _asgi(app, scope):
@@ -493,3 +550,47 @@ def test_the_app_frames_notebooks_from_any_loopback_port():
                        / "tauri.conf.json").read_text(encoding="utf-8"))
     frame_src = next(part for part in conf["app"]["security"]["csp"].split("; ") if part.startswith("frame-src"))
     assert f"http://{settings.FRAME_HOST}:*" in frame_src.split()
+
+
+# -- a pad's cells: the session follows the cells' shape, not their code ------------------------------------------
+
+def test_a_named_revision_keeps_the_session_while_its_code_changes(runtime):
+    first = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 1", view="app", limits=LIMITS, idle_minutes=10,
+                         max_sessions=3, revision="shape-1")
+    _ready(runtime, "/v1", first["session_id"])
+    again = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 2", view="app", limits=LIMITS, idle_minutes=10,
+                         max_sessions=3, revision="shape-1")
+    assert again["session_id"] == first["session_id"]
+    reshaped = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 2\ny = 3", view="app", limits=LIMITS,
+                            idle_minutes=10, max_sessions=3, revision="shape-2")
+    assert reshaped["session_id"] != first["session_id"]
+
+
+def test_a_stopped_session_restarts_on_the_code_it_is_reopened_with(runtime):
+    view = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 1", view="app", limits=LIMITS, idle_minutes=1,
+                        max_sessions=3, revision="shape-1")
+    _ready(runtime, "/v1", view["session_id"])
+    runtime.run_on_loop(lambda: runtime.sweep(now=runtime.sessions()[0].last_activity + 61))
+    runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 7", view="app", limits=LIMITS, idle_minutes=1,
+                 max_sessions=3, revision="shape-1")
+    assert runtime.sessions()[0].layout.notebook.read_bytes() == b"x = 7"
+
+
+def test_a_cells_run_is_timed_from_marimos_messages():
+    from learnloop.notebook_runtime.supervisor import note_cell_progress
+
+    run = json.dumps({"op": "cell-op", "data": {"op": "cell-op", "cell_id": "Hbol", "status": "running", "timestamp": 10.0}})
+    done = json.dumps({"op": "cell-op", "data": {"op": "cell-op", "cell_id": "Hbol", "status": "idle", "timestamp": 10.25}})
+    failed = json.dumps({"op": "cell-op", "data": {"op": "cell-op", "cell_id": "Hbol", "output": {"mimetype": "application/vnd.marimo+error", "data": []}}})
+    assert adapter.cell_progress(run) == ("Hbol", "running", 10.0, False)
+    assert adapter.cell_progress(failed) == ("Hbol", None, None, True)
+    assert adapter.cell_progress('{"op": "kernel-ready"}') is None
+    held = session(Path("/tmp"))
+    held.cell_ids = {"c_a": "Hbol"}
+    for message in (run, done):
+        note_cell_progress(held, *adapter.cell_progress(message))
+    assert held.cell_runs == {"c_a": {"status": "idle", "ms": 250.0, "error": False}}
+    note_cell_progress(held, *adapter.cell_progress(failed))
+    assert held.cell_runs["c_a"]["error"] is True
+    note_cell_progress(held, "unknown", "idle", 1.0, False)
+    assert set(held.cell_runs) == {"c_a"}

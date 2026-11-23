@@ -20,7 +20,7 @@ Build the harness page first (apps/learnloop-tauri: `npx vite build --config vit
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \\
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd4
 
-`--stage` is rd1, rd2, rd3, rd4, rd5, rd6, rd8 or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
+`--stage` is rd1, rd2, rd3, rd4, rd5, rd6, rd8, rd9, notebook or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
 Exit status 0 when the run completed (differences are findings, not failures), 2 when the reference is
 missing. `--dump NAME` prints the harness's element tree in that state (for mapping new regions).
 """
@@ -75,6 +75,16 @@ REGIONS: dict[str, Region] = {}
 def region(name: str, harness: str, geom: str = "none", skip: tuple[str, ...] = ()) -> None:
     REGIONS[name] = Region(harness, geom, skip)
 
+
+# ── Teacher lesson windows (RD9a; the harness's ?lesson=1 page): the lesson pad's head, modes and frame ──
+region("lesson_body", ".desk-pads .paper.k-lesson", "width")
+region("lesson_head", ".desk-pads .lessonnb .lhead", "none")
+region("lesson_head_glyph", ".desk-pads .lessonnb .lhead .lg", "size")
+region("lesson_head_faint", ".desk-pads .lessonnb .lhead .faint", "none")
+region("lesson_mode_on", ".desk-pads .lessonnb .lmodes button.on", "height")
+region("lesson_mode", ".desk-pads .lessonnb .lmodes button:not(.on)", "height")
+region("lesson_mode_line", ".desk-pads .lessonnb .lmodes .lmd", "height")
+region("lesson_frame", ".desk-pads .lessonnb .lframe", "width")
 
 # ── the goal lens (RD6; the goal variant, the harness's ?goal=1 page) ──
 region("goal_band", ".goalband", "box")
@@ -638,6 +648,16 @@ async def d_tabs_distance(page: Page) -> None:
     await wait(page, 500)
 
 
+async def d_lesson_tab(page: Page) -> None:
+    """The mockup's lesson tab open in the stack beside the book: scroll the stack until the lesson's paper is the
+    open one (the fixture's stack has two pads above it where the mockup has three)."""
+    await pads_beside_book(page)
+    await page.wait_for_selector('.desk-pads .paper[data-pad="lesson:fx_lesson_softmax"] [data-testid="lesson-view"]')
+    await page.locator(".desk-pads .pscroller").evaluate(
+        "(s) => { const p = s.querySelector('.paper[data-pad=\"lesson:fx_lesson_softmax\"]'); s.scrollTop = Math.max(0, p.offsetTop - 2 * 30 - 30); }")
+    await wait(page, 700)
+
+
 async def d_lift(page: Page) -> None:
     await pads_beside_book(page)
     await page.locator('.desk-pads [data-block="fx_b_r7"]').hover()
@@ -909,6 +929,9 @@ PADS = ("pad_window_head", "pad_tab_open", "pad_tab", "pad_tab_title", "pad_tab_
         "pad_mark_ll", "pad_mark_fig")
 
 MENU = ("pad_menu", "pad_menu_row", "pad_menu_head", "auto:div.pro", "auto:span.why")
+LESSON = ("lesson_body", "lesson_head", "lesson_head_glyph", "lesson_head_faint", "lesson_mode_on", "lesson_mode", "lesson_mode_line",
+          "lesson_frame", "pad_window_head", "pad_tab_open", "pad_tab_title", "pad_tab_meta")
+
 GOAL_BAND = ("goal_band", "goal_band_lab", "goal_band_sentence", "goal_band_counts", "goal_band_dot", "goal_band_dot_likely",
              "goal_band_dot_pre", "goal_band_dot_unmatched", "goal_band_depth_on", "goal_band_depth", "goal_band_here_lab", "goal_band_here",
              "goal_band_next_lab", "goal_band_next", "goal_band_dim", "goal_band_path")
@@ -986,6 +1009,10 @@ STATES: list[State] = [
     State("pen=strike", "rd8", d_pen("strike"), PEN + ("pen_stroke_strike",)),
     State("pen=pad", "rd8", d_pen_pad, ("pen_chip_top", "pen_hint", "ink_pad_paper", "ink_bar", "ink_bar_button", "ink_prov", "ink_read",
                                          "ink_read_label", "ink_read_tex", "ink_hint", "pad_window_head", "pad_tab_open"), query="?inkpad=1"),
+    # The Teacher lesson's tab open in the stack (RD9a). The reference was captured with the notebook served: its
+    # frame holds the notebook, ours the lesson itself (RD9b brings the notebook), so the frame is compared as a box.
+    State("tabs=distance,pad=3", "rd9", d_lesson_tab, LESSON, query="?lesson=1",
+          note="the frame's content is the notebook in the reference and the lesson itself here (RD9b)"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}
@@ -1236,12 +1263,17 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "rd9", "notebook", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")
     parser.add_argument("--dump", default=None, metavar="STATE")
     args = parser.parse_args()
+    if args.stage == "notebook":
+        # The notebook frame runs a real sandboxed session; its own harness compares the lesson state's frame.
+        import subprocess
+
+        return subprocess.call([sys.executable, str(Path(__file__).with_name("notebook.py")), "--ref", str(args.ref)])
     if not DIST.exists():
         print("build the harness page first: npx vite build --config vite.desks.config.mjs", file=sys.stderr)
         return 2

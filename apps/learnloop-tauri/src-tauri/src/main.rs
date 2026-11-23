@@ -673,6 +673,7 @@ fn main() {
                 lesson_activity,
                 lesson_goal,
                 lesson_open_lessons,
+                lesson_list,
                 lesson_suggestion,
                 lesson_suggestion_respond,
                 reader_side_by_side_section,

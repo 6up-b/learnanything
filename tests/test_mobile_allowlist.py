@@ -1050,6 +1050,16 @@ def test_the_pinned_notebook_runtime_rpcs_are_all_of_them():
     assert set(NOTEBOOK_RUNTIME_RPCS) == set(NOTEBOOK_RPCS)
 
 
+# Reader workbench v2 RD9a (spec §11.1, §12.5): the lessons a lesson window's tab and the path view name. Desktop only.
+READER_RD9A_RPCS = ("lesson.list",)
+
+
+def test_the_pinned_rd9a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.lesson import LESSON_WINDOW_RPCS
+
+    assert set(READER_RD9A_RPCS) == set(LESSON_WINDOW_RPCS)
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
@@ -1063,7 +1073,7 @@ def test_the_pinned_notebook_runtime_rpcs_are_all_of_them():
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
     + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS + WHY_B9_RPCS
     + READER_RD0_RPCS + READER_RD3A_RPCS + READER_RD4A_RPCS + READER_RD4FIX_RPCS + READER_RD5A_RPCS + READER_RD6A_RPCS
-    + NOTEBOOK_RUNTIME_RPCS + READER_RD8A_RPCS,
+    + NOTEBOOK_RUNTIME_RPCS + READER_RD8A_RPCS + READER_RD9A_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
