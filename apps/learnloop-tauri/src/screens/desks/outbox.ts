@@ -130,6 +130,11 @@ export class DeskOutbox {
     this.nextSeq = seq;
   }
 
+  /** Resolves once no batch is being sent. */
+  async idle(): Promise<void> {
+    while (this.sending) await this.sending.catch(() => undefined);
+  }
+
   /** The number the next batch takes. */
   get next(): number {
     return this.nextSeq;

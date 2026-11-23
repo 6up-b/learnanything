@@ -12,7 +12,13 @@ import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
 import { useBareAltClear } from "../reader/bareAlt";
 
 vi.mock("../../api/client", () => ({ api: {} }));
-vi.mock("./windows/SourceWindow", () => ({ SourceWindow: () => null }));
+const sourceWindows = vi.hoisted(() => new Map<string, { onStatus: (next: { readingSpan?: string | null }) => void }>());
+vi.mock("./windows/SourceWindow", () => ({
+  SourceWindow: (props: { content: { extractionId: string }; onStatus: (next: { readingSpan?: string | null }) => void }) => {
+    sourceWindows.set(props.content.extractionId, props);
+    return null;
+  },
+}));
 vi.mock("./windows/PanelWindow", () => ({ PANEL_TITLES: { guide: "Guide", notes: "Notes", path: "Reading path", library: "Library" }, LibraryPanel: () => null, PathPanel: () => null, RailHostPanel: () => null }));
 
 const heardKeys: Record<string, string[]> = {};
@@ -698,5 +704,22 @@ describe("fix round: a window that loses activation loses the DOM's input (findi
     // A visible, inactive window stays clickable (not inert); only paused ones are.
     expect(document.querySelector('[data-desk-window="fx_w_book"]')?.hasAttribute("inert")).toBe(false);
     expect(document.querySelector('[data-desk-window="fx_w_paper"]')?.hasAttribute("inert")).toBe(true);
+  });
+});
+
+describe("fix round: a reading place still waiting to be saved survives leaving the desks (finding 5)", () => {
+  it("leaving the desks before the idle save sends the place anyway", async () => {
+    const server = new FixtureDeskServer();
+    const transport = transportFor(server);
+    const view = render(<DeskShell vaultKey="vault-view-save" onError={vi.fn()} transport={transport} initialViewport={{ width: 1600, height: 960 }} mintId={mint} />);
+    await waitFor(() => expect(sourceWindows.size).toBeGreaterThan(0));
+    const book = [...sourceWindows.entries()].find(([extractionId]) => extractionId === FIXTURE_SOURCES.book.extractionId)?.[1];
+    expect(book).toBeDefined();
+    act(() => book!.onStatus({ readingSpan: `${FIXTURE_SOURCES.book.extractionId}_s2_1` }));
+    view.unmount();
+    await flush();
+    await flush();
+    const saved = server.state().desks.flatMap((desk) => desk.slots.flatMap((slot) => slot.windows)).find((window) => window.windowId === "fx_w_book");
+    expect(saved?.view?.spanId).toBe(`${FIXTURE_SOURCES.book.extractionId}_s2_1`);
   });
 });

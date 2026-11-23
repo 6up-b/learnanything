@@ -1280,11 +1280,15 @@ export function DeskShell({
 
   // -- window status from inside (title, reading place, rail hosts, media) ------------------------
 
-  const viewTimers = useRef(new Map<string, unknown>());
+  const viewTimers = useRef(new Map<string, { handle: unknown; save: () => void }>());
   const shellTimers = useRef(new Set<unknown>());
-  // The shell's own timers (a pending view save, an entering fade) end with it; the store's flush does not.
+  // The shell's own timers (an entering fade) end with it. A reading place still waiting for its idle save
+  // is handed to the vault's store at once, which outlives the shell and sends it.
   useEffect(() => () => {
-    for (const handle of viewTimers.current.values()) timers.clear(handle);
+    for (const pending of viewTimers.current.values()) {
+      timers.clear(pending.handle);
+      pending.save();
+    }
     viewTimers.current.clear();
     for (const handle of shellTimers.current) timers.clear(handle);
     shellTimers.current.clear();
@@ -1301,20 +1305,26 @@ export function DeskShell({
         // (spec §3.5: span-based, never pixels), and only for the window the learner is reading.
         if (next.readingSpan && focusIdRef.current === windowId) {
           const previous = viewTimers.current.get(windowId);
-          if (previous !== undefined) timers.clear(previous);
-          viewTimers.current.set(windowId, timers.set(() => {
-            viewTimers.current.delete(windowId);
-            const current = wsRef.current;
+          if (previous !== undefined) timers.clear(previous.handle);
+          const save = () => {
+            const current = store.ws;
             const window = current.windows[windowId];
             if (!window || window.view?.spanId === next.readingSpan) return;
-            commit(setView(current, window.deskId, windowId, { ...window.view, spanId: next.readingSpan }));
-          }, VIEW_SAVE_IDLE_MS));
+            store.commit(setView(current, window.deskId, windowId, { ...window.view, spanId: next.readingSpan }));
+          };
+          viewTimers.current.set(windowId, {
+            save,
+            handle: timers.set(() => {
+              viewTimers.current.delete(windowId);
+              save();
+            }, VIEW_SAVE_IDLE_MS),
+          });
         }
       };
       statusFor.set(windowId, handler);
     }
     return handler;
-  }, [statusFor, timers, commit, miniatures]);
+  }, [statusFor, timers, store, miniatures]);
 
   const jumpReadyFor = useMemo(() => new Map<string, (jump: ((spanId: string) => void) | null) => void>(), []);
   const onJumpReadyFor = useCallback((windowId: string) => {

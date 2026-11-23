@@ -69,9 +69,13 @@ export class DeskStore {
     for (const listener of [...this.noticeListeners]) listener(notice);
   }
 
-  /** Read the server's desks once (a second caller shares the read); later calls return at once. */
+  /** Read the server's desks once (a second caller shares the read). Once loaded (the desks shown again
+   * after leaving them), the server's state is read again and what is still queued is rebased on it. */
   async load(): Promise<DeskStateDto | null> {
-    if (this.loaded) return null;
+    if (this.loaded) {
+      await this.reconcile((lost) => (lost > 0 ? this.notify({ kind: "conflict", dropped: 0, lost }) : undefined));
+      return null;
+    }
     if (!this.loading) {
       this.loading = this.transport.state().then((state) => {
         this.outbox.syncSeq(state);
@@ -127,6 +131,8 @@ export class DeskStore {
   private reconcile(report: (lost: number) => void, resync = false): Promise<void> {
     if (this.reconciling) return this.reconciling;
     this.reconciling = (async () => {
+      // A batch on its way finishes first: the state read below then includes it.
+      await this.outbox.idle();
       let state: DeskStateDto;
       try {
         state = await this.transport.state();

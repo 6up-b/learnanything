@@ -175,3 +175,19 @@ describe("one store per vault (finding 5)", () => {
     expect(state).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("coming back to the desks (finding 5)", () => {
+  it("a second load reads the server's state again and keeps what is still queued", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    const store = new DeskStore("me", transportOver(server), timers);
+    await store.load();
+    store.commit(renameDesk(store.ws, "fx_desk_attention", "queued here"));
+    server.apply({ clientId: "other", seq: 1, ops: [{ op: "rename_desk", deskId: "fx_desk_softmax", title: "changed elsewhere", expectedVersion: 1 }] });
+    await store.load();
+    expect(deskById(store.ws, "fx_desk_softmax")?.title).toBe("changed elsewhere");
+    expect(deskById(store.ws, "fx_desk_attention")?.title).toBe("queued here");
+    await settle(store, timers);
+    expect(server.state().desks.find((desk) => desk.deskId === "fx_desk_attention")?.title).toBe("queued here");
+  });
+});
