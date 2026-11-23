@@ -355,8 +355,25 @@ or lower.
 
 ## 12. Not verified
 
-- **Owner copies.** P-shadow and the measured cost on the owner copies were not run. Agents do not open owner
-  vaults.
-- **Affected tests.** The full `affected_tests.py` set was not run, only the name-filtered chunks.
+- **Owner copies.** Run by the orchestrator, not by the step (see §13).
 - **P-draw.** The harness was not rerun.
 - **The phone's media predicate.** Its cost when on was not measured.
+
+## 13. Owner copies (run by the orchestrator)
+
+Backup-API copies of the owner's three vaults, each upgraded to `mvp-0.64` with the base code, then copied once
+for the base tree (`533495a5c9`) and once for this step's tip. On each copy, three builds at one frozen clock:
+`read_due_queue` without a session, `read_due_queue` with a session, and `build_due_queue` with a session. Each
+build's queue (item, priority, mode, follow-up kind, components) and trace (exclusions, greedy and considered
+items, exploration) were hashed, and its SELECT statements counted.
+
+| Vault | Items | Excluded | Read | Read, session | Serving |
+|---|---|---|---|---|---|
+| A | 27 | 54 | same hash, 185 → 185 SELECTs | same hash, 241 → 241 | same hash, 276 → 276 |
+| B | 42 | 57 | same hash, 68 → 68 | same hash, 102 → 102 | same hash, 186 → 186 |
+| C | 66 | 11 | same hash, 73 → 73 | same hash, 75 → 75 | same hash, 103 → 103 |
+
+A second base read on each copy gave the same hash, so the comparison is deterministic. Nothing was written to
+standard error, so no value decision reached the repository after the gather. None of the three vaults holds the
+corner case that §8 leaves to I2b. The live vaults were unchanged, and the copies were deleted.
+
