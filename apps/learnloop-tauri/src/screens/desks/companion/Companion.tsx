@@ -359,7 +359,8 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           </div>
           <div className="ctx">
             <span>{props.context.following ? `following ${props.context.following.glyph} ${props.context.following.title}` : "following nothing yet"}</span>
-            {props.context.goalInContext ? <span className="goal gctx" title="the tutor answers with your goal and its LOs in mind">◎ goal in context</span> : null}
+            {/* The desk's context is recorded with a question, not sent to the tutor: the badge says the goal is in view. */}
+            {props.context.goalInContext ? <span className="goal gctx" title="your goal's lens is on this desk; the tutor's answers don't take it into account yet">◎ goal in view</span> : null}
             <span className="grow" />
             {earlier.length && tab === "tutor" ? (
               <button type="button" className="earlier" onClick={() => setTab("history")}>earlier · {earlier.map(dayLabel).join(" · ")} ›</button>
