@@ -215,7 +215,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 358 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 57 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 53 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 54 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 49 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 42 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
@@ -293,7 +293,7 @@ flowchart LR
     n_learnloop_sidecar -->|5| center
     center -->|358| n_learnloop_sidecar
     center -->|57| n_learnloop_reader
-    center -->|53| n_learnloop
+    center -->|54| n_learnloop
     center -->|49| n_learnloop_source_retrieval
     center -->|42| n_learnloop_ai
     center -->|39| n_learnloop_instructional
