@@ -125,6 +125,8 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 |---|---|---|---|---|---|
 | I1 | Extract the pure core of grade application | landed | `67a5364df0` | [refactor-i1.md](refactor-i1.md) | — |
 | I2 | Extract pure due queue ranking from persistence | not started | — | [refactor-i2.md](refactor-i2.md) | Owner decided on 2026-11-20: superset reads, two pure stages (I2a, I2b, I2c) |
+| I2a | The due queue's admission reads are gathered once before its decisions; each probe episode's value decision is computed at its consult from gathered values, with no repository | landed | this commit | [refactor-i2a.md](refactor-i2a.md) | Reads are within one SELECT of base on every build but one: an episode whose only reachable item is held by a not-yet-due check still costs about 2.2 to 2.5 times base reads (0.07 s at 300 items). I2b removes it by filtering on intent's whole gate once intent is frozen |
+| I2b, I2c | Freeze intent's view; the two pure stages | not started | — | — | I2a |
 | I2-1 | Split serving writes from due queue reads | landed | `e1df438a03` | [refactor-i2.md](refactor-i2.md) | — |
 
 ## Arc G

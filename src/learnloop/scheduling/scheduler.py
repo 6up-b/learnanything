@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import logging
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from functools import cached_property
 from math import exp, log
 from typing import Any, Mapping
 
@@ -40,7 +42,6 @@ from learnloop.numeric import clamp
 from learnloop.goals.goal_projection import build_goal_frontier
 from learnloop.learner.facet_state_reader import facet_states_by_lo as read_facet_states_by_lo
 from learnloop.learner.recall_coverage import (
-    familiarity_discount,
     familiarity_discount_from_attempts,
     resolve_coverage,
 )
@@ -50,6 +51,7 @@ from learnloop.scheduling.serving_exclusions import (
     admission_reason,
     out_of_timing_serving_exclusions,
     routine_serving_exclusions,
+    routine_withhold_reason,
 )
 from learnloop.diagnosis import voi_stopping as voi
 from learnloop.scheduling.slate_record import record_slate
@@ -383,8 +385,6 @@ def _due_queue(
     )
     readiness_factor = _readiness_factor(session, config)
     fsrs_weights = resolve_fsrs_weights(repository)
-    episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {}
-    episode_eligible_cache: dict[str, dict[str, EligibleInstrument]] = {}
     pending_followups = repository.pending_followup_practice_items(clock=clock)
     # Meas §6.2: a due cold task whose item's answer has been revealed since the
     # task was created must be DEFERRED, not served. Burning the one single-use
@@ -448,31 +448,48 @@ def _due_queue(
     # predicate of every candidate before it prefers a cold one over
     # practice, so a candidate this build would not serve never decides a
     # check (Codex re-review F11).
-    admission = _BuildAdmission(
+    reads = _gather_admission_reads(
         vault,
         repository,
+        session=session,
+        exclusions=exclusions,
+        item_states=item_states,
+        placement_serving=placement_serving,
+        open_episodes=open_episodes,
+        probe_block_reason=probe_block_reason,
+        mastery_states=mastery_states,
+        frontier=frontier,
+        errors_by_lo=errors_by_lo,
+        fsrs_weights=fsrs_weights,
+        recent_attempts_by_lo=recent_attempts_by_lo,
+        voi_context=voi_context,
+        voi_probe_active=voi_probe_active,
+        device_filter=device_filter,
+        intent_view=intent_view,
+    )
+    admission = _BuildAdmission(
+        vault,
+        reads=reads,
         now=now,
         session=session,
         intent_view=intent_view,
-        exclusions=_Once.of(exclusions),
-        item_states=_Once.of(item_states),
-        placement_serving=_Once.of(placement_serving),
-        open_episodes=_Once.of(open_episodes),
-        probe_block_reason=_Once.of(probe_block_reason),
-        mastery_states=_Once.of(mastery_states),
-        frontier=_Once.of(frontier),
-        errors_by_lo=_Once.of(errors_by_lo),
-        fsrs_weights=_Once.of(fsrs_weights),
-        recent_attempts_by_lo=_Once.of(recent_attempts_by_lo),
-        voi_context=_Once.of(voi_context),
         voi_probe_active=voi_probe_active,
         carry_hypothesis_channels=carry_hypothesis_channels,
         short_session=short_session,
         voi_probe_decisions=voi_probe_decisions,
-        episode_posterior_cache=episode_posterior_cache,
-        episode_eligible_cache=episode_eligible_cache,
-        device_filter=device_filter,
     )
+    # The head probe's presentation (the persist step) reads its episode from these; that episode is always one
+    # the admission consulted, so a failed read here was already raised.
+    episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {
+        episode_id: context
+        for episode_id, context in reads.episode_contexts.items()
+        if not isinstance(context, _ReadFailed)
+    }
+    episode_eligible_cache: dict[str, dict[str, EligibleInstrument]] = {
+        episode_id: eligible
+        for episode_id, eligible in reads.episode_eligibles.items()
+        if not isinstance(eligible, _ReadFailed)
+    }
     if intent_view is not None:
         intent_view.bind_admission(admission.check_candidate_refusal)
         requested_item_ids = intent_view.filter_requests(requested_item_ids)
@@ -2969,28 +2986,465 @@ def _intent_serving(vault: LoadedVault, repository: Repository, now: datetime):
     return intent_serving(vault, repository, now=now)
 
 
-class _Once:
-    """A build read made at most once, on first use. The queue build passes
-    the values it already read (:meth:`of`); :func:`check_admission` passes
-    readers, so a view that never meets a gate never pays for its reads."""
+@dataclass(frozen=True)
+class _ReadFailed:
+    """A read the gather made ahead of the admission's decisions that raised.
 
-    __slots__ = ("_read", "_value", "_done")
+    The lazy build made some of these reads only for an item that reached them
+    (an episode's instruments, say, only once one of its items passed the
+    earlier gates). Raising at the gather would fail a build that never needed
+    the value, so the error is kept and raised where the admission first asks
+    for it (:func:`_gathered`), which is where the lazy build raised it."""
 
-    def __init__(self, read: Any) -> None:
-        self._read = read
-        self._value: Any = None
-        self._done = False
+    error: Exception
 
-    @classmethod
-    def of(cls, value: Any) -> "_Once":
-        once = cls(None)
-        once._value, once._done = value, True
-        return once
 
-    def __call__(self) -> Any:
-        if not self._done:
-            self._value, self._done = self._read(), True
-        return self._value
+def _attempted_read(read: Any, *args: Any) -> Any:
+    try:
+        return read(*args)
+    except Exception as error:  # raised again by _gathered, where the admission needs the value
+        return _ReadFailed(error)
+
+
+def _gathered(value: Any) -> Any:
+    if isinstance(value, _ReadFailed):
+        raise value.error
+    return value
+
+
+@dataclass(frozen=True)
+class AdmissionReads:
+    """Everything one queue build's admission (:class:`_BuildAdmission`) reads, read before it decides.
+
+    The first ten fields are the build's own reads, which it makes in a fixed
+    order between its pre-ranking writes (placement's fast track, the cold
+    lane's deferrals) because the reads after each write must see it. The rest
+    the admission used to read on first use, and the gather
+    (:func:`_gather_admission_reads`) now reads for everything that could need
+    them: the in-progress, unblocked probe episodes an item could reach (keyed
+    by episode id; the familiarity by episode and item id), what their value
+    decisions read, and the device's refusal of every item. The value
+    decisions themselves are computed where the admission consults them, from
+    these fields alone. A gathered read that raised holds a :class:`_ReadFailed`.
+    """
+
+    exclusions: Any
+    item_states: Mapping[str, PracticeItemState]
+    placement_serving: Any
+    open_episodes: Mapping[str, Any]
+    probe_block_reason: str | None
+    mastery_states: Mapping[str, MasteryState]
+    frontier: Any
+    errors_by_lo: Mapping[str, list[ActiveErrorEvent]]
+    fsrs_weights: Any
+    recent_attempts_by_lo: Mapping[str, list[dict[str, Any]]]
+    #: ``(attempted item ids, attempted surface groups)``; None when no episode can probe.
+    administered_surfaces: Any
+    #: ``(hypothesis set, posterior, entropy)`` or None, per probing episode.
+    episode_contexts: Mapping[str, Any]
+    #: The eligible instruments by item id, per probing episode with a context.
+    episode_eligibles: Mapping[str, Any]
+    #: What a probe value decision reads (latencies, triage routes, intervention durations, the measured
+    #: unresolved cost), loaded for the gathered episodes; it reads no repository. None when no episode needs one.
+    voi_context: Any
+    #: The episode's qualifying observations, per probing episode with an instrument (value stopping on).
+    qualifying_observations: Mapping[str, Any]
+    #: The session's qualifying observations; None when no episode needs it.
+    session_qualifying_observations: Any
+    #: The episode's pinned channel (``load_pinned_channel``), per such episode with a calibration model hash.
+    pinned_channels: Mapping[str, Any]
+    #: ``familiarity_discount`` of each eligible instrument, by ``(episode id, item id)``.
+    probe_familiarity: Mapping[tuple[str, str], Any]
+    #: Whether the build's device refuses each item, by item id; None without a device filter.
+    device_refusals: Mapping[str, Any] | None
+
+
+def _probing_episodes(open_episodes: Mapping[str, Any], probe_block_reason: str | None) -> list[Any]:
+    """The episodes whose items the admission may value as probes (``_BuildAdmission.in_probe`` with a locked set)."""
+
+    if probe_block_reason is not None:
+        return []
+    return [
+        episode
+        for episode in open_episodes.values()
+        if episode.status == "in_progress" and episode.hypothesis_set_id is not None
+    ]
+
+
+def _prospective_familiarity(vault: LoadedVault, item: PracticeItem, recent: list[dict[str, Any]]) -> Any:
+    """``probe_score``'s familiarity for a probe candidate, from the coverage a probe answer would have.
+
+    ``recent``: the item's LO's recent attempts with the held mark, which
+    ``familiarity_discount`` reads for each item; read here once per LO (every
+    instrument of an episode is on its LO), so the gather adds no read per
+    instrument."""
+
+    config = vault.config
+    rubric = vault.rubric_for_item(item)
+    prospective_coverage = resolve_coverage(
+        item,
+        rubric,
+        attempt_type="diagnostic_probe",
+        hints_used=0,
+        learner_answer_md="prospective_probe",
+        evidence=vault.config.evidence,
+    )
+    return familiarity_discount_from_attempts(
+        recent,
+        item,
+        covered_facets=prospective_coverage.covered_facets,
+        config=config,
+    )
+
+
+def _recent_attempts_marked(vault: LoadedVault, repository: Repository, learning_object_id: str) -> list[dict[str, Any]]:
+    """The rows ``familiarity_discount`` reads for an item of ``learning_object_id``."""
+
+    from learnloop.held_grades import mark_held_attempts
+
+    return mark_held_attempts(
+        repository,
+        repository.list_recent_attempts_by_learning_object(
+            learning_object_id,
+            limit=vault.config.recall_coverage.familiarity_recent_attempt_window,
+        ),
+    )
+
+
+class _NoRepository:
+    """The repository of the probe site's value context once the gather has loaded it: any read fails loudly
+    instead of reaching the database from a decision the admission computes from gathered values."""
+
+    def __getattr__(self, name: str) -> Any:
+        raise RuntimeError(f"a probe value decision read the repository ({name}) after the admission's reads were gathered")
+
+
+def _load_voi_reads(voi_context: Any, eligible: Mapping[str, Any], posterior: Mapping[str, float]) -> None:
+    """Make every repository read ``voi.probe_episode_decision`` makes for this episode, through ``voi_context``'s
+    own caches: the latencies (``item_minutes``), and for the posterior's labels with mass the triage routes
+    (``label_actions``) and the routes' intervention durations and measured unresolved cost (``loss_table``),
+    as ``value_candidates`` asks them."""
+
+    first = next(iter(eligible.values()))
+    voi_context.item_minutes(first.item)
+    labels = sorted(label for label, value in posterior.items() if float(value) > 0)
+    if not labels:
+        return
+    label_actions = voi_context.label_actions(labels)
+    if label_actions:
+        voi_context.loss_table(label_actions)
+
+
+def _episode_probe_reads(
+    vault: LoadedVault,
+    repository: Repository,
+    episodes: list[Any],
+    *,
+    session_id: str | None,
+    voi_context: Any,
+    voi_probe_active: bool,
+) -> dict[str, Any]:
+    """Each episode's context, instruments and instruments' familiarity, and what its value decision reads: every
+    read the admission's probe score could make for it."""
+
+    contexts: dict[str, Any] = {}
+    eligibles: dict[str, Any] = {}
+    familiarity: dict[tuple[str, str], Any] = {}
+    qualifying: dict[str, Any] = {}
+    channels: dict[str, Any] = {}
+    session_qualifying: Any = None
+    voi_loaded = False
+    for episode in episodes:
+        context = _attempted_read(_load_episode_context, vault, repository, episode, contexts)
+        contexts[episode.id] = context
+        if context is None or isinstance(context, _ReadFailed):
+            continue
+        eligible = _attempted_read(_load_episode_eligible, vault, repository, episode, context, eligibles)
+        eligibles[episode.id] = eligible
+        if isinstance(eligible, _ReadFailed) or not eligible:
+            continue
+        if voi_probe_active:
+            qualifying[episode.id] = _attempted_read(qualifying_observation_count, vault, repository, episode.id)
+            if session_qualifying is None:
+                session_qualifying = _attempted_read(session_qualifying_total, vault, repository, session_id)
+            if getattr(episode, "calibration_model_hash", None) is not None:
+                channels[episode.id] = _attempted_read(voi.read_pinned_channel, repository, episode)
+            loaded = _attempted_read(_load_voi_reads, voi_context, eligible, context[1])
+            if isinstance(loaded, _ReadFailed):
+                # Kept per episode: its decision raises this where the admission computes it.
+                channels[episode.id] = loaded
+            voi_loaded = True
+        recent_by_lo: dict[str, Any] = {}
+        for item_id, entry in eligible.items():
+            learning_object = vault.learning_object_for_item(entry.item)
+            if learning_object is None:
+                continue  # its item never reaches the probe score (the routine gate withholds it)
+            if learning_object.id not in recent_by_lo:
+                recent_by_lo[learning_object.id] = _attempted_read(
+                    _recent_attempts_marked, vault, repository, learning_object.id
+                )
+            recent = recent_by_lo[learning_object.id]
+            familiarity[(episode.id, item_id)] = (
+                recent if isinstance(recent, _ReadFailed) else _attempted_read(
+                    _prospective_familiarity, vault, entry.item, recent
+                )
+            )
+    decision_context = None
+    if voi_loaded:
+        decision_context = copy.copy(voi_context)
+        decision_context.repository = _NoRepository()
+    return {
+        "episode_contexts": contexts,
+        "episode_eligibles": eligibles,
+        "probe_familiarity": familiarity,
+        "voi_context": decision_context,
+        "qualifying_observations": qualifying,
+        "session_qualifying_observations": session_qualifying,
+        "pinned_channels": channels,
+    }
+
+
+def _reachable_episodes(
+    vault: LoadedVault,
+    episodes: list[Any],
+    *,
+    item_states: Mapping[str, PracticeItemState],
+    exclusions: Any,
+    intent_view: Any,
+) -> list[Any]:
+    """The probing episodes an item could still reach: one with an item on its LO that passes the routine gate
+    (``routine_withhold_reason``) and that intent does not exclude (Pause, Reference, Let go:
+    ``ItemIntent.excluded``, the part of intent's gate that does not wait on the check split). The admission
+    scores an item's probe only after both gates, so an episode none of whose items passes them is never read."""
+
+    if not episodes:
+        return []
+    by_lo = {episode.learning_object_id: episode for episode in episodes}
+    reachable: set[str] = set()
+    for item in vault.practice_items.values():
+        learning_object = vault.learning_object_for_item(item)
+        if learning_object is None or learning_object.id not in by_lo or learning_object.id in reachable:
+            continue
+        if routine_withhold_reason(vault, item, item_states.get(item.id), exclusions) is not None:
+            continue
+        if intent_view is not None and intent_view.intent(item.id).excluded:
+            continue
+        reachable.add(learning_object.id)
+    return [episode for episode in episodes if episode.learning_object_id in reachable]
+
+
+def _gather_admission_reads(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    session: SchedulerSession,
+    exclusions: Any,
+    item_states: Mapping[str, PracticeItemState],
+    placement_serving: Any,
+    open_episodes: Mapping[str, Any],
+    probe_block_reason: str | None,
+    mastery_states: Mapping[str, MasteryState],
+    frontier: Any,
+    errors_by_lo: Mapping[str, list[ActiveErrorEvent]],
+    fsrs_weights: Any,
+    recent_attempts_by_lo: Mapping[str, list[dict[str, Any]]],
+    voi_context: Any,
+    voi_probe_active: bool,
+    device_filter: DeviceFilter | None,
+    intent_view: Any,
+) -> AdmissionReads:
+    """The build's admission reads: its own, already made, and the ones the admission used to make on first use.
+
+    Reads more than the lazy admission did: an episode an item can reach past
+    the routine gate and intent's exclusions but none does (a later gate
+    withholds them all), and the device's refusal of items another gate
+    withholds. Nothing between this and the candidate loop writes, so the
+    values are the ones the lazy reads returned."""
+
+    episodes = _reachable_episodes(
+        vault,
+        _probing_episodes(open_episodes, probe_block_reason),
+        item_states=item_states,
+        exclusions=exclusions,
+        intent_view=intent_view,
+    )
+    return AdmissionReads(
+        exclusions=exclusions,
+        item_states=item_states,
+        placement_serving=placement_serving,
+        open_episodes=open_episodes,
+        probe_block_reason=probe_block_reason,
+        mastery_states=mastery_states,
+        frontier=frontier,
+        errors_by_lo=errors_by_lo,
+        fsrs_weights=fsrs_weights,
+        recent_attempts_by_lo=recent_attempts_by_lo,
+        administered_surfaces=(
+            _attempted_read(administered_surface_exclusions, vault, repository) if episodes else None
+        ),
+        **_episode_probe_reads(
+            vault,
+            repository,
+            episodes,
+            session_id=session.session_id,
+            voi_context=voi_context,
+            voi_probe_active=voi_probe_active,
+        ),
+        device_refusals=(
+            None
+            if device_filter is None
+            else {item.id: _attempted_read(device_filter.refuses, item) for item in vault.practice_items.values()}
+        ),
+    )
+
+
+class _LazyAdmissionReads:
+    """:class:`AdmissionReads` for an admission asked outside a queue build
+    (:func:`check_admission`, :func:`pool_admission`): each field is read on
+    first use, so a view that never meets a gate never pays for its reads. The
+    probing episodes' reads are made together, for every probing episode, the
+    first time one is needed."""
+
+    device_refusals = None
+
+    def __init__(
+        self,
+        vault: LoadedVault,
+        repository: Repository,
+        *,
+        now: datetime,
+        item_states: Any,
+        voi_probe_active: bool,
+    ) -> None:
+        from learnloop.clock import FrozenClock
+
+        self.vault = vault
+        self.repository = repository
+        self.now = now
+        self.clock = FrozenClock(now)
+        self._given_item_states = item_states
+        self.voi_probe_active = voi_probe_active
+
+    @cached_property
+    def item_states(self) -> Any:
+        if self._given_item_states is not None:
+            return self._given_item_states
+        return self.repository.practice_item_states()
+
+    @cached_property
+    def exclusions(self) -> Any:
+        return routine_serving_exclusions(self.vault, self.repository, now=self.now)
+
+    @cached_property
+    def placement_serving(self) -> Any:
+        excluded = self.exclusions
+        return _placement_serving(
+            self.vault,
+            self.repository,
+            clock=self.clock,
+            persist=False,
+            item_states=self.item_states,
+            excluded_item_ids=set(
+                excluded.reserved_exam_item_ids
+                | excluded.rung_variant_hold_ids
+                | excluded.staged_owned_item_ids
+                | excluded.held_out_item_ids
+            ),
+        )
+
+    @cached_property
+    def open_episodes(self) -> Any:
+        if self.placement_serving is not None:
+            from learnloop.placement.state import servable_open_episodes
+
+            return servable_open_episodes(self.vault, self.repository)
+        return self.repository.open_probe_episodes()
+
+    @cached_property
+    def probe_block_reason(self) -> Any:
+        return probe_serving_block_reason(self.vault, self.repository, session_id=None, cap_lifted=False)
+
+    @cached_property
+    def mastery_states(self) -> Any:
+        return self.repository.mastery_states()
+
+    @cached_property
+    def frontier(self) -> Any:
+        return build_goal_frontier(
+            self.vault,
+            self.repository,
+            clock=self.clock,
+            item_states=self.item_states,
+            facet_states_by_lo=read_facet_states_by_lo(self.vault, self.repository),
+        )
+
+    @cached_property
+    def errors_by_lo(self) -> Any:
+        return _errors_by_learning_object(self.repository.active_error_events())
+
+    @cached_property
+    def fsrs_weights(self) -> Any:
+        return resolve_fsrs_weights(self.repository)
+
+    @cached_property
+    def recent_attempts_by_lo(self) -> Any:
+        rows_by_lo = self.repository.list_recent_attempts_by_learning_objects(
+            self.frontier.by_lo,
+            limit=self.vault.config.recall_coverage.familiarity_recent_attempt_window,
+        )
+        from learnloop.held_grades import held_attempt_ids
+        from learnloop.outcome_contract import HELD_ROW_KEY
+
+        held = held_attempt_ids(self.repository, (row.get("id") for rows in rows_by_lo.values() for row in rows))
+        if not held:
+            return rows_by_lo
+        return {
+            lo_id: [{**row, HELD_ROW_KEY: True} if row.get("id") in held else row for row in rows]
+            for lo_id, rows in rows_by_lo.items()
+        }
+
+    @cached_property
+    def administered_surfaces(self) -> Any:
+        return administered_surface_exclusions(self.vault, self.repository)
+
+    @cached_property
+    def _episode_reads(self) -> dict[str, Any]:
+        return _episode_probe_reads(
+            self.vault,
+            self.repository,
+            _probing_episodes(self.open_episodes, self.probe_block_reason),
+            session_id=None,
+            voi_context=voi.VoiContext(self.vault, self.repository),
+            voi_probe_active=self.voi_probe_active,
+        )
+
+    @property
+    def episode_contexts(self) -> Any:
+        return self._episode_reads["episode_contexts"]
+
+    @property
+    def episode_eligibles(self) -> Any:
+        return self._episode_reads["episode_eligibles"]
+
+    @property
+    def voi_context(self) -> Any:
+        return self._episode_reads["voi_context"]
+
+    @property
+    def qualifying_observations(self) -> Any:
+        return self._episode_reads["qualifying_observations"]
+
+    @property
+    def session_qualifying_observations(self) -> Any:
+        return self._episode_reads["session_qualifying_observations"]
+
+    @property
+    def pinned_channels(self) -> Any:
+        return self._episode_reads["pinned_channels"]
+
+    @property
+    def probe_familiarity(self) -> Any:
+        return self._episode_reads["probe_familiarity"]
 
 
 @dataclass
@@ -3014,7 +3468,8 @@ class _ProbeScore:
 
 class _BuildAdmission:
     """One build's gates after the routine one (``serving_exclusions.BuildGates``)
-    and the reads behind them, each item's read once per build.
+    over the reads behind them (``reads``: :class:`AdmissionReads`, gathered
+    before the build decides), each item's score computed once per build.
 
     ``build_due_queue`` asks them through ``serving_exclusions.admission_reason``
     for every item, and binds :meth:`admits_check_candidate` (the same
@@ -3027,58 +3482,29 @@ class _BuildAdmission:
     def __init__(
         self,
         vault: LoadedVault,
-        repository: Repository,
         *,
+        reads: Any,
         now: datetime,
         session: SchedulerSession,
         intent_view: Any,
-        exclusions: _Once,
-        item_states: _Once,
-        placement_serving: _Once,
-        open_episodes: _Once,
-        probe_block_reason: _Once,
-        mastery_states: _Once,
-        frontier: _Once,
-        errors_by_lo: _Once,
-        fsrs_weights: _Once,
-        recent_attempts_by_lo: _Once,
-        voi_context: _Once,
         voi_probe_active: bool,
         carry_hypothesis_channels: bool,
         short_session: bool,
         voi_probe_decisions: dict[str, Any],
-        episode_posterior_cache: dict[str, Any],
-        episode_eligible_cache: dict[str, Any],
-        device_filter: DeviceFilter | None = None,
     ) -> None:
-        self.device_filter = device_filter
         self.vault = vault
-        self.repository = repository
+        #: :class:`AdmissionReads` in a build, :class:`_LazyAdmissionReads` outside one.
+        self.reads = reads
         self.config = vault.config
         self.now = now
         self.session = session
         self.intent_view = intent_view
-        self.exclusions = exclusions
-        self.item_states = item_states
-        self.placement_serving = placement_serving
-        self.open_episodes = open_episodes
-        self.probe_block_reason = probe_block_reason
-        self.mastery_states = mastery_states
-        self.frontier = frontier
-        self.errors_by_lo = errors_by_lo
-        self.fsrs_weights = fsrs_weights
-        self.recent_attempts_by_lo = recent_attempts_by_lo
-        self.voi_context = voi_context
         self.voi_probe_active = voi_probe_active
         self.carry_hypothesis_channels = carry_hypothesis_channels
         self.short_session = short_session
+        # The episodes' value decisions this build consulted, in the order it consulted them: the offer trace and
+        # the slate record carry exactly these, not every episode the gather valued.
         self.voi_probe_decisions = voi_probe_decisions
-        self.episode_posterior_cache = episode_posterior_cache
-        self.episode_eligible_cache = episode_eligible_cache
-        # Lazily built: (attempted item ids, attempted surface groups), the
-        # never-before-seen probe gate's exclusion set. Only probe-eligible
-        # builds pay for it.
-        self._attempted_surfaces: tuple[set[str], set[str]] | None = None
         self._placement: dict[str, tuple[str | None, bool, bool]] = {}
         self._scores: dict[str, _ProbeScore] = {}
 
@@ -3098,18 +3524,18 @@ class _BuildAdmission:
         item = self.vault.practice_items.get(item_id)
         if item is None:
             return "unknown_item"
-        state = self.item_states().get(item_id)
-        return admission_reason(self.vault, item, state, self.exclusions(), self, requested=True)
+        state = self.reads.item_states.get(item_id)
+        return admission_reason(self.vault, item, state, self.reads.exclusions, self, requested=True)
 
     # -- the gates (``serving_exclusions.BuildGates``) ---------------------------
 
     def in_probe(self, item: PracticeItem) -> bool:
         learning_object = self.vault.learning_object_for_item(item)
-        episode = self.open_episodes().get(learning_object.id)
-        return episode is not None and episode.status == "in_progress" and self.probe_block_reason() is None
+        episode = self.reads.open_episodes.get(learning_object.id)
+        return episode is not None and episode.status == "in_progress" and self.reads.probe_block_reason is None
 
     def device_gate(self, item: PracticeItem, state: Any) -> str | None:
-        if self.device_filter is None or not self.device_filter.refuses(item):
+        if self.reads.device_refusals is None or not _gathered(self.reads.device_refusals[item.id]):
             return None
         return "device_ineligible"
 
@@ -3131,7 +3557,7 @@ class _BuildAdmission:
         cached = self._placement.get(item.id)
         if cached is not None:
             return cached
-        placement_serving = self.placement_serving()
+        placement_serving = self.reads.placement_serving
         learning_object = self.vault.learning_object_for_item(item)
         result: tuple[str | None, bool, bool] = (None, False, False)
         # F2 placement (None when off). New material: a never-attempted item
@@ -3145,9 +3571,9 @@ class _BuildAdmission:
         # withheld. Learner-requested cards are the explicit exception.
         if placement_serving is not None:
             never_attempted = state is None or state.last_attempt_at is None
-            mastery = self.mastery_states().get(learning_object.id)
-            episode = self.open_episodes().get(learning_object.id)
-            frontier_entry = self.frontier().by_lo.get(learning_object.id)
+            mastery = self.reads.mastery_states.get(learning_object.id)
+            episode = self.reads.open_episodes.get(learning_object.id)
+            frontier_entry = self.reads.frontier.by_lo.get(learning_object.id)
             if learning_object.id in placement_serving.open_learning_object_ids:
                 if placement_serving.check_items.get(learning_object.id) != item.id:
                     result = ("placement_assumed_withheld", False, False)
@@ -3205,11 +3631,11 @@ class _BuildAdmission:
         # swallow it.
         learning_object = self.vault.learning_object_for_item(item)
         _reason, new_material, assumed_check = self.placement(item, state)
-        mastery = self.mastery_states().get(learning_object.id)
+        mastery = self.reads.mastery_states.get(learning_object.id)
         if (
             (mastery is None or mastery.last_evidence_at is None)
-            and self.open_episodes().get(learning_object.id) is None
-            and self.frontier().by_lo.get(learning_object.id) is None
+            and self.reads.open_episodes.get(learning_object.id) is None
+            and self.reads.frontier.by_lo.get(learning_object.id) is None
             and not new_material
             and not assumed_check
         ):
@@ -3234,22 +3660,22 @@ class _BuildAdmission:
         cached = self._scores.get(item.id)
         if cached is not None:
             return cached
-        vault, repository, config = self.vault, self.repository, self.config
+        vault, config = self.vault, self.config
         learning_object = vault.learning_object_for_item(item)
-        mastery = self.mastery_states().get(learning_object.id)
-        episode = self.open_episodes().get(learning_object.id)
+        mastery = self.reads.mastery_states.get(learning_object.id)
+        episode = self.reads.open_episodes.get(learning_object.id)
         in_probe = self.in_probe(item)
-        frontier_entry = self.frontier().by_lo.get(learning_object.id)
+        frontier_entry = self.reads.frontier.by_lo.get(learning_object.id)
         intent_view = self.intent_view
         goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
         components: dict[str, float] = {
             "forgetting_risk": _forgetting_risk(
                 state,
                 self.now,
-                self.fsrs_weights(),
+                self.reads.fsrs_weights,
                 effective_due=intent_view.effective_due_or_none(item.id, state) if intent_view is not None else None,
             ),
-            "recent_error": _recent_error(self.errors_by_lo().get(learning_object.id, []), self.now),
+            "recent_error": _recent_error(self.reads.errors_by_lo.get(learning_object.id, []), self.now),
             "probe_eig": 0.0,
             # DISPLAY ONLY (never a priority input — _priority reads exactly its
             # four weighted keys): how much one ordinary graded attempt is
@@ -3262,7 +3688,7 @@ class _BuildAdmission:
             # the goal — and without this the argmax re-serves the same frontier
             # item after every failure. Reuses the follow-up/probe familiarity
             # machinery; no new constants.
-            recent = self.recent_attempts_by_lo().get(learning_object.id, [])
+            recent = self.reads.recent_attempts_by_lo.get(learning_object.id, [])
             exposure = familiarity_discount_from_attempts(
                 recent,
                 item,
@@ -3281,18 +3707,16 @@ class _BuildAdmission:
             # group) measures memorization of the question, not understanding.
             # `eligible_instruments` enforces the same exclusion; the check here
             # exists so the exclusion is annotated instead of silent.
-            if self._attempted_surfaces is None:
-                self._attempted_surfaces = administered_surface_exclusions(vault, repository)
-            attempted_ids, attempted_surfaces = self._attempted_surfaces
+            attempted_ids, attempted_surfaces = _gathered(self.reads.administered_surfaces)
             score.probe_surface_repeat = (
                 item.id in attempted_ids or surface_group_id(item) in attempted_surfaces
             )
             if score.probe_surface_repeat:
                 components["probe_surface_repeat_excluded"] = 1.0
         if in_probe and episode.hypothesis_set_id is not None and not score.probe_surface_repeat:
-            context = _load_episode_context(vault, repository, episode, self.episode_posterior_cache)
+            context = _gathered(self.reads.episode_contexts[episode.id])
             eligible_entry = (
-                _load_episode_eligible(vault, repository, episode, context, self.episode_eligible_cache).get(item.id)
+                _gathered(self.reads.episode_eligibles[episode.id]).get(item.id)
                 if context is not None
                 else None
             )
@@ -3305,17 +3729,14 @@ class _BuildAdmission:
                 voi_decision = self.voi_probe_decisions.get(episode.id)
                 if voi_decision is None:
                     voi_decision = voi.probe_episode_decision(
-                        self.voi_context(),
+                        self.reads.voi_context,
                         episode,
-                        list(
-                            _load_episode_eligible(
-                                vault, repository, episode, context, self.episode_eligible_cache
-                            ).values()
-                        ),
+                        list(_gathered(self.reads.episode_eligibles[episode.id]).values()),
                         context[1],
                         session_id=self.session.session_id,
-                        qualifying_observations=qualifying_observation_count(vault, repository, episode.id),
-                        session_qualifying_observations=session_qualifying_total(vault, repository, self.session.session_id),
+                        qualifying_observations=_gathered(self.reads.qualifying_observations[episode.id]),
+                        session_qualifying_observations=_gathered(self.reads.session_qualifying_observations),
+                        pinned_channel=_gathered(self.reads.pinned_channels.get(episode.id)),
                     )
                     self.voi_probe_decisions[episode.id] = voi_decision
                 voi_value = voi_decision.value_for(item.id)
@@ -3329,22 +3750,7 @@ class _BuildAdmission:
                     voi_withheld = True
             if context is not None and eligible_entry is not None and not voi_withheld:
                 hypothesis_set, posterior, entropy_before = context
-                rubric = vault.rubric_for_item(item)
-                prospective_coverage = resolve_coverage(
-                    item,
-                    rubric,
-                    attempt_type="diagnostic_probe",
-                    hints_used=0,
-                    learner_answer_md="prospective_probe",
-                    evidence=vault.config.evidence,
-                )
-                prospective_familiarity = familiarity_discount(
-                    repository,
-                    item,
-                    learning_object_id=learning_object.id,
-                    covered_facets=prospective_coverage.covered_facets,
-                    config=config,
-                )
+                prospective_familiarity = _gathered(self.reads.probe_familiarity[(episode.id, item.id)])
                 # Card-compiled, grader-composed conditionals — the same ones
                 # posterior replay uses (§7.2). The primary objective is §7.4
                 # predictive EIG (fraction of held-out predictive uncertainty
@@ -3463,12 +3869,12 @@ def pool_admission(
         item = vault.practice_items.get(item_id)
         if item is None:
             return "unknown_item"
-        state = admission.item_states().get(item_id)
+        state = admission.reads.item_states.get(item_id)
         return admission_reason(
             vault,
             item,
             state,
-            admission.exclusions(),
+            admission.reads.exclusions,
             admission,
             requested=item_id in requested_ids,
             intent_gate=intent_gate,
@@ -3480,92 +3886,20 @@ def pool_admission(
 def _outside_build_admission(
     vault: LoadedVault, repository: Repository, *, now: datetime, intent_view: Any, item_states: Any = None
 ) -> "_BuildAdmission":
-    from learnloop.clock import FrozenClock
-
-    clock = FrozenClock(now)
-    config = vault.config
-    item_states = _Once(repository.practice_item_states) if item_states is None else _Once.of(item_states)
-    exclusions = _Once(lambda: routine_serving_exclusions(vault, repository, now=now))
-
-    def placement() -> Any:
-        excluded = exclusions()
-        return _placement_serving(
-            vault,
-            repository,
-            clock=clock,
-            persist=False,
-            item_states=item_states(),
-            excluded_item_ids=set(
-                excluded.reserved_exam_item_ids
-                | excluded.rung_variant_hold_ids
-                | excluded.staged_owned_item_ids
-                | excluded.held_out_item_ids
-            ),
-        )
-
-    placement_serving = _Once(placement)
-
-    def episodes() -> Any:
-        if placement_serving() is not None:
-            from learnloop.placement.state import servable_open_episodes
-
-            return servable_open_episodes(vault, repository)
-        return repository.open_probe_episodes()
-
-    def frontier() -> Any:
-        return build_goal_frontier(
-            vault,
-            repository,
-            clock=clock,
-            item_states=item_states(),
-            facet_states_by_lo=read_facet_states_by_lo(vault, repository),
-        )
-
-    frontier_once = _Once(frontier)
-
-    def recent() -> Any:
-        rows_by_lo = repository.list_recent_attempts_by_learning_objects(
-            frontier_once().by_lo,
-            limit=config.recall_coverage.familiarity_recent_attempt_window,
-        )
-        from learnloop.held_grades import held_attempt_ids
-        from learnloop.outcome_contract import HELD_ROW_KEY
-
-        held = held_attempt_ids(repository, (row.get("id") for rows in rows_by_lo.values() for row in rows))
-        if not held:
-            return rows_by_lo
-        return {
-            lo_id: [{**row, HELD_ROW_KEY: True} if row.get("id") in held else row for row in rows]
-            for lo_id, rows in rows_by_lo.items()
-        }
-
-    admission = _BuildAdmission(
+    voi_probe_active = voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE)
+    return _BuildAdmission(
         vault,
-        repository,
+        reads=_LazyAdmissionReads(
+            vault, repository, now=now, item_states=item_states, voi_probe_active=voi_probe_active
+        ),
         now=now.astimezone(UTC),
         session=SchedulerSession(),
         intent_view=intent_view,
-        exclusions=exclusions,
-        item_states=item_states,
-        placement_serving=placement_serving,
-        open_episodes=_Once(episodes),
-        probe_block_reason=_Once(
-            lambda: probe_serving_block_reason(vault, repository, session_id=None, cap_lifted=False)
-        ),
-        mastery_states=_Once(repository.mastery_states),
-        frontier=frontier_once,
-        errors_by_lo=_Once(lambda: _errors_by_learning_object(repository.active_error_events())),
-        fsrs_weights=_Once(lambda: resolve_fsrs_weights(repository)),
-        recent_attempts_by_lo=_Once(recent),
-        voi_context=_Once(lambda: voi.VoiContext(vault, repository)),
-        voi_probe_active=voi.voi_stopping_active(config, voi.SITE_PROBE_EPISODE),
+        voi_probe_active=voi_probe_active,
         carry_hypothesis_channels=False,
         short_session=False,
         voi_probe_decisions={},
-        episode_posterior_cache={},
-        episode_eligible_cache={},
     )
-    return admission
 
 
 def _goal_frontier(vault: LoadedVault, item: PracticeItem, entry) -> float:

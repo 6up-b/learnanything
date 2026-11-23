@@ -355,12 +355,12 @@ Indexes and uniqueness:
 - `tests/data_capture_a2_measurement_helpers.py`
 - `tests/data_capture_a3_time_metric_helpers.py`
 - `tests/diagnosis_input_provenance_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figure_fixtures.py`
 - `tests/figures_help_helpers.py`
 - `tests/followup_router_helpers.py`
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_h2a_review_round2_helpers.py`
-- `tests/hint_h2b_review_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

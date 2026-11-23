@@ -107,6 +107,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_due_queue_golden.py`
 - `tests/test_scheduler_probe_eig.py`
 - `tests/test_state_sync.py`
 - `tests/test_agent_runs.py`
