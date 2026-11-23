@@ -91,7 +91,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `OutboxTransport`, `clientIdFor`; references `OutboxTransport`, `clientIdFor`
-- [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `BatchBody`, `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`; references `BatchBody`, `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`
+- [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `BatchBody`, `DeskOutbox`, `FlushOutcome`, `MemoryOutboxStore`, `OutboxTransport`; references `BatchBody`, `DeskOutbox`, `FlushOutcome`, `MemoryOutboxStore`, `OutboxTransport`
 
 ## Dependencies
 

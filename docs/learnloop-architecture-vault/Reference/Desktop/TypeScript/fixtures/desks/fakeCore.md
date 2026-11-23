@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts) |
-| Source lines | 161 |
+| Source lines | 170 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -56,8 +56,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export type InvokeArgs = Record<string, unknown>` — type, line 9
 - `export interface HarnessCall` — interface, line 11
-- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 153
-- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 159
+- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 162
+- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 168
 
 ## Internal implementation anchors
 
@@ -73,14 +73,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `interface Window` — interface, line 49
 - `function viewFor(id: string)` — function, line 55
 - `const CONTRACT =` — const, line 59
-- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 65
-- `const view = viewFor(String(input.extractionId))` — const, line 76
-- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 81
-- `const view = viewFor(String(input.extractionId))` — const, line 82
-- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 90
-- `const question =` — const, line 123
-- `const question = carried.find((each)` — const, line 130
-- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 154
+- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 74
+- `const view = viewFor(String(input.extractionId))` — const, line 85
+- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 90
+- `const view = viewFor(String(input.extractionId))` — const, line 91
+- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 99
+- `const question =` — const, line 132
+- `const question = carried.find((each)` — const, line 139
+- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 163
 
 ## Who imports or calls it
 

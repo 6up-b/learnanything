@@ -115,7 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `module`; statically calls `cue_starts`, `group`, `off_group`, `passage_row`, `word_groups`, `words_of`
+- [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `module`; statically calls `SourceIds`, `cue_starts`, `group`, `off_group`, `passage_row`, `source_ref`, `word_groups`, `words_of`
 
 ## Dependencies
 

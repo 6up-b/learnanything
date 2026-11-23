@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/note_links.py](../../../../../../src/learnloop/source_retrieval/note_links.py) |
-| Source lines | 1317 |
+| Source lines | 1323 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -103,8 +103,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `hidden_origin_label(key: str, note: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1122) — Where a hidden note came from, in words: a Pocket Notes page (C2's history), or a vault note's kind (a Reader note, a capture); None for a tend-era note (its title and heading name it).
 - `hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1134) — The links the learner hid and still keeps hidden, newest first (C2 ruling R5, followups-nov1c C: Settings lists them, to bring one back after the reading changed): the learner's newest row per (note, topic) or (note, passage) is a hide.
 - `search(vault: Any, repository: Repository, *, query: str | None=None, extraction_id: str | None=None, span_id: str | None=None, mode: str='words', embedder: Any | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1178) — The Reader's *link one of your notes* (C2b: the vault's own notes): with no words, the notes for the passage's section title; with the learner's words, those words.
-- `link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], extraction_id: str, span_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1218) — The learner links a note to a passage from the Reader (``authorship = 'learner'``, ``accepted``): the note is read again from the vault (by its key) and snapshotted.
-- `report_row(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1267) — ``learnloop curriculum report``'s notes row: proposals, links kept by hand, hides and *use as my take*; counts only, never a note's text or where it lives.
+- `link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], extraction_id: str, span_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1224) — The learner links a note to a passage from the Reader (``authorship = 'learner'``, ``accepted``): the note is read again from the vault (by its key) and snapshotted.
+- `report_row(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1273) — ``learnloop curriculum report``'s notes row: proposals, links kept by hand, hides and *use as my take*; counts only, never a note's text or where it lives.
 
 ### Module constants
 
@@ -136,7 +136,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `HOW_LINE_CHARS` ([src/learnloop/source_retrieval/note_links.py](../../../../../../src/learnloop/source_retrieval/note_links.py), line 140)
 - `QUERY_CHARS` ([src/learnloop/source_retrieval/note_links.py](../../../../../../src/learnloop/source_retrieval/note_links.py), line 142)
 - `_INSTRUCTIONS` ([src/learnloop/source_retrieval/note_links.py](../../../../../../src/learnloop/source_retrieval/note_links.py), line 479)
-- `REPORT_LABEL` ([src/learnloop/source_retrieval/note_links.py](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1264)
+- `REPORT_LABEL` ([src/learnloop/source_retrieval/note_links.py](../../../../../../src/learnloop/source_retrieval/note_links.py), line 1270)
 
 ### Explicit exports
 

@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/learner_gaps.py](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py) |
-| Source lines | 186 |
+| Source lines | 190 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -60,9 +60,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class GetLearnerTextGapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 26)
 - `class ReverseLearnerTextGapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 31)
 - `gap_view(vault: Any, gap: dict[str, Any], reversals: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 36) — The learner-facing reading: honest labels, only what happened.
-- `queue_tutor_question_gap(ctx: SidecarContext, vault: Any, repository: Any, event_id: str, reading: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 130) — Queue an answered question's gap reading and wake the worker.
-- `get_learner_text_gap(ctx: SidecarContext, params: GetLearnerTextGapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 153)
-- `reverse_learner_text_gap(ctx: SidecarContext, params: ReverseLearnerTextGapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 170)
+- `queue_tutor_question_gap(ctx: SidecarContext, vault: Any, repository: Any, event_id: str, reading: dict[str, Any] | None, *, wake: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 130) — Queue an answered question's gap reading and wake the worker.
+- `get_learner_text_gap(ctx: SidecarContext, params: GetLearnerTextGapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 157)
+- `reverse_learner_text_gap(ctx: SidecarContext, params: ReverseLearnerTextGapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/learner_gaps.py), line 174)
 
 ### Explicit exports
 

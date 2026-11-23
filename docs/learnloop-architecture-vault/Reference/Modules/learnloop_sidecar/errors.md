@@ -499,6 +499,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd0_rpcs.py](../../../../../tests/test_reader_rd0_rpcs.py) — direct import
   - `test_desk_apply_speaks_camel_case_and_maps_the_protocols_refusals`
   - `test_pad_get_of_an_unknown_pad_and_a_union_range_of_two_kinds_are_refused`
+- [tests/test_reader_rd3_fix_backend.py](../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
+  - `test_a_full_record_of_ids_refuses_a_new_id_rather_than_forget_one`
+  - `test_a_job_is_found_only_in_the_vault_it_was_started_in`
+  - `test_a_request_id_is_remembered_after_its_result_is_dropped`
+  - `test_running_asks_are_bounded`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_a_failed_generation_is_reported_and_an_unknown_job_is_said_to_be_gone`
   - `test_a_repeated_request_id_answers_the_same_job_and_asks_once`

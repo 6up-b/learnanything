@@ -130,6 +130,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+- [tests/test_reader_rd3_fix_backend.py](../../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
+  - `test_a_receipt_a_nested_recorder_owns_still_names_the_job`
+  - `test_every_newer_search_from_the_desk_supersedes_the_running_one`
 - [tests/test_reader_rd3a_search.py](../../../../../../tests/test_reader_rd3a_search.py) — direct import
   - `test_a_newer_search_from_the_desk_supersedes_the_older_job`
   - `test_the_meaning_job_adds_only_what_the_words_did_not_find`

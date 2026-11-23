@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `tests/test_reader_rd0_migration.py`
 - `tests/test_reader_rd0_protocol.py`
 - `tests/test_reader_rd0_rpcs.py`
+- `tests/test_reader_rd3_fix_backend.py`
 - `tests/test_reader_rd3a_search.py`
 - `tests/test_reader_rd4_carried_and_proposals.py`
 - `tests/test_reader_rd4_emission.py`

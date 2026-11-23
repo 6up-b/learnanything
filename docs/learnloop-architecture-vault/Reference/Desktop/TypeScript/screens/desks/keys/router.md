@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/keys/router.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/keys/router.ts) |
-| Source lines | 351 |
+| Source lines | 366 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/keys/_area|TypeScript/screens/desks/keys]] |
 | Refactor status | `ACTIVE` |
@@ -61,17 +61,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface DeskBinding` — interface, line 59
 - `export const DESK_BINDINGS: readonly DeskBinding[] = [ alt("move.left", "alt+h", "window left", "KeyH",` — const, line 87
 - `export interface ScopeState` — interface, line 151
-- `export function openScopes(state: ScopeState): DeskScope[]` — function, line 163
-- `export interface KeyLike` — interface, line 167
-- `export interface Resolution` — interface, line 214
-- `export function resolveKey(event: KeyLike, state: ScopeState, mods:` — function, line 222
-- `export class ModifierTracker` — class, line 237
-- `export const WHICH_KEY_HOLD_MS = 400` — const, line 264
-- `export interface Timers` — interface, line 266
-- `export const REAL_TIMERS: Timers =` — const, line 272
-- `export type AltOutcome = "tap" | "hold" | "chord" | "cancelled"` — type, line 279
-- `export class BareAltTracker` — class, line 284
-- `export function isTypingTarget(target: EventTarget | null): boolean` — function, line 347
+- `export function openScopes(state: ScopeState): DeskScope[]` — function, line 167
+- `export interface KeyLike` — interface, line 171
+- `export interface Resolution` — interface, line 218
+- `export const SELECTION_SHORTCUTS: ReadonlySet<string> = new Set(["reading.companion", "reading.companion-dock", "reading.search"])` — const, line 229
+- `export function resolveKey(event: KeyLike, state: ScopeState, mods:` — function, line 231
+- `export class ModifierTracker` — class, line 252
+- `export const WHICH_KEY_HOLD_MS = 400` — const, line 279
+- `export interface Timers` — interface, line 281
+- `export const REAL_TIMERS: Timers =` — const, line 287
+- `export type AltOutcome = "tap" | "hold" | "chord" | "cancelled"` — type, line 294
+- `export class BareAltTracker` — class, line 299
+- `export function isTypingTarget(target: EventTarget | null): boolean` — function, line 362
 
 ## Internal implementation anchors
 
@@ -81,15 +82,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function bare(id: string, keys: string, label: string, key: string, action: DeskAction, scopes: readonly DeskScope[], extra: Partial<DeskBinding> =` — function, line 82
 - `const letter = "hjkl"[index]` — const, line 130
 - `const arrow =` — const, line 131
-- `function chordMatches(chord: Chord, event: KeyLike, mods:` — function, line 176
-- `const altDown = mods.alt` — const, line 177
-- `const ctrlDown = mods.ctrl || event.metaKey` — const, line 178
-- `function passesThrough(scope: DeskScope, binding: DeskBinding): boolean` — function, line 190
-- `const matching = DESK_BINDINGS.filter((binding)` — const, line 223
-- `const owned = matching.find((binding)` — const, line 226
-- `const held = this.held || this.timers.now() - this.pressedAt >= WHICH_KEY_HOLD_MS` — const, line 315
-- `const outcome: AltOutcome = this.spoiled ?? (held ? "hold" : "tap")` — const, line 316
-- `const wasHeld = this.held` — const, line 327
+- `function chordMatches(chord: Chord, event: KeyLike, mods:` — function, line 180
+- `const altDown = mods.alt` — const, line 181
+- `const ctrlDown = mods.ctrl || event.metaKey` — const, line 182
+- `function passesThrough(scope: DeskScope, binding: DeskBinding): boolean` — function, line 194
+- `const unclaimed = resolveKey(event, rest, mods)` — const, line 234
+- `const matching = DESK_BINDINGS.filter((binding)` — const, line 238
+- `const owned = matching.find((binding)` — const, line 241
+- `const held = this.held || this.timers.now() - this.pressedAt >= WHICH_KEY_HOLD_MS` — const, line 330
+- `const outcome: AltOutcome = this.spoiled ?? (held ? "hold" : "tap")` — const, line 331
+- `const wasHeld = this.held` — const, line 342
 
 ## Who imports or calls it
 
@@ -122,6 +124,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/store.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/store.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/search/SearchPanel.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/search/SearchPanel.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/keys/router.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/keys/router.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/companion/Companion.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/Companion.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

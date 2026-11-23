@@ -84,7 +84,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] — imports `CompanionAskError`, `MAX_PAD_BLOCKS`, `ask_context`; statically calls `ask_context`
+- [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] — imports `AskContext`, `CompanionAskError`, `MAX_PAD_BLOCKS`, `ask_context`; statically calls `ask_context`
 
 ## Dependencies
 

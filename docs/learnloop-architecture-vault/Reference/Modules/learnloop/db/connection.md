@@ -784,6 +784,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_quote_across_two_anchor_blocks_is_not_shown_as_one_blocks_words`
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
   - `test_projecting_a_practice_question_reads_no_reader_answer`
+- [tests/test_reader_rd3_fix_backend.py](../../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
 - [tests/test_reader_rw1b_review.py](../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
