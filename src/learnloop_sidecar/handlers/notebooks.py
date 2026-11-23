@@ -88,7 +88,8 @@ def _source(vault_root: Path, relative: str) -> bytes:
 PAD_NOTEBOOKS = Path(".learnloop") / "notebooks" / "pads"
 
 
-def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes, str, dict[str, str]]:
+def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes, str, dict[str, str],
+                                                                        list[tuple[str, str]]]:
     """The pad's notebook (generated from its standing cells, in pad order) and its revision: the cells' names in
     order, so an edit to a cell's code keeps the session (it reaches the kernel through ``notebook.run_cells``)
     while an inserted, removed or moved cell makes a new one. Writes the derived copy under the vault."""
@@ -111,7 +112,7 @@ def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes,
         hostfiles.write_beneath(vault_root, PAD_NOTEBOOKS.parts, f"{adapter.cell_name(pad_id)[2:]}.py", source)
     except hostfiles.UnsafePath as exc:
         raise SidecarError("notebook_path_invalid", f"The pad's notebook was not written: {exc}.") from exc
-    return source, revision, {cell["block_id"]: name for cell, (name, _code) in zip(cells, named, strict=True)}
+    return source, revision, {cell["block_id"]: name for cell, (name, _code) in zip(cells, named, strict=True)}, named
 
 
 def lesson_notebook(vault_root: Path, repository: Any, lesson_id: str,
@@ -185,13 +186,14 @@ def notebook_open_handler(ctx: SidecarContext, params: NotebookOpenInput) -> dic
     vault, repository = ctx.require_vault()
     revision = None
     names: dict[str, str] | None = None
+    pad_cells: list[tuple[str, str]] | None = None
     contract: dict[str, Any] | None = None
     review = False
     if params.owner.startswith("pad:"):
         if params.path is not None:
             source = _source(vault.root, params.path)
         else:
-            source, revision, names = pad_notebook(Path(vault.root), repository, params.owner[len("pad:"):])
+            source, revision, names, pad_cells = pad_notebook(Path(vault.root), repository, params.owner[len("pad:"):])
     else:
         source, contract, review = lesson_notebook(Path(vault.root), repository, params.owner[len("lesson:"):],
                                                    params.path)
@@ -201,7 +203,7 @@ def notebook_open_handler(ctx: SidecarContext, params: NotebookOpenInput) -> dic
         view = _runtime(ctx).open(vault_key=_vault_key(ctx), owner=params.owner, source=source, view=params.view,
                                   limits=Limits.from_config(config), idle_minutes=config.idle_minutes,
                                   max_sessions=config.max_sessions, revision=revision, contract=contract,
-                                  review=review)
+                                  review=review, cells=pad_cells)
         return view if names is None else {**view, "pad_cells": names}
 
     return _call(opened)

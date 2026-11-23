@@ -144,17 +144,19 @@ class NotebookRuntime:
 
     def open(self, *, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
              max_sessions: int, revision: str | None = None, contract: dict[str, Any] | None = None,
-             review: bool = False) -> dict[str, Any]:
+             review: bool = False, cells: list[tuple[str, str]] | None = None) -> dict[str, Any]:
         """``revision`` names the notebook's identity when its bytes are not it: a pad's cells are one notebook
         while the same cells stand in the same order, whatever their code (an edit reaches the running kernel
         through ``run_cells``), so moving or reopening the pad keeps its kernel. ``contract`` is a lesson
-        notebook's commit points and held cells, and ``review`` says the lesson is closed (nothing is released)."""
+        notebook's commit points and held cells, and ``review`` says the lesson is closed (nothing is released).
+        ``cells``: a pad's cells the notebook was generated from; a cell run later is written into the snapshot a
+        restart loads, so a crash never brings back code the learner replaced."""
 
         problems = self._requirements()
         if problems:
             raise RuntimeUnavailable("; ".join(problems))
         return self._call(lambda: self._open(vault_key, owner, source, view, limits, idle_minutes, max_sessions,
-                                             revision, contract, review))
+                                             revision, contract, review, cells))
 
     def status(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
         return self._call(lambda: self._status(vault_key, session_id))
@@ -255,7 +257,7 @@ class NotebookRuntime:
 
     async def _open(self, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
                     max_sessions: int, revision: str | None = None, contract: dict[str, Any] | None = None,
-                    review: bool = False) -> dict[str, Any]:
+                    review: bool = False, cells: list[tuple[str, str]] | None = None) -> dict[str, Any]:
         revision = revision or notebook_revision(source)
         for entry in list(self._entries.values()):
             if entry.session.vault_key != vault_key or entry.session.owner != owner:
@@ -264,12 +266,15 @@ class NotebookRuntime:
                 entry.idle_minutes = idle_minutes
                 # A lesson closed while its notebook ran is a review from now on (a lesson never reopens).
                 entry.session.review = entry.session.review or review
+                # The same notebook may have new code (a pad's cells edited meanwhile): the snapshot a start or a
+                # supervised restart loads is always the latest, live session or not.
+                hostfiles.write_private(entry.session.layout.notebook.parent, entry.session.layout.notebook.name,
+                                        source)
+                if cells is not None:
+                    entry.session.snapshot_cells = list(cells)
                 if entry.session.state not in LIVE_STATES:
                     await self._make_room(max_sessions, keep=entry)
                     entry.session.limits = limits
-                    # The same notebook may have new code since it stopped (a pad's cells edited meanwhile).
-                    hostfiles.write_private(entry.session.layout.notebook.parent, entry.session.layout.notebook.name,
-                                            source)
                     asyncio.get_running_loop().create_task(entry.supervisor.start())
                     entry.session.state = STARTING
                 entry.session.touch()
@@ -286,7 +291,8 @@ class NotebookRuntime:
             hostfiles.remove_private(notebook.parent, notebook.name)
             raise RuntimeUnavailable(f"the runtime directory {base} is too deep for a Unix socket's path")
         session = Session(session_id=session_id, owner=owner, vault_key=vault_key, revision=revision,
-                          layout=layout, limits=limits, view=view, epoch=self._epoch, contract=contract, review=review)
+                          layout=layout, limits=limits, view=view, epoch=self._epoch, contract=contract, review=review,
+                          snapshot_cells=list(cells) if cells is not None else None)
         supervisor = Supervisor(session, self._backend_now(), **self._supervisor_options)
         proxy = FrameProxy(session)
         await proxy.start()
@@ -393,6 +399,13 @@ class NotebookRuntime:
             raise KernelRefused(f"marimo refused the run ({status})")
         for cell_id, (_name, code) in zip(ids, cells, strict=True):
             entry.session.cell_codes[cell_id] = code
+        snapshot = entry.session.snapshot_cells
+        if snapshot is not None:
+            # What a restart loads: the code that ran, not the code the session opened with.
+            ran = dict(cells)
+            entry.session.snapshot_cells = [(name, ran.get(name, code)) for name, code in snapshot]
+            hostfiles.write_private(entry.session.layout.notebook.parent, entry.session.layout.notebook.name,
+                                    adapter.notebook_from_cells(entry.session.snapshot_cells).encode("utf-8"))
         entry.session.touch()
         return {"session_id": session_id, "ran": [name for name, _code in cells]}
 

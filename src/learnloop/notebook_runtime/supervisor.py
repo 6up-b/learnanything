@@ -105,6 +105,8 @@ class Session:
     _run_started: dict[str, float] = field(default_factory=dict, repr=False)
     #: A lesson notebook's commit points and held cells (``lessons.lesson_contract``); None for any other notebook.
     contract: dict[str, Any] | None = None
+    #: A pad's cells, ``[(name, code)]``, as the snapshot holds them (None for any other notebook).
+    snapshot_cells: list[tuple[str, str]] | None = None
     #: A closed lesson's notebook: shown as it is, nothing committed, nothing released.
     review: bool = False
     #: The commit points the learner answered, and the held cells released in this server process.

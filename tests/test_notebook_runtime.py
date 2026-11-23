@@ -779,3 +779,23 @@ def test_a_session_marked_as_a_review_releases_nothing(runtime):
     assert runtime.mark_review(vault_key="/v1", session_id=view["session_id"])["lesson"]["review"] is True
     with pytest.raises(ReleaseRefused):
         runtime.release(vault_key="/v1", session_id=view["session_id"], names=["reveal_a"])
+
+
+# -- a restart runs the code the learner last ran, not the code it opened with ----------------------------------
+
+def test_an_edited_cell_survives_a_restart_and_a_live_reopen_refreshes_the_snapshot(runtime):
+    one = [("c_x", "x = 1"), ("c_y", "y = x + 1")]
+    view = runtime.open(vault_key="/v1", owner="pad:p", source=adapter.notebook_from_cells(one).encode(), view="app",
+                        limits=LIMITS, idle_minutes=10, max_sessions=3, revision="shape", cells=one)
+    _ready(runtime, "/v1", view["session_id"])
+    session = runtime.sessions()[0]
+    session.marimo_session_id, session.frames = "s_page", 1
+    session.cell_ids = {"c_x": "Hbol", "c_y": "MJUe"}
+    runtime.run_cells(vault_key="/v1", session_id=view["session_id"], cells=[("c_x", "x = 2")])
+    snapshot = session.layout.notebook.read_text()
+    assert "x = 2" in snapshot and "x = 1" not in snapshot  # what a supervised restart loads
+    edited = [("c_x", "x = 3"), ("c_y", "y = x + 1")]
+    runtime.open(vault_key="/v1", owner="pad:p", source=adapter.notebook_from_cells(edited).encode(), view="app",
+                 limits=LIMITS, idle_minutes=10, max_sessions=3, revision="shape", cells=edited)
+    assert runtime.sessions()[0].session_id == view["session_id"]  # the live session kept
+    assert "x = 3" in session.layout.notebook.read_text()
