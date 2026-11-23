@@ -147,6 +147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_two_writers_on_one_warm_lo_apply_their_reports_in_the_order_replay_reads`
 - [tests/test_lp_claim_fixes_rereview.py](../../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
   - `test_f7_every_reanchoring_writer_records_its_point`
+- [tests/test_mastery_seed_replay.py](../../../../../../../tests/test_mastery_seed_replay.py) — direct import
+  - `test_an_attempt_free_lo_replays_its_seed_then_the_reanchors_after_it`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
 - [tests/test_reader_adoption_ownership.py](../../../../../../../tests/test_reader_adoption_ownership.py) — direct import
   - `test_an_independently_written_matching_card_is_not_captured`

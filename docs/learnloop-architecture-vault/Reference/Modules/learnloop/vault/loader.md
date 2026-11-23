@@ -2004,6 +2004,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_is_in_the_build_and_rich_keys`
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
+  - `test_a_global_claim_made_after_materialization_rebuilds_to_live`
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
   - `test_a_rung_variant_request_replaces_only_its_own_source_on_its_own_lo`
   - `test_a_second_too_easy_report_keeps_the_first_as_a_replaced_row_that_no_live_reader_reads`
@@ -2083,6 +2084,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — direct import
   - `test_dismiss_and_snooze_do_not_change_curriculum`
+- [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
+  - `test_a_reanchoring_claim_that_materializes_the_row_is_in_its_seed_and_never_applied_again`
+  - `test_a_starting_level_changed_after_materialization_leaves_live_mastery_as_it_was`
+  - `test_an_interrupted_materialization_leaves_neither_the_row_nor_its_record`
+  - `test_the_golden_values_live_and_rebuilt`
+  - `test_the_upgrade_freezes_the_predecessors_seeds_then_new_claims_seed_nothing`
 - [tests/test_mcp_c1a_narrow.py](../../../../../../tests/test_mcp_c1a_narrow.py) — direct import
   - `test_a_recorded_complete_provenance_with_safe_inputs_releases_a_derived_text`
   - `test_a_recorded_input_answer_that_states_its_key_releases_nothing`
