@@ -21,15 +21,15 @@ describe("the generated kind table", () => {
   });
 
   it.each([...SOURCE_FILE_EXTENSIONS])("lets a dropped or picked %s file in", (extension) => {
-    expect(isSupportedSourceFile(`/home/me/books/name${extension.toUpperCase()}`)).toBe(true);
+    expect(isSupportedSourceFile(`/library/books/name${extension.toUpperCase()}`)).toBe(true);
   });
 
   it.each([...SOURCE_FILE_EXTENSIONS])("takes a pasted %s path as a source", (extension) => {
-    expect(looksLikeSource(`/home/me/books/name${extension}`)).toBe(true);
+    expect(looksLikeSource(`/library/books/name${extension}`)).toBe(true);
   });
 
   it("refuses a suffix no kind reads", () => {
-    expect(isSupportedSourceFile("/home/me/books/name.docx")).toBe(false);
-    expect(looksLikeSource("/home/me/books/name.docx")).toBe(false);
+    expect(isSupportedSourceFile("/library/books/name.docx")).toBe(false);
+    expect(looksLikeSource("/library/books/name.docx")).toBe(false);
   });
 });
