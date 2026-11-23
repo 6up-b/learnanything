@@ -201,8 +201,9 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     from tests.ingest_job_progress_migration_helpers import JOB_PROGRESS_ADDED_OBJECTS
     from tests.attempt_application_order_migration_helpers import APPLICATION_ORDER_ADDED_OBJECTS
     from tests.reader_rd0_migration_helpers import RD0_ADDED_OBJECTS
+    from tests.reader_rd0_guards_migration_helpers import RD0_GUARDS_ADDED_OBJECTS
 
-    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - RD0_ADDED_OBJECTS == AD23_ADDED_OBJECTS
+    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS == AD23_ADDED_OBJECTS
     # Phone V3's 250 (help_assists' surface CHECK) runs after them too.
     from tests.mobile_v3_migration_helpers import V3_ALTERED_TABLES
     # RE0's 252 (practice_attempts.active_seconds) and refactor B1's 253 (model_call_receipts.trace_id) last.

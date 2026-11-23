@@ -61,6 +61,7 @@ from tests.reader_topic_question_work_migration_helpers import TOPIC_WORK_ADDED_
 from tests.ingest_job_progress_migration_helpers import JOB_PROGRESS_ADDED_OBJECTS
 from tests.attempt_application_order_migration_helpers import APPLICATION_ORDER_ADDED_OBJECTS
 from tests.reader_rd0_migration_helpers import RD0_ADDED_OBJECTS
+from tests.reader_rd0_guards_migration_helpers import RD0_GUARDS_ADDED_OBJECTS
 from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
@@ -113,7 +114,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # (ingest_batches.origin_method), RW2d's 219 (its receipt table, workbench_sessions.contract_subject_id) and local retrieval P1's 220 (its three tables).
     assert [migration.version for migration in applied] == list(range(213, migration_head() + 1))
     after = _schema(database)
-    assert set(after) - set(before) - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - RD0_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
+    assert set(after) - set(before) - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
     changed = {name for name in before if before[name] != after.get(name)} - J2_DROPPED_OBJECTS - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)))
