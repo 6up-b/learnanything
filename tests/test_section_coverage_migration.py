@@ -50,7 +50,7 @@ from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 from tests.section_coverage_migration_helpers import C0A_ADDED_OBJECTS
 from tests.drop_dead_tables_migration_helpers import J2_DROPPED_OBJECTS
 
@@ -81,7 +81,7 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == list(range(222, migration_head() + 1))
+    assert [migration.version for migration in applied] == migrations_from(222)
     after = _schema(database)
     # Reader CA2's 223 (one workbench_sessions column) and RW5d P1's 224 (its table, and
     # interactive_figures rebuilt) follow on the way to head.
@@ -156,7 +156,7 @@ def test_222_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 221)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == list(range(222, migration_head() + 1))
+        assert [migration.version for migration in apply_migrations(database)] == migrations_from(222)
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:

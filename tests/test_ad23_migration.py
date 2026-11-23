@@ -24,7 +24,7 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, \
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 from tests.ad23_migration_helpers import AD23_ADDED_OBJECTS, NEW_TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
@@ -191,7 +191,7 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [214, *range(249, migration_head() + 1)]
+    assert [migration.version for migration in applied] == [214, *migrations_from(249)]
     after = _schema(database)
     # Instruct hand-off IH3's 251 (its own table) follows on the way to head.
     from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS

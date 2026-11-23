@@ -61,7 +61,7 @@ from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 from tests.learner_claim_application_migration_helpers import CLAIM_POINT_ALTERED_TABLES
 from tests.drop_dead_tables_migration_helpers import J2_DROPPED_OBJECTS
 
@@ -103,7 +103,7 @@ def test_221_adds_the_claim_point_column_and_nothing_else(tmp_path):
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Curriculum C0a's 222 (its one table, altering nothing) follows on the way to head.
-    assert [migration.version for migration in applied] == list(range(221, migration_head() + 1))
+    assert [migration.version for migration in applied] == migrations_from(221)
     after = _schema(database)
     assert set(after) - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS - RD4_ADDED_OBJECTS - RD8A_ADDED_OBJECTS - RD10_ADDED_OBJECTS == set(before) - J2_DROPPED_OBJECTS
     assert {name for name in set(before) - J2_DROPPED_OBJECTS if before[name] != after[name]} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | TE3A_ALTERED_TABLES
@@ -134,7 +134,7 @@ def test_221_on_the_durability_lane(tmp_path):
     with closing(sqlite3.connect(database)) as connection:
         _old_claim(connection)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == list(range(221, migration_head() + 1))
+        assert [migration.version for migration in apply_migrations(database)] == migrations_from(221)
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         connection.execute("UPDATE learner_claims SET applied_after_attempts = 2 WHERE id = 'c_old'")

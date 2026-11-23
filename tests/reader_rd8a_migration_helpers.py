@@ -24,3 +24,17 @@ def undo_267(connection: sqlite3.Connection) -> None:
 
     for table in TABLES:
         connection.execute(f"DROP TABLE IF EXISTS {table}")
+
+
+#: The replacing-INSERT guard of ``ink_transcriptions`` as 267 wrote it (the primary key alone); 270 widened it.
+GUARD_267 = "WHEN EXISTS (SELECT 1 FROM ink_transcriptions WHERE transcription_id = NEW.transcription_id)"
+
+
+def undo_270(connection: sqlite3.Connection) -> None:
+    """Take a head copy back to before 270: the guard as 267 wrote it. The caller removes 270's ``schema_migrations``
+    row with its own."""
+
+    connection.execute("DROP TRIGGER IF EXISTS ink_transcriptions_no_replace")
+    connection.execute(
+        "CREATE TRIGGER ink_transcriptions_no_replace\nBEFORE INSERT ON ink_transcriptions\n" + GUARD_267
+        + "\nBEGIN\n    SELECT RAISE(ABORT, 'ink_transcriptions is append-only');\nEND")

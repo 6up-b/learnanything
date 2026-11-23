@@ -29,7 +29,7 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 
 NOW = "2026-10-18T10:00:00Z"
 KINDS_229 = ("tutor_question", "stuck_answer", "diagnosis", "workbench_text", "reader_formative", "hint_feedback")
@@ -117,7 +117,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # RW5d P3's 232 (help_assists and figure_predictions), curriculum C2b's 233 (learner_notes) and
     # teacher TE1's 234 (its own tables and source_tool_calls) follow; none is read here.
     # Follow-ups Nov 2's 235 (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), not read here, follow too.
-    assert [migration.version for migration in applied] == list(range(230, migration_head() + 1))
+    assert [migration.version for migration in applied] == migrations_from(230)
     assert {table: _rows(database, table) for table in TABLES} == before  # every row, id and value survives
     for table, shape in columns.items():
         assert _columns(database, table) == shape  # the same columns, types, defaults and keys
