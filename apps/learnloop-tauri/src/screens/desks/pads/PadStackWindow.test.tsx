@@ -96,6 +96,7 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
     register: () => undefined,
     carry: vi.fn(),
     figures: new PendingFigures(),
+    addToStack: vi.fn(),
   };
   const padIds = options.padIds ?? ["fx_pad_running", "fx_pad_deriving"];
   const ui = (state: WindowState) => (
@@ -217,13 +218,15 @@ describe("a pad stack window", () => {
   });
 
   it("lift out makes the block its own pad in this stack, leaving a stub", async () => {
-    const { store, views, server, flush } = mount();
+    const { store, views, server, flush, host } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.click(within(block("fx_b_r1")).getByRole("button", { name: "lift out" }));
     const stub = store.pads.fx_pad_running.blocks.find((each) => each.blockId === "fx_b_r1");
     expect(stub?.kind).toBe("lifted");
     const newPadId = String(stub?.payload.lifted_to_pad_id);
-    expect(views[views.length - 1]).toEqual({ addedPads: [newPadId] });
+    // Membership by its own op (add_to_stack), never a whole-view write.
+    expect(host.addToStack).toHaveBeenCalledWith("w1", newPadId);
+    expect(views).toEqual([]);
     expect(store.pads[newPadId]?.blocks[0].bodyMd).toMatch(/^softmax keeps the winner/);
     await flush();
     expect(sentOps(server).map((op) => op.op)).toEqual(["lift_out"]);

@@ -10664,7 +10664,9 @@ export interface DeskStateDto {
 }
 
 type DeskOpBase = { expectedVersion?: number | null };
-export type DeskOpDto = DeskOpBase & (
+/** Every desk.apply op: the core ops and the stack-membership ops (the client model applies both). */
+export type DeskOpDto = DeskCoreOpDto | DeskMembershipOpDto;
+export type DeskCoreOpDto = DeskOpBase & (
   | { op: "create_desk"; deskId: string; title: string; position: string; goalId?: string | null; companionDock?: CompanionDock }
   | { op: "rename_desk"; deskId: string; title: string }
   | { op: "archive_desk"; deskId: string }

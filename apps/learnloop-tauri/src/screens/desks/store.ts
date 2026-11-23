@@ -128,6 +128,14 @@ export class DeskStore {
     return read;
   }
 
+  /** A pad a desk op is creating (the running pad ensure_running_pad makes): known here at once, empty, so its
+   * window shows it before the server has answered (nothing is queued for it: the desk op creates it). */
+  noteCreatedPad(padId: string, kind: "running" | "named", title: string, homeDeskId: string | null, now: string = new Date().toISOString()): void {
+    if (this.pads[padId]) return;
+    this.pads = applyPadOp(this.pads, padId, { op: "create_pad", kind, title, homeDeskId }, now);
+    this.emitPads();
+  }
+
   /** A submission the server recorded (its "submitted · …" tag), shown at once without reading the pad again. */
   noteSubmission(padId: string, blockId: string, submission: PadBlockSubmissionDto): void {
     const state = this.pads[padId];

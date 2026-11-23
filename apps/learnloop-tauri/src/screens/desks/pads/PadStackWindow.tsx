@@ -42,7 +42,8 @@ function clock(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** The pads a stack shows: its own entries, then pads added here (a new pad, a lifted block). */
+/** The pads a stack shows: its entries, then pads an earlier build added through the window's view (shown, and
+ * moved into the stack by add_to_stack when the desks open). */
 export function stackPadIds(stack: PadStackEntryDto[], view: Record<string, unknown> | undefined): string[] {
   const own = stack.filter((entry): entry is Extract<PadStackEntryDto, { kind: "pad" }> => entry.kind === "pad").map((entry) => entry.padId);
   const added = Array.isArray(view?.addedPads) ? (view?.addedPads as unknown[]).filter((id): id is string => typeof id === "string") : [];
@@ -382,7 +383,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       const padId = host.mintId("pad");
       const name = `Scratchpad · ${title ? `“${title.slice(0, 40)}”` : "new notes"}`;
       if (!write(padId, [{ op: "create_pad", kind: "named", title: name, homeDeskId: host.deskId }])) return;
-      host.setView(windowId, { ...view, addedPads: [...(Array.isArray(view.addedPads) ? (view.addedPads as string[]) : []), padId] });
+      host.addToStack(windowId, padId);
       setTimeout(() => scrollToPad(padIds.length), 50);
     },
     sketchBlock() {
@@ -579,7 +580,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             const newPadId = host.mintId("pad");
             const title = firstLine(block.bodyMd).slice(0, 48) || "lifted";
             if (write(padId, [{ op: "lift_out", blockId: block.blockId, expectedHead: block.headVersionId, newPadId, newBlockId: host.mintId("blk"), title, newVersionId: host.mintId("ver"), stubVersionId: host.mintId("ver"), positionKey: "m" }])) {
-              host.setView(windowId, { ...view, addedPads: [...(Array.isArray(view.addedPads) ? (view.addedPads as string[]) : []), newPadId] });
+              host.addToStack(windowId, newPadId);
             }
           }}>lift out</button>
         ) : null}

@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DeskApplyInput } from "../../api/dto";
 import { FixtureDeskServer } from "../../fixtures/desks/workspace";
-import { closeWindow, deskById, renameDesk, moveFocused, undoClose, openBeside } from "./model/workspace";
+import { addToStack, closeWindow, deskById, renameDesk, moveFocused, undoClose, openBeside } from "./model/workspace";
 import { REAL_TIMERS, type Timers } from "./keys/router";
 import { DeskStore, deskStoreFor, type DeskNotice } from "./store";
 
@@ -365,5 +365,33 @@ describe("the conflict policy (RD4 review)", () => {
     // One remove sent, refused, and not sent again.
     expect(server.padBatches.filter((batch) => batch.clientId === "me").flatMap((batch) => batch.ops).map((op) => op.op)).toEqual(["remove_block"]);
     expect(notices).toEqual([{ kind: "conflict", dropped: 1, lost: 0 }]);
+  });
+});
+
+describe("stack membership by its own op (RD4 review)", () => {
+  it("a pad added to a stack stays there though another device changed the desk meanwhile", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let interfered = false;
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => {
+        if (!interfered) {
+          interfered = true;
+          const desk = server.state().desks.find((each) => each.deskId === "fx_desk_softmax")!;
+          server.apply({ clientId: "other", seq: 1, ops: [{ op: "rename_desk", deskId: "fx_desk_softmax", title: "renamed elsewhere", expectedVersion: desk.version }] });
+        }
+        return server.apply(input);
+      },
+      applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => server.applyPad(input),
+      padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
+    }, timers);
+    await store.load();
+    store.commitPad("fx_pad_new", [{ op: "create_pad", kind: "named", title: "a new pad", homeDeskId: "fx_desk_softmax" }]);
+    store.commit(addToStack(store.ws, "fx_desk_softmax", "fx_w_pads", "fx_pad_new"));
+    await settle(store, timers);
+    const stack = server.state().desks.find((each) => each.deskId === "fx_desk_softmax")!.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_pads")!.stack;
+    expect(stack).toContainEqual({ kind: "pad", padId: "fx_pad_new" });
+    expect(store.ws.windows.fx_w_pads.stack).toContainEqual({ kind: "pad", padId: "fx_pad_new" });
   });
 });

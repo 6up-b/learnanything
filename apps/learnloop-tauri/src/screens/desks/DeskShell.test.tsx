@@ -473,7 +473,9 @@ describe("gather", () => {
     });
     await flush();
     const gathered = server.state().desks.find((desk) => desk.title.startsWith("gathered · "));
-    expect(gathered?.slots.map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path"]);
+    // The gathered windows, then the new desk's running pad in its stack (every desk has one).
+    expect(gathered?.slots.slice(0, 3).map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path"]);
+    expect(gathered?.slots[3]?.windows[0].kind).toBe("pad_stack");
     expect(gathered?.focusWindowId).toBe("fx_w_book");
     expect(server.state().desks[0].slots.map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_video", "fx_w_paper", "fx_w_pads"]);
   });
@@ -1767,5 +1769,40 @@ describe("RD4 review: asking from a pad line", () => {
     const empty = { ...ws, windows: { fx_w_pads: ws.windows.fx_w_pads } };
     const grounding = groundingFor(empty, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, {});
     expect(grounding.reason).toMatch(/linked to no passage/);
+  });
+});
+
+describe("RD4 review: the running pad and stack membership on the desks", () => {
+  it("a desk with no running pad in its stacks gets one ensured (an idempotent desk op) when it opens", async () => {
+    const state = fixtureDeskState();
+    const server = new FixtureDeskServer({ ...state, runningPadIds: [] });
+    mount(server, { transport: { ...transportFor(server), padGet: async ({ padId }: { padId: string }) => server.padGet(padId) } });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const ensured = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "ensure_running_pad");
+    expect(ensured).toHaveLength(1);
+    expect(ensured[0]).toMatchObject({ op: "ensure_running_pad", deskId: "fx_desk_softmax", title: "running" });
+  });
+
+  it("a desk whose stacks hold its running pad sends nothing", async () => {
+    const server = new FixtureDeskServer();
+    mount(server);
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    expect(server.batches.flatMap((batch) => batch.ops).some((op) => op.op === "ensure_running_pad")).toBe(false);
+  });
+
+  it("pads an earlier build kept in a stack window's view join its stack by add_to_stack", async () => {
+    const state = fixtureDeskState();
+    const desk = state.desks[0];
+    const stackSlot = desk.slots.find((slot) => slot.windows.some((window) => window.kind === "pad_stack"))!;
+    stackSlot.windows = stackSlot.windows.map((window) => (window.kind === "pad_stack" ? { ...window, view: { addedPads: ["fx_pad_deriving", "fx_pad_lifted_old"] } } : window));
+    const server = new FixtureDeskServer(state);
+    mount(server);
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const added = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "add_to_stack");
+    // fx_pad_deriving is already in the stack: only the other one is added.
+    expect(added.map((op) => (op as { entry: { padId: string } }).entry.padId)).toEqual(["fx_pad_lifted_old"]);
   });
 });

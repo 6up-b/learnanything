@@ -73,7 +73,7 @@ function LatexFixture() {
         requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }),
         submitTeachBackTurn: nothing, getSession: nothing },
       practiceSessionId: null, openPassage: noop, openSearch: noop, askAbout: noop, toast: noop, setView: noop, sourcePieces: () => [], register: noop, carry: noop,
-      figures: new PendingFigures(),
+      figures: new PendingFigures(), addToStack: noop,
     };
   }, []);
   return (

@@ -51,7 +51,7 @@ export function fixtureDeskState(): DeskStateDto {
 export function toDeskState(ws: Workspace, serverSeq: DeskStateDto["serverSeq"]): DeskStateDto {
   return {
     version: 1,
-    runningPadIds: [],
+    runningPadIds: [...(ws.runningPadIds ?? [])],
     serverSeq,
     desks: ws.desks.map((desk) => ({
       deskId: desk.deskId, title: desk.title, position: desk.position, focusWindowId: desk.focusWindowId, goalId: desk.goalId,
@@ -138,7 +138,13 @@ export class FixtureDeskServer {
         continue;
       }
       try {
+        const runningBefore = new Set(this.ws.runningPadIds ?? []);
         this.ws = applyDeskOp(this.ws, op);
+        // The running pad the op made exists as a pad too (pad.get reads it), as on the server.
+        if (op.op === "ensure_running_pad" && !runningBefore.has(op.padId) && (this.ws.runningPadIds ?? []).includes(op.padId) && !this.pads[op.padId]) {
+          const now = new Date().toISOString();
+          this.pads = applyPadOp(this.pads, op.padId, { op: "create_pad", kind: "running", title: op.title ?? "", homeDeskId: op.deskId }, now);
+        }
         touched.add(op.deskId);
         if (op.op === "move_to_desk") touched.add(op.toDeskId);
         results.push({ status: "ok" });
@@ -157,7 +163,8 @@ export class FixtureDeskServer {
   }
 
   private stale(op: DeskOpDto): Record<string, unknown> | null {
-    if (op.op === "create_desk") return null;
+    // Stack membership and the running pad check no expected version (they commute with every desk change).
+    if (op.op === "create_desk" || op.op === "add_to_stack" || op.op === "remove_from_stack" || op.op === "ensure_running_pad") return null;
     const desk = deskById(this.ws, op.deskId);
     if (!desk) return null;
     if (op.expectedVersion !== desk.version) return { deskId: desk.deskId, version: desk.version };

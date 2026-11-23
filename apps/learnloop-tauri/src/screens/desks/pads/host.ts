@@ -66,6 +66,8 @@ export interface PadsHost {
   toast: (text: string) => void;
   setView: (windowId: string, view: Record<string, unknown>) => void;
   sourcePieces: () => SourcePiece[];
+  /** A pad joins a stack window by its own desk op (add_to_stack), never through the window's view. */
+  addToStack: (windowId: string, padId: string) => void;
   /** A window's keys reach its stack through this handle. */
   register: (windowId: string, handle: PadStackHandle | null) => void;
   /** Carry a question (shared with the shelf). */

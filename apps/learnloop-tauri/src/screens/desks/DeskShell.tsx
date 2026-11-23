@@ -22,6 +22,10 @@ import {
   moveToDesk,
   moveToDeskAt,
   openStackBeside,
+  addToStack,
+  ensureRunningPad,
+  hasRunningPad,
+  type Step,
   moveWindowTo,
   openBeside,
   pairFocused,
@@ -36,7 +40,6 @@ import {
   undoClose,
   unpairFocused,
   type DeskWindow,
-  type Step,
   type Workspace,
 } from "./model/workspace";
 import {
@@ -1925,6 +1928,40 @@ export function DeskShell({
 
   // -- pads (spec §10): the host the pad windows use, the carried questions, the drain ----------------------
 
+  // Every desk has its running pad in a stack (spec §10.5): ensured, idempotently, the first time the desks show
+  // a desk whose stacks hold none (a new desk, or one from before running pads).
+  const ensuredDesks = useRef(new Set<string>());
+  useEffect(() => {
+    const desk = ws && deskId ? deskById(ws, deskId) : undefined;
+    // An empty desk keeps saying how to open a book; it gets its running pad with its first window.
+    if (!ws || !deskId || !desk || desk.slots.length === 0 || ensuredDesks.current.has(deskId)) return;
+    ensuredDesks.current.add(deskId);
+    if (hasRunningPad(ws, deskId)) return;
+    const before = new Set(ws.runningPadIds ?? []);
+    const step = ensureRunningPad(ws, deskId, () => mintId("pad"), () => mintId("win"));
+    commit(step);
+    for (const padId of step.ws.runningPadIds ?? []) if (!before.has(padId)) store.noteCreatedPad(padId, "running", "running", deskId);
+  }, [ws, deskId, commit, mintId, store]);
+
+  // Pads an earlier build kept in a stack window's view join its stack by their own op, once.
+  const migratedStacks = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ws) return;
+    let next = ws;
+    const ops: Step["ops"] = [];
+    for (const window of Object.values(ws.windows)) {
+      if (window.kind !== "pad_stack" || migratedStacks.current.has(window.windowId)) continue;
+      migratedStacks.current.add(window.windowId);
+      const legacy = Array.isArray(window.view?.addedPads) ? (window.view.addedPads as unknown[]).filter((id): id is string => typeof id === "string") : [];
+      for (const padId of legacy) {
+        const step = addToStack(next, window.deskId, window.windowId, padId);
+        next = step.ws;
+        ops.push(...step.ops);
+      }
+    }
+    if (ops.length) commit({ ws: next, ops });
+  }, [ws, commit]);
+
   const refreshCarried = useCallback(() => {
     // Through a promise, so a call that throws (a sidecar without carried questions) is a quiet failure too.
     void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit }), () => undefined);
@@ -2032,6 +2069,10 @@ export function DeskShell({
       if (window) commit(setView(wsRef.current, window.deskId, windowId, view));
     },
     sourcePieces,
+    addToStack: (windowId, padId) => {
+      const window = wsRef.current.windows[windowId];
+      if (window) commit(addToStack(wsRef.current, window.deskId, windowId, padId));
+    },
     register: (windowId, handle) => {
       if (handle) padHandles.current.set(windowId, handle);
       else padHandles.current.delete(windowId);
