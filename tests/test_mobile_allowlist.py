@@ -990,7 +990,7 @@ def test_the_pinned_rd4a_rpcs_are_all_of_them():
 
 
 # Reader workbench v2 RD8a (spec §3.4, §10.10): saving and listing ink, and reading it as a polled job. Desktop only.
-READER_RD8A_RPCS = ("ink.save", "ink.list", "ink.transcribe", "ink.transcribe_job", "ink.transcribe_cancel")
+READER_RD8A_RPCS = ("ink.save", "ink.erase", "ink.list", "ink.transcribe", "ink.transcribe_job", "ink.transcribe_cancel")
 
 
 def test_the_pinned_rd8a_rpcs_are_all_of_them():

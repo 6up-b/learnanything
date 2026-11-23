@@ -650,6 +650,7 @@ fn main() {
                 carried_list,
                 carried_mark,
                 ink_save,
+                ink_erase,
                 ink_list,
                 ink_transcribe,
                 ink_transcribe_job,

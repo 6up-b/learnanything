@@ -59,10 +59,11 @@ class InkClient:
         self.batches = batches
 
     def save(self, ink_id: str, strokes: list[dict[str, Any]], *, block_id: str | None = None,
-             annotation_id: str | None = None, pointer: dict[str, Any] | None = None) -> dict[str, Any]:
+             annotation_id: str | None = None, extraction_id: str | None = None,
+             pointer: dict[str, Any] | None = None) -> dict[str, Any]:
         from learnloop.pads import ink
 
-        owner = ink.InkOwner(block_id=block_id, annotation_id=annotation_id)
+        owner = ink.InkOwner(block_id=block_id, annotation_id=annotation_id, extraction_id=extraction_id)
         self.batches.seq += 1
         return ink.save_ink(self.batches.repository, client_id=self.batches.client_id, seq=self.batches.seq,
                             owner=owner, ink_id=ink_id,

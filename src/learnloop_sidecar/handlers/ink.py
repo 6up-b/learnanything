@@ -42,7 +42,7 @@ from learnloop_sidecar.registry import method
 LOG = logging.getLogger(__name__)
 
 #: Every RPC this module registers (pinned desktop-only).
-INK_RPCS: tuple[str, ...] = ("ink.save", "ink.list", "ink.transcribe", "ink.transcribe_job", "ink.transcribe_cancel")
+INK_RPCS: tuple[str, ...] = ("ink.save", "ink.erase", "ink.list", "ink.transcribe", "ink.transcribe_job", "ink.transcribe_cancel")
 KIND = "ink.transcribe"
 NOT_FOUND_MESSAGE = ("This reading isn't running any more (LearnLoop restarted or the vault changed since it was "
                      "asked). Ask again: strokes already read are not read twice.")
@@ -63,6 +63,14 @@ class InkSaveInput(ParamsModel):
         if len(set(ids)) != len(ids):
             raise ValueError("each stroke has its own id")
         return strokes
+
+
+class InkEraseInput(ParamsModel):
+    client_id: str = Field(min_length=1)
+    seq: int = Field(ge=1)
+    owner: ink_core.InkOwner
+    erase_id: str = Field(min_length=1, max_length=128)
+    stroke_ids: list[str] = Field(min_length=1)
 
 
 class InkListInput(ParamsModel):
@@ -92,6 +100,20 @@ def ink_save(ctx: SidecarContext, params: InkSaveInput) -> dict[str, Any]:
     try:
         reply = ink_core.save_ink(repository, client_id=params.client_id, seq=params.seq, owner=params.owner,
                                   ink_id=params.ink_id, strokes=list(params.strokes), pointer_meta=params.pointer_meta)
+    except ProtocolError as exc:
+        raise protocol_error(exc) from exc
+    return versioned(reply)
+
+
+@method("ink.erase", InkEraseInput)
+def ink_erase(ctx: SidecarContext, params: InkEraseInput) -> dict[str, Any]:
+    """The barrel over an annotation's or a reading's ink: ``{applied_seq, erase_id, results: [ok{duplicate} |
+    refused{code}]}`` (a block's ink is erased in its pad batch)."""
+
+    _vault, repository = ctx.require_vault()
+    try:
+        reply = ink_core.erase_ink(repository, client_id=params.client_id, seq=params.seq, owner=params.owner,
+                                   erase_id=params.erase_id, stroke_ids=list(params.stroke_ids))
     except ProtocolError as exc:
         raise protocol_error(exc) from exc
     return versioned(reply)

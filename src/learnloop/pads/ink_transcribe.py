@@ -107,6 +107,9 @@ def prepare(repository: Repository, ink_id: str) -> Prepared:
 
     with repository.connection() as connection:
         owner = ink_core.owner_of(connection, ink_id)
+        if owner.kind == ink_core.SOURCE:
+            # Ink on a page is the learner's marks: never read, never learner text, unless they make it a note.
+            raise ink_core.InkError("not_read", "Ink drawn on a page is kept as your marks and is not read.")
         if owner.kind == ink_core.BLOCK:
             head = pad_reads.head(connection, owner.id)
             if head is None or head["tombstone"]:

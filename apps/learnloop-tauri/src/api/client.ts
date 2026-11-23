@@ -25,6 +25,8 @@ import type {
   CarriedQuestionDto,
   CarriedListDto,
   CarriedMarkInput,
+  InkEraseDto,
+  InkEraseInput,
   InkListDto,
   InkSaveDto,
   InkSaveInput,
@@ -1628,6 +1630,7 @@ export const api = {
   // protocol in the client's one sequence; erasing is padApply's erase_ink. A reading answers at once with a polled
   // job (strokes already read answer done with no job); polls answer at once and never wait.
   inkSave: (input: InkSaveInput) => call<InkSaveDto>("ink_save", { input }),
+  inkErase: (input: InkEraseInput) => call<InkEraseDto>("ink_erase", { input }),
   inkList: (input: { padId: string } | { sourceId: string }) => call<InkListDto>("ink_list", { input }),
   inkTranscribe: (input: { inkId: string }) => call<InkTranscribeJobDto>("ink_transcribe", { input }),
   inkTranscribeJob: (input: { jobId: string }) => call<InkTranscribeJobDto>("ink_transcribe_job", { input }),

@@ -170,3 +170,49 @@ def test_a_pad_lists_only_its_standing_ink_blocks_with_ink(tmp_path):
     client.save("ink_3", STROKES[1:2], block_id="b3")
     batches.pad(PAD, {"op": "remove_block", "block_id": "b3", "expected_head": "v3"})
     assert [owner["owner_id"] for owner in ink.ink_for_pad(repository, PAD)] == ["b1"]
+
+
+# ── ink on a source's page (owner kind "source": the reading's extraction id) ──
+
+def _reading(repository):
+    from tests.desk_helpers import seed_reading
+
+    seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id="ext_book", spans=["s1"],
+                 texts={"s1": "Kernels."})
+
+
+def test_ink_on_a_page_is_kept_for_its_reading_and_listed_with_its_source(tmp_path):
+    _paths, repository, batches, client = ink_pad(tmp_path)
+    _reading(repository)
+    reply = client.save("ink_p", STROKES[:2], extraction_id="ext_book")
+    assert reply["results"] == [{"status": "ok", "duplicate": False}]
+    assert client.save("ink_p", STROKES[:2], extraction_id="ext_book")["results"] == [{"status": "ok", "duplicate": True}]
+    assert rows(repository, "SELECT pad_id FROM pad_op_receipts WHERE seq = ?", (batches.seq - 1,)) == [("",)]
+    [owner] = ink.ink_for_source(repository, "src_book")
+    assert (owner["owner_kind"], owner["owner_id"], [s["stroke_id"] for s in owner["strokes"]]) == ("source", "ext_book", ["s1", "s2"])
+    assert client.save("ink_q", STROKES[2:], extraction_id="ext_none")["results"][0]["code"] == "reading_not_found"
+
+
+def test_ink_on_a_page_is_erased_by_ink_erase_and_a_retry_is_a_no_op(tmp_path):
+    _paths, repository, batches, client = ink_pad(tmp_path)
+    _reading(repository)
+    client.save("ink_p", STROKES, extraction_id="ext_book")
+
+    def erase(erase_id, stroke_ids, **owner):
+        batches.seq += 1
+        return ink.erase_ink(repository, client_id=batches.client_id, seq=batches.seq, owner=ink.InkOwner(**owner),
+                             erase_id=erase_id, stroke_ids=stroke_ids)
+
+    assert erase("er_p", ["s2"], extraction_id="ext_book")["results"] == [{"status": "ok", "duplicate": False}]
+    assert erase("er_p", ["s2"], extraction_id="ext_book")["results"] == [{"status": "ok", "duplicate": True}]
+    [owner] = ink.ink_for_source(repository, "src_book")
+    assert [s["stroke_id"] for s in owner["strokes"]] == ["s1", "s3"]
+    assert erase("er_x", ["zz"], extraction_id="ext_book")["results"][0]["code"] == "stroke_not_found"
+    assert erase("er_y", ["s1"], block_id="b1")["results"][0]["code"] == "erase_in_the_pad"
+    assert erase("er_p", ["s1"], extraction_id="ext_book")["results"][0]["code"] == "ink_id_reused"
+
+
+def test_an_owner_is_one_block_one_annotation_or_one_reading():
+    assert ink.InkOwner(extraction_id="e").kind == "source"
+    with pytest.raises(ValidationError):
+        ink.InkOwner.model_validate({"blockId": "b", "extractionId": "e"})

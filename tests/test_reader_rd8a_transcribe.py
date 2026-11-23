@@ -230,3 +230,19 @@ def test_the_render_digest_and_the_prompt_are_stable():
     assert reading.build_prompt("0" * 64) == reading.build_prompt("0" * 64)
     assert reading.build_prompt("0" * 64) != reading.build_prompt("1" * 64)
     assert ink_render.MEDIA_TYPE in reading.build_prompt("0" * 64)
+
+
+def test_ink_on_a_page_is_never_read_nor_learner_text(tmp_path):
+    from tests.desk_helpers import seed_reading
+
+    paths, repository, _batches, client = ink_pad(tmp_path)
+    seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id="ext_book", spans=["s1"],
+                 texts={"s1": "Kernels."})
+    client.save("ink_p", STROKES, extraction_id="ext_book")
+    with pytest.raises(reading.ink_core.InkError) as refused:
+        reading.prepare(repository, "ink_p")
+    assert refused.value.code == "not_read"
+    # Nothing turns it into learner text: no gap job, and a full reconcile of the pads emits nothing.
+    assert emission.reconcile(vault(paths), repository).queued == []
+    assert rows(repository, "SELECT COUNT(*) FROM learner_text_gap_jobs") == [(0,)]
+    assert rows(repository, "SELECT COUNT(*) FROM ink_transcriptions") == [(0,)]

@@ -64,6 +64,19 @@ def annotation_exists(connection: sqlite3.Connection, annotation_id: str) -> boo
     return connection.execute("SELECT 1 FROM source_annotations WHERE id = ?", (annotation_id,)).fetchone() is not None
 
 
+def extraction_exists(connection: sqlite3.Connection, extraction_id: str) -> bool:
+    return connection.execute("SELECT 1 FROM source_extraction_runs WHERE id = ?", (extraction_id,)).fetchone() is not None
+
+
+def source_extraction_ids(connection: sqlite3.Connection, source_id: str) -> list[str]:
+    """Every reading (extraction) of a source's revisions, oldest first."""
+
+    rows = connection.execute(
+        "SELECT e.id FROM source_extraction_runs AS e JOIN source_revisions AS r ON r.id = e.revision_id "
+        "WHERE r.source_id = ? ORDER BY e.created_at, e.id", (source_id,)).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def insert_reading(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None:
     connection.execute(
         f"INSERT INTO ink_transcriptions ({', '.join(_READING_COLUMNS)}) "
@@ -90,5 +103,5 @@ def latest_reading(connection: sqlite3.Connection, owner_kind: str, owner_id: st
         "ORDER BY rowid DESC LIMIT 1", (owner_kind, owner_id)).fetchone(), _READING_COLUMNS)
 
 
-__all__ = ["annotation_exists", "insert_reading", "insert_save", "latest_reading", "owner_saves", "owners_with_ink",
+__all__ = ["annotation_exists", "extraction_exists", "source_extraction_ids", "insert_reading", "insert_save", "latest_reading", "owner_saves", "owners_with_ink",
            "reading_for", "save"]

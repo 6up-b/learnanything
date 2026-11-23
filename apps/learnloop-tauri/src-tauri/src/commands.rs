@@ -1392,6 +1392,7 @@ sidecar_passthrough!(carried_mark, "carried.mark");
 // Reader workbench v2 RD8a: the learner's ink and reading it as a polled job (desktop only; no component calls
 // them yet).
 sidecar_passthrough!(ink_save, "ink.save");
+sidecar_passthrough!(ink_erase, "ink.erase");
 sidecar_passthrough!(ink_list, "ink.list");
 sidecar_passthrough!(ink_transcribe, "ink.transcribe");
 sidecar_passthrough!(ink_transcribe_job, "ink.transcribe_job");

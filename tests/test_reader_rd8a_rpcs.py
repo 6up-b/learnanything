@@ -26,6 +26,7 @@ MINIMAL = {
     "ink.save": {"clientId": "c", "seq": 1, "owner": {"blockId": "b1"}, "inkId": "i",
                  "strokes": [{"strokeId": "s", "points": [[1, 2, 0, 0.5, 0, 0]]}],
                  "pointerMeta": {"pointerType": "pen"}},
+    "ink.erase": {"clientId": "c", "seq": 1, "owner": {"extractionId": "e"}, "eraseId": "x", "strokeIds": ["s"]},
     "ink.list": {"padId": "p"},
     "ink.transcribe": {"inkId": "i"},
     "ink.transcribe_job": {"jobId": "j"},

@@ -31,7 +31,7 @@ from learnloop.desks.protocol import OpRefused, apply_batch, run_op
 from learnloop.ids import new_ulid
 
 ENCODING = "zlib-json-v1"
-BLOCK, ANNOTATION = "block", "annotation"
+BLOCK, ANNOTATION, SOURCE = "block", "annotation", "source"
 STROKES, ERASE = "strokes", "erase"
 #: The Pointer Events ranges a point's pressure and tilts are given in.
 PRESSURE_RANGE = (0.0, 1.0)
@@ -75,22 +75,30 @@ class PointerMeta(WireModel):
 
 
 class InkOwner(WireModel):
+    """One block, one annotation, or one reading of a source (``extraction_id``: ink drawn on the page that became
+    no mark; it is the learner's marks, never read or emitted)."""
+
     block_id: str | None = Field(default=None, min_length=1)
     annotation_id: str | None = Field(default=None, min_length=1)
+    extraction_id: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def _exactly_one(self) -> "InkOwner":
-        if (self.block_id is None) == (self.annotation_id is None):
-            raise ValueError("ink belongs to one block or one annotation")
+        if sum(value is not None for value in (self.block_id, self.annotation_id, self.extraction_id)) != 1:
+            raise ValueError("ink belongs to one block, one annotation or one reading")
         return self
 
     @property
     def kind(self) -> str:
-        return BLOCK if self.block_id is not None else ANNOTATION
+        return BLOCK if self.block_id is not None else ANNOTATION if self.annotation_id is not None else SOURCE
 
     @property
     def id(self) -> str:
-        return str(self.block_id if self.block_id is not None else self.annotation_id)
+        return str(self.block_id or self.annotation_id or self.extraction_id)
+
+    @staticmethod
+    def of(owner_kind: str, owner_id: str) -> "InkOwner":
+        return InkOwner(**{{BLOCK: "block_id", ANNOTATION: "annotation_id", SOURCE: "extraction_id"}[owner_kind]: owner_id})
 
 
 def canonical(value: Any) -> bytes:
@@ -145,6 +153,10 @@ def _owner_pad(connection: Any, owner: InkOwner) -> str:
         if not store.annotation_exists(connection, owner.id):
             raise OpRefused("annotation_not_found", f"No annotation {owner.id!r}.")
         return ""
+    if owner.kind == SOURCE:
+        if not store.extraction_exists(connection, owner.id):
+            raise OpRefused("reading_not_found", f"No reading {owner.id!r}.")
+        return ""
     head = pad_reads.head(connection, owner.id)
     if head is None:
         raise OpRefused("block_not_found", f"No block {owner.id!r}.")
@@ -159,7 +171,7 @@ def _owner_pad(connection: Any, owner: InkOwner) -> str:
 
 
 def _receipt_pad(repository: Any, owner: InkOwner) -> str:
-    if owner.kind == ANNOTATION:
+    if owner.kind != BLOCK:
         return ""
     with repository.connection() as connection:
         head = pad_reads.head(connection, owner.id)
@@ -228,11 +240,55 @@ def erase_in_batch(connection: Any, *, pad_id: str, block_id: str, erase_id: str
     return {"erase_id": erase_id}
 
 
+def _insert_erase(connection: Any, owner: InkOwner, erase_id: str, stroke_ids: list[str], client_id: str, now: str) -> None:
+    if store.save(connection, erase_id) is not None:
+        raise OpRefused("ink_id_exists", f"Ink {erase_id!r} already exists.")
+    strokes, _ratio = standing(store.owner_saves(connection, owner.kind, owner.id))
+    present = {stroke["stroke_id"] for stroke in strokes}
+    missing = [stroke_id for stroke_id in stroke_ids if stroke_id not in present]
+    if missing:
+        raise OpRefused("stroke_not_found", f"No standing stroke {missing[0]!r} there.")
+    value = sorted(set(stroke_ids))
+    store.insert_save(connection, {
+        "ink_id": erase_id, "owner_kind": owner.kind, "owner_id": owner.id, "kind": ERASE, "encoding": ENCODING,
+        "strokes_blob": encode(value), "content_hash": content_hash(value), "stroke_count": len(value),
+        "pointer_meta": {}, "client_id": client_id, "created_at": now,
+    })
+
+
+def erase_ink(repository: Any, *, client_id: str, seq: int, owner: InkOwner, erase_id: str, stroke_ids: list[str],
+              clock: Any = None) -> dict[str, Any]:
+    """``ink.erase``: one batch erasing strokes of an annotation's or a reading's ink (a block's ink is erased by
+    ``pad.apply``'s ``erase_ink``, in its pad's batch). A retried erase id naming the same strokes is a no-op."""
+
+    value = sorted(set(stroke_ids))
+    request = {"ink_erase": {"owner": owner.wire(), "erase_id": erase_id, "stroke_ids": value}}
+
+    def apply(connection: Any, now: str) -> dict[str, Any]:
+        def one() -> dict[str, Any]:
+            if owner.kind == BLOCK:
+                raise OpRefused("erase_in_the_pad", "A block's ink is erased in its pad (pad.apply erase_ink).")
+            existing = store.save(connection, erase_id)
+            if existing is not None:
+                if (existing["owner_kind"], existing["owner_id"], existing["kind"], existing["content_hash"]) != (
+                        owner.kind, owner.id, ERASE, content_hash(value)):
+                    raise OpRefused("ink_id_reused", f"Ink {erase_id!r} was already used for something else.")
+                return {"duplicate": True}
+            _owner_pad(connection, owner)
+            _insert_erase(connection, owner, erase_id, value, client_id, now)
+            return {"duplicate": False}
+
+        return {"erase_id": erase_id, "results": [run_op(connection, one)]}
+
+    return apply_batch(repository, channel=PAD, client_id=client_id, seq=seq, request=request, apply_ops=apply,
+                       pad_id="", clock=clock)
+
+
 def owner_of(connection: Any, ink_id: str) -> InkOwner:
     row = store.save(connection, ink_id)
     if row is None:
         raise InkError("ink_not_found", f"No ink {ink_id!r}.")
-    return InkOwner(block_id=row["owner_id"]) if row["owner_kind"] == BLOCK else InkOwner(annotation_id=row["owner_id"])
+    return InkOwner.of(row["owner_kind"], row["owner_id"])
 
 
 def owner_view(connection: Any, owner_kind: str, owner_id: str) -> dict[str, Any]:
@@ -264,17 +320,22 @@ def ink_for_pad(repository: Any, pad_id: str) -> list[dict[str, Any]]:
 
 
 def ink_for_source(repository: Any, source_id: str) -> list[dict[str, Any]]:
-    """The ink of a source's listed annotations (a deleted annotation's ink is not listed)."""
+    """The ink of a source's listed annotations (a deleted annotation's ink is not listed), then the ink on its
+    readings' pages (owner kind ``source``, one owner per reading, never read)."""
 
     annotation_ids = [str(head["annotation"]["id"]) for head in repository.annotations_for_source(source_id)]
     with repository.connection() as connection:
         with_ink = set(store.owners_with_ink(connection, ANNOTATION, annotation_ids))
-        return [owner_view(connection, ANNOTATION, annotation_id) for annotation_id in annotation_ids
-                if annotation_id in with_ink]
+        owners = [owner_view(connection, ANNOTATION, annotation_id) for annotation_id in annotation_ids
+                  if annotation_id in with_ink]
+        readings = store.source_extraction_ids(connection, source_id)
+        on_pages = set(store.owners_with_ink(connection, SOURCE, readings))
+        return owners + [owner_view(connection, SOURCE, extraction_id) for extraction_id in readings
+                         if extraction_id in on_pages]
 
 
 __all__ = [
-    "ANNOTATION", "BLOCK", "ENCODING", "ERASE", "InkError", "InkOwner", "InkStroke", "PointerMeta", "STROKES",
+    "ANNOTATION", "BLOCK", "ENCODING", "ERASE", "SOURCE", "erase_ink", "InkError", "InkOwner", "InkStroke", "PointerMeta", "STROKES",
     "canonical", "content_hash", "decode", "encode", "erase_in_batch", "ink_for_pad", "ink_for_source", "owner_of",
     "owner_view", "save_ink", "standing", "strokes_hash",
 ]

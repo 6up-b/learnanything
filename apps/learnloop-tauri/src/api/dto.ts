@@ -11171,8 +11171,29 @@ export interface InkStrokeDto {
   points: Array<[number, number, number, number, number, number]>;
 }
 
-/** Ink belongs to one ink block of a pad, or to one source annotation (a handwritten margin note). */
-export type InkOwnerDto = { blockId: string; annotationId?: never } | { annotationId: string; blockId?: never };
+/** Ink belongs to one ink block of a pad, one source annotation (a handwritten margin note), or one reading of a
+ * source (ink on the page that became no mark: the learner's marks, never read or emitted). */
+export type InkOwnerDto =
+  | { blockId: string; annotationId?: never; extractionId?: never }
+  | { annotationId: string; blockId?: never; extractionId?: never }
+  | { extractionId: string; blockId?: never; annotationId?: never };
+
+/** The barrel over an annotation's or a reading's ink (a block's ink: padApply's erase_ink). */
+export interface InkEraseInput {
+  clientId: string;
+  seq: number;
+  owner: InkOwnerDto;
+  /** Client-minted: a retried erase of the same strokes is a no-op. */
+  eraseId: string;
+  strokeIds: string[];
+}
+
+export interface InkEraseDto {
+  version: number;
+  appliedSeq: number;
+  eraseId: string;
+  results: Array<WriteOpResultDto & { duplicate?: boolean }>;
+}
 
 export interface InkSaveInput {
   clientId: string;
@@ -11198,7 +11219,7 @@ export interface InkSaveDto {
 export type InkConfidenceLabel = "may_be_wrong" | "nothing_read";
 
 export interface InkOwnerViewDto {
-  ownerKind: "block" | "annotation";
+  ownerKind: "block" | "annotation" | "source";
   ownerId: string;
   /** The standing strokes' hash: a reading names the strokes it read by it. */
   contentHash: string;
