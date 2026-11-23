@@ -236,10 +236,12 @@ def _promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
     from learnloop.ai import plan_fallback
     from learnloop_sidecar import polled_jobs as PJ
 
+    # Polled jobs are kept per vault: a job id from another vault is not found here.
     jobs = PJ.registry(ctx, _PROMOTED_REGISTRY)
-    job = jobs.get(job_id)
+    vault = PJ.vault_key(ctx)
+    job = jobs.get(vault, job_id)
     if job is None:
-        if jobs.receipt(job_id) is None:
+        if jobs.receipt(vault, job_id) is None:
             raise SidecarError("job_not_found", "That menu is no longer kept; open it again.",
                                details={"job_id": job_id})
         return versioned({"job_id": job_id, "status": PJ.EXPIRED, "done": True, "rows": [], "error": None})
@@ -274,5 +276,5 @@ def passage_promoted_cancel_handler(ctx: SidecarContext, params: PromotedJobInpu
     from learnloop_sidecar import polled_jobs as PJ
 
     ctx.require_vault()
-    PJ.registry(ctx, _PROMOTED_REGISTRY).cancel(params.job_id)
+    PJ.registry(ctx, _PROMOTED_REGISTRY).cancel(PJ.vault_key(ctx), params.job_id)
     return _promoted_job_payload(ctx, params.job_id)

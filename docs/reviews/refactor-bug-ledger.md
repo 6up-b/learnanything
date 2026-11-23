@@ -702,3 +702,9 @@ difference until it is fixed. The fix round (`docs/reviews/reader-visual-referen
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|
 | RD8a-1 | RD8a's frontend worktree, merging RD3's fix round onto the RD8a backend | `ink.transcribe`'s handler kept its own per-vault map of polled jobs and called `PolledJobs.get/cancel/receipt` with an id alone; RD3's fix round keyed every polled job by vault (RD3-1), so with both landed every reading RPC raised `TypeError` and a vault switch would not have interrupted a reading. | `tests/test_reader_rd8a_rpcs.py` (5 failed after the merge: `PolledJobs.get() missing 1 required positional argument`); `::test_a_reading_belongs_to_its_vault` fails with the poll's vault taken from the job instead of the open vault | The reading jobs use `polled_jobs.registry(ctx, "ink_transcribe_jobs")` and `vault_key(ctx)` on every start, poll and cancel (so `interrupt_vault` reaches them); which job reads which strokes is kept per vault on the context | fixed |
+
+## From the Reader workbench v2 batch 1 integration (2026-11-23; `docs/reviews/reader-batch-1-integration.md`)
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| BATCH1-1 | the batch 1 integration, RD5a's menu backend meeting RD3's fix round | `passage.promoted_job` and `passage.promoted_cancel` called `PolledJobs.get/receipt/cancel` with a job id alone; RD3's fix round keys every polled job by vault (RD3-1), so with both merged every poll of the judged rows and every cancel raised a `TypeError` (the menu's judged rows never arrived and a closed menu's job was never cancelled) | `tests/test_menu_promoted_rows.py` (8 tests fail on the merged tree before the fix) | Both calls pass `vault_key(ctx)`, as the companion's asks and the ink reading do: a job id from another vault is not found | fixed |
