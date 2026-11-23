@@ -76,6 +76,16 @@ class InsertBlock(_Op):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class KeepBoth(WireModel):
+    """Where a stale edit's words go instead of being lost (spec §3.5): a new block, client-minted, right after the
+    block's current head, marked with what it conflicted with."""
+
+    block_id: str = Field(min_length=1)
+    version_id: str | None = None
+    #: The client's own words for the mark (spec: "from your other device · <time>"), kept in the payload.
+    label: str = ""
+
+
 class EditBlock(_Op):
     op: Literal["edit_block"]
     block_id: str
@@ -83,6 +93,9 @@ class EditBlock(_Op):
     version_id: str | None = None
     body_md: str | None = None
     payload: dict[str, Any] | None = None
+    #: On a stale head: keep the server's head and put these words in a block of their own after it (one op, so a
+    #: retried batch never writes them twice). Absent: a stale head is a conflict, as before.
+    keep_both: KeepBoth | None = None
 
 
 class RemoveBlock(_Op):
@@ -243,6 +256,76 @@ def pad_list(repository: Any, *, desk_id: str | None = None, query: str | None =
 
 # -- ops ----------------------------------------------------------------------------------------------
 
+#: The client's fractional position keys (``F:screens/desks/pads/model.ts`` ``keyBetween``), ported so the server can
+#: place a block between two others the same way: keys compare as plain strings and never end in the lowest digit.
+_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+
+def _midpoint(a: str, b: str | None) -> str:
+    if b is not None:
+        n = 0
+        while (a[n] if n < len(a) else _DIGITS[0]) == (b[n] if n < len(b) else None):
+            n += 1
+        if n > 0:
+            if n >= len(b):
+                raise ValueError("no key between them")
+            return b[:n] + _midpoint(a[n:], b[n:])
+    low = _DIGITS.index(a[0]) if a else 0
+    high = _DIGITS.index(b[0]) if b is not None else len(_DIGITS)
+    if high - low > 1:
+        return _DIGITS[round((low + high) / 2)]
+    if b is not None and len(b) > 1:
+        return b[:1]
+    return _DIGITS[low] + _midpoint(a[1:], None)
+
+
+def key_between(a: str | None, b: str | None) -> str:
+    """A position key strictly between ``a`` and ``b`` (either may be None: before or after everything)."""
+
+    if a is not None and b is not None and a >= b:
+        raise ValueError(f"no key between {a} and {b}")
+    return _midpoint(a or "", b)
+
+
+def _key_after(connection: Any, pad_id: str, head: dict[str, Any]) -> str:
+    """A key right after ``head`` in its pad, before the next block; the head's own key when the next block shares
+    it (equal keys order by block id: as close as the keys allow)."""
+
+    here = str(head["position_key"])
+    following = [str(other["position_key"]) for other in reads.heads(connection, pad_id)
+                 if not other["tombstone"] and other["block_id"] != head["block_id"] and str(other["position_key"]) > here]
+    try:
+        return key_between(here, min(following) if following else None)
+    except ValueError:
+        return here
+
+
+def _keep_both(connection: Any, pad_id: str, client_id: str, op: EditBlock, head: dict[str, Any],
+               base: dict[str, Any], now: str, heads: dict[str, str]) -> dict[str, Any]:
+    """A stale edit's words as a block of their own right after the current head; the head is left as it is."""
+
+    keep = op.keep_both
+    assert keep is not None
+    if reads.head(connection, keep.block_id) is not None:
+        raise OpRefused("block_exists", f"A block {keep.block_id!r} already exists.")
+    payload = dict(op.payload if op.payload is not None else base["payload"])
+    payload["conflict"] = {"of_block_id": op.block_id, "expected_head": op.expected_head,
+                           "server_head_version_id": head["version_id"], "label": keep.label, "at": now}
+    version_id = _version_id(connection, keep.version_id)
+    store.insert_version(connection, {
+        "version_id": version_id, "block_id": keep.block_id, "supersedes_id": None, "pad_id": pad_id,
+        "position_key": _key_after(connection, pad_id, head), "day": head["day"], "kind": base["kind"],
+        "body_md": op.body_md if op.body_md is not None else base["body_md"], "payload": payload,
+        # An ink block's words typed over are the learner's correction, as an edit of it would be.
+        "provenance": "learner_correction" if base["kind"] == "ink" else base["provenance"],
+        "tombstone": False, "client_id": client_id, "created_at": now,
+    })
+    heads[keep.block_id] = version_id
+    store.touch_pad(connection, pad_id, now)
+    return {"head_version_id": head["version_id"],
+            "kept_both": {"block_id": keep.block_id, "head_version_id": version_id}}
+
+
 
 def _version_id(connection: Any, minted: str | None) -> str:
     if minted is None:
@@ -306,6 +389,16 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
         heads[op.block_id] = version_id
         store.touch_pad(connection, pad_id, now)
         return {"head_version_id": version_id}
+    if isinstance(op, EditBlock) and op.keep_both is not None:
+        current = _current_head(connection, pad_id, op.block_id, None)
+        if current["version_id"] != op.expected_head:
+            # The words were typed over the version the client saw; the block may since have been removed or lifted
+            # out, so their kind is that version's.
+            seen = reads.version(connection, op.expected_head)
+            base = seen if seen is not None and seen["block_id"] == op.block_id else current
+            if base["kind"] not in EDITABLE_KINDS:
+                raise OpRefused("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.")
+            return _keep_both(connection, pad_id, client_id, op, current, base, now, heads)
     if isinstance(op, (EditBlock, RemoveBlock, MoveBlock, LiftOut)):
         head = _current_head(connection, pad_id, op.block_id, op.expected_head)
         if head["tombstone"]:
