@@ -11463,6 +11463,8 @@ export interface GoalBandDto {
   coverage?: { unjudged: string[]; covering: boolean; failure: { reason: string | null; message: string | null } | null };
   /** The path view's rows (curriculum.path's own view). */
   path?: DeliverablePathViewDto | null;
+  /** When the next check not due yet falls due (UTC): the band is read again then, to hide what it covers. */
+  nextCheckDue?: string | null;
 }
 
 export type GoalLensInput =

@@ -23,7 +23,7 @@ from typing import Any
 from pydantic import Field, model_validator
 
 from learnloop.clock import parse_utc, utc_now_iso
-from learnloop.intent.inline_checks import answered_checks, due_checks
+from learnloop.intent.inline_checks import answered_checks, due_checks, next_check_due, serving_view
 from learnloop.section_map import RangeError
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
@@ -80,10 +80,14 @@ def _settled(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> 
     return {lo_id for lo_id, key in attempted if key == keys.get(lo_id)}
 
 
-def _checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    due = due_checks(vault, repository, goal_id=goal_id)
+def _checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+    """The due checks, today's answered ones, and when the next check falls due (the band reads again then: a newly
+    due check must hide what it covers)."""
+
+    view = serving_view(vault, repository)
+    due = due_checks(vault, repository, goal_id=goal_id, view=view)
     answered = answered_checks(vault, repository, since=_day_start())
-    return due, answered
+    return due, answered, next_check_due(view)
 
 
 def _model(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str,
@@ -131,7 +135,7 @@ def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     other = _not_a_deliverable(vault, params.goal_id)
     if other is not None:
         return versioned(other)
-    due, answered = _checks(vault, repository, params.goal_id)
+    due, answered, next_due = _checks(vault, repository, params.goal_id)
     model = _model(ctx, vault, repository, params.goal_id, due, answered)
     work = curriculum._work(ctx)
     with work.lock:
@@ -139,10 +143,11 @@ def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     progress = {"covering": covering.get("state") == "running",
                 "failure": ({"reason": covering.get("reason"), "message": covering.get("message")}
                             if covering.get("state") == "failed" else None)}
-    return versioned(reads.band_view(vault, repository, model, due=due, answered=answered,
-                                     protection=reads.protection(vault, repository, due, model),
-                                     likely=curriculum._likely(vault, repository),
-                                     pace=_pace(vault, repository, model.goal), progress=progress))
+    band = reads.band_view(vault, repository, model, due=due, answered=answered,
+                           protection=reads.protection(vault, repository, due, model),
+                           likely=curriculum._likely(vault, repository), pace=_pace(vault, repository, model.goal),
+                           progress=progress)
+    return versioned({**band, "next_check_due": next_due})
 
 
 class GoalLensInput(ParamsModel):
@@ -184,7 +189,7 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
     other = _not_a_deliverable(vault, params.goal_id)
     if other is not None:
         return versioned({**other, "extraction_id": resolved, "mapping": "unmapped", "levels": []})
-    due, answered = _checks(vault, repository, params.goal_id)
+    due, answered, _next_due = _checks(vault, repository, params.goal_id)
     model = _model(ctx, vault, repository, params.goal_id, due, answered)
     try:
         return versioned(reads.lens_view(vault, repository, model, resolved,

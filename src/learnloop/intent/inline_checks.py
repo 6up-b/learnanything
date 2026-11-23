@@ -101,13 +101,30 @@ def _provenance(provenance: Any) -> dict[str, Any]:
     return {}
 
 
-def due_checks(vault: Any, repository: Any, *, goal_id: str | None = None,
-               learning_object_ids: Iterable[str] | None = None, extraction_id: str | None = None,
-               span_id: str | None = None, clock: Clock | None = None) -> list[dict[str, Any]]:
-    """Every due check, one row per (check, learning object), oldest due first, filtered."""
+def serving_view(vault: Any, repository: Any, *, clock: Clock | None = None) -> Any:
+    """The serving view the check reads below share (one build answers both)."""
 
     now = parse_utc(utc_now_iso(clock)) or datetime.now(UTC)
-    view = intent_serving(vault, repository, now=now, force=True)
+    return intent_serving(vault, repository, now=now, force=True)
+
+
+def next_check_due(view: Any) -> str | None:
+    """When the next check not due yet falls due (a UTC stamp), or None: a reader of the due checks (the goal band,
+    which hides what a due check covers) reads again then."""
+
+    upcoming = [check.date for check in (view.raw_checks.values() if view is not None else ())
+                if not check.due and check.answered_by is None and not check.replaced]
+    return min(upcoming).astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") if upcoming else None
+
+
+def due_checks(vault: Any, repository: Any, *, goal_id: str | None = None,
+               learning_object_ids: Iterable[str] | None = None, extraction_id: str | None = None,
+               span_id: str | None = None, clock: Clock | None = None, view: Any | None = None) -> list[dict[str, Any]]:
+    """Every due check, one row per (check, learning object), oldest due first, filtered. ``view``: a
+    ``serving_view`` already built for this read."""
+
+    if view is None:
+        view = serving_view(vault, repository, clock=clock)
     if view is None:  # pragma: no cover - force always builds the view
         return []
     pending = view.due_checks()
@@ -173,4 +190,4 @@ def answered_checks(vault: Any, repository: Any, *, since: str, clock: Clock | N
     return out
 
 
-__all__ = ["answered_checks", "due_checks"]
+__all__ = ["answered_checks", "due_checks", "next_check_due", "serving_view"]
