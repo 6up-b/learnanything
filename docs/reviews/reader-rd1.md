@@ -114,9 +114,7 @@ clean after each):
 | the player's pause on leaving the view | `YouTubeWatchPanel.instance.test.tsx` | 1 failed |
 | a which-key release handed to the window | `DeskShell.test.tsx` | 1 failed (after the test was made to record key-ups; the first version passed with the break, so it was strengthened) |
 | the typing scope ignored | `DeskShell.test.tsx` | 1 failed |
-
-Not fail-first tested: the margin-mark impression gate in `useCueImpressions` (breaking it fails nothing: no test
-mounts a window with discovered cues in a paused state).
+| the margin-mark impression gate in `useCueImpressions` | `ReaderScreen.discoveredCues.test.tsx` "impressions: a source window offscreen on a desk sends none" | 1 failed ("expected "spy" to not be called at all, but actually been called 1 times") |
 
 ## 4. The harness and its blind spots
 
@@ -144,8 +142,8 @@ and records the commands it gets; every other outside request is refused. Its 28
 - a preview logs no reading activity and no progress, while the same window active opens a visit.
 
 **Blind spots.** It runs Chromium, not WebKit: the Playwright WebKit build is not installed here, and the packaged
-WebKitGTK app was not run (the RD-spike's ground). Fonts are whatever the machine has (Literata, Inter and Source Serif
-4 are not installed here; the stacks fall back). No screenshot comparison with a tolerance: the checks are geometry
+WebKitGTK app was not run (the RD-spike's ground). The fonts are the app's own (bundled), so the harness renders the
+designed faces. No screenshot comparison with a tolerance: the checks are geometry
 and state (the zoom engine's screenshot invariant is RD2's). The stub player is not YouTube: real embedding, error 153
 and playback in the packaged origin are unverified. The fake sidecar answers the Reader's reads from fixtures, so the
 windows' Reader features that need other RPCs (Ask, figures, notes, quick checks) show their refused or empty states
@@ -230,10 +228,15 @@ since a listed key that does nothing would mislead.
    desk · <short name>" holding the book the learner read last (the shell's remembered book), or an empty desk with
    "open a source beside". No running pad is created (pads have no UI until RD4). The grouping needs a sidecar read of
    recent reading sessions, which no RPC offers; proposed as a follow-up with RD4, where the running pads arrive.
-7. **Fonts are named, not shipped.** The tokens name Inter, Literata, Source Serif 4, JetBrains Mono and Caveat with
-   fallbacks, and nothing is fetched; the font files are binaries with licences to add (and a choice of how to bundle
-   them), which is the owner's call. Source and video windows read on paper by remapping the Reader's palette
-   variables inside the window and setting the book's prose in the book font.
+7. **Fonts ship as npm dependencies** (the orchestrator's decision after the first report): the Fontsource variable
+   packages `@fontsource-variable/inter` 5.3.0, `literata` 5.3.0 (with italics), `source-serif-4` 5.3.1 (with
+   italics), `jetbrains-mono` 5.3.0 and `caveat` 5.3.0, pinned exactly, all **SIL Open Font License 1.1**. DeskShell
+   imports them, so Vite copies their WOFF2 files into the built app (about 1.5 MB of WOFF2 in all, the largest built
+   file still the 1.86 MB main bundle, under the public-tip guard's 5 MB; no font file is committed); the tokens name
+   the variable families first; nothing is fetched from a font service, and the CSP's `font-src 'self'` covers them.
+   `LICENSES.txt` names each font, its licence and its copyright line. The harness checks the five families load and
+   that no request leaves the page but the stubbed player's. Source and video windows read on paper by remapping the
+   Reader's palette variables inside the window and setting the book's prose in the book font.
 8. **The old Reader stays the default of the Reader place**, with links both ways remembered on this machine. The
    desks have no companion (Ask lives in the panel's rail) or pads yet, so making them the default now would take the
    daily Reader's Ask one click further away; the parity matrix (§21.1) is what lets the default flip. The plan-reading
@@ -290,4 +293,3 @@ three counts moved (above) and `desktop_generate.py` describes the five new area
 - The landing gate, the whole Python suite and `npm run frontend:build` (not run here, per the brief); the vault's
   generated references (the landing regenerates them; `desktop_validate.py` reports only the missing and stale notes
   of the new and changed files).
-- Fonts as designed (not installed here).

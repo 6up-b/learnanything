@@ -15,6 +15,7 @@ import { ReaderScreen } from "./ReaderScreen";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import type { ReaderCueDto, ReaderGuidePlanDto, ReaderRenderViewDto, SourceLibraryCard } from "../api/dto";
 import { flushReaderActivity, resetReaderActivityForTests } from "./reader/activity";
+import { DIRECT_HUB, WindowScope } from "./desks/lifecycle";
 
 const api = vi.hoisted(() => ({
   readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
@@ -339,6 +340,47 @@ it("impressions: a mark in view is sent as shown; a held-out cue's passage in vi
     expect(sent).toContainEqual({ cueId: "dcue_b4", shown: false });
     // The held-out cue is never drawn.
     expect(markFor("b4")).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+// Workbench v2 (spec §3.6): a window the learner cannot see records no impression. The same marks and the
+// same observers as above, in a desk window that is offscreen: nothing is observed and nothing is sent.
+it("impressions: a source window offscreen on a desk sends none", async () => {
+  TOPS.b4 = 900;
+  wireDiscovery();
+  const observed: Array<{ callback: IntersectionObserverCallback; targets: Element[] }> = [];
+  class FakeObserver {
+    callback: IntersectionObserverCallback;
+    targets: Element[] = [];
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+      observed.push(this);
+    }
+    observe(target: Element) {
+      this.targets.push(target);
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal("IntersectionObserver", FakeObserver);
+  try {
+    guide.plan = discoveryPlan([discovered("b1", 0, "distinction")], { heldOut: [discovered("b4", 1, "distinction")] });
+    render(
+      <WindowScope lifecycle={{ windowId: "w1", state: "offscreen" }} hub={DIRECT_HUB}>
+        <ReaderScreen initialSource={{ card, spanId: null }} onError={vi.fn()} windowed={{}} />
+      </WindowScope>,
+    );
+    await findMark("b1");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      for (const entry of observed) {
+        entry.callback(entry.targets.map((target) => ({ isIntersecting: true, intersectionRatio: 1, target })) as unknown as IntersectionObserverEntry[], entry as unknown as IntersectionObserver);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 900));
+    });
+    expect(api.readerCueImpressions).not.toHaveBeenCalled();
   } finally {
     vi.unstubAllGlobals();
   }
