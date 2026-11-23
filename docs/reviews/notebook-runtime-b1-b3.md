@@ -66,8 +66,8 @@ session), `notebook_sessions_full` (retryable), `notebook_not_connected` (retrya
 - Idle stop happens after `idle_minutes` with no frame attached. The sweep runs every 30 s.
 - The session limit: opening another session stops the least recently used one with no frame attached, else it
   is refused.
-- A session whose run directory (the one writable host path) passes 8 MiB is stopped. The run directory holds the
-  socket and the token.
+- The sandbox has no writable host path (fix round, NBF-5). The run directory holds the socket and the token,
+  both made by the unsandboxed side; the sandbox never sees it.
 - A vault switch stops and forgets every other vault's session. The context's `close` stops everything and joins
   the runtime's thread, bounded.
 - The server's output (it prints its access token) is kept as a 16 KiB tail in memory only, never written to disk
@@ -172,10 +172,18 @@ therefore does not list these defaults either.
 - The profile moved to a new root module rather than into the runtime package, so figures don't depend on the
   notebook runtime. That raised `first_level_root_modules` from 36 to 37, and the new package raised
   `first_level_packages` from 51 to 52; both goldens were raised by hand, with the reason on each line.
-- The run directory stays a writable host path, because the socket must be visible to the host. It is bounded by
-  a size check, not by the filesystem.
+- (Superseded in the fix round, NBF-5.) The run directory was a writable host path, because the socket had to be
+  visible to the host. The fix round removed that: the host now creates and listens on the socket and hands it to
+  the server as a descriptor.
 - The real-sandbox tests make their runtime directory with `tempfile.mkdtemp` in the system temp directory and
   delete it, rather than under `tmp_path`: a test's `tmp_path` is too deep for a Unix socket's path.
 - RD3's fix round (on its own branch, not yet on main) keys polled jobs by `polled_jobs.vault_key` and ends the
   background epoch on a switch. The runtime does the same itself (`_vault_key` in the handler, its own epoch), and
   its switch hook sits in the same block of `SidecarContext.load`; the merge should keep both lines.
+
+## Fix round (adversarial review of the notebook work on main, 2026-11-23)
+
+| Finding | Ledger | What changed | Proof |
+|---|---|---|---|
+| BLOCKER: a sandbox-to-host write through the token file. Notebook code could replace `run_dir/token` with a symlink to a host file; on restart the unsandboxed supervisor's `write_text` and `chmod` followed it. The socket could be swapped the same way (a symlink to a host socket, reached by the proxy with frame-chosen requests), and a FIFO in the token's place hung the server | NBF-5 | Fixed as a class. The sandbox has no writable host path any more (`sandboxed_command` takes `workdir=None`; its home and working directory and its `/tmp` are tmpfs). The token is written by the host into the private run directory and mounted read-only at `/ll/token`. The socket is created, bound and listening by the host (`hostfiles.listening_socket`) and passed to the server as an inherited descriptor (`uvicorn.Config(fd=…)`), so the server never names or creates a socket path. Every host file of a session goes through `notebook_runtime/hostfiles.py`: directories are opened with `O_NOFOLLOW` and checked to be this user's and private (the base may sit in the shared temporary directory); files are created afresh with `O_CREAT\|O_EXCL\|O_NOFOLLOW` through the directory's descriptor and checked to be a regular file with one link; a directory where a file belongs is refused; the socket is checked with `lstat` (a socket of this user, never a link) before every connection, by the supervisor's client, the proxy's client and the WebSocket relay | `tests/test_notebook_host_boundary.py`: from inside a running notebook, a symlink to a host file, a hard link, a FIFO, a directory and the socket swapped for a symlink to a host socket are each planted at the token's or socket's path, then the server is killed (the supervisor restarts it) or the host connects. Before the fix: the host file was overwritten with the token, the host socket was reached, and the FIFO hung the session. After: every plant is refused inside the sandbox, the host file is unchanged, the host socket is never reached, and the session restarts. A static test fails on any filesystem call in the unsandboxed modules outside `hostfiles` (an allowlist names the reads of non-sandbox paths, each with its reason); on the pre-fix files it lists 20 call sites. A third test pins that the launch has no writable bind and mounts the token read-only |
+
