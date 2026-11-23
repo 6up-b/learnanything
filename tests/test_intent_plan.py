@@ -115,7 +115,7 @@ def test_learn_and_master_feed_push_with_items_not_yet_due(tmp_path):
 
 def _new_material_vault(tmp_path):
     los = {"lo_n1": [("pi_n1", 2.0)], "lo_n2": [("pi_n2", 2.0)], "lo_n3": [("pi_n3", 2.0)]}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, version=INTENT_ALGORITHM_VERSION)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
     vault = load_vault(paths.root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     return vault, repository

@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import yaml
 
-from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, METHOD_EXPLICIT_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.vault.loader import load_vault
 
@@ -31,7 +31,7 @@ def _require_method(paths, item_id: str = ITEM, criterion_ids=("setup",)) -> Non
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
-def _method_vault(tmp_path, *, version=VERSION, config="", seed=True):
+def _method_vault(tmp_path, *, version=LATEST_ALGORITHM_VERSION, config="", seed=True):
     paths, _vault, repository = split_vault(tmp_path, version=version, config=config, seed=seed)
     _require_method(paths)
     return paths, load_vault(paths.root), repository

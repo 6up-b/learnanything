@@ -21,6 +21,7 @@ from tests.figure_build_golden_helpers import (
     DURATION_KEYS, _TIME, _Tokens, freeze_ids, freeze_wall, written,
 )
 from tests.helpers import NOW, admit_probe_instrument_card
+from tests.km2_write_path_helpers import KM2_OLD_TAG
 from tests import pinned_draws
 
 CLOCK = FrozenClock(NOW)
@@ -246,7 +247,7 @@ def cold_case(root, success):
     from learnloop.diagnosis.remediation import prescribe_remediation, start_remediation_treatment
     from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
 
-    vault, repo, _ = _acceptance_vault(root, toml="[placement]\nenabled = false\n")
+    vault, repo, _ = _acceptance_vault(root, version=KM2_OLD_TAG, toml="[placement]\nenabled = false\n")
     journey = Journey(repo)
     admit_probe_instrument_card(repo, learning_object_id=LO, items=(PROBE_ITEM,))
     _divergent_failure(vault, repo)
@@ -368,7 +369,7 @@ def deterministic_case(root):
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
     from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
 
-    vault, repo, _ = _acceptance_vault(root)
+    vault, repo, _ = _acceptance_vault(root, version=KM2_OLD_TAG)
     journey = Journey(repo)
     _, factor, first, _, offer = _offered_probe(vault, repo, features=(
         {"criterion:correctness:full_credit": False}, {"criterion:correctness:full_credit": True}))
