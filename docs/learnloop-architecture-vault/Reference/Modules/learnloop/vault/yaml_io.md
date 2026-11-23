@@ -269,6 +269,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rereview_f2_the_drafter_checks_its_anchor_and_prerequisite_names`
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
   - `test_a_method_explicit_question_records_the_contract_it_was_presented_with`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — direct import
   - `test_doctor_does_not_merge_opposite_registered_facet_contracts`

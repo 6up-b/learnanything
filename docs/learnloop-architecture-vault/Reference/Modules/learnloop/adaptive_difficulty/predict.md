@@ -105,6 +105,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `module`; statically calls `capability`, `category_mixture`, `current_spec`, `facet_weights`, `mixture_weights`, `point_spec`, `predict`, `score`
 - [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `module`; statically calls `capability`, `facet_weights`
 
+### Repository tooling consumers
+
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `predict`
+
 ## Dependencies
 
 ### LearnLoop dependencies

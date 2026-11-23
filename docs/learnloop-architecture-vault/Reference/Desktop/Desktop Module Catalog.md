@@ -19,7 +19,7 @@ tags:
 # Desktop Module Catalog
 
 > [!abstract] Exact coverage
-> One generated note exists for each of the **338 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **6 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
+> One generated note exists for each of the **353 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **6 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
 
 ^desktop-catalog-coverage
 
@@ -44,7 +44,7 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 |---|---:|---|
 | [[Reference/Desktop/Rust/_area|Rust]] | 6 | The native Tauri shell, command bridge, sidecar process manager, error contract, and vault watcher. |
 | [[Reference/Desktop/TypeScript/_area|TypeScript]] | 5 | The React renderer entry point and cross-cutting frontend modules. |
-| [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] | 7 | Typed DTOs and the renderer-to-Tauri invocation facade. |
+| [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] | 8 | Typed DTOs and the renderer-to-Tauri invocation facade. |
 | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] | 33 | Desktop shell orchestration, keyboard policy, configuration helpers, and recent-vault state. |
 | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] | 81 | Reusable learner-facing controls and composite interaction surfaces. |
 | [[Reference/Desktop/TypeScript/components/goldenpath/_area|TypeScript/components/goldenpath]] | 1 | Shared Reader controls (the two buttons, the disposition picker, the affect tap), first built for the retired Golden Path. |
@@ -54,8 +54,13 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 | [[Reference/Desktop/TypeScript/components/recipeedit/_area|TypeScript/components/recipeedit]] | 1 | Recipe-tree editing for structured learning plans. |
 | [[Reference/Desktop/TypeScript/copy/_area|TypeScript/copy]] | 4 | Learner-facing copy policy: the jargon deny-list the vitest lints apply, and plain-language ingest error wording. |
 | [[Reference/Desktop/TypeScript/fixtures/_area|TypeScript/fixtures]] | 3 | Deterministic renderer fixtures used to demonstrate or restore known states. |
+| [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] | 4 | The Reader workbench's synthetic workspace (project-authored sources, desks, an in-memory desk server) and its visual harness page (test support, outside the Vite build). |
 | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] | 8 | Markdown, mathematics, and live-editor rendering adapters. |
 | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] | 31 | Top-level routed workflow screens in the desktop shell. |
+| [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] | 5 | The Reader workbench's desks: the shell, the window lifecycle contract, the shelf, reading-view geometry and the desk outbox. |
+| [[Reference/Desktop/TypeScript/screens/desks/keys/_area|TypeScript/screens/desks/keys]] | 2 | The desks' key router (the scope and precedence matrix, the bare-Alt hold rule) and the one listener router for every window. |
+| [[Reference/Desktop/TypeScript/screens/desks/model/_area|TypeScript/screens/desks/model]] | 1 | The client workspace model: desks, windows, slots and pairs, mirroring desk.apply op for op. |
+| [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] | 2 | Desk windows: the Reader's source pane as a scoped source or video window, and the panel windows hosting v1 Reader surfaces. |
 | [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] | 6 | The post-answer feedback surface: answer exposure, method comparison, and its exposure contract. |
 | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] | 7 | Practice-screen help: hints, the hint panel, help-style settings, difficulty taps, and why an item was chosen. |
 | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] | 85 | Reader request-state coordination extracted from the main reader screen. |
@@ -70,14 +75,14 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 
 | Refactor status | Modules | Positive evidence required |
 |---|---:|---|
-| `ACTIVE` | 344 | Current entry/build reachability, an explicit compiler inclusion, or (test support) an import from a vitest file. |
+| `ACTIVE` | 359 | Current entry/build reachability, an explicit compiler inclusion, or (test support) an import from a vitest file. |
 | `DORMANT` | 0 | An owned retained seam plus evidence that no primary workflow uses it. |
 | `COMPAT` | 0 | An explicitly frozen compatibility contract. |
 | `EVALUATION` | 0 | A simulation/audit surface that measures rather than serves the learner. |
 
-The audit proves **327 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **2 ambient declarations** are included by `tsconfig.json`, **7 test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **6 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
+The audit proves **338 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **2 ambient declarations** are included by `tsconfig.json`, **11 test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **6 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
 
-The reachability set includes all **1 app fixture modules** through current Reader screens (the other 2 fixture modules are vitest support) and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 344 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
+The reachability set includes all **1 app fixture modules** through current Reader screens (the other 6 fixture modules are vitest support) and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 359 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
 
 > [!warning] Static graph limits
 > Import and symbol-reference edges are reproducible build evidence, not runtime tracing. The generator refuses an unclassified file instead of treating a missing caller as proof of dormancy; a new implicit entry requires an explicit audit rule.

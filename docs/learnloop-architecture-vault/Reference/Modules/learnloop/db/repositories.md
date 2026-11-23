@@ -1330,6 +1330,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_submit_eliciting_response_records_a_factor_response`
 - [tests/test_difficulty_band_guards.py](../../../../../../tests/test_difficulty_band_guards.py) — direct import
   - `test_diagnostic_plan_band_is_never_degenerate`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
+  - `test_the_prefix_replay_predicts_as_ads_own_observer_does`
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
   - `test_a_discriminating_profile_passes_and_plants_every_profile`
   - `test_profile_whose_signature_equals_the_answer_key_is_blocked`

@@ -122,6 +122,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_old_config_naming_codex_loads_and_every_entry_refuses_it_clearly`
 - [tests/test_daily_plan_replay.py](../../../../../../tests/test_daily_plan_replay.py) — direct import
   - `test_rebuild_ignores_the_plan_and_calls_no_model`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
   - `test_client_agnostic_storage_and_prefix_isolation`
   - `test_replay_preserves_paid_inputs_without_models`

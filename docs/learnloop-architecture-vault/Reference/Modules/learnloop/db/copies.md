@@ -108,6 +108,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `copy_tree_with_databases`
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `copy_tree_with_databases`, `is_companion_file_name`, `is_database_file_name`
 - [scripts/s0_landing.py](../../../../../../scripts/s0_landing.py); calls `copy_tree_with_databases`
 - [scripts/sanitize_migration_head_fixture.py](../../../../../../scripts/sanitize_migration_head_fixture.py); calls `copy_tree_with_databases`
 
@@ -172,6 +173,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_fixture_rebuild_is_identical_at_the_previous_version`
   - `test_joint_reads_are_untouched_by_the_overlay`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
   - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import

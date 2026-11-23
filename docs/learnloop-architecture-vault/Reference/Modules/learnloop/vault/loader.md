@@ -204,6 +204,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `load_vault`
 - [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py); calls `load_vault`
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `load_vault`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `load_vault`
 
 ## Dependencies
@@ -1202,6 +1203,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_diagnostic_plan_band_is_never_degenerate`
   - `test_promotion_band_is_floored_like_the_expansion_planner`
   - `test_promotion_band_unchanged_at_ordinary_mastery`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
+  - `test_arm_a_equals_a_plain_shadow_rebuild`
+  - `test_stdout_shows_counts_only_and_the_json_keeps_the_values`
+  - `test_the_prefix_replay_predicts_as_ads_own_observer_does`
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
   - `test_a_discriminating_profile_passes_and_plants_every_profile`
   - `test_profile_whose_signature_equals_the_answer_key_is_blocked`

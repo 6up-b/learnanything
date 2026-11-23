@@ -6,47 +6,17 @@ version: "2.0.0"
 generated: true
 generators:
   module_generate.py:
-    source_commit: "943a2420403538d0c7b933ca2d288da00e5290e9"
-    source_commit_timestamp: "2026-11-23T01:39:03-05:00"
-    uncommitted_inputs:
-      - "tests/goldens/structure.toml"
-      - "tests/goldens/synthesis_normalize/append_links_restructure.json"
-      - "tests/goldens/synthesis_normalize/blueprints.json"
-      - "tests/goldens/synthesis_normalize/concept_references.json"
-      - "tests/goldens/synthesis_normalize/edges.json"
-      - "tests/goldens/synthesis_normalize/nominator_fails.json"
-      - "tests/goldens/synthesis_normalize/practice_items.json"
-      - "tests/goldens/synthesis_normalize/practice_items_off.json"
-      - "tests/goldens/synthesis_normalize/retirements_skipped.json"
-      - "tests/goldens/synthesis_normalize/reword_refused.json"
+    source_commit: "42f8cf62e466ab86e0899e92de6e5f8232ab30cf"
+    source_commit_timestamp: "2026-11-23T02:56:51-05:00"
+    uncommitted_inputs: []
   desktop_generate.py:
-    source_commit: "943a2420403538d0c7b933ca2d288da00e5290e9"
-    source_commit_timestamp: "2026-11-23T01:39:03-05:00"
-    uncommitted_inputs:
-      - "tests/goldens/structure.toml"
-      - "tests/goldens/synthesis_normalize/append_links_restructure.json"
-      - "tests/goldens/synthesis_normalize/blueprints.json"
-      - "tests/goldens/synthesis_normalize/concept_references.json"
-      - "tests/goldens/synthesis_normalize/edges.json"
-      - "tests/goldens/synthesis_normalize/nominator_fails.json"
-      - "tests/goldens/synthesis_normalize/practice_items.json"
-      - "tests/goldens/synthesis_normalize/practice_items_off.json"
-      - "tests/goldens/synthesis_normalize/retirements_skipped.json"
-      - "tests/goldens/synthesis_normalize/reword_refused.json"
+    source_commit: "42f8cf62e466ab86e0899e92de6e5f8232ab30cf"
+    source_commit_timestamp: "2026-11-23T02:56:51-05:00"
+    uncommitted_inputs: []
   db_generate_reference.py:
-    source_commit: "943a2420403538d0c7b933ca2d288da00e5290e9"
-    source_commit_timestamp: "2026-11-23T01:39:03-05:00"
-    uncommitted_inputs:
-      - "tests/goldens/structure.toml"
-      - "tests/goldens/synthesis_normalize/append_links_restructure.json"
-      - "tests/goldens/synthesis_normalize/blueprints.json"
-      - "tests/goldens/synthesis_normalize/concept_references.json"
-      - "tests/goldens/synthesis_normalize/edges.json"
-      - "tests/goldens/synthesis_normalize/nominator_fails.json"
-      - "tests/goldens/synthesis_normalize/practice_items.json"
-      - "tests/goldens/synthesis_normalize/practice_items_off.json"
-      - "tests/goldens/synthesis_normalize/retirements_skipped.json"
-      - "tests/goldens/synthesis_normalize/reword_refused.json"
+    source_commit: "42f8cf62e466ab86e0899e92de6e5f8232ab30cf"
+    source_commit_timestamp: "2026-11-23T02:56:51-05:00"
+    uncommitted_inputs: []
 source_paths:
   - "src"
   - "tests"
@@ -66,51 +36,9 @@ Each generator records here the commit its notes were generated from, instead of
 
 | Generator | Writes | Source commit | Commit timestamp | Inputs since that commit |
 |---|---|---|---|---|
-| `_scripts/module_generate.py` | Reference/Modules/ (module notes, package maps, Module Catalog) | `943a2420403538d0c7b933ca2d288da00e5290e9` | `2026-11-23T01:39:03-05:00` | 10 changed or untracked path(s), listed below |
-| `_scripts/desktop_generate.py` | Reference/Desktop/ (TypeScript and Rust notes, area maps, Desktop Module Catalog) | `943a2420403538d0c7b933ca2d288da00e5290e9` | `2026-11-23T01:39:03-05:00` | 10 changed or untracked path(s), listed below |
-| `_scripts/db_generate_reference.py` | Reference/Database/Tables/, Reference/Configuration/Fields/, Database Catalog, Configuration Field Catalog | `943a2420403538d0c7b933ca2d288da00e5290e9` | `2026-11-23T01:39:03-05:00` | 10 changed or untracked path(s), listed below |
-
-> [!warning] `module_generate.py` ran on uncommitted sources
-> These inputs differed from its commit. Commit them and regenerate before landing.
-
-- `tests/goldens/structure.toml`
-- `tests/goldens/synthesis_normalize/append_links_restructure.json`
-- `tests/goldens/synthesis_normalize/blueprints.json`
-- `tests/goldens/synthesis_normalize/concept_references.json`
-- `tests/goldens/synthesis_normalize/edges.json`
-- `tests/goldens/synthesis_normalize/nominator_fails.json`
-- `tests/goldens/synthesis_normalize/practice_items.json`
-- `tests/goldens/synthesis_normalize/practice_items_off.json`
-- `tests/goldens/synthesis_normalize/retirements_skipped.json`
-- `tests/goldens/synthesis_normalize/reword_refused.json`
-
-> [!warning] `desktop_generate.py` ran on uncommitted sources
-> These inputs differed from its commit. Commit them and regenerate before landing.
-
-- `tests/goldens/structure.toml`
-- `tests/goldens/synthesis_normalize/append_links_restructure.json`
-- `tests/goldens/synthesis_normalize/blueprints.json`
-- `tests/goldens/synthesis_normalize/concept_references.json`
-- `tests/goldens/synthesis_normalize/edges.json`
-- `tests/goldens/synthesis_normalize/nominator_fails.json`
-- `tests/goldens/synthesis_normalize/practice_items.json`
-- `tests/goldens/synthesis_normalize/practice_items_off.json`
-- `tests/goldens/synthesis_normalize/retirements_skipped.json`
-- `tests/goldens/synthesis_normalize/reword_refused.json`
-
-> [!warning] `db_generate_reference.py` ran on uncommitted sources
-> These inputs differed from its commit. Commit them and regenerate before landing.
-
-- `tests/goldens/structure.toml`
-- `tests/goldens/synthesis_normalize/append_links_restructure.json`
-- `tests/goldens/synthesis_normalize/blueprints.json`
-- `tests/goldens/synthesis_normalize/concept_references.json`
-- `tests/goldens/synthesis_normalize/edges.json`
-- `tests/goldens/synthesis_normalize/nominator_fails.json`
-- `tests/goldens/synthesis_normalize/practice_items.json`
-- `tests/goldens/synthesis_normalize/practice_items_off.json`
-- `tests/goldens/synthesis_normalize/retirements_skipped.json`
-- `tests/goldens/synthesis_normalize/reword_refused.json`
+| `_scripts/module_generate.py` | Reference/Modules/ (module notes, package maps, Module Catalog) | `42f8cf62e466ab86e0899e92de6e5f8232ab30cf` | `2026-11-23T02:56:51-05:00` | none |
+| `_scripts/desktop_generate.py` | Reference/Desktop/ (TypeScript and Rust notes, area maps, Desktop Module Catalog) | `42f8cf62e466ab86e0899e92de6e5f8232ab30cf` | `2026-11-23T02:56:51-05:00` | none |
+| `_scripts/db_generate_reference.py` | Reference/Database/Tables/, Reference/Configuration/Fields/, Database Catalog, Configuration Field Catalog | `42f8cf62e466ab86e0899e92de6e5f8232ab30cf` | `2026-11-23T02:56:51-05:00` | none |
 
 `_scripts/generate_all.py` runs all three. A regeneration on a clean tree changes nothing; one after a source change touches only the notes whose facts changed, plus a generator's row here when its recorded commit moves.
 

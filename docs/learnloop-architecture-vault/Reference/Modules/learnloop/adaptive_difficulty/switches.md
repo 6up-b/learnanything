@@ -114,6 +114,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `any_background_work`; statically calls `any_background_work`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `receipts_enabled`; statically calls `receipts_enabled`
 
+### Repository tooling consumers
+
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `ad_enabled`
+
 ## Dependencies
 
 ### LearnLoop dependencies

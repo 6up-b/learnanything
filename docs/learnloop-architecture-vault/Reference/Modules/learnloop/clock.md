@@ -513,6 +513,7 @@ No private top-level function or class definition is declared in this file.
 ### Repository tooling consumers
 
 - [scripts/check_credit_report.py](../../../../../scripts/check_credit_report.py); calls `parse_utc`
+- [scripts/difficulty_four_way.py](../../../../../scripts/difficulty_four_way.py); calls `FrozenClock`, `parse_utc`
 - [scripts/voi_cap_report.py](../../../../../scripts/voi_cap_report.py); calls `SystemClock`
 
 ## Dependencies
@@ -1045,6 +1046,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_answering_the_question_first_leaves_the_one_tap_card_open`
   - `test_embedded_prediction_is_idempotent_per_question`
   - `test_submit_eliciting_response_records_a_factor_response`
+- [tests/test_difficulty_four_way.py](../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_discrimination_profiles.py](../../../../../tests/test_discrimination_profiles.py) — direct import
 - [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
   - `test_a_keyed_pick_of_a_due_check_the_plan_does_not_hold_is_a_one_item_block_and_answers_it`

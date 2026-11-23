@@ -191,6 +191,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `build_due_queue`
+- [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `read_due_queue`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `OfferTrace`, `SchedulerSession`, `read_due_queue`
 
 ## Dependencies
