@@ -230,3 +230,61 @@ class Batches:
 
 def source_ref(extraction_id: str = BOOK, source_id: str = "src_book") -> dict[str, Any]:
     return {"kind": "source", "source_id": source_id, "extraction_id": extraction_id, "view": "render"}
+
+
+def _ledger(connection: Any, ledger_id: str) -> str:
+    connection.execute(
+        "INSERT INTO judgment_ledger (id, created_at, task, left_kind, left_id, judge, judge_model, prompt_version, "
+        "input_hash, verdict, rationale) VALUES (?, ?, 'test', 'test', 'x', 'llm', 'm', 'p', 'h', 'ok', 'seeded')",
+        (ledger_id, T0))
+    return ledger_id
+
+
+def seed_annotation(repository: Repository, *, annotation_id: str, source_id: str, revision_id: str,
+                    extraction_id: str, span_id: str, text: str = "kernel = null space") -> None:
+    """A highlight with the learner's words, anchored exactly on one passage (its block's current hash)."""
+
+    block_hash = repository.block_content_hashes(extraction_id)[span_id]
+    with repository.connection() as connection:
+        connection.execute("INSERT INTO source_annotations (id, source_id, created_at) VALUES (?, ?, ?)",
+                           (annotation_id, source_id, T0))
+        connection.execute(
+            "INSERT INTO source_annotation_versions (id, annotation_id, version_ordinal, annotation_type, learner_text, "
+            "created_at) VALUES (?, ?, 1, 'highlight', ?, ?)", (f"{annotation_id}_v1", annotation_id, text, T0))
+        connection.execute(
+            "INSERT INTO source_annotation_anchor_versions (id, annotation_id, version_ordinal, source_id, revision_id, "
+            "extraction_id, status, algo_version, created_at) VALUES (?, ?, 1, ?, ?, ?, 'exact', 'anchor-v1', ?)",
+            (f"{annotation_id}_a1", annotation_id, source_id, revision_id, extraction_id, T0))
+        connection.execute(
+            "INSERT INTO source_annotation_anchor_segments (id, anchor_version_id, segment_ordinal, span_id, "
+            "block_content_hash, codepoint_start, codepoint_end, exact_quote, selection_text_hash, created_at) "
+            "VALUES (?, ?, 0, ?, ?, 0, 4, 'The ', 'h', ?)",
+            (f"{annotation_id}_s0", f"{annotation_id}_a1", span_id, block_hash, T0))
+        connection.commit()
+
+
+def seed_union_kinds(connection: Any, *, extraction_id: str, span_id: str, section_id: str,
+                     learning_object_id: str) -> None:
+    """Everything else the union read gathers, on one passage: a passage link, a figure, an authored question,
+    the passage seen and shown, and its section's coverage."""
+
+    connection.execute(
+        "INSERT INTO passage_links (id, extraction_id, span_id, target_kind, target_id, relation, quote, pick_rank, "
+        "ledger_id, state_key, model, prompt_version, created_at) VALUES ('pl_1', ?, ?, 'misconception', 'm_1', "
+        "'clarifies_distinction', 'The passage.', 1, ?, 'k', 'm', 'p', ?)",
+        (extraction_id, span_id, _ledger(connection, "jl_link"), T0))
+    connection.execute(
+        "INSERT INTO interactive_figures (id, extraction_id, span_ids_json, origin, spec_version, verification, "
+        "prompt_version, input_hash, created_at) VALUES ('fig_1', ?, ?, 'show_me', 'v1', 'failed', 'p', 'h', ?)",
+        (extraction_id, json.dumps([span_id]), T0))
+    seed_authored_question(connection, question_id="raq_union", extraction_id=extraction_id, spans=[span_id])
+    connection.execute("INSERT INTO reader_seen_spans (extraction_id, span_id, section_id, first_seen_at, origin) "
+                       "VALUES (?, ?, ?, ?, 'desktop')", (extraction_id, span_id, section_id, T0))
+    for n in (1, 2):
+        connection.execute("INSERT INTO source_exposure_events (id, context, extraction_id, span_id, created_at) "
+                           "VALUES (?, 'reader', ?, ?, ?)", (f"see_{n}", extraction_id, span_id, f"2026-05-19T0{n}:00:00Z"))
+    connection.execute(
+        "INSERT INTO section_coverage (id, extraction_id, section_id, learning_object_id, treatment, origin, "
+        "section_hash, lo_hash, state_key, ledger_id, model, prompt_version, created_at) "
+        "VALUES ('cov_1', ?, ?, ?, 'introduces', 'provenance', 'h', 'h', 'k', ?, 'm', 'p', ?)",
+        (extraction_id, section_id, learning_object_id, _ledger(connection, "jl_cov"), T0))
