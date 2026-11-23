@@ -1,7 +1,7 @@
 """Synthetic-student simulation harness for the LearnLoop belief pipeline.
 
 Generates attempts from parameterized synthetic students *through the real
-pipeline* (``build_due_queue`` -> ``apply_attempt`` -> follow-up gate) so the
+pipeline* (``serve_due_queue`` -> ``apply_attempt`` -> follow-up gate) so the
 team can test identifiability of planted misconceptions, measure
 belief-vs-truth accuracy, and discover which config parameters actually change
 scheduling decisions before spending scarce real-learner data on them.

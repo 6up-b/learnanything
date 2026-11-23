@@ -23,7 +23,7 @@ from learnloop.diagnosis.followups import _choose_intervention_item
 from learnloop.scheduling.scheduler import (
     REPAIR_JOURNEY_TASK_KINDS,
     SchedulerSession,
-    build_due_queue,
+    serve_due_queue,
 )
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -202,7 +202,7 @@ def test_repair_journey_task_with_administered_diagnostic_still_serves(tmp_path)
         item_id=DIAG_ITEM,
     )
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault,
         repository,
         clock=CLOCK,
@@ -233,7 +233,7 @@ def test_stale_generic_task_with_administered_diagnostic_is_refused(tmp_path):
         item_id=DIAG_ITEM,
     )
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault,
         repository,
         clock=CLOCK,

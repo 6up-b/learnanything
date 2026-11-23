@@ -14,7 +14,7 @@ import yaml
 
 from learnloop.clock import FrozenClock
 from learnloop.diagnosis.probe_episodes import enter_episode
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -115,7 +115,7 @@ def build_rich_vault(root):
     # An hour ago the session's serving build committed the probe it put first (value stopping off for that
     # build alone: with it on, these probes' value does not pay for their minutes).
     vault.config.voi_stopping.enabled = False
-    build_due_queue(vault, repository, clock=FrozenClock(NOW - timedelta(hours=1)),
+    serve_due_queue(vault, repository, clock=FrozenClock(NOW - timedelta(hours=1)),
                     session=SchedulerSession(session_id=SESSION))
     assert repository.active_probe_presentation_for_session(SESSION) is not None
     # Added after that build, so no earlier build of the session has recorded the pair's serving.

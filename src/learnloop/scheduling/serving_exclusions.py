@@ -45,7 +45,7 @@ running diagnosis only delays the next routine queue build (the bounded wait
 in the sidecar's ``get_today_queue``), and a held one (split switched off)
 serves nothing.
 
-``build_due_queue``, the quick check and ``find_practice`` read these sets
+``serve_due_queue``, the quick check and ``find_practice`` read these sets
 from here, so a selector cannot forget one of them.
 
 :func:`routine_withhold_reason` is the scheduler's per-item routine gate
@@ -53,8 +53,8 @@ from here, so a selector cannot forget one of them.
 learner-set LO lifecycle), in its order. :func:`admission_reason` is the
 scheduler's WHOLE per-item admission: the routine gate, then the build's own
 gates (:class:`BuildGates`: the diagnostic freshness reserve, placement, the
-cold-start gate and the probe-episode gates), in ``build_due_queue``'s order
-and with its reason codes (:data:`ADMISSION_GATES`). ``build_due_queue`` asks
+cold-start gate and the probe-episode gates), in ``serve_due_queue``'s order
+and with its reason codes (:data:`ADMISSION_GATES`). ``serve_due_queue`` asks
 it for every item, and a daily-loop DL2 "Check once" asks it for every
 candidate before it prefers a cold one over practice, so an item the build
 would not serve never decides a check (DL2 Codex re-review F11, orchestrator
@@ -153,7 +153,7 @@ def routine_serving_exclusions(vault: Any, repository: Repository, *, now: datet
 def routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions) -> str | None:
     """Why routine serving never offers ``item`` now, or None.
 
-    The checks ``build_due_queue`` runs first for every item, in its order and
+    The checks ``serve_due_queue`` runs first for every item, in its order and
     with its reason codes (``withheld(reason, item_id)``): a retired item, an
     inactive state, an exam reservation, held-out material, a pending-variant
     hold, staged ownership, a dialogue-turn instance, an administered
@@ -246,7 +246,7 @@ BUILD_GATES: tuple[str, ...] = (
     DEVICE_INELIGIBLE,
 )
 #: Every reason :func:`admission_reason` can give: every per-item gate of
-#: ``build_due_queue`` (a test enumerates the build's ``withheld`` reasons
+#: ``serve_due_queue`` (a test enumerates the build's ``withheld`` reasons
 #: against it). Intent's own reasons (``intent_*``) are the check's, and
 #: ``zero_priority`` is ranking: a request (every check candidate is one)
 #: carries the requested floor, so it never meets it.
@@ -292,7 +292,7 @@ def admission_reason(
     """Why the build does not serve ``item`` now, or None: THE per-item
     admission predicate (orchestrator ruling R1).
 
-    In ``build_due_queue``'s order: the routine gate
+    In ``serve_due_queue``'s order: the routine gate
     (:func:`routine_withhold_reason`); ``intent_gate(item_id)`` when given
     (the build's intent gate, which is the check's own decision, so the check
     selection passes none); then the build's gates: the diagnostic freshness

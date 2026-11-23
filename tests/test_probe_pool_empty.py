@@ -26,7 +26,7 @@ from learnloop.diagnosis.diagnostic_surface_supply import (
 )
 from learnloop.ops.maintenance_feed import generate_maintenance_feed
 from learnloop.diagnosis.probe_episodes import enter_episode
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -320,7 +320,7 @@ def test_scheduler_build_raises_the_notice_without_a_provider(tmp_path):
     vault, repository = _vault(tmp_path)
     _burn_whole_pool(vault, repository)
 
-    build_due_queue(vault, repository, clock=CLOCK)
+    serve_due_queue(vault, repository, clock=CLOCK)
 
     notices = _pool_notices(repository)
     assert len(notices) == 1

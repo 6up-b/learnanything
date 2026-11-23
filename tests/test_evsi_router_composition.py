@@ -26,7 +26,7 @@ from learnloop.db.stores import voi_forecasts as store
 from learnloop.evsi_calibration import live_report as LR
 from learnloop.ids import new_ulid
 from learnloop.scheduling import scheduler as scheduler_module
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
@@ -211,7 +211,7 @@ def test_an_explored_probes_forecast_says_the_scheduler_drew_it(tmp_path, tickin
     )
     # The draw lands on the runner-up probe (R1's own F4 test setup).
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
-    queue = build_due_queue(vault, repository, session=SchedulerSession(session_id=session_id))
+    queue = serve_due_queue(vault, repository, session=SchedulerSession(session_id=session_id))
     assert queue[0].components.get("exploration_selected") == 1.0
     presentation = repository.active_probe_presentation_for_session(session_id)
     marker = presentation.selection_components["scheduler_exploration"]
@@ -228,7 +228,7 @@ def test_a_probe_the_eig_chose_records_no_draw(tmp_path, ticking_clock, monkeypa
         energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None
     )
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (1.0, 0.0))
-    build_due_queue(vault, repository, session=SchedulerSession(session_id=session_id))
+    serve_due_queue(vault, repository, session=SchedulerSession(session_id=session_id))
     presentation = repository.active_probe_presentation_for_session(session_id)
     assert "scheduler_exploration" not in presentation.selection_components
 

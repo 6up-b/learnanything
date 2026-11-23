@@ -196,7 +196,7 @@ def test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practi
     either way, accepted, and no cold check follows thirty seconds later.
     Fail-first: the branch refused the 10:00 submit as a primed cold retry."""
 
-    from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_decision
+    from learnloop.scheduling.scheduler import serve_due_queue, cold_check_serve_decision
 
     for submit_offset in (timedelta(0), timedelta(seconds=-30)):
         root = tmp_path / f"run{abs(int(submit_offset.total_seconds()))}"
@@ -208,7 +208,7 @@ def test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practi
             clock=FrozenClock(now - timedelta(hours=2)),
         )
         monday = now + timedelta(days=1, hours=1)
-        build_due_queue(vault, repository, clock=FrozenClock(monday))
+        serve_due_queue(vault, repository, clock=FrozenClock(monday))
         assert repository.followup_task(task["id"])["status"] == "expired"
 
         tuesday = monday + timedelta(days=1)
@@ -218,7 +218,7 @@ def test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practi
         answered = _self_grade(vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="x"),
                                tuesday + submit_offset)
         assert repository.consumed_followup_task_for_attempt(answered.attempt_id) is None
-        soon = build_due_queue(vault, repository, clock=FrozenClock(tuesday + timedelta(seconds=30)))
+        soon = serve_due_queue(vault, repository, clock=FrozenClock(tuesday + timedelta(seconds=30)))
         assert cold_item not in [item.practice_item_id for item in soon if item.followup_kind == "cold_retry"]
 
 
@@ -229,7 +229,7 @@ def test_f3_a_cold_check_is_never_served_on_an_item_practised_since_it_was_set(t
     attempt as a hard exposure and the retrieval delay fails, so the check is
     withdrawn when it falls due instead of being served."""
 
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
 
     vault, repository, cold_item, task, now = _f3_setup(tmp_path)
     due = now + timedelta(days=1)
@@ -237,7 +237,7 @@ def test_f3_a_cold_check_is_never_served_on_an_item_practised_since_it_was_set(t
                 due - timedelta(seconds=30))
     assert repository.followup_task(task["id"])["status"] in {"pending", "served"}
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(due + timedelta(seconds=30)))
+    queue = serve_due_queue(vault, repository, clock=FrozenClock(due + timedelta(seconds=30)))
 
     assert cold_item not in [item.practice_item_id for item in queue if item.followup_kind == "cold_retry"]
     assert repository.followup_task(task["id"])["status"] == "expired"
@@ -250,12 +250,12 @@ def test_f3_a_cold_check_served_unpractised_is_still_served(tmp_path):
     """Control: no reveal, no practice since the check was set: the cold lane
     serves the cold retry when it falls due, and its answer consumes it."""
 
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
 
     vault, repository, cold_item, task, now = _f3_setup(tmp_path)
     due = now + timedelta(days=1, minutes=5)
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(due))
+    queue = serve_due_queue(vault, repository, clock=FrozenClock(due))
 
     assert cold_item in [item.practice_item_id for item in queue if item.followup_kind == "cold_retry"]
     answered = _self_grade(vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="x"), due)

@@ -15,7 +15,7 @@ from types import SimpleNamespace
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import staged_policy as sp
 from learnloop.scheduling.controller_snapshot import Candidate
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, read_due_queue
 
 from tests.due_queue_helpers import CLOCK, SESSION, build_rich_vault
 
@@ -54,7 +54,7 @@ def test_the_serving_build_still_invalidates_a_presentation_with_no_place(tmp_pa
     vault, repository = build_rich_vault(tmp_path / "vault")
     _withdraw_the_assigned_probe(repository)
 
-    build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION))
+    serve_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION))
 
     assert repository.active_probe_presentation_for_session(SESSION) is None
     assert len(repository.contrast_pair_serving_rows()) == 2

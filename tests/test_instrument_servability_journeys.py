@@ -55,7 +55,7 @@ from learnloop.diagnosis.remediation import (
     start_remediation_episode,
     start_remediation_treatment,
 )
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -237,7 +237,7 @@ def _authored(vault) -> None:
 def test_the_due_queue_offers_both_instruments(tmp_path):
     """Through the sidecar, not just the scheduler: the DTO layer is the surface.
 
-    `build_due_queue` is where the filter used to live, but the learner meets the
+    `serve_due_queue` is where the filter used to live, but the learner meets the
     queue through `get_today_queue`, which reloads the vault, re-syncs state and
     serializes each pick — and serialization is where the surviving blank-content
     refusal lives. Asserting on the RPC result is what makes this a journey and
@@ -530,7 +530,7 @@ def test_a_delayed_followup_can_serve_an_instrument(tmp_path, item_id: str):
         for row in repository.pending_followup_practice_items(clock=CLOCK)
     }, "the follow-up lane must really be offering this item, or presence proves nothing"
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault, repository, session=SchedulerSession(session_id="sess_followup"), clock=CLOCK
     )
 

@@ -2,7 +2,7 @@
 
 Each test reproduces one finding against the fixed engine. Fakes only: the
 plan reads the scheduler's ranked list through ``PlanEnv.eligible`` (or the
-real ``build_due_queue`` where the finding is about real scheduler
+real ``serve_due_queue`` where the finding is about real scheduler
 components), and no model or embedding client is ever constructed.
 """
 
@@ -12,7 +12,7 @@ from datetime import timedelta
 
 from learnloop.daily_plan.engine import PlanEnv, get_or_create_today
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
@@ -91,7 +91,7 @@ def _failed_and_unseen(tmp_path, *, error_days_ago: float, plan_toml: str | None
 
 
 def _real_components(env):
-    queue = build_due_queue(env.vault, env.repository, clock=env.clock, limit=None)
+    queue = serve_due_queue(env.vault, env.repository, clock=env.clock, limit=None)
     return {item.practice_item_id: item.components for item in queue}
 
 

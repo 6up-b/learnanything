@@ -1,7 +1,7 @@
 """Simulation runner: drive a synthetic student through the real pipeline.
 
 For each simulated day the runner advances a :class:`FrozenClock`, builds the
-*real* due queue (``build_due_queue``), takes the top ``items_per_day``
+*real* due queue (``serve_due_queue``), takes the top ``items_per_day``
 candidates (cold-starting with never-attempted items when the queue is short,
 the way a learner introduces new material), generates an outcome from the
 synthetic student, and applies it through ``apply_attempt`` with a synthesized

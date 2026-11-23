@@ -16,7 +16,7 @@ rows behaves exactly as pre-cutover -- the legacy scheduler owns all work).
 
 Two consumers read this head:
 - the **legacy scheduler** excludes staged-owned commitments' practice items from its
-  queues (:func:`staged_owned_practice_item_ids`, wired into ``scheduler.build_due_queue``);
+  queues (:func:`staged_owned_practice_item_ids`, wired into ``scheduler.serve_due_queue``);
 - the **staged policy** refuses items it does not own (``staged_policy.decide`` live mode).
 
 Rollback (design §A.5 / §C step-3 gate f) is a SINGLE registered switch

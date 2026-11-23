@@ -140,7 +140,7 @@ def test_r1_every_gate_of_the_build_is_the_admission_predicates():
     plus ``zero_priority`` (ranking: a request, which every check candidate
     is, carries the requested floor, so it never meets it)."""
 
-    # The candidate loop, which the ranking's second stage runs for both entry points (``build_due_queue`` serves,
+    # The candidate loop, which the ranking's second stage runs for both entry points (``serve_due_queue`` serves,
     # ``read_due_queue`` reads).
     literals, computed = _withheld_reasons(scheduler._score_candidates)
     assert literals == {"zero_priority"}

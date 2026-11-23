@@ -7,7 +7,7 @@ import pytest
 
 from learnloop.scheduling import scheduler
 from learnloop.scheduling.device_eligibility import PHONE, DeviceFilter
-from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, read_due_queue, build_due_queue
+from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, read_due_queue, serve_due_queue
 
 from tests.due_queue_helpers import (
     CLOCK,
@@ -52,7 +52,7 @@ def test_the_ranking_reads_nothing(tmp_path, monkeypatch, vault_builder, serving
         return ranked
 
     monkeypatch.setattr(scheduler, "rank_due", guarded)
-    build = build_due_queue if serving else read_due_queue
+    build = serve_due_queue if serving else read_due_queue
     device = DeviceFilter(vault, PHONE, left_for_desktop=frozenset({LEFT_FOR_DESKTOP})) if phone else None
     queue = build(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION),
                   offer_trace=OfferTrace(), device_filter=device)

@@ -66,7 +66,7 @@ def test_noop_when_cap_zero_or_nothing_requested():
     assert _apply_requested_floor(queue, ["z"], cap=1) == queue  # none eligible
 
 
-# ── end-to-end wiring through build_due_queue ────────────────────────────────
+# ── end-to-end wiring through serve_due_queue ────────────────────────────────
 
 
 def _write_item(paths, item_id: str, *, prompt: str):

@@ -140,7 +140,7 @@ class ExplorationOutcome:
 class OfferTrace:
     """What one queue build decided, for router decision logging (router R1).
 
-    Filled only when a caller passes it to :func:`build_due_queue`; the build
+    Filled only when a caller passes it to :func:`serve_due_queue`; the build
     itself is unchanged. ``exclusions`` maps a reason code to the item ids the
     candidate loop withheld for it. ``outcomes`` enumerates the exploration's
     whole support, each recomposed through the same steps as the live build,
@@ -184,7 +184,7 @@ class OfferTrace:
 
 
 @pinned_repository_call
-def build_due_queue(
+def serve_due_queue(
     vault: LoadedVault,
     repository: Repository,
     *,
@@ -221,7 +221,7 @@ def read_due_queue(
     offer_trace: OfferTrace | None = None,
     device_filter: DeviceFilter | None = None,
 ) -> list[ScheduledItem]:
-    """The queue :func:`build_due_queue` would serve now, for a caller that
+    """The queue :func:`serve_due_queue` would serve now, for a caller that
     only looks at it (a chart, a shadow comparison, the simulator, the plan's
     prefetch on a read-only attach). The build writes nothing of its own; the
     follow-up tasks' lazy status marks (``Repository.due_followup_tasks``)
@@ -1881,7 +1881,7 @@ def _order_new_material(
     return result
 
 
-#: Policy name recorded on every persisted slate built by ``build_due_queue``.
+#: Policy name recorded on every persisted slate built by ``serve_due_queue``.
 SELECTION_POLICY = "composed_offer_v2"
 
 #: ``propensity_kind`` of every candidate on a composed-offer slate. The offer
@@ -2162,7 +2162,7 @@ def _defer_revealed_cold_followups(
       set): the task is withdrawn with its typed disposition and the item stays
       in the queue as ordinary practice, labelled (Codex review F2, F3).
 
-    The writes are persisted only on a serving build (:func:`build_due_queue`);
+    The writes are persisted only on a serving build (:func:`serve_due_queue`);
     a read build (:func:`read_due_queue`) still withholds the
     task and recomputes the same decision next time. ``expires_at`` is never
     extended. Non-cold lanes are untouched.
@@ -2572,7 +2572,7 @@ def _insert_pending_followups(
         practice_item_id = pending["practice_item_id"]
         if practice_item_id in inserted_ids:
             continue
-        # Meas §3.A2/§3.A3, second door. `build_due_queue`'s loop refuses an item
+        # Meas §3.A2/§3.A3, second door. `serve_due_queue`'s loop refuses an item
         # whose stimulus the practice surface cannot render, and this function
         # then RESURRECTS it: a follow-up task naming that id rebuilds a
         # `ScheduledItem` from the vault and pushes it above every ordinary pick.
@@ -2714,7 +2714,7 @@ def _apply_contrast_pair_order(
       every other item keeps its position and the selection reward's ordering
       survives. A control that reshuffled the queue would confound the nuisance
       parameter it exists to remove.
-    * **Deterministic per session.** ``build_due_queue`` is called repeatedly for
+    * **Deterministic per session.** ``serve_due_queue`` is called repeatedly for
       one session and must produce the same slate; the draw is seeded on
       ``(session_id, pair_key)``, so it varies across sessions — where the
       balance accumulates — and never within one. A staged plan's pool
@@ -3146,7 +3146,7 @@ def _intent_for_item(item: PracticeItem, *, in_probe: bool, components: dict[str
     if item.practice_mode == "teach_back":
         return SchedulerIntent.PROBE
     if item.practice_mode == "diagnostic_probe":
-        # Effectively dead in `build_due_queue` since the freshness reserve:
+        # Effectively dead in `serve_due_queue` since the freshness reserve:
         # diagnostic surfaces only reach intent scoring with probe_eig > 0
         # (caught by the PROBE branch above). Kept for defense in depth — a
         # diagnostic surface must never be scored as ordinary practice/repair
@@ -3815,7 +3815,7 @@ class _BuildAdmission:
     over the reads behind them (``reads``: :class:`AdmissionReads`, gathered
     before the build decides), each item's score computed once per build.
 
-    ``build_due_queue`` asks them through ``serving_exclusions.admission_reason``
+    ``serve_due_queue`` asks them through ``serving_exclusions.admission_reason``
     for every item, and binds :meth:`admits_check_candidate` (the same
     predicate, for a request) to its DL2 intent view, so a "Check once"
     prefers a cold candidate over practice only among candidates this build
@@ -4180,7 +4180,7 @@ def pool_admission(
     """THE plan pool's per-item predicate asked of one item outside a queue
     build: ``refusal(item_id) -> reason | None``.
 
-    It is ``build_due_queue``'s own loop question (``admission_reason``,
+    It is ``serve_due_queue``'s own loop question (``admission_reason``,
     orchestrator ruling R1) over the same reads: the routine gate, DL2's
     intent gate (intent's view built as the build builds it, its checks split
     by this admission), and the build's gates (freshness reserve, placement,

@@ -259,7 +259,7 @@ def build_today_offer_decision(
     """
 
     if not trace.outcomes:
-        raise ValueError("the offer trace has no exploration outcomes; was it passed to build_due_queue?")
+        raise ValueError("the offer trace has no exploration outcomes; was it passed to serve_due_queue?")
     distribution = head_distribution(trace.outcomes, head_of)
     realized_head = head_of(trace.outcomes[trace.realized].composed)
     if realized_head != served_head:

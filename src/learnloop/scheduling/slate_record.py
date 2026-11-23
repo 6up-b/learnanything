@@ -10,7 +10,7 @@ with a few ids each, so ``learnloop why`` can say why an item never reached the
 slate (the question of daily-loop bug 2).
 
 :func:`slate_record` is pure: it returns the record and never writes.
-:func:`record_slate` is the shell ``build_due_queue`` calls; it never raises, so
+:func:`record_slate` is the shell ``serve_due_queue`` calls; it never raises, so
 a record that cannot be built or written never changes what the build serves.
 """
 
