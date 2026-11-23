@@ -10689,7 +10689,7 @@ export type DeskOpDto = DeskOpBase & (
 
 /** One op's result: applied, not applied for a stale head (with the current head), or refused. */
 export type WriteOpResultDto =
-  | { status: "ok"; headVersionId?: string; eventId?: string }
+  | { status: "ok"; headVersionId?: string; eventId?: string; eraseId?: string }
   | { status: "conflict"; current: Record<string, unknown> }
   | { status: "refused"; code: string; message: string };
 
@@ -10776,7 +10776,9 @@ export type PadOpDto =
   | { op: "link_anchor"; blockId: string; extractionId: string; spanId: string; anchor?: Record<string, unknown>;
       annotationId?: string | null; eventId?: string; expectedAnchorHead: string | null }
   | { op: "unlink_anchor"; blockId: string; extractionId: string; spanId: string; eventId?: string;
-      expectedAnchorHead: string | null };
+      expectedAnchorHead: string | null }
+  // The pen's barrel button: a tombstone over standing strokes of one ink block of this pad (RD8a).
+  | { op: "erase_ink"; blockId: string; strokeIds: string[]; eraseId?: string };
 
 export interface PadApplyInput { clientId: string; seq: number; padId: string; ops: PadOpDto[] }
 export interface PadApplyDto {
@@ -11096,4 +11098,96 @@ export interface SearchJobDto {
   /** The groups found by meaning (results the words found are left out); empty unless done. */
   groups: SearchGroupDto[];
   error: PolledJobErrorDto | null;
+}
+
+// Reader workbench v2 RD8a (spec §3.4, §10.10): the learner's ink and LearnLoop's reading of it. Desktop only.
+
+/** One stroke: client-minted id; points `[x, y, t, pressure, tiltX, tiltY]` in CSS pixels of the surface drawn on,
+ * milliseconds, pressure 0..1 and tilt -90..90 degrees (the Pointer Events ranges). Stored losslessly. */
+export interface InkStrokeDto {
+  strokeId: string;
+  points: Array<[number, number, number, number, number, number]>;
+}
+
+/** Ink belongs to one ink block of a pad, or to one source annotation (a handwritten margin note). */
+export type InkOwnerDto = { blockId: string; annotationId?: never } | { annotationId: string; blockId?: never };
+
+export interface InkSaveInput {
+  clientId: string;
+  /** The client's one batch sequence, shared with deskApply and padApply (one outbox, spec §3.5). */
+  seq: number;
+  owner: InkOwnerDto;
+  /** Client-minted: a retried save of the same strokes is a no-op (`duplicate`). */
+  inkId: string;
+  strokes: InkStrokeDto[];
+  /** Touch never draws. The device pixel ratio is the resolution the reading's image is rendered at (default 1). */
+  pointerMeta: { pointerType: "pen" | "mouse"; devicePixelRatio?: number };
+}
+
+export interface InkSaveDto {
+  version: number;
+  appliedSeq: number;
+  inkId: string;
+  /** One result: ok (`duplicate` true for a resent ink id) or refused with a code (`block_not_found`,
+   * `not_an_ink_block`, `block_removed`, `pad_archived`, `annotation_not_found`, `ink_id_reused`, `stroke_exists`). */
+  results: Array<WriteOpResultDto & { duplicate?: boolean }>;
+}
+
+export type InkConfidenceLabel = "may_be_wrong" | "nothing_read";
+
+export interface InkOwnerViewDto {
+  ownerKind: "block" | "annotation";
+  ownerId: string;
+  /** The standing strokes' hash: a reading names the strokes it read by it. */
+  contentHash: string;
+  devicePixelRatio: number;
+  /** The strokes as they stand (erased ones left out), in drawing order, each with the save that holds it. */
+  strokes: Array<InkStrokeDto & { inkId: string }>;
+  /** The owner's latest reading; `current` when it read exactly these strokes. */
+  transcription: {
+    transcriptionId: string;
+    latexMd: string;
+    confidenceLabel: InkConfidenceLabel;
+    contentHash: string;
+    current: boolean;
+    createdAt: string;
+  } | null;
+}
+
+export interface InkListDto {
+  version: number;
+  padId: string | null;
+  sourceId: string | null;
+  owners: InkOwnerViewDto[];
+}
+
+export interface InkReadingDto {
+  transcriptionId: string;
+  ownerKind: "block" | "annotation";
+  ownerId: string;
+  contentHash: string;
+  /** Markdown with LaTeX, as read; label it "transcription may be wrong · fix it". */
+  latexMd: string;
+  confidenceLabel: InkConfidenceLabel;
+  model: string | null;
+  createdAt: string;
+  /** True when the block's head is this reading (provenance ink_transcription). A margin note's reading is never
+   * written into the note: the client writes it through the annotation's edit. */
+  applied: boolean;
+  /** Why it was not applied: `kept_your_correction` (the learner's words stand) or `block_removed`. */
+  reason: string | null;
+  /** The block's head after the reading (the client's next edit names it). */
+  headVersionId: string | null;
+}
+
+export interface InkTranscribeJobDto {
+  version: number;
+  /** null when the strokes were already read (answered at once, nothing sent). */
+  jobId: string | null;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  result: InkReadingDto | null;
+  /** e.g. `cannot_read_images`, `models_off`, `unrouted`, `unpriced`, `capped`, `unavailable`,
+   * `provider_unavailable`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
+  error: { code: string; message: string; retryable: boolean; details: Record<string, unknown> | null } | null;
 }

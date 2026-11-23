@@ -1387,6 +1387,13 @@ sidecar_passthrough!(pad_drain, "pad.drain");
 sidecar_passthrough!(carried_carry, "carried.carry");
 sidecar_passthrough!(carried_list, "carried.list");
 sidecar_passthrough!(carried_mark, "carried.mark");
+// Reader workbench v2 RD8a: the learner's ink and reading it as a polled job (desktop only; no component calls
+// them yet).
+sidecar_passthrough!(ink_save, "ink.save");
+sidecar_passthrough!(ink_list, "ink.list");
+sidecar_passthrough!(ink_transcribe, "ink.transcribe");
+sidecar_passthrough!(ink_transcribe_job, "ink.transcribe_job");
+sidecar_passthrough!(ink_transcribe_cancel, "ink.transcribe_cancel");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");

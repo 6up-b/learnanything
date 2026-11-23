@@ -71,6 +71,16 @@ describe("applying ops", () => {
     expect(() => applyPadOp(pads(), "p1", { op: "unlink_anchor", blockId: "b2", extractionId: "e", spanId: "s", expectedAnchorHead: null }, NOW)).toThrow(PadOpRefusal);
   });
 
+  it("an erase names an ink block of the pad and moves only the pad's change time", () => {
+    const later = "2026-11-23T11:00:00Z";
+    const withInk = applyPadOp(pads(), "p1", { op: "insert_block", blockId: "k1", kind: "ink", provenance: "ink_transcription", positionKey: "z" }, NOW);
+    const erased = applyPadOp(withInk, "p1", { op: "erase_ink", blockId: "k1", strokeIds: ["s1"] }, later);
+    expect(erased.p1.pad).toMatchObject({ updatedAt: later, version: 3 });
+    expect(erased.p1.blocks).toEqual(withInk.p1.blocks);
+    expect(() => applyPadOp(pads(), "p1", { op: "erase_ink", blockId: "b1", strokeIds: ["s1"] }, NOW)).toThrow(PadOpRefusal);
+    expect(() => applyPadOp(pads(), "p1", { op: "erase_ink", blockId: "nope", strokeIds: ["s1"] }, NOW)).toThrow(PadOpRefusal);
+  });
+
   it("set_title and keep expect the pad's version and bump it; block ops do not", () => {
     const kept = applyPadOp(pads(), "p1", { op: "keep", expectedVersion: 3 }, NOW);
     expect(kept.p1.pad).toMatchObject({ kept: true, version: 4 });

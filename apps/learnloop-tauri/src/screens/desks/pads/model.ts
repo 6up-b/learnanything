@@ -176,6 +176,13 @@ export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string)
       const anchor: PadAnchorDto = { eventId: op.eventId ?? `${op.blockId}:${op.spanId}:${now}`, blockId: op.blockId, extractionId: op.extractionId, spanId: op.spanId, anchor: op.anchor ?? {}, annotationId: op.annotationId ?? null, createdAt: now };
       return replace(pads, padId, { ...state, anchors: [...others, anchor] });
     }
+    case "erase_ink": {
+      // The strokes live outside the pad model (inkList); here only the pad's change time moves, as on the server.
+      const block = state.blocks.find((each) => each.blockId === op.blockId);
+      if (!block) throw new PadOpRefusal("block_not_found", "That block is not in this pad.");
+      if (block.kind !== "ink") throw new PadOpRefusal("not_an_ink_block", "Ink goes in an ink block.");
+      return replace(pads, padId, { ...state, pad: { ...state.pad, updatedAt: now } });
+    }
   }
 }
 
