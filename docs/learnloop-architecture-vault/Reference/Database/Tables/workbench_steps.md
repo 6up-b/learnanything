@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/field/workbench_signals.py"
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/source_retrieval/reader_tutor.py"
+  - "src/learnloop/substrate/passage_spans.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -94,6 +95,7 @@ None found by exact static reference scan.
 - `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
+- `src/learnloop/substrate/passage_spans.py`
 
 ### Direct SQL writers
 
@@ -108,6 +110,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/desk_helpers.py`
 - `tests/reader_tutor_retrieval_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_field_workbench_signals.py`

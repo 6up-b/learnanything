@@ -1,0 +1,140 @@
+---
+title: "learner_text_gap_spans"
+status: "current"
+doc_version: "1.0"
+architecture_version: "post-refactor"
+last_verified: "2026-09-23"
+aliases:
+  - "state.sqlite learner_text_gap_spans"
+  - "table learner_text_gap_spans"
+table_name: "learner_text_gap_spans"
+table_role: "derived"
+functionality_status: "active"
+domain_family: "learner-state"
+introduced_in: "262_reader_workbench_foundations.sql"
+generated: true
+source_paths:
+  - "src/learnloop/db/table_roles.py"
+  - "migrations/262_reader_workbench_foundations.sql"
+  - "src/learnloop/db/stores/span_projections.py"
+  - "src/learnloop/passage_union/union.py"
+  - "src/learnloop/substrate/passage_spans.py"
+  - "src/learnloop/substrate/rebuild_orchestrator.py"
+tags:
+  - "learnloop/database/table"
+  - "learnloop/database/role/derived"
+  - "learnloop/status/active"
+  - "learnloop/domain/learner-state"
+---
+
+# `learner_text_gap_spans`
+
+> [!info] Active
+> The table participates in a current persistence, audit, projection, or workflow contract.
+
+## Why it exists
+
+Gives learner text gap span a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `gap_id`, `extraction_id`, `span_id`, making the operational relationship explicit. ^table-purpose
+
+> [!quote] Migration design note
+> DERIVED: the passages a read learner text (a learner_text_gaps row) is tied to, by its source's recipe.
+
+It belongs to the **learner state** navigation family. The family context lives in [[Database Catalog#Learner State]]. Its persistence behavior follows [[Table Roles#Derived]].
+
+## Persistence and lifecycle contract
+
+- **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
+- **Functionality status:** `active`.
+- **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Rebuild owner:** `learner_text_gap_spans`
+
+For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
+
+## Columns
+
+| Column | SQLite type | Required | Default | Key | Operational reading |
+|---|---|---:|---|---|---|
+| `gap_id` | `TEXT` | yes | — | — | Application-validated soft reference |
+| `extraction_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `span_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `role` | `TEXT` | yes | — | — | Stored value |
+| `quality` | `TEXT` | yes | — | — | Stored value |
+| `learning_object_id` | `TEXT` | no | — | — | Application-validated soft reference |
+
+## Relationships and access paths
+
+No SQLite foreign key is declared. Identifier-looking columns are application-validated soft references where applicable; this is common for YAML-owned entities and cross-generation compatibility seams.
+
+Indexes and uniqueness:
+
+- `idx_learner_text_gap_spans_span` on `extraction_id`, `span_id`.
+- `idx_learner_text_gap_spans_row` on `gap_id`, `role` (unique).
+
+## Who calls it
+
+### Repository access surface
+
+None found by exact static reference scan.
+
+### Direct SQL readers
+
+None found by exact static reference scan.
+
+### Direct SQL writers
+
+None found by exact static reference scan.
+
+### Upstream callers of the repository access surface
+
+None found by exact static reference scan.
+
+> [!note] Static-reference boundary
+> These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
+
+## Tests that define behavior
+
+- `tests/reader_rd0_migration_helpers.py`
+- `tests/test_hint_feedback_texts.py`
+- `tests/test_notes_as_learner_text.py`
+- `tests/test_reader_formative_texts.py`
+- `tests/test_reader_rd0_migration.py`
+- `tests/test_reader_rd0_spans.py`
+- `tests/test_rebuild_orchestrator.py`
+- `tests/test_workbench_text_gaps.py`
+
+Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
+
+## Extension and modification guidance
+
+1. Put schema evolution in a new numbered file under `migrations/`; never edit the meaning of an already-applied migration for existing vaults.
+2. Update `src/learnloop/db/table_roles.py` in the same change. A new table without a role fails the migration-head registry test.
+3. Keep SQL access at the repository/store boundary; put policy in the domain callers listed above.
+4. Preserve append-only triggers and historical rows. Do not infer that an empty fixture table is safe to drop.
+5. Update the single owner in `DERIVED_STATE_REPLAYERS`, then prove same-version rebuild equivalence and shadow isolation.
+
+## Live schema DDL
+
+> [!tip] Why keep the DDL here?
+> It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
+
+```sql
+CREATE TABLE learner_text_gap_spans (
+  gap_id TEXT NOT NULL,
+  extraction_id TEXT,
+  span_id TEXT,
+  role TEXT NOT NULL CHECK (role IN ('selection', 'cited', 'context')),
+  quality TEXT NOT NULL CHECK (quality IN ('exact_selection', 'citation', 'source_context', 'unanchored')),
+  learning_object_id TEXT,
+  CHECK ((quality = 'unanchored') = (span_id IS NULL)),
+  CHECK ((extraction_id IS NULL) = (span_id IS NULL))
+);
+```
+
+## Related notes
+
+- [[Database Catalog#Learner State|Sibling tables in this family]]
+- [[Table Roles#Derived|derived policy]]
+- [[Rebuild Ownership]]
+- [[State and Persistence]]
+- [[Vault Lifecycle]]

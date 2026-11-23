@@ -47,38 +47,38 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py) |
-| Source lines | 1203 |
+| Source lines | 1205 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ReadingDeferred(Exception)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 132) — The reading cannot be finished now: no ledger row is written.
-  - `__init__(self, reason: str, *, spend: bool=False) -> None` (line 142; internal)
-- `class NoteReadingStopped(BaseException)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 148) — A note's reading may go no further (curriculum C5, Codex review F3): the learner switched the opt-in, the notes or gap reading off, its link was hidden or superseded, what it is linked to (or a passage its prepared request was built from) became protected material, the note was…
-- `class NoteGate` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 162) — The request gate of one note's reading (curriculum C5, Codex review F3).
-  - `__init__(self, root: Path, repository: Repository, text: LearnerText) -> None` (line 181; internal)
-  - `_refusal(self) -> str | None` (line 199; internal)
-  - `check(self, purpose: str='request') -> None` (line 211; public) — Raise :class:`NoteReadingStopped` when the reading may send or write nothing more.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 220; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 231; public)
-- `class PipelineClients` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 237) — Client factories, resolved only when a step needs one (None: unavailable).
-  - `get(self, name: str) -> Any | None` (line 249; public)
-- `default_clients(vault: LoadedVault) -> PipelineClients` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 269)
-- `authoritative(chooser: str, reading: GapReading | None, decider: DeciderKind) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 287) — The kind the chooser switch makes authoritative (``unread`` without one).
-- `process_learner_text(root: Path, repository: Repository, text: LearnerText, *, clients: PipelineClients | None=None, budget: TextBudget | None=None, clock: Clock | None=None, progress: Mapping[str, Any] | None=None, save_progress: Callable[[Mapping[str, Any]], None] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 889) — Read, match, act and log one learner text; returns its ledger row.
-- `stored_words(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1114) — The words a ``learner_text_gaps`` row keeps: the learner's text, bounded (a linked note's too, C2b: note text is learner text).
-- `failed_row(text: LearnerText, *, vault: LoadedVault, error: str, now_iso: str, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1121) — The ledger row for a learner text whose job gave up (no target).
-- `named_gaps_for_card(connection: Any, *, learning_object_ids: Sequence[str] | None=None, before: str | None=None, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1162) — Each named gap as a typed event (router spec §4), oldest first.
+- `class ReadingDeferred(Exception)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 133) — The reading cannot be finished now: no ledger row is written.
+  - `__init__(self, reason: str, *, spend: bool=False) -> None` (line 143; internal)
+- `class NoteReadingStopped(BaseException)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 149) — A note's reading may go no further (curriculum C5, Codex review F3): the learner switched the opt-in, the notes or gap reading off, its link was hidden or superseded, what it is linked to (or a passage its prepared request was built from) became protected material, the note was…
+- `class NoteGate` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 163) — The request gate of one note's reading (curriculum C5, Codex review F3).
+  - `__init__(self, root: Path, repository: Repository, text: LearnerText) -> None` (line 182; internal)
+  - `_refusal(self) -> str | None` (line 200; internal)
+  - `check(self, purpose: str='request') -> None` (line 212; public) — Raise :class:`NoteReadingStopped` when the reading may send or write nothing more.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 221; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 232; public)
+- `class PipelineClients` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 238) — Client factories, resolved only when a step needs one (None: unavailable).
+  - `get(self, name: str) -> Any | None` (line 250; public)
+- `default_clients(vault: LoadedVault) -> PipelineClients` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 270)
+- `authoritative(chooser: str, reading: GapReading | None, decider: DeciderKind) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 288) — The kind the chooser switch makes authoritative (``unread`` without one).
+- `process_learner_text(root: Path, repository: Repository, text: LearnerText, *, clients: PipelineClients | None=None, budget: TextBudget | None=None, clock: Clock | None=None, progress: Mapping[str, Any] | None=None, save_progress: Callable[[Mapping[str, Any]], None] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 890) — Read, match, act and log one learner text; returns its ledger row.
+- `stored_words(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1116) — The words a ``learner_text_gaps`` row keeps: the learner's text, bounded (a linked note's too, C2b: note text is learner text).
+- `failed_row(text: LearnerText, *, vault: LoadedVault, error: str, now_iso: str, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1123) — The ledger row for a learner text whose job gave up (no target).
+- `named_gaps_for_card(connection: Any, *, learning_object_ids: Sequence[str] | None=None, before: str | None=None, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1164) — Each named gap as a typed event (router spec §4), oldest first.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 117)
-- `SEED_INPUT_TOKENS` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 123)
-- `TUTOR_ROUTE` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 125)
-- `SETTLED` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 127)
-- `_STOPS` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 129)
+- `LOG` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 118)
+- `SEED_INPUT_TOKENS` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 124)
+- `TUTOR_ROUTE` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 126)
+- `SETTLED` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 128)
+- `_STOPS` ([src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 130)
 
 ### Explicit exports
 
@@ -97,28 +97,28 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_ready(vault: LoadedVault, task: str, *, timeout: int | None=None) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 262)
-- `_verdicts(results: Sequence[JudgedPair]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 297) — Settled verdicts only: a ``fenced`` pair's verdict was never appended.
-- `_unsettled(results: Sequence[JudgedPair]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 306)
-- `_stopped(results: Sequence[JudgedPair]) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 313)
-- `_judge_all(repository: Repository, kind: Any, pairs: list, *, budget: TextBudget, clients: PipelineClients, decider_on: bool, vault: LoadedVault | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 317) — Both judges on the same pairs; each verdict lands in ``judgment_ledger``.
-- `_tier1(vault: LoadedVault, switch: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 354) — Tier 1 for a learner-text gap judgment: its ``[decider_routes]`` switch at mvp-0.22.
-- `_pair_authority(vault: LoadedVault, chooser: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 365) — The authoritative pair judge before Tier 1: the chooser's (``llm`` for ``context_model``).
-- `_require_settled(judged: Mapping[str, Any], authority: str) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 378) — Every candidate pair has a verdict from the authoritative judge (F1).
-- `_with_standing(repository: Repository, kind: Any, results: Sequence[JudgedPair], *, judge: str, producer: str) -> list[JudgedPair]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 387) — ``already_judged`` pairs take the producer's standing verdict from the ledger.
-- `_embed_query(repository: Repository, budget: TextBudget, clients: PipelineClients, vault: LoadedVault, subject: Any, field_name: str, detail: dict[str, Any]) -> tuple[Any, str | None]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 411)
-- `_prerequisite(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading, *, chooser: str, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, progress: Mapping[str, Any], checkpoint: Checkpoint) -> actions.ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 438)
-- `_maybe_edge(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, chooser: str, budget: TextBudget, clients: PipelineClients, clock: Clock | None, checkpoint: Checkpoint) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 515)
-- `_write_edge(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, edge: Mapping[str, Any], clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 568) — Write the recorded edge (idempotent: an edge already on disk is ``added``).
-- `_resume(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, *, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, progress: Mapping[str, Any], checkpoint: Checkpoint) -> actions.ActionOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 589) — Finish the vault write an earlier attempt of this job recorded (F3, re-review F1); None when it recorded none.
-- `_create(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading | None, *, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, detail: dict[str, Any], progress: Mapping[str, Any], checkpoint: Checkpoint) -> actions.ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 625)
-- `_seed_route(budget: TextBudget) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 720) — The route the seed's promotion unit is admitted on (Codex review F12).
-- `_seed(root: Path, text: LearnerText, learning_object_id: str, *, budget: TextBudget, clients: PipelineClients, clock: Clock | None) -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 740)
-- `_belief(vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading, *, budget: TextBudget, clients: PipelineClients, clock: Clock | None) -> actions.ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 770)
-- `_decide(repository: Repository, text: LearnerText, vault: LoadedVault, *, budget: TextBudget, clients: PipelineClients, progress: Mapping[str, Any], checkpoint: Checkpoint) -> tuple[GapReading | None, DeciderKind, str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 825) — The reading, the Decider's kind, the chooser and the authoritative kind.
-- `_read_and_act(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, *, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, state: dict[str, Any], checkpoint: Checkpoint) -> tuple[actions.ActionOutcome, GapReading | None, DeciderKind, str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 951) — The reading and its action (inside the text's receipts).
-- `_log(root: Path, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, reading: GapReading | None, decider: DeciderKind, chooser: str, kind: str, budget: TextBudget, now_iso: str, clock: Clock | None, before_write: Callable[[], None] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 981) — Log the reading as one ``learner_text_gaps`` row (and its sooner check or commitment).
-- `_record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText, outcome: actions.ActionOutcome, *, gap_id: str, learner_words: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1049) — Diagnosis input provenance, in the ledger row's transaction: a question's words (the gap's), a created prerequisite's drafted title and a seeded item's question each record what they were written from (``text_gaps.provenance``).
+- `_ready(vault: LoadedVault, task: str, *, timeout: int | None=None) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 263)
+- `_verdicts(results: Sequence[JudgedPair]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 298) — Settled verdicts only: a ``fenced`` pair's verdict was never appended.
+- `_unsettled(results: Sequence[JudgedPair]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 307)
+- `_stopped(results: Sequence[JudgedPair]) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 314)
+- `_judge_all(repository: Repository, kind: Any, pairs: list, *, budget: TextBudget, clients: PipelineClients, decider_on: bool, vault: LoadedVault | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 318) — Both judges on the same pairs; each verdict lands in ``judgment_ledger``.
+- `_tier1(vault: LoadedVault, switch: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 355) — Tier 1 for a learner-text gap judgment: its ``[decider_routes]`` switch at mvp-0.22.
+- `_pair_authority(vault: LoadedVault, chooser: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 366) — The authoritative pair judge before Tier 1: the chooser's (``llm`` for ``context_model``).
+- `_require_settled(judged: Mapping[str, Any], authority: str) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 379) — Every candidate pair has a verdict from the authoritative judge (F1).
+- `_with_standing(repository: Repository, kind: Any, results: Sequence[JudgedPair], *, judge: str, producer: str) -> list[JudgedPair]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 388) — ``already_judged`` pairs take the producer's standing verdict from the ledger.
+- `_embed_query(repository: Repository, budget: TextBudget, clients: PipelineClients, vault: LoadedVault, subject: Any, field_name: str, detail: dict[str, Any]) -> tuple[Any, str | None]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 412)
+- `_prerequisite(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading, *, chooser: str, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, progress: Mapping[str, Any], checkpoint: Checkpoint) -> actions.ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 439)
+- `_maybe_edge(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, chooser: str, budget: TextBudget, clients: PipelineClients, clock: Clock | None, checkpoint: Checkpoint) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 516)
+- `_write_edge(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, edge: Mapping[str, Any], clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 569) — Write the recorded edge (idempotent: an edge already on disk is ``added``).
+- `_resume(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, *, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, progress: Mapping[str, Any], checkpoint: Checkpoint) -> actions.ActionOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 590) — Finish the vault write an earlier attempt of this job recorded (F3, re-review F1); None when it recorded none.
+- `_create(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading | None, *, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, detail: dict[str, Any], progress: Mapping[str, Any], checkpoint: Checkpoint) -> actions.ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 626)
+- `_seed_route(budget: TextBudget) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 721) — The route the seed's promotion unit is admitted on (Codex review F12).
+- `_seed(root: Path, text: LearnerText, learning_object_id: str, *, budget: TextBudget, clients: PipelineClients, clock: Clock | None) -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 741)
+- `_belief(vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading, *, budget: TextBudget, clients: PipelineClients, clock: Clock | None) -> actions.ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 771)
+- `_decide(repository: Repository, text: LearnerText, vault: LoadedVault, *, budget: TextBudget, clients: PipelineClients, progress: Mapping[str, Any], checkpoint: Checkpoint) -> tuple[GapReading | None, DeciderKind, str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 826) — The reading, the Decider's kind, the chooser and the authoritative kind.
+- `_read_and_act(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, *, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, state: dict[str, Any], checkpoint: Checkpoint) -> tuple[actions.ActionOutcome, GapReading | None, DeciderKind, str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 952) — The reading and its action (inside the text's receipts).
+- `_log(root: Path, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, reading: GapReading | None, decider: DeciderKind, chooser: str, kind: str, budget: TextBudget, now_iso: str, clock: Clock | None, before_write: Callable[[], None] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 982) — Log the reading as one ``learner_text_gaps`` row (and its sooner check or commitment).
+- `_record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText, outcome: actions.ActionOutcome, *, gap_id: str, learner_words: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1051) — Diagnosis input provenance, in the ledger row's transaction: a question's words (the gap's), a created prerequisite's drafted title and a seeded item's question each record what they were written from (``text_gaps.provenance``).
 
 ## Who imports or calls it
 
@@ -152,6 +152,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `learner_note_refusal`; calls `learner_note_refusal`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/tier1|learnloop.diagnosis.text_gaps.tier1]] — imports `module`; calls `ask_needed`, `decide_kind`, `judge_all`
 - [[Reference/Modules/learnloop/matching/judge|learnloop.matching.judge]] — imports `JudgedPair`, `judge_pairs`, `pair_input_hash`; calls `JudgedPair`, `judge_pairs`, `pair_input_hash`
+- [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]] — imports `write_through_gap`; calls `write_through_gap`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `sync_vault_state`; calls `sync_vault_state`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`

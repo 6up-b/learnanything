@@ -34,7 +34,7 @@ source_paths:
   - "tests/check_credit_helpers.py"
   - "tests/contamination_report_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
-  - "tests/diagnosis_identity_helpers.py"
+  - "tests/desk_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/adaptive-difficulty"
@@ -102,7 +102,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/check_credit_helpers.py`
 - `tests/contamination_report_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
-- `tests/diagnosis_identity_helpers.py`
+- `tests/desk_helpers.py`
 
 ## Extension and modification guidance
 

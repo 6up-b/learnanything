@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/db/stores/learner_notes.py"
   - "src/learnloop/source_retrieval/note_gaps.py"
   - "src/learnloop/source_retrieval/note_links.py"
+  - "src/learnloop/substrate/passage_spans.py"
   - "src/learnloop/teacher/notes.py"
 tags:
   - "learnloop/database/table"
@@ -94,6 +95,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/learner_notes.py`
+- `src/learnloop/substrate/passage_spans.py`
 
 ### Direct SQL writers
 
@@ -108,6 +110,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/desk_helpers.py`
 - `tests/learner_notes_migration_helpers.py`
 - `tests/learner_notes_vault_origin_migration_helpers.py`
 - `tests/notes_as_learner_text_helpers.py`

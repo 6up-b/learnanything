@@ -162,6 +162,7 @@ None found by exact static reference scan.
 - `src/learnloop/hints/report_workbench.py`
 - `src/learnloop/router_objective/checks.py`
 - `src/learnloop/router_objective/question_state.py`
+- `src/learnloop/substrate/passage_spans.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop/workbench/check.py`
 - `src/learnloop/workbench/help_outcomes.py`

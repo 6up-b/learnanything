@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/deliverables.py"
+  - "src/learnloop/intent/inline_checks.py"
   - "src/learnloop/source_retrieval/deliverable_path.py"
 tags:
   - "learnloop/database/table"
@@ -97,6 +98,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/deliverables.py`
+- `src/learnloop/intent/inline_checks.py`
 
 ### Direct SQL writers
 
@@ -121,6 +123,7 @@ None found by exact static reference scan.
 - `tests/test_deliverable_curriculum_migration.py`
 - `tests/test_deliverable_path.py`
 - `tests/test_deliverable_scope.py`
+- `tests/test_reader_rd0_reads.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

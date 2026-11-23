@@ -105,6 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/data_capture.py`
 - `src/learnloop/db/stores/section_coverage.py`
 - `src/learnloop/figures/help.py`
+- `src/learnloop/passage_union/union.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/source_retrieval/section_coverage.py`
 
@@ -122,6 +123,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/deliverable_fixtures.py`
+- `tests/desk_helpers.py`
 - `tests/section_coverage_fixtures.py`
 - `tests/section_coverage_migration_helpers.py`
 - `tests/test_architecture.py`
@@ -140,7 +142,6 @@ None found by exact static reference scan.
 - `tests/test_notes_linked.py`
 - `tests/test_notes_vault_search.py`
 - `tests/test_protection_surface_matrix.py`
-- `tests/test_protection_surface_sets.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

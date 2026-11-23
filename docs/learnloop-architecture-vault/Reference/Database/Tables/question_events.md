@@ -130,17 +130,20 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/companion/history.py`
 - `src/learnloop/db/stores/questions.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/learner_protection.py`
+- `src/learnloop/passage_union/union.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/reader_learner_state.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/router_objective/question_state.py`
 - `src/learnloop/router_objective/report.py`
+- `src/learnloop/substrate/passage_spans.py`
 - `src/learnloop/teacher/actions.py`
 - `src/learnloop/teacher/brief.py`
 
@@ -181,6 +184,7 @@ Indexes and uniqueness:
 - `tests/ad_ingest_fakes.py`
 - `tests/attempt_facts_helpers.py`
 - `tests/attempt_predicate_helpers.py`
+- `tests/desk_helpers.py`
 - `tests/reader_inquiry_status_helpers.py`
 - `tests/ro2_ad_document_ir_helpers.py`
 - `tests/ro2_history_protection_helpers.py`
@@ -195,7 +199,6 @@ Indexes and uniqueness:
 - `tests/test_batch3_landing.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
-- `tests/test_coldness_receipt.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
