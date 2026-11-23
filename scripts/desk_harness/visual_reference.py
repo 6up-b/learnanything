@@ -185,7 +185,7 @@ region("pad_tab_label", ".desk-pads .ptab.open .tl", "none")
 region("pad_tab_meta", ".desk-pads .ptab.open .tm", "none")
 region("pad_paper", ".desk-pads .paper.k-running", "none")
 region("pad_day", ".desk-pads .paper .day", "height")
-region("pad_prose", ".desk-pads .pb:not(.srcrow):not(.jot) .bx p", "none")
+region("pad_prose", ".desk-pads .pb:not(.srcrow):not(.jot) .bx", "none")
 region("pad_quote", ".desk-pads .quote", "none")
 region("pad_backlink", ".desk-pads .back", "height")
 region("pad_tutor", ".desk-pads .tutorq", "none")
@@ -193,22 +193,24 @@ region("pad_tutor_who", ".desk-pads .tutorq .who", "none")
 region("pad_submitted", ".desk-pads .submitted", "height")
 region("pad_carry", ".desk-pads .carry", "none")
 region("pad_jot", ".desk-pads .pb.jot .wline", "none")
-region("pad_mark_src", ".desk-pads .mark.src", "none")
-region("pad_mark_ll", ".desk-pads .mark.ll", "none")
-region("pad_mark_fig", ".desk-pads .mark.fig", "none")
+# The mockup measures the gutter cell holding the glyph, the desks the glyph: colour and type compare.
+region("pad_mark_src", ".desk-pads .mark.src", "none", ("padding", "radius"))
+region("pad_mark_ll", ".desk-pads .mark.ll", "none", ("padding", "radius"))
+region("pad_mark_fig", ".desk-pads .mark.fig", "none", ("padding", "radius"))
 region("pad_lift", ".desk-pads .lift", "none")
-region("pad_lifted", ".desk-pads .lifted", "none")
+# The mockup pads the stub's block box, the desks the box around the stub.
+region("pad_lifted", ".desk-pads .lifted", "none", ("padding",))
 region("pad_info_pop", ".desk-pads .pinfo-pop", "none")
-region("pad_info_button", ".desk-pads .pinfo", "none")
+region("pad_info_button", ".desk-pads .pinfo .ic", "none")
 region("pad_card", ".desk-pads .pcard", "size")
-region("pad_menu", ".desk-padmenu", "size")
-region("pad_menu_row", ".desk-padmenu button", "height")
+region("pad_menu", ".desk-padmenu", "width")
+region("pad_menu_row", ".desk-padmenu .row:not(.sel)", "height")
 region("pad_menu_head", ".desk-padmenu h5, .desk-padmenu .head", "none")
 region("arrange_panel", ".desk-arrange", "none")
-region("arrange_card", ".desk-arrange .card, .desk-arrange li", "none")
+region("arrange_card", ".desk-pads .desk-arrange .row:not(.sel)", "none")
 region("split_pane", ".desk-pads .split .pane", "none")
 region("sketch_bar", ".desk-pads .desk-sketch .bar", "height")
-region("sketch_tool", ".desk-pads .desk-sketch .bar button", "height")
+region("sketch_tool", ".desk-pads .desk-sketch .bar button:not(.on)", "height")
 region("sketch_canvas", ".desk-pads .desk-sketch canvas, .desk-pads .desk-sketch svg", "none")
 region("pass_mark_pad", ".desk-pmark.pad", "none")
 region("pad_flash", ".desk-pads .pb.flash", "none")
@@ -522,6 +524,7 @@ async def d_sketch(page: Page) -> None:
 async def d_info(page: Page) -> None:
     await pads_beside_book(page)
     await page.locator(".desk-pads .pinfo").click()
+    await page.mouse.move(5, 5)
     await wait(page, 300)
 
 
@@ -551,6 +554,9 @@ async def d_backlink(page: Page) -> None:
     if await back.count():
         await back.first.click()
         await wait(page, 600)
+    # The pointer leaves the § row, or its hover (dark row, white text) is what gets measured.
+    await page.mouse.move(5, 5)
+    await wait(page, 300)
 
 
 async def d_padmenu(page: Page) -> None:
