@@ -125,6 +125,15 @@ export class FixtureDeskServer {
     return toDeskState(this.ws, [...this.seqs.entries()].map(([clientId, seq]) => ({ clientId, seq })));
   }
 
+  /** One ink save (RD8a): it takes the client's next number, as desk and pad batches do. */
+  applyInk(input: { clientId: string; seq: number; inkId: string }): { version: number; appliedSeq: number; inkId: string; results: Array<{ status: "ok"; duplicate: boolean }> } {
+    const last = this.seqs.get(input.clientId) ?? 0;
+    if (input.seq <= last) return { version: 1, appliedSeq: input.seq, inkId: input.inkId, results: [{ status: "ok", duplicate: true }] };
+    if (input.seq !== last + 1) throw { code: "seq_gap", message: `expected ${last + 1}`, retryable: false };
+    this.seqs.set(input.clientId, input.seq);
+    return { version: 1, appliedSeq: input.seq, inkId: input.inkId, results: [{ status: "ok", duplicate: false }] };
+  }
+
   apply(input: DeskApplyInput): DeskApplyDto {
     const last = this.seqs.get(input.clientId) ?? 0;
     if (input.seq !== last + 1) throw { code: "seq_gap", message: `expected ${last + 1}`, retryable: false };

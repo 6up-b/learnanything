@@ -14,6 +14,8 @@ import { dayHeading, usePadsHost, type PadStackHandle, type PadsHost } from "./h
 import { EDITABLE_KINDS, firstLine, isLearnersWords, keyAfter, type PadState, plainLine } from "./model";
 import { PadMenu, ArrangeOverlay, SubmitSheet, type MenuRequest } from "./PadOverlays";
 import { SketchCanvas } from "./SketchCanvas";
+import { InkBlock, InkJot } from "../pen/InkLine";
+import { usePenHost } from "../pen/host";
 import { activePad, fractionalOpen, mergeAmount, paperMinHeight, scrollTargetFor, tabMargin, type PadGeometry, type TabGrade } from "./stickyTabs";
 import { isLessonItem, lessonOfKey, lessonTabMeta, lessonTabTitle, stackItemKeys } from "../lesson/model";
 import { LessonPaper } from "../lesson/LessonPaper";
@@ -62,6 +64,7 @@ export function tabMeta(state: PadState, today: string): string {
   const updated = pad.updatedAt.slice(0, 10);
   if (pad.kind === "running") return `running · ${updated === today ? "today" : shortDate(updated)}`;
   if (pad.kind === "problem") return `a problem · ${shortDate(pad.updatedAt)}`;
+  if (pad.kind === "ink") return `handwritten · ${updated === today ? "today" : shortDate(updated)}`;
   return updated === today ? "today" : shortDate(pad.updatedAt);
 }
 
@@ -128,6 +131,16 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   }, [padIds, paused, store, lessons, lessonsVersion]);
   const pads = padIds.map((padId) => store.pads[padId] ?? null);
   const today = host.today();
+  // Ink (RD8a): the pads' ink lines are read once shown; their readings stop when the window closes.
+  const pen = usePenHost();
+  const [inkView, setInkView] = useState<Record<string, { hidden?: boolean; dotted?: boolean }>>({});
+  const inkPads = pads.filter((state) => state && (state.pad.kind === "ink" || state.blocks.some((block) => block.kind === "ink"))).map((state) => state!.pad.padId).join("|");
+  useEffect(() => {
+    if (paused || !pen) return;
+    for (const padId of inkPads.split("|").filter(Boolean)) void pen.ink.load(padId);
+  }, [inkPads, paused, pen]);
+  const padKey = padIds.join("|");
+  useEffect(() => () => pen?.ink.cancelAll(padKey.split("|").filter(Boolean)), [pen, padKey]);
 
   const [grade] = useState<TabGrade>(readGrade);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -309,7 +322,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   }, [editing, host, proposalsFor, store, write]);
 
   const openEditor = (padId: string, block: PadBlockDto) => {
-    if (!EDITABLE_KINDS.has(block.kind) || block.kind === "sketch") return;
+    // A sketch and an ink line edit in their own surface (an ink line's transcription in its own field).
+    if (!EDITABLE_KINDS.has(block.kind) || block.kind === "sketch" || block.kind === "ink") return;
     // The block being edited is never reopened: that would reset the draft to the words it had when opened.
     if (editing?.blockId === block.blockId) return;
     if (window.getSelection?.()?.toString()) return;
@@ -321,7 +335,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     const blocks = store.pads[padId]?.blocks ?? [];
     const index = blocks.findIndex((each) => each.blockId === blockId);
     for (let i = index + direction; i >= 0 && i < blocks.length; i += direction) {
-      if (EDITABLE_KINDS.has(blocks[i].kind) && blocks[i].kind !== "sketch") return blocks[i];
+      if (EDITABLE_KINDS.has(blocks[i].kind) && blocks[i].kind !== "sketch" && blocks[i].kind !== "ink") return blocks[i];
     }
     return null;
   };
@@ -422,8 +436,10 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     },
     newPad(title) {
       const padId = host.mintId("pad");
-      const name = `Scratchpad · ${title ? `“${title.slice(0, 40)}”` : "new notes"}`;
-      if (!write(padId, [{ op: "create_pad", kind: "named", title: name, homeDeskId: host.deskId }])) return;
+      // In pen mode a new pad is a handwritten one (spec §10.10, "Freewrite pads").
+      const byHand = Boolean(pen?.on);
+      const name = byHand ? "Scratchpad · ✎ by hand" : `Scratchpad · ${title ? `“${title.slice(0, 40)}”` : "new notes"}`;
+      if (!write(padId, [{ op: "create_pad", kind: byHand ? "ink" : "named", title: name, homeDeskId: host.deskId }])) return;
       host.addToStack(windowId, padId);
       setTimeout(() => scrollToPad(padIds.length), 50);
     },
@@ -538,6 +554,10 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
           />
         );
         break;
+      case "ink":
+        gutter = <span className="mark pen prov" title="ink">✎</span>;
+        body = <InkBlock padId={padId} block={block} windowId={windowId} paused={paused} showTranscription={!inkView[padId]?.hidden} write={(ops) => write(padId, ops)} />;
+        break;
       case "lifted": {
         const to = String((block.payload as Record<string, unknown>).lifted_to_pad_id ?? "");
         const title = store.pads[to]?.pad.title || "its own pad";
@@ -599,7 +619,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         }}
         onClick={(event) => {
           // A click inside the editor (moving the caret) is the editor's, not a request to open the block.
-          if ((event.target as Element).closest("button, a, svg, .desk-sketch, [data-pad-editor]")) return;
+          if ((event.target as Element).closest("button, a, svg, textarea, .desk-sketch, .desk-ink, [data-pad-editor]")) return;
           openEditor(padId, block);
         }}
         onContextMenu={(event) => {
@@ -689,22 +709,40 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       if (last && last.day === day) last.blocks.push(block);
       else days.push({ day, blocks: [block] });
     }
+    const byHand = state.pad.kind === "ink";
+    const look = inkView[padId] ?? {};
+    const newLine = () => insertAfter(padId, state.blocks[state.blocks.length - 1]?.blockId ?? null, { kind: "ink", provenance: "ink_transcription" });
     return (
       <div
-        className={`paper k-${state.pad.kind}${index === active ? " open" : ""}`}
+        className={`paper k-${state.pad.kind}${byHand ? " handpad" : ""}${byHand && look.dotted ? " dotted" : ""}${index === active ? " open" : ""}`}
         ref={(node) => setRef(paperEls.current, padId, node)}
         style={{ minHeight }}
         data-pad={padId}
       >
+        {byHand ? (
+          <div className="handbar" data-ink-bar="">
+            <span>✎ by hand</span>
+            <button type="button" aria-pressed={Boolean(look.dotted)} onClick={() => setInkView((now) => ({ ...now, [padId]: { ...look, dotted: !look.dotted } }))}>{look.dotted ? "lined" : "dotted"}</button>
+            <button type="button" aria-pressed={!look.hidden} onClick={() => setInkView((now) => ({ ...now, [padId]: { ...look, hidden: !look.hidden } }))}>{look.hidden ? "show" : "hide"} transcription</button>
+          </div>
+        ) : null}
         {days.map((group, groupIndex) => (
           <div key={`${group.day ?? "all"}:${groupIndex}`}>
             {group.day ? <div className="day">{dayHeading(group.day, today)}</div> : null}
             {group.blocks.map((block) => renderBlock(state, block))}
           </div>
         ))}
-        <div className="pb jot" onClick={() => insertAfter(padId, state.blocks[state.blocks.length - 1]?.blockId ?? null, { kind: "text", provenance: "learner" }, true)}>
+        <div className={`pb jot${byHand || pen?.on ? " inkjot" : ""}`} onClick={() => insertAfter(padId, state.blocks[state.blocks.length - 1]?.blockId ?? null, { kind: "text", provenance: "learner" }, true)}>
           <div className="gut" />
-          <div className="bx wline">{state.pad.kind === "running" ? "jot · it lands here by default" : "write here"}</div>
+          {byHand || pen?.on ? (
+            // The pen writes a new ink line here; a click still starts a typed line.
+            <div className="bx">
+              <InkJot padId={padId} windowId={windowId} paused={paused} newLine={newLine}
+                hint={byHand ? "▍ write with the pen · each line is read once you start the next" : state.pad.kind === "running" ? "jot · it lands here by default · or write with the pen" : "write here · or with the pen"} />
+            </div>
+          ) : (
+            <div className="bx wline">{state.pad.kind === "running" ? "jot · it lands here by default" : "write here"}</div>
+          )}
         </div>
       </div>
     );

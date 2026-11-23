@@ -100,6 +100,9 @@ import { PadStackWindow } from "./pads/PadStackWindow";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
 import { keyAfter } from "./pads/model";
+import { PenHostContext, type PenApi, type PenHost } from "./pen/host";
+import { LIVE_PEN_API } from "./pen/live";
+import { InkCache } from "./pen/inkCache";
 import { PadsHostContext, PendingFigures, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
@@ -143,6 +146,8 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
   state: () => api.deskState(),
   apply: (input: DeskApplyInput): Promise<DeskApplyDto> => api.deskApply(input),
   applyPad: (input) => api.padApply(input),
+  applyInk: (input) => api.inkSave(input),
+  applyInkErase: (input) => api.inkErase(input),
   padGet: (input) => api.padGet(input),
   library: async () => (await api.getSourceLibrary()).sources,
   // The Reader's own cached read: the window that opens next reads it from the cache.
@@ -440,6 +445,8 @@ export interface DeskShellProps {
   };
   /** The lessons' summaries (lesson.list); absent, the sidecar's. */
   lessonsTransport?: LessonsTransport;
+  /** The pen layer's calls (RD8a); absent, the sidecar's. */
+  penApi?: PenApi;
 }
 
 export function DeskShell({
@@ -462,6 +469,7 @@ export function DeskShell({
   goalTransport = LIVE_GOAL_TRANSPORT,
   lessons,
   lessonsTransport = LIVE_LESSONS_TRANSPORT,
+  penApi = LIVE_PEN_API,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -532,6 +540,11 @@ export function DeskShell({
   const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number; more: boolean }>({ list: [], limit: 3, more: false });
   const [carriedOpen, setCarriedOpen] = useState(false);
   const [draining, setDraining] = useState(false);
+  // Pen mode (spec §10.10): alt+p, the ✎ chip, or a pen's first touch; "simulate pen" lets the mouse draw.
+  const [penOn, setPenOn] = useState(false);
+  const [simulatePen, setSimulatePen] = useState(false);
+  const penOnRef = useRef(penOn);
+  penOnRef.current = penOn;
   const drainingRef = useRef(false);
   drainingRef.current = draining;
   const companionRef = useRef<CompanionHandle | null>(null);
@@ -1261,6 +1274,9 @@ export function DeskShell({
         return true;
       case "path":
         return goalPathRef.current.toggle();
+      case "pen":
+        setPenOn((on) => !on);
+        return true;
       default:
         return false;
     }
@@ -1332,6 +1348,7 @@ export function DeskShell({
         menu: has("menu") || searchOpenRef.current || drainingRef.current || goalPathRef.current.open,
         check: has("check"),
         focus: focusModeRef.current,
+        pen: penOnRef.current,
         overview: overviewRef.current,
         strip: stripOpenRef.current,
       }, modifiers.read(event));
@@ -2219,6 +2236,21 @@ export function DeskShell({
     carry: carryQuestion,
     lessons: lessonsHost,
   }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, lessonsHost]);
+  // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
+  const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId) }), [penApi, poller, store]);
+  const penHost = useMemo<PenHost>(() => ({
+    on: penOn,
+    simulate: simulatePen,
+    setOn: setPenOn,
+    saveInk: (ink) => store.commitInk(ink),
+    eraseInk: (erase) => store.commitInkErase(erase),
+    settled: () => store.settled(),
+    mintId,
+    api: penApi,
+    poller,
+    askCompanion: () => companionKeyRef.current(false),
+    ink: inkCache,
+  }), [penOn, simulatePen, store, mintId, penApi, poller, inkCache]);
 
   /** The pad stack the keys act on: the focused window when it is one. */
   const focusedStack = (): PadStackHandle | null => (focusIdRef.current ? padHandles.current.get(focusIdRef.current) ?? null : null);
@@ -2709,7 +2741,8 @@ export function DeskShell({
 
   return (
     <PadsHostContext.Provider value={padsHost}>
-    <div className={`desk-shell${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}${goalDesk.hasBand ? " has-goal" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
+    <PenHostContext.Provider value={penHost}>
+    <div className={`desk-shell${penOn ? " pen-mode" : ""}${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}${goalDesk.hasBand ? " has-goal" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
         <span className="desk-brand">◇ LearnLoop</span>
         <nav className="desk-tabs" aria-label="desks">
@@ -2759,6 +2792,10 @@ export function DeskShell({
         </nav>
         {goalDesk.topChip}
         <span className="grow" />
+        <button type="button" className="tb penchip" aria-pressed={penOn} title="alt+p · pen mode" onClick={() => setPenOn((on) => !on)}>✎ pen <span>{penOn ? "on" : "off"}</span></button>
+        {viewportWidth >= DESK_SIZES.shelfFoldBelow ? (
+          <button type="button" className="tb simpen" aria-pressed={simulatePen} title="draw with the mouse as if it were a pen" onClick={() => setSimulatePen((on) => { if (!on) setPenOn(true); return !on; })}>simulate pen: <span>{simulatePen ? "on" : "off"}</span></button>
+        ) : null}
         <button type="button" className="tb" aria-pressed={overview} title="alt+o" onClick={() => toggleOverview()}>o overview</button>
         <button type="button" className="tb" aria-expanded={opener} onClick={() => setOpener((open) => !open)}>+ open beside</button>
         {onLeave ? <button type="button" className="tb" onClick={onLeave}>old Reader</button> : null}
@@ -3085,6 +3122,12 @@ export function DeskShell({
       {goalDesk.overlays}
       <footer className="desk-keys">
         {goalDesk.hasBand && !overview ? <span className="gk"><kbd>p</kbd> your path</span> : null}
+        {penOn && !overview ? (
+          <>
+            <span className="penk"><kbd>✎</kbd> pen: underline · bracket · circle · scribble · strike</span>
+            <span><kbd>barrel</kbd> = eraser · menu stays on <kbd>.</kbd> · touch only scrolls</span>
+          </>
+        ) : null}
         {hints.map(([keys, label]) => <span key={keys}><kbd>{keys}</kbd> {label}</span>)}
         {ungather && ungather.deskId === deskId && !overview ? (
           <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ ungather</button>
@@ -3153,6 +3196,7 @@ export function DeskShell({
         />
       ) : null}
     </div>
+    </PenHostContext.Provider>
     </PadsHostContext.Provider>
   );
 }

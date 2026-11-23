@@ -33,6 +33,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("ad_forecast_decider", "decider", "adaptive_difficulty"),
     ("ad_feature_audit", "llm", "ad_feature_audit"),
     ("workbench_check", "llm", "workbench_check"),
+    ("ink_transcription", "llm", "ink_transcription"),
     ("passage_cue_judge", "llm", "cues"),
     ("reading_path_judge", "llm", "reading_paths"),
     ("deliverable_scope_resolver", "llm", "curriculum_scope"),
@@ -169,6 +170,11 @@ _WHEN = {
         "While workbench.help_enabled is on, each time you press \"Check my work\" in the workbench: the "
         "problem, its reference solution and rubric, your steps, and the question's approach map when it has "
         "one, so LearnLoop's model can say which steps hold. Never sent to Codex. It never grades you."
+    ),
+    "ink_transcription": (
+        "Each time LearnLoop reads your handwriting (an ink line in a scratchpad or a handwritten margin note): "
+        "a picture of those strokes as you drew them, and nothing else, so LearnLoop's model can write them out "
+        "as text and math for you to check and fix. The same strokes are read once. It never grades you."
     ),
     "cues": (
         "While cues.enabled and cues.discovery_enabled are on, in the background when you open a book in the "

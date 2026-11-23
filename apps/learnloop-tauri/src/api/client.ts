@@ -25,6 +25,12 @@ import type {
   CarriedQuestionDto,
   CarriedListDto,
   CarriedMarkInput,
+  InkEraseDto,
+  InkEraseInput,
+  InkListDto,
+  InkSaveDto,
+  InkSaveInput,
+  InkTranscribeJobDto,
   PassageUnionDto,
   PassageContentDto,
   PassageUnionInput,
@@ -1629,6 +1635,15 @@ export const api = {
   carriedMark: (input: CarriedMarkInput) =>
     call<{ version: number; carried: CarriedQuestionDto; applied: boolean; conflict: boolean }>("carried_mark",
       { input }),
+  // Reader workbench v2 RD8a (spec §10.10; desktop only, no component calls them yet): ink saves follow the write
+  // protocol in the client's one sequence; erasing is padApply's erase_ink. A reading answers at once with a polled
+  // job (strokes already read answer done with no job); polls answer at once and never wait.
+  inkSave: (input: InkSaveInput) => call<InkSaveDto>("ink_save", { input }),
+  inkErase: (input: InkEraseInput) => call<InkEraseDto>("ink_erase", { input }),
+  inkList: (input: { padId: string } | { sourceId: string }) => call<InkListDto>("ink_list", { input }),
+  inkTranscribe: (input: { inkId: string }) => call<InkTranscribeJobDto>("ink_transcribe", { input }),
+  inkTranscribeJob: (input: { jobId: string }) => call<InkTranscribeJobDto>("ink_transcribe_job", { input }),
+  inkTranscribeCancel: (input: { jobId: string }) => call<InkTranscribeJobDto>("ink_transcribe_cancel", { input }),
   passageUnionRange: (input: PassageUnionInput) => call<PassageUnionDto>("passage_union_range", { input }),
   // RD4 fix round: a range of a reading as the source has it, for "a piece of another source" (desktop only).
   passageContent: (input: PassageUnionInput) => call<PassageContentDto>("passage_content", { input }),

@@ -2,7 +2,7 @@
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
 import type { DeskApplyInput, DeskStateDto, PadViewDto } from "../../api/dto";
-import { fixturePads } from "./pads";
+import { FIXTURE_INK_PAD, fixtureInkOwners, fixtureInkPad, fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
@@ -35,13 +35,23 @@ function harnessDeskState(): DeskStateDto {
     const stack = state.desks.find((desk) => desk.deskId === "fx_desk_softmax")?.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_pads");
     stack?.stack?.push({ kind: "lesson", lessonId: FIXTURE_LESSON_ID });
   }
+  // `?inkpad=1`: the handwritten pad joins the softmax desk's stack (pen and ink, RD8a).
+  if (INK_PAD_SHOWN) {
+    for (const slot of state.desks[0].slots) {
+      for (const window of slot.windows as Array<{ windowId: string; stack?: Array<{ kind: string; padId: string }> }>) {
+        if (window.windowId === "fx_w_pads") window.stack?.push({ kind: "pad", padId: FIXTURE_INK_PAD });
+      }
+    }
+  }
   return state;
 }
+
+const INK_PAD_SHOWN = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("inkpad") === "1";
 
 function harnessPads(): PadViewDto[] {
   const at = "2026-11-23T09:00:00Z";
   const empty = (padId: string, deskId: string): PadViewDto => ({ version: 1, pad: { padId, kind: "running", title: "running", kept: false, homeDeskId: deskId, workbenchSessionId: null, lessonId: null, version: 1, createdAt: at, updatedAt: at }, blocks: [], anchors: [] });
-  return [...fixturePads(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop"),
+  return [...fixturePads(), fixtureInkPad(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop"),
     ...(LESSON_PAGE ? [fixtureAdditionsPad()] : [])];
 }
 
@@ -104,6 +114,9 @@ const CONTRACT = {
     : {}),
 };
 
+/** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
+const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string } }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
+
 function answer(command: string, input: Record<string, unknown>): unknown {
   switch (command) {
     case "desk_state":
@@ -134,7 +147,31 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return plan;
     }
     case "reader_source_annotations":
-      return { annotations: [] };
+      return { annotations: pen.annotations.filter((head) => head.sourceId === String(input.sourceId)).map(({ sourceId: _source, ...head }) => head) };
+    // Pen and ink (RD8a): a recognized mark's annotation, its ink, and a reading refused as the default route
+    // refuses it today (the plan's transport reads no images).
+    case "reader_capture": {
+      const annotationId = `fx_ann_${pen.annotations.length + 1}`;
+      pen.annotations.push({ sourceId: String(input.sourceId), annotation: { id: annotationId }, version: { annotationType: input.action === "highlight" ? "highlight" : String(input.action), learnerText: String(input.learnerText ?? "") } });
+      return { annotationId, outboxId: `fx_out_${annotationId}`, interactionEventId: `fx_ev_${annotationId}`, anchorStatus: "exact", captureKind: "annotation", deduplicated: false, receipt: "captured" };
+    }
+    case "reader_delete_intent_annotation":
+      pen.annotations = pen.annotations.filter((head) => head.annotation.id !== String(input.annotationId));
+      return { eventId: `fx_del_${String(input.annotationId)}` };
+    case "reader_edit_annotation":
+      return { annotationId: String(input.annotationId), status: "exact" };
+    case "ink_save":
+      pen.inks.push(input);
+      return server.applyInk(input as unknown as { clientId: string; seq: number; inkId: string });
+    case "ink_erase": {
+      const applied = server.applyInk({ clientId: String(input.clientId), seq: Number(input.seq), inkId: String(input.eraseId) });
+      return { version: 1, appliedSeq: applied.appliedSeq, eraseId: String(input.eraseId), results: applied.results };
+    }
+    case "ink_list":
+      return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId === FIXTURE_INK_PAD ? fixtureInkOwners() : [] };
+    case "ink_transcribe":
+      return { version: 1, jobId: null, status: "failed", done: true, result: null,
+        error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images, so nothing was sent.", retryable: false, details: null } };
     case "reader_ask_history":
       return { exchanges: [] };
     case "reader_drain_outbox":
