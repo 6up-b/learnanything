@@ -281,7 +281,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | L4 | Review which learned models need pure cores | landed (review) | `53f330c743` | [refactor-l4-review.md](refactor-l4-review.md) | Six extraction steps, in the order L4.1 claim priors, L4.2 cause slopes, L4.3 the episode posterior, L4.4 lesson-weight replay inputs, L4.5 the AD slot and commission decision, L4.6 the tail's fit-and-record assembly: not started, each under the stop rule. Five reproducibility gaps in the ledger (L4-1 to L4-5) |
 | L5 | Explain long functions that other steps missed | waiting on | — | — | Refactor close |
 | L6 | Make each extracted core return its record | waiting on | — | — | E2 and later core extraction briefs |
-| L6a | Return records from the already extracted cores | not started | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner decided on 2026-11-20: approved; the due-queue half waits for I2's core |
+| L6a | Return records from the already extracted cores | landed | this commit | [refactor-l6a.md](refactor-l6a.md) | The grade-application core and `rank_due` return their records with their results, and the callers write them where they did; every written record byte-identical; one staged why-case per rule code (13), found from the code by a test; L6 is now in the strategy's per-step rules |
 | L7 | Move the support floor as vaults advance | landed | `1da959e7d7` | [refactor-d1.md](refactor-d1.md) | — |
 
 ## Tests and phase reviews

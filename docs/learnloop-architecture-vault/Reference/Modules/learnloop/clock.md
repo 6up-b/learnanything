@@ -710,6 +710,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_new_vaults_start_with_placement_on`
 - [tests/test_attempt_ai_flow.py](../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
+- [tests/test_attempt_chain_records.py](../../../../../tests/test_attempt_chain_records.py) — direct import
+  - `test_a_live_held_attempt_writes_the_records_its_core_returned`
 - [tests/test_attempt_content_state_race.py](../../../../../tests/test_attempt_content_state_race.py) — direct import
 - [tests/test_attempt_content_state_successor.py](../../../../../tests/test_attempt_content_state_successor.py) — direct import
 - [tests/test_attempt_write_order.py](../../../../../tests/test_attempt_write_order.py) — direct import
@@ -2319,6 +2321,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ux_phase1_support.py](../../../../../tests/ux_phase1_support.py) — direct import
 - [tests/ux_phase4_feedback_helpers.py](../../../../../tests/ux_phase4_feedback_helpers.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../tests/voi_stopping_helpers.py) — direct import
+- [tests/why_cases_helpers.py](../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance
 

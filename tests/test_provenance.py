@@ -493,7 +493,7 @@ def test_a_rebuild_never_calls_the_record_and_keeps_its_rows(tmp_path: Path, mon
     import learnloop.diagnosis.chain_records as chain_records
 
     chain_calls: list[str] = []
-    monkeypatch.setattr(grade_records, "record_grade", lambda *a, **k: chain_calls.append("grade"))
+    monkeypatch.setattr(grade_records, "write_grade_decision", lambda *a, **k: chain_calls.append("grade"))
     monkeypatch.setattr(chain_records, "_write", lambda _repo, kind, _build: chain_calls.append(kind))
     monkeypatch.setattr(store, "record_job_enqueued", lambda *a, **k: chain_calls.append("job_enqueued"))
     monkeypatch.setattr(store, "continue_job_trace", lambda *a, **k: chain_calls.append("continue_job_trace"))

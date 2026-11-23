@@ -9,15 +9,18 @@ from. One ``slate`` record per slate row (a persisting build with a session) car
 with a few ids each, so ``learnloop why`` can say why an item never reached the
 slate (the question of daily-loop bug 2).
 
-:func:`slate_record` is pure: it returns the record and never writes.
-:func:`record_slate` is the shell ``serve_due_queue`` calls; it never raises, so
-a record that cannot be built or written never changes what the build serves.
+:func:`slate_decision` builds the record of a build's decision: the ranking
+(``scheduler.rank_due``) returns it with the queue, and it never raises, so a
+record that cannot be built never changes what the build serves.
+:func:`record_slate` is the persist step's writer: it names the slate row the
+record goes with (:func:`with_slate_row`) and never raises either.
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 from learnloop.provenance import DecisionRecord, current_trace, is_code
@@ -140,7 +143,6 @@ def slate_record(
     placement_check_exclusions: Mapping[str, Iterable[str]],
     propensity: Mapping[str, float],
     limit: int | None,
-    slate_id: str | None,
     session_id: str | None,
     pinned_item_id: str | None,
     check_item_ids: Iterable[str],
@@ -148,7 +150,7 @@ def slate_record(
     algorithm_version: str,
     selection_policy: str,
 ) -> DecisionRecord:
-    """The ``slate`` record of one build. Pure.
+    """The ``slate`` record of one build, before any slate row names it (:func:`with_slate_row`). Pure.
 
     ``served`` is the returned queue (after ``limit``), ``considered`` the
     composed order before it, ``greedy`` the ranked order before the draw and
@@ -171,11 +173,6 @@ def slate_record(
             "p": _number(propensity.get(item.practice_item_id, 0.0)),
             "lost_by": LOST_RANKED_BELOW if item.practice_item_id in served_ids else LOST_BEYOND_LIMIT,
         })
-    overflow: dict[str, int] = {}
-    if slate_id:
-        for alternative in alternatives[ALTERNATIVES_WITH_SLATE_ROW:]:
-            overflow[alternative["lost_by"]] = overflow.get(alternative["lost_by"], 0) + 1
-        alternatives = alternatives[:ALTERNATIVES_WITH_SLATE_ROW]
     excluded = by_rule(exclusions)
     facts: dict[str, Any] = {
         "considered_n": len(considered),
@@ -184,9 +181,6 @@ def slate_record(
         "excluded_n": sum(entry["n"] for entry in excluded.values()),
         "exclusions": excluded,
     }
-    if overflow:
-        # The key :func:`learnloop.provenance.write` uses for the alternatives past its own cap.
-        facts["alternatives_overflow"] = overflow
     greedy_head_id = greedy[0].practice_item_id if greedy else None
     for name, value in (("session_id", session_id), ("greedy_head", greedy_head_id), ("pinned", pinned_item_id),
                         ("probe_block_reason", probe_block_reason)):
@@ -202,8 +196,6 @@ def slate_record(
     return DecisionRecord(
         kind=KIND,
         status="chosen",
-        subject_kind=SUBJECT_KIND if slate_id else None,
-        subject_id=slate_id,
         chosen_ref=chosen,
         decided_by=selection_policy,
         rule=head_rule(head, pinned_item_id=pinned_item_id, check_item_ids=check_item_ids,
@@ -211,8 +203,26 @@ def slate_record(
         alternatives=tuple(alternatives),
         facts=facts,
         versions={"algorithm_version": algorithm_version, "selection_policy": selection_policy},
-        detail_table=DETAIL_TABLE if slate_id else None,
-        detail_id=slate_id,
+    )
+
+
+def with_slate_row(record: DecisionRecord, slate_id: str | None) -> DecisionRecord:
+    """``record`` as the record of the slate row ``slate_id``: its subject and detail, and only the nearest
+    :data:`ALTERNATIVES_WITH_SLATE_ROW` alternatives, the rest counted by the rule they lost by. Unchanged without a
+    row. Pure."""
+
+    if not slate_id:
+        return record
+    overflow: dict[str, int] = {}
+    for alternative in record.alternatives[ALTERNATIVES_WITH_SLATE_ROW:]:
+        overflow[alternative["lost_by"]] = overflow.get(alternative["lost_by"], 0) + 1
+    facts = dict(record.facts)
+    if overflow:
+        # The key :func:`learnloop.provenance.write` uses for the alternatives past its own cap.
+        facts["alternatives_overflow"] = overflow
+    return replace(
+        record, subject_kind=SUBJECT_KIND, subject_id=slate_id, detail_table=DETAIL_TABLE, detail_id=slate_id,
+        alternatives=tuple(record.alternatives[:ALTERNATIVES_WITH_SLATE_ROW]), facts=facts,
     )
 
 
@@ -235,15 +245,14 @@ def item_outcome(record: DecisionRecord, practice_item_id: str) -> str | None:
     return None
 
 
-def record_slate(
-    repository: Any,
+def slate_decision(
     *,
     withheld: Mapping[str, Iterable[str]],
     teach_back_value: bool,
     cold_deferrals: Iterable[Mapping[str, Any]],
     **inputs: Any,
-) -> str | None:
-    """Build and write the slate's record; its id, or ``None``. Never raises: the build has already decided.
+) -> DecisionRecord | None:
+    """The slate's record of one build (pure), or ``None``. Never raises: the build has already decided.
 
     ``withheld`` is the candidate loop's exclusions by reason; ``teach_back_value``
     says the value rule, not the count cap, drops teach-backs (mvp-0.21's
@@ -258,11 +267,22 @@ def record_slate(
             teach_back_rule=TEACH_BACK_VALUE if teach_back_value else TEACH_BACK_SESSION_CAP,
             cold_deferrals=cold_deferrals,
         )
-        record = slate_record(exclusions=exclusions, **inputs)
+        return slate_record(exclusions=exclusions, **inputs)
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        LOG.warning("decision record %r not written (trace %s): %s", KIND, current_trace(), type(exc).__name__)
+        return None
+
+
+def record_slate(repository: Any, record: DecisionRecord | None, *, slate_id: str | None) -> str | None:
+    """Write a build's slate record as the record of its slate row; its id, or ``None``. Never raises."""
+
+    if record is None:
+        return None
+    try:
         # Imported here and called through the module so a rebuild test can refuse it (replay never builds a queue).
         from learnloop.db.stores import provenance as decision_store
 
-        return decision_store.write_decision(repository, record)
+        return decision_store.write_decision(repository, with_slate_row(record, slate_id))
     except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
         LOG.warning("decision record %r not written (trace %s): %s", KIND, current_trace(), type(exc).__name__)
         return None
@@ -270,5 +290,5 @@ def record_slate(
 
 __all__ = [
     "IDS_PER_RULE", "KIND", "by_rule", "head_rule", "item_outcome", "merged_exclusions", "record_slate",
-    "slate_record",
+    "slate_decision", "slate_record", "with_slate_row",
 ]

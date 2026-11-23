@@ -67,6 +67,7 @@ Ranked by what each costs a stage or a debugging session. Ids are the map's.
 - **Gate per arc:** one full `pytest --fresh-connections` run at each arc's close, about 55 minutes, because the fast lane reuses connections (`tests/connection_reuse.py`) and only this run shows what that hides; and from A6 on, the `arc_close` tests (pre-registered sims and long journeys), which landing gates leave out (owner, Nov 9).
 - **Not in any gate (owner, Nov 9):** `openai_codex`. `test_the_real_sdk_has_the_seams_the_lockdown_replaces` keeps skipping there.
 - **Comments:** when a step touches a function, it follows the convention below, and only there. No sweep.
+- **Records (L6):** a step that extracts or reshapes a pure core has the core return its `DecisionRecord` (or `None`, or a small bundle of them) on its result, built from the values it decided with by a builder that never raises; the caller writes it where and when the record was written before, and fills only what exists at write time (the parent, a row's id). `tests/test_why_cases.py` stages one case per rule code the core can return, enumerated from the code, and fails when the code gains a code no case stages. A step that changes no decision proves the written records byte-identical on its goldens. The brief carries this rule; I1's and I2's cores got it in L6a ([refactor-l6a.md](../reviews/refactor-l6a.md)).
 - **Vault:** the step fixes each note it names, and any other note it finds it has made false. The large rewrite stays last (§5).
 - **Deleting:** before deleting anything, its step 0 proves it again at that tip: no import (including function-local and `importlib`), no string dispatch (`METHOD_REGISTRY`, Typer decorators, `MODULE_INVENTORY`, `_reg_const`), no frontend or phone caller, no replay, rebuild or upgrade path. A claim that doesn't hold moves the row to the owner's list. It never gets deleted anyway.
 
@@ -803,7 +804,7 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 
 **L6. A core returns its record** (a rule; no step of its own). From E2 on.
 - **Problem:** arc B's records are built by modules beside the deciders (`plan_records`, `chain_records`, `figures/records`, `grade_records`), after the decision. Nothing fails when a decider gains a branch its builder doesn't know.
-- **Does:** every pure core the arcs extract (E2, I1, I2, G1's `probe_facts`, L4's) returns its `DecisionRecord` with its result. For each, `tests/test_why_cases.py` stages one case per rule code the core can return.
+- **Does:** every pure core the arcs extract (E2, I1, I2, G1's `probe_facts`, L4's) returns its `DecisionRecord` with its result. For each, `tests/test_why_cases.py` stages one case per rule code the core can return. Since L6a the rule is in §2.1's list for every step, and I1's and I2's cores follow it.
 
 **K8. The sidecar handlers as the application layer** (M; review). Before the TUI rebuild and MCP v2.
 - **Why:** `learnloop_sidecar` is in 30% of the commits since Oct 12, and the phone, the TUI rebuild and MCP v2 all consume its registry. `handlers/reader.py` is 2,981 lines and imports 71 modules.
