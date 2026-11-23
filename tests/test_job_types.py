@@ -170,3 +170,19 @@ def test_the_legacy_lane_resolves_its_rows_route(tmp_path, monkeypatch) -> None:
         RunnerServices().legacy_ingest(vault_root=tmp_path, source="s.md", subject_id="s", mode="canonical",
                                        progress=None, clock=None)
     assert resolved == list(JT.job_type("legacy_ingest").client_routes) == list(JT.job_type("exam_ingest").client_routes)
+
+
+def test_the_pipeline_reaches_retrieval_through_its_rows_and_the_hosts_sweeps() -> None:
+    """Retrieval's job types are rows whose handlers live in ``source_retrieval.jobs``. The host keeps only the
+    derived-index sweeps, which need its lease and worker (the nightly replay, a deferred index, the fusion refit)."""
+
+    def retrieval_imports(relative: str) -> set[str]:
+        tree = ast.parse((SRC / relative).read_text(encoding="utf-8"))
+        return {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+                and (node.module or "").startswith("learnloop.source_retrieval")}
+
+    assert retrieval_imports("learnloop/content/pipeline/jobs.py") == {
+        "learnloop.source_retrieval.feedback", "learnloop.source_retrieval.local_index",
+        "learnloop.source_retrieval.spaces", "learnloop.source_retrieval.student_encoder",
+    }
+    assert retrieval_imports("learnloop/content/pipeline/job_types.py") == {"learnloop.source_retrieval.jobs"}
