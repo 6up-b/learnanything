@@ -10871,7 +10871,9 @@ export type PadOpDto =
   | { op: "unlink_anchor"; blockId: string; extractionId: string; spanId: string; eventId?: string;
       expectedAnchorHead: string | null }
   // The pen's barrel button: a tombstone over standing strokes of one ink block of this pad (RD8a).
-  | { op: "erase_ink"; blockId: string; strokeIds: string[]; eraseId?: string };
+  | { op: "erase_ink"; blockId: string; strokeIds: string[]; eraseId?: string;
+      /** The version taking LearnLoop's reading off the line when every stroke is erased (client-minted). */
+      versionId?: string };
 
 export interface PadApplyInput { clientId: string; seq: number; padId: string; ops: PadOpDto[] }
 export interface PadApplyDto {
@@ -11609,6 +11611,10 @@ export interface InkOwnerViewDto {
     contentHash: string;
     current: boolean;
     createdAt: string;
+    /** A block's reading: true when it is the block's words. */
+    applied: boolean;
+    /** Why a block's reading is not its words (`kept_your_correction`, `strokes_changed`, `block_removed`). */
+    reason: string | null;
   } | null;
 }
 

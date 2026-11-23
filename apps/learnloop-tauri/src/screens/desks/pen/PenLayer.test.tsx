@@ -170,7 +170,8 @@ describe("the pen layer", () => {
     const capture = vi.mocked(api.readerCapture).mock.calls[0][0];
     expect(capture).toMatchObject({ sourceId: "src", revisionId: "rev", extractionId: "ext", renderViewId: "rv", action: "highlight", learnerText: "" });
     expect(surface.nodesFor).toHaveBeenCalled();
-    expect(vi.mocked(surface.nodesFor).mock.calls[0][0].toString()).toBe(TEXTS[0].slice(5, 24)); // x 142..294 at 8 px a character
+    // x 142..294 at 8 px a character ends inside "quick" and "jumps": the highlight takes both words whole.
+    expect(vi.mocked(surface.nodesFor).mock.calls[0][0].toString()).toBe("quick brown fox jumps");
     expect(host.saveInk).toHaveBeenCalledTimes(1);
     const ink = vi.mocked(host.saveInk).mock.calls[0][0];
     expect(ink.owner).toEqual({ annotationId: "ann_1" });
@@ -321,12 +322,13 @@ describe("ink already saved", () => {
         strokes: [{ strokeId: "s2", inkId: "ink_n", points: [[530, 110, 0, 0.5, 0, 0], [560, 118, 8, 0.5, 0, 0], [600, 104, 16, 0.5, 0, 0], [640, 112, 24, 0.5, 0, 0]] }] },
     ] });
     vi.mocked(api.readerSourceAnnotations).mockResolvedValue({ annotations: [
-      { annotation: { id: "ann_u" }, version: { annotationType: "highlight", learnerText: "" } },
-      { annotation: { id: "ann_n" }, version: { annotationType: "interpretation", learnerText: "my words" } },
+      { annotation: { id: "ann_u" }, version: { annotationType: "highlight", learnerText: "" }, segments: [{ spanId: "s1", exactQuote: "quick brown fox jumps" }] },
+      { annotation: { id: "ann_n" }, version: { annotationType: "interpretation", learnerText: "my words" }, segments: [{ spanId: "s1", exactQuote: "the quick" }] },
     ] });
     setup({ api });
     await settle();
     expect(api.inkList).toHaveBeenCalledWith({ sourceId: "src" });
+    expect(api.readerSourceAnnotations).toHaveBeenCalledWith({ sourceId: "src", extractionId: "ext" });
     expect(body.querySelector('path[data-pen-stroke="underline"]')).not.toBeNull();
     expect(body.querySelector('[data-pen-mark="underline"]')).not.toBeNull();
     expect((screen.getByLabelText("your note's words") as HTMLTextAreaElement).value).toBe("my words");
@@ -340,5 +342,140 @@ describe("ink already saved", () => {
     setup({ api });
     await settle();
     expect(body.querySelectorAll('path[data-pen-stroke="ink"]')).toHaveLength(1);
+  });
+
+  it("a mark is drawn from its annotation's anchor: at another width its ink moves beside the words it marks", async () => {
+    const api = fakeApi();
+    // Written under the first line at another width; the disagreement belongs to the second passage's words.
+    vi.mocked(api.inkList).mockResolvedValue({ version: 1, padId: null, sourceId: "src", owners: [
+      { ownerKind: "annotation", ownerId: "ann_s", contentHash: "h1", devicePixelRatio: 1, transcription: null,
+        strokes: [{ strokeId: "s1", inkId: "ink_s", points: flat(140, 300, 112).map(([x, y]) => [x, y, 0, 0.5, 0, 0] as [number, number, number, number, number, number]) }] },
+    ] });
+    vi.mocked(api.readerSourceAnnotations).mockResolvedValue({ annotations: [
+      { annotation: { id: "ann_s" }, version: { annotationType: "disposition", learnerText: "" }, segments: [{ spanId: "s2", exactQuote: "second passage" }] },
+    ] });
+    setup({ api });
+    await settle();
+    const mark = body.querySelector('[data-pen-mark="strike"]') as HTMLElement;
+    expect(mark).not.toBeNull();
+    // "second passage" starts at the 3rd character of the second line (top 130).
+    expect([mark.style.left, mark.style.top, mark.style.width]).toEqual([`${LEFT + 2 * CHAR}px`, "130px", `${14 * CHAR}px`]);
+    const ink = body.querySelector('path[data-pen-stroke="strike"]')!.getAttribute("d")!;
+    expect(ink.startsWith(`M${(LEFT + 2 * CHAR).toFixed(1)} ${(130 + LINE / 2).toFixed(1)}`)).toBe(true);
+  });
+
+  it("a mark whose anchor can no longer be vouched for paints no words", async () => {
+    const api = fakeApi();
+    vi.mocked(api.inkList).mockResolvedValue({ version: 1, padId: null, sourceId: "src", owners: [
+      { ownerKind: "annotation", ownerId: "ann_u", contentHash: "h1", devicePixelRatio: 1, transcription: null,
+        strokes: [{ strokeId: "s1", inkId: "ink_u", points: flat(140, 300, 126).map(([x, y]) => [x, y, 0, 0.5, 0, 0] as [number, number, number, number, number, number]) }] },
+    ] });
+    vi.mocked(api.readerSourceAnnotations).mockResolvedValue({ annotations: [
+      { annotation: { id: "ann_u" }, version: { annotationType: "highlight", learnerText: "" }, segments: [{ spanId: "s1", exactQuote: "quick brown fox jumps" }],
+        placement: { state: "flagged", segments: [], flagSpanId: "s1" } },
+    ] });
+    setup({ api });
+    await settle();
+    expect(body.querySelector('path[data-pen-stroke="underline"]')).not.toBeNull();
+    expect(body.querySelector('[data-pen-mark="underline"]')).toBeNull();
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+const scribble = (): Array<[number, number]> => {
+  const points: Array<[number, number]> = [];
+  for (let t = 0; t < 1; t += 0.02) points.push([530 + t * 150, 110 + Math.sin(t * 60) * 7]);
+  return points;
+};
+
+describe("marks taken back and readings stopped", () => {
+  it("undo while the annotation is being made removes it once made, and its ink is never saved", async () => {
+    const api = fakeApi();
+    const capture = deferred<Awaited<ReturnType<PenApi["readerCapture"]>>>();
+    vi.mocked(api.readerCapture).mockReturnValue(capture.promise);
+    const { host } = setup({ api });
+    draw(flat(140, 300, 100 + LINE + 2));
+    await settle();
+    fireEvent.click(screen.getByText("undo"));
+    expect(api.readerDeleteIntentAnnotation).not.toHaveBeenCalled();
+    capture.resolve({ annotationId: "ann_late", outboxId: "o", interactionEventId: "e", anchorStatus: "exact", captureKind: "annotation", deduplicated: false, receipt: "r" });
+    await settle();
+    expect(api.readerDeleteIntentAnnotation).toHaveBeenCalledWith({ annotationId: "ann_late", reason: "pen undo" });
+    expect(host.saveInk).not.toHaveBeenCalled();
+    expect(body.querySelector('[data-pen-mark="underline"]')).toBeNull();
+  });
+
+  it("a removal that fails puts the mark back, saying so, and undo tries again", async () => {
+    const api = fakeApi();
+    vi.mocked(api.readerDeleteIntentAnnotation).mockRejectedValueOnce(new Error("offline"));
+    setup({ api });
+    draw(flat(140, 300, 100 + LINE + 2));
+    await settle();
+    fireEvent.click(screen.getByText("undo"));
+    await settle();
+    expect(screen.getByText("couldn't take this mark back · undo to try again")).toBeTruthy();
+    expect(body.querySelector('[data-pen-mark="underline"]')).not.toBeNull();
+    fireEvent.click(screen.getByText("undo"));
+    await settle();
+    expect(api.readerDeleteIntentAnnotation).toHaveBeenCalledTimes(2);
+    expect(body.querySelector('[data-pen-mark="underline"]')).toBeNull();
+  });
+
+  it("a note taken back before its reading's start answered stops that reading on the server", async () => {
+    const api = fakeApi();
+    const start = deferred<InkTranscribeJobDto>();
+    vi.mocked(api.inkTranscribe).mockReturnValue(start.promise);
+    vi.mocked(api.inkTranscribeCancel).mockResolvedValue({ version: 1, jobId: "job_late", status: "cancelled", done: false, result: null, error: null });
+    const { host } = setup({ api });
+    draw(scribble());
+    await settle();
+    await settle();
+    expect(api.inkTranscribe).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("undo"));
+    start.resolve({ version: 1, jobId: "job_late", status: "running", done: false, result: null, error: null });
+    await settle();
+    expect(api.inkTranscribeCancel).toHaveBeenCalledWith({ jobId: "job_late" });
+    expect(host.poller.size).toBe(0);
+  });
+
+  it("closing the window stops a note's reading on the server", async () => {
+    const api = fakeApi({ jobId: "job_1", status: "running", done: false, error: null });
+    vi.mocked(api.inkTranscribeCancel).mockResolvedValue({ version: 1, jobId: "job_1", status: "cancelled", done: false, result: null, error: null });
+    const { host } = setup({ api });
+    draw(scribble());
+    await settle();
+    await settle();
+    expect(host.poller.size).toBe(1);
+    cleanup();
+    expect(api.inkTranscribeCancel).toHaveBeenCalledWith({ jobId: "job_1" });
+    expect(host.poller.size).toBe(0);
+  });
+
+  it("a reading arriving while the learner types is offered beside the draft, never written over it", async () => {
+    const api = fakeApi();
+    const start = deferred<InkTranscribeJobDto>();
+    vi.mocked(api.inkTranscribe).mockReturnValue(start.promise);
+    setup({ api });
+    draw(scribble());
+    await settle();
+    await settle();
+    const field = screen.getByLabelText("your note's words") as HTMLTextAreaElement;
+    fireEvent.change(field, { target: { value: "my own draf" } });
+    start.resolve({ version: 1, jobId: null, status: "done", done: true, error: null, result: { transcriptionId: "it_1", ownerKind: "annotation", ownerId: "ann_1", contentHash: "h", latexMd: "does $e^x$ cancel?", confidenceLabel: "may_be_wrong", model: "m", createdAt: "t", applied: false, reason: null, headVersionId: null } });
+    await settle();
+    expect(field.value).toBe("my own draf");
+    expect(screen.getByText(/LearnLoop reads: does \$e\^x\$ cancel\?/)).toBeTruthy();
+    expect(api.readerEditAnnotation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("use it"));
+    expect(api.readerEditAnnotation).toHaveBeenCalledWith({ annotationId: "ann_1", learnerText: "does $e^x$ cancel?" });
   });
 });

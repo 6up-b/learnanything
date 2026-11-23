@@ -253,6 +253,37 @@ describe("pads in the store (RD4b)", () => {
     // Each edit kept apart is said once, as it lands.
     expect(notices).toEqual([{ kind: "kept-both", count: 1 }, { kind: "kept-both", count: 1 }]);
   });
+  it("a pad read that started before a correction (acknowledged before the read answers) never lays the older pad over it", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let release: (() => void) | null = null;
+    let held = false;
+    const store = new DeskStore("me", {
+      ...padTransport(server),
+      padGet: async ({ padId }: { padId: string }) => {
+        if (!held) return server.padGet(padId);
+        // The read sees the pad as it is now, and its answer is delayed.
+        const seen = server.padGet(padId);
+        await new Promise<void>((done) => {
+          release = done;
+        });
+        return seen;
+      },
+    }, timers);
+    await store.load();
+    await store.loadPad("fx_pad_running");
+    held = true;
+    const refresh = store.refreshPad("fx_pad_running");
+    await vi.waitFor(() => expect(release).not.toBeNull());
+    await Promise.resolve();
+    held = false;
+    store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "mine1", bodyMd: "my correction" }]);
+    await settle(store, timers);
+    expect(server.padGet("fx_pad_running").blocks[0]).toMatchObject({ bodyMd: "my correction" });
+    release!();
+    await refresh;
+    expect(store.pads.fx_pad_running.blocks[0]).toMatchObject({ bodyMd: "my correction", headVersionId: "mine1" });
+  });
 });
 
 

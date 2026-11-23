@@ -142,7 +142,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const inkPads = pads.filter((state) => state && (state.pad.kind === "ink" || state.blocks.some((block) => block.kind === "ink"))).map((state) => state!.pad.padId).join("|");
   useEffect(() => {
     if (paused || !pen) return;
-    for (const padId of inkPads.split("|").filter(Boolean)) void pen.ink.load(padId);
+    // Read again each time the pads are shown: a pad reopened shows the ink as the server holds it now.
+    for (const padId of inkPads.split("|").filter(Boolean)) void pen.ink.load(padId, true);
   }, [inkPads, paused, pen]);
   const padKey = padIds.join("|");
   useEffect(() => () => pen?.ink.cancelAll(padKey.split("|").filter(Boolean)), [pen, padKey]);
@@ -676,8 +677,10 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
           <button type="button" className="lift" onClick={(event) => {
             event.stopPropagation();
             const newPadId = host.mintId("pad");
+            const newBlockId = host.mintId("blk");
             const title = firstLine(block.bodyMd).slice(0, 48) || "lifted";
-            if (write(padId, [{ op: "lift_out", blockId: block.blockId, expectedHead: block.headVersionId, newPadId, newBlockId: host.mintId("blk"), title, newVersionId: host.mintId("ver"), stubVersionId: host.mintId("ver"), positionKey: "m" }])) {
+            if (write(padId, [{ op: "lift_out", blockId: block.blockId, expectedHead: block.headVersionId, newPadId, newBlockId, title, newVersionId: host.mintId("ver"), stubVersionId: host.mintId("ver"), positionKey: "m" }])) {
+              if (block.kind === "ink") pen?.ink.lifted(padId, block.blockId, newPadId, newBlockId);
               host.addToStack(windowId, newPadId);
             }
           }}>lift out</button>

@@ -5,7 +5,7 @@
 //
 // Today's default route reads no images: the line then says plainly that handwriting can't be read yet, keeps the
 // ink, and lets the learner type what they wrote.
-import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { InkStrokeDto, PadBlockDto, PadOpDto } from "../../../api/dto";
 import { MarkdownMath } from "../../../render/MarkdownMath";
 import { FitMath } from "../fitMath";
@@ -55,10 +55,20 @@ function InkSurface({ host, strokes, paused, onStroke, onErase, label, children 
   const [live, setLive] = useState<Point6[] | null>(null);
   // A stroke's click is the pen's, not the row's (a pad's last row also starts a typed line on a click).
   const drew = useRef(false);
+  // The strokes this barrel gesture already erased: the eraser passes over a stroke again before the line redraws
+  // without it, and a second erase of it would be refused (the stroke no longer stands), taking the whole op.
+  const erased = useRef(new Set<string>());
   const local = (samples: Sample[]): Point6[] => {
     const box = ref.current?.getBoundingClientRect() ?? { left: 0, top: 0 };
     return samples.map((s) => [round(s.x - box.left), round(s.y - box.top), round(s.t), s.pressure, s.tiltX, s.tiltY]);
   };
+  // Paused mid-stroke: the stroke ends there, so samples drawn before the pause are never saved by a pointer-up
+  // that comes after the window resumes.
+  useEffect(() => {
+    if (!paused) return;
+    input.cancel();
+    setLive(null);
+  }, [paused, input]);
   const height = surfaceHeight([...strokes, ...(live ? [{ points: live }] : [])]);
   return (
     <div
@@ -73,6 +83,7 @@ function InkSurface({ host, strokes, paused, onStroke, onErase, label, children 
         if (outcome.kind === "pass") return;
         if (outcome.turnOn) hostRef.current.setOn(true);
         drew.current = true;
+        erased.current.clear();
         event.preventDefault();
         event.stopPropagation();
         try {
@@ -94,9 +105,11 @@ function InkSurface({ host, strokes, paused, onStroke, onErase, label, children 
           const hit = new Set<string>();
           for (const at of local(samples)) {
             for (const stroke of strokes) {
+              if (erased.current.has(stroke.strokeId)) continue;
               if (distanceToPolyline({ x: at[0], y: at[1] }, stroke.points.map((p) => ({ x: p[0], y: p[1] }))) <= PEN_WIDTH) hit.add(stroke.strokeId);
             }
           }
+          for (const strokeId of hit) erased.current.add(strokeId);
           if (hit.size) onErase?.([...hit]);
           return;
         }
@@ -198,7 +211,16 @@ function InkBlockOn({ host, padId, block, windowId, paused, showTranscription, w
           cache.wrote(padId, block.blockId, windowId);
         }}
         onErase={(strokeIds) => {
-          if (write([{ op: "erase_ink", blockId: block.blockId, strokeIds, eraseId: host.mintId("erase") }])) cache.erase(padId, block.blockId, strokeIds);
+          // Every stroke erased: LearnLoop's reading of them goes too (the server writes the same blank version).
+          // Read from the cache, not this render: one barrel gesture erases stroke after stroke before a redraw.
+          const all = (cache.pad(padId).lines[block.blockId]?.strokes ?? []).every((stroke) => strokeIds.includes(stroke.strokeId));
+          const read = block.provenance === "ink_transcription" && (words !== "" || "ink_transcription" in block.payload);
+          const op: PadOpDto = { op: "erase_ink", blockId: block.blockId, strokeIds, eraseId: host.mintId("erase"), ...(all && read ? { versionId: host.mintId("ver") } : {}) };
+          if (!write([op])) return;
+          cache.erase(padId, block.blockId, strokeIds);
+          // Read the line's ink again once the erase is answered: an erase the server refused (a stroke already
+          // erased elsewhere) shows the strokes it still holds.
+          void cache.reconcile(padId);
         }}
       />
       {showTranscription ? (

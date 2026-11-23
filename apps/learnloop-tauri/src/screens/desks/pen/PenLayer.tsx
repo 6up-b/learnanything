@@ -20,14 +20,16 @@ import type { PenSurface } from "../../ReaderScreen";
 import { useWindowLifecycle, useWindowPaused } from "../lifecycle";
 import { usePenHost, type PenHost } from "./host";
 import { PenInput, type PointerLike, type Sample } from "./input";
-import { RECOGNIZED_AS, boxOf, recognize, type Box, type Point, type StrokeKind } from "./recognizer";
+import { RECOGNIZED_AS, RECOGNIZER, boxOf, recognize, type Box, type Point, type StrokeKind } from "./recognizer";
 import {
   distanceToPolyline,
   localRects,
   pageOf,
   passageBeside,
+  passages,
   passagesSpanned,
   rangeBetween,
+  rangeOfQuote,
   toClient,
   toLocal,
   wordsInLoop,
@@ -112,6 +114,13 @@ function chipAt(kind: MarkKind | "ink", box: Box): Point {
   }
 }
 
+/** A chip at its place beside a mark's strokes (the scroller's coordinates). */
+function chipOf(body: HTMLElement, kind: MarkKind | "ink", box: Box, text: string): NonNullable<Mark["chip"]> {
+  const at = chipAt(kind, box);
+  const local = toLocal(body, at.x, at.y);
+  return { x: local.x, y: local.y, below: toLocal(body, at.x, box.y1 + 8).y, text };
+}
+
 /** The note box's own width (pen.css: 220 px, an 8 px inset and a 2 px edge). */
 const NOTE_BOX_WIDTH = 230;
 
@@ -121,6 +130,84 @@ function notePlace(body: HTMLElement, box: Box): Point {
   const at = toLocal(body, box.x0, box.y1 + 4);
   const room = body.clientWidth + body.scrollLeft - NOTE_BOX_WIDTH;
   return { x: Math.max(body.scrollLeft, Math.min(at.x, room)), y: at.y };
+}
+
+interface ListedRow {
+  annotation?: { id?: string };
+  version?: { annotationType?: string; learnerText?: string };
+  anchor?: { status?: string };
+  segments?: Array<{ spanId?: string; exactQuote?: string }>;
+  placement?: { state?: string; segments?: Array<{ spanId?: string; exactQuote?: string }> };
+}
+
+interface ListedAnnotation {
+  type: string;
+  text: string;
+  /** What the annotation marks on the open reading, or null where that can no longer be vouched for. */
+  segments: Array<{ spanId: string; quote: string }> | null;
+}
+
+/** An annotation's anchor on the open reading: where the sidecar placed it (here, or moved after a re-read), else its
+ * own segments; null when its words changed or it lies on no passage of this reading (nothing is painted there). */
+function anchorSegments(row: ListedRow): ListedAnnotation["segments"] {
+  const placed = row.placement;
+  if (placed && placed.state !== "here" && placed.state !== "moved") return null;
+  if (!placed && row.anchor?.status === "needs_reanchor") return null;
+  const segments = (placed ? placed.segments : row.segments) ?? [];
+  const found = segments.flatMap((segment) => (segment.spanId ? [{ spanId: segment.spanId, quote: segment.exactQuote ?? "" }] : []));
+  return found.length ? found : null;
+}
+
+function fold(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function moved(strokes: InkStroke[], dx: number, dy: number): InkStroke[] {
+  if (!dx && !dy) return strokes;
+  return strokes.map((stroke) => ({ ...stroke, points: stroke.points.map(([x, y, ...rest]) => [round(x + dx), round(y + dy), ...rest] as InkStroke["points"][number]) }));
+}
+
+/** A recognized mark saved with its annotation, drawn again: its marks from the annotation's anchor, its ink where
+ * it was written while that still marks the same words (or passage), else moved beside what the anchor names. The
+ * kind is the annotation's (a strike is a disposition), a bracket told from an underline by its ink's shape alone,
+ * which no layout changes. */
+function restoreMark(body: HTMLElement, surface: PenSurface, annotationId: string, strokes: InkStroke[], annotation: ListedAnnotation): Omit<Mark, "inkId"> | null {
+  const client = (list: InkStroke[]) => list.flatMap((stroke) => stroke.points.map((point) => toClient(body, point[0], point[1])));
+  const box = boxOf(client(strokes));
+  const base = { id: `saved:${annotationId}`, annotationId, state: "saved" as const, chip: null };
+  const segments = annotation.segments;
+  const element = (spanId: string) => passages(body).find((each) => each.dataset.spanId === spanId) ?? null;
+  const place = (kind: Mark["kind"], dx: number, dy: number, rects: LocalRect[]) => {
+    const shifted = moved(strokes, dx, dy);
+    return { ...base, kind, strokes: shifted, box: dx || dy ? boxOf(client(shifted)) : box, rects };
+  };
+  if (annotation.type === "interpretation") {
+    const anchored = segments ? element(segments[0].spanId) : null;
+    if (!anchored || passageBeside(body, box) === anchored) return place("note", 0, 0, []);
+    return place("note", 0, anchored.getBoundingClientRect().top - box.y0, []);
+  }
+  if (annotation.type !== "highlight" && annotation.type !== "disposition") return null;
+  const tall = box.y1 - box.y0 >= RECOGNIZER.bracket.minHeight && box.x1 - box.x0 <= RECOGNIZER.bracket.maxWidth;
+  if (tall && annotation.type === "highlight") {
+    const spanned = (segments ?? []).flatMap((segment) => element(segment.spanId) ?? []);
+    const rects = localRects(body, spanned.map((each) => each.getBoundingClientRect()));
+    const today = passagesSpanned(body, box);
+    const same = spanned.length === today.length && spanned.every((each, index) => today[index] === each);
+    return place("bracket", 0, same || !spanned.length ? 0 : spanned[0].getBoundingClientRect().top - box.y0, rects);
+  }
+  const kind = annotation.type === "disposition" ? "strike" : "underline";
+  const ranges = (segments ?? []).flatMap((segment) => rangeOfQuote(body, segment.spanId, segment.quote) ?? []);
+  const rects = ranges.flatMap((range) => localRects(body, range.getClientRects()));
+  const first = ranges[0]?.getClientRects()[0];
+  if (!first) return place(kind, 0, 0, rects);
+  // Drawn today, would the ink mark the same words? Then it stays where it was written.
+  const middle = (box.y0 + box.y1) / 2;
+  const lineY = kind === "strike" ? middle : middle - RECOGNIZER.underlineAbove;
+  const today = rangeBetween(body, { x: box.x0 + 2, y: lineY }, { x: box.x1 - 2, y: lineY });
+  const todayText = today ? fold(today.toString()) : "";
+  if (todayText && (segments ?? []).every((segment) => todayText.includes(fold(segment.quote)))) return place(kind, 0, 0, rects);
+  const target = first.top + first.height / 2 + (kind === "strike" ? 0 : RECOGNIZER.underlineAbove);
+  return place(kind, first.left - box.x0, target - middle, rects);
 }
 
 export function PenLayer({ surface }: { surface: PenSurface | null }) {
@@ -169,6 +256,26 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
   }, [body]);
 
   const penTypeRef = useRef<"pen" | "mouse">("pen");
+  /** Marks taken back (undo, the barrel) while their annotation was still being made: it is removed once made. */
+  const undone = useRef(new Set<string>());
+  /** The window closed: a reply arriving later changes nothing and starts nothing. */
+  const disposed = useRef(false);
+  useEffect(() => {
+    disposed.current = false;
+    return () => {
+      disposed.current = true;
+    };
+  }, []);
+
+  /** Remove a mark's annotation; a removal that fails puts the mark back, saying so, for another undo. */
+  const removeAnnotation = useCallback((mark: Mark, annotationId: string) => {
+    void hostRef.current.api.readerDeleteIntentAnnotation({ annotationId, reason: "pen undo" }).catch(() => {
+      if (disposed.current) return;
+      const text = "couldn't take this mark back · undo to try again";
+      setMarks((all) => [...all.filter((each) => each.id !== mark.id), { ...mark, annotationId, state: "failed", chip: mark.chip ? { ...mark.chip, text } : chipOf(body, mark.kind, mark.box, text) }]);
+    });
+  }, [body]);
+
   const persist = useCallback(async (mark: Mark, nodes: ReaderRawSelectionNode[], action: "highlight" | "disposition" | "interpretation", learnerText: string) => {
     const h = hostRef.current;
     const inkId = h.mintId("ink");
@@ -182,6 +289,11 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       });
       const annotationId = receipt.annotationId;
       if (!annotationId) throw new Error("no annotation was made");
+      if (undone.current.delete(mark.id)) {
+        // Taken back while it was being made: the annotation goes, and its ink is never saved.
+        removeAnnotation(mark, annotationId);
+        return null;
+      }
       h.saveInk({
         owner: { annotationId },
         inkId,
@@ -191,10 +303,11 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       update(mark.id, (current) => ({ ...current, annotationId, inkId, state: "saved" }));
       return { annotationId, inkId };
     } catch {
+      if (undone.current.delete(mark.id)) return null;
       update(mark.id, (current) => ({ ...current, state: "failed", chip: current.chip ? { ...current.chip, text: "couldn't keep this mark · your ink is still here" } : null }));
       return null;
     }
-  }, [surface, update]);
+  }, [surface, update, removeAnnotation]);
 
   const finish = useCallback((samples: Sample[], pointerType: "pen" | "mouse") => {
     penTypeRef.current = pointerType;
@@ -205,11 +318,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     const stroke = localStroke(body, samples, h.mintId("stroke"));
     const box = recognition.box;
     const id = h.mintId("mark");
-    const chipFor = (kind: MarkKind | "ink", text: string) => {
-      const at = chipAt(kind, box);
-      const local = toLocal(body, at.x, at.y);
-      return { x: local.x, y: local.y, below: toLocal(body, at.x, box.y1 + 8).y, text };
-    };
+    const chipFor = (kind: MarkKind | "ink", text: string) => chipOf(body, kind, box, text);
     const base: Mark = { id, kind: "ink", strokes: [stroke], box, rects: [], annotationId: null, inkId: null, state: "local", chip: null };
     // Ink that became no mark stays on the page as the learner's marks: kept for this reading (owner kind
     // "source"), redrawn when the source reopens, erasable; never read and never learner text.
@@ -287,13 +396,19 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
 
   // The margin note's transcription (spec §10.10): asked once its ink is saved, polled through the central poller.
   const polls = useRef(new Map<string, () => void>());
+  /** Each note's reading job on the server, stopped when the note is taken back or the window closes. */
+  const jobs = useRef(new Map<string, string>());
+  const gone = (markId: string) => disposed.current || undone.current.has(markId) || !marksRef.current.some((mark) => mark.id === markId);
   const readNote = useCallback(async (markId: string, inkId: string) => {
     const h = hostRef.current;
     update(markId, (mark) => (mark.note ? { ...mark, note: { ...mark.note, reading: "reading" } } : mark));
     if ((await h.settled()) !== "saved") {
-      update(markId, (mark) => (mark.note ? { ...mark, note: { ...mark.note, reading: "failed", readingLabel: "your ink is kept on this device until LearnLoop is reachable" } } : mark));
+      // The outbox lives in memory (the durable store is the RD-spike's open choice): unsent ink is kept only while the
+      // app stays open, and saying "on this device" would promise more.
+      update(markId, (mark) => (mark.note ? { ...mark, note: { ...mark.note, reading: "failed", readingLabel: "your ink isn't sent yet · it is kept while LearnLoop stays open" } } : mark));
       return;
     }
+    if (gone(markId)) return;
     const apply = (job: InkTranscribeJobDto): boolean => {
       if (!job.done) return false;
       update(markId, (mark) => {
@@ -315,15 +430,24 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     };
     try {
       const first = await h.api.inkTranscribe({ inkId });
+      if (gone(markId)) {
+        // Taken back, or the window closed, before the start answered: the job it started is stopped, not followed.
+        if (first.jobId && !first.done) void h.api.inkTranscribeCancel({ jobId: first.jobId }).catch(() => undefined);
+        return;
+      }
       if (apply(first) || !first.jobId) return;
       const jobId = first.jobId;
+      jobs.current.set(markId, jobId);
       const remove = h.poller.register<InkTranscribeJobDto>({
         key: `ink-transcribe:${jobId}`,
         owner: lifecycle.windowId,
         request: () => h.api.inkTranscribeJob({ jobId }),
         onResult: (job) => {
           const done = apply(job);
-          if (done) polls.current.delete(markId);
+          if (done) {
+            polls.current.delete(markId);
+            jobs.current.delete(markId);
+          }
           return { done };
         },
         onError: () => {
@@ -337,11 +461,20 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       const code = error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "failed";
       apply({ version: 1, jobId: null, status: "failed", done: true, result: null, error: { code, message: code, retryable: false, details: null } });
     }
+  // gone reads refs only
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lifecycle.windowId, update]);
-  useEffect(() => () => {
-    for (const remove of polls.current.values()) remove();
-    polls.current.clear();
+  /** Stop a note's reading: its polls, and its job on the server (whose next model request is then refused). */
+  const stopReading = useCallback((markId: string) => {
+    polls.current.get(markId)?.();
+    polls.current.delete(markId);
+    const jobId = jobs.current.get(markId);
+    jobs.current.delete(markId);
+    if (jobId) void hostRef.current.api.inkTranscribeCancel({ jobId }).catch(() => undefined);
   }, []);
+  useEffect(() => () => {
+    for (const markId of [...polls.current.keys(), ...jobs.current.keys()]) stopReading(markId);
+  }, [stopReading]);
 
   /** Erase strokes of plain page ink (the barrel, or its chip's undo): an ink.erase in the write sequence. */
   const eraseStrokes = useCallback((mark: Mark, strokeIds: string[]) => {
@@ -353,17 +486,16 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
   }, [surface.identity.extractionId, update]);
 
   const undo = useCallback((mark: Mark) => {
-    const h = hostRef.current;
     if (mark.kind === "ink") {
       eraseStrokes(mark, mark.strokes.map((stroke) => stroke.strokeId));
       return;
     }
-    polls.current.get(mark.id)?.();
-    polls.current.delete(mark.id);
+    stopReading(mark.id);
     if (mark.kind === "lasso") body.ownerDocument.getSelection()?.removeAllRanges();
-    if (mark.annotationId) void h.api.readerDeleteIntentAnnotation({ annotationId: mark.annotationId, reason: "pen undo" }).catch(() => undefined);
+    if (mark.annotationId) removeAnnotation(mark, mark.annotationId);
+    else if (mark.state === "saving") undone.current.add(mark.id);
     update(mark.id, () => null);
-  }, [body, update, eraseStrokes]);
+  }, [body, update, eraseStrokes, stopReading, removeAnnotation]);
 
   const keepNote = useCallback((mark: Mark, text: string) => {
     if (!mark.annotationId) return;
@@ -373,55 +505,47 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
   }, [update]);
 
   // The ink this source already holds (its margin notes' and marks' strokes, saved with their annotations), drawn
-  // again where it was written, its marks found again by the same geometry on today's layout.
+  // again. A recognized mark is drawn from its annotation's anchor, what it means, never found again from the pixels
+  // it was drawn at: at another window width those pixels lie over other words. Its ink is drawn where it was written
+  // while that still marks the same words, else moved beside them.
   useEffect(() => {
     let live = true;
     const h = hostRef.current;
-    const sourceId = surface.identity.sourceId;
-    void Promise.all([h.api.inkList({ sourceId }), h.api.readerSourceAnnotations({ sourceId })]).then(([ink, listed]) => {
+    const { sourceId, extractionId } = surface.identity;
+    void Promise.all([h.api.inkList({ sourceId }), h.api.readerSourceAnnotations({ sourceId, extractionId })]).then(([ink, listed]) => {
       if (!live) return;
-      const kinds = new Map<string, { type: string; text: string }>();
-      for (const head of listed.annotations as Array<{ annotation?: { id?: string }; version?: { annotationType?: string; learnerText?: string } }>) {
-        if (head?.annotation?.id) kinds.set(head.annotation.id, { type: head.version?.annotationType ?? "", text: head.version?.learnerText ?? "" });
+      const known = new Map<string, ListedAnnotation>();
+      for (const row of listed.annotations as ListedRow[]) {
+        const id = row?.annotation?.id;
+        if (id) known.set(id, { type: row.version?.annotationType ?? "", text: row.version?.learnerText ?? "", segments: anchorSegments(row) });
       }
       const restored: Mark[] = [];
       for (const owner of ink.owners) {
-        if (owner.ownerKind === "source" && owner.ownerId === surface.identity.extractionId && owner.strokes.length) {
+        if (owner.ownerKind === "source" && owner.ownerId === extractionId && owner.strokes.length) {
           const strokes: InkStroke[] = owner.strokes.map((stroke) => ({ strokeId: stroke.strokeId, points: stroke.points }));
           const box = boxOf(strokes.flatMap((stroke) => stroke.points.map((point) => toClient(body, point[0], point[1]))));
           restored.push({ id: `saved:page:${owner.ownerId}`, kind: "ink", strokes, box, rects: [], annotationId: null, inkId: owner.strokes[0].inkId, state: "saved", chip: null });
           continue;
         }
         if (owner.ownerKind !== "annotation" || !owner.strokes.length) continue;
-        const known = kinds.get(owner.ownerId);
-        if (!known) continue;
-        const strokes: InkStroke[] = owner.strokes.map((stroke) => ({ strokeId: stroke.strokeId, points: stroke.points }));
-        const client = strokes.flatMap((stroke) => stroke.points.map((point) => toClient(body, point[0], point[1])));
-        const box = boxOf(client);
-        const base: Mark = { id: `saved:${owner.ownerId}`, kind: "ink", strokes, box, rects: [], annotationId: owner.ownerId, inkId: owner.strokes[0].inkId, state: "saved", chip: null };
-        if (known.type === "interpretation") {
-          const at = notePlace(body, box);
+        const annotation = known.get(owner.ownerId);
+        if (!annotation) continue;
+        const saved = restoreMark(body, surface, owner.ownerId, owner.strokes.map((stroke) => ({ strokeId: stroke.strokeId, points: stroke.points })), annotation);
+        if (!saved) continue;
+        const mark: Mark = { ...saved, inkId: owner.strokes[0].inkId };
+        if (mark.kind === "note") {
+          const at = notePlace(body, mark.box);
           const reading = owner.transcription;
-          restored.push({ ...base, kind: "note", note: { x: at.x, y: at.y, text: known.text || (reading?.current ? reading.latexMd : ""), source: known.text ? "yours" : reading?.current ? "reading" : "none", reading: reading?.current ? "read" : "idle", readingLabel: known.text ? "handwritten" : reading?.current ? "transcribed · may be wrong · fix it" : "handwritten" } });
-        } else if (known.type === "disposition" || known.type === "highlight") {
-          const recognition = recognize(client, pageOf(body));
-          if (recognition?.kind === "bracket") {
-            restored.push({ ...base, kind: "bracket", rects: localRects(body, passagesSpanned(body, box).map((element) => element.getBoundingClientRect())) });
-          } else if (recognition && (recognition.kind === "underline" || recognition.kind === "strike")) {
-            const y = recognition.lineY ?? (box.y0 + box.y1) / 2;
-            const range = rangeBetween(body, { x: box.x0 + 2, y }, { x: box.x1 - 2, y });
-            restored.push({ ...base, kind: known.type === "disposition" ? "strike" : "underline", rects: range ? localRects(body, range.getClientRects()) : [] });
-          } else {
-            restored.push({ ...base, kind: known.type === "disposition" ? "strike" : "underline" });
-          }
+          mark.note = { x: at.x, y: at.y, text: annotation.text || (reading?.current ? reading.latexMd : ""), source: annotation.text ? "yours" : reading?.current ? "reading" : "none", reading: reading?.current ? "read" : "idle", readingLabel: annotation.text ? "handwritten" : reading?.current ? "transcribed · may be wrong · fix it" : "handwritten" };
         }
+        restored.push(mark);
       }
       setMarks((all) => [...restored, ...all.filter((mark) => !mark.id.startsWith("saved:"))]);
     }, () => undefined);
     return () => {
       live = false;
     };
-  }, [body, surface.identity.sourceId, surface.identity.extractionId]);
+  }, [body, surface]);
 
   // The pen's input on this window's text.
   useEffect(() => {
@@ -572,7 +696,19 @@ function Chip({ body, kind, x, y, below, children }: { body: HTMLElement; kind: 
 function NoteBox({ mark, onKeep }: { mark: Mark; onKeep: (mark: Mark, text: string) => void }) {
   const note = mark.note!;
   const [text, setText] = useState(note.text);
-  useEffect(() => setText(note.text), [note.text]);
+  // Typed into since it last showed the note's words: a reading arriving then is offered beside the draft, never
+  // written over it.
+  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  useEffect(() => {
+    if (!dirtyRef.current) setText(note.text);
+  }, [note.text]);
+  const offered = dirty && note.source === "reading" && note.text && note.text !== text ? note.text : null;
+  const keep = (words: string) => {
+    setDirty(false);
+    onKeep(mark, words);
+  };
   const label = note.readingLabel ?? (note.reading === "reading" ? "reading your handwriting…" : mark.state === "saving" ? "keeping your note…" : "handwritten");
   return (
     <div className="desk-pen-note" data-pen-note={note.reading} style={{ left: note.x, top: note.y }}>
@@ -584,20 +720,29 @@ function NoteBox({ mark, onKeep }: { mark: Mark; onKeep: (mark: Mark, text: stri
         value={text}
         placeholder={note.reading === "cannot" ? "type it here" : ""}
         data-desk-typing=""
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => {
+          setText(event.target.value);
+          setDirty(true);
+        }}
         onBlur={() => {
           // Only the learner's own change is kept on leaving; LearnLoop's reading becomes the note's words only
           // when they keep it (↵), so a model's reading is never stored as the learner's.
-          if (text !== note.text) onKeep(mark, text);
+          if (dirty && text !== note.text) keep(text);
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            onKeep(mark, text);
+            keep(text);
             (event.target as HTMLTextAreaElement).blur();
           }
         }}
       />
+      {offered ? (
+        <span className="ocrl" data-pen-note-offer="">LearnLoop reads: {offered} (may be wrong) · <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => {
+          setText(offered);
+          keep(offered);
+        }}>use it</button></span>
+      ) : null}
       <span className="ocrl">{label}</span>
     </div>
   );
