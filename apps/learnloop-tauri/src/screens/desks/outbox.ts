@@ -1,16 +1,26 @@
-// The client's write outbox for desk ops (spec §3.4, §3.5): batches numbered by one `seq` per client,
-// sent in order, each kept until the server's receipt for its `seq` comes back.
+// The client's write outbox for desk and pad ops (spec §3.4, §3.5): batches numbered by one `seq` per client
+// (desk batches and pad batches share it, as the server keeps one sequence a client), sent in order, each kept
+// until the server's receipt for its `seq` comes back.
 //
 // This is the in-memory outbox. The durable local store (IndexedDB, or a SQLite file through a Rust
 // command) is chosen by the RD-spike, so everything here sits behind `OutboxStore`, which that store
 // replaces; until then an op queued and not yet acknowledged is lost if the app closes, and the desks
 // say nothing is saved on this device. A conflict (a stale head) takes the server's state, as §3.5
 // says for moves and pairs: the shell reloads `desk.state` and re-renders.
-import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto } from "../../api/dto";
+import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto, PadApplyDto, PadApplyInput, PadOpDto } from "../../api/dto";
 
+/** One batch: desk ops, or (with `pad`) ops on one pad sent by `pad.apply`. */
 export interface Batch {
   seq: number;
   ops: DeskOpDto[];
+  pad?: { padId: string; ops: PadOpDto[] };
+}
+
+/** What a batch carries, before it has a number. */
+export type BatchBody = { ops: DeskOpDto[]; pad?: { padId: string; ops: PadOpDto[] } };
+
+function emptyBody(body: BatchBody): boolean {
+  return body.pad ? body.pad.ops.length === 0 : body.ops.length === 0;
 }
 
 /** Where unacknowledged batches live. The RD-spike's durable store implements this same interface. */
@@ -40,14 +50,16 @@ export class MemoryOutboxStore implements OutboxStore {
 
 export interface OutboxTransport {
   apply(input: DeskApplyInput): Promise<DeskApplyDto>;
+  /** `pad.apply` (absent where no pad is written, as in the desks' early tests). */
+  applyPad?(input: PadApplyInput): Promise<PadApplyDto>;
 }
 
 export type FlushOutcome =
   | { kind: "idle" }
-  | { kind: "applied"; reply: DeskApplyDto }
+  | { kind: "applied"; reply: DeskApplyDto | PadApplyDto }
   /** At least one op of `batch` hit a stale head or was refused: the server's state wins for those ops.
    * The batches queued after it stay queued, to be rebased on the server's state (`requeue`). */
-  | { kind: "conflict"; reply: DeskApplyDto; batch: Batch }
+  | { kind: "conflict"; reply: DeskApplyDto | PadApplyDto; batch: Batch }
   /** The server refused the whole batch for good (its request is invalid, so it will never apply): it is
    * dropped, and the batches after it stay queued, to be rebased. Never retried. */
   | { kind: "rejected"; message: string; batch: Batch }
@@ -119,12 +131,13 @@ export class DeskOutbox {
   }
 
   /** Replace every queued batch with `batches` (rebased ops), numbered from `fromSeq`. */
-  requeue(batches: DeskOpDto[][], fromSeq: number): void {
+  requeue(batches: Array<DeskOpDto[] | BatchBody>, fromSeq: number): void {
     for (const stale of this.store.load()) this.store.remove(stale.seq);
     let seq = fromSeq;
-    for (const ops of batches) {
-      if (ops.length === 0) continue;
-      this.store.put({ seq, ops });
+    for (const each of batches) {
+      const body: BatchBody = Array.isArray(each) ? { ops: each } : each;
+      if (emptyBody(body)) continue;
+      this.store.put({ seq, ...body });
       seq += 1;
     }
     this.nextSeq = seq;
@@ -152,6 +165,15 @@ export class DeskOutbox {
     return seq;
   }
 
+  /** Queue ops on one pad (sent by `pad.apply`, in the same numbering as desk batches). */
+  enqueuePad(padId: string, ops: PadOpDto[]): number | null {
+    if (ops.length === 0) return null;
+    const seq = this.nextSeq;
+    this.nextSeq += 1;
+    this.store.put({ seq, ops: [], pad: { padId, ops } });
+    return seq;
+  }
+
   /** Send the oldest unacknowledged batch, then the next, until the outbox is empty or a batch comes
    * back with a conflict. One flush at a time: a second call waits for the first. */
   flush(): Promise<FlushOutcome> {
@@ -167,9 +189,14 @@ export class DeskOutbox {
     for (;;) {
       const [batch] = this.store.load();
       if (!batch) return last;
-      let reply: DeskApplyDto;
+      let reply: DeskApplyDto | PadApplyDto;
       try {
-        reply = await this.transport.apply({ clientId: this.clientId, seq: batch.seq, ops: batch.ops });
+        if (batch.pad) {
+          if (!this.transport.applyPad) throw { code: "validation_error", message: "pad writes are not available here" };
+          reply = await this.transport.applyPad({ clientId: this.clientId, seq: batch.seq, padId: batch.pad.padId, ops: batch.pad.ops });
+        } else {
+          reply = await this.transport.apply({ clientId: this.clientId, seq: batch.seq, ops: batch.ops });
+        }
       } catch (error) {
         const message = errorText(error);
         const code = error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
@@ -181,7 +208,7 @@ export class DeskOutbox {
         if (isPermanentRefusal(code)) {
           // The server consumed no number for a request it refused at validation: the rest move up one.
           this.store.remove(batch.seq);
-          const rest = this.store.load().map((each) => each.ops);
+          const rest = this.store.load().map((each): BatchBody => (each.pad ? { ops: [], pad: each.pad } : { ops: each.ops }));
           this.requeue(rest, batch.seq);
           return { kind: "rejected", message, batch };
         }

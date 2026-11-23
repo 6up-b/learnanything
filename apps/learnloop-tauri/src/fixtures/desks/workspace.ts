@@ -2,8 +2,10 @@
 // a video, a paper, its guide and path panels and a pad stack; a second desk on attention; a third
 // with a ranged window on the same book. And a small in-memory server that applies `desk.apply` as
 // the sidecar does (versions checked per op, conflicts with the current head), for the harness.
-import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto, WriteOpResultDto } from "../../api/dto";
+import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto, PadApplyDto, PadApplyInput, PadViewDto, WriteOpResultDto } from "../../api/dto";
 import { OpRefusal, applyDeskOp, deskById, fromDeskState, type Workspace } from "../../screens/desks/model/workspace";
+import { PadOpConflict, PadOpRefusal, applyPadOp, fromPadView, type Pads } from "../../screens/desks/pads/model";
+import { fixturePads } from "./pads";
 import { FIXTURE_SOURCES } from "./sources";
 
 const { book, paper, video, video2 } = FIXTURE_SOURCES;
@@ -11,7 +13,7 @@ const { book, paper, video, video2 } = FIXTURE_SOURCES;
 export function fixtureDeskState(): DeskStateDto {
   return {
     version: 1,
-    runningPadIds: [],
+    runningPadIds: ["fx_pad_running"],
     serverSeq: [],
     desks: [
       {
@@ -73,9 +75,44 @@ export class FixtureDeskServer {
   private ws: Workspace;
   private seqs = new Map<string, number>();
   readonly batches: DeskApplyInput[] = [];
+  readonly padBatches: PadApplyInput[] = [];
+  pads: Pads;
 
-  constructor(state: DeskStateDto = fixtureDeskState()) {
+  constructor(state: DeskStateDto = fixtureDeskState(), pads: PadViewDto[] = fixturePads()) {
     this.ws = fromDeskState(state);
+    this.pads = Object.fromEntries(pads.map((view) => [view.pad.padId, fromPadView(view)]));
+  }
+
+  padGet(padId: string): PadViewDto {
+    const state = this.pads[padId];
+    if (!state) throw { code: "pad_not_found", message: `No pad ${padId}.`, retryable: false };
+    return { version: 1, pad: { ...state.pad }, blocks: state.blocks.map((block) => ({ ...block })), anchors: [...state.anchors] };
+  }
+
+  /** `pad.apply` as the sidecar applies it: the same numbering as desk batches, each op's head checked. */
+  applyPad(input: PadApplyInput): PadApplyDto {
+    const last = this.seqs.get(input.clientId) ?? 0;
+    if (input.seq !== last + 1) throw { code: "seq_gap", message: `expected ${last + 1}`, retryable: false };
+    this.padBatches.push(input);
+    const results: WriteOpResultDto[] = [];
+    const heads: { blockId: string; headVersionId: string }[] = [];
+    const now = new Date().toISOString();
+    for (const op of input.ops) {
+      try {
+        this.pads = applyPadOp(this.pads, input.padId, op, now);
+        if ("blockId" in op) {
+          const head = Object.values(this.pads).flatMap((pad) => pad.blocks).find((block) => block.blockId === op.blockId);
+          if (head) heads.push({ blockId: op.blockId, headVersionId: head.headVersionId });
+        }
+        results.push({ status: "ok" });
+      } catch (error) {
+        if (error instanceof PadOpConflict) results.push({ status: "conflict", current: error.current });
+        else if (error instanceof PadOpRefusal) results.push({ status: "refused", code: error.code, message: error.message });
+        else throw error;
+      }
+    }
+    this.seqs.set(input.clientId, input.seq);
+    return { version: 1, appliedSeq: input.seq, results, heads, pads: Object.values(this.pads).map((pad) => ({ padId: pad.pad.padId, version: pad.pad.version })) };
   }
 
   state(): DeskStateDto {

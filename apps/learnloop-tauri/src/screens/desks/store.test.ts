@@ -191,3 +191,59 @@ describe("coming back to the desks (finding 5)", () => {
     expect(server.state().desks.find((desk) => desk.deskId === "fx_desk_attention")?.title).toBe("queued here");
   });
 });
+
+describe("pads in the store (RD4b)", () => {
+  function padTransport(server: FixtureDeskServer, beforePad?: (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => void) {
+    return {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => server.apply(input),
+      applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => {
+        beforePad?.(input);
+        return server.applyPad(input);
+      },
+      padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
+    };
+  }
+
+  it("a pad edit shows at once and is sent by pad.apply in the same numbering as desk batches", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    const store = new DeskStore("me", padTransport(server), timers);
+    await store.load();
+    await store.loadPad("fx_pad_running");
+    store.commit(renameDesk(store.ws, "fx_desk_attention", "renamed"));
+    expect(store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "mine1", bodyMd: "my edit" }])).toBeNull();
+    expect(store.pads.fx_pad_running.blocks[0].bodyMd).toBe("my edit");
+    await settle(store, timers);
+    expect(server.batches.map((batch) => batch.seq)).toEqual([1]);
+    expect(server.padBatches.map((batch) => batch.seq)).toEqual([2]);
+    expect(server.padGet("fx_pad_running").blocks[0]).toMatchObject({ bodyMd: "my edit", headVersionId: "mine1" });
+  });
+
+  it("an edit whose head moved elsewhere is rebased on the new head (the other version stays in history); an edit of a block removed elsewhere is dropped and reported", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let interfered = false;
+    const store = new DeskStore("me", padTransport(server, () => {
+      if (interfered) return;
+      interfered = true;
+      server.applyPad({ clientId: "other", seq: 1, padId: "fx_pad_running", ops: [
+        { op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "theirs", bodyMd: "their edit" },
+        { op: "remove_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1" },
+      ] });
+    }), timers);
+    const notices: DeskNotice[] = [];
+    store.onNotice((notice) => notices.push(notice));
+    await store.load();
+    await store.loadPad("fx_pad_running");
+    store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "mine1", bodyMd: "my edit" }]);
+    store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1", versionId: "mine7", bodyMd: "an edit of a removed block" }]);
+    await settle(store, timers);
+    const saved = server.padGet("fx_pad_running");
+    expect(saved.blocks.find((block) => block.blockId === "fx_b_r1")).toMatchObject({ bodyMd: "my edit", headVersionId: "mine1" });
+    expect(saved.blocks.some((block) => block.blockId === "fx_b_r7")).toBe(false);
+    expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r1")?.bodyMd).toBe("my edit");
+    expect(notices).toEqual([{ kind: "conflict", dropped: 0, lost: 1 }]);
+  });
+});
+
