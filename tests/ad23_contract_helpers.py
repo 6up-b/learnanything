@@ -63,6 +63,9 @@ OUT_OF_SCOPE: dict[str, str] = {
     # prior, so the answers on protected items carry into it as they do into the recall state. AD cannot read
     # it: the table is in neither of the guard's registries, and an unclassified table is refused.
     "facet_uncertainty": _INCUMBENT_ANSWER,
+    # mvp-0.66: the required facets each answer's grade application read, the facets of every current item of its
+    # learning object, the protected ones included. DENIED to AD, like the incumbent's other grade state.
+    "attempt_lifecycle_inputs": _INCUMBENT_ANSWER,
 }
 #: Tables AD reads whose raw rows differ by construction (they hold the protected items' own rows):
 #: compared as AD reads them, through the material view, instead of raw (fix round 12, F42).

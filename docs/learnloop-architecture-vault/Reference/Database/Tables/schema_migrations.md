@@ -95,6 +95,7 @@ None found by exact static reference scan.
 - `tests/reader_inquiry_status_helpers.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_attempt_application_order_migration.py`
+- `tests/test_attempt_lifecycle_inputs_migration.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_connection_reuse.py`
 - `tests/test_data_capture_migration.py`
@@ -109,7 +110,6 @@ None found by exact static reference scan.
 - `tests/test_ingest_job_progress_migration.py`
 - `tests/test_init.py`
 - `tests/test_mcp_runtime.py`
-- `tests/test_migrate_fresh.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

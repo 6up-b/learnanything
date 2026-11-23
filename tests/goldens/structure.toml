@@ -23,7 +23,10 @@ test_files_named_for_a_stage = 184
 private_patch_sites = 465
 source_text_assertions = 23
 "src/learnloop/daily_plan/engine.py" = 6777
-"src/learnloop/attempts/attempts.py" = 5820
+# 5833: from mvp-0.66 a grade application reads its required facets through the lifecycle-inputs seam, records a live
+# one with its attempt and replays the recorded one (two fields, the seam call, the replay's read; the logic itself
+# lives in attempts/lifecycle_inputs.py).
+"src/learnloop/attempts/attempts.py" = 5833
 "src/learnloop/db/repositories.py" = 3025
 "src/learnloop/scheduling/scheduler.py" = 4196
 "src/learnloop_sidecar/handlers/reader.py" = 2980
@@ -32,7 +35,9 @@ source_text_assertions = 23
 # 281362: the diagnosis journey golden's text_prerequisite case records the Reader workbench's derived passage rows
 # its tutor question and its gap reading now write (question_event_spans, learner_text_gap_spans; 24 lines, both
 # unanchored rows naming the case's LO; no existing value moved).
-golden_json_lines = 281362
+# 281654: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
+# golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
+golden_json_lines = 281654
 
 [members]
 import_component = [

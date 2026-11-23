@@ -419,8 +419,8 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
 
 
 def test_the_successor_is_the_latest_link_after_followups_nov2():
-    assert SUCCESSOR_CHAIN[-25:-22] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, LESSON_SUGGESTIONS_ALGORITHM_VERSION) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.65"
+    assert SUCCESSOR_CHAIN[-26:-23] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, LESSON_SUGGESTIONS_ALGORITHM_VERSION) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.66"
 
 
 def test_the_ceiling_binds_and_is_logged(tmp_path, shown):

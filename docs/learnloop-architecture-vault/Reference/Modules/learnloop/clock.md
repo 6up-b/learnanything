@@ -1783,6 +1783,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_dl2_choice_maps_onto_a_depth_or_asks`
 - [tests/test_reading_step_switch.py](../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_new_vaults_read_on_from_the_furthest_section`
+- [tests/test_rebuild_closed_row_answer.py](../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
+  - `test_each_answer_records_the_set_it_read_and_coverage_and_breadth_both_count_it`
 - [tests/test_rebuild_equivalence_review.py](../../../../../tests/test_rebuild_equivalence_review.py) — direct import
   - `test_an_interrupted_integration_backfill_replay_publishes_nothing`
 - [tests/test_rebuild_history_appends.py](../../../../../tests/test_rebuild_history_appends.py) — direct import

@@ -992,6 +992,18 @@ UNTAKEN_EPISODE_END_ALGORITHM_VERSION = "mvp-0.64"
 # 2026-11-16). ONE constant.
 APPLICATION_ORDER_ALGORITHM_VERSION = "mvp-0.65"
 
+# mvp-0.66 (retired items replay at the right point in history; docs/reviews/algorithm-mvp-0.66.md), on top of the
+# application order, mvp-0.65. A grade's relative coverage and its legacy breadth denominator count the facets of its
+# learning object's ACTIVE items, and nothing in the attempt ledger records when a sibling was retired, parked,
+# superseded or removed: replay read today's flags for the whole history, so an unattempted retired sibling looked
+# closed before its closure and an attempted one open after it. At this tag the live grade application reads the set
+# once, uses it for both, and stores it with the attempt (attempt_lifecycle_inputs, migration 263); replay and regrade
+# read it back, iterating it in its canonical (sorted) order live and on replay alike. The upgrade records, for every
+# attempt without a row, the set the predecessor's own replay reads at it ('legacy_reconstructed', from the lifecycle
+# as it stood at the upgrade: never observed history), freezes it, then rebuilds the whole vault. No kill switch
+# (owner rule 2026-11-16). ONE constant.
+LIFECYCLE_INPUTS_ALGORITHM_VERSION = "mvp-0.66"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1055,6 +1067,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SECTION_END_ALGORITHM_VERSION,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
     APPLICATION_ORDER_ALGORITHM_VERSION,
+    LIFECYCLE_INPUTS_ALGORITHM_VERSION,
 )
 
 
@@ -1173,6 +1186,20 @@ def application_order_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in APPLICATION_ORDER_VERSIONS
+
+# Versions where a grade application's required facet set is captured with its attempt and replay reads it back.
+# Every later successor keeps it; gates must use this set, never equality, and read it through
+# :func:`lifecycle_inputs_on`.
+LIFECYCLE_INPUTS_VERSIONS: frozenset[str] = successors_from(LIFECYCLE_INPUTS_ALGORITHM_VERSION)
+
+
+def lifecycle_inputs_on(config: object) -> bool:
+    """A grade application's required facet set is the one captured with its attempt (mvp-0.66), gated by the vault's
+    tag alone (no kill switch): below it nothing is captured and every application reads today's item lifecycle,
+    exactly as at mvp-0.65. ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in LIFECYCLE_INPUTS_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

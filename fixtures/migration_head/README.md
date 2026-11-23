@@ -9,17 +9,30 @@ from, as they were then.
 
 ## Reader workbench v2 fix round (migration 264), `reader/rd0-fix-round`, 2026-11-22
 
-Upgraded in place (no rename; base: main at `2b683f7af7`, head 262) by the B1 procedure below:
+Upgraded in place (no rename; base: main at `ca104b4983`, head 263, after the merge that brought D8 gap 2's 263 under it) by the B1 procedure below:
 `264_reader_workbench_guards.sql` (five BEFORE INSERT guards refusing a replacing insert on 262's append-only tables;
 one new table, `projection_initializations`, RECEIPT, append-only by three triggers, empty here; one partial
 expression index on `interaction_events`) applied through `learnloop.db.migrate.apply_migrations` on a backup-API
 copy outside the checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[264]` only;
 `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
 `foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
-companion files. Compared with the 262 file: eleven objects added (the table, its autoindex, the index and eight
+companion files. Compared with the 263 file: eleven objects added (the table, its autoindex, the index and eight
 triggers), no existing object's definition changed, and the only table whose rows changed is `schema_migrations`
-(gains 264). The number skips 263, which D8 gap 2 takes in parallel: whichever lands second renumbers its migration
-and redoes this upgrade. The file is 7,720,960 bytes.
+(gains 264). Redone on main's 263 file after D8 gap 2 landed first. The file is 7,729,152 bytes.
+
+## Refactor D8 gap 2 (migration 263), `refactor/d8-retired-items`, 2026-11-22
+
+Upgraded in place (no rename; base: main at `9a65a449d2`, head 262, after the merge that brought RD0's 262 under it) by
+the B1 procedure below: `263_attempt_lifecycle_inputs.sql` (one new table, `attempt_lifecycle_inputs`, RAW_LEDGER, one
+row per attempt with the required facet set its grade application read, a foreign key to `practice_attempts`, empty
+here: nothing is backfilled by the migration, and the fixture is at `mvp-0.6`, below the tag whose upgrade
+reconstructs legacy rows) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy outside the
+checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[263]` only; `wal_checkpoint(TRUNCATE)`
+(0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked
+file removed and the copy written into its place with `backup_database`, no companion files. Compared with the 262
+file: two objects added (the table and the autoindex of its TEXT primary key), no existing object's definition
+changed, and the only existing table whose rows changed is `schema_migrations` (gains 263). Redone on main's 262 file
+after RD0 landed first. The file is 7,712,768 bytes (two pages more).
 
 ## Reader workbench v2 RD0 (migration 262), `reader/rd0-foundations`, 2026-11-22
 

@@ -28,6 +28,7 @@ source_paths:
   - "src/learnloop/attempts/grading_admission.py"
   - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/attempts/hint_fold.py"
+  - "src/learnloop/attempts/lifecycle_inputs.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/attempts/observations.py"
   - "src/learnloop/attempts/outcome_schemas.py"
@@ -98,6 +99,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/grading_admission|learnloop.attempts.grading_admission]] | [[Reference/Modules/learnloop/attempts/grading_admission#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] | [[Reference/Modules/learnloop/attempts/grading_support#^module-purpose|purpose]] | `ACTIVE` | 7 | 15 |
 | [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] | [[Reference/Modules/learnloop/attempts/hint_fold#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
+| [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]] | [[Reference/Modules/learnloop/attempts/lifecycle_inputs#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] | [[Reference/Modules/learnloop/attempts/measurement_corrections#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]] | [[Reference/Modules/learnloop/attempts/observations#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] | [[Reference/Modules/learnloop/attempts/outcome_schemas#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
@@ -114,14 +116,14 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 46 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 47 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 22 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 18 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 14 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 13 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 6 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 3 static module edges
@@ -149,8 +151,8 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 6 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 4 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 2 static module edges
@@ -179,25 +181,25 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_learner["learnloop.learner"]
+    n_learnloop_substrate["learnloop.substrate"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
     n_learnloop -->|2| center
-    center -->|46| n_learnloop
+    center -->|47| n_learnloop
     n_learnloop_diagnosis -->|24| center
     center -->|22| n_learnloop_diagnosis
     n_learnloop_sidecar_handlers -->|30| center
-    center -->|19| n_learnloop_db
+    center -->|22| n_learnloop_db
+    n_learnloop_learner -->|5| center
+    center -->|14| n_learnloop_learner
     n_learnloop_substrate -->|5| center
     center -->|14| n_learnloop_substrate
-    n_learnloop_learner -->|5| center
-    center -->|13| n_learnloop_learner
+    center -->|18| n_learnloop_vault
     center -->|17| n_learnloop_ai
     n_learnloop_cli -->|17| center
-    center -->|17| n_learnloop_vault
     n_learnloop_diagnosis_split -->|15| center
 ```
 

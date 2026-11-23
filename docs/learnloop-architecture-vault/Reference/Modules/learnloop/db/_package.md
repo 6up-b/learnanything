@@ -7,6 +7,7 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/db/__init__.py"
   - "src/learnloop/db/attempt_availability.py"
+  - "src/learnloop/db/attempt_lifecycle_inputs.py"
   - "src/learnloop/db/attempt_order.py"
   - "src/learnloop/db/checkpoint.py"
   - "src/learnloop/db/connection.py"
@@ -59,19 +60,20 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/db/__init__|learnloop.db]] | [[Reference/Modules/learnloop/db/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] | [[Reference/Modules/learnloop/db/attempt_availability#^module-purpose|purpose]] | `ACTIVE` | 16 | 7 |
+| [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs|learnloop.db.attempt_lifecycle_inputs]] | [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] | [[Reference/Modules/learnloop/db/attempt_order#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
 | [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] | [[Reference/Modules/learnloop/db/checkpoint#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 186 | 245 |
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 52 |
 | [[Reference/Modules/learnloop/db/evidence_cutoff|learnloop.db.evidence_cutoff]] | [[Reference/Modules/learnloop/db/evidence_cutoff#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
-| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 97 |
+| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 98 |
 | [[Reference/Modules/learnloop/db/prediction_target|learnloop.db.prediction_target]] | [[Reference/Modules/learnloop/db/prediction_target#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/db/records|learnloop.db.records]] | [[Reference/Modules/learnloop/db/records#^module-purpose|purpose]] | `ACTIVE` | 16 | 0 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 411 | 737 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 412 | 737 |
 | [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] | [[Reference/Modules/learnloop/db/row_serialization#^module-purpose|purpose]] | `ACTIVE` | 18 | 0 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 6 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
-| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 80 |
+| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 81 |
 
 ## Child package maps
 
@@ -88,7 +90,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 65 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 57 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 35 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 36 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 28 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 26 static module edges
@@ -97,8 +99,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 24 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 24 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 23 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 22 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 20 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 19 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 19 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 17 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 17 static module edges
@@ -160,7 +162,7 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_source_retrieval -->|65| center
-    n_learnloop_db_stores -->|35| center
+    n_learnloop_db_stores -->|36| center
     center -->|27| n_learnloop_db_stores
     n_learnloop_diagnosis -->|57| center
     n_learnloop_substrate -->|28| center
