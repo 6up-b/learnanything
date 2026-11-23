@@ -429,7 +429,7 @@ The `mock` tag is mockup-only and is never built.
 |---|---|
 | Default easing | `cubic-bezier(.22,.7,.18,1)` |
 | Camera move | `.55s` on the world, `.45s` on window left/top |
-| Slot geometry | side margin 34 px, gap 10 px, top bar 38 px, footer 26 px, shelf 236 px (a 44 px rail below 1400 px) |
+| Slot geometry | side margin 34 px, gap 10 px (two slots leave 10 px more on the right, as the mockup lays them: 34 px left, 44 px right), top bar 38 px (34 px on a window under 820 px high), footer 26 px, shelf 236 px (a 44 px rail below 1400 px) |
 | Slivers | 30 px wide, at the stage edge |
 | Soft crop | a window partly off screen fades to 55 % over its last 36 px |
 | Overview scale | 0.34; minimum card width 760 world px; desk row gap 330; link gutter 170 |

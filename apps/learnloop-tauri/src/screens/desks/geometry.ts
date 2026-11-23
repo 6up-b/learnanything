@@ -6,6 +6,8 @@
 export const DESK_SIZES = {
   side: 34,
   gap: 10,
+  /** Two slots take 10 px less than the stage inside its margins, as the mockup's do (34 px left, 44 right). */
+  trailing: 10,
   topBar: 38,
   footer: 26,
   shelf: 236,
@@ -35,9 +37,10 @@ export interface Stage {
   height: number;
 }
 
-/** One uniform slot: two slots and the gap between them fill the stage inside its side margins. */
+/** One uniform slot: two slots and the gap between them fill the stage inside its side margins, less the
+ * mockup's 10 px on the right. */
 export function slotWidth(stage: Stage): number {
-  return Math.max(0, (stage.width - 2 * DESK_SIZES.side - DESK_SIZES.gap) / 2);
+  return Math.max(0, (stage.width - 2 * DESK_SIZES.side - DESK_SIZES.gap - DESK_SIZES.trailing) / 2);
 }
 
 /** The slots' rects on one desk row, in world coordinates of that row (y from the row's top). */
