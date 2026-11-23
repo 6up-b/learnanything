@@ -929,6 +929,30 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
         assert model.model_fields["plan_presentation_id"].default is None, name
 
 
+# Reader workbench v2 RD0 (spec §3.4, §17): desks, pads, the union read, the companion's history and the
+# due checks. Desktop only: the phone's desks are deferred.
+READER_RD0_RPCS = (
+    "desk.state",
+    "desk.apply",
+    "pad.get",
+    "pad.list",
+    "pad.apply",
+    "passage.union_range",
+    "companion.history",
+    "checks.due_for",
+)
+
+
+def test_the_pinned_rd0_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.companion import COMPANION_RPCS
+    from learnloop_sidecar.handlers.desks import DESK_RPCS
+    from learnloop_sidecar.handlers.inline_checks import INLINE_CHECK_RPCS
+    from learnloop_sidecar.handlers.pads import PAD_RPCS
+    from learnloop_sidecar.handlers.passage_union import PASSAGE_UNION_RPCS
+
+    assert set(READER_RD0_RPCS) == set(DESK_RPCS + PAD_RPCS + PASSAGE_UNION_RPCS + COMPANION_RPCS + INLINE_CHECK_RPCS)
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
@@ -940,7 +964,8 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS + WHY_B9_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS + WHY_B9_RPCS
+    + READER_RD0_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
