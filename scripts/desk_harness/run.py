@@ -854,7 +854,7 @@ async def run_latex(page: Page, base: str, results: Results, shots: Path | None)
         bad = [row for row in rows if not row["ok"]]
         results.check(f"every display equation in a {width} px pad has room above and below and is fitted or scrolls (§13.4)", len(rows) >= 7 and not bad, bad[:2] or len(rows))
         if width == 640:
-            results.check("in the wide pad the wide equation fits or is scaled, not scrolled", any(r["where"] == "fx_m_wide" and not r["scroller"] for r in rows), [r for r in rows if r["where"] == "fx_m_wide"])
+            results.check("in the wide pad the wide equation fits or is scaled, not scrolled", any(r["where"] == "fx_m_wide" and not r["scroller"] and r["ok"] for r in rows), [r for r in rows if r["where"] == "fx_m_wide"])
         if width == 300:
             results.check("in the narrow pad the wide equation scrolls, with a visible bar and its full height", any(r["where"] == "fx_m_wide" and r["scroller"] and r["bar"] > 0 and r["ok"] for r in rows), [r for r in rows if r["where"] == "fx_m_wide"])
         await shot(page, shots, f"latex-{width}")
