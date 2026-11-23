@@ -152,3 +152,9 @@ and, sampled inside the frame on both screenshots, the page colour and the noteb
 - A lesson notebook produced by a real teacher turn (none can be).
 - The menu opening from the frame's right-click (waits on the menus branch).
 - A desk move driven by keys: the harness reloads the page instead, and the session is kept the same way by owner key and revision.
+
+## Fix round (adversarial review of the notebook work on main, 2026-11-23)
+
+| Finding | Ledger | What changed | Proof |
+|---|---|---|---|
+| A lesson closed elsewhere kept accepting commits and releases | NBF-13 | `notebook.status` and `notebook.release` re-read `lessons.closed_at` for a lesson's session and call `runtime.mark_review` when it is closed; `LessonNotebook` releases only while the session is not a review, so it stops at the next reading | Closing the lesson between two releases: the status reads `review: true` and the second release is refused (`notebook_release_refused`) |

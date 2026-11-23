@@ -276,11 +276,27 @@ class RecordingRuntime:
     def __init__(self, refuse_release: Exception | None = None) -> None:
         self.opens: list[dict[str, Any]] = []
         self.refuse_release = refuse_release
+        self.reviews: list[str] = []
+        self.releases: list[list[str]] = []
 
     def release(self, **kwargs: Any) -> dict[str, Any]:
         if self.refuse_release is not None:
             raise self.refuse_release
+        if kwargs["session_id"] in self.reviews:
+            from learnloop.notebook_runtime.runtime import ReleaseRefused
+
+            raise ReleaseRefused("a review releases nothing")
+        self.releases.append(list(kwargs["names"]))
         return {"session_id": kwargs["session_id"], "released": list(kwargs["names"])}
+
+    def status(self, **kwargs: Any) -> dict[str, Any]:
+        owner = self.opens[-1]["owner"] if self.opens else "pad:none"
+        return {"session_id": kwargs["session_id"], "owner": owner, "state": "ready",
+                **({"lesson": {"review": kwargs["session_id"] in self.reviews}} if owner.startswith("lesson:") else {})}
+
+    def mark_review(self, **kwargs: Any) -> dict[str, Any]:
+        self.reviews.append(kwargs["session_id"])
+        return self.status(session_id=kwargs["session_id"])
 
     def open(self, **kwargs: Any) -> dict[str, Any]:
         self.opens.append(kwargs)

@@ -162,6 +162,11 @@ class NotebookRuntime:
     def close_session(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
         return self._call(lambda: self._close_session(vault_key, session_id))
 
+    def mark_review(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
+        """The session's lesson closed: a review from now on (nothing committed or released); its view."""
+
+        return self._call(lambda: self._mark_review(vault_key, session_id))
+
     def release(self, *, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]:
         return self._call(lambda: self._release(vault_key, session_id, names))
 
@@ -346,6 +351,11 @@ class NotebookRuntime:
         if unknown:
             raise CellUnknown(", ".join(unknown))
         return [entry.session.cell_ids[name] for name in names]
+
+    async def _mark_review(self, vault_key: str, session_id: str) -> dict[str, Any]:
+        entry = self._entry(vault_key, session_id)
+        entry.session.review = True
+        return self._view(entry)
 
     async def _release(self, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]:
         entry = self._entry(vault_key, session_id)

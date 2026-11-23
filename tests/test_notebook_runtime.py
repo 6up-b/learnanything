@@ -766,3 +766,16 @@ def test_without_a_user_manager_notebooks_are_refused_not_run_under_a_per_proces
     assert any("user manager" in problem for problem in sandbox_module.missing_requirements())
     with pytest.raises(sandbox_module.RuntimeUnavailable):
         scope_prefix("u", Limits(memory_mib=512, scratch_mib=64), scoped=False)
+
+
+def test_a_session_marked_as_a_review_releases_nothing(runtime):
+    from learnloop.notebook_runtime.runtime import ReleaseRefused
+
+    contract = {"points": [{"name": "commit_a", "held": ["reveal_a"]}], "held": ["reveal_a"]}
+    view = runtime.open(vault_key="/v1", owner="lesson:l1", source=b"x = 1", view="app", limits=LIMITS,
+                        idle_minutes=10, max_sessions=3, contract=contract)
+    _ready(runtime, "/v1", view["session_id"])
+    runtime.sessions()[0].commits.add("commit_a")
+    assert runtime.mark_review(vault_key="/v1", session_id=view["session_id"])["lesson"]["review"] is True
+    with pytest.raises(ReleaseRefused):
+        runtime.release(vault_key="/v1", session_id=view["session_id"], names=["reveal_a"])
