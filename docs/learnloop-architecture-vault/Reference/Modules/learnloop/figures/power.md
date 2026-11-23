@@ -149,7 +149,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/figures_prefetch_helpers.py](../../../../../../tests/figures_prefetch_helpers.py) — direct import
 - [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
-  - `test_where_a_pass_runs_the_predicates_read_what_the_raw_settings_read`
+  - `test_a_pass_and_the_offer_trigger_run_only_with_figures_ahead_of_need_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_a_background_build_stops_off_mains_before_any_request`

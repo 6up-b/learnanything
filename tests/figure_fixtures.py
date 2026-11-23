@@ -21,6 +21,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from learnloop.ai.execution import report_call_usage
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, IMAGE_INPUT, ISOLATED_TURN, STRUCTURED_COMPLETION
@@ -79,16 +81,38 @@ def seed_probability_book(repository: Any) -> None:
     _persist(repository, ir, revision_id="rev_prob", extraction_id=EXTRACTION)
 
 
+_ENGINE_ABSENT = pytest.MonkeyPatch()
+
+
+def sketch_engine_absent() -> None:
+    """The sketch tier unavailable for the rest of this test, as on a machine whose sealed engine can't load (the
+    tier has no switch of its own): the author's contract then has no sketch and a stored sketch can't be drawn.
+    ``tests/conftest.py`` undoes it after each test."""
+
+    from learnloop.figures import sketch_engine
+
+    _ENGINE_ABSENT.setattr(sketch_engine, "engine_ready", lambda **_kwargs: False)
+
+
+def end_sketch_engine_absence() -> None:
+    _ENGINE_ABSENT.undo()
+
+
 def build_figure_vault(root: Path, *, sketch: bool = False, rich: bool = False) -> tuple[Any, Any]:
-    """RW5a/b's and P1's figure tests run with RW5d P2's sketch tier off (the
-    author's contract is then RW5b's byte for byte, which they pin); the
-    sketch tests pass ``sketch=True`` (the stage default; it ships off until G-SM14).
-    Likewise RW5d P2b's rich tiers (default on in the product): the earlier
-    tests pin views and contracts without the rich keys, so they run with
-    them off; the rich tests pass ``rich=True``."""
+    """RW5a/b's and P1's figure tests run without RW5d P2's sketch tier (the
+    author's contract is then the one with no sketch, which they pin), as a
+    machine without the sealed engine does (:func:`sketch_engine_absent`, for
+    the rest of the test); the sketch tests pass ``sketch=True``. Likewise
+    RW5d P2b's rich tiers (default on in the product): the earlier tests pin
+    views and contracts without the rich keys, so they run with them off; the
+    rich tests pass ``rich=True``."""
 
     paths, repository, _spans = build_textbook_vault(root)
-    set_config(paths, "figures", sketch_enabled=sketch, rich_tiers_enabled=rich)
+    set_config(paths, "figures", rich_tiers_enabled=rich)
+    if sketch:
+        end_sketch_engine_absence()
+    else:
+        sketch_engine_absent()
     seed_probability_book(repository)
     upsert_source_set(paths.root, {
         "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",

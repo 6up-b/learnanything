@@ -317,8 +317,8 @@ it("RW5d P4a: a kept figure of the line's section opens under the passage here, 
       { sourceId: "src_axler", sourceTitle: "Axler", sections: [{ ...JUDGED_LINE, figures: [ref] }] }] }] }));
   api.readerFigures.mockImplementation(async ({ extractionId }: { extractionId: string }) => ({ extractionId, figures: extractionId !== "ext_axler" ? [] : [{
     figureId: "fig_axler", extractionId: "ext_axler", spanIds: ["a7"], anchorSpanId: "a7", region: null, origin: "selection",
-    verification: "illustrative", kind: "illustrative", label: "AI-built illustration", reason: null, unsupportedKind: null,
-    supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-30T00:00:00Z", specJson: null,
+    verification: "illustrative", shown: true, labelCode: "illustrative", kind: "illustrative", label: "AI-built illustration",
+    reason: null, unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-30T00:00:00Z", specJson: null,
     demonstrates: null, assumptions: [], predictions: [] }] }));
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());

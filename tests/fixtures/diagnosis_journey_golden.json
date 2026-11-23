@@ -44786,7 +44786,7 @@
 "versions": {
 "algorithm": "mvp-0.67",
 "code": "<code-version>",
-"config": "704b9189d4d2d70bfbde3bc2ad0a1ad3c1492bd05d627a04209e947ff2e2c48c",
+"config": "72b3906465ddbe479482e48d3b302e23deb2436de20baa3405542ce41681b73f",
 "fsrs_weights": "a00444e09ca114a3ce9704158c2abb90200f9aa76e4892ef87fe7d4c79b85f56"
 }
 }
@@ -46441,7 +46441,7 @@
 "versions": {
 "algorithm": "mvp-0.67",
 "code": "<code-version>",
-"config": "704b9189d4d2d70bfbde3bc2ad0a1ad3c1492bd05d627a04209e947ff2e2c48c",
+"config": "72b3906465ddbe479482e48d3b302e23deb2436de20baa3405542ce41681b73f",
 "fsrs_weights": "a00444e09ca114a3ce9704158c2abb90200f9aa76e4892ef87fe7d4c79b85f56"
 }
 }

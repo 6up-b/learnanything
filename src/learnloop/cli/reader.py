@@ -65,12 +65,9 @@ def reader_report(
         report = build_reader_report(path, since=_since(since, now), now=now,
                                      reading_paths_enabled=loaded.config.reading_paths.enabled,
                                      figures_enabled=bool(loaded.config.figures.enabled),
-                                     figure_offers_enabled=bool(loaded.config.figures.enabled
-                                                                and loaded.config.figures.offers_enabled),
-                                     figure_show_me_enabled=bool(loaded.config.figures.enabled
-                                                                 and loaded.config.figures.show_me_enabled),
-                                     figure_sketch_enabled=bool(loaded.config.figures.enabled
-                                                                and loaded.config.figures.sketch_enabled),
+                                     figure_offers_enabled=bool(loaded.config.figures.enabled),
+                                     figure_show_me_enabled=bool(loaded.config.figures.enabled),
+                                     figure_sketch_enabled=bool(loaded.config.figures.enabled),
                                      figure_rich_enabled=bool(loaded.config.figures.enabled
                                                               and loaded.config.figures.rich_tiers_enabled),
                                      skipped_section_los=skipped_section_los)
@@ -80,8 +77,8 @@ def reader_report(
 
             add_report_block(report, path, since=_since(since, now), plan_providers=_plan_providers(loaded), now=now,
                              pressed_waits=pressed_waits_on(loaded))
-        if loaded.config.figures.enabled and loaded.config.figures.checked_labels_enabled:
-            # RW5c (spec §12): the source-check block (absent with the switch off: G23g).
+        if loaded.config.figures.enabled:
+            # RW5c (spec §12): the source-check block (absent with figures off).
             from learnloop.figures.source_check import add_report_block as add_source_checks
 
             add_source_checks(report, path, since=_since(since, now))

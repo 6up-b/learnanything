@@ -2,10 +2,10 @@
 
 :class:`FigureRequest` is what a caller asks for (a passage or a region, a goal, a revision of a stored figure, the
 host it is asked on); :class:`FigureRefused` is every refusal with its code. :func:`check_request` is the request
-path's one check, run before any job or call and again by the build: the origin and its switch (selection, offers,
-show me, an attempt host, a lesson, the in-process pre-build), the goal and note sizes, then held-out material over
-the request's home and fixed grounding (:mod:`.protection`), then a revision's base figure (on this source, not held
-out, its tier and panel kinds switched on). :func:`key_for` names what the build depends on for each kind of request
+path's one check, run before any job or call and again by the build: the origin (and the switch of an attempt host,
+a lesson or the in-process pre-build), the goal and note sizes, then held-out material over the request's home and
+fixed grounding (:mod:`.protection`), then a revision's base figure (on this source, not held out, its tier switched
+on and runnable here). :func:`key_for` names what the build depends on for each kind of request
 (:func:`build_key` and the switches that admit it), compared before every model request
 (:class:`~learnloop.figure_admission.FiguresGate`); it is never in the reuse key.
 
@@ -27,24 +27,17 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.figure_admission import (
-    advanced_panels_enabled,
     author_learner_state_enabled,
-    checked_labels_enabled,
     figures_enabled,
     help_kind_enabled,
-    offers_enabled,
-    region_enabled,
-    revisions_enabled,
     rich_tiers_enabled,
-    show_me_enabled,
-    sketch_enabled,
     teacher_visuals_enabled,
 )
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
-from learnloop.figures.protection import ATTEMPT_HOST_REFS, keys_withheld, row_withheld, show_me_row, withheld_message
+from learnloop.figures.protection import ATTEMPT_HOST_REFS, keys_withheld, row_withheld, withheld_message
 from learnloop.figures.sketch import sketch_ready
-from learnloop.figures.view import _advanced_kinds, rich_row, sketch_row
+from learnloop.figures.view import rich_row, sketch_row
 
 
 #: The origins a request may name. RW5d P1 adds ``show_me`` (the Reader's
@@ -62,7 +55,13 @@ SERVICE_ORIGINS = ("teacher", "prefetch")
 #: sketch tier"; P3 ruling R1's precedent): the turn waits on its figure, so no
 #: rich (minutes-long, queued) tier is on the author's menu in a lesson.
 LESSON_TIERS = ("grammar", "sketch")
-#: RW5b: the origins an offer builds with (``figures.offers_enabled``).
+#: RW5d P3 ruling R1: an attempt host's tiers (practice, feedback, the workbench): rich (Manim) figures are made
+#: and opened in the Reader only. The doors that keep it each read this: no spawner for the build (the sidecar's
+#: press), no fuller version in the view and no rich figure opened or recorded there (the sidecar's attempt
+#: host). The rich worker's refusal of an attempt-hosted job (``rich.attempt_hosted_job``) is the same rule; it
+#: can't import this module, which imports it.
+ATTEMPT_HOST_TIERS = ("grammar", "sketch")
+#: RW5b: the origins an offer builds with.
 OFFER_ORIGINS = ("library", "tutor")
 #: RW5d: who wrote a goal (set on the server, never taken from a client;
 #: ``teacher`` only by the lesson service, RW5d P4b).
@@ -74,9 +73,7 @@ NOTE_CHARS = 600
 
 class FigureRefused(Exception):
     """A request the Reader may not make (``code``: ``figures_disabled``,
-    ``exam_material``, ``region_disabled``, ``revisions_disabled``,
-    ``predictions_disabled``, ``offers_disabled`` and ``advanced_disabled``
-    (RW5b), ``not_found``, ``validation_error``, ``no_image_input``,
+    ``exam_material``, ``not_found``, ``validation_error``, ``no_image_input``,
     ``region_unreadable``) or a route that cannot be called (``capped``,
     ``unpriced``, ``unrouted``, ``unavailable``, ``models_off``)."""
 
@@ -193,40 +190,24 @@ def show_me_input(request: "FigureRequest") -> bool:
 def build_key(vault: Any) -> tuple[Any, ...]:
     """What a build depends on, compared before every request it makes
     (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switch,
-    the author route as configured, the day's cap and the price, and (RW5b)
-    whether the advanced panels are on (the author's prompt depends on it);
-    likewise (learner data-relax 2, Codex review F2) whether the author is
-    sent the learner's state (``figures.author_learner_state``); RW5c (F5):
-    whether step 3 runs, so a switch change between the sandbox's result and the
-    second attempt stops it. Admission only: never in the reuse key."""
+    the author route as configured, the day's cap and the price, the rich
+    tiers and whether this machine offers Manim, and (learner data-relax 2,
+    Codex review F2) whether the author is sent the learner's state
+    (``figures.author_learner_state``). Admission only: never in the reuse key."""
 
     from learnloop.practice_index.paid import plan_route
 
     section = getattr(vault.config, "figures", None)
     return (str(vault.root), figures_enabled(vault), plan_route(vault, R.AUTHOR_TASK, None),
             getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None),
-            advanced_panels_enabled(vault), sketch_enabled(vault), RICH.rich_tiers_switch(vault),
-            RICH.manim_tier_ready(vault), author_learner_state_enabled(vault), checked_labels_enabled(vault))
-
-
-def offer_build_key(vault: Any) -> tuple[Any, ...]:
-    """An offered build's key (origin ``library`` | ``tutor``): :func:`build_key`
-    and ``figures.offers_enabled``, so switching offers off stops it."""
-
-    return (*build_key(vault), offers_enabled(vault))
+            RICH.rich_tiers_switch(vault), RICH.manim_tier_ready(vault), author_learner_state_enabled(vault))
 
 
 def offered(request: "FigureRequest") -> bool:
     """A build an offer started (a "not right?" version of an offered figure
-    is a revision: ``figures.revisions_enabled`` governs it, not the offers)."""
+    is a revision, not an offer)."""
 
     return request.origin in OFFER_ORIGINS and request.supersedes_id is None
-
-
-def show_me_build_key(vault: Any) -> tuple[Any, ...]:
-    """A show-me build's key: :func:`build_key` and ``figures.show_me_enabled``."""
-
-    return (*build_key(vault), show_me_enabled(vault))
 
 
 def key_for(request: "FigureRequest"):
@@ -235,28 +216,17 @@ def key_for(request: "FigureRequest"):
         # are switched off (its hold also watches the power).
         from learnloop.figures.power import prefetch_switch
 
-        base = _key_for(request)
-        return lambda vault: (*base(vault), prefetch_switch(vault))
+        return lambda vault: (*build_key(vault), prefetch_switch(vault))
     if lesson_hosted(request):
         # RW5d P4b: a lesson's visual is admitted only while the teacher's
         # visuals stay on (switched off since: it asks nothing more).
-        base = _key_for(request)
-        return lambda vault: (*base(vault), teacher_visuals_enabled(vault))
+        return lambda vault: (*build_key(vault), teacher_visuals_enabled(vault))
     if attempt_hosted(request):
         # RW5d P3 (Codex review F5): a build on an attempt host is admitted
         # only while figures in attempts stay on (switched off since: it asks
         # nothing more, and its delivery shows nothing).
-        base = _key_for(request)
-        return lambda vault: (*base(vault), help_kind_enabled(vault))
-    return _key_for(request)
-
-
-def _key_for(request: "FigureRequest"):
-    if show_me_input(request):
-        if offered(request):
-            return lambda vault: (*offer_build_key(vault), show_me_enabled(vault))
-        return show_me_build_key
-    return offer_build_key if offered(request) else build_key
+        return lambda vault: (*build_key(vault), help_kind_enabled(vault))
+    return build_key
 
 
 # ---------------------------------------------------------------------------
@@ -294,14 +264,9 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
         if not teacher_visuals_enabled(vault):
             raise FigureRefused("teacher_visuals_disabled", "The teacher's figures are switched off "
                                                             "(teacher.visuals).")
-    if offered(request) and not offers_enabled(vault):
-        raise FigureRefused("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
     goal = " ".join(str(request.goal_text or "").split())[:GOAL_CHARS] or None
     goal_author = request.goal_author if goal is not None else None
     if goal is not None:
-        if not show_me_enabled(vault):
-            raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
-                                                    "(figures.show_me_enabled).")
         # Who wrote it is the server's: the learner for the box and the rail,
         # the tutor only for its stored answer's goal (G-SM5).
         expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor", "ask": "learner",
@@ -332,16 +297,12 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
             raise FigureRefused("validation_error", "Open a passage first, so the figure has a place to land.")
     region = None
     if request.region is not None:
-        if not region_enabled(vault):
-            raise FigureRefused("region_disabled", "Selecting a region of a figure is switched off (figures.region_enabled).")
         bbox = request.region.get("bbox")
         if not request.region.get("span_id") or not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
             raise FigureRefused("validation_error", "A region needs its figure block and a box.")
         region = {"span_id": str(request.region["span_id"]), "bbox": [round(float(value), 2) for value in bbox]}
     note = None
     if request.supersedes_id is not None:
-        if not revisions_enabled(vault):
-            raise FigureRefused("revisions_disabled", "Asking for a better version is switched off (figures.revisions_enabled).")
         note = " ".join(str(request.revision_note or "").split())[:NOTE_CHARS] or None
     if lesson_host:
         reading_at = None
@@ -380,9 +341,6 @@ def _validated_prefetch(vault: Any, request: FigureRequest) -> FigureRequest:
     if attempt_hosted(request) or request.region is not None or request.supersedes_id is not None:
         raise FigureRefused("validation_error", "A figure built ahead of need is a passage's, never an attempt's.")
     if goal is not None:
-        if not show_me_enabled(vault):
-            raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
-                                                    "(figures.show_me_enabled).")
         if request.goal_author not in PREFETCH_GOAL_AUTHORS:
             raise FigureRefused("validation_error", "That figure goal can't come from here.")
     if planned:
@@ -417,9 +375,6 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
             base = store.figure(connection, request.supersedes_id)
         if base is None or base["extraction_id"] != request.extraction_id:
             raise FigureRefused("not_found", "That figure is not on this source.")
-        if show_me_row(base) and not show_me_enabled(vault):
-            raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
-                                                    "(figures.show_me_enabled).")
         if row_withheld(vault, repository, base) is not None:
             raise FigureRefused("exam_material", "That figure's passage is held out now.")
         if rich_row(base) and not rich_tiers_enabled(vault):
@@ -432,21 +387,15 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
             raise FigureRefused("not_found", "That animation is not shown, so there is no version to improve: "
                                              "ask again.")
         if sketch_row(base) and not sketch_ready(vault):
-            # RW5d P2: a sketch is revised only by the sketch tier (RW5b's
-            # contract can't write one back).
-            raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch tier is switched "
-                                                   "off (figures.sketch_enabled).")
-        if not advanced_panels_enabled(vault) and _advanced_kinds(base):
-            # Codex review F4: a figure that uses a panel kind switched off
-            # (listed as "can't draw this yet", or a failed attempt at one) is
-            # not revised: its spec would be sent under RW5a's prompt, which
-            # can only re-emit what is refused, two paid calls for nothing.
-            raise FigureRefused("advanced_disabled", "That figure uses a panel kind that is switched off "
-                                                     "(figures.advanced_panels_enabled).")
+            # RW5d P2: a sketch is revised only by the sketch tier (a contract
+            # with no sketch can't write one back).
+            raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch engine can't run "
+                                                   "here.")
     return request
 
 
 __all__ = [
+    "ATTEMPT_HOST_TIERS",
     "FigureRefused",
     "FigureRequest",
     "GOAL_AUTHORS",
@@ -465,9 +414,7 @@ __all__ = [
     "check_request",
     "key_for",
     "lesson_hosted",
-    "offer_build_key",
     "offered",
     "prediction_home",
-    "show_me_build_key",
     "show_me_input",
 ]

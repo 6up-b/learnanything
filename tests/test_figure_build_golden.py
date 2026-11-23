@@ -42,6 +42,7 @@ from tests.figure_fixtures import (
     build_figure_vault,
     call,
     context,
+    end_sketch_engine_absence,
     flagship,
     half_density,
     set_config,
@@ -276,7 +277,8 @@ def case_v3_spec_chosen(tmp_path, monkeypatch, sandbox):
 def case_reuse_under_another_setting(tmp_path, monkeypatch, sandbox):
     press = Press(tmp_path / "vault", monkeypatch, [flagship()])
     first = build(press.ctx, dict(PRESS))
-    RF.configure(press.paths, sketch_enabled=True)  # the same input under the sketch tier's setting: reused
+    # The same input under the sketch tier's setting (the engine runs now): reused through the reuse key's alternate.
+    end_sketch_engine_absence()
     second = build(press.ctx, dict(PRESS))
     return press.record(sandbox, result=first, second=second)
 

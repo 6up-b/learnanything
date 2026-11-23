@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/askFigures.tsx](../../../../../../apps/learnloop-tauri/src/components/askFigures.tsx) |
-| Source lines | 328 |
+| Source lines | 324 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -60,10 +60,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function figureHostRef(target: AskTarget): FigureHostRef | null` — function, line 97
 - `export function figureCostLine(target: AskTarget, cold: boolean, converted: boolean): string` — function, line 106
 - `export interface PanelFigureLine` — interface, line 111
-- `export interface PanelFigureEvent` — interface, line 126
-- `export function usePanelFigures(target: AskTarget | null,` — function, line 149
-- `export type PanelFigures = ReturnType<typeof usePanelFigures>` — type, line 294
-- `export function PanelFigureThreadLine(` — function, line 299
+- `export interface PanelFigureEvent` — interface, line 121
+- `export function usePanelFigures(target: AskTarget | null,` — function, line 144
+- `export type PanelFigures = ReturnType<typeof usePanelFigures>` — type, line 290
+- `export function PanelFigureThreadLine(` — function, line 295
 
 ## Internal implementation anchors
 
@@ -75,50 +75,49 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function updateHost(hostKey: string, change: (state: PanelFigureHostState)` — function, line 66
 - `function keptTokenOf(hostKey: string):` — function, line 74
 - `function subscribeHosts(listener: ()` — function, line 78
-- `function quickOnly(figure: FigureViewDto | null): FigureViewDto | null` — function, line 121
-- `function sleep(ms: number): Promise<void>` — function, line 134
-- `async function settle(start: ()` — function, line 138
-- `let job = await start()` — let, line 139
-- `const enabled = chooser ? Boolean(target?.practiceItemId) : panelFiguresOn(target)` — const, line 156
-- `const hostRef = target ? figureHostRef(target) : null` — const, line 158
-- `const hostKey = enabled && hostRef ? `$` — const, line 159
-- `const hostState = useSyncExternalStore(subscribeHosts, ()` — const, line 160
-- `const setLines = useCallback((change: (list: PanelFigureLine[])` — const, line 162
-- `const onEventRef = useRef(onEvent)` — const, line 164
-- `const attemptKey = target ? `$` — const, line 166
-- `const land = useCallback((key: string, result: FigureBuildResultDto | null, host: string)` — const, line 168
-- `const figure = quickOnly(result?.figure ?? null)` — const, line 169
-- `const help = result?.help ?? null` — const, line 170
-- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 171
-- `const send = useCallback(async (goal: string)` — const, line 183
-- `const words = goal.trim()` — const, line 184
-- `const hostRef = figureHostRef(target)` — const, line 186
-- `const host = hostKey` — const, line 189
-- `const key = `fig:$` — const, line 190
-- `let takeStepToken: string | null = null` — let, line 193
-- `const keptToken = keptTokenOf(host)` — const, line 196
-- `const step = await api.figureTakeStep(` — const, line 200
-- `const kept =` — const, line 205
-- `const result = await settle(()` — const, line 212
-- `const open = useCallback(async (figureId: string, label: string)` — const, line 220
-- `const hostRef = figureHostRef(target)` — const, line 222
-- `const host = hostKey` — const, line 224
-- `const key = `open:$` — const, line 225
-- `const keptToken = keptTokenOf(host)` — const, line 229
-- `const opened = await api.figureOpen(` — const, line 230
-- `const contract: FiguresContract = useMemo(()` — const, line 237
-- `const ctl: FiguresCtl = useMemo(()` — const, line 238
-- `const patch = (found:` — const, line 239
-- `const key = lines.find((line)` — const, line 253
-- `const host = hostKey` — const, line 255
-- `const hostRef = target ? figureHostRef(target) : null` — const, line 259
-- `const keptToken = keptTokenOf(host)` — const, line 260
-- `const takeStepToken = keptToken?.key === attemptKey ? keptToken.token : null` — const, line 261
-- `const found = await api.readerFigurePredict(` — const, line 267
-- `const found = await api.readerFigureExplain(` — const, line 273
-- `const dismiss = (key: string)` — const, line 290
-- `const link =` — const, line 296
-- `const counted = line.help?.countsAsHint === true` — const, line 301
+- `function sleep(ms: number): Promise<void>` — function, line 129
+- `async function settle(start: ()` — function, line 133
+- `let job = await start()` — let, line 134
+- `const enabled = chooser ? Boolean(target?.practiceItemId) : panelFiguresOn(target)` — const, line 151
+- `const hostRef = target ? figureHostRef(target) : null` — const, line 153
+- `const hostKey = enabled && hostRef ? `$` — const, line 154
+- `const hostState = useSyncExternalStore(subscribeHosts, ()` — const, line 155
+- `const setLines = useCallback((change: (list: PanelFigureLine[])` — const, line 157
+- `const onEventRef = useRef(onEvent)` — const, line 159
+- `const attemptKey = target ? `$` — const, line 161
+- `const land = useCallback((key: string, result: FigureBuildResultDto | null, host: string)` — const, line 163
+- `const figure = result?.figure ?? null` — const, line 165
+- `const help = result?.help ?? null` — const, line 166
+- `const shown = figure !== null && figure.shown` — const, line 167
+- `const send = useCallback(async (goal: string)` — const, line 179
+- `const words = goal.trim()` — const, line 180
+- `const hostRef = figureHostRef(target)` — const, line 182
+- `const host = hostKey` — const, line 185
+- `const key = `fig:$` — const, line 186
+- `let takeStepToken: string | null = null` — let, line 189
+- `const keptToken = keptTokenOf(host)` — const, line 192
+- `const step = await api.figureTakeStep(` — const, line 196
+- `const kept =` — const, line 201
+- `const result = await settle(()` — const, line 208
+- `const open = useCallback(async (figureId: string, label: string)` — const, line 216
+- `const hostRef = figureHostRef(target)` — const, line 218
+- `const host = hostKey` — const, line 220
+- `const key = `open:$` — const, line 221
+- `const keptToken = keptTokenOf(host)` — const, line 225
+- `const opened = await api.figureOpen(` — const, line 226
+- `const contract: FiguresContract = useMemo(()` — const, line 233
+- `const ctl: FiguresCtl = useMemo(()` — const, line 234
+- `const patch = (found:` — const, line 235
+- `const key = lines.find((line)` — const, line 249
+- `const host = hostKey` — const, line 251
+- `const hostRef = target ? figureHostRef(target) : null` — const, line 255
+- `const keptToken = keptTokenOf(host)` — const, line 256
+- `const takeStepToken = keptToken?.key === attemptKey ? keptToken.token : null` — const, line 257
+- `const found = await api.readerFigurePredict(` — const, line 263
+- `const found = await api.readerFigureExplain(` — const, line 269
+- `const dismiss = (key: string)` — const, line 286
+- `const link =` — const, line 292
+- `const counted = line.help?.countsAsHint === true` — const, line 297
 
 ## Who imports or calls it
 

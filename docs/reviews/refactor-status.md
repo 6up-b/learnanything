@@ -254,13 +254,13 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K10.7 | Extract figure request and grounding functions | landed | `8d775a4456` | [refactor-k10.7-8.md](refactor-k10.7-8.md) | — |
 | K10.8 | Extract presentation, listing and predictions from build | landed | `150b14ae3e` | [refactor-k10.7-8.md](refactor-k10.7-8.md) | — |
 | K10.9 | Extract pure reading of the figure author's answer | landed | `5f35fa7ac8` | [refactor-k10.9-17.md](refactor-k10.9-17.md) | `figures/author_answer.py` `read_answer` returns a verdict (retry, unsupported, spec, sketch, rich) with its record code; the loop went from 305 to 186 lines; 711 of 711 old-and-new loop pairs identical; the figure goldens and pins unchanged. Net +155 source lines, past the estimate: kept because the rules are now tested with literal answers and two whole-build tests became one call each |
-| K10.10 | Share the presentation chain and shown set | not started | — | — | — |
-| K10.11 | Record figure refusals, reuse and available tiers | waiting on | — | — | K10.10 |
+| K10.10 | Share the presentation chain and shown set | landed | this commit | [refactor-k10-batch-shown-switches.md](refactor-k10-batch-shown-switches.md) | One chain for section figures, the shown set and drawable/shown checks; `LESSON_TIERS` and `ATTEMPT_HOST_TIERS` as the one constant each tier door reads |
+| K10.11 | Record figure refusals, reuse and available tiers | not started | — | — | — |
 | K10.12 | Record each attempt by a rich figure job | waiting on | — | — | K10.11 |
 | K10.13 | Move attempt-host policy under the figures package | dropped | — | — | Owner ruled out figures on phone and MCP |
-| K10.14 | Read shown state and labels from the server | not started | — | [ledger K10-5](refactor-bug-ledger.md) | Due before the UX overhaul |
+| K10.14 | Read shown state and labels from the server | landed | this commit | [refactor-k10-batch-shown-switches.md](refactor-k10-batch-shown-switches.md), [ledger K10-5](refactor-bug-ledger.md) | The view carries `shown` and a closed `label_code`; the desktop's literal copies and its branch on the English label are gone |
 | K10.15 | Write the Figures note and correct stale lines | landed | `53f330c743` | [Figures](../learnloop-architecture-vault/Concepts/Figures.md) | — (K10-4 fixed) |
-| K10.16 | Retire the eight figure content switches | not started | — | — | The count is in (2026-11-20, backup copies): 28 stored figures in one vault across six prompt versions, none in the other two, no legacy `verified` row anywhere |
+| K10.16 | Retire the eight figure content switches | landed | this commit | [refactor-k10-batch-shown-switches.md](refactor-k10-batch-shown-switches.md) | Eight switches into `RETIRED_FIELDS`, every pinned identity's bytes kept, new builds' prompt version byte-identical. V1/V2 contracts and the sketch-off row stay for machines whose sketch engine cannot load; the reuse key's legacy alternates stay while stored figures use older prompt versions (count of 2026-11-20: 28 figures in one vault across six versions); the desktop's constant contract keys wait for the Reader work |
 | K10.17 | Remove the dormant JavaScript animation tier | landed | `5f35fa7ac8` | [refactor-k10.9-17.md](refactor-k10.9-17.md) | 20 source lines in 7 files; no config field and no stored row ever named it; an answer with that status, which no menu offers, is now recorded as `other` |
 
 ## Measure and layout steps

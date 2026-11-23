@@ -47,14 +47,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py) |
-| Source lines | 376 |
+| Source lines | 379 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 61) — ``teacher.visuals``, under ``figures.enabled`` and ``figures.show_me_enabled`` (a teacher's figure is a goal, which "show me" governs: spec §7.1).
+- `active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 61) — ``teacher.visuals``, under ``figures.enabled`` (a teacher's figure is a goal, which "show me" builds: spec §7.1).
 - `on(vault: Any, builder: Builder | None) -> bool` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 70) — Whether this lesson call offers visuals: the switches, and a host that can build a figure.
 - `paragraph() -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 77) — The doctrine's visuals paragraph (versioned; appended to the doctrine only when on).
 - `instructions(doctrine: str, visuals: bool) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 83)
@@ -67,10 +67,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `figure_request(state: Any, resolved: Mapping[str, Any], *, caller: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 202) — The ``FigureRequestV1`` code completes from the teacher's words (module docstring).
 - `not_built_for_protection(resolved: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 240) — The record of a visual not built because the lesson's protection state changed since its brief (Codex review F1): its saved goal may carry words of a passage that is now exam or held-out material, which the figure service's check of the visual's own anchors cannot see, so nothin…
 - `build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder, *, caller: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 249) — Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend refusal of the lesson's envelope propagates, so the lesson closes with ``budget``).
-- `figure_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 283)
-- `figure_text(row: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 293) — The figure's words and displayed values as the lesson shows it (P3's reveal text over the stored spec or program **without its predictions**: a lesson suppresses them, :func:`lesson_view`), so a hidden prediction's prompt is neither exposure nor a reason to withhold the figure (…
-- `summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 312) — What the teacher is told a shown figure is: its tier, what it demonstrates and what the learner can move (names, labels, ranges and defaults), read from the stored spec or program.
-- `lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 327) — A lesson figure as the lesson shows it NOW, or None (gone, held out since, switched off): the figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a lesson host is grammar and sketch only).
+- `figure_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 285)
+- `figure_text(row: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 295) — The figure's words and displayed values as the lesson shows it (P3's reveal text over the stored spec or program **without its predictions**: a lesson suppresses them, :func:`lesson_view`), so a hidden prediction's prompt is neither exposure nor a reason to withhold the figure (…
+- `summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 314) — What the teacher is told a shown figure is: its tier, what it demonstrates and what the learner can move (names, labels, ranges and defaults), read from the stored spec or program.
+- `lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 329) — A lesson figure as the lesson shows it NOW, or None (gone, held out since, switched off): the figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a lesson host is grammar and sketch only).
 
 ### Module constants
 
@@ -135,8 +135,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
-- [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `figure`, `has_tables`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `show_me_enabled`, `teacher_visuals_enabled`; calls `figures_enabled`, `show_me_enabled`, `teacher_visuals_enabled`
+- [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `SHOWN`, `module`; calls `figure`, `has_tables`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `teacher_visuals_enabled`; calls `figures_enabled`, `teacher_visuals_enabled`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `reveal_text`; calls `reveal_text`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `figure_withheld`; calls `figure_withheld`
 - [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `FigureRequest`, `module`; calls `FigureRequest`
@@ -162,7 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
-  - `test_the_teachers_visuals_switch_is_the_teachers_alone_and_a_lesson_asks_all_three`
+  - `test_the_teachers_visuals_switch_is_the_teachers_alone_and_a_lesson_asks_both`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
   - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import

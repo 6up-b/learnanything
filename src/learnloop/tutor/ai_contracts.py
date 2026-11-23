@@ -91,7 +91,7 @@ class ReaderTutorExplorableQAContext(ReaderTutorQAContext):
 
 @dataclass(frozen=True)
 class ReaderTutorShowMeQAContext(ReaderTutorQAContext):
-    """Reader RW5d P1 (``figures.show_me_enabled`` with RW5b's offers): the
+    """Reader RW5d P1 ("show me", with RW5b's offers): the
     Reader context whose answer may carry an optional ``figure_goal`` (no new
     fields; its own prompt version). Used when no equation or figure block is
     delivered; with one, :class:`ReaderTutorExplorableShowMeQAContext`."""
@@ -250,7 +250,7 @@ class ExplorableCitation(WireModel):
 
 
 class ReaderTutorExplorableAnswer(ReaderTutorAnswer):
-    """RW5b (``figures.offers_enabled``): :class:`ReaderTutorAnswer` with
+    """RW5b (figure offers, with ``figures.enabled``): :class:`ReaderTutorAnswer` with
     ``explorable`` on each cited equation or figure block; an output without
     the field reads as no offers."""
 
@@ -273,7 +273,7 @@ class _FigureGoal(WireModel):
 
 
 class ReaderTutorShowMeAnswer(ReaderTutorAnswer, _FigureGoal):
-    """RW5d P1 (``figures.show_me_enabled``): :class:`ReaderTutorAnswer` with
+    """RW5d P1 ("show me"): :class:`ReaderTutorAnswer` with
     the optional ``figure_goal``; an output without it reads as no goal."""
 
 
@@ -332,11 +332,11 @@ TUTOR_QA_TOOLS_PROMPT_VERSION = "mvp-0.10-tutor-qa-learner-gap-source-tool-reque
 #: ``reader_tutor.retrieval_enabled``; off, the Reader's prompt is one of the two above.
 READER_TUTOR_PROMPT_VERSION = "mvp-0.11-tutor-qa-reader-modes"
 READER_TUTOR_TOOLS_PROMPT_VERSION = "mvp-0.11-tutor-qa-reader-modes-source-tool-requests"
-#: RW5b (``figures.offers_enabled`` with RW1c's lookup and offers): the same
+#: RW5b (figure offers, with RW1c's lookup and offers): the same
 #: prompts plus the ``explorable`` judgment on cited equation and figure blocks.
 READER_TUTOR_EXPLORABLE_PROMPT_VERSION = READER_TUTOR_PROMPT_VERSION + "-explorable"
 READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION = READER_TUTOR_TOOLS_PROMPT_VERSION + "-explorable"
-#: RW5d P1 (``figures.show_me_enabled`` with RW5b's offers): each of the four
+#: RW5d P1 ("show me", with RW5b's offers): each of the four
 #: Reader-tutor prompts plus the optional ``figure_goal``; off, they are RW5b's.
 SHOW_ME_PROMPT_SUFFIX = "-show-me"
 READER_TUTOR_SHOW_ME_PROMPT_VERSION = READER_TUTOR_PROMPT_VERSION + SHOW_ME_PROMPT_SUFFIX

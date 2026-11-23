@@ -133,6 +133,25 @@ export function frameBadge(verification: FigureViewDto["verification"], groundin
   return grounding === "none" ? FIGURE_FRAME.notFromBooks : FIGURE_FRAME.illustration;
 }
 
+/** The badge slot's text for the server's label code, in the Reader's own words (whose words the badge
+ *  shows is the UX audit's call: the server's are ``figure.label``). A sketch's checks stand only while the
+ *  page's own run agrees (``withdrawn``). */
+export function figureBadge(figure: Pick<FigureViewDto, "labelCode" | "sketch">, withdrawn = false): string {
+  switch (figure.labelCode) {
+    case "rich_off": return RICH_FRAME.cantShow;
+    case "manim": return RICH_FRAME.manim;
+    case "manim_unchecked": return RICH_FRAME.manimUnchecked;
+    case "manim_not_from_books": return RICH_FRAME.manimNotFromBooks;
+    case "sketch":
+    case "sketch_unchecked": return checksStand(figure.sketch, withdrawn) ? SKETCH_FRAME.badge : SKETCH_FRAME.unchecked;
+    case "sketch_not_from_books": return SKETCH_FRAME.notFromBooks;
+    case "not_from_books": return FIGURE_FRAME.notFromBooks;
+    case "illustrative": return FIGURE_FRAME.illustration;
+    case "unsupported": return FIGURE_FRAME.unsupported;
+    default: return FIGURE_FRAME.failed;
+  }
+}
+
 /** RW5d P1: the figure's goal on its collapsed line, in its author's voice
  *  (the learner's words quoted; a tutor's goal marked AI-written). Outside the
  *  badge slot. Nothing for a figure with no goal. */
@@ -173,10 +192,10 @@ export function frameChecks(keys: readonly string[] | null | undefined): string[
 }
 
 import { figurePlacementKey, type FigureHome, type FigurePending, type FiguresCtl, type FollowedFigure } from "./useFigures";
-import { checksStand, SketchFigure, sketchBadge, SKETCH_FRAME } from "./sketch/SketchFigure";
+import { checksStand, SketchFigure, SKETCH_FRAME } from "./sketch/SketchFigure";
 import { useChecksWithdrawn } from "./sketch/checksWithdrawn";
 import { parseProgram } from "./sketch/sketchScene";
-import { FullerLine, ManimFigureBody, ManimNotRight, ManimOptInLine, manimBadge, RICH_FRAME, RichPendingLine } from "./RichFigure";
+import { FullerLine, ManimFigureBody, ManimNotRight, ManimOptInLine, RICH_FRAME, RichPendingLine } from "./RichFigure";
 
 export const FIGURE_COPY = {
   collapsed: "interactive version",
@@ -575,7 +594,7 @@ export function figureHomeLine(home: FigureHome): string {
 }
 
 export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewDto; ctl: FiguresCtl; home?: FigureHome | null }) {
-  const shown = figure.verification === "verified" || figure.verification === "illustrative";
+  const shown = figure.shown;
   const expanded = shown && ctl.expandedKey === figurePlacementKey(figure);
   // RW5d P2: a sketch's specJson is its SketchProgramV1, drawn by SketchFigure.
   const isSketch = figure.tier === "sketch";
@@ -601,8 +620,8 @@ export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewD
       <div data-figure={figure.figureId} data-figure-verification={figure.verification}
         style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px", flexWrap: "wrap" }}>
         <FigureGoal figure={figure} />
-        <span data-figure-badge=""><MeaningLabel style={{ fontSize: 11 }}>{figure.label === RICH_FRAME.cantShow ? RICH_FRAME.cantShow : isManim ? manimBadge(figure) : frameBadge(figure.verification)}</MeaningLabel></span>
-        {figure.verification === "unsupported" && figure.unsupportedKind && figure.label !== RICH_FRAME.cantShow ? (
+        <span data-figure-badge=""><MeaningLabel style={{ fontSize: 11 }}>{figureBadge(figure)}</MeaningLabel></span>
+        {figure.labelCode === "unsupported" && figure.unsupportedKind ? (
           <span data-figure-detail="">needs {figure.unsupportedKind}</span>
         ) : null}
         {figure.verification === "failed" && figure.reason ? <span data-figure-detail="">({figure.reason})</span> : null}
@@ -660,8 +679,8 @@ export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewD
           style={{ ...linkStyle, fontSize: 11, color: COLOR.text, textDecoration: "none" }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {isManim ? RICH_FRAME.collapsed : FIGURE_COPY.collapsed} ·{" "}
           {figure.goalText ? <><FigureGoal figure={figure} /> ·{" "}</> : null}
-          <span data-figure-badge="">{isManim ? manimBadge(figure) : isSketch ? sketchBadge(figure, withdrawn)
-            : labelElements(figure).length ? <CheckedBadge figure={figure} /> : frameBadge(figure.verification, figure.grounding)}</span>
+          <span data-figure-badge="">{!isManim && !isSketch && labelElements(figure).length ? <CheckedBadge figure={figure} />
+            : figureBadge(figure, withdrawn)}</span>
           {!expanded && fullerReady ? <span data-fuller-collapsed=""> · {RICH_FRAME.collapsedReady}</span> : null}
         </button>
         {home ? (

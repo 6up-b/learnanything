@@ -32,8 +32,8 @@ vi.mock("../screens/reader/figures/FigureInline", async (importOriginal) => ({
 const PANEL = { ask: { panelEnabled: true, helpStyle: "balanced", figures: true } };
 const FIGURE = {
   figureId: "fig_1", extractionId: null, spanIds: [], anchorSpanId: null, region: null, origin: "ask",
-  verification: "illustrative", kind: "illustrative", label: "AI-built illustration", reason: null,
-  unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-11-01T00:00:00Z",
+  verification: "illustrative", shown: true, labelCode: "not_from_books", kind: "illustrative",
+  label: "AI-built illustration", reason: null, unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-11-01T00:00:00Z",
   specJson: "{}", demonstrates: "the area grows", assumptions: [], predictions: [], propertyChecks: [],
   goalText: "the area under 2x", goalAuthor: "learner", grounding: "none", passages: []
 };
@@ -271,10 +271,10 @@ it("not right? asks the new version on the host the figure is open on now (F4)",
 
 // Ruling R1 (landing step 0): figures on an attempt host are grammar and sketch only.
 
-it("a figure lands on the attempt without its fuller version, and nothing rich is read or polled (R1)", async () => {
-  const fuller = { ...FIGURE, figureId: "fig_full", tier: "manim" };
+it("a figure lands on the attempt as the server sends it, with no fuller version, and nothing rich is read or polled (R1)", async () => {
+  // The server's attempt view never carries a fuller version (attempt_view); the panel adds none.
   api.figureRequest.mockResolvedValue({ ...job({ host: "practice", countsAsHint: true, status: "counted", new: true }),
-                                        result: { figure: { ...FIGURE, fuller: { state: "ready", tier: "manim", phase: null, reason: null, richJobId: "rj_1", figure: fuller } },
+                                        result: { figure: { ...FIGURE, fuller: null },
                                                   reused: false, help: { host: "practice", countsAsHint: true, status: "counted", new: true } } });
   const panel = await openDocked();
   type("the area under 2x");

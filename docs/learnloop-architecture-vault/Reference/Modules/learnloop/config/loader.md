@@ -158,6 +158,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_legacy_tend_table_in_an_existing_config_is_ignored`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
   - `test_a_config_setting_the_removed_switches_keeps_every_identity`
+  - `test_a_config_setting_the_retired_figure_switches_keeps_every_identity`
   - `test_a_config_setting_todays_removed_switches_keeps_every_identity`
   - `test_the_lesson_suggestions_section_still_refuses_an_unknown_key_but_loads_its_retired_ones`
 - [tests/test_success_head_cli.py](../../../../../../tests/test_success_head_cli.py) — direct import

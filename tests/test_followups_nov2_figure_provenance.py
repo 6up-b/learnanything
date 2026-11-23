@@ -280,16 +280,18 @@ def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afr
     assert author.calls == calls + 1
 
 
-def test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched(tmp_path, monkeypatch):
+def test_a_fresh_figure_for_a_marked_row_is_reused_under_another_setting(tmp_path, monkeypatch):
     """Codex final verify F6 (landing ruling R1): the fresh figure built for a
     marked row with no record sits under the input's recorded-inputs key.
     Before the fix the other-settings reuse lookup searched only the plain
-    keys (whose occupant, the marked row, is never reused), so switching
-    ``figures.advanced_panels_enabled`` paid the author once more for a figure
-    still drawable. Now the lookup also searches each other setting's
-    recorded-inputs key: the same figure, no call."""
+    keys (whose occupant, the marked row, is never reused), so another
+    setting (then the advanced panels' switch; here the sketch tier's
+    availability) paid the author once more for a figure still drawable. Now
+    the lookup also searches each other setting's recorded-inputs key: the
+    same figure, no call."""
 
-    from tests.figures_rw5b_review_helpers import _panels
+    from learnloop.figures.sketch import sketch_ready
+    from tests.figure_fixtures import end_sketch_engine_absence, sketch_engine_absent
 
     world, ctx, author, job = _quick_world(tmp_path, monkeypatch)
     legacy_id = job["result"]["figure"]["figureId"]
@@ -304,10 +306,13 @@ def test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched
     with world.repository.connection() as connection:
         fresh = store.figure(connection, fresh_id)
     assert FV.drawable_now(vault, fresh)
-    panels = bool(vault.config.figures.advanced_panels_enabled)
-    _panels(world.paths, not panels)
+    sketch = sketch_ready(vault)
+    if sketch:
+        sketch_engine_absent()
+    else:
+        end_sketch_engine_absence()
     vault = load_vault(world.root)
-    assert bool(vault.config.figures.advanced_panels_enabled) is not panels
+    assert sketch_ready(vault) is not sketch
     assert FV.drawable_now(vault, fresh)  # still drawable under the other setting
     ctx.load(world.root)
     third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
