@@ -217,8 +217,10 @@ def main() -> int:
     # screens/desks/lesson/ model.ts, host.ts, LessonPaper.tsx and PathLessonRow.tsx (entry-reachable);
     # fixtures/desks/lessons.ts (vitest-support).
     # RD8a: the eight screens/desks/pen modules (recognizer, input, geometry, host, live, PenLayer, inkCache, InkLine).
-    if len(ts_sources) != 399:
-        errors.append(f"source inventory drift: expected 399 TypeScript/TSX files, found {len(ts_sources)}")
+    # Reader workbench v2 RD10 (video and carried polish): screens/desks/video/ model.ts, desk.ts, ChaptersPanel.tsx,
+    # VideoWindow.tsx, FollowChip.tsx and followLens.ts, and screens/desks/carried/related.ts (entry-reachable).
+    if len(ts_sources) != 406:
+        errors.append(f"source inventory drift: expected 406 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -324,7 +326,8 @@ def main() -> int:
         # RD6b: the six screens/desks/goal modules.
         # RD9a: screens/LessonView.tsx and the four screens/desks/lesson modules.
         # RD8a: the eight screens/desks/pen modules.
-        "entry-reachable build graph": 380,
+        # RD10: the six screens/desks/video modules and screens/desks/carried/related.ts.
+        "entry-reachable build graph": 387,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -340,7 +343,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 405}:
+    if dict(status_counts) != {"ACTIVE": 412}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

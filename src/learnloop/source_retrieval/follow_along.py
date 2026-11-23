@@ -31,7 +31,12 @@ def follow(vault: Any, repository: Repository, video_extraction_id: str, t: floa
     if section is None:
         out["status"] = "no_section"
         return out
-    out["section"] = {"section_id": section.section_id, "title": section.title, "t0": section.t0, "t1": section.t1}
+    # The bounds the desk keeps its answer for: from this section's start (the video's start for the first) to the
+    # next section's (open for the last), so a time between two sections' cues still has its answer.
+    index = sections.index(section)
+    upper = sections[index + 1].t0 if index + 1 < len(sections) else None
+    out["section"] = {"section_id": section.section_id, "title": section.title, "t0": 0.0 if index == 0 else section.t0,
+                      "t1": upper}
     view = SC.correspondents(vault, repository, video_extraction_id, section.section_id, search_fallback=False,
                              cache=cache)
     if view.get("status") == "withheld":

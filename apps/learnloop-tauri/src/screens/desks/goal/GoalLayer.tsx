@@ -64,6 +64,8 @@ export interface GoalDesk {
   rowGoal: (extractionId: string | null, padIds: readonly string[]) => ShelfGoal | null;
   pathOpen: boolean;
   togglePath: () => boolean;
+  /** An LO's primary section on the goal's path (follow-along prefers it, RD10), or null. */
+  primaryFor: (learningObjectId: string) => { extractionId: string; sectionId: string } | null;
 }
 
 export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings, focused, padAnchors, hubFor, timers, mintId, onError, onOpen, lessonRow }: {
@@ -279,5 +281,9 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     return { mark: mark === "core" ? "sup" : mark, line: best.held ? "your pads, for your goal" : lo?.title ? `your pads on \u201c${lo.title}\u201d` : "your pads, not tied to your goal", ranges: [] };
   }, [band, indexFor, padAnchors]);
 
-  return { band: bandNode, topChip, hasBand, lensFor, padLine, overlays, rowGoal, pathOpen: goal.pathOpen, togglePath };
+  const primaryFor = useCallback((learningObjectId: string) => {
+    const primary = band?.learningObjects?.find((dot) => dot.learningObjectId === learningObjectId)?.primary;
+    return primary ? { extractionId: primary.extractionId, sectionId: primary.sectionId } : null;
+  }, [band]);
+  return { band: bandNode, topChip, hasBand, lensFor, padLine, overlays, rowGoal, pathOpen: goal.pathOpen, togglePath, primaryFor };
 }

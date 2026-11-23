@@ -42,6 +42,8 @@ def test_follow_along_maps_the_playing_cue_to_the_books_correspondent_passage(tm
     assert table_counts(repository) == before
     assert found["status"] == "following"
     assert found["section"] == {"section_id": "v_eigen", "title": "Section v_eigen", "t0": 20.0, "t1": 40.0}
+    # The bounds run to the next section's start (the last section's are open), so the desk asks once per section.
+    assert FA.follow(vault, repository, VIDEO, 59.0, "ext_book")["section"]["t1"] is None
     eigen = next(group for group in found["learning_objects"] if group["learning_object_id"] == "lo_eigen")
     assert eigen["sections"] and all(section["jump_span_id"] for section in eigen["sections"])
     # The introduction treats no LO: nothing in the book corresponds, and nothing scrolls.

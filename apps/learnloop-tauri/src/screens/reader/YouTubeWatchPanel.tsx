@@ -116,6 +116,15 @@ export interface WatchLens {
   segments?: string[][];
 }
 
+/** The desks' video window (RD10): accepted chapters' ticks on the scrub track, a side panel under the player (the
+ *  suggested chapters), and the player's clock (follow-along, the timestamp key). Absent, the panel is as before. */
+export interface VideoExtras {
+  ticks?: Array<{ t: number; title: string }>;
+  side?: ReactNode;
+  /** The player's time and whether it plays, with the cue there, each time either changes; and the video's length. */
+  onClock?: (clock: { t: number; playing: boolean; spanId: string | null; duration: number }) => void;
+}
+
 export interface WatchPanelHandle {
   /** Seek the video (and transcript) to the cue backing a span id. */
   seekToSpan: (spanId: string) => boolean;
@@ -149,6 +158,8 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   fold?: { spans: ReadonlySet<string>; line: ReactNode } | null;
   /** The goal lens (the desks' RD6), or none. */
   lens?: WatchLens | null;
+  /** The desks' video window extras (RD10), or none. */
+  video?: VideoExtras | null;
 }>(function YouTubeWatchPanel({
   plan,
   blocks,
@@ -164,6 +175,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   marks = null,
   fold = null,
   lens = null,
+  video = null,
 }, ref) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -241,6 +253,13 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const firstFolded = fold ? transcriptCues.find((cue) => fold.spans.has(cue.block.spanId ?? ""))?.block.spanId ?? null : null;
 
   const activeCue = useMemo(() => cueAt(transcriptCues, currentTime), [transcriptCues, currentTime]);
+  // The desks hear the clock (follow-along, the timestamp key): each time the time or the playing state changes.
+  const [playingNow, setPlayingNow] = useState(false);
+  const onClockRef = useRef(video?.onClock);
+  onClockRef.current = video?.onClock;
+  useEffect(() => {
+    onClockRef.current?.({ t: currentTime, playing: playingNow, spanId: activeCue?.block.spanId ?? null, duration });
+  }, [currentTime, playingNow, activeCue, duration]);
 
   const post = useCallback((func: string, args: unknown[] = []) => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), YT_ORIGIN);
@@ -279,7 +298,10 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
         playingRef.current = data.info === 1;
       }
       if (data?.event === "infoDelivery" && typeof data.info === "object" && data.info !== null) {
-        if (typeof data.info.playerState === "number") playingRef.current = data.info.playerState === 1;
+        if (typeof data.info.playerState === "number") {
+          playingRef.current = data.info.playerState === 1;
+          setPlayingNow(data.info.playerState === 1);
+        }
         if (typeof data.info.currentTime === "number" && acceptPlayerTime(data.info.currentTime)) {
           setCurrentTime(data.info.currentTime);
         }
@@ -453,10 +475,15 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
             remounts the player). The class names let the desks lay the panel out as their video window. */}
         <div className="watch-player">
             {player}
-            {lens?.segments && duration > 0 ? (
-              <div className="vtrack" data-goal-track="">
+            {(lens?.segments || video?.ticks?.length) && duration > 0 ? (
+              <div className="vtrack" {...(lens?.segments ? { "data-goal-track": "" } : {})}>
                 <div className="ln" />
-                {lens.segments.map((spanIds) => timeOf(spanIds)).filter((range): range is { start: number; end: number } => range !== null).map((range) => (
+                {(video?.ticks ?? []).map((tick) => (
+                  // An accepted chapter's tick (spec §7.9).
+                  <div key={`ch-${tick.t}`} className="ch" data-chapter-tick={tick.t} title={tick.title}
+                    style={{ left: `${Math.min(100, tick.t / duration * 100).toFixed(2)}%` }} />
+                ))}
+                {(lens?.segments ?? []).map((spanIds) => timeOf(spanIds)).filter((range): range is { start: number; end: number } => range !== null).map((range) => (
                   <div key={`${range.start}-${range.end}`} className="gseg" title="on your path"
                     style={{ left: `${(range.start / duration * 100).toFixed(2)}%`, width: `${((range.end - range.start) / duration * 100).toFixed(2)}%` }} />
                 ))}
@@ -464,6 +491,8 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
               </div>
             ) : null}
         </div>
+        {/* The desks' side panel (the suggested chapters), its own cell: the desks lay it out under the player's line. */}
+        {video?.side ? <div className="watch-side">{video.side}</div> : null}
         <div className="watch-transcript" style={{ border: `1px solid ${COLOR.border}`, background: COLOR.bgInput }}>
         <div className="watch-thead" style={{ height: 30, padding: "0 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${COLOR.border}` }}>
           <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>TRANSCRIPT</Faint>

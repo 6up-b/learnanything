@@ -10563,6 +10563,48 @@ export interface LessonSummaryDto {
   additionsPadId: string | null;
 }
 
+/** Reader workbench RD10 (spec §7.5): what a book window follows at a video's time (reader.follow_along). */
+export interface FollowAlongDto {
+  version?: number;
+  videoExtractionId: string;
+  bookExtractionId: string;
+  t: number;
+  status: "following" | "no_passage" | "no_section" | "withheld";
+  /** The playing cue's transcript section, with the bounds its answer holds for (from its start, or the video's for
+   *  the first, to the next section's start; null for the last): asked again once the time leaves them. */
+  section: { sectionId: string; title: string; t0: number; t1: number | null } | null;
+  /** The accepted chapter the time falls in. */
+  chapter: { chapterId: string; title: string; t0: number; t1: number } | null;
+  /** Per LO of the section, the book's correspondent sections from judged coverage. */
+  learningObjects: Array<{ learningObjectId: string; title: string | null;
+    sections: Array<{ sectionId: string; title: string | null; jumpSpanId: string | null }> }>;
+}
+
+/** Reader workbench RD10 (spec §7.9): a video chapter, suggested or decided. */
+export interface VideoChapterDto {
+  chapterId: string;
+  extractionId: string;
+  t0: number;
+  t1: number;
+  title: string;
+  learningObjectIds: string[];
+  learningObjects?: Array<{ learningObjectId: string; title: string }>;
+  state: "suggested" | "accepted" | "dismissed";
+  suggestedAt: string;
+  decidedAt: string | null;
+}
+
+/** chapters.suggest / chapters.job: the chapters judge as a polled job. */
+export interface ChaptersJobDto {
+  version?: number;
+  jobId: string | null;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  result: { status: "ready" | "unavailable" | "capped" | "failed" | "stale" | "no_sections"; reason: string | null;
+    message: string | null; chapters: VideoChapterDto[] } | null;
+  error: { code: string; message: string; retryable: boolean; details: Record<string, unknown> | null } | null;
+}
+
 /** Teacher TE2-log (spec_teacher_v1 §11.6): one interval of the lesson screen, on the client's clock. */
 export interface LessonActivityIntervalDto {
   /** One mount of the lesson screen; `seq` counts its intervals from 1 (a gap is a missing interval). */

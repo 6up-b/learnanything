@@ -4,7 +4,7 @@
 // The workspace model (model/workspace.ts) is the truth on screen; every change the learner makes is
 // applied there at once and queued as `desk.apply` ops in the outbox (outbox.ts), which sends them in
 // order. A conflict takes the server's state: the shell reads `desk.state` again.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../../api/client";
 import { cachedSourceRead } from "../reader/readerCache";
@@ -118,10 +118,17 @@ import { LIVE_GOAL_TRANSPORT, type GoalTransport } from "./goal/controller";
 import { LessonDesk, LIVE_LESSONS_TRANSPORT, type LessonsHost, type LessonsTransport, type Opening } from "./lesson/host";
 import { addLessonToStack, findLesson, lessonKey, lessonStack, lessonTabTitle, stackWindowOf } from "./lesson/model";
 import { PathLessonRow } from "./lesson/PathLessonRow";
+import { LIVE_VIDEO_TRANSPORT, VideoDesk, type VideoTransport } from "./video/desk";
+import { VideoWindow } from "./video/VideoWindow";
+import { FollowChip } from "./video/FollowChip";
+import { FollowLenses } from "./video/followLens";
+import { timestampLine } from "./video/model";
+import { CarriedRelated, allCarried } from "./carried/related";
 import type { LessonEntry } from "../LessonView";
 import type { LessonViewDto } from "../../api/dto";
 import "../../styles/goal.css";
 import "../../styles/lesson.css";
+import "../../styles/video.css";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
@@ -445,6 +452,8 @@ export interface DeskShellProps {
   };
   /** The lessons' summaries (lesson.list); absent, the sidecar's. */
   lessonsTransport?: LessonsTransport;
+  /** Follow-along and the suggested chapters' calls (RD10); absent, the sidecar's. */
+  videoTransport?: VideoTransport;
   /** The pen layer's calls (RD8a); absent, the sidecar's. */
   penApi?: PenApi;
 }
@@ -469,6 +478,7 @@ export function DeskShell({
   goalTransport = LIVE_GOAL_TRANSPORT,
   lessons,
   lessonsTransport = LIVE_LESSONS_TRANSPORT,
+  videoTransport = LIVE_VIDEO_TRANSPORT,
   penApi = LIVE_PEN_API,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
@@ -484,6 +494,14 @@ export function DeskShell({
   const lessonDesk = useMemo(() => new LessonDesk(lessonsTransport, (opening, lessonId) => lessonOpened.current(opening, lessonId)), [lessonsTransport]);
   // A lesson window's title and the path view's rows follow the summaries as they land.
   useSyncExternalStore(lessonDesk.subscribe, lessonDesk.getVersion);
+  // The desks' videos (RD10): each player's clock, what each book follows, each video's accepted chapters. A book
+  // following a new passage scrolls to it through its window's jump (set below, once the jumps exist).
+  const videoFollowed = useRef<(bookWindowId: string, spanId: string) => void>(() => undefined);
+  const videoDesk = useMemo(() => new VideoDesk(videoTransport, (windowId, spanId) => videoFollowed.current(windowId, spanId)), [videoTransport]);
+  useSyncExternalStore(videoDesk.subscribe, videoDesk.getVersion);
+  const followLenses = useMemo(() => new FollowLenses(), []);
+  // `u` and `alt+;` reach the latest render's handlers (set below).
+  const videoKeys = useRef<{ follow: () => boolean; timestamp: () => boolean }>({ follow: () => false, timestamp: () => false });
   // Pad changes re-render the shell too (the passages' ✎ links, the companion's pad proposals).
   useSyncExternalStore(store.subscribe, store.getPadVersion);
   const [storeReady, setStoreReady] = useState(store.loaded);
@@ -1274,6 +1292,10 @@ export function DeskShell({
         return true;
       case "path":
         return goalPathRef.current.toggle();
+      case "follow":
+        return videoKeys.current.follow();
+      case "timestamp":
+        return videoKeys.current.timestamp();
       case "pen":
         setPenOn((on) => !on);
         return true;
@@ -2139,6 +2161,34 @@ export function DeskShell({
     // Read once when the desks open; carrying refreshes it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws === null]);
+  // Every still-carried question, through the list's pages, read again whenever the shelf's list is (RD10): a
+  // question past the first page comes back beside its passages too.
+  const [carriedAll, setCarriedAll] = useState<CarriedQuestionDto[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    void allCarried((cursor) => Promise.resolve().then(() => padsTransport.carriedList({ which: "open", ...(cursor ? { cursor } : {}) })))
+      .then((all) => { if (live) setCarriedAll(all); }, () => undefined);
+    return () => { live = false; };
+  }, [carried, padsTransport]);
+  // And beside the related passages of the other open readings (spec §10.12).
+  const carriedRelated = useMemo(() => new CarriedRelated({
+    passageUnionRange: (input) => padsTransport.passageUnionRange(input),
+    correspondents: (input) => videoTransport.correspondents(input),
+  }), [padsTransport, videoTransport]);
+  useSyncExternalStore(carriedRelated.subscribe, carriedRelated.getVersion);
+  // The carried questions the margin marks place: beside their own passages, and beside related ones in the other
+  // open readings (one list, kept while nothing it reads changes, so the marks are not placed again every render).
+  const relatedVersion = carriedRelated.getVersion();
+  const openReadings = (desk?.slots.flat() ?? []).flatMap((id) => {
+    const content = ws?.windows[id]?.content;
+    return content && (content.kind === "source" || content.kind === "video") ? [content.extractionId] : [];
+  }).join("\u0000");
+  const marksCarried = useMemo(() => {
+    const all = carriedAll ?? carried.list;
+    return [...all, ...carriedRelated.beside(all, openReadings ? openReadings.split("\u0000") : [])];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carriedAll, carried.list, openReadings, relatedVersion, carriedRelated]);
+
 
   /** Carry a question; settles when the sidecar has it (rejecting, with its reason, when it does not). */
   const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
@@ -2432,6 +2482,90 @@ export function DeskShell({
     ),
   });
   goalPathRef.current = { open: goalDesk.pathOpen, toggle: goalDesk.togglePath };
+
+  // -- videos (RD10): follow-along, the timestamp key ----------------------------------------------------
+
+  // A book following a new passage scrolls there through its window's jump (a programmatic move: no reading activity).
+  videoFollowed.current = (bookWindowId, spanId) => jumps.current.get(bookWindowId)?.(spanId);
+  videoDesk.setPrimary(goalDesk.primaryFor);
+  // The current desk's videos and books, as follow-along reads them (a paused book asks nothing).
+  useEffect(() => {
+    const ids = desk?.slots.flat() ?? [];
+    const videos: Array<{ windowId: string; extractionId: string; title: string }> = [];
+    const books: Array<{ windowId: string; extractionId: string; paused: boolean }> = [];
+    for (const id of ids) {
+      const content = ws?.windows[id]?.content;
+      if (content?.kind === "video") videos.push({ windowId: id, extractionId: content.extractionId, title: titleOf(ws?.windows[id]) });
+      else if (content?.kind === "source") books.push({ windowId: id, extractionId: content.extractionId, paused: isPaused(lifecycles[id]?.state ?? "hidden") });
+    }
+    videoDesk.setLayout({ videos, books });
+  });
+  videoKeys.current = {
+    // `u`: the focused book stops or starts following; with another window focused, every book on the desk does.
+    follow: () => {
+      const focus = focusIdRef.current;
+      if (focus && videoDesk.chipFor(focus)) {
+        videoDesk.toggle(focus);
+        return true;
+      }
+      const books = (deskById(wsRef.current, deskIdRef.current)?.slots.flat() ?? []).filter((id) => videoDesk.chipFor(id));
+      if (!books.length) {
+        toastNow("no video on this desk to follow");
+        return true;
+      }
+      for (const id of books) videoDesk.toggle(id);
+      return true;
+    },
+    // `alt+;`: "▶ <video> at m:ss" into the current desk's running pad, a quote anchored to the cue span, from the
+    // focused video's clock (else the video this desk played last).
+    timestamp: () => {
+      const id = deskIdRef.current;
+      if (!id) return false;
+      const focus = focusIdRef.current;
+      const focused = focus ? wsRef.current.windows[focus] : null;
+      const driver = videoDesk.driver();
+      const windowId = focused?.content?.kind === "video" ? focused.windowId : driver?.windowId ?? null;
+      const content = windowId ? wsRef.current.windows[windowId]?.content : null;
+      if (!windowId || content?.kind !== "video") {
+        toastNow("no video on this desk · alt+; stamps a video's time into the running pad");
+        return true;
+      }
+      const clock = videoDesk.clockOf(windowId);
+      if (!clock?.spanId) {
+        toastNow("the video hasn't reached a caption yet · play it, then alt+;");
+        return true;
+      }
+      const title = titleOf(wsRef.current.windows[windowId]);
+      const line = timestampLine(title, clock.t);
+      void (async () => {
+        let padId = runningPadOf(id);
+        if (!padId) {
+          await Promise.all(deskPadIds(id).map((pad) => store.loadPad(pad)));
+          padId = runningPadOf(id);
+        }
+        if (!padId) {
+          const before = new Set(wsRef.current.runningPadIds ?? []);
+          const step = ensureRunningPad(wsRef.current, id, () => mintId("pad"), () => mintId("win"));
+          commit(step);
+          for (const created of step.ws.runningPadIds ?? []) if (!before.has(created)) store.noteCreatedPad(created, "running", "running", id);
+          padId = runningPadOf(id);
+        }
+        const pad = padId ? store.pads[padId] : null;
+        if (!padId || !pad) {
+          toastNow("couldn't find this desk's running pad");
+          return;
+        }
+        const blockId = mintId("blk");
+        const refused = store.commitPad(padId, [
+          { op: "insert_block", blockId, versionId: mintId("ver"), kind: "source_quote", provenance: "source", positionKey: keyAfterLast(pad.blocks),
+            day: localDay(), bodyMd: line, payload: { source_title: title, t: Math.floor(clock.t), extraction_id: content.extractionId, span_id: clock.spanId } },
+          { op: "link_anchor", blockId, extractionId: content.extractionId, spanId: clock.spanId as string, eventId: mintId("lnk"), expectedAnchorHead: null },
+        ]);
+        toastNow(refused ? `couldn't stamp the time · ${refused.message}` : `${line} · in the running pad`);
+      })();
+      return true;
+    },
+  };
   // Each path opening reads the lessons again (one may have been taught since).
   useEffect(() => {
     if (!goalDesk.pathOpen) lessonDesk.forgetAll();
@@ -2597,21 +2731,26 @@ export function DeskShell({
         const railNode = railPanel ? railHosts[railPanel] ?? null : null;
         const railContent = railPanel ? ws.windows[railPanel]?.content : null;
         const railTab = railContent?.kind === "panel" && railContent.panel === "notes" ? "notes" : "guide";
-        return (
-          <SourceWindow
-            content={content}
-            card={card}
-            libraryLoaded={library !== null}
-            startSpan={typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null}
-            railHost={railNode && railPanel ? { node: railNode, tab: railTab, lifecycle: lifecycles[railPanel] ?? { windowId: railPanel, state: "hidden" }, hub: hubFor(railPanel), claims: claimsFor(railPanel) } : null}
-            onStatus={onStatusFor(window.windowId)}
-            onJumpReady={onJumpReadyFor(window.windowId)}
-            onMediaReady={onMediaReadyFor(window.windowId)}
-            onError={onError}
-            reader={reader}
-            lens={goalDesk.lensFor(window.windowId, content.extractionId)}
-          />
-        );
+        const props: ComponentProps<typeof SourceWindow> = {
+          content,
+          card,
+          libraryLoaded: library !== null,
+          startSpan: typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null,
+          railHost: railNode && railPanel ? { node: railNode, tab: railTab, lifecycle: lifecycles[railPanel] ?? { windowId: railPanel, state: "hidden" }, hub: hubFor(railPanel), claims: claimsFor(railPanel) } : null,
+          onStatus: onStatusFor(window.windowId),
+          onJumpReady: onJumpReadyFor(window.windowId),
+          onMediaReady: onMediaReadyFor(window.windowId),
+          onError,
+          ...(reader ? { reader } : {}),
+          // A book following a video marks its passage over the goal lens (RD10).
+          lens: content.kind === "source"
+            ? followLenses.lensFor(window.windowId, goalDesk.lensFor(window.windowId, content.extractionId), videoDesk.followedSpan(window.windowId))
+            : goalDesk.lensFor(window.windowId, content.extractionId),
+        };
+        if (content.kind === "video") {
+          return <VideoWindow {...props} windowId={window.windowId} desk={videoDesk} transport={videoTransport} poller={poller} />;
+        }
+        return <SourceWindow {...props} />;
       }
       case "panel": {
         if (content.panel === "guide" || content.panel === "notes") {
@@ -2729,6 +2868,8 @@ export function DeskShell({
         where: status[id]?.where ?? null,
         goal: goalDesk.rowGoal(window?.content && (window.content.kind === "source" || window.content.kind === "video") ? window.content.extractionId : null,
           (window?.stack ?? []).flatMap((entry) => (entry.kind === "pad" ? [entry.padId] : []))),
+        // A video's accepted chapters on its minimap (RD10).
+        ...(window?.content?.kind === "video" ? { chapters: videoDesk.rangesFor(window.content.extractionId) } : {}),
       };
     }))
     : [];
@@ -2911,6 +3052,7 @@ export function DeskShell({
                           <span className="g">{KIND_GLYPH[window.kind] ?? "§"}</span>
                           <span className="t">{titleOf(window)}</span>
                           {status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
+                          {window.content?.kind === "source" ? <FollowChip desk={videoDesk} windowId={id} /> : null}
                           {paired ? <span className="hint">{window.active ? "alt+. gives it its own slot" : "click or alt+j/k"}</span> : null}
                           <button
                             type="button"
@@ -3054,7 +3196,7 @@ export function DeskShell({
                 return content && (content.kind === "source" || content.kind === "video") ? [{ windowId: id, extractionId: content.extractionId }] : [];
               })}
               links={padLinks}
-              carried={carried.list}
+              carried={marksCarried}
               onOpenLink={(link) => {
                 const stackWindow = Object.values(wsRef.current.windows).find((window) => window.deskId === deskId && (window.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === link.padId));
                 if (stackWindow && deskId) commit(setFocus(wsRef.current, deskId, stackWindow.windowId));
