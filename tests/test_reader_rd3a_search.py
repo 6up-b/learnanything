@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from learnloop.db.repositories import Repository
 from learnloop_sidecar.errors import SidecarError
-from tests.companion_rd3a_helpers import WAIT, HeldTutor, ask_params, seed_desk, seed_pad, wait_job, workbench_contexts
+from tests.companion_rd3a_helpers import WAIT, HeldTutor, ask_params, seed_desk, seed_pad, settle_gap_readings, wait_job, workbench_contexts
 from tests.desk_helpers import seed_gap, seed_reading
 from tests.reading_path_fixtures import call
 
@@ -41,9 +41,13 @@ def searchable(workbench, monkeypatch):
     exchange = wait_job(ctx, "req_seed")
     seed_pad(ctx, blocks={"b1": "My note: the determinant is multiplicative.", "b2": "unrelated"}, desk_id="d1",
              seq=3)
+    # The answer queued its question's gap reading: wait for it first, so the tests read a vault nothing writes to
+    # and a gap seeded here never races the pipeline's own row for the same question.
+    settle_gap_readings(ctx)
     with repository.connection() as connection:
         seed_gap(connection, gap_id="gap_1", source_kind="stuck_answer", source_id="att_1")
-        seed_gap(connection, gap_id="gap_2", source_kind="tutor_question", source_id=exchange["questionEventId"])
+        if connection.execute("SELECT 1 FROM learner_text_gaps WHERE source_kind = 'tutor_question'").fetchone() is None:
+            seed_gap(connection, gap_id="gap_2", source_kind="tutor_question", source_id=exchange["questionEventId"])
         connection.commit()
     return ctx, repository, exchange
 
@@ -92,7 +96,7 @@ def test_the_word_groups_come_back_at_once_each_naming_what_to_open(searchable):
         (exchange["questionEventId"], "d1", "on a desk")]
 
     # A gap reading of the learner's words shows in the notes group only when no other group shows them.
-    assert all(row.get("gapId") != "gap_2" for row in groups["notes"]["rows"])
+    assert all(row.get("sourceKind") != "tutor_question" for row in groups["notes"]["rows"])
     assert groups["sources"]["rows"] == [] and groups["sources"]["more"] is False
 
 

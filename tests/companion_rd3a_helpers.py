@@ -48,6 +48,27 @@ class HeldTutor(LookupTutor):
             return super().complete(request)
 
 
+def settle_gap_readings(ctx: Any) -> None:
+    """Wait for the learner-text gap readings an answer queued (the reply queues one per exchange and wakes the
+    post-attempt worker), then stop that worker, so nothing it would write lands after this returns."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    _vault, repository = ctx.require_vault()
+
+    def pending() -> list[str]:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            return [str(row[0]) for row in connection.execute(
+                "SELECT id FROM learner_text_gap_jobs WHERE state IN ('queued', 'leased')")]
+
+    left, _waited = ctx.post_attempt_worker.wait_for(pending, WAIT)
+    assert not left, f"gap readings still pending: {left}"
+    ctx.post_attempt_worker.shutdown(timeout=WAIT)
+    assert not ctx.post_attempt_worker.running
+
+
 def close_and_wait(ctx: Any) -> None:
     """End a context as the sidecar does (``SidecarContext.close``: every owner told to stop and joined, bounded),
     then wait for every polled job's thread and every background job, so nothing a test started outlives it.
