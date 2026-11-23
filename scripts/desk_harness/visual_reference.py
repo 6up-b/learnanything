@@ -676,6 +676,12 @@ def near(a: str, b: str) -> bool:
     return a == b
 
 
+def border_shown(facts: dict[str, Any], i: int, width: str) -> bool:
+    """A border drawn in a transparent colour is no border on screen (it only reserves a highlight's room)."""
+    colour = facts["border_color"][i]
+    return facts["border_style"][i] != "none" and px(width) != 0 and not (len(colour) == 9 and colour.endswith("00"))
+
+
 def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: bool = True) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     skip = REGIONS[name].skip
@@ -693,7 +699,7 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
         add("colour", "background_eff", mock.get("background_eff"), app.get("background_eff"))
     for i, edge in enumerate(("top", "right", "bottom", "left")):
         mw, aw = mock["border_width"][i], app["border_width"][i]
-        m_on, a_on = mock["border_style"][i] != "none" and px(mw) != 0, app["border_style"][i] != "none" and px(aw) != 0
+        m_on, a_on = border_shown(mock, i, mw), border_shown(app, i, aw)
         if m_on != a_on or (m_on and not near(mw, aw)):
             add("geometry", f"border_{edge}_width", f"{mw if m_on else '0px'} {mock['border_style'][i]}", f"{aw if a_on else '0px'} {app['border_style'][i]}")
         if m_on and a_on and mock["border_color"][i] != app["border_color"][i]:
