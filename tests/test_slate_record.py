@@ -144,6 +144,14 @@ def test_a_record_that_cannot_be_written_changes_nothing_served(tmp_path, monkey
     assert "decision record 'slate' not written (trace TRACE_BROKEN): RuntimeError" in caplog.text
 
 
+def test_a_record_that_cannot_be_built_changes_nothing_and_writes_nothing(caplog):
+    with provenance.trace_scope("TRACE_UNBUILT"), caplog.at_level(logging.WARNING):
+        assert slate_record.slate_decision(withheld={}, teach_back_value=False, cold_deferrals=(),
+                                           greedy=[], considered=[]) is None
+    assert "decision record 'slate' not written (trace TRACE_UNBUILT): TypeError" in caplog.text
+    assert slate_record.record_slate(object(), None, slate_id="SLATE1") is None
+
+
 def test_a_placement_check_records_why_its_lo_items_were_not_candidates(tmp_path):
     """S15: the first-review check is chosen among an LO's items; the ones it could not be chosen from are named."""
 
@@ -200,7 +208,7 @@ def test_the_rule_that_put_the_head_first():
     assert rule(item("a"), pinned_item_id=None, check_item_ids=(), greedy_head_id="b") == "composition_order"
     record = slate_record.slate_record(
         served=[item("odd id")], considered=[item("odd id"), item("pi_b")], greedy=[item("odd id")],
-        exclusions={}, placement_check_exclusions={}, propensity={}, limit=None, slate_id=None, session_id=None,
+        exclusions={}, placement_check_exclusions={}, propensity={}, limit=None, session_id=None,
         pinned_item_id=None, check_item_ids=(), probe_block_reason=None, algorithm_version="mvp-0.57",
         selection_policy="composed_offer_v2",
     )
@@ -219,11 +227,16 @@ def test_a_recorded_slate_keeps_ten_alternatives_and_counts_the_rest():
     common = dict(considered=considered, greedy=considered, exclusions={}, placement_check_exclusions={},
                   propensity={}, session_id="s1", pinned_item_id=None, check_item_ids=(), probe_block_reason=None,
                   algorithm_version="mvp-0.57", selection_policy="composed_offer_v2")
-    with_row = slate_record.slate_record(served=considered[:5], limit=5, slate_id="SLATE1", **common)
+    without_row = slate_record.slate_record(served=considered[:5], limit=5, **common)
+    assert len(without_row.alternatives) == 29 and "alternatives_overflow" not in without_row.facts
+    assert slate_record.with_slate_row(without_row, None) is without_row
+    with_row = slate_record.with_slate_row(without_row, "SLATE1")
     assert [a["ref"] for a in with_row.alternatives] == [f"pi_{index:02d}" for index in range(1, 11)]
     assert with_row.facts["alternatives_overflow"] == {"beyond_limit": 19}
-    without_row = slate_record.slate_record(served=considered[:5], limit=5, slate_id=None, **common)
-    assert len(without_row.alternatives) == 29 and "alternatives_overflow" not in without_row.facts
+    assert (with_row.subject_kind, with_row.subject_id, with_row.detail_table, with_row.detail_id) == (
+        "slate", "SLATE1", "scheduler_slates", "SLATE1")
+    # The record the ranking returned is left as it was.
+    assert len(without_row.alternatives) == 29 and without_row.subject_id is None
 
 
 # -- why -----------------------------------------------------------------------------------------------------

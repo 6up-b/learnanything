@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from functools import cached_property
 from math import exp, log
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
@@ -54,6 +54,7 @@ from learnloop.scheduling.serving_exclusions import (
     routine_withhold_reason,
 )
 from learnloop.diagnosis import voi_stopping as voi
+from learnloop.scheduling import slate_record
 from learnloop.scheduling.slate_record import record_slate
 from learnloop.scheduling.selection_rewards import (
     SchedulerIntent,
@@ -263,10 +264,8 @@ def _due_queue(
     # neither, so a read that changes nothing still commits nothing and the plan's memo stays warm.
     records_slate = serving and session.session_id is not None
     # Reason codes for the candidates the loop withholds, recorded when a caller
-    # logs the offer and for the slate's record. Never consulted by the build.
+    # logs the offer. Never consulted by the build.
     traced_exclusions = offer_trace.exclusions if offer_trace is not None else None
-    if traced_exclusions is None and records_slate:
-        traced_exclusions = {}
 
     if serving:
         # Freshness supply reconciliation: a consumed (administered) single-use
@@ -542,6 +541,8 @@ def _due_queue(
             if session.session_id is not None
             else None
         ),
+        cold_deferrals=cold_deferrals,
+        records_slate=records_slate,
     ))
     if traced_exclusions is not None:
         for reason, item_ids in ranked.exclusions.items():
@@ -562,7 +563,6 @@ def _due_queue(
             episode_posterior_cache=episode_posterior_cache, episode_eligible_cache=episode_eligible_cache,
             voi_probe_decisions=voi_probe_decisions, mastery_states=mastery_states,
             facet_states_by_lo=facet_states_by_lo, quality_states=quality_states,
-            withheld=traced_exclusions or {}, placement_serving=placement_serving,
         )
     if offer_trace is not None:
         _fill_offer_trace(
@@ -611,7 +611,9 @@ class RankInputs:
     over every LO (``placement.signals.taught_first_by_predecessor``), None
     when placement does not serve. ``active_session_presentation`` is the
     session's committed presentation as the shell read it, before the ranking
-    decides whether it stays pinned."""
+    decides whether it stays pinned. ``cold_deferrals`` are the cold lane's,
+    for the slate's record, which ``records_slate`` asks for (a serving build
+    with a session, the one that writes a slate row)."""
 
     now: datetime
     session: SchedulerSession
@@ -626,6 +628,8 @@ class RankInputs:
     taught_first: tuple[set[str], set[str]] | None
     generated_probe_ids: frozenset[str]
     active_session_presentation: Any
+    cold_deferrals: Sequence[Mapping[str, Any]] = ()
+    records_slate: bool = False
 
 
 @dataclass(frozen=True)
@@ -636,7 +640,9 @@ class RankedQueue:
     ``compose`` is the composition after the exploration draw, for the trace's
     and the head probe's counterfactual outcomes. ``exclusions`` are the
     withheld items by reason, in the order withheld; ``device_deferred`` the
-    items waiting for the desktop (``DeviceFilter.deferred``)."""
+    items waiting for the desktop (``DeviceFilter.deferred``); ``record`` the
+    slate's decision record, when the inputs asked for it, before the persist
+    step names its slate row."""
 
     queue: list[ScheduledItem]
     considered_queue: list[ScheduledItem]
@@ -654,6 +660,7 @@ class RankedQueue:
     compose: Any
     exclusions: dict[str, list[str]]
     device_deferred: frozenset[str]
+    record: Any = None
 
 
 def admit_due(
@@ -693,8 +700,8 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
     the propensities taken on the greedy order, the teach-backs valued, the
     seeded exploration drawn; the composition (teach-back cap, goal quota,
     requested floor, follow-ups, contrast pairs) reorders it; the session's
-    committed presentation is pinned or let go; ``limit`` cuts it. Reads no
-    repository and writes nothing: :func:`_due_queue` persists what it returns."""
+    committed presentation is pinned or let go; ``limit`` cuts it; the slate's record comes with it when asked
+    (:func:`_slate_decision`). Reads no repository and writes nothing: :func:`_due_queue` persists what it returns."""
 
     reads = admission.reads
     config = vault.config
@@ -857,7 +864,7 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
         from learnloop.scheduling.intent_planner import shadow_intent_plan
 
         shadow_intent = shadow_intent_plan(vault, considered_queue)
-    return RankedQueue(
+    ranked = RankedQueue(
         queue=queue,
         considered_queue=considered_queue,
         greedy_queue=greedy_queue,
@@ -874,6 +881,23 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
         compose=compose,
         exclusions=exclusions,
         device_deferred=frozenset(device_deferred),
+    )
+    return replace(ranked, record=_slate_decision(config, reads, inputs, ranked)) if inputs.records_slate else ranked
+
+
+def _slate_decision(config: LearnLoopConfig, reads: Any, inputs: RankInputs, ranked: RankedQueue) -> Any:
+    """The slate's record of what :func:`rank_due` decided: the head, the rule that put it first, the candidates
+    below it and everything kept off (``slate_record.slate_decision``; None when it cannot be built)."""
+
+    presentation, placement = ranked.active_session_presentation, reads.placement_serving
+    return slate_record.slate_decision(
+        served=ranked.queue, considered=ranked.considered_queue, greedy=ranked.greedy_queue, withheld=ranked.exclusions,
+        teach_back_value=voi.voi_stopping_active(config, voi.SITE_TEACH_BACK), cold_deferrals=inputs.cold_deferrals,
+        placement_check_exclusions=placement.check_exclusions if placement is not None else {},
+        propensity=ranked.propensity_by_id, limit=inputs.limit, session_id=inputs.session.session_id,
+        pinned_item_id=presentation.practice_item_id if presentation is not None else None,
+        check_item_ids=ranked.check_item_ids, probe_block_reason=reads.probe_block_reason,
+        algorithm_version=config.algorithms.algorithm_version, selection_policy=SELECTION_POLICY,
     )
 
 
@@ -1056,14 +1080,12 @@ def _persist_due_queue(
     mastery_states: Mapping[str, MasteryState],
     facet_states_by_lo: Mapping[str, Any],
     quality_states: Mapping[str, PracticeItemQualityState],
-    withheld: dict[str, list[str]],
-    placement_serving: Any,
 ) -> tuple[list[ScheduledItem], str, dict[str, str]]:
     """The one persist call a serving build with a session makes: the offer (:func:`_persist_offer`), then the
-    slate's decision record (ADR-017: one record per slate row, after everything the build decided). Returns the
-    served queue stamped with its slate and candidate ids, the slate id and the candidate ids by item."""
+    slate's decision record the ranking returned (ADR-017: one record per slate row, written after everything the
+    build decided). Returns the served queue stamped with its slate and candidate ids, the slate id and the candidate
+    ids by item."""
 
-    config = vault.config
     queue, slate_id, candidate_ids = _persist_offer(
         vault, repository, clock=clock, session=session, limit=limit, queue=ranked.queue,
         considered_queue=ranked.considered_queue, greedy_queue=ranked.greedy_queue,
@@ -1078,29 +1100,7 @@ def _persist_due_queue(
         quality_states=quality_states, probe_item_ids=ranked.probe_item_ids,
         probe_entropy_before=ranked.probe_entropy_before,
     )
-    record_slate(
-        repository,
-        served=queue,
-        considered=ranked.considered_queue,
-        greedy=ranked.greedy_queue,
-        withheld=withheld,
-        teach_back_value=voi.voi_stopping_active(config, voi.SITE_TEACH_BACK),
-        cold_deferrals=cold_deferrals,
-        placement_check_exclusions=placement_serving.check_exclusions if placement_serving is not None else {},
-        propensity=ranked.propensity_by_id,
-        limit=limit,
-        slate_id=slate_id,
-        session_id=session.session_id,
-        pinned_item_id=(
-            ranked.active_session_presentation.practice_item_id
-            if ranked.active_session_presentation is not None
-            else None
-        ),
-        check_item_ids=ranked.check_item_ids,
-        probe_block_reason=probe_block_reason,
-        algorithm_version=config.algorithms.algorithm_version,
-        selection_policy=SELECTION_POLICY,
-    )
+    record_slate(repository, ranked.record, slate_id=slate_id)
     return queue, slate_id, candidate_ids
 
 
