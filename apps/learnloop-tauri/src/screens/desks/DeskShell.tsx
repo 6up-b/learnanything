@@ -123,6 +123,8 @@ export interface DeskTransport extends OutboxTransport {
   library(): Promise<SourceLibraryCard[]>;
   /** A source's current reading, which a window names (its content reference carries both). */
   resolveExtraction(sourceId: string): Promise<string>;
+  /** The source a reading belongs to (a passage named by its reading alone: a history anchor, a citation). */
+  sourceOfExtraction?(extractionId: string): Promise<string>;
 }
 
 export const LIVE_DESK_TRANSPORT: DeskTransport = {
@@ -134,6 +136,8 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
   // The Reader's own cached read: the window that opens next reads it from the cache.
   resolveExtraction: async (sourceId) => (await cachedSourceRead(sourceId, ["reader_render_view", sourceId], () =>
     api.readerRenderView({ extractionId: sourceId }))).extractionId,
+  // The same read by the reading's id: its render names the source.
+  sourceOfExtraction: async (extractionId) => (await api.readerRenderView({ extractionId })).sourceId,
 };
 
 /** The companion's hand-off waits this long after an anchored summon before a scroll counts (spec §8.3). */
@@ -1799,14 +1803,25 @@ export function DeskShell({
         break;
       }
     }
-    if (!sourceId) {
+    const open = (found: string, known: "source" | "video") => {
+      const card = library?.find((entry) => entry.sourceId === found);
+      const shown = card && isVideoCard(card) ? "video" : known;
+      openContent({ kind: shown, sourceId: found, extractionId: citation.extractionId } as ContentRefDto, { spanId: citation.spanId });
+    };
+    if (sourceId) {
+      open(sourceId, kind);
+      return;
+    }
+    // Its book is on no desk: the reading names its source (a backend read), and it opens beside.
+    if (!transport.sourceOfExtraction) {
       toastNow("that passage's source isn't on a desk · find it with /");
       return;
     }
-    const card = library?.find((entry) => entry.sourceId === sourceId);
-    if (card && isVideoCard(card)) kind = "video";
-    openContent({ kind, sourceId, extractionId: citation.extractionId } as ContentRefDto, { spanId: citation.spanId });
-  }, [library, openContent, toastNow]);
+    void transport.sourceOfExtraction(citation.extractionId).then(
+      (found) => open(found, "source"),
+      () => toastNow("couldn't find that passage's source · find it with /"),
+    );
+  }, [library, openContent, toastNow, transport]);
 
   const openThread = useCallback((exchange: CompanionExchange) => {
     const root = exchange.answer?.readerAnswerEventId || exchange.answer?.eventId;

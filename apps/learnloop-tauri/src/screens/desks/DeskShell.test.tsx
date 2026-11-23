@@ -1353,6 +1353,30 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     expect(order.slice(0, -1).every((entry) => entry.startsWith("apply:"))).toBe(true);
   });
 
+  it("a history anchor whose book is on no desk opens it beside, its source read from the passage's reading", async () => {
+    const server = new FixtureDeskServer();
+    const resolved: string[] = [];
+    const { transport } = mountCompanion({
+      transport: { ...transportFor(server), sourceOfExtraction: async (extractionId: string) => {
+        resolved.push(extractionId);
+        return "fx_src_elsewhere";
+      } },
+    });
+    transport.companionHistory.mockResolvedValue({ version: 1, cursor: null, days: [{ date: "2026-11-20", desks: [{ deskId: null, exchanges: [{
+      questionEventId: "q9", questionMd: "an old question", answerFirstSentence: "", answerStatus: "answered", context: "reader", surface: "reader", where: "in the Reader",
+      origin: "live", goalId: null, padBlockIds: [], anchor: { extractionId: "fx_ext_elsewhere", spanId: "fx_ext_elsewhere_s2", quality: "exact_selection" }, createdAt: "2026-11-20T10:00:00Z" }] }] }] } as never);
+    await screen.findByTestId("pane-fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    fireEvent.click(screen.getByRole("tab", { name: "history" }));
+    await flush();
+    fireEvent.click(await screen.findByRole("button", { name: "§ the passage ↗" }));
+    await flush();
+    await flush();
+    expect(resolved).toEqual(["fx_ext_elsewhere"]);
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "source", sourceId: "fx_src_elsewhere", extractionId: "fx_ext_elsewhere" });
+  });
+
   it("a question whose window closes is read no more; nor is any once the shell detaches", async () => {
     const { poller, reads, view } = mountCompanion();
     await screen.findByTestId("pane-fx_w_book");
