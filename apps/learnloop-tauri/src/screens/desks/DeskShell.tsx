@@ -8,8 +8,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import { flushSync } from "react-dom";
 import { api } from "../../api/client";
 import { cachedSourceRead } from "../reader/readerCache";
-import { poller } from "../../api/poller";
-import type { ContentRefDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard } from "../../api/dto";
+import { poller as appPoller, type Poller } from "../../api/poller";
+import type { CompanionDock, CompanionHistoryDto, ContentRefDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard, TutorCitationDto } from "../../api/dto";
 import {
   closeWindow,
   createDesk,
@@ -27,6 +27,8 @@ import {
   renameDesk,
   reorderSlots,
   setFocus,
+  setCompanionDock,
+  setCompanionShown,
   setView,
   slotIndexOf,
   swapInView,
@@ -88,6 +90,13 @@ import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
 import { Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
+import { ThreadWindow } from "./windows/ThreadWindow";
+import { Companion, type CompanionHandle } from "./companion/Companion";
+import { CompanionAsks, companionAsksFor, type CompanionApi, type CompanionExchange } from "./companion/asks";
+import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
+import { SearchPanel, type SearchApi } from "./search/SearchPanel";
+import type { SearchRow } from "./search/model";
+import { readWindowSelection, type WindowSelection } from "./selection";
 import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import "../../styles/desk.css";
@@ -115,6 +124,65 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
   // The Reader's own cached read: the window that opens next reads it from the cache.
   resolveExtraction: async (sourceId) => (await cachedSourceRead(sourceId, ["reader_render_view", sourceId], () =>
     api.readerRenderView({ extractionId: sourceId }))).extractionId,
+};
+
+/** The companion's hand-off waits this long after an anchored summon before a scroll counts (spec §8.3). */
+const COMPANION_SIZES_HANDOFF_MS = 250;
+
+/** What a companion question is grounded in, or why there is nothing to ground it in. */
+interface Grounding {
+  reason: string | null;
+  extractionId?: string;
+  spanId?: string;
+  windowId?: string;
+}
+
+function groundingFor(ws: Workspace, chip: { spanIds: string[]; windowId: string } | null, focus: DeskWindow | undefined, status: Record<string, SourceStatus>): Grounding {
+  if (chip && chip.spanIds.length) {
+    const content = ws.windows[chip.windowId]?.content;
+    if (content && (content.kind === "source" || content.kind === "video")) {
+      return { reason: null, extractionId: content.extractionId, spanId: chip.spanIds[0], windowId: chip.windowId };
+    }
+  }
+  const content = focus?.content;
+  if (focus && content && (content.kind === "source" || content.kind === "video")) {
+    // Where the learner is in it: its reported reading place, else its saved one; else the passage at the top
+    // of the window when the question is asked.
+    const span = status[focus.windowId]?.readingSpan ?? (typeof focus.view?.spanId === "string" ? (focus.view.spanId as string) : undefined);
+    return { reason: null, extractionId: content.extractionId, spanId: span ?? undefined, windowId: focus.windowId };
+  }
+  return { reason: "ask from a passage: focus a book or a video, or select a passage, then press c" };
+}
+
+/** The first passage showing at the top of a window (its reading place when none was reported yet). */
+function firstVisibleSpan(windowId: string | null): string | null {
+  if (!windowId) return null;
+  const host = document.querySelector(`[${WINDOW_ATTRIBUTE}="${windowId}"]`);
+  if (!host) return null;
+  const top = host.getBoundingClientRect().top;
+  const spans = [...host.querySelectorAll<HTMLElement>("[data-span-id], [data-transcript-span]")];
+  const visible = spans.find((element) => element.getBoundingClientRect().bottom > top + 40) ?? spans[0];
+  return visible ? visible.getAttribute("data-span-id") ?? visible.getAttribute("data-transcript-span") : null;
+}
+
+function threadTitle(thread: CompanionExchange[]): string {
+  const last = thread[thread.length - 1];
+  if (!last) return "nothing asked yet";
+  return last.question.length > 40 ? `${last.question.slice(0, 39)}…` : last.question;
+}
+
+/** The companion's and search's calls (spec §3.4; RD3a's jobs). */
+export interface CompanionTransport extends CompanionApi, SearchApi {
+  companionHistory(input: { query?: string; deskId?: string }): Promise<CompanionHistoryDto>;
+}
+
+export const LIVE_COMPANION_TRANSPORT: CompanionTransport = {
+  companionAsk: (input) => api.companionAsk(input),
+  companionAskJob: (input) => api.companionAskJob(input),
+  companionAskCancel: (input) => api.companionAskCancel(input),
+  companionHistory: (input) => api.companionHistory(input),
+  searchEverything: (input) => api.searchEverything(input),
+  searchJob: (input) => api.searchJob(input),
 };
 
 /** What a pane needs to render its content; tests and the harness may render panes their own way. */
@@ -243,6 +311,10 @@ export interface DeskShellProps {
   reducedMotion?: boolean;
   /** The harness's handle on the zoom. */
   onDebugHandle?: (handle: DeskDebugHandle) => void;
+  /** The companion's and search's calls; absent, the sidecar's. */
+  companion?: CompanionTransport;
+  /** The job poller (tests pass one they tick by hand); absent, the app's one poller. */
+  poller?: Poller;
 }
 
 export function DeskShell({
@@ -259,6 +331,8 @@ export function DeskShell({
   frameClock = ANIMATION_FRAMES,
   reducedMotion,
   onDebugHandle,
+  companion: companionTransport = LIVE_COMPANION_TRANSPORT,
+  poller = appPoller,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -307,6 +381,14 @@ export function DeskShell({
   const [gatherPreview, setGatherPreview] = useState(false);
   const [panEase, setPanEase] = useState(false);
   const [hud, setHud] = useState("");
+  // The companion (spec §8): its state, the dock it shows at, the selection it asks about, and how far it
+  // slides aside; search in context (§9.3) while open.
+  const [companionState, setCompanionState] = useState<CompanionState>(HIDDEN);
+  const [companionDock, setCompanionDockShown] = useState<CompanionDock>("br");
+  const [chip, setChip] = useState<{ quote: string; spanIds: string[]; windowId: string } | null>(null);
+  const [avoid, setAvoid] = useState(0);
+  const [search, setSearch] = useState<{ query: string; insert?: ((row: SearchRow) => void) | null } | null>(null);
+  const companionRef = useRef<CompanionHandle | null>(null);
   const [ungather, setUngather] = useState<{ deskId: string; order: string[][] } | null>(null);
   const [movedNotice, setMovedNotice] = useState<{ deskId: string; title: string; until: number } | null>(null);
   const preOverview = useRef<{ deskId: string; focusId: string | null } | null>(null);
@@ -610,6 +692,7 @@ export function DeskShell({
     rings: new Map(ringEls.current),
     late: [...lateEls.current.values()],
     slivers: [...sliverEls.current.values()],
+    followers: [(q: number | null) => companionRef.current?.zoomFrame(q)],
   }), [slotElements]);
 
   /** Reduced motion (spec §6.3): no zoom, the view swaps at once under a short crossfade. Every way into a
@@ -975,6 +1058,12 @@ export function DeskShell({
         toggle();
         return true;
       }
+      case "companion":
+        companionKeyRef.current(action.atDock);
+        return true;
+      case "search":
+        setSearch({ query: "" });
+        return true;
       default:
         return false;
     }
@@ -1040,7 +1129,8 @@ export function DeskShell({
       const has = (scope: ClaimedScope) => (open?.get(scope)?.size ?? 0) > 0;
       const resolution = resolveKey(event, {
         typing: isTypingTarget(event.target) || has("typing"),
-        menu: has("menu"),
+        // Search in context is open: its keys are its own (an open menu or the search panel owns them).
+        menu: has("menu") || searchOpenRef.current,
         check: has("check"),
         focus: focusModeRef.current,
         overview: overviewRef.current,
@@ -1388,13 +1478,13 @@ export function DeskShell({
 
   // -- opening windows -------------------------------------------------------------------------------
 
-  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null } = {}) => {
+  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown> } = {}) => {
     const current = wsRef.current;
     const id = deskIdRef.current;
     if (!id) return;
     const step = openBeside(current, id, content, () => mintId("win"), {
       spanId: options.spanId ?? null,
-      view: options.spanId ? { spanId: options.spanId } : {},
+      view: { ...(options.view ?? {}), ...(options.spanId ? { spanId: options.spanId } : {}) },
     });
     keepPrevious.current = !step.existed;
     commit(step);
@@ -1424,6 +1514,219 @@ export function DeskShell({
     const kind = card && isVideoCard(card) ? "video" : "source";
     openContent({ kind, sourceId: hit.sourceId, extractionId: hit.extractionId } as ContentRefDto, { spanId: hit.spanId });
   }, [library, openContent]);
+
+  // -- the companion and search in context (spec §8, §9.3) ----------------------------------------------
+
+  // The vault's companion threads: each question a polled job, kept per desk across the shell's mounts.
+  const asks = useMemo(
+    () => companionAsksFor(vaultKey, companionTransport, () => new CompanionAsks(companionTransport, poller, () => mintId("req"))),
+    [vaultKey, companionTransport, poller, mintId],
+  );
+  useSyncExternalStore(asks.subscribe, asks.getVersion);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const companionStateRef = useRef(companionState);
+  companionStateRef.current = companionState;
+  const chipRef = useRef(chip);
+  chipRef.current = chip;
+  const searchOpenRef = useRef(false);
+  searchOpenRef.current = search !== null;
+  const anchoredAt = useRef(0);
+  const groundingRef = useRef<Grounding>({ reason: "" });
+
+  /** One step of the companion's state machine; whether it shows is remembered on the desk. */
+  const stepCompanion = useCallback((event: CompanionEvent) => {
+    const before = companionStateRef.current;
+    const next = companionStep(before, event);
+    if (next === before) return;
+    companionStateRef.current = next;
+    setCompanionState(next);
+    if (next.mode === "anchored") anchoredAt.current = timers.now();
+    const id = deskIdRef.current;
+    if (id && (before.mode === "hidden") !== (next.mode === "hidden")) commit(setCompanionShown(wsRef.current, id, next.mode !== "hidden"));
+  }, [commit, timers]);
+
+  // The last pointer position over the stage: `c` with no selection anchors there.
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const stageNode = stageRef.current;
+    if (!stageNode) return;
+    const onMove = (event: PointerEvent) => {
+      const box = stageNode.getBoundingClientRect();
+      lastPointer.current = { x: event.clientX - box.left, y: event.clientY - box.top };
+    };
+    stageNode.addEventListener("pointermove", onMove, { passive: true });
+    return () => stageNode.removeEventListener("pointermove", onMove);
+  }, [ws === null]);
+
+  /** `c` (alt+c while typing) and `shift+c` (spec §8.3): summon at the selection or the cursor, dissolve when
+   * anchored, back to the drawer when docked; shift+c to the dock. */
+  const companionKey = (atDock: boolean) => {
+    if (atDock) {
+      stepCompanion({ kind: "dock" });
+      return;
+    }
+    let anchor: Rect | null = null;
+    if (companionStateRef.current.mode === "hidden") {
+      const id = focusIdRef.current;
+      const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null;
+      if (selected) {
+        setChip({ quote: selected.quote.slice(0, 400), spanIds: selected.spanIds, windowId: selected.windowId });
+        anchor = selected.bounds;
+      } else if (lastPointer.current) {
+        anchor = { x: lastPointer.current.x, y: lastPointer.current.y, w: 1, h: 1 };
+      }
+    }
+    stepCompanion({ kind: "c", anchor, stage: stageNow.current });
+  };
+  const companionKeyRef = useRef(companionKey);
+  companionKeyRef.current = companionKey;
+
+  // The dock and whether it shows come from the desk the desks open on; after that the companion is
+  // app-wide and stays where it is when the learner switches desks (a docked companion never moves).
+  const companionInit = useRef(false);
+  useEffect(() => {
+    if (companionInit.current || !ws || !deskId) return;
+    const opening = deskById(ws, deskId);
+    if (!opening) return;
+    companionInit.current = true;
+    setCompanionDockShown(opening.companion.dock);
+    if (opening.companion.shown) {
+      const shown: CompanionState = { mode: "docked", origin: "drawer", anchored: null, last: "none" };
+      companionStateRef.current = shown;
+      setCompanionState(shown);
+    }
+  }, [ws, deskId]);
+
+  const snapCompanion = useCallback((dock: CompanionDock) => {
+    setCompanionDockShown(dock);
+    const id = deskIdRef.current;
+    if (id) commit(setCompanionDock(wsRef.current, id, dock));
+    const before = companionStateRef.current;
+    const next: CompanionState = { mode: "docked", origin: before.origin, anchored: null, last: "snap" };
+    companionStateRef.current = next;
+    setCompanionState(next);
+    if (id && before.mode === "hidden") commit(setCompanionShown(wsRef.current, id, true));
+  }, [commit]);
+
+  // Hand-off (spec §8.3): an anchored companion moves to its dock when the view moves (the strip pans, the
+  // desk changes, focus mode, the overview opens).
+  const viewKey = `${deskId}|${deskId ? camX[deskId] ?? 0 : 0}|${focusMode}|${overview}|${zooming}`;
+  const lastViewKey = useRef(viewKey);
+  useEffect(() => {
+    if (lastViewKey.current === viewKey) return;
+    lastViewKey.current = viewKey;
+    if (companionStateRef.current.mode === "anchored") stepCompanion({ kind: "hand-off" });
+  }, [viewKey, stepCompanion]);
+  // …and when the text it is anchored at scrolls away, after its first 250 ms (the companion's own scrolling
+  // and the search panel's are not the text's).
+  useEffect(() => {
+    const stageNode = stageRef.current;
+    if (!stageNode) return;
+    const onScroll = (event: Event) => {
+      if (companionStateRef.current.mode !== "anchored") return;
+      if (timers.now() - anchoredAt.current <= COMPANION_SIZES_HANDOFF_MS) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest(".desk-companion, .desk-search-backdrop")) return;
+      stepCompanion({ kind: "hand-off" });
+    };
+    stageNode.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => stageNode.removeEventListener("scroll", onScroll, { capture: true });
+  }, [ws === null, timers, stepCompanion]);
+
+  // Avoid (spec §8.2): when the selection lies under a docked companion, it slides sideways once.
+  useEffect(() => {
+    const onSelection = () => {
+      const id = focusIdRef.current;
+      const panel = companionRef.current?.rect() ?? null;
+      if (!id || !panel || companionStateRef.current.mode !== "docked") {
+        setAvoid(0);
+        return;
+      }
+      const selected = readWindowSelection(id, stageRef.current);
+      setAvoid((now) => (selected ? (now !== 0 ? now : avoidOffset(panel, selected.rects, stageNow.current)) : 0));
+    };
+    document.addEventListener("selectionchange", onSelection);
+    return () => document.removeEventListener("selectionchange", onSelection);
+  }, []);
+
+  const askCompanion = useCallback((question: string) => {
+    const grounding = groundingRef.current;
+    if (grounding.reason !== null || !grounding.extractionId) return;
+    const spanId = grounding.spanId ?? firstVisibleSpan(grounding.windowId ?? null);
+    if (!spanId) {
+      toastNow("select a passage to ask about it");
+      return;
+    }
+    // A preview or a paused window asks nothing (the overview shows only the pill).
+    const lifecycle = lifecyclesRef.current[grounding.windowId ?? ""];
+    if (overviewRef.current || (lifecycle && isPaused(lifecycle.state))) return;
+    const selected = chipRef.current;
+    asks.ask({
+      deskId: deskIdRef.current,
+      windowId: grounding.windowId ?? null,
+      surface: "desk",
+      question,
+      extractionId: grounding.extractionId,
+      spanId,
+      selectionSpanIds: selected?.spanIds,
+      quote: selected?.quote ?? null,
+    });
+    setChip(null);
+  }, [asks, toastNow]);
+
+  const loadHistory = useCallback((query: string) => companionTransport.companionHistory(query ? { query } : {}), [companionTransport]);
+
+  const deskTitle = useCallback((id: string | null) => (id ? deskById(wsRef.current, id)?.title ?? "an archived desk" : "no desk"), []);
+
+  /** A claim (or a history anchor) opens its passage beside the focus, or scrolls to it where it is open. */
+  const openClaim = useCallback((citation: Pick<TutorCitationDto, "extractionId" | "spanId"> & { sourceId?: string | null }) => {
+    let sourceId = citation.sourceId ?? null;
+    let kind: "source" | "video" = "source";
+    for (const window of Object.values(wsRef.current.windows)) {
+      const content = window.content;
+      if (content && (content.kind === "source" || content.kind === "video") && content.extractionId === citation.extractionId) {
+        sourceId = content.sourceId;
+        kind = content.kind;
+        break;
+      }
+    }
+    if (!sourceId) {
+      toastNow("that passage's source isn't on a desk · find it with /");
+      return;
+    }
+    const card = library?.find((entry) => entry.sourceId === sourceId);
+    if (card && isVideoCard(card)) kind = "video";
+    openContent({ kind, sourceId, extractionId: citation.extractionId } as ContentRefDto, { spanId: citation.spanId });
+  }, [library, openContent, toastNow]);
+
+  const openThread = useCallback((exchange: CompanionExchange) => {
+    const root = exchange.answer?.readerAnswerEventId || exchange.answer?.eventId;
+    if (!root) return;
+    openContent({ kind: "thread", rootExchangeId: root }, { view: { extractionId: exchange.extractionId } });
+  }, [openContent]);
+
+  /** A search result opens beside the focus (a source at its passage, a video at its moment, a thread, a pad),
+   * or, already open, is scrolled to; a window on this desk takes the focus. */
+  const openSearchRow = useCallback((row: SearchRow) => {
+    const id = deskIdRef.current;
+    if (row.kind === "open") {
+      if (id) commit(setFocus(wsRef.current, id, row.windowId));
+      return;
+    }
+    const ref = row.ref;
+    if (!ref) {
+      toastNow("this result has nothing to open yet");
+      return;
+    }
+    if (ref.kind === "thread") {
+      const passage = (row.raw as { passage?: ContentRefDto | null }).passage;
+      const extractionId = passage && (passage.kind === "source" || passage.kind === "video") ? passage.extractionId : null;
+      openContent(ref, { view: extractionId ? { extractionId } : {} });
+      return;
+    }
+    openContent(ref, { spanId: row.target?.spanId ?? null });
+  }, [commit, openContent, toastNow]);
 
   // -- window status from inside (title, reading place, rail hosts, media) ------------------------
 
@@ -1621,6 +1924,14 @@ export function DeskShell({
       }
       case "compare":
         return <LibraryPanel query={content.query ?? null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
+      case "thread":
+        return (
+          <ThreadWindow
+            rootExchangeId={content.rootExchangeId}
+            extractionId={typeof window.view?.extractionId === "string" ? (window.view.extractionId as string) : null}
+            onOpenClaim={openClaim}
+          />
+        );
       default:
         return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
     }
@@ -1654,6 +1965,10 @@ export function DeskShell({
   }
   const movedShown = movedNotice && movedNotice.deskId === deskId && movedNotice.until > timers.now() ? movedNotice : null;
   const focusWindow = focusId ? ws.windows[focusId] : undefined;
+  // What a question is asked about: the selection's passages, else the focused source's reading place.
+  const thread = asks.thread(deskId);
+  const grounding: Grounding = groundingFor(ws, chip, focusWindow, status);
+  groundingRef.current = grounding;
   const focusZoom = typeof focusWindow?.view?.zoom === "number" ? (focusWindow.view.zoom as number) : 1;
   // Every window's place: its slot, its pane, its reading rect and its card rect. Rendered in window-id
   // order, so reordering slots moves no element in the DOM (a moved iframe would reload its player).
@@ -1698,7 +2013,7 @@ export function DeskShell({
     ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]]
     : focusMode
     ? [["alt+↵ / esc", "leave focus"], ["= − 0", "zoom"], ["alt+h/l", "next window"]]
-    : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"]];
+    : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "tutor here"], ["shift+c", "at its dock"], ["/", "find"]];
 
   return (
     <div className={`desk-shell${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
@@ -1769,6 +2084,7 @@ export function DeskShell({
             if (!deskId) return;
             commit(moveWindowTo(wsRef.current, deskId, id, toSlot));
           }}
+          onSearch={() => setSearch({ query: "" })}
         />
         <section
           className="desk-stage"
@@ -1992,6 +2308,55 @@ export function DeskShell({
             </div>
           ) : null}
           {hud ? <div className="desk-hud" role="status">{hud}</div> : null}
+          <Companion
+            ref={companionRef}
+            state={companionState}
+            dock={companionDock}
+            stage={stage}
+            overview={overview}
+            reducedMotion={reduced}
+            timers={timers}
+            context={{
+              following: focusWindow ? { glyph: KIND_GLYPH[focusWindow.kind] ?? "§", title: titleOf(focusWindow) } : null,
+              goalInContext: Boolean(desk?.goalId),
+            }}
+            threadTitle={threadTitle(thread)}
+            thread={thread}
+            chip={chip ? { quote: chip.quote } : null}
+            cannotAsk={grounding.reason}
+            avoid={avoid}
+            loadHistory={loadHistory}
+            deskTitle={deskTitle}
+            onAsk={askCompanion}
+            onCancel={(requestId) => asks.cancel(requestId)}
+            onRetry={(requestId) => asks.retry(requestId)}
+            onClearChip={() => setChip(null)}
+            onOpenClaim={openClaim}
+            onOpenAnchor={(anchor) => openClaim({ extractionId: anchor.extractionId, spanId: anchor.spanId })}
+            onOpenThread={openThread}
+            onHide={() => stepCompanion({ kind: "hide" })}
+            onDock={() => stepCompanion({ kind: "dock" })}
+            onSnap={snapCompanion}
+            onPill={() => {
+              stepCompanion({ kind: "dock" });
+              toggleOverview(null);
+            }}
+          />
+          {search ? (
+            <SearchPanel
+              api={companionTransport}
+              poller={poller}
+              timers={timers}
+              deskId={deskId}
+              open={(desk?.slots.flat() ?? []).map((id) => ({ windowId: id, title: titleOf(ws.windows[id]) }))}
+              deskTitle={deskTitle}
+              initialQuery={search.query}
+              insert={search.insert ?? null}
+              reducedMotion={reduced}
+              onOpenRow={openSearchRow}
+              onClose={() => setSearch(null)}
+            />
+          ) : null}
         </section>
       </main>
       <footer className="desk-keys">

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts) |
-| Source lines | 94 |
+| Source lines | 108 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,24 +54,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type InvokeArgs = Record<string, unknown>` — type, line 8
-- `export interface HarnessCall` — interface, line 10
-- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 86
-- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 92
+- `export type InvokeArgs = Record<string, unknown>` — type, line 9
+- `export interface HarnessCall` — interface, line 11
+- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 100
+- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 106
 
 ## Internal implementation anchors
 
-- `const server = new FixtureDeskServer()` — const, line 16
-- `const calls: HarnessCall[] = []` — const, line 17
-- `interface Window` — interface, line 20
-- `function viewFor(id: string)` — function, line 26
-- `const CONTRACT =` — const, line 30
-- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 36
-- `const view = viewFor(String(input.extractionId))` — const, line 47
-- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 52
-- `const view = viewFor(String(input.extractionId))` — const, line 53
-- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 61
-- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 87
+- `const server = new FixtureDeskServer()` — const, line 17
+- `const companion = new FixtureCompanion()` — const, line 18
+- `const calls: HarnessCall[] = []` — const, line 19
+- `interface Window` — interface, line 22
+- `function viewFor(id: string)` — function, line 28
+- `const CONTRACT =` — const, line 32
+- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 38
+- `const view = viewFor(String(input.extractionId))` — const, line 49
+- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 54
+- `const view = viewFor(String(input.extractionId))` — const, line 55
+- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 63
+- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 101
 
 ## Who imports or calls it
 
@@ -85,6 +86,7 @@ No live desktop source file directly imports this module. Do not infer dormancy:
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyInput`
+- [[Reference/Desktop/TypeScript/fixtures/desks/companion|src/fixtures/desks/companion.ts]] — import-or-re-export; imports `FixtureCompanion`
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_GUIDES`, `FIXTURE_LIBRARY`, `FIXTURE_VIEWS`, `FIXTURE_WATCH`
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export; imports `FixtureDeskServer`
 

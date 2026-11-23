@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/overview/controller.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/controller.ts) |
-| Source lines | 242 |
+| Source lines | 247 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/overview/_area|TypeScript/screens/desks/overview]] |
 | Refactor status | `ACTIVE` |
@@ -57,27 +57,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface SlotElements` — interface, line 8
 - `export interface ZoomPlan` — interface, line 15
 - `export interface ZoomTargets` — interface, line 25
-- `export interface FrameClock` — interface, line 34
-- `export const ANIMATION_FRAMES: FrameClock =` — const, line 39
-- `export function focusEdge(q: number): string` — function, line 46
-- `export function cameraTransform(camera: Camera): string` — function, line 51
-- `export class ZoomController` — class, line 55
+- `export interface FrameClock` — interface, line 37
+- `export const ANIMATION_FRAMES: FrameClock =` — const, line 42
+- `export function focusEdge(q: number): string` — function, line 49
+- `export function cameraTransform(camera: Camera): string` — function, line 54
+- `export class ZoomController` — class, line 58
 
 ## Internal implementation anchors
 
-- `const edge = Math.max(0, 1 - 3 * q)` — const, line 47
-- `const slot = targets.slots.get(item.key)` — const, line 95
-- `const targets = this.targets` — const, line 144
-- `const plan = this.plan` — const, line 183
-- `const dt = this.last ? (now - this.last) / 1000 : 1 / 60` — const, line 185
-- `const plan = this.plan` — const, line 203
-- `const plan = this.plan` — const, line 213
-- `const targets = this.targets` — const, line 214
-- `const slot = targets.slots.get(item.key)` — const, line 219
-- `const values = frame.items[index]` — const, line 220
-- `const element = targets.rings?.get(ring.key)` — const, line 232
-- `const q = frame.q` — const, line 234
-- `const r =` — const, line 235
+- `const edge = Math.max(0, 1 - 3 * q)` — const, line 50
+- `const slot = targets.slots.get(item.key)` — const, line 98
+- `const targets = this.targets` — const, line 147
+- `const plan = this.plan` — const, line 187
+- `const dt = this.last ? (now - this.last) / 1000 : 1 / 60` — const, line 189
+- `const plan = this.plan` — const, line 207
+- `const plan = this.plan` — const, line 217
+- `const targets = this.targets` — const, line 218
+- `const slot = targets.slots.get(item.key)` — const, line 223
+- `const values = frame.items[index]` — const, line 224
+- `const element = targets.rings?.get(ring.key)` — const, line 236
+- `const q = frame.q` — const, line 238
+- `const r =` — const, line 239
 
 ## Who imports or calls it
 

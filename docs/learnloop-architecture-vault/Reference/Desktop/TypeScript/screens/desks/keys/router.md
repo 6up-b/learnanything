@@ -97,6 +97,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `BareAltTracker`, `DESK_BINDINGS`, `DeskAction`, `ModifierTracker`, `REAL_TIMERS`, `Timers`, `isTypingTarget`, `resolveKey`; references `BareAltTracker`, `DESK_BINDINGS`, `DeskAction`, `ModifierTracker`, `REAL_TIMERS`, `Timers`, `isTypingTarget`, `resolveKey`
+- [[Reference/Desktop/TypeScript/screens/desks/companion/Companion|src/screens/desks/companion/Companion.tsx]] — import-or-re-export: `Timers`; references `Timers`
+- [[Reference/Desktop/TypeScript/screens/desks/search/SearchPanel|src/screens/desks/search/SearchPanel.tsx]] — import-or-re-export: `Timers`; references `Timers`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `Timers`; references `Timers`
 - [[Reference/Desktop/TypeScript/screens/reader/bareAlt|src/screens/reader/bareAlt.ts]] — import-or-re-export: `WHICH_KEY_HOLD_MS`; references `WHICH_KEY_HOLD_MS`
 
@@ -120,6 +122,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/desks/store.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/store.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/keys/router.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/keys/router.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/companion/Companion.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/Companion.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/keymap.test.ts](../../../../../../../../apps/learnloop-tauri/src/app/keymap.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_answer_signal_arms.py](../../../../../../../../tests/test_answer_signal_arms.py) — cross-boundary name contract: references uniquely owned exported name `Resolution`; it does **not** directly execute this source module.
 - [tests/test_intent_resolution.py](../../../../../../../../tests/test_intent_resolution.py) — cross-boundary name contract: references uniquely owned exported name `Resolution`; it does **not** directly execute this source module.

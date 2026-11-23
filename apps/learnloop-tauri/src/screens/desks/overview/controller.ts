@@ -29,6 +29,9 @@ export interface ZoomTargets {
   /** Links and desk labels: they fade in late. */
   late: HTMLElement[];
   slivers: HTMLElement[];
+  /** Called with each frame's q (0 reading, 1 overview), and with null when the zoom's styles go: what moves
+   * in step with the zoom without being one of its slots (the companion easing into its pill). */
+  followers?: Array<(q: number | null) => void>;
 }
 
 export interface FrameClock {
@@ -165,6 +168,7 @@ export class ZoomController {
       }
       for (const element of targets.late) element.style.opacity = "";
       for (const element of targets.slivers) element.style.opacity = "";
+      for (const follow of targets.followers ?? []) follow(null);
     }
     this.clock.cancel(this.handle);
     this.handle = 0;
@@ -238,5 +242,6 @@ export class ZoomController {
     }
     for (const element of targets.late) element.style.opacity = String(frame.lateOpacity);
     for (const element of targets.slivers) element.style.opacity = String(frame.sliverOpacity);
+    for (const follow of targets.followers ?? []) follow(frame.q);
   }
 }

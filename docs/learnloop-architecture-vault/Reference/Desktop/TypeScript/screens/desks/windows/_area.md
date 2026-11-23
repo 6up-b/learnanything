@@ -21,7 +21,7 @@ Parent: [[Reference/Desktop/Desktop Module Catalog|Desktop Module Catalog]] · S
 
 ## Responsibility
 
-Desk windows: the Reader's source pane as a scoped source or video window, and the panel windows hosting v1 Reader surfaces.
+Desk windows: the Reader's source pane as a scoped source or video window, thread windows, and the panel windows hosting v1 Reader surfaces.
 
 > [!note] Ownership boundary
 > This map inventories code organization. End-to-end behavior remains in the linked workflow and concept notes.
@@ -36,6 +36,7 @@ No nested ownership area.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|PanelWindow.tsx]] | `ACTIVE` | Implements the `PanelWindow` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|SourceWindow.tsx]] | `ACTIVE` | Implements the `SourceWindow` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 2 |
+| [[Reference/Desktop/TypeScript/screens/desks/windows/ThreadWindow|ThreadWindow.tsx]] | `ACTIVE` | Implements the `ThreadWindow` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
 
 ## Modification guidance
 

@@ -4,6 +4,7 @@
 import type { DeskApplyInput } from "../../api/dto";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer } from "./workspace";
+import { FixtureCompanion } from "./companion";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -14,14 +15,15 @@ export interface HarnessCall {
 }
 
 const server = new FixtureDeskServer();
+const companion = new FixtureCompanion();
 const calls: HarnessCall[] = [];
 
 declare global {
   interface Window {
-    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer };
+    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion };
   }
 }
-window.__deskHarness = { calls, server };
+window.__deskHarness = { calls, server, companion };
 
 function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
@@ -78,6 +80,18 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "curriculum_guide_slice":
       // The fixture vault has curriculum off: the Guide shows its reading-path card, as a vault without it does.
       throw { code: "curriculum_disabled", message: "curriculum is off in the fixture", retryable: false };
+    case "companion_ask":
+      return companion.ask(input as unknown as Parameters<FixtureCompanion["ask"]>[0]);
+    case "companion_ask_job":
+      return companion.read(String(input.requestId));
+    case "companion_ask_cancel":
+      return companion.cancel(String(input.requestId));
+    case "companion_history":
+      return companion.history(input as { query?: string });
+    case "search_everything":
+      return companion.search(input as { query: string });
+    case "search_job":
+      return companion.searchJob(String(input.jobId));
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/Shelf.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/Shelf.tsx) |
-| Source lines | 150 |
+| Source lines | 155 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -60,21 +60,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Internal implementation anchors
 
 - `const DRAG_THRESHOLD_PX = 5` — const, line 19
-- `const body = <ShelfBody rows=` — const, line 42
-- `function ShelfBody(` — function, line 56
-- `const press = useRef<` — const, line 67
-- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 68
-- `const slotAt = (clientY: number): number` — const, line 71
-- `const list = listRef.current` — const, line 72
-- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 74
-- `let target = 0` — let, line 75
-- `const box = item.getBoundingClientRect()` — const, line 77
-- `const onPointerDown = (row: ShelfRow)` — const, line 83
-- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 86
-- `const current = press.current` — const, line 87
-- `const onPointerUp = (row: ShelfRow)` — const, line 95
-- `const current = press.current` — const, line 96
-- `const to = slotAt(event.clientY)` — const, line 100
+- `const body = <ShelfBody rows=` — const, line 45
+- `function ShelfBody(` — function, line 59
+- `const press = useRef<` — const, line 72
+- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 73
+- `const slotAt = (clientY: number): number` — const, line 76
+- `const list = listRef.current` — const, line 77
+- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 79
+- `let target = 0` — let, line 80
+- `const box = item.getBoundingClientRect()` — const, line 82
+- `const onPointerDown = (row: ShelfRow)` — const, line 88
+- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 91
+- `const current = press.current` — const, line 92
+- `const onPointerUp = (row: ShelfRow)` — const, line 100
+- `const current = press.current` — const, line 101
+- `const to = slotAt(event.clientY)` — const, line 105
 
 ## Who imports or calls it
 

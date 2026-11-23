@@ -602,6 +602,190 @@ async def run_overview(page: Page, base: str, results: Results, shots: Path | No
     results.check("no error reached the shell's error line (overview run)", errors == [], errors)
 
 
+async def companion_rect(page: Page) -> dict[str, float] | None:
+    """The companion panel's rect relative to the stage, or None when it is not shown."""
+    return await page.evaluate("""() => { const c = document.querySelector('[data-desk-companion]'); if (!c) return null;
+      const s = document.querySelector('[data-desk-stage]').getBoundingClientRect(); const r = c.getBoundingClientRect();
+      return { x: r.x - s.x, y: r.y - s.y, w: r.width, h: r.height, mode: c.dataset.companionMode }; }""")
+
+
+async def select_passage(page: Page, text: str) -> dict[str, float]:
+    """Select one passage of the book window whose text holds `text`; returns its rect relative to the stage."""
+    return await page.evaluate("""(text) => { const p = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].find((e) => e.textContent.includes(text));
+      const range = document.createRange(); range.selectNodeContents(p); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      const s = document.querySelector('[data-desk-stage]').getBoundingClientRect(); const r = range.getBoundingClientRect();
+      return { x: r.x - s.x, y: r.y - s.y, w: r.width, h: r.height }; }""", text)
+
+
+async def sample_rects(page: Page, ms: int) -> list[dict[str, float]]:
+    """The companion's on-screen rect at every animation frame for `ms` (transforms included)."""
+    return await page.evaluate("""(ms) => new Promise((done) => { const out = []; const t0 = performance.now();
+      const s = document.querySelector('[data-desk-stage]').getBoundingClientRect();
+      const tick = () => { const c = document.querySelector('[data-desk-companion]'); if (c) { const r = c.getBoundingClientRect(); out.push({ x: r.x - s.x, y: r.y - s.y, w: r.width, h: r.height, o: Number(getComputedStyle(c).opacity) }); }
+        if (performance.now() - t0 < ms) requestAnimationFrame(tick); else done(out); }; requestAnimationFrame(tick); })""", ms)
+
+
+async def run_companion(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """The companion and search (spec §8, §9.3; the RD3 deep links' equivalents)."""
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    stage = await stage_box(page)
+    sw, sh = stage["w"], stage["h"]
+    dock_br = {"x": sw - 400 - 14, "y": sh - round(sh * 0.52) - 14, "w": 400, "h": round(sh * 0.52)}
+
+    def near(a: dict[str, float] | None, b: dict[str, float], tol: float = 1.5) -> bool:
+        return a is not None and all(abs(a[k] - b[k]) <= tol for k in ("x", "y", "w", "h"))
+
+    # #cur=sel: c with a selection opens it anchored 10 px below the selection, the selection its chip.
+    sel = await select_passage(page, "largest score")
+    await page.keyboard.press("c")
+    samples = await sample_rects(page, 320)
+    rect = await companion_rect(page)
+    chip = await page.locator(".desk-companion .chip").inner_text() if await page.locator(".desk-companion .chip").count() else ""
+    results.check("c with a selection opens the companion anchored 10 px below it, the selection its chip (#cur=sel)",
+                  rect is not None and rect["mode"] == "anchored" and abs(rect["y"] - (sel["y"] + sel["h"] + 10)) <= 2 and "largest score" in chip, [rect, sel, chip[:60]])
+    results.check("the summon never passes through the dock (every frame away from it)", all(not near(sample, dock_br, 40) for sample in samples) and len(samples) > 3, len(samples))
+    await shot(page, shots, "companion-cur-sel")
+
+    # c again dissolves it in place: every frame stays at the anchor, and it fades out.
+    anchored = rect
+    await page.keyboard.press("c")
+    samples = await sample_rects(page, 300)
+    centred = [abs((s["x"] + s["w"] / 2) - (anchored["x"] + anchored["w"] / 2)) <= 12 and abs((s["y"] + s["h"] / 2) - (anchored["y"] + anchored["h"] / 2)) <= 12 for s in samples] if anchored else [False]
+    results.check("c again dissolves it where it is: no frame moves toward the dock, and it goes", all(centred) and await companion_rect(page) is None, [len(samples), samples[-1] if samples else None])
+
+    # #cur=shiftc: shift+c opens it at its dock (br, 400 × 52 %).
+    await page.keyboard.press("Shift+C")
+    await settle(page, 400)
+    results.check("shift+c opens it at its dock, 400 wide and 52 % high, 14 px in (#cur=shiftc)", near(await companion_rect(page), dock_br), await companion_rect(page))
+
+    # A docked companion never moves when the learner scrolls, pans, reorders, pairs, gathers or switches desks.
+    before = await companion_rect(page)
+    still = []
+    for action in ("scroll", "Alt+l", "Alt+BracketRight", "Alt+BracketLeft", "Alt+h", "Alt+g", "Alt+j", "Alt+k"):
+        if action == "scroll":
+            await page.evaluate("() => { const b = document.querySelector('[data-desk-window=\"fx_w_book\"] [data-desk-pane-body] *'); const sc = [...document.querySelectorAll('[data-desk-window=\"fx_w_book\"] *')].find((e) => e.scrollHeight > e.clientHeight + 20); if (sc) sc.scrollTop += 300; }")
+        else:
+            await page.keyboard.press(action)
+        await settle(page, 500)
+        still.append((action, near(await companion_rect(page), before)))
+    results.check("a docked companion never moves on scroll, pan, reorder, gather or a desk switch", all(ok for _a, ok in still), [a for a, ok in still if not ok])
+
+    # #cur=handoff: an anchored companion hands off to its dock by a FLIP when its text scrolls away.
+    await page.keyboard.press("c")
+    await settle(page, 400)
+    sel = await select_passage(page, "Adding the same constant")
+    await page.keyboard.press("c")
+    await page.wait_for_timeout(400)
+    anchored = await companion_rect(page)
+    await page.evaluate("() => { const sc = [...document.querySelectorAll('[data-desk-window=\"fx_w_book\"] *')].find((e) => e.scrollHeight > e.clientHeight + 20); if (sc) sc.scrollTop += 240; }")
+    samples = await sample_rects(page, 400)
+    landed = await companion_rect(page)
+    between = [s for s in samples if not near(s, anchored or dock_br, 3) and not near(s, dock_br, 3)]
+    results.check("its text scrolled away, an anchored companion hands off to its dock by a FLIP (frames between, #cur=handoff)",
+                  anchored is not None and anchored["mode"] == "anchored" and near(landed, dock_br) and len(between) >= 2, [anchored, landed, len(between)])
+    await shot(page, shots, "companion-handoff")
+
+    # #dock=right: dragging the handle and dropping it near the right edge snaps it to the right dock.
+    grab = page.locator(".desk-companion .grab")
+    gb = await grab.bounding_box()
+    if gb:
+        await page.mouse.move(gb["x"] + gb["width"] / 2, gb["y"] + 4)
+        await page.mouse.down()
+        await page.mouse.move(stage["x"] + sw - 120, stage["y"] + 120, steps=8)
+        await page.mouse.up()
+    await settle(page, 500)
+    right = await companion_rect(page)
+    rw = min(420, sw * 0.34)
+    results.check("dragged near the right edge, it snaps to the right dock (#dock=right)", near(right, {"x": sw - rw - 14, "y": 14, "w": rw, "h": sh - 28}), right)
+    await shot(page, shots, "companion-dock-right")
+
+    # Asking, with the fake tutor held open: the question shows at once; edits and hovers are timed.
+    await page.evaluate("() => { window.__deskHarness.companion.held = true; }")
+    box = page.locator(".desk-companion .input")
+    await box.fill("why does the largest score win?")
+    await box.press("Enter")
+    await page.wait_for_timeout(200)
+    asking = await page.locator('.desk-companion [data-exchange-status="asking"]').count()
+    edit_ms = await page.evaluate("""async () => { const input = document.querySelector('.desk-companion .input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      const times = []; for (let i = 0; i < 20; i += 1) { const t0 = performance.now(); set.call(input, 'draft ' + i); input.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise((r) => requestAnimationFrame(() => r())); times.push(performance.now() - t0); } times.sort((a, b) => a - b); return { median: times[10], max: times[19] }; }""")
+    results.check(f"while an answer generates the question shows at once; an edit renders in {edit_ms['median']:.1f} ms median, {edit_ms['max']:.1f} ms max (information; under 50 ms asked)",
+                  asking == 1, [asking, edit_ms])
+    await page.evaluate("() => { window.__deskHarness.companion.held = false; }")
+    await page.wait_for_timeout(3600)
+    answered = await page.locator('.desk-companion [data-exchange-status="answered"]').count()
+    results.check("released, the answer arrives through the poller with its claim", answered == 1 and await page.locator(".desk-companion .claim").count() >= 1, answered)
+
+    # #hist: the history by day and desk.
+    await page.locator(".desk-companion .ctabs button", has_text="history").click()
+    await settle(page, 600)
+    days = await page.locator(".desk-companion .hday").count()
+    results.check("the history tab lists exchanges by day and desk (#hist)", days >= 2, days)
+    await shot(page, shots, "companion-hist")
+
+    # #spot=softmax: / opens search; groups, open on this desk first; the meaning pass merges in with its tag.
+    # A second question is asked first and held open, so the hover below is timed while an answer generates.
+    await page.locator(".desk-companion .ctabs button", has_text="tutor").click()
+    await page.evaluate("() => { window.__deskHarness.companion.held = true; }")
+    await page.locator(".desk-companion .input").fill("and what does a temperature change?")
+    await page.locator(".desk-companion .input").press("Enter")
+    await page.wait_for_timeout(300)
+    await page.mouse.click(stage["x"] + 400, stage["y"] + 300)
+    await page.keyboard.press("/")
+    await page.wait_for_timeout(250)
+    await page.keyboard.type("softmax")
+    await page.wait_for_timeout(4200)
+    groups = await page.evaluate("() => [...document.querySelectorAll('[data-search-group]')].map((g) => g.dataset.searchGroup)")
+    # The meaning rows join the passages group after its word rows: tab shows the group whole.
+    for _ in range(12):
+        if await page.evaluate("() => Boolean(document.querySelector('[data-search-group=\"passages\"] .r.sel'))"):
+            break
+        await page.keyboard.press("ArrowDown")
+    await page.keyboard.press("Tab")
+    await page.wait_for_timeout(200)
+    tagged = await page.locator(".desk-search .r .w", has_text="by meaning").count()
+    results.check("/ opens search: groups in order with open on this desk first; the meaning pass merges in tagged (#spot=softmax)",
+                  bool(groups) and groups[0] == "open" and "passages" in groups and tagged >= 1, [groups, tagged])
+    sel_top = await page.evaluate("() => document.querySelector('.desk-search-sel')?.style.top")
+    await page.keyboard.press("ArrowUp")
+    await page.wait_for_timeout(200)
+    moved = await page.evaluate("() => document.querySelector('.desk-search-sel')?.style.top")
+    results.check("↑ glides the selection block to the row above", sel_top != moved, [sel_top, moved])
+    # The pointer's hover response while an answer generates (the fake tutor held): a row under the pointer
+    # takes the selection. Pad marks' hover cards arrive with pads; this is the hover there is now.
+    generating = await page.locator('.desk-companion [data-exchange-status="asking"]').count()
+    hover_ms = await page.evaluate("""async () => { const rows = [...document.querySelectorAll('.desk-search .r')]; const row = rows[rows.length - 1];
+      const t0 = performance.now(); row.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+      for (let i = 0; i < 60 && !row.classList.contains('sel'); i += 1) await new Promise((r) => requestAnimationFrame(() => r()));
+      return row.classList.contains('sel') ? performance.now() - t0 : null; }""")
+    await page.evaluate("() => { window.__deskHarness.companion.held = false; }")
+    results.check(f"while an answer generates, a hovered search row takes the selection in {hover_ms:.1f} ms (information; hover cards under 250 ms asked)" if hover_ms is not None else "a hovered search row takes the selection", hover_ms is not None and generating == 1, [hover_ms, generating])
+    await shot(page, shots, "search-softmax")
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    results.check("esc closes search", await page.locator("[data-desk-search]").count() == 0)
+
+    # #switch: the shelf's "/ switch" opens it too.
+    await page.get_by_role("button", name="/ switch").click()
+    await settle(page, 300)
+    results.check("the shelf's / switch opens search (#switch)", await page.locator("[data-desk-search]").count() == 1)
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+
+    # #ov: in the overview the companion is the pill.
+    await page.keyboard.press("Alt+o")
+    await settle(page, 900)
+    pill = await page.evaluate("() => { const p = document.querySelector('[data-desk-companion-pill]'); return p ? { on: p.classList.contains('on'), o: getComputedStyle(p).opacity } : null; }")
+    results.check("in the overview the companion is its pill (#ov)", pill is not None and pill["on"] and float(pill["o"]) > 0.95, pill)
+    await shot(page, shots, "companion-pill")
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+    errors = await page.evaluate("() => window.__deskHarnessErrors")
+    results.check("no error reached the shell's error line (companion run)", errors == [], errors)
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -635,7 +819,7 @@ async def main() -> int:
     try:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(headless=True)
-            for runner in ("desks", "overview", "preview"):
+            for runner in ("desks", "overview", "companion", "preview"):
                 context = await browser.new_context(viewport=VIEWPORT)
                 await context.route(lambda url: not url.startswith(base), route_outside)
                 page = await context.new_page()
@@ -644,6 +828,8 @@ async def main() -> int:
                         await run_desks(page, base, results, args.shots)
                     elif runner == "overview":
                         await run_overview(page, base, results, args.shots)
+                    elif runner == "companion":
+                        await run_companion(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints

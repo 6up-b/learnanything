@@ -24,12 +24,15 @@ export function Shelf({
   undo,
   onFocus,
   onReorder,
+  onSearch,
 }: {
   rows: ShelfRow[];
   folded: boolean;
   undo: { title: string; onUndo: () => void } | null;
   onFocus: (windowId: string) => void;
   onReorder: (windowId: string, toSlot: number) => void;
+  /** "/ switch": search in context (spec §9.3). */
+  onSearch?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   if (folded && !open) {
@@ -39,7 +42,7 @@ export function Shelf({
       </aside>
     );
   }
-  const body = <ShelfBody rows={rows} undo={undo} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} />;
+  const body = <ShelfBody rows={rows} undo={undo} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />;
   if (folded) {
     return (
       <>
@@ -58,11 +61,13 @@ function ShelfBody({
   undo,
   onFocus,
   onReorder,
+  onSearch,
 }: {
   rows: ShelfRow[];
   undo: { title: string; onUndo: () => void } | null;
   onFocus: (windowId: string) => void;
   onReorder: (windowId: string, toSlot: number) => void;
+  onSearch?: () => void;
 }) {
   const press = useRef<{ windowId: string; y: number; dragging: boolean } | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -106,7 +111,7 @@ function ShelfBody({
 
   return (
     <>
-      <h4><span>Strip</span><span className="grow" /></h4>
+      <h4><span>Strip</span><span className="grow" />{onSearch ? <button type="button" className="switch" title="search in context (/)" onClick={onSearch}>/ switch</button> : null}</h4>
       <div className="rows ll-scroll" ref={listRef}>
         {rows.map((row) => (
           <button

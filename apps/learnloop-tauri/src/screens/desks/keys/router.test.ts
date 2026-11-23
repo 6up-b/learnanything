@@ -134,10 +134,11 @@ describe("the resolved scope and precedence matrix", () => {
     const later = DESK_BINDINGS.filter((binding) => binding.later).map((binding) => `${binding.keys}:${binding.later}`);
     // RD2 built the overview, gather and moving a card to another desk: none of them waits any more.
     expect(later.filter((entry) => entry.endsWith(":RD2"))).toEqual([]);
-    expect(later).toContain("c:RD3");
+    // RD3 built the companion and search: c, shift+c, alt+c and / wait no more.
+    expect(later.filter((entry) => entry.endsWith(":RD3"))).toEqual([]);
     expect(later).toContain("alt+n:RD4");
     const built = DESK_BINDINGS.filter((binding) => !binding.later).map((binding) => binding.keys);
-    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc", "alt+o", "o", "alt+g", "alt+shift+g", "alt+shift+j", "alt+shift+k", "b", "g (hold)", "↵"]));
+    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc", "alt+o", "o", "alt+g", "alt+shift+g", "alt+shift+j", "alt+shift+k", "b", "g (hold)", "↵", "c", "shift+c", "alt+c", "/"]));
   });
 
   it("the overview owns its navigation keys and passes the reading view's keys nowhere", () => {
@@ -247,5 +248,39 @@ describe("the typing scope's targets", () => {
     expect(isTypingTarget(div)).toBe(false);
     expect(isTypingTarget(inside)).toBe(true);
     expect(isTypingTarget(null)).toBe(false);
+  });
+});
+
+describe("the companion's and search's keys (RD3)", () => {
+  const mods = { alt: false, ctrl: false };
+  const key = (k: string, code: string, extra: Partial<KeyboardEventInit> = {}) => ({ key: k, code, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...extra });
+
+  it("in the reading view c summons the companion, shift+c docks it and / opens search", () => {
+    expect(resolveKey(key("c", "KeyC"), {}, mods)?.binding.action).toEqual({ kind: "companion", atDock: false });
+    expect(resolveKey(key("C", "KeyC", { shiftKey: true }), {}, mods)?.binding.action).toEqual({ kind: "companion", atDock: true });
+    expect(resolveKey(key("/", "Slash"), {}, mods)?.binding.action).toEqual({ kind: "search" });
+  });
+
+  it("while typing, a bare c and / stay in the field; alt+c still reaches the companion", () => {
+    expect(resolveKey(key("c", "KeyC"), { typing: true }, mods)).toBeNull();
+    expect(resolveKey(key("/", "Slash"), { typing: true }, mods)).toBeNull();
+    expect(resolveKey(key("c", "KeyC", { altKey: true }), { typing: true }, { alt: true, ctrl: false })?.binding.action).toEqual({ kind: "companion", atDock: false });
+  });
+
+  it("an open search panel (the menu scope) takes every key: nothing reaches the desk, not even c or alt+o", () => {
+    expect(resolveKey(key("c", "KeyC"), { menu: true }, mods)).toBeNull();
+    expect(resolveKey(key("o", "KeyO", { altKey: true }), { menu: true }, { alt: true, ctrl: false })).toBeNull();
+    expect(resolveKey(key("/", "Slash"), { menu: true }, mods)).toBeNull();
+  });
+
+  it("in focus mode c and / pass through to the reading view; in the overview they do nothing", () => {
+    expect(resolveKey(key("c", "KeyC"), { focus: true }, mods)?.binding.action).toEqual({ kind: "companion", atDock: false });
+    expect(resolveKey(key("/", "Slash"), { focus: true }, mods)?.binding.action).toEqual({ kind: "search" });
+    expect(resolveKey(key("c", "KeyC"), { overview: true }, mods)).toBeNull();
+  });
+
+  it("alt+c is no shell chord, and c is no shell letter (no collision with keymap.ts)", () => {
+    const binding = DESK_BINDINGS.find((each) => each.id === "companion.typing");
+    expect(binding?.chord).toMatchObject({ alt: true, code: "KeyC" });
   });
 });
