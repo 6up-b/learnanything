@@ -11,7 +11,6 @@ from learnloop.substrate.recurrence_groups import claim_for_citation, compute_gr
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_split_helpers import at, build_diagnosis_vault, seed_attempt, transpose_error
-from tests.helpers import set_algorithm_version
 from tests.recurrence_fakes import record_verdict
 from tests.split_live_helpers import append_config
 
@@ -123,7 +122,6 @@ def seeded(tmp_path):
             vault, repository, attempt_id=attempt_id, item_id=item_id, answer=f"answer {attempt_id}",
             when=at(offset), points={"setup": 2, "result": 0}, error=transpose_error(statement, quote="answer"),
         )
-    set_algorithm_version(paths, "mvp-0.12")
     return paths, load_vault(paths.root), repository
 
 

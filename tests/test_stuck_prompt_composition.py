@@ -120,7 +120,7 @@ def test_a_stuck_answers_pfc_unverified_criteria_are_unassessed(tmp_path):
 
 
 def _assumed(tmp_path):
-    paths, vault, repository = split_vault(tmp_path, version="mvp-0.13", seed=False)
+    paths, vault, repository = split_vault(tmp_path, seed=False)
     result = record_self_report(
         vault, repository, learning_object_ids=[LO], report="know_this", clock=FrozenClock(at(0)),
     )

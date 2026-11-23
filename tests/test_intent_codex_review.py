@@ -318,9 +318,7 @@ def _reading_intent_vault(tmp_path, monkeypatch):
 
     import learnloop.reader.recap as recap
 
-    paths = create_daily_plan_vault(
-        tmp_path / "vault", learning_objects={"lo_r": [("pi_r1", 2.0)]}, version=INTENT_ALGORITHM_VERSION
-    )
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_r": [("pi_r1", 2.0)]})
     extraction = _seed_as_you_read(paths)
     monkeypatch.setattr(
         recap, "source_learning_objects",

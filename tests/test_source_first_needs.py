@@ -22,7 +22,6 @@ def _need(repository, *, facets=("facet_eigen",), focus=None, lo="lo_matrices"):
 @pytest.fixture
 def active(tmp_path):
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION)
     return paths, repository, spans
 
 

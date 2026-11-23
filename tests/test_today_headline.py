@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.daily_plan import headline as headline_module
 from learnloop.daily_plan.headline import classify_learning_objects, today_headline
@@ -47,7 +48,7 @@ def _vault(los):
     return SimpleNamespace(
         learning_objects={lo.id: lo for lo in los},
         canonical_facet_id=lambda facet: facet,
-        config=SimpleNamespace(algorithms=SimpleNamespace(algorithm_version="mvp-0.14"), placement=SimpleNamespace(enabled=False)),
+        config=SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=LATEST_ALGORITHM_VERSION), placement=SimpleNamespace(enabled=False)),
     )
 
 

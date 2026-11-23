@@ -3,7 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
-from learnloop.algorithm_versions import DECIDER_TIER1_ALGORITHM_VERSION, SUCCESSOR_CHAIN
+from learnloop.algorithm_versions import DECIDER_TIER1_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION, SUCCESSOR_CHAIN
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, process_learner_text
@@ -33,7 +33,7 @@ def serve_pre_tier1(root, version: str) -> None:
             set_config_switch(root, switch, False)
 
 
-def _vault(tmp_path, *, version: str = "mvp-0.16", toml: str = ""):
+def _vault(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION, toml: str = ""):
     paths = create_placement_vault(tmp_path / "vault", version=version)
     if toml:
         append_config_toml(paths.root, toml)

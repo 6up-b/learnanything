@@ -387,7 +387,7 @@ def test_a_snapshot_without_a_required_method_never_acquires_one(tmp_path):
     the item had no required method when it was presented; one added later
     (prompt unchanged) never reaches that answer's grade."""
 
-    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path)
     prompt = f"Write the SVD of A using {METHOD}."
     path = paths.practice_item_path("linear-algebra", ITEM)
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -409,7 +409,7 @@ def test_a_regrade_never_acquires_a_required_method_added_after_the_answer(tmp_p
     field). A regrade grades the answer against the contract it was graded
     under, so it is not failed for bypassing the new method."""
 
-    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     assert "required_method" not in _support(repository, result.attempt_id)["proof_route_check"]
     _require_method(paths)
@@ -489,7 +489,7 @@ def test_every_other_regrade_still_reads_the_item_as_it_is_now(tmp_path):
     answer was graded under (regrade contracts, mvp-0.26: below that tag they
     cited none)."""
 
-    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     graded = _evidence_ids(repository, result.attempt_id)
     answered = _contract_versions(repository, result.attempt_id)

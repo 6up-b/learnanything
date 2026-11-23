@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
@@ -64,8 +65,8 @@ def _component(facet, *, modality="hard"):
     return {"facet": facet, "capability": capability, "modality": modality}
 
 
-def build_vault(root: Path, recipe: dict):
-    """An mvp-0.7 vault whose single LO carries exactly ``recipe``.
+def build_vault(root: Path, recipe: dict, *, version: str = LATEST_ALGORITHM_VERSION):
+    """A vault (at the head unless ``version`` names another tag) whose single LO carries exactly ``recipe``.
 
     Every cell the recipes can name has an instrument, so a certification result
     is always a statement about evidence rather than about missing items.
@@ -111,5 +112,6 @@ def build_vault(root: Path, recipe: dict):
     default_item = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
     if default_item.exists():
         default_item.unlink()
-    set_algorithm_version(paths, "mvp-0.7")
+    if version != LATEST_ALGORITHM_VERSION:
+        set_algorithm_version(paths, version)
     return paths
