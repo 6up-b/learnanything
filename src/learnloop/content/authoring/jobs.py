@@ -25,7 +25,7 @@ from learnloop.reader import (
     section_generation as SG,
 )
 from learnloop.substrate.state_sync import sync_vault_state
-from learnloop.tutor.promotions import promote_tutor_question, PromotionError, PromotionNoItemError
+from learnloop.tutor.promotions import PromotionError, PromotionNoItemError, promote_tutor_question
 
 
 def default_animation_client(ctx: JobContext) -> Any:
