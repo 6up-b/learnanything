@@ -14,6 +14,15 @@ import type {
   PadApplyInput,
   PadListDto,
   PadViewDto,
+  PadSubmitBlockInput,
+  PadSubmitBlockDto,
+  PadProposalsDto,
+  ProposalLabelInput,
+  PadDrainDto,
+  CarryInput,
+  CarriedQuestionDto,
+  CarriedListDto,
+  CarriedMarkInput,
   PassageUnionDto,
   PassageUnionInput,
   NoteSearchDto,
@@ -1590,6 +1599,21 @@ export const api = {
   padList: (input: { deskId?: string; query?: string; kept?: boolean; cursor?: string } = {}) =>
     call<PadListDto>("pad_list", { input }),
   padApply: (input: PadApplyInput) => call<PadApplyDto>("pad_apply", { input }),
+  // Reader workbench v2 RD4 (desktop only, no component calls them yet): submitting a block is an explicit act that
+  // hands its words to the attempt or teach-back entry point; proposals, the drain and carried questions are
+  // workflow data and labels, never evidence.
+  padSubmitBlock: (input: PadSubmitBlockInput) => call<PadSubmitBlockDto>("pad_submit_block", { input }),
+  padProposals: (input: { padId: string }) => call<PadProposalsDto>("pad_proposals", { input }),
+  proposalLabel: (input: ProposalLabelInput) =>
+    call<{ version: number; labelId: string; applied: boolean; at: string }>("proposal_label", { input }),
+  padDrain: (input: { deskId: string; day?: string }) => call<PadDrainDto>("pad_drain", { input }),
+  carriedCarry: (input: CarryInput) =>
+    call<{ version: number; carried: CarriedQuestionDto; created: boolean }>("carried_carry", { input }),
+  carriedList: (input: { which?: "open" | "closed" | "all"; deskId?: string; cursor?: string } = {}) =>
+    call<CarriedListDto>("carried_list", { input }),
+  carriedMark: (input: CarriedMarkInput) =>
+    call<{ version: number; carried: CarriedQuestionDto; applied: boolean; conflict: boolean }>("carried_mark",
+      { input }),
   passageUnionRange: (input: PassageUnionInput) => call<PassageUnionDto>("passage_union_range", { input }),
   companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
     call<CompanionHistoryDto>("companion_history", { input }),

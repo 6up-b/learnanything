@@ -1371,6 +1371,15 @@ sidecar_passthrough!(pad_apply, "pad.apply");
 sidecar_passthrough!(passage_union_range, "passage.union_range");
 sidecar_passthrough!(companion_history, "companion.history");
 sidecar_passthrough!(checks_due_for, "checks.due_for");
+// Reader workbench v2 RD4: submitting a block, proposals and their labels, the desk drain and carried questions
+// (desktop only; no component calls them yet).
+sidecar_passthrough!(pad_submit_block, "pad.submit_block");
+sidecar_passthrough!(pad_proposals, "pad.proposals");
+sidecar_passthrough!(proposal_label, "proposal.label");
+sidecar_passthrough!(pad_drain, "pad.drain");
+sidecar_passthrough!(carried_carry, "carried.carry");
+sidecar_passthrough!(carried_list, "carried.list");
+sidecar_passthrough!(carried_mark, "carried.mark");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");
