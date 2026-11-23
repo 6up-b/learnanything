@@ -10545,6 +10545,21 @@ export interface OpenLessonDto {
   learningObjectIds: string[];
 }
 
+/** Reader workbench RD9a (spec §11.1, §12.5): a lesson as its window's tab and the path view's row name it. */
+export interface LessonSummaryDto {
+  lessonId: string;
+  title: string;
+  goal: string | null;
+  openedAt: string | null;
+  closed: boolean;
+  closeReason: string | null;
+  learningObjectIds: string[];
+  /** What the tab's "made <date> from your <what>" names. */
+  madeFrom: "selection" | "check" | "question" | "suggestion" | "topic";
+  /** The lesson's `lesson_additions` pad, once the learner wrote under it. */
+  additionsPadId: string | null;
+}
+
 /** Teacher TE2-log (spec_teacher_v1 §11.6): one interval of the lesson screen, on the client's clock. */
 export interface LessonActivityIntervalDto {
   /** One mount of the lesson screen; `seq` counts its intervals from 1 (a gap is a missing interval). */

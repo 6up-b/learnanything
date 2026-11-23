@@ -1403,6 +1403,8 @@ sidecar_passthrough!(lesson_activity, "lesson.activity");
 // Teacher TE2: a typed goal's resolution and Today's open lessons (no lesson written; desktop only).
 sidecar_passthrough!(lesson_goal, "lesson.goal");
 sidecar_passthrough!(lesson_open_lessons, "lesson.open_lessons");
+// Reader workbench RD9a: the lessons a lesson window's tab and the path view name (no model call; desktop only).
+sidecar_passthrough!(lesson_list, "lesson.list");
 // Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
 sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
 sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");
