@@ -408,7 +408,6 @@ The procedure above, on backup-API copies of the owner's three vaults (vault A f
 | 6. Live database unchanged | yes | yes | yes |
 
 The three vaults have closed items on practised learning objects, but no reconstructed reading is narrower than
-today's: every closure in them came after the item stopped contributing a facet, or touched an item whose facet
-another open item also measures. So the activation changes no value on them. `learnloop doctor` exits 1 on each copy
+today's items, so the activation changes no value on them. `learnloop doctor` exits 1 on each copy
 for content findings that predate this tag; none concerns state.
 
