@@ -45,8 +45,10 @@ export interface MenuContext {
   confirm: (title: string, detail: string) => Promise<boolean>;
   /** Show me: the figure built for the passage (null when none is shown), polled under the window asked from. */
   showMe: (text: string, anchor: { extractionId: string; spanId: string }, ownerWindowId: string | null) => Promise<{ figureId: string; line: string } | null>;
-  /** The figure, landed where the desks keep figures (the running pad). */
-  landFigure: (object: MenuObject, figure: { figureId: string; line: string }) => void;
+  /** Where a figure asked for now will land: the running pad of the desk asked on (null: it has none). */
+  figureDestination: () => string | null;
+  /** The figure, landed in the pad named when it was asked for. */
+  landFigure: (object: MenuObject, figure: { figureId: string; line: string }, padId: string | null) => void | Promise<void>;
   /** A Teacher lesson opened in the desk's stack (a tab of its own while its first turn runs; spec §11.1). */
   teachMe: (entry: LessonEntry) => void;
   /** The desks' own moves for a window (§5.2, §6.6). */
@@ -145,6 +147,8 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
         return;
       case "show_me": {
         if (!anchor) return;
+        // Where it lands is decided now: the running pad of this desk, even if another desk is shown when it is ready.
+        const destination = ctx.figureDestination();
         ctx.toast("◇ making a figure for this passage · it lands in your running pad when it's ready");
         // The Reader's figure build, polled under the window asked from (a paused window's poll waits).
         const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId);
@@ -152,7 +156,7 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
           ctx.toast("no figure for this passage · nothing was shown");
           return;
         }
-        ctx.landFigure(object, figure);
+        await ctx.landFigure(object, figure, destination);
         return;
       }
       case "make_practice": {

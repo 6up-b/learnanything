@@ -35,6 +35,7 @@ function context(over: Partial<MenuContext> = {}, apiOver: Partial<MenuContext["
     askNote: vi.fn(async () => "my note"),
     confirm: vi.fn(async () => true),
     showMe: vi.fn(async () => ({ figureId: "fig1", line: "a figure" })),
+    figureDestination: () => "pad_asked_on",
     landFigure: vi.fn(),
     windowMove: vi.fn(),
     teachMe: vi.fn(),
@@ -121,7 +122,7 @@ describe("each verb calls its server entry", () => {
     const { ctx } = context();
     await runVerb("show_me", passage(), ctx);
     expect(ctx.showMe).toHaveBeenCalledWith("the passage's words", { extractionId: "ext1", spanId: "s1" }, "w1");
-    expect(ctx.landFigure).toHaveBeenCalledWith(expect.objectContaining({ spanId: "s1" }), { figureId: "fig1", line: "a figure" });
+    expect(ctx.landFigure).toHaveBeenCalledWith(expect.objectContaining({ spanId: "s1" }), { figureId: "fig1", line: "a figure" }, "pad_asked_on");
     const none = context({ showMe: vi.fn(async () => null) });
     await runVerb("show_me", passage(), none.ctx);
     expect(none.ctx.landFigure).not.toHaveBeenCalled();

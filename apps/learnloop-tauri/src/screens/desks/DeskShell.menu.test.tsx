@@ -98,10 +98,11 @@ function padsFakes(server: FixtureDeskServer) {
 }
 
 let minted = 0;
-function mount(options: { stacks?: boolean } = {}) {
+function mount(options: { stacks?: boolean; pads?: (pads: ReturnType<typeof padsFakes>) => void } = {}) {
   const server = new FixtureDeskServer();
   const menu = menuFakes();
   const pads = padsFakes(server);
+  options.pads?.(pads);
   const vaultKey = `vault-${Math.random()}`;
   const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
   const onError = vi.fn();
@@ -123,7 +124,7 @@ function mount(options: { stacks?: boolean } = {}) {
   const view = render(ui());
   // The desks render again (their parent re-rendered): every inline prop is a new object.
   const again = () => view.rerender(ui());
-  return { server, again, ...menu };
+  return { server, again, poller, ...menu };
 }
 
 async function flush() {
@@ -437,5 +438,53 @@ describe("RD5 fix round: a pad line's Teach me", () => {
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.click(screen.getByTestId("teach-fx_w_book"));
     await waitFor(() => expect(screen.getByTestId("pane-fx_w_pads").getAttribute("data-openings")).toBe("1"));
+  });
+});
+
+describe("RD5 fix round: Show me", () => {
+  it("lands the figure in the running pad of the desk it was asked on, even with another desk shown, and its poll ends", async () => {
+    let answer: (read: unknown) => void = () => undefined;
+    const { server, poller } = mount({ pads: (pads) => {
+      pads.transport.figureRequest = (async () => ({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null })) as never;
+      pads.transport.readerFigureJob = (() => new Promise((resolve) => { answer = resolve; })) as never;
+    } });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    fireEvent.keyDown(window, { key: "v" });
+    await flush();
+    // The poll's read is in flight when another desk is shown; it answers there.
+    let tick: Promise<void> = Promise.resolve();
+    act(() => {
+      tick = poller.tick();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "attention", exact: true } as never));
+    await flush();
+    await act(async () => {
+      answer({ jobId: "fj1", kind: "figure_build", askId: null, state: "done", result: { figure: { figureId: "fig9", shown: true, demonstrates: "a picture of it", goalText: "" }, reused: false } });
+      await tick;
+    });
+    await flush();
+    await flush();
+    const inserts = server.padBatches.filter((batch) => (batch.ops as PadOpDto[]).some((op) => op.op === "insert_block" && op.kind === "figure"));
+    expect(inserts.map((batch) => batch.padId)).toEqual(["fx_pad_running"]);
+    expect(poller.size).toBe(0);
+  });
+
+  it("a figure job the sidecar no longer knows ends its poll (no registration left behind)", async () => {
+    const { poller } = mount({ pads: (pads) => {
+      pads.transport.figureRequest = (async () => ({ jobId: "fj2", kind: "figure_build", askId: null, state: "pending", result: null })) as never;
+      pads.transport.readerFigureJob = (async () => {
+        throw { code: "job_not_found", message: "gone" };
+      }) as never;
+    } });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    fireEvent.keyDown(window, { key: "v" });
+    await flush();
+    await act(async () => {
+      await poller.tick();
+    });
+    await flush();
+    expect(poller.size).toBe(0);
   });
 });

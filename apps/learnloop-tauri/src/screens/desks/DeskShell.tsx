@@ -2357,17 +2357,25 @@ export function DeskShell({
       // window's poll waits with it. A figure that is not shown lands nowhere.
       const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
       const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
-        poller.register<typeof first>({
+        // The poll ends on every terminal path: a result, a job the sidecar no longer knows, or the window that asked
+        // being closed (its paused polls would otherwise wait for ever).
+        let stop: () => void = () => undefined;
+        const gone = { code: "owner_gone", message: "the window that asked is closed" };
+        stop = poller.register<typeof first>({
           key: `figure-job:${first.jobId}`,
           owner: ownerWindowId ?? null,
-          request: () => padsTransport.readerFigureJob({ jobId: first.jobId }),
+          request: () => (ownerWindowId && !wsRef.current.windows[ownerWindowId] ? Promise.reject(gone) : padsTransport.readerFigureJob({ jobId: first.jobId })),
           onResult: (read) => {
             if (read.state === "pending") return { done: false };
             resolve(read);
             return { done: true };
           },
           onError: (error) => {
-            if (error && typeof error === "object" && (error as { code?: unknown }).code === "job_not_found") reject(error);
+            const code = error && typeof error === "object" ? (error as { code?: unknown }).code : null;
+            if (code === "job_not_found" || code === "owner_gone") {
+              stop();
+              reject(error);
+            }
           },
         });
       });
@@ -2815,11 +2823,13 @@ export function DeskShell({
     askNote: () => new Promise<string | null>((resolve) => setMenuSheet({ kind: "note", title: "› note in margin", detail: "your words beside this passage", resolve: (value) => resolve(typeof value === "string" ? value : null) })),
     confirm: (title, detail) => new Promise<boolean>((resolve) => setMenuSheet({ kind: "confirm", title, detail, resolve: (value) => resolve(value === true) })),
     showMe: (text, anchor, owner) => padsHost.showMe ? padsHost.showMe(text, anchor, owner ?? undefined) : Promise.resolve(null),
-    landFigure: (object, figure) => {
-      const padId = runningPadOf(deskIdRef.current);
+    figureDestination: () => runningPadOf(deskIdRef.current),
+    landFigure: async (object, figure, padId) => {
+      // The running pad of the desk Show me was asked on (captured when asked), not the desk shown when it is ready.
+      if (padId) await store.loadPad(padId);
       const pad = padId ? store.pads[padId] : null;
       if (!padId || !pad) {
-        toastNow("the figure is ready, but this desk has no running pad to put it in");
+        toastNow("the figure is ready, but that desk has no running pad to put it in");
         return;
       }
       store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
