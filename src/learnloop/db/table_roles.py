@@ -156,7 +156,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("commitment_target_versions", TableRole.RAW_LEDGER),
     ("commitment_versions", TableRole.RAW_LEDGER),
     ("commitments", TableRole.RAW_LEDGER),
-    # Reader workbench v2 RD0 (migration 262; spec §8.5, §15.1): where a tutor exchange was asked
+    # Reader workbench v2 (migration 262; spec §8.5, §15.1): where a tutor exchange was asked
     # (desk, surface, pad blocks), append-only by trigger. An exchange asked before desks has no row.
     ("companion_exchange_context", TableRole.RAW_LEDGER),
     ("composed_selector_telemetry_horizons", TableRole.WORKFLOW),
@@ -216,7 +216,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("deliverable_path_sections", TableRole.WORKFLOW),
     ("deliverable_scope_inputs", TableRole.RAW_LEDGER),
     ("deliverable_scope_resolutions", TableRole.WORKFLOW),
-    # Reader workbench v2 RD0 (migration 262; spec §3.4, §5.1, §15.1): the learner's desks and their
+    # Reader workbench v2 (migration 262; spec §3.4, §5.1, §15.1): the learner's desks and their
     # windows (views, never evidence; mutable, versioned per desk) and one stored reply per applied
     # write batch (append-only), so a retried batch returns what it returned.
     ("desk_op_receipts", TableRole.RECEIPT),
@@ -437,7 +437,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # placement receipts (a sooner check, a created LO's light commitment).
     ("learner_gap_check_advances", TableRole.RECEIPT),
     ("learner_gap_commitments", TableRole.RECEIPT),
-    # Reader workbench v2 RD0 (migration 262; spec §7.6): the passages each read learner text is tied
+    # Reader workbench v2 (migration 262; spec §7.6): the passages each read learner text is tied
     # to, by its source's recipe, with the anchor's quality; cleared and rebuilt by the
     # learner_text_gap_spans replayer from the gap ledger and its sources (zero model calls).
     ("learner_text_gap_spans", TableRole.DERIVED),
@@ -475,7 +475,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("outcome_schemas", TableRole.RAW_LEDGER),
     ("p2_ladder_policies", TableRole.RAW_LEDGER),
     ("p2_ladder_stages", TableRole.RAW_LEDGER),
-    # Reader workbench v2 RD0 (migration 262; spec §10, §15.1): a pad's metadata (WORKFLOW), every
+    # Reader workbench v2 (migration 262; spec §10, §15.1): a pad's metadata (WORKFLOW), every
     # version of every block and every block-to-passage link event (append-only by trigger: the
     # learner's own writing, never cleared), and one stored reply per applied pad batch.
     ("pad_block_anchors", TableRole.RAW_LEDGER),
@@ -552,7 +552,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("proposed_patch_items", TableRole.WORKFLOW),
     ("proposed_patches", TableRole.WORKFLOW),
     ("question_classifications", TableRole.WORKFLOW),
-    # Reader workbench v2 RD0 (migration 262; spec §7.6): the passages each tutor exchange is tied to
+    # Reader workbench v2 (migration 262; spec §7.6): the passages each tutor exchange is tied to
     # (selection, citations, an item's source passage), cleared and rebuilt by the
     # question_event_spans replayer from the exchanges' recorded events (zero model calls).
     ("question_event_spans", TableRole.DERIVED),

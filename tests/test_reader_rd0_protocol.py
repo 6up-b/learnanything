@@ -1,4 +1,4 @@
-"""The workbench's write protocol and its desk and pad ops (spec §3.4, §3.5, §5.1, §5.2, §10, review F3):
+"""The workbench's write protocol and its desk and pad ops (spec §3.4, §3.5, §5.1, §5.2, §10):
 batches in seq order, conflicts that return heads, retries that return the stored receipt."""
 
 from __future__ import annotations
@@ -312,3 +312,16 @@ def test_running_pads_show_on_their_desk_and_the_library_lists_pads(repository):
     assert [p["pad_id"] for p in listed["pads"]] == ["run"] and listed["pads"][0]["first_line"] == "orthogonal projections"
     assert {p["pad_id"] for p in pad_list(repository)["pads"]} == {"run", "p2"}
     assert [p["pad_id"] for p in pad_list(repository, desk_id="d1")["pads"]] == ["run"]
+
+
+def test_an_op_refused_after_its_first_write_leaves_none_of_its_writes(repository):
+    batches = Batches(repository)
+    _desk(batches)
+    _desk(batches, "d2")
+    batches.desk(_open("w1", 1), _open("w2", 2), _open("w3", 3))
+    # The move takes w1 off d1 (renumbering d1's slots) before it finds no such window on d2 to open after.
+    reply = batches.desk({"op": "move_to_desk", "window_id": "w1", "to_desk_id": "d2", "after_window_id": "nope",
+                          "expected_version": 4})
+    assert reply["results"][0]["status"] == "refused" and reply["results"][0]["code"] == "window_not_open"
+    assert _slots(repository) == [["w1"], ["w2"], ["w3"]] and _slots(repository, "d2") == []
+    assert _version(repository) == 4

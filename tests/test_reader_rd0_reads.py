@@ -1,4 +1,4 @@
-"""The RD0 reads (spec §7.6, §8.5, §12.6.1): the per-span union, the companion's history by day and desk,
+"""The workbench's reads (spec §7.6, §8.5, §12.6.1): the per-span union, the companion's history by day and desk,
 and the due checks with their hosts."""
 
 from __future__ import annotations

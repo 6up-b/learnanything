@@ -1,8 +1,8 @@
-"""Reader workbench v2 RD0 RPC: ``companion.history`` (spec §3.4, §8.5), every tutor exchange by day and
+"""Reader workbench v2 RPC: ``companion.history`` (spec §3.4, §8.5), every tutor exchange by day and
 desk, newest first, a page at a time.
 
 Desktop only (pinned in tests/test_mobile_allowlist.py). Read only; no model call (the search by
-meaning is the companion's job, RD3).
+meaning is the companion's job, not built yet).
 """
 from __future__ import annotations
 

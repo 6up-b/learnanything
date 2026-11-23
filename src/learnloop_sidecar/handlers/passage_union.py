@@ -1,4 +1,4 @@
-"""Reader workbench v2 RD0 RPC: ``passage.union_range`` (spec §3.4, §7.6), everything tied to each
+"""Reader workbench v2 RPC: ``passage.union_range`` (spec §3.4, §7.6), everything tied to each
 passage of one visible range. Batched per range, never per span on hover; goal-independent.
 
 Desktop only (pinned in tests/test_mobile_allowlist.py). Read only; no model call.

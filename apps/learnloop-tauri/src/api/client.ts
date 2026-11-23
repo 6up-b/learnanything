@@ -1580,8 +1580,8 @@ export const api = {
   notesHidden: () => call<{ hidden: HiddenNoteDto[] }>("notes_hidden", { input: {} }),
   // Curriculum C5: Settings' opt-in (notes.gaps_enabled, off by default).
   notesSetGaps: (input: { enabled: boolean }) => call<{ gapsEnabled: boolean; line: string }>("notes_set_gaps", { input }),
-  // Reader workbench v2 RD0 (spec §3.4; desktop only, no component calls them yet): desks and pads follow the
-  // write protocol ({clientId, seq, ops}, one sequence per client); the local outbox is the RD-spike's decision.
+  // Reader workbench v2 (spec §3.4; desktop only, no component calls them yet): desks and pads follow the
+  // write protocol ({clientId, seq, ops}, one sequence per client); the local outbox is chosen apart (spec §3.5).
   deskState: () => call<DeskStateDto>("desk_state", { input: {} }),
   deskApply: (input: DeskApplyInput) => call<DeskApplyDto>("desk_apply", { input }),
   padGet: (input: { padId: string }) => call<PadViewDto>("pad_get", { input }),

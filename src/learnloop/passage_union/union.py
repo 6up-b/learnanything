@@ -13,7 +13,7 @@ check, with no item, learning object or purpose); linked notes; reader-authored 
 exposure (first seen, how often shown) and whether it is exam or held-out material. Per section of the
 range: its learning objects and their coverage.
 
-Goal-independent: the goal level is ``goal.lens`` (RD6). Read only: it writes nothing.
+Goal-independent: the goal level is ``goal.lens``'s, a separate read. Read only: it writes nothing.
 """
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Reader workbench v2 RD0 RPCs: desks (spec §3.4, §5). ``desk.state`` and ``desk.apply``.
+"""Reader workbench v2 RPCs: desks (spec §3.4, §5). ``desk.state`` and ``desk.apply``.
 
 Desktop only (pinned in tests/test_mobile_allowlist.py; the phone's desks are deferred, spec §17). No
 model call; workflow data, never evidence. ``desk.apply`` follows the write protocol

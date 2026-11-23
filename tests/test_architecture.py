@@ -200,7 +200,7 @@ REGISTERED_SQL_OWNERS = frozenset(
         # mvp-0.21 value-of-information stopping: the follow-up value
         # decisions' append-only receipts (one row per decision).
         "src/learnloop/db/stores/followup_value.py",
-        # Reader workbench v2 RD0 (migration 262): desks and windows, pads with their append-only block
+        # Reader workbench v2 (migration 262): desks and windows, pads with their append-only block
         # versions and anchors, the write batches' stored replies, and the DERIVED span projections with
         # the append-only exchange context.
         "src/learnloop/db/stores/desks.py",

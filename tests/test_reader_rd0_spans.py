@@ -1,4 +1,4 @@
-"""The two DERIVED span projections (spec §7.6, review F5): each adapter's recipe and quality, the live
+"""The two DERIVED span projections (spec §7.6): each adapter's recipe and quality, the live
 write-through equal to a rebuild row for row, idempotent replayers, and the hooks on the real writers."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""What earlier migrations' upgrade diffs use from the Reader workbench v2 RD0 migration
+"""What earlier migrations' upgrade diffs use from the Reader workbench v2 migration
 (``tests/test_reader_rd0_migration.py``), kept here because a test file never imports another
 (``tests/test_test_layout.py``; refactor step T1)."""
 

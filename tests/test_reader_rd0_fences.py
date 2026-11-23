@@ -15,8 +15,8 @@ from importlinter.contracts.forbidden import ForbiddenContract
 ROOT = Path(__file__).resolve().parents[1]
 #: Modules a fence names before they exist, each with the stage that adds it.
 DECLARED = {
-    "learnloop.intent.inline_veils": "RD7: the veil sets of an inline check",
-    "learnloop.curriculum.goal_lens": "RD6: the goal lens",
+    "learnloop.intent.inline_veils": "the veil sets of an inline check",
+    "learnloop.curriculum.goal_lens": "the goal lens",
 }
 #: Each fence: the contract, and one import the fence must refuse (importer, imported).
 FENCES = {

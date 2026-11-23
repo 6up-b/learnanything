@@ -1,4 +1,4 @@
-"""Builders for the Reader workbench v2 RD0 tests (spec §7.6, §18.1): readings, and synthetic historical
+"""Builders for the Reader workbench v2 tests (spec §7.6, §18.1): readings, and synthetic historical
 records for every adapter of the two span projections, plus a client that numbers its write batches.
 
 The migration-head fixture has no rows in the projections' source tables, so these seed them by SQL as the

@@ -929,7 +929,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
         assert model.model_fields["plan_presentation_id"].default is None, name
 
 
-# Reader workbench v2 RD0 (spec §3.4, §17): desks, pads, the union read, the companion's history and the
+# Reader workbench v2 (spec §3.4, §17): desks, pads, the union read, the companion's history and the
 # due checks. Desktop only: the phone's desks are deferred.
 READER_RD0_RPCS = (
     "desk.state",

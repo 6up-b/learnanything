@@ -1,4 +1,4 @@
-"""The two DERIVED span projections (spec §7.6, review F5): which passages each tutor exchange
+"""The two DERIVED span projections (spec §7.6): which passages each tutor exchange
 (``question_event_spans``) and each read learner text (``learner_text_gap_spans``) are tied to.
 
 Each source has its own recipe, and none invents locality. A row records its anchor quality:

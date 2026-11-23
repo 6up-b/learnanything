@@ -6,7 +6,7 @@ The backing data is ``question_events`` (every context), joined with ``companion
 passage). An exchange with no context row was asked before desks existed: it is shown with origin
 ``backfill``, no desk and the surface its own context names ("in the Reader", "while practising"), and
 nothing is written for it. The query matches question and answer text by words; the search by meaning
-is the companion's job (RD3). An answer withheld as worked help shows as the learner was shown it.
+is the companion's job, not built yet. An answer withheld as worked help shows as the learner was shown it.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def record_exchange_context(repository: Any, *, question_event_id: str, surface:
                             window_spec: Mapping[str, Any] | None = None, pad_block_ids: list[str] | None = None,
                             goal_id: str | None = None, clock: Clock | None = None) -> bool:
     """Record where one exchange was asked (origin ``live``); a second record of it is ignored.
-    The companion's ask (RD3) calls this as it records the exchange."""
+    The companion's ask, when it is built, calls this as it records the exchange."""
 
     with repository.connection() as connection:
         return spans_store.insert_exchange_context(connection, {

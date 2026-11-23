@@ -898,8 +898,8 @@ type = "forbidden"
 # The same shape as evidence-never-reads-the-workbench: replay, evidence, serving and adaptive difficulty
 # never import the workbench's desks, its scratchpads (ink strokes live with them) or the veil sets of an
 # inline check. The only exits are explicit and run the other way: a submitted block goes to the attempt
-# and teach-back entry points, a committed one to learner_text_gaps as pad_text (RD4). The veil sets'
-# module is declared before it exists (RD7), so the fence holds from its first line.
+# and teach-back entry points, a committed one to learner_text_gaps as pad_text. The veil sets'
+# module is declared before it exists, so the fence holds from its first line.
 source_modules = [
     "learnloop.substrate",
     "learnloop.learner",
@@ -934,7 +934,7 @@ name = "The grader never reads pads, ink, threads, desks, veils or the goal lens
 type = "forbidden"
 # Extends the grader contracts above: every grading prompt builder lives in learnloop.attempts. Threads
 # and the companion's history are learnloop.companion; the union read is learnloop.passage_union. The
-# goal lens and the veil sets are declared before they exist (RD6, RD7).
+# goal lens and the veil sets are declared before they exist.
 source_modules = ["learnloop.attempts"]
 forbidden_modules = [
     "learnloop.desks",
@@ -975,8 +975,8 @@ name = "The passage union and the goal lens are read-only projections (Reader wo
 type = "forbidden"
 # They write only receipts and caches: neither imports an evidence writer. The union read reads through
 # other readers (annotations, notes, due checks), so only its direct imports are fenced. A source module
-# must exist, so the goal lens (learnloop.curriculum.goal_lens) joins this list in the stage that adds it
-# (RD6); tests/test_reader_rd0_fences.py says so.
+# must exist, so the goal lens (learnloop.curriculum.goal_lens) joins this list when it is built
+# (tests/test_reader_rd0_fences.py checks it does not exist yet).
 source_modules = ["learnloop.passage_union"]
 forbidden_modules = [
     "learnloop.attempts",
@@ -1023,7 +1023,7 @@ id = "workbench-v2-calls-the-one-hint-service"
 name = "The workbench v2 defines no hint writer, chooser or map builder: the ink help ladder calls learnloop.hints (Reader workbench v2 fence 5, spec 3.3)"
 type = "forbidden"
 # workbench-calls-the-one-hint-service still holds for the Reader; the desks, the scratchpads (where the
-# ink ladder will live, RD8a), the companion and the union read reach the hint service the same way.
+# ink ladder will live), the companion and the union read reach the hint service the same way.
 source_modules = ["learnloop.desks", "learnloop.pads", "learnloop.companion", "learnloop.passage_union"]
 forbidden_modules = [
     "learnloop.hints.writer",

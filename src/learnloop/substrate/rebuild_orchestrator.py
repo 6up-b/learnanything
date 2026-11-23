@@ -214,7 +214,7 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
         frozenset({"lesson_weight_state", "lesson_weight_trace", "confidence_calibration_state"}),
         ("learning_state",),
     ),
-    # Reader workbench v2 RD0 (migration 262; spec §7.6): the passages each tutor exchange and each
+    # Reader workbench v2 (migration 262; spec §7.6): the passages each tutor exchange and each
     # read learner text are tied to, from the exchanges' recorded Reader events, the gap ledger and
     # their sources (authored questions, workbench sessions, note links, items' source passages), with
     # each row's anchor quality. Zero model calls; display and protection only, never evidence.

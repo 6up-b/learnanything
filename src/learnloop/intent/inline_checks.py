@@ -10,7 +10,7 @@ source. A check whose learning object has neither has no host and is still liste
 Here, beside "Check once" serving (``intent.checks``), rather than in ``learnloop.curriculum`` (the spec's
 ``curriculum/inline_checks.py``): it reads serving's check state (``scheduling.intent``), and ``scheduling``
 already imports ``curriculum``, so a module there would close a package cycle (``pyproject.toml``'s acyclic
-contract). The administration protocol (``check.begin_inline`` and the rest) is RD7's.
+contract). The administration protocol (``check.begin_inline`` and the rest) is not built yet.
 """
 from __future__ import annotations
 

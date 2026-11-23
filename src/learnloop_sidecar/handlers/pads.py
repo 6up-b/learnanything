@@ -1,5 +1,5 @@
-"""Reader workbench v2 RD0 RPCs: scratchpads (spec §3.4, §10). ``pad.get``, ``pad.list`` and
-``pad.apply`` (no submission: ``pad.submit_block`` is RD4's).
+"""Reader workbench v2 RPCs: scratchpads (spec §3.4, §10). ``pad.get``, ``pad.list`` and
+``pad.apply`` (no submission: ``pad.submit_block`` is not built yet).
 
 Desktop only (pinned in tests/test_mobile_allowlist.py). No model call; a pad is the learner's own
 writing, never evidence. ``pad.apply`` follows the write protocol (``learnloop.desks.protocol``), sharing

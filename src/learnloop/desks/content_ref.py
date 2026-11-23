@@ -1,4 +1,4 @@
-"""One model for "something to show" (spec §3.4, review F14): a window's content, an open spec, a
+"""One model for "something to show" (spec §3.4): a window's content, an open spec, a
 claim's target, a search result, a promoted row and a path row all carry a :data:`ContentRef`.
 
 The models accept the desktop's camelCase as well as snake_case and refuse unknown fields, like every

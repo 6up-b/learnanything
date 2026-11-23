@@ -1,4 +1,4 @@
--- Reader workbench v2, RD0 (Foundations; docs/specs/spec_reader_workbench_v2.md §3.4, §7.6, §8.5, §15.1):
+-- Reader workbench v2, its foundations (docs/specs/spec_reader_workbench_v2.md §3.4, §7.6, §8.5, §15.1):
 -- the storage the desks, the scratchpads and the companion history build on. No UI reads it yet.
 --
 -- Additive: ten new tables, no existing row or object changed, nothing backfilled into a ledger.

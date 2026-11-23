@@ -1,4 +1,4 @@
-"""The workbench's write protocol (spec §3.4, review F3), shared by ``desk.apply`` and ``pad.apply``.
+"""The workbench's write protocol (spec §3.4), shared by ``desk.apply`` and ``pad.apply``.
 
 Every write call carries ``{client_id, seq, ops}``. ``seq`` numbers a client's batches, desk and pad
 batches alike, from 1 with no gap. The server

@@ -1,4 +1,4 @@
-"""The RD0 RPCs (spec §3.4, §18.1): registered, desktop only, params refusing extra fields, replies
+"""The workbench's RPCs (spec §3.4, §18.1): registered, desktop only, params refusing extra fields, replies
 versioned and camelCase, and the protocol's refusals as sidecar errors."""
 
 from __future__ import annotations

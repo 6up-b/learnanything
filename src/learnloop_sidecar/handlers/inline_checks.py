@@ -1,6 +1,6 @@
-"""Reader workbench v2 RD0 RPC: ``checks.due_for`` (spec §3.4, §12.6.1), the due delayed checks by goal,
+"""Reader workbench v2 RPC: ``checks.due_for`` (spec §3.4, §12.6.1), the due delayed checks by goal,
 learning object, reading or passage, each with its host passage. Read only; it shows nothing of the
-item. The administration protocol (``check.begin_inline`` and the rest) is RD7's.
+item. The administration protocol (``check.begin_inline`` and the rest) is not built yet.
 
 Desktop only (pinned in tests/test_mobile_allowlist.py). No model call.
 """

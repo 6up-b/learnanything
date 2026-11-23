@@ -10239,7 +10239,7 @@ export interface WorkbenchHintViewDto {
   /** RW2c: the worked example under this hint (key absent while
    *  workbench.examples_enabled is off). */
   example?: WorkbenchExampleViewDto | null;
-  /** The hint's own checkable claims as verified (Reader §5.3, review F14). */
+  /** The hint's own checkable claims as verified (Reader §5.3). */
   claims?: HintClaimDto[];
   /** Fix round 10: workbench.symbolic_checks_enabled now; off, no claim shows ✓. */
   symbolicEnabled?: boolean;
@@ -10568,10 +10568,10 @@ export interface FollowupNextDto {
   presentationId: string | null;
 }
 
-// -- Reader workbench v2 RD0 (spec §3.4): desks, pads, the union read, the companion's history, due checks.
-// The server side and the typed calls only; the client's local outbox is decided by the RD-spike (§3.5).
+// -- Reader workbench v2 (spec §3.4): desks, pads, the union read, the companion's history, due checks.
+// The server side and the typed calls only; the client's local outbox is chosen apart (§3.5).
 
-/** One model for every "something to show" (spec §3.4, review F14). */
+/** One model for every "something to show" (spec §3.4). */
 export type ContentRefDto =
   | { kind: "source"; sourceId: string; extractionId: string; view?: "render" | "pdf" | "web";
       range?: { fromSpanId: string; toSpanId: string } }

@@ -1356,7 +1356,7 @@ sidecar_passthrough!(notes_decide, "notes.decide");
 sidecar_passthrough!(notes_hidden, "notes.hidden");
 // Curriculum C5: the opt-in for your linked notes to steer suggestions (Settings; desktop only).
 sidecar_passthrough!(notes_set_gaps, "notes.set_gaps");
-// Reader workbench v2 RD0: desks, pads, the union read, the companion's history and the due checks
+// Reader workbench v2: desks, pads, the union read, the companion's history and the due checks
 // (desktop only; no component calls them yet).
 sidecar_passthrough!(desk_state, "desk.state");
 sidecar_passthrough!(desk_apply, "desk.apply");

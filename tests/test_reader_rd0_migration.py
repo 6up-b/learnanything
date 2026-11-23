@@ -1,4 +1,4 @@
-"""The Reader workbench v2 RD0 migration (spec §15.1): ten new tables, each classified, the two DERIVED
+"""The Reader workbench v2 migration (spec §15.1): ten new tables, each classified, the two DERIVED
 ones with one replayer each, the ledgers append-only by trigger; nothing else changes and nothing is
 backfilled. The number is the migration's file name alone (``MIGRATION``)."""
 
