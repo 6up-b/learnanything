@@ -34,6 +34,7 @@ import type {
   PassageUnionDto,
   PassageContentDto,
   MenuObjectInput,
+  PassagePromotedInput,
   PassagePromotedDto,
   PromotedJobDto,
   PassageKnowsDto,
@@ -1205,7 +1206,8 @@ export const api = {
     })),
   listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
     call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
-  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[] }) =>
+  // clientIdempotencyKey: one per sheet, reused on a retry (the same key returns the same item and makes no second).
+  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[]; clientIdempotencyKey?: string }) =>
     mutating([TAG.queue], call<{ practiceItemId: string }>("author_practice_item", { input })),
   // Learner-initiated re-runging: request an easier/harder sibling variant of
   // an item. Records the evidence package synchronously, authors async.
@@ -1661,7 +1663,7 @@ export const api = {
   passageContent: (input: PassageUnionInput) => call<PassageContentDto>("passage_content", { input }),
   // RD5 (desktop only): the split menu's promoted rows at once and their judged job (polled through the one poller;
   // cancel when the menu closes), and What this knows as one read.
-  passagePromoted: (input: MenuObjectInput) => call<PassagePromotedDto>("passage_promoted", { input }),
+  passagePromoted: (input: PassagePromotedInput) => call<PassagePromotedDto>("passage_promoted", { input }),
   passagePromotedJob: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_job", { input }),
   passagePromotedCancel: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_cancel", { input }),
   passageKnows: (input: MenuObjectInput) => call<PassageKnowsDto>("passage_knows", { input }),

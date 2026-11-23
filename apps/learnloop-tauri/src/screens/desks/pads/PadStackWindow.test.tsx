@@ -465,6 +465,33 @@ describe("the fix round (RD4 review)", () => {
     });
   });
 
+  it("Make it practice sends one key per sheet with every save of it (a retry after a lost reply reuses it)", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    const authored: Array<{ clientIdempotencyKey?: string }> = [];
+    let lost = true;
+    api.authorPracticeItem = (async (input: { clientIdempotencyKey?: string }) => {
+      authored.push(input);
+      if (lost) {
+        lost = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost" };
+      }
+      return { practiceItemId: "pi1" };
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect(authored).toHaveLength(2));
+    expect(authored[0].clientIdempotencyKey).toBeTruthy();
+    expect(authored[1].clientIdempotencyKey).toBe(authored[0].clientIdempotencyKey);
+  });
+
   it("the Make it practice sheet takes the focus, and escape lets it go", async () => {
     const { api } = mount({ server: anchoredRunning() });
     api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;

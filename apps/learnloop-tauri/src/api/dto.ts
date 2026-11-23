@@ -10933,6 +10933,12 @@ export interface MenuObjectInput {
   deskId?: string;
 }
 
+/** passage.promoted's input: the object, and one id per menu opening (reused on a retry: the same job and its work
+ * once; the same id with another object is refused, `request_reused`). passage.knows takes the object alone. */
+export interface PassagePromotedInput extends MenuObjectInput {
+  requestId?: string;
+}
+
 /** One promoted row. `rowId` is stable for its object, kind and target: label it with proposal.label
  * (proposalKind "promoted_row"); a row dismissed or marked "not this" is left out on that object from then on. */
 export interface PromotedRowDto {
@@ -10965,6 +10971,9 @@ export interface PassagePromotedDto {
   pendingJob: { jobId: string } | null;
   /** Whether the job may search by meaning and verify (the learner's OK to use AI, retrieval on). */
   paid: { searchedByMeaning: boolean; verified: boolean; reason: string | null };
+  /** A passage of the object (for a pad line, one its words are linked to) is exam or held-out material: nothing is
+   * searched or judged for it, and no row leads from or to a protected passage (the learner's own rows stay). */
+  withheld?: boolean;
 }
 
 export interface PromotedJobDto {

@@ -4,14 +4,14 @@
 // it, a press outside closes. The Append row opens its submenu of the desk's pads on hover (→ from the keys).
 // Styled as the mockup measures it (desk.css `.desk-menu`).
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { MenuObjectInput, PassagePromotedDto, PromotedJobDto, PromotedRowDto, ProposalLabel } from "../../../api/dto";
+import type { MenuObjectInput, PassagePromotedDto, PassagePromotedInput, PromotedJobDto, PromotedRowDto, ProposalLabel } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
 import { screenLeavesKey } from "../../../app/keymap";
 import { MENU_SIZES, placeMenu, placeSubmenu, promotedReason, shownPromoted, type MenuRow } from "./model";
 
 /** The promoted rows' calls (passage.promoted and its job; proposal.label with proposalKind "promoted_row"). */
 export interface PromotedApi {
-  passagePromoted(input: MenuObjectInput): Promise<PassagePromotedDto>;
+  passagePromoted(input: PassagePromotedInput): Promise<PassagePromotedDto>;
   passagePromotedJob(input: { jobId: string }): Promise<PromotedJobDto>;
   passagePromotedCancel(input: { jobId: string }): Promise<PromotedJobDto>;
   label(rowId: string, label: ProposalLabel): void;
@@ -37,6 +37,9 @@ export interface ContextMenuProps {
   /** The rows this menu shows now, for the verbs that read them (Open beside): told only while the menu is open on
    * its object, so a late answer for a closed menu never reaches another. */
   onRows?: (rows: PromotedRowDto[]) => void;
+  /** Whether the object is exam or held-out material, once its first answer says (the verbs that would quote or send
+   * its words are left out then). */
+  onWithheld?: (withheld: boolean) => void;
   poller?: Poller;
   /** The window the menu is about: the job's poll waits while it is paused. */
   owner?: string | null;
@@ -48,6 +51,11 @@ export interface ContextMenuProps {
   children?: ReactNode;
   /** Where its keys and presses are heard: a desk window's listener hub inside a window, the page's otherwise. */
   listen?: (target: "window", type: string, handler: (event: Event) => void, capture?: boolean) => () => void;
+}
+
+function newRequestId(): string {
+  const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  return `prom_${random}`;
 }
 
 const PAGE_LISTEN = (target: "window", type: string, handler: (event: Event) => void, capture = false) => {
@@ -82,9 +90,13 @@ export function useSheetFocus(ref: { current: HTMLElement | null }, onEscape: ()
   }, [ref]);
 }
 
-export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, onRows, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
+export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, onRows, onWithheld, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
   const [cheap, setCheap] = useState<PromotedRowDto[]>([]);
   const [judgedPending, setJudgedPending] = useState(false);
+  // Exam or held-out material: nothing was searched for it (said plainly in the promoted block).
+  const [withheld, setWithheld] = useState(false);
+  // The judged rows' job ended without rows (interrupted by a vault switch, or failed): nothing stale shows.
+  const [judgedStopped, setJudgedStopped] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [index, setIndex] = useState(0);
   const [submenuOpen, setSubmenuOpen] = useState(false);
@@ -111,6 +123,8 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   promotedNow.current = promoted;
   const onRowsNow = useRef(onRows);
   onRowsNow.current = onRows;
+  const onWithheldNow = useRef(onWithheld);
+  onWithheldNow.current = onWithheld;
   const hasPromoted = promoted !== null;
   useEffect(() => {
     const promoted = promotedNow.current;
@@ -119,14 +133,30 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     let jobId: string | null = null;
     let finished = false;
     let stop: (() => void) | null = null;
-    void promoted.passagePromoted(object).then((found) => {
+    // One request id per menu opening: a retry after a lost reply reuses it (the same job, its work done once).
+    let requestId = newRequestId();
+    const ask = (): Promise<PassagePromotedDto> => promoted.passagePromoted({ ...object, requestId }).catch((error: unknown) => {
+      const code = error && typeof error === "object" ? (error as { code?: unknown; retryable?: unknown }) : null;
+      if (code?.code === "request_reused") {
+        // The id met another object (it never should): a new one, once.
+        requestId = newRequestId();
+        return promoted.passagePromoted({ ...object, requestId });
+      }
+      if (code?.retryable === true && live) return promoted.passagePromoted({ ...object, requestId });
+      throw error;
+    });
+    void ask().then((found) => {
       if (!live) {
-        // Closed before the first answer came: its judged job is cancelled now (nothing else knows its id).
+        // Closed before the first answer came: its judged job is cancelled now (nothing else knows its id). A verb
+        // run from the menu meanwhile still waits on the object's protection: it is told.
         if (found.pendingJob) void promoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+        onWithheldNow.current?.(found.withheld === true);
         return;
       }
       setCheap(found.rows);
       onRowsNow.current?.(found.rows);
+      setWithheld(found.withheld === true);
+      onWithheldNow.current?.(found.withheld === true);
       if (found.pendingJob && poller) {
         jobId = found.pendingJob.jobId;
         setJudgedPending(true);
@@ -142,6 +172,9 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
               if (job.status === "done") {
                 setCheap(job.rows);
                 onRowsNow.current?.(job.rows);
+              } else {
+                // Interrupted (another vault opened) or failed: no rows of it show; the menu opened again asks anew.
+                setJudgedStopped(true);
               }
             }
             return { done: job.done };
@@ -151,7 +184,10 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
           },
         });
       }
-    }, () => undefined);
+    }, () => {
+      // No answer: the protection is not known from here; the verbs' own calls keep theirs.
+      onWithheldNow.current?.(false);
+    });
     return () => {
       live = false;
       stop?.();
@@ -279,10 +315,12 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     <>
       <div ref={menuRef} className="desk-menu" role="menu" aria-label={label ?? header} style={{ left: place.left, top: place.top }}>
         <div className="mh">{header}</div>
-        {promotedRows.length || judgedPending ? (
+        {promotedRows.length || judgedPending || withheld || judgedStopped ? (
           <div className="pro" data-menu-promoted="">
             {promotedRows.map(rowView)}
             {judgedPending ? <div className="pending">◐ looking for more · the four most useful show</div> : null}
+            {withheld ? <div className="pending" data-menu-withheld="">exam or held-out material: nothing is searched for it</div> : null}
+            {judgedStopped ? <div className="pending">the search for more stopped · open the menu again to look again</div> : null}
           </div>
         ) : null}
         {verbs.filter((row) => !row.aid).map(rowView)}

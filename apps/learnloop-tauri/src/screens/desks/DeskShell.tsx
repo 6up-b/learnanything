@@ -99,6 +99,7 @@ import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, useSheetFocus, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
+import { ExerciseSheet } from "./menu/ExerciseSheet";
 import { captureNodes, hasPassage, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
 import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
@@ -334,6 +335,7 @@ export interface MenuTransport extends MenuApi {
   passagePromotedJob: PromotedApi["passagePromotedJob"];
   passagePromotedCancel: PromotedApi["passagePromotedCancel"];
   proposalLabel(input: import("../../api/dto").ProposalLabelInput): Promise<unknown>;
+  readerExerciseImportStatus(input: { batchId: string }): Promise<import("../../api/dto").ReaderExerciseImportStatusDto>;
 }
 
 export const LIVE_MENU_TRANSPORT: MenuTransport = {
@@ -351,6 +353,7 @@ export const LIVE_MENU_TRANSPORT: MenuTransport = {
   readerCapture: (input) => api.readerCapture(input),
   readerImportExercise: (input) => api.readerImportExercise(input),
   readerAuthorSectionQuestion: (input) => api.readerAuthorSectionQuestion(input),
+  readerExerciseImportStatus: (input) => api.readerExerciseImportStatus(input),
 };
 
 /** The companion's and search's calls (spec §3.4; RD3a's jobs). */
@@ -627,8 +630,10 @@ export function DeskShell({
   const [menu, setMenu] = useState<MenuObject | null>(null);
   const [knows, setKnows] = useState<import("../../api/dto").MenuObjectInput | null>(null);
   const [menuSheet, setMenuSheet] = useState<{ kind: "note" | "confirm"; title: string; detail: string; resolve: (value: string | boolean | null) => void } | null>(null);
+  // Make it practice on an exercise: the sheet that shows its words, imports it and lists what it made.
+  const [exerciseSheet, setExerciseSheet] = useState<{ object: MenuObject; anchor: { extractionId: string; spanId: string }; key: string } | null>(null);
   const menuOpenRef = useRef(false);
-  menuOpenRef.current = menu !== null || knows !== null || menuSheet !== null;
+  menuOpenRef.current = menu !== null || knows !== null || menuSheet !== null || exerciseSheet !== null;
   // Pen mode (spec §10.10): alt+p, the ✎ chip, or a pen's first touch; "simulate pen" lets the mouse draw.
   const [penOn, setPenOn] = useState(false);
   const [simulatePen, setSimulatePen] = useState(false);
@@ -2865,6 +2870,8 @@ export function DeskShell({
   // The rows the open source menu shows (Open beside takes its correspondent from them): told by that menu only
   // while it is open on its object, so a closed menu's late answer never lands here.
   const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([]);
+  const [menuWithheld, setMenuWithheld] = useState(false);
+  const menuWithheldAnswer = useRef<{ promise: Promise<boolean>; resolve: (withheld: boolean) => void }>({ promise: Promise.resolve(false), resolve: () => undefined });
   const menuContext = useMemo<MenuContext>(() => ({
     deskId,
     api: menuTransport,
@@ -2911,7 +2918,10 @@ export function DeskShell({
     },
     showKnows: (object) => setKnows(objectInput(object, deskIdRef.current)),
     teachMe: (entry) => openLesson(entry),
+    // One import key per sheet: a resent import of the same exercise is the same import.
+    reviewExercise: (object, anchor) => setExerciseSheet({ object, anchor, key: mintId("import") }),
     promotedRows: () => menuPromotedRows.current,
+    withheld: () => menuWithheldAnswer.current.promise,
   }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom]);
 
   // A right-click inside a notebook frame (spec §11.3) opens the pad menu in the stack window that shows the
@@ -3012,6 +3022,11 @@ export function DeskShell({
       return;
     }
     menuPromotedRows.current = [];
+    // The object's protection is known from its first answer; a verb that would send its words waits for it.
+    setMenuWithheld(false);
+    let resolve: (withheld: boolean) => void = () => undefined;
+    menuWithheldAnswer.current = { promise: new Promise<boolean>((done) => { resolve = done; }), resolve: (withheld) => resolve(withheld) };
+    if (!hasPassage(object)) menuWithheldAnswer.current.resolve(false);
     setMenu(object);
   };
 
@@ -3853,11 +3868,11 @@ export function DeskShell({
       ) : null}
       {menu ? (
         <ContextMenu
-          header={headerLine(menu)}
+          header={headerLine(menu, menuWithheld)}
           rows={sourceMenuRows(menu, menuContext, (() => {
             const target = appendTargetOf(deskId);
             return deskPads(deskId).find((pad) => pad.padId === target)?.title ?? "a new pad";
-          })()).map((row) => ({ ...row, run: () => {
+          })(), menuWithheld).map((row) => ({ ...row, run: () => {
             setMenu(null);
             row.run?.();
           } }))}
@@ -3867,6 +3882,10 @@ export function DeskShell({
           onPromoted={(row, origin) => onPromotedRef.current(row, origin)}
           onRows={(rows) => {
             menuPromotedRows.current = rows;
+          }}
+          onWithheld={(withheld) => {
+            setMenuWithheld(withheld);
+            menuWithheldAnswer.current.resolve(withheld);
           }}
           poller={poller}
           owner={menu.windowId}
@@ -3895,6 +3914,27 @@ export function DeskShell({
             openPassage: (extractionId, spanId) => openPassage(extractionId, spanId),
           }}
           onClose={() => setKnows(null)}
+        />
+      ) : null}
+      {exerciseSheet ? (
+        <ExerciseSheet
+          readWords={() => {
+            const ids = captureNodes(exerciseSheet.object).map((node) => node.spanId);
+            return padsTransport.passageContent({ extractionId: exerciseSheet.anchor.extractionId, fromSpanId: ids[0] ?? exerciseSheet.anchor.spanId, toSpanId: ids[ids.length - 1] ?? exerciseSheet.anchor.spanId });
+          }}
+          startImport={async () => {
+            const { object, anchor, key } = exerciseSheet;
+            const who = await menuTransport.readingIdentity(anchor.extractionId);
+            return menuTransport.readerImportExercise({
+              sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId, clientIdempotencyKey: key,
+              rawSelection: { extractionId: anchor.extractionId, nodes: captureNodes(object) },
+            });
+          }}
+          readStatus={(batchId) => menuTransport.readerExerciseImportStatus({ batchId })}
+          poller={poller}
+          owner={exerciseSheet.object.windowId}
+          onClose={() => setExerciseSheet(null)}
+          onError={toastNow}
         />
       ) : null}
       {menuSheet ? <MenuSheet sheet={menuSheet} onDone={(value) => {

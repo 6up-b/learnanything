@@ -30,7 +30,7 @@ export interface PadsApi {
   carriedCarry(input: CarryInput): Promise<{ carried: CarriedQuestionDto; created: boolean }>;
   requestTeachBack(input: { learningObjectId?: string; practiceItemId?: string }): Promise<{ practiceItemId: string }>;
   passageUnionRange(input: PassageUnionInput): Promise<PassageUnionDto>;
-  authorPracticeItem(input: { learningObjectId: string; prompt: string; expectedAnswer: string }): Promise<{ practiceItemId: string }>;
+  authorPracticeItem(input: { learningObjectId: string; prompt: string; expectedAnswer: string; clientIdempotencyKey?: string }): Promise<{ practiceItemId: string }>;
   /** A teach-back's next turn (the existing entry point), when a submitted teach-back asks a follow-up. */
   submitTeachBackTurn(input: SubmitTeachBackTurnInput): Promise<TeachBackTurnResult>;
   /** The session (its checkpoint holds a teach-back in progress). */

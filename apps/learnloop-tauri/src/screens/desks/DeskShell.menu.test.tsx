@@ -62,6 +62,7 @@ function menuFakes() {
     readerCapture: vi.fn(async () => ({ annotationId: "ann_new" }) as never),
     readerImportExercise: vi.fn(),
     readerAuthorSectionQuestion: vi.fn(),
+    readerExerciseImportStatus: vi.fn(async () => ({ status: "running" }) as never),
   };
   return { transport, asked, labels };
 }
@@ -166,7 +167,8 @@ describe("the desks' context menu", () => {
     expect(paneMenus).toEqual([]);
     expect(screen.getByText("a passage · “the first passage of fx_w_book”")).toBeTruthy();
     await screen.findByText("your question on the first passage");
-    expect(asked[0]).toEqual({ objectKind: "passage", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", windowId: "fx_w_book", deskId: "fx_desk_softmax" });
+    expect(asked[0]).toEqual({ objectKind: "passage", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", windowId: "fx_w_book", deskId: "fx_desk_softmax",
+      requestId: expect.stringMatching(/^prom_/) });
     const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
     expect(verbs).toEqual(["Ask", "Note in margin", expect.stringMatching(/^Append to “/), "Carry", "Open beside", "Find in my sources", "Compare", "Show me", "Make it practice", "Teach me this", "What this knows"]);
   });
@@ -586,5 +588,33 @@ describe("RD5 fix round: labels are kept until stored", () => {
     fireEvent.click(within(second).getByLabelText("dismiss"));
     await flush();
     expect(await screen.findByText(/couldn't keep that you set it aside/)).toBeTruthy();
+  });
+});
+
+describe("RD5 fix round: exam or held-out material in the menu", () => {
+  it("names the material without quoting it, says nothing is searched, leaves out the verbs that would send its words, and a key pressed before the answer sends nothing", async () => {
+    const { transport } = mount();
+    let answer: (found: PassagePromotedDto) => void = () => undefined;
+    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise<PassagePromotedDto>((resolve) => { answer = resolve; }));
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    // `/` (Find) before the menu's first answer: it waits for the protection.
+    fireEvent.keyDown(window, { key: "/" });
+    await act(async () => {
+      answer({ version: 1, objectKey: "k", rows: [], cap: 4, pendingJob: null, paid: { searchedByMeaning: false, verified: false, reason: "exam or held-out material: nothing is searched for it" }, withheld: true } as unknown as PassagePromotedDto);
+      await Promise.resolve();
+    });
+    await flush();
+    expect(document.querySelector(".desk-search, [data-desk-search]")).toBeNull();
+    expect(await screen.findByText("this is exam or held-out material: its words are not sent anywhere from here")).toBeTruthy();
+    // Opened again on it: the plain line, the material named, the quoting verbs left out.
+    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ version: 1, objectKey: "k", rows: [], cap: 4, pendingJob: null,
+      paid: { searchedByMeaning: false, verified: false, reason: null }, withheld: true }) as unknown as PassagePromotedDto);
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    await screen.findByText("exam or held-out material: nothing is searched for it");
+    expect(menus()[0].querySelector(".mh")?.textContent).toBe("a passage · exam or held-out material");
+    const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
+    expect(verbs).toEqual(["Note in margin", "Open beside", "What this knows"]);
+    expect(menus()[0].textContent).not.toContain("the first passage of fx_w_book");
   });
 });

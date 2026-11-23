@@ -61,8 +61,10 @@ const KIND_LABEL: Record<MenuObjectKind, string> = {
   pad_line: "your pad",
 };
 
-/** "<a passage | a transcript cue | your margin note | a window> · “<first 46 chars>”" (§9.1, §9.2). */
-export function headerLine(object: MenuObject): string {
+/** "<a passage | a transcript cue | your margin note | a window> · “<first 46 chars>”" (§9.1, §9.2). Exam or held-out
+ * material is named, never quoted. */
+export function headerLine(object: MenuObject, withheld = false): string {
+  if (withheld) return `${KIND_LABEL[object.kind]} · exam or held-out material`;
   const words = (object.selection || object.text).replace(/\s+/g, " ").trim();
   const clipped = words.length > 46 ? `${words.slice(0, 46)}…` : words;
   return `${KIND_LABEL[object.kind]} · “${clipped || "…"}”`;
@@ -100,6 +102,10 @@ export const VERBS: VerbSpec[] = [
   { id: "own_slot", glyph: "⤓", label: "Own slot", key: ".", kinds: ["window"] },
   { id: "knows", glyph: "i", label: "What this knows", key: "i", kinds: ["passage", "cue", "highlight", "note", "window", "pad_line"] },
 ];
+
+/** The verbs that would quote the object's words or send them on (to the tutor, a search, a figure, a lesson, a
+ * pad, a carried question): left out on exam or held-out material, as the pads refuse to copy it. */
+export const QUOTING_VERBS: readonly VerbId[] = ["ask", "find", "compare", "show_me", "make_practice", "append", "carry", "teach_me"];
 
 /** The verbs for an object kind, in their fixed order. */
 export function verbsFor(kind: MenuObjectKind): VerbSpec[] {

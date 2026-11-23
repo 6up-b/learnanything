@@ -48,7 +48,7 @@ describe("the context menu", () => {
     render(<ContextMenu header="a passage · “words”" rows={verbs()} at={{ x: 100, y: 100 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller} owner="w1" onClose={() => undefined} />);
     await screen.findByText("row r1");
     expect(screen.getByText(/looking for more/)).toBeTruthy();
-    expect(api.passagePromoted).toHaveBeenCalledWith({ objectKind: "passage", extractionId: "e", spanId: "s" });
+    expect(api.passagePromoted).toHaveBeenCalledWith({ objectKind: "passage", extractionId: "e", spanId: "s", requestId: expect.stringMatching(/^prom_/) });
     await act(async () => {
       await poller.tick();
     });
@@ -129,6 +129,51 @@ describe("the context menu", () => {
     render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onPromoted={() => false} onClose={() => undefined} />);
     fireEvent.click(await screen.findByText("row r1"));
     expect(labels).toEqual([]);
+  });
+
+  it("sends one request id per opening and reuses it on a retry after a lost reply; a new opening sends a new one", async () => {
+    const { api } = promotedApi(promoted([row("r1")]));
+    let lost = true;
+    const seen: string[] = [];
+    api.passagePromoted = vi.fn(async (input: { requestId?: string }) => {
+      seen.push(input.requestId ?? "");
+      if (lost) {
+        lost = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost", retryable: true };
+      }
+      return promoted([row("r1")]);
+    }) as never;
+    const view = render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toBe(seen[0]);
+    view.unmount();
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    expect(seen[2]).not.toBe(seen[0]);
+  });
+
+  it("exam or held-out material: says plainly nothing is searched, and tells the caller", async () => {
+    const told: boolean[] = [];
+    const { api } = promotedApi({ ...promoted([]), withheld: true } as PassagePromotedDto);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onWithheld={(w) => told.push(w)} onClose={() => undefined} />);
+    await screen.findByText("exam or held-out material: nothing is searched for it");
+    expect(told).toEqual([true]);
+  });
+
+  it("a judged job interrupted by a vault switch shows no rows of it and says the menu can look again", async () => {
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const { api } = promotedApi(promoted([row("r1")], { jobId: "j8" }), [
+      { status: "failed", done: true, rows: [], error: { code: "interrupted", message: "another vault opened", retryable: true } } as unknown as PromotedJobDto,
+    ]);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(screen.getByText(/the search for more stopped/)).toBeTruthy();
+    expect(screen.queryByText(/looking for more/)).toBeNull();
+    expect(screen.getByText("row r1")).toBeTruthy();
   });
 
   it("labels a promoted row opened, dismissed or not this by its row id; a dismissed row leaves the menu", async () => {
