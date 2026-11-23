@@ -19,9 +19,8 @@ from learnloop.db.attempt_order import (
     LEGACY_ORDER,
     UNBOUND_SEQUENCE,
     application_sequences,
-    rank_legacy_attempts,
-    reserve_application_sequence,
 )
+from learnloop.db.stores.attempts import rank_legacy_attempts, reserve_application_sequence
 
 T0 = "2026-10-12T09:00:00Z"
 T1 = "2026-10-12T09:00:01Z"

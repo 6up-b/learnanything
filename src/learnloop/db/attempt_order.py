@@ -162,7 +162,7 @@ def attempt_order_for(config: Any) -> AttemptOrder:
     return APPLICATION_ORDER if application_order_on(config) else LEGACY_ORDER
 
 
-# -- the table ----------------------------------------------------------------------------------------------
+# -- the table (its two writers are the attempt store's: ``db.stores.attempts``) ------------------------------
 
 
 def application_sequences(connection: Any) -> dict[str, int]:
@@ -172,44 +172,6 @@ def application_sequences(connection: Any) -> dict[str, int]:
         str(row[0]): int(row[1])
         for row in connection.execute(f"SELECT attempt_id, sequence FROM {APPLICATION_ORDER_TABLE}")
     }
-
-
-def reserve_application_sequence(
-    connection: Any, attempt_id: str, *, algorithm_version: str, recorded_at: str
-) -> int:
-    """The attempt's sequence: the next one, reserved now, or the one it already has.
-
-    Called inside the attempt's own write transaction (``BEGIN IMMEDIATE``), before anything is computed, so the
-    sequence is the order the write lock admitted the applications in; a rollback takes the reservation with it."""
-
-    connection.execute(
-        f"INSERT INTO {APPLICATION_ORDER_TABLE}(attempt_id, basis, algorithm_version, recorded_at) "
-        "VALUES (?, ?, ?, ?) ON CONFLICT(attempt_id) DO NOTHING",
-        (attempt_id, BASIS_APPLIED, algorithm_version, recorded_at),
-    )
-    return int(
-        connection.execute(
-            f"SELECT sequence FROM {APPLICATION_ORDER_TABLE} WHERE attempt_id = ?", (attempt_id,)
-        ).fetchone()[0]
-    )
-
-
-def rank_legacy_attempts(connection: Any, *, algorithm_version: str, recorded_at: str) -> int:
-    """Give every attempt without a sequence one, in the predecessor's ``(created_at, id)`` order, after every
-    sequence that exists; how many were ranked. Their basis says the order is not known, only kept."""
-
-    attempt_ids = [
-        str(row[0])
-        for row in connection.execute(
-            f"SELECT id FROM practice_attempts AS attempt WHERE NOT EXISTS (SELECT 1 FROM {APPLICATION_ORDER_TABLE} "
-            "AS application_order WHERE application_order.attempt_id = attempt.id) ORDER BY created_at, id"
-        )
-    ]
-    connection.executemany(
-        f"INSERT INTO {APPLICATION_ORDER_TABLE}(attempt_id, basis, algorithm_version, recorded_at) VALUES (?, ?, ?, ?)",
-        [(attempt_id, BASIS_LEGACY_ORDER_UNKNOWN, algorithm_version, recorded_at) for attempt_id in attempt_ids],
-    )
-    return len(attempt_ids)
 
 
 __all__ = [
@@ -226,6 +188,4 @@ __all__ = [
     "application_sequences",
     "attempt_order_for",
     "attempt_order_for_version",
-    "rank_legacy_attempts",
-    "reserve_application_sequence",
 ]

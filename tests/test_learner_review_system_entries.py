@@ -160,9 +160,9 @@ def test_review_feed_bulk_loads_timeline_history_once(tmp_path, monkeypatch):
     original_attempts = repository.list_attempt_history
     original_grading = repository.list_grading_evidence_history
 
-    def attempts_once():
+    def attempts_once(**order):
         calls["attempts"] += 1
-        return original_attempts()
+        return original_attempts(**order)
 
     def grading_once(*, include_superseded=False):
         calls["grading"] += 1

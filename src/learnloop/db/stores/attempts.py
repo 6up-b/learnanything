@@ -20,7 +20,13 @@ from learnloop.db.records import (
     _decode_surprise,
     _projection_id,
 )
-from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder
+from learnloop.db.attempt_order import (
+    APPLICATION_ORDER_TABLE,
+    BASIS_APPLIED,
+    BASIS_LEGACY_ORDER_UNKNOWN,
+    LEGACY_ORDER,
+    AttemptOrder,
+)
 from learnloop.db.row_serialization import _json, _loads
 from learnloop.db.stores.diagnoses import merge_causal_view_into_feedback
 from learnloop.db.stores.observation_ledger import load_effective_assessment_contracts
@@ -170,6 +176,44 @@ def _attempt_label_snapshot(row: sqlite3.Row) -> dict[str, Any]:
         "latency_seconds": row["latency_seconds"],
         "created_at": row["created_at"],
     }
+
+
+def reserve_application_sequence(
+    connection: Any, attempt_id: str, *, algorithm_version: str, recorded_at: str
+) -> int:
+    """The attempt's sequence: the next one, reserved now, or the one it already has.
+
+    Called inside the attempt's own write transaction (``BEGIN IMMEDIATE``), before anything is computed, so the
+    sequence is the order the write lock admitted the applications in; a rollback takes the reservation with it."""
+
+    connection.execute(
+        f"INSERT INTO {APPLICATION_ORDER_TABLE}(attempt_id, basis, algorithm_version, recorded_at) "
+        "VALUES (?, ?, ?, ?) ON CONFLICT(attempt_id) DO NOTHING",
+        (attempt_id, BASIS_APPLIED, algorithm_version, recorded_at),
+    )
+    return int(
+        connection.execute(
+            f"SELECT sequence FROM {APPLICATION_ORDER_TABLE} WHERE attempt_id = ?", (attempt_id,)
+        ).fetchone()[0]
+    )
+
+
+def rank_legacy_attempts(connection: Any, *, algorithm_version: str, recorded_at: str) -> int:
+    """Give every attempt without a sequence one, in the predecessor's ``(created_at, id)`` order, after every
+    sequence that exists; how many were ranked. Their basis says the order is not known, only kept."""
+
+    attempt_ids = [
+        str(row[0])
+        for row in connection.execute(
+            f"SELECT id FROM practice_attempts AS attempt WHERE NOT EXISTS (SELECT 1 FROM {APPLICATION_ORDER_TABLE} "
+            "AS application_order WHERE application_order.attempt_id = attempt.id) ORDER BY created_at, id"
+        )
+    ]
+    connection.executemany(
+        f"INSERT INTO {APPLICATION_ORDER_TABLE}(attempt_id, basis, algorithm_version, recorded_at) VALUES (?, ?, ?, ?)",
+        [(attempt_id, BASIS_LEGACY_ORDER_UNKNOWN, algorithm_version, recorded_at) for attempt_id in attempt_ids],
+    )
+    return len(attempt_ids)
 
 
 class AttemptStoreMixin:

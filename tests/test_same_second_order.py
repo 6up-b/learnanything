@@ -29,8 +29,8 @@ from learnloop.db.attempt_order import (
     BASIS_LEGACY_ORDER_UNKNOWN,
     LEGACY_ORDER,
     attempt_order_for,
-    reserve_application_sequence,
 )
+from learnloop.db.stores.attempts import reserve_application_sequence
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ops.upgrades import upgrade
@@ -137,18 +137,18 @@ def test_two_connections_with_reversed_allocation_and_completion_rebuild_to_live
 def test_a_rolled_back_application_leaves_no_reservation_and_its_retry_takes_the_next(tmp_path, monkeypatch):
     paths, vault, repository = _vault(tmp_path, AT)
     _self_graded_apply(vault, repository, ITEM, FULL, attempt_id=B_ID, when=T)
-    real = attempts_module._persist_attempt_application
 
     def refused(*args, **kwargs):
         raise RuntimeError("injected failure after the reservation")
 
-    monkeypatch.setattr(attempts_module, "_persist_attempt_application", refused)
+    # The attempt's own write fails inside the transaction, after the reservation.
+    monkeypatch.setattr(repository, "record_attempt_outcome", refused)
     with pytest.raises(RuntimeError, match="injected"):
         _self_graded_apply(vault, repository, ITEM, NONE, attempt_id=A_ID, when=T)
     assert _sequences(repository) == [(B_ID, 1, BASIS_APPLIED, AT)]
     assert repository.fetch_practice_attempt(A_ID) is None
 
-    monkeypatch.setattr(attempts_module, "_persist_attempt_application", real)
+    monkeypatch.undo()
     _self_graded_apply(vault, repository, ITEM, NONE, attempt_id=A_ID, when=T)
     assert _sequences(repository) == [(B_ID, 1, BASIS_APPLIED, AT), (A_ID, 2, BASIS_APPLIED, AT)]
     # A second reservation of an attempt that has one finds it (no second row, no new number).

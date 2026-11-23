@@ -18,7 +18,7 @@ from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
-from learnloop.db.attempt_order import attempt_order_for, reserve_application_sequence
+from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.records import FacetUncertaintyState
 from learnloop.db.repositories import (
     ItemParameterState,
@@ -26,7 +26,7 @@ from learnloop.db.repositories import (
     PracticeItemState,
     Repository,
 )
-from learnloop.db.stores.attempts import GradingEvidenceRecord
+from learnloop.db.stores.attempts import GradingEvidenceRecord, reserve_application_sequence
 from learnloop.db.stores.facet_projection import FacetRecallState
 from learnloop.db.stores.practice_state import PracticeItemQualityState
 from learnloop.db.stores.learner_model import ActiveErrorEvent

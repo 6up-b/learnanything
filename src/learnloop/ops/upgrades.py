@@ -43,7 +43,7 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
-from learnloop.db.attempt_order import rank_legacy_attempts
+from learnloop.db.stores.attempts import rank_legacy_attempts
 from learnloop.db.repositories import Repository
 from learnloop.ops.settings_store import updated_config_text
 from learnloop.params import parameter_registry as registry_service
