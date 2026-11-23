@@ -364,6 +364,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # the job row beside it: operational, never evidence, never rebuilt.
     ("ingest_job_progress", TableRole.WORKFLOW),
     ("ingest_jobs", TableRole.WORKFLOW),
+    # Reader workbench v2 pen and ink (migration 268; spec §10.10, §15.1): every ink save and erase
+    # (the learner's own strokes, append-only by trigger, never cleared) and each reading of an
+    # owner's standing strokes (a paid output kept so the same strokes are never read twice).
+    ("ink_strokes", TableRole.RAW_LEDGER),
+    ("ink_transcriptions", TableRole.RECEIPT),
     # Canonical sources S0: rendered proposals (append-only facts of what
     # reached the screen; never the activity_exposure_events burn boundary).
     ("instructional_impressions", TableRole.RAW_LEDGER),
