@@ -241,7 +241,11 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const hub = useListenerHub();
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      // Every player shares YouTube's origin: only this panel's own frame is this panel's player, so two
+      // players on one desk never take each other's time.
       if (event.origin !== YT_ORIGIN) return;
+      const frame = iframeRef.current?.contentWindow ?? null;
+      if (frame === null || event.source !== frame) return;
       let data: { event?: string; info?: number | { currentTime?: number; playerState?: number } };
       try {
         data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
