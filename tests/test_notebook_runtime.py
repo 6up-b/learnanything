@@ -493,3 +493,58 @@ def test_the_app_frames_notebooks_from_any_loopback_port():
                        / "tauri.conf.json").read_text(encoding="utf-8"))
     frame_src = next(part for part in conf["app"]["security"]["csp"].split("; ") if part.startswith("frame-src"))
     assert f"http://{settings.FRAME_HOST}:*" in frame_src.split()
+
+
+# -- the runtime's HTTP stays on the machine ------------------------------------------------------------------------
+
+def test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket(tmp_path, monkeypatch):
+    """The supervisor and the frame proxy import an HTTP client (audited in tests/test_plan_first_transport.py): every
+    client they build speaks over the session's own Unix socket with the base URL http://127.0.0.1, so no request
+    can leave the machine or reach a model; the WebSocket relay connects to the socket too, and nothing in the
+    package names another host or opens a TCP connection of its own."""
+
+    import ast
+    import re
+
+    import httpx
+
+    from learnloop.notebook_runtime import supervisor as supervisor_module
+
+    built: list[dict[str, object]] = []
+    transports: list[dict[str, object]] = []
+
+    class Transport:
+        def __init__(self, **kwargs: object) -> None:
+            transports.append(kwargs)
+
+    class Client:
+        def __init__(self, **kwargs: object) -> None:
+            built.append(kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", Transport)
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    held = session(tmp_path)
+    supervisor_module.SandboxBackend(scoped=False)._client(held)
+    proxy.FrameProxy(held)._upstream()
+    assert len(built) == 2 and len(transports) == 2
+    assert all(kwargs["base_url"] == "http://127.0.0.1" for kwargs in built)
+    assert all(set(kwargs) == {"uds"} and kwargs["uds"] == str(held.layout.socket) for kwargs in transports)
+
+    package = Path(supervisor_module.__file__).parent
+    for path in sorted(package.glob("*.py")):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                owner = getattr(node.func.value, "id", None)
+                if owner == "httpx" and node.func.attr in {"AsyncClient", "Client"}:
+                    transport = next((k.value for k in node.keywords if k.arg == "transport"), None)
+                    assert isinstance(transport, ast.Call) and any(k.arg == "uds" for k in transport.keywords), path.name
+                if owner == "httpx":
+                    assert node.func.attr in {"AsyncClient", "AsyncHTTPTransport", "Limits"}, (path.name, node.func.attr)
+                if owner == "websockets":
+                    assert node.func.attr == "unix_connect", (path.name, node.func.attr)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                # A URL's host is the loopback (a fragment ending in "://" is followed by FRAME_HOST, pinned below).
+                for host in re.findall(r"[a-z]+://([^/:\s'\"`{]+)", node.value):
+                    assert host == "127.0.0.1" or host == "localhost" or host.endswith(".localhost"), (path.name, host)
+    assert settings.FRAME_HOST == "127.0.0.1"
