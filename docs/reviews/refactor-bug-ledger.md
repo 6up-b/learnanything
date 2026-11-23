@@ -537,3 +537,9 @@ Found by three independent reviews of the teacher v2 design (spec `docs/specs/sp
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|
 | RD2-1 | RD2's harness, when the desks' slot markup was nested | RD1's rule giving paused windows `content-visibility: auto` was written `.desk-window.paused > .desk-pane-body`, but the pane body was never a direct child of the window, so offscreen and hidden windows kept rendering their content (spec §3.6). | The harness's "a paused window's content is not rendered (content-visibility: auto)": with the old selector it read `visible` for all eight paused bodies and failed | `.desk-window.paused .desk-pane-body`; the RD1 two-player check now reads the clocks from the DOM's text (a body that is not rendered has no rendered text) | fixed |
+
+## From the Reader workbench v2 scratchpads backend (RD4a, 2026-11-23)
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| RD4a-1 | RD4a, wiring the pads' emission past fence 1 | Fence 1 (`evidence-never-reads-desks-or-pads`) forbade the pads' writer store (`db.stores.pads`) but not the read module the RD0 fix round split out of it (`db.stores.pad_reads`), so the gap pipeline, replay or any evidence writer could import the pads' reads and pass the fence. | `tests/test_reader_rd4_rpcs.py::test_fence_one_refuses_the_pads_read_and_ledger_modules_too` (its `pad_reads` cases fail with the module left out of the fence) | `db.stores.pad_reads` (and RD4's `db.stores.pad_ledgers`) added to the fence's forbidden modules; nothing imported it there, so the fence holds as before | fixed |
