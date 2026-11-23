@@ -223,6 +223,8 @@ class Supervisor:
         self.ready_timeout = ready_timeout
         self.stop_timeout = stop_timeout
         self._watch: asyncio.Task | None = None
+        #: The start in flight (a spawn or a readiness wait); a stop waits for it, so no server outlives a stop.
+        self._start_task: asyncio.Task | None = None
         self._stopping = False
         self.ready_event = asyncio.Event()
 
@@ -231,11 +233,15 @@ class Supervisor:
 
         session = self.session
         self._stopping = False
+        self._start_task = asyncio.current_task()
         session.state = STARTING
         session.stop_reason = None
         session.last_error = None
-        if await self._launch():
-            self._watch = asyncio.create_task(self._supervise())
+        try:
+            if await self._launch():
+                self._watch = asyncio.create_task(self._supervise())
+        finally:
+            self._start_task = None
 
     async def _launch(self) -> bool:
         session = self.session
@@ -250,8 +256,13 @@ class Supervisor:
             session.state = FAILED
             session.last_error = f"the notebook server could not start ({type(exc).__name__}: {exc})"
             return False
+        if self._stopping:
+            # A stop landed while the server was being spawned: it never serves.
+            await self._kill()
+            return False
         if not await self._wait_ready():
             if self._stopping:
+                await self._kill()
                 return False
             session.state = FAILED
             session.last_error = "the notebook server did not answer on its socket"
@@ -313,6 +324,10 @@ class Supervisor:
             return
         self._stopping = True
         session.state = STOPPING
+        starting = self._start_task
+        if starting is not None and starting is not asyncio.current_task() and not starting.done():
+            # Let the start see the stop (it kills a server it spawned meanwhile), then stop what is left.
+            await asyncio.wait({starting}, timeout=self.stop_timeout * 3)
         process = session.process
         if process is not None and process.returncode is None:
             if graceful:

@@ -703,3 +703,31 @@ def test_recorded_values_are_only_known_controls_within_a_bound(tmp_path):
     assert "MJUe-2" not in held.ui_values
     record_ui_values(held, {"Hbol-0": 5})
     assert held.ui_values["Hbol-0"] == 5
+
+
+# -- a stop that lands while a server is being spawned ---------------------------------------------------------------
+
+def test_a_stop_during_a_spawn_kills_the_server_when_the_spawn_returns(tmp_path):
+    class SlowSpawn(FakeBackend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.gate = asyncio.Event()
+
+        async def spawn(self, held):
+            await self.gate.wait()
+            return await super().spawn(held)
+
+    async def scenario():
+        backend = SlowSpawn()
+        supervisor = Supervisor(session(tmp_path), backend)
+        starting = asyncio.create_task(supervisor.start())
+        await asyncio.sleep(0.05)
+        stopping = asyncio.create_task(supervisor.stop("closed"))
+        await asyncio.sleep(0.05)
+        backend.gate.set()
+        await asyncio.wait_for(asyncio.gather(starting, stopping), 5)
+        return backend, supervisor
+
+    backend, supervisor = asyncio.run(scenario())
+    assert backend.processes and all(process.returncode is not None for process in backend.processes)
+    assert supervisor.session.state == STOPPED and supervisor.session.process is None
