@@ -46,7 +46,10 @@ source_text_assertions = 23
 # returns (L6a): 802 lines, the eleven live applications' records and a null on each replay; no existing value moved.
 # 295990: the figure goldens record each press's figure_request row and two figure_withheld rows (34 new rows,
 # about 1,040 lines); the existing rows are unchanged but for their trace tokens, a build's records now sharing one.
-golden_json_lines = 295990
+# 296669: the rich job golden records each attempt's figure_rich_author row and each stop's figure_rich_stop row
+# (21 new rows), and the build golden's delivery case its delivery's figure_withheld row (it now delivers the job's
+# own result); the existing rows are unchanged.
+golden_json_lines = 296669
 
 [members]
 import_component = [
