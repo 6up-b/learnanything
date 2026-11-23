@@ -57,6 +57,8 @@ export interface AskRequest {
   spanId: string;
   selectionSpanIds?: string[];
   quote?: string | null;
+  /** Pad blocks asked about (recorded with the exchange). */
+  padBlockIds?: string[];
 }
 
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
@@ -152,6 +154,7 @@ export class CompanionAsks {
       parentExchangeId: parent,
       ...(request.selectionSpanIds?.length ? { selectionSpanIds: request.selectionSpanIds } : {}),
       ...(request.quote ? { selectionQuote: request.quote } : {}),
+      ...(request.padBlockIds?.length ? { padBlockIds: request.padBlockIds } : {}),
     };
     return this.send(input, request.windowId, request.quote ?? null, ready);
   }

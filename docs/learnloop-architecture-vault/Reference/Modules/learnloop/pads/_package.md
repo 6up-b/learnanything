@@ -50,10 +50,10 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/pads/__init__|learnloop.pads]] | [[Reference/Modules/learnloop/pads/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] | [[Reference/Modules/learnloop/pads/blocks#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] | [[Reference/Modules/learnloop/pads/carried#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] | [[Reference/Modules/learnloop/pads/blocks#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
+| [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] | [[Reference/Modules/learnloop/pads/carried#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] | [[Reference/Modules/learnloop/pads/drain#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] | [[Reference/Modules/learnloop/pads/emission#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
+| [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] | [[Reference/Modules/learnloop/pads/emission#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] | [[Reference/Modules/learnloop/pads/proposals#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/pads/quoting|learnloop.pads.quoting]] | [[Reference/Modules/learnloop/pads/quoting#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] | [[Reference/Modules/learnloop/pads/submission#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -64,8 +64,8 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 12 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
 - [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] — 2 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
 
 ### Packages that import this package
 
@@ -82,14 +82,14 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop["learnloop"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_desks["learnloop.desks"]
     n_learnloop_content_sources["learnloop.content.sources"]
+    n_learnloop_desks["learnloop.desks"]
     n_learnloop_sidecar["learnloop_sidecar"]
     center -->|12| n_learnloop_db_stores
     center -->|9| n_learnloop
     n_learnloop_sidecar_handlers -->|6| center
+    center -->|2| n_learnloop_content_sources
     center -->|2| n_learnloop_desks
-    center -->|1| n_learnloop_content_sources
     n_learnloop_sidecar -->|1| center
 ```
 

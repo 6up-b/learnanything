@@ -89,6 +89,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; statically calls `learning_objects_for_section`, `learning_objects_for_span`
 - [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `ANCHOR_CURRENT`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `ANCHOR_CURRENT`, `ANCHOR_MOVED`, `SPAN_LOCATOR_RE`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`, `span_for_ref`; statically calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`
@@ -117,7 +118,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]], [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]], [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]], [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

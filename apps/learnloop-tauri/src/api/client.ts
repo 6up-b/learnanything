@@ -30,6 +30,7 @@ import type {
   InkSaveInput,
   InkTranscribeJobDto,
   PassageUnionDto,
+  PassageContentDto,
   PassageUnionInput,
   SearchEverythingDto,
   SearchEverythingInput,
@@ -1632,6 +1633,8 @@ export const api = {
   inkTranscribeJob: (input: { jobId: string }) => call<InkTranscribeJobDto>("ink_transcribe_job", { input }),
   inkTranscribeCancel: (input: { jobId: string }) => call<InkTranscribeJobDto>("ink_transcribe_cancel", { input }),
   passageUnionRange: (input: PassageUnionInput) => call<PassageUnionDto>("passage_union_range", { input }),
+  // RD4 fix round: a range of a reading as the source has it, for "a piece of another source" (desktop only).
+  passageContent: (input: PassageUnionInput) => call<PassageContentDto>("passage_content", { input }),
   companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
     call<CompanionHistoryDto>("companion_history", { input }),
   checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>

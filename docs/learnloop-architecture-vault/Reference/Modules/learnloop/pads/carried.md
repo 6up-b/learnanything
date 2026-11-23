@@ -126,11 +126,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]]
-- [tests/test_reader_rd0_rpcs.py](../../../../../../tests/test_reader_rd0_rpcs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]]
-- [tests/test_reader_rd4_rpcs.py](../../../../../../tests/test_reader_rd4_rpcs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]]
+- [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — direct import
+  - `test_the_carried_list_pages_past_the_first_fifty_and_each_question_takes_its_labels`
 
 ## Modification guidance
 

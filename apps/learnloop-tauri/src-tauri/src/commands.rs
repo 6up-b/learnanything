@@ -1369,6 +1369,8 @@ sidecar_passthrough!(pad_get, "pad.get");
 sidecar_passthrough!(pad_list, "pad.list");
 sidecar_passthrough!(pad_apply, "pad.apply");
 sidecar_passthrough!(passage_union_range, "passage.union_range");
+// RD4 fix round: a range of a reading as the source has it (desktop only).
+sidecar_passthrough!(passage_content, "passage.content");
 sidecar_passthrough!(companion_history, "companion.history");
 sidecar_passthrough!(checks_due_for, "checks.due_for");
 // Reader workbench v2: the companion's ask as a polled job, and search in context (desktop only; no component

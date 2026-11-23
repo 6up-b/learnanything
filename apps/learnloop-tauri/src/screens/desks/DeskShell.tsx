@@ -22,6 +22,10 @@ import {
   moveToDesk,
   moveToDeskAt,
   openStackBeside,
+  addToStack,
+  ensureRunningPad,
+  hasRunningPad,
+  type Step,
   moveWindowTo,
   openBeside,
   pairFocused,
@@ -36,7 +40,6 @@ import {
   undoClose,
   unpairFocused,
   type DeskWindow,
-  type Step,
   type Workspace,
 } from "./model/workspace";
 import {
@@ -89,14 +92,14 @@ import { DeskListenerRouter, WINDOW_ATTRIBUTE, windowOfTarget } from "./keys/lis
 import { WindowScope, isPaused, windowState, type ClaimedScope, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./lifecycle";
 import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
-import { Shelf, type ShelfRow } from "./Shelf";
+import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { DrainPanel } from "./pads/DrainPanel";
-import { PassageMarks, type PadLink } from "./pads/PassageMarks";
+import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
 import { keyAfter } from "./pads/model";
-import { PadsHostContext, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
+import { PadsHostContext, PendingFigures, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
@@ -149,9 +152,45 @@ interface Grounding {
   extractionId?: string;
   spanId?: string;
   windowId?: string;
+  /** Asked about a pad line: its block (recorded with the exchange; its words go with the question). */
+  padBlockId?: string;
+  /** The window whose top passage stands in when no reading place is known (the book beside a pad line). */
+  spanWindowId?: string;
 }
 
-function groundingFor(ws: Workspace, chip: { spanIds: string[]; windowId: string } | null, focus: DeskWindow | undefined, status: Record<string, SourceStatus>): Grounding {
+/** A pad line asked about ("Ask about this" in the pad menu or a card): its block and the passage it links to. */
+export interface PadAskContext {
+  padId: string;
+  blockId: string | null;
+  anchor: { extractionId: string; spanId: string } | null;
+}
+
+/** What the chip asks about: a selection in a window, or a pad line. */
+export interface AskChip {
+  quote?: string;
+  spanIds: string[];
+  windowId: string;
+  pad?: PadAskContext;
+}
+
+export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWindow | undefined, status: Record<string, SourceStatus>): Grounding {
+  if (chip?.pad) {
+    const padBlockId = chip.pad.blockId ?? undefined;
+    // A linked line is asked about its passage.
+    if (chip.pad.anchor) return { reason: null, extractionId: chip.pad.anchor.extractionId, spanId: chip.pad.anchor.spanId, windowId: chip.windowId, padBlockId };
+    // An unlinked line is asked beside the desk's book or video, where the learner reads (its reading place).
+    const deskId = ws.windows[chip.windowId]?.deskId ?? focus?.deskId;
+    const desk = deskId ? ws.desks.find((each) => each.deskId === deskId) : undefined;
+    for (const id of desk?.slots.flat() ?? Object.keys(ws.windows)) {
+      const window = ws.windows[id];
+      const content = window?.content;
+      if (!window || !content || (content.kind !== "source" && content.kind !== "video")) continue;
+      const span = status[id]?.readingSpan ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : undefined);
+      // Asked from the pad (its window owns the question's poll), about the book where the learner reads.
+      return { reason: null, extractionId: content.extractionId, spanId: span, windowId: chip.windowId, spanWindowId: id, padBlockId };
+    }
+    return { reason: "this line is linked to no passage, and no book or video is open on this desk to ask beside" };
+  }
   if (chip && chip.spanIds.length) {
     const content = ws.windows[chip.windowId]?.content;
     if (content && (content.kind === "source" || content.kind === "video")) {
@@ -179,6 +218,21 @@ function firstVisibleSpan(windowId: string | null): string | null {
   return visible ? visible.getAttribute("data-span-id") ?? visible.getAttribute("data-transcript-span") : null;
 }
 
+const PENDING_FIGURES = new WeakMap<object, PendingFigures>();
+
+function pendingFiguresFor(store: object): PendingFigures {
+  let figures = PENDING_FIGURES.get(store);
+  if (!figures) {
+    figures = new PendingFigures();
+    PENDING_FIGURES.set(store, figures);
+  }
+  return figures;
+}
+
+function errorText(error: unknown): string {
+  return error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error);
+}
+
 /** A position key after a pad's last block. */
 function keyAfterLast(blocks: Array<{ blockId: string; positionKey: string }>): string {
   return keyAfter(blocks as never, blocks[blocks.length - 1]?.blockId ?? null);
@@ -195,7 +249,7 @@ export interface PadsTransport extends PadsApi {
   padDrain(input: { deskId: string }): Promise<PadDrainDto>;
   figureRequest(input: import("../../api/dto").FigureRequestV1Input): Promise<import("../../api/dto").LibraryJobDto<import("../../api/dto").FigureBuildResultDto>>;
   readerFigureJob(input: { jobId: string }): Promise<import("../../api/dto").LibraryJobDto<import("../../api/dto").FigureBuildResultDto>>;
-  carriedList(input: { which?: "open" | "closed" | "all"; deskId?: string }): Promise<{ carried: CarriedQuestionDto[]; shelfLimit: number }>;
+  carriedList(input: { which?: "open" | "closed" | "all"; deskId?: string; cursor?: string }): Promise<{ carried: CarriedQuestionDto[]; shelfLimit: number; cursor?: string | null }>;
   carriedMark(input: import("../../api/dto").CarriedMarkInput): Promise<unknown>;
 }
 
@@ -207,6 +261,9 @@ export const LIVE_PADS_TRANSPORT: PadsTransport = {
   requestTeachBack: (input) => api.requestTeachBack(input),
   passageUnionRange: (input) => api.passageUnionRange(input),
   authorPracticeItem: (input) => api.authorPracticeItem(input),
+  submitTeachBackTurn: (input) => api.submitTeachBackTurn(input),
+  getSession: (sessionId) => api.getSession(sessionId),
+  passageContent: (input) => api.passageContent(input),
   workbenchOpenProblems: async () => (await api.workbenchOpenProblems()) as unknown as { problems: Array<{ sessionId: string; practiceItemId?: string | null }> },
   padDrain: (input) => api.padDrain(input),
   figureRequest: (input) => api.figureRequest(input),
@@ -434,12 +491,13 @@ export function DeskShell({
   // slides aside; search in context (§9.3) while open.
   const [companionState, setCompanionState] = useState<CompanionState>(HIDDEN);
   const [companionDock, setCompanionDockShown] = useState<CompanionDock>("br");
-  const [chip, setChip] = useState<{ quote: string; spanIds: string[]; windowId: string } | null>(null);
+  const [chip, setChip] = useState<(AskChip & { quote: string }) | null>(null);
   const [avoid, setAvoid] = useState(0);
   const [search, setSearch] = useState<{ query: string; insert?: ((row: SearchRow) => void) | null } | null>(null);
   // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
   const padHandles = useRef(new Map<string, PadStackHandle>());
-  const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number }>({ list: [], limit: 3 });
+  const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number; more: boolean }>({ list: [], limit: 3, more: false });
+  const [carriedOpen, setCarriedOpen] = useState(false);
   const [draining, setDraining] = useState(false);
   const drainingRef = useRef(false);
   drainingRef.current = draining;
@@ -494,6 +552,8 @@ export function DeskShell({
     else if (notice.kind === "conflict") {
       const total = notice.dropped + notice.lost;
       if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn't be kept`);
+    } else if (notice.kind === "kept-both") {
+      toastNow(`your words met newer ones written elsewhere · both are kept, yours as ${notice.count === 1 ? "its own block" : "their own blocks"} marked “written over an older version”`);
     } else if (notice.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
     else onError(notice.message);
   }), [store, toastNow, onError]);
@@ -1764,7 +1824,7 @@ export function DeskShell({
   const askCompanion = useCallback((question: string) => {
     const grounding = groundingRef.current;
     if (grounding.reason !== null || !grounding.extractionId) return;
-    const spanId = grounding.spanId ?? firstVisibleSpan(grounding.windowId ?? null);
+    const spanId = grounding.spanId ?? firstVisibleSpan(grounding.spanWindowId ?? grounding.windowId ?? null);
     if (!spanId) {
       toastNow("select a passage to ask about it");
       return;
@@ -1773,15 +1833,19 @@ export function DeskShell({
     const lifecycle = lifecyclesRef.current[grounding.windowId ?? ""];
     if (overviewRef.current || (lifecycle && isPaused(lifecycle.state))) return;
     const selected = chipRef.current;
+    // A pad line is the learner's own text, which the tutor may read (§14): it goes with the question, never as
+    // the passage's words; the block is recorded with the exchange.
+    const padLine = selected?.pad ? selected.quote : null;
     asks.ask({
       deskId: deskIdRef.current,
       windowId: grounding.windowId ?? null,
       surface: "desk",
-      question,
+      question: padLine ? `${question}\n\n(about this line of my pad: “${padLine}”)` : question,
       extractionId: grounding.extractionId,
       spanId,
-      selectionSpanIds: selected?.spanIds,
-      quote: selected?.quote ?? null,
+      selectionSpanIds: padLine ? undefined : selected?.spanIds,
+      quote: padLine ? null : selected?.quote ?? null,
+      ...(grounding.padBlockId ? { padBlockIds: [grounding.padBlockId] } : {}),
     // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
     }, store.settled());
     setChip(null);
@@ -1792,7 +1856,10 @@ export function DeskShell({
   const deskTitle = useCallback((id: string | null) => (id ? deskById(wsRef.current, id)?.title ?? "an archived desk" : "no desk"), []);
 
   /** A claim (or a history anchor) opens its passage beside the focus, or scrolls to it where it is open. */
-  const openClaim = useCallback((citation: Pick<TutorCitationDto, "extractionId" | "spanId"> & { sourceId?: string | null }) => {
+  /** A passage named by its reading (a claim, a history anchor, a pad's back-link) opens beside the focus, or is
+   * scrolled to where it is open; with no window of its source open, the source is read from the reading (or
+   * the stored source id) and opened, a video at the stored time. */
+  const openClaim = useCallback((citation: Pick<TutorCitationDto, "extractionId" | "spanId"> & { sourceId?: string | null; t?: number }) => {
     let sourceId = citation.sourceId ?? null;
     let kind: "source" | "video" = "source";
     for (const window of Object.values(wsRef.current.windows)) {
@@ -1806,7 +1873,8 @@ export function DeskShell({
     const open = (found: string, known: "source" | "video") => {
       const card = library?.find((entry) => entry.sourceId === found);
       const shown = card && isVideoCard(card) ? "video" : known;
-      openContent({ kind: shown, sourceId: found, extractionId: citation.extractionId } as ContentRefDto, { spanId: citation.spanId });
+      const ref = { kind: shown, sourceId: found, extractionId: citation.extractionId, ...(shown === "video" && citation.t !== undefined ? { t: citation.t } : {}) } as ContentRefDto;
+      openContent(ref, { spanId: citation.spanId });
     };
     if (sourceId) {
       open(sourceId, kind);
@@ -1866,9 +1934,57 @@ export function DeskShell({
 
   // -- pads (spec §10): the host the pad windows use, the carried questions, the drain ----------------------
 
+  // Every desk has its running pad in a stack (spec §10.5): ensured, idempotently, the first time the desks show
+  // a desk with windows whose stacks hold none (a new desk, or one from before running pads); never during a zoom,
+  // so no layout changes under a transition. An empty desk keeps saying how to open a book.
+  const ensuredDesks = useRef(new Set<string>());
+  useEffect(() => {
+    const desk = ws && deskId ? deskById(ws, deskId) : undefined;
+    if (!ws || !deskId || !desk || overview || zooming || desk.slots.length === 0 || ensuredDesks.current.has(deskId)) return;
+    ensuredDesks.current.add(deskId);
+    if (hasRunningPad(ws, deskId)) return;
+    const before = new Set(ws.runningPadIds ?? []);
+    const step = ensureRunningPad(ws, deskId, () => mintId("pad"), () => mintId("win"));
+    commit(step);
+    for (const padId of step.ws.runningPadIds ?? []) if (!before.has(padId)) store.noteCreatedPad(padId, "running", "running", deskId);
+  }, [ws, deskId, overview, zooming, commit, mintId, store]);
+
+  // Every stack's pads are read once when the desks open (one pad.get each, never polled), so a desk visited for
+  // the first time shows its pads as it arrives instead of "reading the pad…" after the zoom.
+  const prefetched = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ws) return;
+    for (const window of Object.values(ws.windows)) {
+      for (const entry of window.stack ?? []) {
+        if (entry.kind !== "pad" || prefetched.current.has(entry.padId)) continue;
+        prefetched.current.add(entry.padId);
+        void store.loadPad(entry.padId);
+      }
+    }
+  }, [ws, store]);
+
+  // Pads an earlier build kept in a stack window's view join its stack by their own op, once.
+  const migratedStacks = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ws) return;
+    let next = ws;
+    const ops: Step["ops"] = [];
+    for (const window of Object.values(ws.windows)) {
+      if (window.kind !== "pad_stack" || migratedStacks.current.has(window.windowId)) continue;
+      migratedStacks.current.add(window.windowId);
+      const legacy = Array.isArray(window.view?.addedPads) ? (window.view.addedPads as unknown[]).filter((id): id is string => typeof id === "string") : [];
+      for (const padId of legacy) {
+        const step = addToStack(next, window.deskId, window.windowId, padId);
+        next = step.ws;
+        ops.push(...step.ops);
+      }
+    }
+    if (ops.length) commit({ ws: next, ops });
+  }, [ws, commit]);
+
   const refreshCarried = useCallback(() => {
     // Through a promise, so a call that throws (a sidecar without carried questions) is a quiet failure too.
-    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit }), () => undefined);
+    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit, more: Boolean(out.cursor) }), () => undefined);
   }, [padsTransport]);
   useEffect(() => {
     if (ws) refreshCarried();
@@ -1876,30 +1992,21 @@ export function DeskShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws === null]);
 
-  const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }) => {
-    void padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }).then(() => {
+  /** Carry a question; settles when the sidecar has it (rejecting, with its reason, when it does not). */
+  const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
+    const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
+    void carried.then(() => {
       toastNow("carried · it comes back beside a related passage");
       refreshCarried();
-    }, (error: unknown) => toastNow(`couldn't carry it · ${error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error)}`));
+    }, (error: unknown) => toastNow(`couldn't carry it · ${errorText(error)}`));
+    return carried.then(() => undefined);
   }, [padsTransport, mintId, toastNow, refreshCarried]);
 
   /** A passage beside the focus (a quote's back-link, a hover card's "open it beside"), at its time for a video. */
-  const openPassage = useCallback((extractionId: string, spanId: string | null, t?: number) => {
-    let found: ContentRefDto | null = null;
-    for (const window of Object.values(wsRef.current.windows)) {
-      const content = window.content;
-      if (content && (content.kind === "source" || content.kind === "video") && content.extractionId === extractionId) {
-        found = content;
-        break;
-      }
-    }
-    if (!found) {
-      toastNow("that passage's source isn't on a desk · find it with /");
-      return;
-    }
-    const ref = found.kind === "video" && t !== undefined ? { ...found, t } : found;
-    openContent(ref, { spanId });
-  }, [openContent, toastNow]);
+  const openPassage = useCallback((extractionId: string, spanId: string | null, t?: number, sourceId?: string | null) => {
+    // Through the claims' path: a source on no desk is reopened at the stored passage, a video at its time.
+    openClaim({ extractionId, spanId: spanId ?? "", sourceId: sourceId ?? null, ...(t !== undefined ? { t } : {}) });
+  }, [openClaim]);
 
   /** The passage at the top of each open source window, and the cue at the top of each video (the pad menu's
    * source pieces). */
@@ -1924,6 +2031,8 @@ export function DeskShell({
     return out;
   }, [titleOf]);
 
+  // The vault's finished figures waiting for their pad windows (kept across the shell's mounts with the store).
+  const pendingFigures = useMemo(() => pendingFiguresFor(store), [store]);
   const padsHost = useMemo<PadsHost>(() => ({
     store,
     deskId,
@@ -1933,21 +2042,34 @@ export function DeskShell({
     practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
     openPassage,
     openSearch: (query, insert) => setSearch({ query, insert: insert ?? null }),
-    askAbout: (quote) => {
-      setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
+    askAbout: (quote, context) => {
+      setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "", ...(context ? { pad: context } : {}) });
       stepCompanion({ kind: "dock" });
     },
-    showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null) => {
-      // The Reader's figure build (RW5d), read until it is done; a figure that is not shown lands nowhere.
-      let job = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
-      for (let tries = 0; job.state === "pending" && tries < 120; tries += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        job = await padsTransport.readerFigureJob({ jobId: job.jobId });
-      }
+    showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null, ownerWindowId?: string) => {
+      // The Reader's figure build (RW5d), read through the one poller under the pad window that asked: a paused
+      // window's poll waits with it. A figure that is not shown lands nowhere.
+      const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
+      const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
+        poller.register<typeof first>({
+          key: `figure-job:${first.jobId}`,
+          owner: ownerWindowId ?? null,
+          request: () => padsTransport.readerFigureJob({ jobId: first.jobId }),
+          onResult: (read) => {
+            if (read.state === "pending") return { done: false };
+            resolve(read);
+            return { done: true };
+          },
+          onError: (error) => {
+            if (error && typeof error === "object" && (error as { code?: unknown }).code === "job_not_found") reject(error);
+          },
+        });
+      });
       const figure = job.result?.figure;
       if (!figure || !figure.shown) return null;
       return { figureId: figure.figureId, line: figure.demonstrates || figure.goalText || text };
     },
+    figures: pendingFigures,
     ...(reader?.onTeachMe ? { teachMe: (extractionId: string, spanIds: string[]) => reader.onTeachMe?.({ extractionId, spanIds }) } : {}),
     toast: toastNow,
     setView: (windowId, view) => {
@@ -1955,12 +2077,16 @@ export function DeskShell({
       if (window) commit(setView(wsRef.current, window.deskId, windowId, view));
     },
     sourcePieces,
+    addToStack: (windowId, padId) => {
+      const window = wsRef.current.windows[windowId];
+      if (window) commit(addToStack(wsRef.current, window.deskId, windowId, padId));
+    },
     register: (windowId, handle) => {
       if (handle) padHandles.current.set(windowId, handle);
       else padHandles.current.delete(windowId);
     },
     carry: carryQuestion,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion]);
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures]);
 
   /** The pad stack the keys act on: the focused window when it is one. */
   const focusedStack = (): PadStackHandle | null => (focusIdRef.current ? padHandles.current.get(focusIdRef.current) ?? null : null);
@@ -2023,17 +2149,75 @@ export function DeskShell({
   }, [deskPadIds, mintId, runningPadOf, store]);
 
   /** Keep or leave a pad from the drain: the pad is read first when no window has (its stack paused). */
-  const drainWrite = useCallback((padId: string, op: "keep" | "unkeep", version: number) => {
-    void store.loadPad(padId).then(() => {
-      const refused = store.commitPad(padId, [{ op, expectedVersion: store.pads[padId]?.pad.version ?? version }]);
-      if (refused) toastNow(`couldn't ${op === "keep" ? "keep" : "leave"} it · ${refused.message}`);
-    });
-  }, [store, toastNow]);
+  /** Keep or leave a pad from the drain; settles once the server has it (rejecting with why when it does not). */
+  const drainWrite = useCallback(async (padId: string, op: "keep" | "unkeep", version: number): Promise<void> => {
+    await store.loadPad(padId);
+    if (!store.pads[padId]) throw new Error(store.padFailure(padId) ?? "the pad could not be read");
+    const refused = store.commitPad(padId, [{ op, expectedVersion: store.pads[padId]?.pad.version ?? version }]);
+    if (refused) throw refused;
+    if ((await store.settled()) !== "saved") throw new Error("it could not be saved just now");
+  }, [store]);
 
-  const padLinks = useMemo<PadLink[]>(() => Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, blockId: anchor.blockId, extractionId: anchor.extractionId, spanId: anchor.spanId }))),
-    // store.pads changes identity on every pad change (the pad version re-renders this shell).
+  // The passages' ✎ links come from the passage union of what each source window shows (links on another reading
+  // resolved through aliases, whether or not any pad is loaded), read again when the view moves or a pad changes.
+  // A paused window reads nothing.
+  const [unionLinks, setUnionLinks] = useState<Record<string, PadLink[]>>({});
+  const unionKey = useRef<Record<string, string>>({});
+  const padVersionNow = store.getPadVersion();
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || !ws || !deskId || overview) return;
+    let live = true;
+    const read = () => {
+      const desk = deskById(wsRef.current, deskId);
+      for (const id of desk?.slots.flat() ?? []) {
+        const content = wsRef.current.windows[id]?.content;
+        const lifecycle = lifecyclesRef.current[id];
+        if (!content || (content.kind !== "source" && content.kind !== "video") || (lifecycle && isPaused(lifecycle.state))) continue;
+        const range = visibleSpanRange(stage, id);
+        if (!range) continue;
+        const key = `${content.extractionId}|${range.from}|${range.to}|${store.getPadVersion()}`;
+        if (unionKey.current[id] === key) continue;
+        unionKey.current[id] = key;
+        const extractionId = content.extractionId;
+        void Promise.resolve().then(() => padsTransport.passageUnionRange({ extractionId, fromSpanId: range.from, toSpanId: range.to })).then((union) => {
+          if (!live) return;
+          const links = union.spans.flatMap((span) => span.padBlocks.map((block) => ({ padId: block.padId, blockId: block.blockId, extractionId, spanId: span.spanId, alias: block.alias })));
+          setUnionLinks((now) => ({ ...now, [id]: links }));
+        }, () => undefined);
+      }
+    };
+    read();
+    let frame: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (frame) clearTimeout(frame);
+      frame = setTimeout(read, 400);
+    };
+    stage.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    // The Reader renders its passages after this does: look again shortly.
+    const settle = setTimeout(read, 800);
+    return () => {
+      live = false;
+      stage.removeEventListener("scroll", onScroll, { capture: true });
+      if (frame) clearTimeout(frame);
+      clearTimeout(settle);
+    };
+    // The windows' identity is in ws; a pad change is padVersionNow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store.pads]);
+  }, [ws, deskId, overview, padVersionNow, padsTransport, lifecycles]);
+  const padLinks = useMemo<PadLink[]>(() => {
+    const seen = new Set<string>();
+    const out: PadLink[] = [];
+    for (const links of Object.values(unionLinks)) {
+      for (const link of links) {
+        const key = `${link.extractionId}|${link.spanId}|${link.blockId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(link);
+      }
+    }
+    return out;
+  }, [unionLinks]);
   const surfacedCarried = useRef(new Set<string>());
   const onCarriedSurfaced = useCallback((question: CarriedQuestionDto) => {
     if (surfacedCarried.current.has(question.carriedId)) return;
@@ -2405,6 +2589,7 @@ export function DeskShell({
           onSearch={() => setSearch({ query: "" })}
           carried={carried.list.slice(0, carried.limit).map((question) => ({ carriedId: question.carriedId, text: question.text, since: question.since }))}
           carriedMore={Math.max(0, carried.list.length - carried.limit)}
+          onCarriedList={carried.list.length > carried.limit || carried.more ? () => setCarriedOpen(true) : undefined}
         />
         <section
           className="desk-stage"
@@ -2746,6 +2931,16 @@ export function DeskShell({
         <div key={badge} className="desk-zoom-badge fade" role="status">
           {Math.round(focusZoom * 100)}% · alt+↵ or esc to leave · = − to zoom
         </div>
+      ) : null}
+      {carriedOpen ? (
+        <CarriedList
+          load={(cursor) => padsTransport.carriedList({ which: "open", ...(cursor ? { cursor } : {}) })}
+          mark={(question, event) => padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then((out) => {
+            refreshCarried();
+            return out;
+          })}
+          onClose={() => setCarriedOpen(false)}
+        />
       ) : null}
       {draining && deskId ? (
         <DrainPanel

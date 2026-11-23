@@ -1,7 +1,8 @@
 // The shelf (spec §5.6): the strip's minimap, one row per window, with what is in view, how far the
 // learner has read, and where. A click focuses the row's window; dragging a row more than 5 px
 // reorders the strip. Below 1400 px it folds to a 44 px rail whose ☰ overlays it.
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import type { CarriedQuestionDto } from "../../api/dto";
 
 export interface ShelfRow {
   windowId: string;
@@ -27,12 +28,16 @@ export function Shelf({
   onSearch,
   carried = [],
   carriedMore = 0,
+  onCarriedList,
 }: {
   rows: ShelfRow[];
   folded: boolean;
   /** CARRIED (spec §10.12): at most the attention limit, each "since <date>"; the rest are in the library. */
   carried?: Array<{ carriedId: string; text: string; since: string }>;
+  /** More carried than the shelf shows (or more pages): the list behind "all carried questions". */
   carriedMore?: number;
+  /** Opens every carried question (paged, each with its labels). */
+  onCarriedList?: () => void;
   undo: { title: string; onUndo: () => void } | null;
   onFocus: (windowId: string) => void;
   onReorder: (windowId: string, toSlot: number) => void;
@@ -54,12 +59,16 @@ export function Shelf({
         <div className="desk-carried" data-shelf-carried="">
           <h4><span>Carried</span></h4>
           {carried.map((question) => (
-            <div key={question.carriedId} className="q" title={question.text}>
+            <button key={question.carriedId} type="button" className="q" title={question.text} onClick={onCarriedList}>
               <span className="t">? {question.text}</span>
               <span className="s">since {new Date(question.since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-            </div>
+            </button>
           ))}
-          {carriedMore > 0 ? <div className="more">three shown (an attention limit) · {carriedMore} more in the library</div> : null}
+          {onCarriedList ? (
+            <button type="button" className="more" onClick={onCarriedList}>
+              {carriedMore > 0 ? `three shown (an attention limit) · all carried questions (${carriedMore} more) ›` : "all carried questions ›"}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </>
@@ -172,5 +181,64 @@ function ShelfBody({
         ) : null}
       </div>
     </>
+  );
+}
+
+/** Every carried question (spec §10.12), page by page by the server's cursor, each with its labels: fruitful,
+ * not now (it stays carried) and let it go. The shelf shows three of them (an attention limit); this is the rest. */
+export function CarriedList({ load, mark, onClose }: {
+  load: (cursor?: string) => Promise<{ carried: CarriedQuestionDto[]; cursor?: string | null }>;
+  mark: (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go") => Promise<unknown>;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<CarriedQuestionDto[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const read = (at?: string) => {
+    setBusy(true);
+    load(at).then((page) => {
+      setRows((now) => {
+        const base = at ? now ?? [] : [];
+        return [...base, ...page.carried.filter((each) => !base.some((seen) => seen.carriedId === each.carriedId))];
+      });
+      setCursor(page.cursor ?? null);
+      setFailure(null);
+    }, (error: unknown) => setFailure(error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error))).finally(() => setBusy(false));
+  };
+  useEffect(() => {
+    read();
+    // Read once when it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go") => {
+    void mark(question, event).then(() => {
+      // Not now keeps it carried; fruitful and let it go put it down.
+      if (event !== "not_now") setRows((now) => (now ?? []).filter((each) => each.carriedId !== question.carriedId));
+    }, (error: unknown) => setFailure(error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error)));
+  };
+  return (
+    <div className="desk-sheet desk-carried-list" role="dialog" aria-label="carried questions" onKeyDown={(event) => {
+      if (event.key === "Escape") onClose();
+    }}>
+      <div className="head">◌ carried questions · they come back beside a related passage</div>
+      {rows === null ? <div className="note">◐ reading them…</div> : rows.length === 0 ? <div className="note">nothing carried</div> : null}
+      {rows?.map((question) => (
+        <div key={question.carriedId} className="row" data-carried-row={question.carriedId}>
+          <span className="t">? {question.text}</span>
+          <span className="s">since {new Date(question.since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+          <span className="acts">
+            <button type="button" onClick={() => label(question, "fruitful")}>fruitful</button>
+            <button type="button" onClick={() => label(question, "not_now")}>not now</button>
+            <button type="button" onClick={() => label(question, "let_go")}>let it go</button>
+          </span>
+        </div>
+      ))}
+      {failure ? <div className="note err">{failure}</div> : null}
+      <div className="acts">
+        {cursor ? <button type="button" disabled={busy} onClick={() => read(cursor)}>older ›</button> : null}
+        <button type="button" onClick={onClose}>close</button>
+      </div>
+    </div>
   );
 }
