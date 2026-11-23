@@ -7,7 +7,7 @@ and six desktop tables, two of which missed the last kind added. Each of those
 readers now reads its column here, and the desktop's kind table is generated
 from it (``tests/test_source_kinds.py --write``).
 
-A new kind is one row, its IR builder in ``content/pipeline/jobs.py``'s
+A new kind is one row, its IR builder in ``content/pipeline/import_jobs.py``'s
 dispatch on ``reader``, and one test. The classifier's *order* of checks
 (hosts before suffixes, an image URL before a PDF one) stays in
 ``resolution.resolve_source``; only the suffixes are here.
@@ -22,7 +22,7 @@ from typing import Literal
 
 SourceCategory = Literal["web", "arxiv", "pdf", "youtube", "textfile", "audio", "image"]
 
-#: How the import reads a kind's bytes into Document IR (``content/pipeline/jobs.py``'s
+#: How the import reads a kind's bytes into Document IR (``content/pipeline/import_jobs.py``'s
 #: ``default_extract`` and ``default_extraction_identity`` dispatch on it). ``document``
 #: goes to the document extractors (GLM-OCR, Marker, pypdf); ``html`` to the web-page
 #: reader; ``captions`` tries YouTube caption cues first; ``audio`` is transcribed;

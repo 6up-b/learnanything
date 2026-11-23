@@ -523,7 +523,7 @@ def reader_import_context(world_root: Path, repository: Repository, *, extractio
 def build_reader_import(paths: VaultPaths, repository: Repository, targets: dict[str, Target]) -> str:
     """Run the Reader's import job on the past paper's exercise with a fake author; the item it writes."""
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import JobContext
     from tests.exercise_authoring_helpers import FakeClient
 

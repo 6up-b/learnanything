@@ -135,7 +135,7 @@ def test_the_section_check_job_still_refuses_held_out_material(held_out_book):
     mark, which the job does not hand back)."""
 
     from learnloop.clock import FrozenClock
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     paths, repository, held, _other = held_out_book

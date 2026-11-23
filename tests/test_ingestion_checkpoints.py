@@ -61,7 +61,7 @@ def test_inventory_retry_reuses_validated_window_after_interruption(tmp_path, mo
 
 def test_parallel_inventory_drains_checkpoints_and_stops_new_units_after_failure(tmp_path, monkeypatch):
     from threading import Event
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.synthesis import jobs
     from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
     repo = Repository(tmp_path / "state.sqlite")
     _register_revision(repo)

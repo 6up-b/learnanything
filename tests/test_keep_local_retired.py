@@ -155,7 +155,7 @@ def test_whole_file_extraction_is_no_longer_narrowed_for_the_retired_choice(tmp_
 
     from types import SimpleNamespace
 
-    from learnloop.content.pipeline.jobs import _pdf_payload_config
+    from learnloop.content.pipeline.import_jobs import _pdf_payload_config
     from tests.ux_phase1_support import set_config
 
     root = fresh_library(tmp_path)
@@ -194,7 +194,7 @@ def test_a_plan_that_waited_on_the_retired_choice_offers_build_them(tmp_path):
 
 
 def test_an_import_the_retired_choice_refused_offers_to_get_it_ready(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs as jobs_module
+    from learnloop.content.pipeline import import_jobs as jobs_module
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     refused = {"on": True}

@@ -188,7 +188,7 @@ def test_ux11_the_articles_sections_carry_no_edit_link_or_maintenance_notice_and
 
 
 def test_ux11_hidden_and_collapsed_parts_are_treated_as_the_old_extraction_treated_them():
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
 
     ctx = SimpleNamespace(payload={}, job={})
     for shape, probe in BEFORE["probe"].items():
@@ -227,7 +227,7 @@ MATH_PAGE = (
 
 
 def test_ux11_mathml_and_script_math_reach_the_text_as_tex():
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from learnloop.ingest.extractors.web_page import readable_markdown
 
     fetched = FetchedBytes(raw_bytes=MATH_PAGE.encode(), content_type="text/html",

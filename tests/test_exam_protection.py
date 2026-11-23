@@ -423,7 +423,7 @@ def test_a_reader_import_of_held_out_material_is_refused_before_any_model_call(t
     Reader's own import job refuses it before authoring."""
 
     from learnloop.content.authoring.source_exercise_import import selection_for_region
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext, RunnerServices
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
@@ -609,7 +609,7 @@ def test_a_reader_check_over_held_out_material_is_refused_before_any_model_call(
 
     from types import SimpleNamespace
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError
     from learnloop.reader.reader_guidance import extraction_sections
 

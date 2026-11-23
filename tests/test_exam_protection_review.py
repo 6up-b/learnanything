@@ -341,7 +341,7 @@ def test_a_held_out_assessment_signal_is_held_out_for_the_reader_and_the_gate_al
 
 
 def test_a_reader_import_of_a_held_out_signal_is_refused(textbook, monkeypatch):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext, RunnerServices
     from tests.source_service_fakes import FakeServiceLLM
 

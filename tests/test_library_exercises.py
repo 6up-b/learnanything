@@ -256,7 +256,7 @@ def imports(monkeypatch):
 def _run_job(paths, repository, queued: dict[str, Any], llm: Any) -> dict[str, Any]:
     """Run the S1 import job itself, synchronously, with the fake service LLM."""
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext, RunnerServices
 
     ctx = JobContext(repo=repository, vault_root=paths.root,

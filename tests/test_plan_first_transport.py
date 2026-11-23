@@ -1243,7 +1243,7 @@ def test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_featu
 
     from types import SimpleNamespace
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import RunnerServices
     from tests.openai_fakes import install_fake_openai
 

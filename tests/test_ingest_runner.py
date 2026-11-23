@@ -815,7 +815,7 @@ def test_web_import_routes_html_normalizer_not_raw_text(tmp_path):
     # Dogfood regression: a real HTML page was stored as ONE 216kB raw-HTML
     # block because default_extract fell through to the text normalizer.
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
 
     html = (
         "<!DOCTYPE html><html><head><title>Symmetric matrices</title></head><body>"
@@ -841,7 +841,7 @@ def test_youtube_import_routes_caption_cues_to_time_range_ir(tmp_path):
     import json as _json
 
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
 
     cues = {"cues": [
         {"start": 0.48, "duration": 4.84, "text": "Singular value decomposition is one of"},
@@ -864,7 +864,7 @@ def test_youtube_import_routes_caption_cues_to_time_range_ir(tmp_path):
 # --------------------------------------------------------------------------- #
 
 def test_compose_display_title_variants():
-    from learnloop.content.pipeline.jobs import _compose_display_title
+    from learnloop.content.pipeline.import_jobs import _compose_display_title
 
     assert _compose_display_title("SVD explained", ["3Blue1Brown"]) == "SVD explained — 3Blue1Brown"
     assert _compose_display_title("SVD explained", []) == "SVD explained"
@@ -893,7 +893,7 @@ def test_youtube_oembed_metadata_parses_and_falls_back(monkeypatch):
 
 
 def test_fetch_metadata_only_resolves_youtube():
-    from learnloop.content.pipeline.jobs import _fetch_metadata
+    from learnloop.content.pipeline.import_jobs import _fetch_metadata
 
     assert _fetch_metadata("https://example.org/page.html", "web") == (None, ())
 
@@ -970,7 +970,7 @@ def test_default_inventory_client_routes_via_canonical_ingest(tmp_path, monkeypa
 
     import types
 
-    from learnloop.content.pipeline.jobs import default_inventory_client
+    from learnloop.content.synthesis.jobs import default_inventory_client
 
     from tests.helpers import create_basic_vault
     from tests.openai_fakes import install_fake_openai
@@ -1001,7 +1001,7 @@ def test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable(
     import types
 
     from learnloop.content.pipeline.runner import IngestRunnerError
-    from learnloop.content.pipeline.jobs import default_inventory_client
+    from learnloop.content.synthesis.jobs import default_inventory_client
 
     from tests.helpers import create_basic_vault
 
@@ -1021,7 +1021,7 @@ def test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault(tmp
     import types
 
     from learnloop.config import load_config
-    from learnloop.content.pipeline.jobs import default_synthesis_client
+    from learnloop.content.synthesis.jobs import default_synthesis_client
     from learnloop.ops.settings_store import (
         apply_config_updates,
         copy_ai_settings,
@@ -1070,7 +1070,7 @@ def test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault(tmp
 
 def test_audio_extract_routes_transcription_to_time_range_ir(tmp_path, monkeypatch):
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.openai_fakes import fake_verbose_transcription, install_fake_openai
 
     install_fake_openai(
@@ -1097,7 +1097,7 @@ def test_audio_extract_routes_transcription_to_time_range_ir(tmp_path, monkeypat
 
 def test_audio_extraction_identity_tracks_model_and_endpoint(tmp_path):
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
 
     fetched = FetchedBytes(
         raw_bytes=b"\x00x",
@@ -1119,7 +1119,7 @@ def test_audio_oversize_rejected_before_any_upload(tmp_path, monkeypatch):
         FetchedBytes,
         IngestRunnerError,
     )
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.openai_fakes import install_fake_openai
 
     fake = install_fake_openai(monkeypatch)
@@ -1144,7 +1144,7 @@ def test_audio_transcription_unavailable_is_typed_retryable(tmp_path, monkeypatc
         FetchedBytes,
         IngestRunnerError,
     )
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.openai_fakes import install_fake_openai
 
     install_fake_openai(monkeypatch)
@@ -1245,10 +1245,7 @@ def _media_transcript_json():
 
 def test_native_audio_route_transcribes_via_chat_provider(tmp_path, monkeypatch):
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import (
-        default_extract,
-        default_extraction_identity,
-    )
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _native_audio_vault(tmp_path, monkeypatch)
@@ -1276,7 +1273,7 @@ def test_native_audio_route_transcribes_via_chat_provider(tmp_path, monkeypatch)
 
 def test_native_audio_unready_fails_closed_by_default(tmp_path, monkeypatch):
     from learnloop.content.pipeline.runner import FetchedBytes, IngestRunnerError
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
 
     # mode = "native" but the routed profile does not declare audio: the
     # explicit choice fails loudly (PDF and audio share these semantics).
@@ -1299,7 +1296,7 @@ def test_native_audio_unready_fails_closed_by_default(tmp_path, monkeypatch):
 def test_native_audio_unready_falls_back_when_opted_in(tmp_path, monkeypatch):
     from learnloop.ops.settings_store import apply_config_updates
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
 
     vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
     apply_config_updates(
@@ -1320,7 +1317,7 @@ def test_native_audio_unready_falls_back_when_opted_in(tmp_path, monkeypatch):
 def test_audio_transcription_mode_uses_endpoint_without_native_route(tmp_path, monkeypatch):
     from learnloop.ops.settings_store import apply_config_updates
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
 
     vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
     apply_config_updates(vault_root / "learnloop.toml", {("ingest", "audio", "mode"): "transcription"})
@@ -1338,7 +1335,7 @@ def test_audio_transcription_mode_uses_endpoint_without_native_route(tmp_path, m
 
 def test_native_audio_unsupported_container_falls_back_to_endpoint(tmp_path, monkeypatch):
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
 
     vault_root = _native_audio_vault(tmp_path, monkeypatch)
     fetched = FetchedBytes(
@@ -1357,7 +1354,7 @@ def test_native_audio_failure_is_typed_and_never_switches_routes(tmp_path, monke
         FetchedBytes,
         IngestRunnerError,
     )
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _native_audio_vault(tmp_path, monkeypatch)
@@ -1414,10 +1411,7 @@ def test_openrouter_transcription_setting_routes_audio_via_chat(tmp_path, monkey
     from learnloop.ai import routing
     from learnloop.config import OPENROUTER_TRANSCRIPTION_PROVIDER, load_config
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import (
-        default_extract,
-        default_extraction_identity,
-    )
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _openrouter_transcription_vault(
@@ -1478,10 +1472,7 @@ def test_explicit_transcription_route_uses_named_profile_without_legacy_switch(
     tmp_path, monkeypatch
 ):
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import (
-        default_extract,
-        default_extraction_identity,
-    )
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from learnloop.ops.settings_store import apply_config_updates
     from tests.helpers import create_basic_vault
     from tests.openai_fakes import install_fake_openai
@@ -1518,7 +1509,7 @@ def test_explicit_transcription_route_uses_named_profile_without_legacy_switch(
 
 def test_routed_transcription_keeps_the_chat_upload_size_cap(tmp_path, monkeypatch):
     from learnloop.content.pipeline.runner import FetchedBytes, IngestRunnerError
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from learnloop.ops.settings_store import apply_config_updates
     from tests.openai_fakes import install_fake_openai
 
@@ -1550,7 +1541,7 @@ def test_transcription_route_never_falls_back_to_an_unconsented_provider(
     tmp_path, monkeypatch
 ):
     from learnloop.content.pipeline.runner import FetchedBytes, IngestRunnerError
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from learnloop.ops.settings_store import apply_config_updates
     from tests.openai_fakes import install_fake_openai
 
@@ -1588,7 +1579,7 @@ def test_openrouter_transcription_missing_key_is_typed(tmp_path, monkeypatch):
         FetchedBytes,
         IngestRunnerError,
     )
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
@@ -1616,10 +1607,7 @@ def test_openrouter_transcription_unsupported_container_errors(tmp_path, monkeyp
         FetchedBytes,
         IngestRunnerError,
     )
-    from learnloop.content.pipeline.jobs import (
-        default_extract,
-        default_extraction_identity,
-    )
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _openrouter_transcription_vault(tmp_path, monkeypatch)
@@ -1643,7 +1631,7 @@ def test_openrouter_transcription_unsupported_container_errors(tmp_path, monkeyp
 
 def test_native_route_takes_precedence_over_openrouter_transcription_setting(tmp_path, monkeypatch):
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
     from learnloop.ops.settings_store import apply_config_updates
 
     vault_root = _native_audio_vault(tmp_path, monkeypatch)
@@ -1707,10 +1695,7 @@ def _pdf_fetched(tmp_path):
 
 
 def test_native_pdf_engine_extracts_markdown_via_chat_provider(tmp_path, monkeypatch):
-    from learnloop.content.pipeline.jobs import (
-        default_extract,
-        default_extraction_identity,
-    )
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _native_pdf_vault(tmp_path, monkeypatch)
@@ -1735,7 +1720,7 @@ def test_native_pdf_engine_rejects_page_selection(tmp_path, monkeypatch):
         IngestRunnerError,
         JobContext,
     )
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _native_pdf_vault(tmp_path, monkeypatch)
@@ -1759,7 +1744,7 @@ def test_native_pdf_engine_rejects_page_selection(tmp_path, monkeypatch):
 
 def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch):
     from learnloop.content.pipeline.runner import IngestRunnerError
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
     from tests.openai_fakes import install_fake_openai
 
     # pdf modality not declared -> engine "native" cannot run; fails closed
@@ -1778,7 +1763,7 @@ def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch)
 
 def test_native_pdf_fallback_when_unavailable_uses_local_with_health_flag(tmp_path, monkeypatch):
     from learnloop.ops.settings_store import apply_config_updates
-    from learnloop.content.pipeline.jobs import default_extract, default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from learnloop.content.pipeline.runner import FetchedBytes
     from tests.openai_fakes import install_fake_openai
     from tests.source_ingestion_adapters_helpers import _make_pdf_bytes
@@ -1809,7 +1794,7 @@ def test_native_pdf_fallback_when_unavailable_uses_local_with_health_flag(tmp_pa
 
 def test_native_pdf_rejects_oversized_file(tmp_path, monkeypatch):
     from learnloop.ops.settings_store import apply_config_updates
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from learnloop.content.pipeline.runner import IngestRunnerError
     from tests.openai_fakes import install_fake_openai
 
@@ -1869,7 +1854,7 @@ def test_native_audio_unready_route_is_irrelevant_for_non_chat_containers(tmp_pa
     """An .m4a can never go native, so an undeclared route must not fail it."""
 
     from learnloop.content.pipeline.runner import FetchedBytes
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
 
     vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
     fetched = FetchedBytes(
@@ -1888,7 +1873,7 @@ def test_native_pdf_engine_rejects_a_repair_page_range(tmp_path, monkeypatch):
     """Repairs carry pages as pdf_config.page_range; the whole-document upload refuses them too."""
 
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.openai_fakes import install_fake_openai
 
     vault_root = _native_pdf_vault(tmp_path, monkeypatch)

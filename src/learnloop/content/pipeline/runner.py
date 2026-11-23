@@ -33,6 +33,7 @@ this same object.
 
 from __future__ import annotations
 
+import importlib
 import logging
 import threading
 from contextlib import AbstractContextManager, ExitStack, contextmanager
@@ -50,6 +51,14 @@ from learnloop.db.repositories import Repository
 from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
 from learnloop.db.stores.ingest_queue import JobOwner
 from learnloop.ids import new_ulid
+# Defined in the leaf so a job module needs no runner; importable from here as well.
+from learnloop.content.pipeline.job_contracts import (
+    FetchedBytes,
+    IngestRunnerError,
+    JobCancelled,
+    JobSpec,
+    WaitingForInput,
+)
 from learnloop.vault_lock import DEFAULT_TIMEOUT_S, VaultLockTimeout, vault_mutation_lock
 
 # The checkpoint ladder (§6.2). Every phase is an independently resumable stage.
@@ -106,111 +115,13 @@ def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
     return status
 
 
-# Application-validated open vocabularies (§6.2 — deliberately not SQL CHECKs).
-KNOWN_WORKFLOW_TYPES = frozenset(
-    {"import", "import_inventory", "legacy_ingest", "create_study_map", "update_study_map"}
-)
-KNOWN_JOB_TYPES = frozenset(
-    {
-        "import",
-        "extract",
-        "inventory",
-        "legacy_ingest",
-        "exam_ingest",
-        "bootstrap_synthesis",
-        "append_synthesis",
-        "extraction_repair",
-        "source_embedding_backfill",
-        # Local contextual retrieval P1a/P1b: the local 9B index batch and the
-        # Voyage fallback backfill (each queued only while its switch is on).
-        "local_source_index",
-        "source_fallback_backfill",
-        # Deliverable curriculum C0b: the coverage job a completed extraction
-        # queues while curriculum.coverage_on_extract is on (quiet: plan only).
-        "curriculum_coverage_on_extract",
-    }
-)
-
-# These jobs can add or replace scheduler-visible practice. Bump the durable
-# high-water mark only after the ingest row itself is completed, so a Today
-# poll cannot observe the revision before the sidecar is able to reload the
-# newly written vault state.
-#: The jobs whose whole purpose is model work: without the learner's one OK to
-#: use AI they wait for it before they start, instead of failing and being
-#: tried again (a job of another type that reaches a model call waits the same
-#: way, from the refusal itself).
-WAITS_FOR_AI_OK_JOB_TYPES = frozenset(
-    {
-        "legacy_ingest", "exam_ingest", "inventory", "bootstrap_synthesis", "append_synthesis",
-        "reader_quick_check", "reader_exercise_import", "source_exercise_import", "practice_expansion",
-        "goal_population", "question_promotion", "rung_variant", "concept_animation", "figure_rich",
-        "source_embedding_backfill",
-    }
-)
 #: The waiting job's payload (``result.waiting_for_input``): what saying OK resumes.
 WAITING_FOR_OK_PAYLOAD = {"code": model_use.WAITING_CODE}
-
-_QUEUE_AFFECTING_JOB_TYPES = frozenset(
-    {
-        "practice_expansion",
-        "rung_variant",
-        "question_promotion",
-        "reader_exercise_import",
-        "goal_population",
-    }
-)
 
 # The batches whose end, however it ends, bumps the same revision: a book's
 # build (its topics and question plans) and the questions written for a section
 # the learner finished.
 _BUILD_WORKFLOWS = frozenset({"bootstrap_synthesis", "append_synthesis", "practice_expansion"})
-
-
-class IngestRunnerError(ValueError):
-    """A typed, user-actionable job failure persisted for the Activity UI."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        code: str = "invalid_job",
-        details: Mapping[str, Any] | None = None,
-        retryable: bool = False,
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.details = dict(details or {})
-        self.retryable = retryable
-
-
-class JobCancelled(Exception):
-    """Raised from ``report()`` when a cancellation was requested mid-stage."""
-
-
-class WaitingForInput(Exception):
-    """A handler pauses the job pending user input (unit choice, consent, budget).
-
-    Carries the actionable payload the Batch-progress UI renders as a card. The
-    job releases its lease so the rest of the queue keeps draining (§6.2)."""
-
-    def __init__(self, payload: Mapping[str, Any], *, message: str = "Waiting for input") -> None:
-        self.payload = dict(payload)
-        self.message = message
-        super().__init__(message)
-
-
-@dataclass(frozen=True)
-class FetchedBytes:
-    raw_bytes: bytes
-    content_type: str | None
-    original_uri: str
-    retrieved_at: str
-    # Human-readable metadata captured during the fetch phase, when the source
-    # kind exposes it cheaply (e.g. a YouTube video's title + channel via oEmbed).
-    # Absent (None/()) for sources with no knowable metadata — the import then
-    # falls back to the URL title.
-    title: str | None = None
-    authors: tuple[str, ...] = ()
 
 
 @dataclass
@@ -253,20 +164,20 @@ class RunnerServices:
     )
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
-        return (self.fetch or _job_defaults().default_fetch)(source, category, ctx)
+        return (self.fetch or _import_jobs().default_fetch)(source, category, ctx)
 
     def extract_ir(self, fetched: FetchedBytes, category: str, ctx: "JobContext") -> Any:
-        return (self.extract or _job_defaults().default_extract)(fetched, category, ctx)
+        return (self.extract or _import_jobs().default_extract)(fetched, category, ctx)
 
     def extraction_identity(
         self, fetched: FetchedBytes, category: str, ctx: "JobContext"
     ) -> Mapping[str, Any]:
-        return (self.describe_extraction or _job_defaults().default_extraction_identity)(
+        return (self.describe_extraction or _import_jobs().default_extraction_identity)(
             fetched, category, ctx
         )
 
     def legacy_ingest(self, **kwargs: Any) -> Any:
-        return (self.run_legacy_ingest or _job_defaults().default_run_legacy_ingest)(
+        return (self.run_legacy_ingest or _import_jobs().default_run_legacy_ingest)(
             **kwargs
         )
 
@@ -276,7 +187,7 @@ class RunnerServices:
         if self.inventory_identity_factory is not None:
             return self.inventory_identity_factory(ctx)
         if self.inventory_client_factory is None:
-            return _job_defaults().default_inventory_identity(ctx)
+            return _synthesis_jobs().default_inventory_identity(ctx)
         return self._inventory_identity_cache
 
     def inventory_client(
@@ -285,19 +196,19 @@ class RunnerServices:
         client = (
             self.inventory_client_factory(ctx)
             if self.inventory_client_factory is not None
-            else _job_defaults().default_inventory_client(
+            else _synthesis_jobs().default_inventory_client(
                 ctx,
-                codex_timeout_seconds=_job_defaults().INGEST_CODEX_TIMEOUT_SECONDS,
+                codex_timeout_seconds=_synthesis_jobs().INGEST_CODEX_TIMEOUT_SECONDS,
             )
         )
-        self._inventory_identity_cache = _job_defaults().inventory_client_identity(client)
+        self._inventory_identity_cache = _synthesis_jobs().inventory_client_identity(client)
         if bind_interruptible:
             ctx.bind_interruptible(client)
         return client
 
     def synthesis_client(self, ctx: "JobContext") -> Any:
         client = (
-            self.synthesis_client_factory or _job_defaults().default_synthesis_client
+            self.synthesis_client_factory or _synthesis_jobs().default_synthesis_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -307,13 +218,13 @@ class RunnerServices:
         # vaults, routed elsewhere): the task method is getattr-discovered on
         # the client, exactly like unit inventory.
         return (
-            self.quick_check_client_factory or _job_defaults().default_inventory_client
+            self.quick_check_client_factory or _synthesis_jobs().default_inventory_client
         )(ctx)
 
     def rung_variant_client(self, ctx: "JobContext") -> Any:
         client = (
             self.rung_variant_client_factory
-            or _job_defaults().default_rung_variant_client
+            or _authoring_jobs().default_rung_variant_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -321,7 +232,7 @@ class RunnerServices:
     def promotion_analysis_client(self, ctx: "JobContext") -> Any:
         client = (
             self.promotion_analysis_client_factory
-            or _job_defaults().default_promotion_analysis_client
+            or _authoring_jobs().default_promotion_analysis_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -329,7 +240,7 @@ class RunnerServices:
     def promotion_authoring_client(self, ctx: "JobContext") -> Any:
         client = (
             self.promotion_authoring_client_factory
-            or _job_defaults().default_promotion_authoring_client
+            or _authoring_jobs().default_promotion_authoring_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -340,20 +251,20 @@ class RunnerServices:
         # client, like reader quick checks.
         client = (
             self.exercise_import_client_factory
-            or _job_defaults().default_inventory_client
+            or _synthesis_jobs().default_inventory_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
 
     def animation_client(self, ctx: "JobContext") -> Any:
-        return (self.animation_client_factory or _job_defaults().default_animation_client)(
+        return (self.animation_client_factory or _authoring_jobs().default_animation_client)(
             ctx
         )
 
     def video_client(self, ctx: "JobContext") -> Any:
         """The text-to-video client for [animation] renderer = "video_model"."""
 
-        return (self.video_client_factory or _job_defaults().default_video_client)(ctx)
+        return (self.video_client_factory or _authoring_jobs().default_video_client)(ctx)
 
     def authoring_route(self, ctx: "JobContext") -> Any:
         """The question-writing route an automatic build would use (no model call)."""
@@ -365,17 +276,36 @@ class RunnerServices:
         return default_authoring_route(ctx)
 
 
-def _job_defaults() -> Any:
-    """Load concrete ingest jobs only when a default seam is actually used.
+def _job_types() -> Any:
+    """The job-type table (a leaf: it names its handlers and imports none of them)."""
 
-    ``jobs`` imports the runner contracts to host handlers and the durable worker
-    facade. Keeping this dependency lazy lets queue-only callers import and test
-    the runner without initializing acquisition or provider code.
+    from learnloop.content.pipeline import job_types
+
+    return job_types
+
+
+def _job_module(name: str) -> Any:
+    """A feature's job module, whose defaults the services fall back on, loaded by name when a default is used.
+
+    By name, as the table names its handlers: a job module reaches the runner back through the code it calls (the
+    add-source planner reads the runner's job statuses), so an import from here would put every job module in the
+    runner's import cycle. Lazy, so queue-only callers import and test the runner without initializing
+    acquisition or provider code.
     """
 
-    from learnloop.content.pipeline import jobs
+    return importlib.import_module(name)
 
-    return jobs
+
+def _import_jobs() -> Any:
+    return _job_module("learnloop.content.pipeline.import_jobs")
+
+
+def _synthesis_jobs() -> Any:
+    return _job_module("learnloop.content.synthesis.jobs")
+
+
+def _authoring_jobs() -> Any:
+    return _job_module("learnloop.content.authoring.jobs")
 
 
 @contextmanager
@@ -527,16 +457,6 @@ class JobContext:
 Handler = Callable[[JobContext], dict[str, Any] | None]
 
 
-@dataclass(frozen=True)
-class JobSpec:
-    """One job in an enqueued batch. ``depends_on`` is a tuple of indices into
-    the batch's job list (topologically before this job)."""
-
-    job_type: str
-    payload: Mapping[str, Any] = field(default_factory=dict)
-    depends_on: tuple[int, ...] = ()
-
-
 class _LiveAttempts:
     """Job attempts whose handler is executing in this process.
 
@@ -600,7 +520,7 @@ class IngestRunner:
         self.worker_id = worker_id
         self.clock = clock or SystemClock()
         self.handlers: dict[str, Handler] = {
-            **_job_defaults().DEFAULT_HANDLERS,
+            **_job_types().default_handlers(),
             **dict(handlers or {}),
         }
         self.services = services or RunnerServices()
@@ -1081,7 +1001,8 @@ class IngestRunner:
         try:
             if handler is None:
                 raise IngestRunnerError(f"unknown job_type '{job['job_type']}'.")
-            if job["job_type"] in WAITS_FOR_AI_OK_JOB_TYPES:
+            type_row = _job_types().job_type(job["job_type"])
+            if type_row is not None and type_row.waits_for_ai_ok:
                 model_use.require(self.vault_root)
             heartbeat_stop = threading.Event()
             heartbeat_thread = threading.Thread(
@@ -1224,7 +1145,8 @@ class IngestRunner:
                     usage=ctx._usage or None,
                     clock=self.clock,
                 )
-                if completed and job["job_type"] in _QUEUE_AFFECTING_JOB_TYPES:
+                type_row = _job_types().job_type(job["job_type"])
+                if completed and type_row is not None and type_row.affects_queue:
                     self.repo.bump_queue_revision(clock=self.clock)
         self._clear_job_interruptible(job["id"], job["attempt_count"])
         self._refresh_batch(batch_id)

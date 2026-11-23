@@ -397,6 +397,7 @@ def test_a_commission_queued_before_models_go_off_waits_and_resumes(tmp_path, mo
     from learnloop.adaptive_difficulty.generation import schedule_commission_generation
     from learnloop.adaptive_difficulty.spend import MODELS_ENV
     from learnloop.content.pipeline import jobs as J
+    from learnloop.content.synthesis import jobs as synthesis_jobs
     from learnloop.content.proposals.ai_contracts import AuthoringProposal
 
     from tests.structured_ai import StructuredClientFake
@@ -430,7 +431,7 @@ def test_a_commission_queued_before_models_go_off_waits_and_resumes(tmp_path, mo
         resolved.append(os.environ.get(MODELS_ENV, ""))
         return generator
 
-    monkeypatch.setattr(J, "default_synthesis_client", default_client)
+    monkeypatch.setattr(synthesis_jobs, "default_synthesis_client", default_client)
     repository = Repository(paths.sqlite_path)
     jobs = J.DurableIngestJobs()
     jobs.bind(repository, paths.root, background=False)  # no injected factory: production's seam

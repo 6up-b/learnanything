@@ -255,7 +255,7 @@ def test_a_commission_job_that_generated_nothing_says_why(tmp_path, monkeypatch,
     """Fail-first: before B8 all three were "commission no longer open" in the job's result, and nothing else."""
 
     from learnloop.adaptive_difficulty.operation import GuardDenied
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
 
     paths = create_basic_vault(tmp_path / "vault")
     repository = Repository.attach(paths.sqlite_path)
@@ -351,7 +351,7 @@ def test_an_fsrs_summary_with_a_non_finite_number_keeps_the_grade_record():
 
 
 def test_every_b8_builder_passes_the_prose_check_with_learner_text_planted():
-    from learnloop.content.pipeline.jobs import ad_commission_skip_record
+    from learnloop.content.authoring.jobs import ad_commission_skip_record
     from learnloop.source_retrieval.deliverable_path import refresh_record
 
     error = RuntimeError(SECRET)

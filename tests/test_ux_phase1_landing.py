@@ -166,7 +166,7 @@ def test_a_book_with_the_retired_keep_local_gets_its_passage_check_when_asked(tm
 
 
 def test_a_queued_passage_check_runs_for_a_book_with_the_retired_keep_local(tmp_path):
-    from learnloop.content.pipeline.jobs import handle_reader_quick_check
+    from learnloop.content.authoring.jobs import handle_reader_quick_check
     from tests.reader_reconnect_helpers import FakeClient, _ask
     from tests.reader_reconnect_helpers import _setup as _reconnect_setup
     from tests.reader_dialogue_helpers import _CLOCK
