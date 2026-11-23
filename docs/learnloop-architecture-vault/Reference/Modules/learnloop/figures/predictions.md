@@ -95,7 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `has_tables`, `insert_prediction`, `prediction`, `prediction_for`, `set_explanation`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `enqueue_figure_explanation`, `enqueue_figure_prediction`; calls `enqueue_figure_explanation`, `enqueue_figure_prediction`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `predictions_enabled`; calls `predictions_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`; calls `figures_enabled`
 - [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `shown_figure`; calls `shown_figure`
 - [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `FigureRefused`, `prediction_home`; calls `FigureRefused`, `prediction_home`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `module`

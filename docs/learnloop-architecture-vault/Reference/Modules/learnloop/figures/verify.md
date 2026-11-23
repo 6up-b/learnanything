@@ -125,7 +125,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `Report`, `check_claims`, `quote_in`, `verified_assumptions`, `verify_numerics`
-- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `quote_in`; statically calls `quote_in`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `module`; statically calls `parameter_grid`, `quote_in`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `parameter_grid`, `quote_in`
@@ -150,7 +149,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]], [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]], [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

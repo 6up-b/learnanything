@@ -154,7 +154,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `figure_verdicts`, `has_source_checks`, `insert_source_check`, `latest_source_check`, `latest_source_checks`, `shown_figures`
 - [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; statically calls `figure`, `figure_verdicts`, `fuller_rows`, `has_tables`, `predictions_for_figure`, `request`, `shown_verification`
 - [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] — imports `shown_verification`; statically calls `shown_verification`
-- [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `module`; statically calls `figure`, `has_tables`
+- [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `SHOWN`, `module`; statically calls `figure`, `has_tables`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`; statically calls `figure`, `has_tables`, `superseding`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `module`; statically calls `figure`
 
@@ -196,7 +196,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_a_reuse_whose_request_cannot_be_recorded_fails_retryably_and_the_retry_reuses`
 - [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
-  - `test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched`
+  - `test_a_fresh_figure_for_a_marked_row_is_reused_under_another_setting`
   - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
   - `test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh`
   - `test_a_revision_inherits_its_bases_learner_state_protection`
@@ -213,14 +213,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_certification_bump_rechecks_at_no_paid_cost`
   - `test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild`
   - `test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing`
-  - `test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing`
   - `test_pressing_rebuild_calls_the_author_and_stores_a_new_version`
-  - `test_rebuild_is_not_offered_with_revisions_off`
   - `test_section_figures_leave_a_rejected_figure_out`
   - `test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored`
-- [tests/test_rw5c_switch_off.py](../../../../../../../tests/test_rw5c_switch_off.py) — direct import
-  - `test_a_row_written_just_before_a_switch_off_is_never_shown_while_it_is_off`
-  - `test_nothing_reads_the_ledger_while_the_switch_is_off`
 
 ## Modification guidance
 

@@ -60,8 +60,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 184) — Why a stored figure may not go out now because of the learner state an author of it was sent, or None (follow-ups Nov 2, ruling R1 of learner data-relax 2: exam-material protection, not privacy).
 - `inherited_learner_inputs(repository: Repository, row: Mapping[str, Any]) -> list[Any]` ([source](../../../../../../src/learnloop/figures/protection.py), line 269) — What every learner state the authors of ``row`` and of the figures it was made from were sent was read from (Codex review F4): a revision's rich job carries it, so the job checks it at admission, before every request and before it stores, though the revision sends no learner sta…
 - `figure_homes(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]] | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 294) — Where a figure with no passage lands (:func:`learnloop.figure_admission.figure_home_keys`): every recorded request's reading position; empty for an anchored figure.
-- `show_me_row(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/protection.py), line 304) — A figure built from a goal or with no anchor (RW5d): absent while ``figures.show_me_enabled`` is off.
-- `figure_withheld(vault: Any, repository: Repository, figure_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/protection.py), line 310) — Whether a stored figure may not go out now (its row is gone, or any span it was built from is held out, or (RW5d) it is a show-me figure while show me is off).
+- `show_me_row(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/protection.py), line 304) — A figure built from a goal or with no anchor (RW5d): absent while ``figures.enabled`` is off.
+- `figure_withheld(vault: Any, repository: Repository, figure_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/protection.py), line 310) — Whether a stored figure may not go out now (its row is gone, or any span it was built from is held out, or (RW5d) it is a show-me figure while figures are off).
 - `stored_learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 368) — Why a stored rich figure whose author was sent the learner's state may not go out (be delivered, recovered or reused) now, or None: what that state was read from is checked again against the protection as it is now (``learner_state.inputs_withheld``; a missing record fails close…
 - `intent_learner_state_withheld(vault: Any, repository: Repository, payload: Any) -> str | None` ([source](../../../../../../src/learnloop/figures/protection.py), line 382) — Why a saved rich job payload's learner state (a quick figure's durable rich intent) may not go out now, or None when its author was sent no learner state (follow-ups Nov 2: a fuller version stored with no record of its own is read from its quick figure's intent, the job's payloa…
 - `stored_plan_open_items(repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/figures/protection.py), line 415) — The ids of the items today's latest stored plan holds open: planned, and not yet done, skipped or displaced.
@@ -128,10 +128,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `row_withheld`; statically calls `row_withheld`
 - [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `INHERITED_LEARNER_INPUTS_KEY`, `LEARNER_STATE_INPUTS_KEY`, `RICH_INTENT_KEY`, `_learner_inputs_unrecorded`, `_withheld`, `inherited_learner_inputs`, `learner_state_withheld`; statically calls `_learner_inputs_unrecorded`, `_withheld`, `inherited_learner_inputs`, `learner_state_withheld`
 - [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `keys_withheld`; statically calls `keys_withheld`
-- [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `row_withheld`, `show_me_row`; statically calls `row_withheld`, `show_me_row`
+- [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `row_withheld`; statically calls `row_withheld`
 - [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `_withheld`, `figure_homes`, `item_passages`, `rich_base_keys`, `row_withheld`, `show_me_row`; statically calls `_withheld`, `figure_homes`, `item_passages`, `rich_base_keys`, `row_withheld`, `show_me_row`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `item_passages`, `keys_withheld`, `withheld_message`; statically calls `item_passages`, `keys_withheld`, `withheld_message`
-- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `ATTEMPT_HOST_REFS`, `keys_withheld`, `row_withheld`, `show_me_row`, `withheld_message`; statically calls `keys_withheld`, `row_withheld`, `show_me_row`, `withheld_message`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `ATTEMPT_HOST_REFS`, `keys_withheld`, `row_withheld`, `withheld_message`; statically calls `keys_withheld`, `row_withheld`, `withheld_message`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `ATTEMPT_HOST_REFS`, `LEARNER_STATE_INPUTS_KEY`, `_carries_learner_state`, `_inherited_withheld`, `_inherits_learner_state`, `_learner_state_withheld`, `_withheld`, `rich_base_item_protected`, `stored_learner_state_withheld`; statically calls `_carries_learner_state`, `_inherited_withheld`, `_inherits_learner_state`, `_learner_state_withheld`, `_withheld`, `rich_base_item_protected`, `stored_learner_state_withheld`
 - [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `RICH_INTENT_KEY`, `_withheld`, `learner_state_withheld`; statically calls `_withheld`, `learner_state_withheld`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `figure_withheld`; statically calls `figure_withheld`
@@ -149,7 +149,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `module`; calls `block_events_for`, `daily_plan_tables_present`, `plan_blocks`, `plans_for_date`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `figure`, `has_tables`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figure_home_keys`, `show_me_enabled`; calls `figure_home_keys`, `show_me_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figure_home_keys`, `figures_enabled`; calls `figure_home_keys`, `figures_enabled`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `inputs_withheld`; calls `inputs_withheld`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `module`; calls `withheld_items`
@@ -178,7 +178,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v1_only_todays_plan_holds_an_item`
   - `test_v1_the_open_items_are_the_plan_records_own`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
-  - `test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched`
+  - `test_a_fresh_figure_for_a_marked_row_is_reused_under_another_setting`
   - `test_a_fuller_version_with_no_record_of_its_own_is_checked_by_its_jobs_payload`
   - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
   - `test_a_marked_quick_figure_with_no_record_is_withheld`

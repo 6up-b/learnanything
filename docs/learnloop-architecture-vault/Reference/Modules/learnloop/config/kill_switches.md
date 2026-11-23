@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py) |
-| Source lines | 186 |
+| Source lines | 178 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |

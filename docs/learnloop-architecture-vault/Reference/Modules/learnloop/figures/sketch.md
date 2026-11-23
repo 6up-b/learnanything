@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `probe_problems(values: Any, probes: Mapping[str, Probe]) -> list[str]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 823) — Why a ``probes()`` result does not match the declared probes (every declared one present, of its shape, every number finite; undeclared names are ignored, never shown).
 - `probe_numbers(value: Any, shape: str) -> list[float]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 852) — A validated probe's values as one list (a pairs probe's y values).
 - `element_index(scene: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 862)
-- `sketch_ready(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/sketch.py), line 866) — The sketch tier as offered on this machine: its switch, and the engine present with its pinned digest (spec §7.2: an unavailable tier is left out of the author's menu).
+- `sketch_ready(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/sketch.py), line 866) — The sketch tier as offered on this machine: figures on, and the engine present with its pinned digest (spec §7.2: an unavailable tier is left out of the author's menu).
 
 ### Module constants
 
@@ -205,7 +205,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `sketch_enabled`; calls `sketch_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`; calls `figures_enabled`
 - [[Reference/Modules/learnloop/figures/grammar|learnloop.figures.grammar]] — imports `module`; calls `check_names`, `free_names`, `is_name`, `parse`
 - [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] — imports `engine_ready`; calls `engine_ready`
 - [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `module`; calls `parse_salvaging_predictions`
@@ -233,6 +233,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_author_predictions.py](../../../../../../tests/test_figure_author_predictions.py) — direct import
   - `test_a_sketch_gets_the_same_treatment`
   - `test_run_to_is_untouched`
+- [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
+  - `test_a_fresh_figure_for_a_marked_row_is_reused_under_another_setting`
 - [tests/test_sketch_hostile.py](../../../../../../tests/test_sketch_hostile.py) — direct import
   - `test_a_tautological_claim_speaks_only_for_what_it_checks`
   - `test_an_oversized_result_is_refused_by_the_engine_or_the_validator`

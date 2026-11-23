@@ -148,7 +148,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `ENGINE_SHA256`, `ENGINE_VERSION`
 - [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]] — imports `module`; statically calls `SketchEngine`
-- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `ENGINE_SHA256`
 - [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `SketchEngine`, `SketchRunError`; statically calls `SketchEngine`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `engine_ready`; statically calls `engine_ready`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `ENGINE_SHA256`, `SketchEngine`, `SketchRunError`; statically calls `SketchRunError`
@@ -172,12 +171,13 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
 - [tests/katex_meaning.py](../../../../../../tests/katex_meaning.py) — direct import
 - [tests/sketch_parity_corpus.py](../../../../../../tests/sketch_parity_corpus.py) — direct import
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — direct import
@@ -223,7 +223,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sketch_service.py](../../../../../../tests/test_sketch_service.py) — direct import
   - `test_a_report_from_an_older_verifier_is_reverified_before_it_is_shown`
   - `test_an_engine_reverification_is_a_verifier_judgment_recorded_once`
-  - `test_off_never_loads_the_engine`
   - `test_the_tier_is_off_when_the_engine_cannot_run_here`
 - [tests/test_sketch_verify.py](../../../../../../tests/test_sketch_verify.py) — direct import
   - `test_scenes_at_the_point_cap_over_the_largest_grid_hit_the_output_budget`

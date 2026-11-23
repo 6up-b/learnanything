@@ -103,7 +103,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `let job = await start()` — let, line 315
 - `const rich = job.state === "done" ? job.result?.rich ?? null : null` — const, line 324
 - `const figure = job.state === "done" ? job.result?.figure ?? null : null` — const, line 336
-- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 337
+- `const shown = figure !== null && figure.shown` — const, line 337
 - `const command = getCommandError(error)` — const, line 349
 - `const request = useCallback( (input: FigureRequestInput): Promise<FigureRequestOutcome>` — const, line 360
 - `const spanIds = [...new Set(input.spanIds)]` — const, line 363
