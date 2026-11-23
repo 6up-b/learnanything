@@ -518,3 +518,9 @@ Found by three independent reviews of the teacher v2 design (spec `docs/specs/sp
 |---|---|---|---|---|---|
 | RD1-1 | Spec §3.6 (review F9), confirmed while building the desks' two-player test | `YouTubeWatchPanel`'s message listener checked only `event.origin`, which every embedded player shares, so one player's time messages moved another's clock, transcript and reading place (and any page with YouTube's origin could). | `YouTubeWatchPanel.instance.test.tsx > two players on one desk > each takes only its own frame's time messages`, `> ignores a message from YouTube's origin that no player's frame sent` (both failed before the fix); the harness's "two players each keep their own clock" in real iframes | A message is taken only when `event.source` is the panel's own iframe window; the video tests that fake the widget now send from the player's frame | fixed |
 | RD1-2 | RD1's whole vitest run (`--maxWorkers=2`, other suites loading the machine) | `SketchFigure.test.tsx > draws a new sample with another seed` failed once again under load (as RD0-11); alone it passes (19 of 19). | — | As RD0-11 | open (arc close; with RD0-11) |
+
+## From the Reader workbench v2 overview (RD2, 2026-11-23)
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| RD2-1 | RD2's harness, when the desks' slot markup was nested | RD1's rule giving paused windows `content-visibility: auto` was written `.desk-window.paused > .desk-pane-body`, but the pane body was never a direct child of the window, so offscreen and hidden windows kept rendering their content (spec §3.6). | The harness's "a paused window's content is not rendered (content-visibility: auto)": with the old selector it read `visible` for all eight paused bodies and failed | `.desk-window.paused .desk-pane-body`; the RD1 two-player check now reads the clocks from the DOM's text (a body that is not rendered has no rendered text) | fixed |
