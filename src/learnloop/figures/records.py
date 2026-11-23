@@ -352,6 +352,8 @@ class AuthorAttempts:
     prompt_version: str | None = None
     #: The records' kind: :data:`KIND_AUTHOR` for a quick build's author, :data:`KIND_RICH_AUTHOR` for a rich job's.
     kind: str = KIND_AUTHOR
+    #: The model the attempts asked, when the loop names it as it starts (the rich job's route).
+    model: Any = None
 
     def start(self, number: int) -> None:
         self.attempts.append(_Attempt(number))

@@ -44,6 +44,6 @@ def handle_figure_rich(ctx: JobContext) -> dict[str, Any]:
                 vault, ctx.repo, ctx.payload, client=client,
                 report=lambda phase, message: ctx.report(phase, message=message),
                 renderer=ctx.services.figure_rich_renderer, function_runner=ctx.services.figure_function_runner,
-                cancellation=(JobCancelled,), clock=ctx.clock)
+                cancellation=(JobCancelled,), clock=ctx.clock, job_id=ctx.job_id)
         except RichJobStopped as exc:
             raise IngestRunnerError(exc.message, code=exc.code, retryable=exc.retryable) from exc
