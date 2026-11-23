@@ -66,7 +66,7 @@ import { PreparingView } from "./reader/PreparingView";
 import { readerKeyBarKeys } from "./reader/readerKeys";
 import { type ReadingPosition } from "./reader/readingPosition";
 import { useBareAltClear } from "./reader/bareAlt";
-import { WindowScope, useListenerHub, useScopeClaim, useWindowLifecycle, useWindowPaused, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./desks/lifecycle";
+import { WindowScope, isPaused, useListenerHub, useScopeClaim, useWindowLifecycle, useWindowPaused, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./desks/lifecycle";
 import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
@@ -865,7 +865,13 @@ export function ReaderScreen({
     reveal: showGuideRail,
     onError,
   });
-  const recapShown = Boolean(recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working);
+  // The card counts as shown only where it is on screen: the rail is rendered (on a desk, only in a panel
+  // window bound to this book) and the window it shows in is not paused (offscreen, hidden, a preview).
+  const sourceLifecycleState = useWindowLifecycle().state;
+  const railOnScreen = windowed
+    ? Boolean(windowed.railHost) && !isPaused(windowed.railHost?.lifecycle.state ?? "hidden")
+    : !isPaused(sourceLifecycleState);
+  const recapShown = Boolean(railOnScreen && recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working);
   // Leaving while skimming offers no wrap-up where the learner lands (F9).
   useEffect(() => {
     onSkimmingChange?.(muted);
