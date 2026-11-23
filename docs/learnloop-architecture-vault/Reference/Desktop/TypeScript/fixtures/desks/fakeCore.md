@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts) |
-| Source lines | 108 |
+| Source lines | 161 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -56,23 +56,31 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export type InvokeArgs = Record<string, unknown>` — type, line 9
 - `export interface HarnessCall` — interface, line 11
-- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 100
-- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 106
+- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 153
+- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 159
 
 ## Internal implementation anchors
 
 - `const server = new FixtureDeskServer()` — const, line 17
 - `const companion = new FixtureCompanion()` — const, line 18
-- `const calls: HarnessCall[] = []` — const, line 19
-- `interface Window` — interface, line 22
-- `function viewFor(id: string)` — function, line 28
-- `const CONTRACT =` — const, line 32
-- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 38
-- `const view = viewFor(String(input.extractionId))` — const, line 49
-- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 54
-- `const view = viewFor(String(input.extractionId))` — const, line 55
-- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 63
-- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 101
+- `const carried: Array<` — const, line 20
+- `function fixtureProposals(padId: string)` — function, line 27
+- `function fixtureDrain(deskId: string)` — function, line 38
+- `const pads = Object.values(server.pads).filter((pad)` — const, line 39
+- `const words = pad.blocks.map((block)` — const, line 41
+- `const last = words[words.length - 1] ?? ""` — const, line 42
+- `const calls: HarnessCall[] = []` — const, line 46
+- `interface Window` — interface, line 49
+- `function viewFor(id: string)` — function, line 55
+- `const CONTRACT =` — const, line 59
+- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 65
+- `const view = viewFor(String(input.extractionId))` — const, line 76
+- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 81
+- `const view = viewFor(String(input.extractionId))` — const, line 82
+- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 90
+- `const question =` — const, line 123
+- `const question = carried.find((each)` — const, line 130
+- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 154
 
 ## Who imports or calls it
 

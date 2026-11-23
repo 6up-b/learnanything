@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx) |
-| Source lines | 523 |
+| Source lines | 524 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -54,69 +54,69 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const COMPANION_MS =` — const, line 21
-- `export interface CompanionContext` — interface, line 23
-- `export interface CompanionChip` — interface, line 29
-- `export interface CompanionHandle` — interface, line 33
-- `export interface CompanionProps` — interface, line 40
-- `export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Companion(props, ref)` — const, line 88
+- `export const COMPANION_MS =` — const, line 22
+- `export interface CompanionContext` — interface, line 24
+- `export interface CompanionChip` — interface, line 30
+- `export interface CompanionHandle` — interface, line 34
+- `export interface CompanionProps` — interface, line 41
+- `export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Companion(props, ref)` — const, line 89
 
 ## Internal implementation anchors
 
-- `function timeOf(ms: number): string` — function, line 73
-- `function dayLabel(date: string): string` — function, line 77
-- `const day = new Date(`$` — const, line 78
-- `const today = new Date()` — const, line 79
-- `function rectStyle(rect: Rect): CSSProperties` — function, line 84
-- `const panelRef = useRef<HTMLDivElement | null>(null)` — const, line 95
-- `const pillRef = useRef<HTMLButtonElement | null>(null)` — const, line 96
-- `const tabRef = useRef<HTMLButtonElement | null>(null)` — const, line 97
-- `const bodyRef = useRef<HTMLDivElement | null>(null)` — const, line 98
-- `const showing = state.mode !== "hidden"` — const, line 101
-- `const restRect = state.mode === "anchored" && state.anchored ? state.anchored : dockRect(dock, stage)` — const, line 104
-- `const lastShown = useRef<Rect | null>(null)` — const, line 106
-- `const kind = state.last === "dissolve" ? "dissolve" : "hide"` — const, line 117
-- `const handle = timers.set(()` — const, line 119
-- `const panel = panelRef.current` — const, line 130
-- `const previous = lastShown.current` — const, line 131
-- `const dx = previous.x - shownRect.x` — const, line 136
-- `const dy = previous.y - shownRect.y` — const, line 137
-- `const sx = previous.w / Math.max(1, shownRect.w)` — const, line 138
-- `const sy = previous.h / Math.max(1, shownRect.h)` — const, line 139
-- `const panel = panelRef.current` — const, line 150
-- `const pill = pillRef.current` — const, line 151
-- `const tabEl = tabRef.current` — const, line 152
-- `const target = pillRect(stage)` — const, line 173
-- `const from = shownRect` — const, line 174
-- `const k = q` — const, line 175
-- `const tx = (target.x + target.w - (from.x + from.w)) * k` — const, line 178
-- `const ty = (target.y + target.h - (from.y + from.h)) * k` — const, line 179
-- `const s = 1 - (1 - target.w / Math.max(1, from.w)) * k` — const, line 180
-- `let live = true` — let, line 197
-- `const handle = timers.set(()` — const, line 198
-- `const lastStatus = props.thread.length ? `$` — const, line 219
-- `const body = bodyRef.current` — const, line 221
-- `let live = true` — let, line 229
-- `const drag = useRef<` — const, line 240
-- `const onGrabDown = (event: React.PointerEvent<HTMLDivElement>)` — const, line 241
-- `const onGrabMove = (event: React.PointerEvent<HTMLDivElement>)` — const, line 246
-- `const d = drag.current` — const, line 247
-- `const panel = panelRef.current` — const, line 248
-- `const onGrabUp = (event: React.PointerEvent<HTMLDivElement>)` — const, line 253
-- `const d = drag.current` — const, line 254
-- `const panel = panelRef.current` — const, line 256
-- `const dx = event.clientX - d.x` — const, line 258
-- `const dy = event.clientY - d.y` — const, line 259
-- `const dropped =` — const, line 260
-- `const motionClass = reducedMotion ? " still" : ""` — const, line 269
-- `const enter = state.last === "summon" ? " summon" : state.last === "show" ? " show" : ""` — const, line 270
-- `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 271
-- `const tabRect = dockRect(dock, stage)` — const, line 273
-- `const tabLabel = `◇ tutor · $` — const, line 274
-- `const question = draft.trim()` — const, line 363
-- `function ExchangeView(` — function, line 409
-- `let answer: ReactNode` — let, line 417
-- `function HistoryView(` — function, line 485
+- `function timeOf(ms: number): string` — function, line 74
+- `function dayLabel(date: string): string` — function, line 78
+- `const day = new Date(`$` — const, line 79
+- `const today = new Date()` — const, line 80
+- `function rectStyle(rect: Rect): CSSProperties` — function, line 85
+- `const panelRef = useRef<HTMLDivElement | null>(null)` — const, line 96
+- `const pillRef = useRef<HTMLButtonElement | null>(null)` — const, line 97
+- `const tabRef = useRef<HTMLButtonElement | null>(null)` — const, line 98
+- `const bodyRef = useRef<HTMLDivElement | null>(null)` — const, line 99
+- `const showing = state.mode !== "hidden"` — const, line 102
+- `const restRect = state.mode === "anchored" && state.anchored ? state.anchored : dockRect(dock, stage)` — const, line 105
+- `const lastShown = useRef<Rect | null>(null)` — const, line 107
+- `const kind = state.last === "dissolve" ? "dissolve" : "hide"` — const, line 118
+- `const handle = timers.set(()` — const, line 120
+- `const panel = panelRef.current` — const, line 131
+- `const previous = lastShown.current` — const, line 132
+- `const dx = previous.x - shownRect.x` — const, line 137
+- `const dy = previous.y - shownRect.y` — const, line 138
+- `const sx = previous.w / Math.max(1, shownRect.w)` — const, line 139
+- `const sy = previous.h / Math.max(1, shownRect.h)` — const, line 140
+- `const panel = panelRef.current` — const, line 151
+- `const pill = pillRef.current` — const, line 152
+- `const tabEl = tabRef.current` — const, line 153
+- `const target = pillRect(stage)` — const, line 174
+- `const from = shownRect` — const, line 175
+- `const k = q` — const, line 176
+- `const tx = (target.x + target.w - (from.x + from.w)) * k` — const, line 179
+- `const ty = (target.y + target.h - (from.y + from.h)) * k` — const, line 180
+- `const s = 1 - (1 - target.w / Math.max(1, from.w)) * k` — const, line 181
+- `let live = true` — let, line 198
+- `const handle = timers.set(()` — const, line 199
+- `const lastStatus = props.thread.length ? `$` — const, line 220
+- `const body = bodyRef.current` — const, line 222
+- `let live = true` — let, line 230
+- `const drag = useRef<` — const, line 241
+- `const onGrabDown = (event: React.PointerEvent<HTMLDivElement>)` — const, line 242
+- `const onGrabMove = (event: React.PointerEvent<HTMLDivElement>)` — const, line 247
+- `const d = drag.current` — const, line 248
+- `const panel = panelRef.current` — const, line 249
+- `const onGrabUp = (event: React.PointerEvent<HTMLDivElement>)` — const, line 254
+- `const d = drag.current` — const, line 255
+- `const panel = panelRef.current` — const, line 257
+- `const dx = event.clientX - d.x` — const, line 259
+- `const dy = event.clientY - d.y` — const, line 260
+- `const dropped =` — const, line 261
+- `const motionClass = reducedMotion ? " still" : ""` — const, line 270
+- `const enter = state.last === "summon" ? " summon" : state.last === "show" ? " show" : ""` — const, line 271
+- `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 272
+- `const tabRect = dockRect(dock, stage)` — const, line 274
+- `const tabLabel = `◇ tutor · $` — const, line 275
+- `const question = draft.trim()` — const, line 364
+- `function ExchangeView(` — function, line 410
+- `let answer: ReactNode` — let, line 418
+- `function HistoryView(` — function, line 486
 
 ## Who imports or calls it
 
@@ -134,6 +134,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/desks/companion/DiffProposal|src/screens/desks/companion/DiffProposal.tsx]] — import-or-re-export; imports `DiffProposal`, `ProposedDiff`
 - [[Reference/Desktop/TypeScript/screens/desks/companion/asks|src/screens/desks/companion/asks.ts]] — import-or-re-export; imports `CompanionExchange`
 - [[Reference/Desktop/TypeScript/screens/desks/companion/model|src/screens/desks/companion/model.ts]] — import-or-re-export; imports `CompanionState`, `dockRect`, `nearestDock`, `pillRect`
+- [[Reference/Desktop/TypeScript/screens/desks/fitMath|src/screens/desks/fitMath.tsx]] — import-or-re-export; imports `FitMath`
 - [[Reference/Desktop/TypeScript/screens/desks/geometry|src/screens/desks/geometry.ts]] — import-or-re-export; imports `Rect`, `Stage`
 - [[Reference/Desktop/TypeScript/screens/desks/keys/router|src/screens/desks/keys/router.ts]] — import-or-re-export; imports `Timers`
 

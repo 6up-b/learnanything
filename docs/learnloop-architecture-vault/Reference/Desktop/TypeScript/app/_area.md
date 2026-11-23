@@ -45,7 +45,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/app/intentCheck|intentCheck.ts]] | `ACTIVE` | Provides `readerTargetForRestoration` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/keyScope|keyScope.ts]] | `ACTIVE` | Provides `keyScope` within the desktop's TypeScript/app ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/app/keyboard|keyboard.ts]] | `ACTIVE` | Centralizes keyboard-target and shortcut guards shared by desktop interactions. | 0 | 4 |
-| [[Reference/Desktop/TypeScript/app/keymap|keymap.ts]] | `ACTIVE` | Provides `KeyAction`, `KeyBinding`, `ADD_FILES_CHORD`, `shellBindings` and related exports within the desktop's TypeScript/app ownership area. | 3 | 45 |
+| [[Reference/Desktop/TypeScript/app/keymap|keymap.ts]] | `ACTIVE` | Provides `KeyAction`, `KeyBinding`, `ADD_FILES_CHORD`, `shellBindings` and related exports within the desktop's TypeScript/app ownership area. | 3 | 47 |
 | [[Reference/Desktop/TypeScript/app/nextPractice|nextPractice.ts]] | `ACTIVE` | Provides `daysFrom`, `dayName`, `NextPracticeWordsOptions`, `keptForCheckLine` and related exports within the desktop's TypeScript/app ownership area. | 1 | 4 |
 | [[Reference/Desktop/TypeScript/app/notices|notices.ts]] | `ACTIVE` | Provides `NEEDS_SESSION`, `noticeAfterSessionBegins`, `NoticeCondition`, `ShellNotice` and related exports within the desktop's TypeScript/app ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/app/planFallback|planFallback.ts]] | `ACTIVE` | Provides `PlanFallbackOffer`, `extractFallbackOffer`, `noteFallbackOffer`, `currentFallbackOffer` and related exports within the desktop's TypeScript/app ownership area. | 0 | 2 |

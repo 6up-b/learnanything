@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/ThreadWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/ThreadWindow.tsx) |
-| Source lines | 77 |
+| Source lines | 78 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |
@@ -54,18 +54,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function threadExchanges(exchanges: ReaderAskHistoryExchangeDto[], rootExchangeId: string): ReaderAskHistoryExchangeDto[]` — function, line 11
-- `export function ThreadWindow(` — function, line 26
+- `export function threadExchanges(exchanges: ReaderAskHistoryExchangeDto[], rootExchangeId: string): ReaderAskHistoryExchangeDto[]` — function, line 12
+- `export function ThreadWindow(` — function, line 27
 
 ## Internal implementation anchors
 
-- `const byId = new Map(exchanges.map((exchange)` — const, line 12
-- `const rootOf = (exchange: ReaderAskHistoryExchangeDto): string` — const, line 13
-- `let current = exchange` — let, line 14
-- `const named = byId.get(rootExchangeId)` — const, line 21
-- `const root = named ? rootOf(named) : rootExchangeId` — const, line 22
-- `const paused = useWindowPaused()` — const, line 31
-- `let live = true` — let, line 37
+- `const byId = new Map(exchanges.map((exchange)` — const, line 13
+- `const rootOf = (exchange: ReaderAskHistoryExchangeDto): string` — const, line 14
+- `let current = exchange` — let, line 15
+- `const named = byId.get(rootExchangeId)` — const, line 22
+- `const root = named ? rootOf(named) : rootExchangeId` — const, line 23
+- `const paused = useWindowPaused()` — const, line 32
+- `let live = true` — let, line 38
 
 ## Who imports or calls it
 
@@ -81,6 +81,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderAskHistoryExchangeDto`, `TutorCitationDto`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/screens/desks/fitMath|src/screens/desks/fitMath.tsx]] — import-or-re-export; imports `FitMath`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWindowPaused`
 
 ### Assets, platform, and third-party dependencies
