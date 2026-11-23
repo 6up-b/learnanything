@@ -100,7 +100,7 @@ import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
 import { captureNodes, hasPassage, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
-import { promotedRef, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
+import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
 import { keyAfter } from "./pads/model";
@@ -1376,10 +1376,15 @@ export function DeskShell({
       case "menu": {
         // `.` or the ContextMenu key: the pad menu on the hovered line; else the menu on the hovered object, or on
         // the focused window's first object.
+        // A focused stack with no hovered line falls through to the hovered object (a passage beside it).
         const stack = focusedStackRef.current();
-        if (stack) return stack.menuAtHover();
+        if (stack?.menuAtHover()) return true;
         return openMenuByKeyRef.current();
       }
+      case "marginNote":
+        return hoveredKeyRef.current("note");
+      case "promoted":
+        return hoveredKeyRef.current("promoted");
       case "drain":
         setDraining(true);
         return true;
@@ -2371,6 +2376,7 @@ export function DeskShell({
   }), [menuTransport, mintId]);
   const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
+  const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
   const padsHost = useMemo<PadsHost>(() => ({
     store,
     deskId,
@@ -2988,6 +2994,36 @@ export function DeskShell({
 
   // The object under the pointer, for `.` and the ContextMenu key (else the focused window's first object).
   const hoverTarget = useRef<Element | null>(null);
+  /** `n` (a margin note on the hovered passage) and `b` (the hovered object's first promoted action, labelled
+   * opened once it ran); false when the pointer is over nothing they apply to. */
+  hoveredKeyRef.current = (what) => {
+    const hovered = hoverTarget.current;
+    if (!hovered || !stageRef.current?.contains(hovered)) return false;
+    const object = objectAt(hovered, (windowId) => wsRef.current.windows[windowId]?.content?.kind ?? null, (windowId) => {
+      const content = wsRef.current.windows[windowId]?.content;
+      return content && (content.kind === "source" || content.kind === "video") ? { sourceId: content.sourceId, extractionId: content.extractionId } : null;
+    }, (() => {
+      const box = hovered.getBoundingClientRect();
+      return { x: box.left + 30, y: box.bottom + 2 };
+    })(), firstVisibleSpan);
+    if (!object || !hasPassage(object)) return false;
+    if (what === "note") {
+      if (object.kind !== "passage" && object.kind !== "cue") return false;
+      void runVerb("note", object, menuContext);
+      return true;
+    }
+    const input = objectInput(object, deskIdRef.current);
+    void menuPromoted.passagePromoted(input).then((found) => {
+      if (found.pendingJob) void menuPromoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+      const first = found.rows[0];
+      if (!first) {
+        toastNow("nothing to open from here yet");
+        return;
+      }
+      if (onPromotedRef.current(first, input)) menuPromoted.label(first.rowId, "opened");
+    }, () => toastNow("couldn't read what this passage holds just now"));
+    return true;
+  };
   openMenuByKeyRef.current = () => {
     const stage = stageRef.current;
     const focusWindow = focusIdRef.current;

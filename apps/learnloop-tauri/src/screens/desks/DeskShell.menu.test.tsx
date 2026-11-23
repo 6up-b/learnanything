@@ -509,3 +509,33 @@ describe("RD5 fix round: New desk from these", () => {
     expect(old?.slots.flatMap((slot) => slot.windows).map((window) => window.windowId)).toContain("fx_w_book");
   });
 });
+
+describe("RD5 fix round: the menu's keys", () => {
+  it("`n` writes a margin note on the hovered passage; `b` runs its first promoted action and labels it opened", async () => {
+    const { transport, labels } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.mouseOver(passage("fx_w_book_s2"));
+    fireEvent.keyDown(window, { key: "n" });
+    const sheet = await screen.findByRole("dialog", { name: "› note in margin" });
+    fireEvent.change(within(sheet).getByRole("textbox", { name: "your note" }), { target: { value: "this is the temperature again" } });
+    fireEvent.click(within(sheet).getByText("keep it"));
+    await waitFor(() => expect(transport.readerCapture).toHaveBeenCalledWith(expect.objectContaining({ action: "annotate", learnerText: "this is the temperature again",
+      rawSelection: { extractionId: FIXTURE_SOURCES.book.extractionId, nodes: [{ spanId: "fx_w_book_s2" }] } })));
+    fireEvent.mouseOver(passage("fx_w_book_s1"));
+    fireEvent.keyDown(window, { key: "b" });
+    await waitFor(() => expect(labels).toEqual([expect.objectContaining({ proposalKind: "promoted_row", proposalId: "r1", label: "opened" })]));
+  });
+
+  it("`.` with a pad stack focused but no line hovered opens the menu on the hovered passage", async () => {
+    const { asked } = mount({ stacks: true });
+    await screen.findByTestId("pane-fx_w_book");
+    await waitFor(() => expect(document.querySelector('[data-desk-window="fx_w_pads"] [data-block="fx_b_r1"]')).toBeTruthy());
+    fireEvent.mouseDown(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head') as HTMLElement);
+    await flush();
+    expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
+    fireEvent.mouseOver(passage("fx_w_book_s2"));
+    fireEvent.keyDown(window, { key: "." });
+    await waitFor(() => expect(asked.some((input) => input.spanId === "fx_w_book_s2")).toBe(true));
+    expect(menus()).toHaveLength(1);
+  });
+});
