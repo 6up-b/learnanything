@@ -141,6 +141,15 @@ export interface DeskDebugHandle {
   overview(): boolean;
 }
 
+/** The camera the world shows now (mid CSS transition), read from its computed transform. */
+function displayedCamera(world: HTMLElement): Camera | null {
+  const shown = typeof getComputedStyle === "function" ? getComputedStyle(world).transform : "";
+  const match = /^matrix\(([^)]+)\)$/.exec(shown ?? "");
+  if (!match) return null;
+  const [a, , , , e, f] = match[1].split(",").map((part) => Number(part.trim()));
+  return [a, e, f].every(Number.isFinite) && a > 0 ? { x: e, y: f, s: a } : null;
+}
+
 function prefersReducedMotion(): boolean {
   try {
     return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -520,6 +529,11 @@ export function DeskShell({
   const showRelationsRef = useRef(showRelations);
   showRelationsRef.current = showRelations;
   const reduced = reducedMotion ?? prefersReducedMotion();
+  // Each transition (a zoom or a crossfade) takes the next number; a callback scheduled by one acts only
+  // while it is still the latest.
+  const transitionGen = useRef(0);
+  const panEaseRef = useRef(panEase);
+  panEaseRef.current = panEase;
   const pendingLeave = useRef<{ deskId: string; windowId: string | null; cams: Record<string, number>; focusMode: boolean } | null>(null);
 
   /** Where a window's card is in the overview's world. */
@@ -586,11 +600,46 @@ export function DeskShell({
     slivers: [...sliverEls.current.values()],
   }), [slotElements]);
 
-  /** Start a zoom from the reading view (into the overview); returns false when one cannot start. */
+  /** Reduced motion (spec §6.3): no zoom, the view swaps at once under a short crossfade. Every way into a
+   * transition (a key, the button, the wheel, a drag) comes through `beginEnter` or `beginLeave`, which
+   * take this path instead of starting a zoom. */
+  const crossfade = useCallback((enter: boolean, to: { deskId: string; windowId: string | null } | null, focusAfter: boolean) => {
+    transitionGen.current += 1;
+    const world = worldRef.current;
+    world?.classList.remove("desk-fadeswap");
+    void world?.offsetWidth;
+    world?.classList.add("desk-fadeswap");
+    setPanEase(false);
+    if (enter) {
+      const id = deskIdRef.current;
+      if (!id) return;
+      if (focusModeRef.current) setFocusMode(false);
+      preOverview.current = { deskId: id, focusId: focusIdRef.current };
+      setSelection(focusIdRef.current ? { deskId: id, windowId: focusIdRef.current } : null);
+      setOvCam(enteringCamera(cardOf(focusIdRef.current), stageNow.current));
+      setOverview(true);
+      return;
+    }
+    const target = to ?? (preOverview.current ? { deskId: preOverview.current.deskId, windowId: preOverview.current.focusId } : null);
+    setOverview(false);
+    if (target) {
+      setCurrentDeskId(target.deskId);
+      if (target.windowId) commit(setFocus(wsRef.current, target.deskId, target.windowId));
+    }
+    if (focusAfter) setFocusMode(true);
+  }, [cardOf, setCurrentDeskId, commit]);
+
+  /** Start a zoom from the reading view (into the overview); returns false when one cannot start (or when
+   * reduced motion swapped the view at once instead). */
   const beginEnter = useCallback((): boolean => {
     if (controller.active || overviewRef.current || !worldRef.current) return false;
     const id = deskIdRef.current;
     if (!id) return false;
+    if (reduced) {
+      crossfade(true, null, false);
+      return false;
+    }
+    transitionGen.current += 1;
     if (focusModeRef.current) flushSync(() => setFocusMode(false));
     const selected = focusIdRef.current;
     preOverview.current = { deskId: id, focusId: selected };
@@ -603,12 +652,26 @@ export function DeskShell({
     if (!plan) return false;
     controller.begin(plan, zoomTargets());
     return true;
-  }, [controller, cardOf, planZoom, zoomTargets]);
+  }, [controller, cardOf, planZoom, zoomTargets, reduced, crossfade]);
 
   /** Start a zoom from the overview back into a desk: the selected card's, or where the overview was
    * entered from. */
   const beginLeave = useCallback((to: { deskId: string; windowId: string | null } | null, focusAfter = false): boolean => {
     if (controller.active || !overviewRef.current || !worldRef.current) return false;
+    if (reduced) {
+      crossfade(false, to, focusAfter);
+      return false;
+    }
+    transitionGen.current += 1;
+    // The world's camera has one animator: a keyboard pan still easing under the CSS transition is taken
+    // where it shows now, and the transition goes before the zoom writes the camera.
+    if (panEaseRef.current) {
+      const shown = displayedCamera(worldRef.current) ?? ovCamRef.current;
+      flushSync(() => {
+        setPanEase(false);
+        setOvCam(shown);
+      });
+    }
     const target = to ?? preOverview.current ?? (selectionRef.current ? { deskId: selectionRef.current.deskId, focusId: selectionRef.current.windowId } : null);
     if (!target) return false;
     const deskIdTo = target.deskId;
@@ -628,7 +691,7 @@ export function DeskShell({
     });
     controller.begin(plan, zoomTargets());
     return true;
-  }, [controller, planZoom, zoomTargets]);
+  }, [controller, planZoom, zoomTargets, reduced, crossfade]);
 
   /** The zoom ended: the one commit, whose layout is the zoom's last frame. */
   onEndRef.current = (goal, base) => {
@@ -663,7 +726,10 @@ export function DeskShell({
         if (leave.focusMode) setFocusMode(true);
       }
     });
+    // Only this transition's own cleanup: a zoom started since (o pressed during the exit) keeps its state.
+    const generation = transitionGen.current;
     frameClock.request(() => frameClock.request(() => {
+      if (transitionGen.current !== generation) return;
       setZooming(false);
       setLeaveTarget(null);
     }));
@@ -675,37 +741,12 @@ export function DeskShell({
       controller.go(overviewRef.current ? 1 : 0);
       return;
     }
-    if (reduced) {
-      // Reduced motion: no zoom, a short crossfade (spec §6.3).
-      const world = worldRef.current;
-      world?.classList.remove("desk-fadeswap");
-      void world?.offsetWidth;
-      world?.classList.add("desk-fadeswap");
-      if (!overviewRef.current) {
-        const id = deskIdRef.current;
-        if (!id) return;
-        if (focusModeRef.current) setFocusMode(false);
-        preOverview.current = { deskId: id, focusId: focusIdRef.current };
-        setSelection(focusIdRef.current ? { deskId: id, windowId: focusIdRef.current } : null);
-        setOvCam(enteringCamera(cardOf(focusIdRef.current), stageNow.current));
-        setOverview(true);
-      } else {
-        const target = to ?? (preOverview.current ? { deskId: preOverview.current.deskId, windowId: preOverview.current.focusId } : null);
-        setOverview(false);
-        if (target) {
-          setCurrentDeskId(target.deskId);
-          if (target.windowId) commit(setFocus(wsRef.current, target.deskId, target.windowId));
-        }
-        if (focusAfter) setFocusMode(true);
-      }
-      return;
-    }
     if (overviewRef.current) {
       if (beginLeave(to, focusAfter)) controller.go(0);
     } else if (beginEnter()) {
       controller.go(1);
     }
-  }, [controller, reduced, beginEnter, beginLeave, cardOf, setCurrentDeskId, commit]);
+  }, [controller, beginEnter, beginLeave]);
 
   /** Move the overview's selection; the camera follows over .2 s, keeping it 48 px inside. */
   const moveOverviewSelection = useCallback((direction: "left" | "right" | "up" | "down") => {
@@ -895,7 +936,8 @@ export function DeskShell({
     [timers],
   );
   const router = useMemo(() => new DeskListenerRouter({
-    activeWindowId: () => focusIdRef.current,
+    // In the overview every window is a card: none owns input (the reading focus is only remembered).
+    activeWindowId: () => (overviewRef.current ? null : focusIdRef.current),
     isPaused: (windowId) => isPaused(lifecyclesRef.current[windowId]?.state ?? "hidden"),
     onPointerWindow: (windowId) => {
       const current = wsRef.current;
@@ -1036,11 +1078,16 @@ export function DeskShell({
     const onWheel = (event: WheelEvent) => {
       const target = event.target as Element | null;
       if (!target || !target.closest("[data-desk-stage], .desk-shelf, .desk-shelf-rail")) return;
+      // Alt used with the wheel is a gesture, not a bare-Alt tap: its release clears no capture and the
+      // which-key panel does not show.
+      if (event.altKey || modifiers.read().alt) altTracker.cancel();
       const st = stageNow.current;
       const now = performance.now();
       let g = gesture.current;
       if (!g) {
-        const kind = classifyWheel(event, modifiers.read(event), st.height);
+        // The tracked keys only: classifyWheel reads the event's own flags itself (a pinch is ctrl+wheel
+        // with no Ctrl key held).
+        const kind = classifyWheel(event, modifiers.read(), st.height);
         // In the overview a plain wheel pans its camera; alt or ctrl zooms back in.
         const ovPlain = overviewRef.current && kind.kind !== "zoom";
         g = gesture.current = {
@@ -1108,7 +1155,7 @@ export function DeskShell({
     };
     main.addEventListener("wheel", onWheel, { passive: false, capture: true });
     return () => main.removeEventListener("wheel", onWheel, { capture: true });
-  }, [ws === null, modifiers, timers, controller, beginEnter, beginLeave, endGesture]);
+  }, [ws === null, modifiers, altTracker, timers, controller, beginEnter, beginLeave, endGesture]);
 
   // Ctrl+drag on the stage background scrubs the zoom (320 px is the whole zoom); in the overview a drag
   // on the background pans, and a card dragged farther than 8 px moves.
@@ -1631,7 +1678,7 @@ export function DeskShell({
           onPointerMove={onStagePointerMove}
           onPointerUp={onStagePointerUp}
         >
-          <div className={`desk-world${panEase && overview ? " pan-ease" : ""}`} ref={worldRef} data-desk-world="">
+          <div className={`desk-world${panEase && overview && !zooming ? " pan-ease" : ""}`} ref={worldRef} data-desk-world="">
             {/* One element per window, keyed by the window: pairing, unpairing and focus mode change its
                 style, never its place in the tree, so the Reader inside is never remounted (its drafts,
                 selection and scroll stay). */}
