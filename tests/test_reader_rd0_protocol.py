@@ -107,7 +107,7 @@ def test_a_refused_op_leaves_no_partial_write_and_the_batch_still_lands(reposito
     _desk(batches)
     batches.desk(_open("w1", 1))
     # pair with nothing to the right: refused; the rename after it lands.
-    reply = batches.desk({"op": "pair", "window_id": "w1", "expected_version": 2},
+    reply = batches.desk({"op": "pair", "desk_id": "d1", "window_id": "w1", "expected_version": 2},
                          {"op": "rename_desk", "desk_id": "d1", "title": "after", "expected_version": 2})
     assert reply["results"][0] == {"status": "refused", "code": "nothing_to_the_right",
                                    "message": "Nothing to the right to share this slot with."}
@@ -126,7 +126,7 @@ def test_batches_replayed_out_of_order_converge_to_the_in_order_state(tmp_path):
         plan = {
             1: [{"op": "create_desk", "desk_id": "d1", "title": "t", "position": "a0"}],
             2: [_open("w1", 1)],
-            3: [_open("w2", 2), {"op": "pair", "window_id": "w1", "expected_version": 3}],
+            3: [_open("w2", 2), {"op": "pair", "desk_id": "d1", "window_id": "w1", "expected_version": 3}],
         }
         for seq in order:
             try:
@@ -150,17 +150,17 @@ def test_windows_open_beside_pair_at_most_two_and_unpair(repository):
     _desk(batches)
     batches.desk(_open("w1", 1), _open("w3", 2), _open("w2", 3, after_window_id="w1"))
     assert _slots(repository) == [["w1"], ["w2"], ["w3"]]
-    batches.desk({"op": "pair", "window_id": "w1", "expected_version": 4})
+    batches.desk({"op": "pair", "desk_id": "d1", "window_id": "w1", "expected_version": 4})
     assert _slots(repository) == [["w1", "w2"], ["w3"]]
-    third = batches.desk({"op": "pair", "window_id": "w1", "expected_version": 5})
+    third = batches.desk({"op": "pair", "desk_id": "d1", "window_id": "w1", "expected_version": 5})
     assert third["results"][0]["code"] == "slot_full"
     state = desk_state(repository)["desks"][0]
     pair = state["slots"][0]["windows"]
     assert [(w["pane"], w["active"]) for w in pair] == [(0, True), (1, False)]
-    batches.desk({"op": "set_active_pane", "window_id": "w2", "expected_version": 5})
+    batches.desk({"op": "set_active_pane", "desk_id": "d1", "window_id": "w2", "expected_version": 5})
     pair = desk_state(repository)["desks"][0]["slots"][0]["windows"]
     assert [w["active"] for w in pair] == [False, True]
-    batches.desk({"op": "unpair", "window_id": "w2", "expected_version": 6})
+    batches.desk({"op": "unpair", "desk_id": "d1", "window_id": "w2", "expected_version": 6})
     assert _slots(repository) == [["w1"], ["w2"], ["w3"]]
 
 
@@ -169,15 +169,16 @@ def test_close_and_reopen_move_and_move_to_another_desk(repository):
     _desk(batches)
     batches.desk(_open("w1", 1), _open("w2", 2), _open("w3", 3),
                  {"op": "set_focus", "desk_id": "d1", "window_id": "w2", "expected_version": 4})
-    batches.desk({"op": "close_window", "window_id": "w2", "expected_version": 5})
+    batches.desk({"op": "close_window", "desk_id": "d1", "window_id": "w2", "expected_version": 5})
     state = desk_state(repository)["desks"][0]
     assert _slots(repository) == [["w1"], ["w3"]] and state["focus_window_id"] is None
-    batches.desk({"op": "reopen_window", "window_id": "w2", "slot": 1, "expected_version": 6})
+    batches.desk({"op": "reopen_window", "desk_id": "d1", "window_id": "w2", "slot": 1, "expected_version": 6})
     assert _slots(repository) == [["w1"], ["w2"], ["w3"]]
-    batches.desk({"op": "move_window", "window_id": "w3", "to_slot": 0, "expected_version": 7})
+    batches.desk({"op": "move_window", "desk_id": "d1", "window_id": "w3", "to_slot": 0, "expected_version": 7})
     assert _slots(repository) == [["w3"], ["w1"], ["w2"]]
     _desk(batches, "d2")
-    reply = batches.desk({"op": "move_to_desk", "window_id": "w1", "to_desk_id": "d2", "expected_version": 8})
+    reply = batches.desk({"op": "move_to_desk", "desk_id": "d1", "window_id": "w1", "to_desk_id": "d2", "expected_version": 8,
+                          "to_expected_version": 1})
     assert reply["versions"] == [{"desk_id": "d1", "version": 9}, {"desk_id": "d2", "version": 2}]
     assert _slots(repository) == [["w3"], ["w2"]] and _slots(repository, "d2") == [["w1"]]
 
@@ -187,7 +188,7 @@ def test_a_desk_carries_its_view_dock_shown_goal_and_order_and_archives(reposito
     _desk(batches)
     _desk(batches, "d0")
     batches.desk(_open("w1", 1, view={"spanId": "s4", "offsetFrac": 0.25}),
-                 {"op": "set_view", "window_id": "w1", "view": {"spanId": "s9", "offsetFrac": 0.5}, "expected_version": 2},
+                 {"op": "set_view", "desk_id": "d1", "window_id": "w1", "view": {"spanId": "s9", "offsetFrac": 0.5}, "expected_version": 2},
                  {"op": "set_companion_shown", "desk_id": "d1", "shown": True, "expected_version": 3},
                  {"op": "set_goal", "desk_id": "d1", "goal_id": "goal_linear_algebra_ml", "expected_version": 4},
                  {"op": "move_desk", "desk_id": "d0", "position": "b0", "expected_version": 1})
@@ -242,10 +243,12 @@ def test_remove_move_lift_out_and_links(repository):
                          "provenance": "learner", "position_key": f"a{n}", "body_md": f"line {n}"} for n in (1, 2, 3)])
     batches.pad("p1", {"op": "remove_block", "block_id": "b1", "expected_head": "b1v1"},
                 {"op": "move_block", "block_id": "b3", "expected_head": "b3v1", "position_key": "a0"},
-                {"op": "link_anchor", "block_id": "b2", "extraction_id": "ext_book", "span_id": "s4",
+                {"op": "link_anchor", "block_id": "b2", "extraction_id": "ext_book", "span_id": "s4", "expected_anchor_head": None,
                  "annotation_id": "ann_1", "event_id": "e1"},
-                {"op": "link_anchor", "block_id": "b3", "extraction_id": "ext_book", "span_id": "s5", "event_id": "e2"},
-                {"op": "unlink_anchor", "block_id": "b3", "extraction_id": "ext_book", "span_id": "s5", "event_id": "e3"})
+                {"op": "link_anchor", "block_id": "b3", "extraction_id": "ext_book", "span_id": "s5", "event_id": "e2",
+                 "expected_anchor_head": None},
+                {"op": "unlink_anchor", "block_id": "b3", "extraction_id": "ext_book", "span_id": "s5", "event_id": "e3",
+                 "expected_anchor_head": "e2"})
     view = pad_view(repository, "p1")
     assert [b["block_id"] for b in view["blocks"]] == ["b3", "b2"]  # b1 removed, b3 moved first
     assert [(a["block_id"], a["span_id"], a["annotation_id"]) for a in view["anchors"]] == [("b2", "s4", "ann_1")]
@@ -320,8 +323,95 @@ def test_an_op_refused_after_its_first_write_leaves_none_of_its_writes(repositor
     _desk(batches, "d2")
     batches.desk(_open("w1", 1), _open("w2", 2), _open("w3", 3))
     # The move takes w1 off d1 (renumbering d1's slots) before it finds no such window on d2 to open after.
-    reply = batches.desk({"op": "move_to_desk", "window_id": "w1", "to_desk_id": "d2", "after_window_id": "nope",
+    reply = batches.desk({"op": "move_to_desk", "desk_id": "d1", "window_id": "w1", "to_desk_id": "d2", "after_window_id": "nope",
+                          "to_expected_version": 1,
                           "expected_version": 4})
     assert reply["results"][0]["status"] == "refused" and reply["results"][0]["code"] == "window_not_open"
     assert _slots(repository) == [["w1"], ["w2"], ["w3"]] and _slots(repository, "d2") == []
     assert _version(repository) == 4
+
+
+# -- ops bound to explicit heads ----------------------------------------------------------------------
+
+
+def test_a_window_op_queued_for_one_desk_never_lands_on_the_desk_the_window_moved_to(repository):
+    a, b = Batches(repository, "a"), Batches(repository, "b")
+    a.desk({"op": "create_desk", "desk_id": "A", "title": "a", "position": "a0"},
+           {"op": "create_desk", "desk_id": "B", "title": "b", "position": "b0"},
+           {"op": "open_window", "desk_id": "A", "window_id": "w", "expected_version": 1, "content": source_ref()})
+    a.desk({"op": "move_to_desk", "desk_id": "A", "window_id": "w", "to_desk_id": "B", "expected_version": 2,
+            "to_expected_version": 1})
+    # B's client queued a close of w on desk A at A's version 2; B is now at version 2 too.
+    reply = b.desk({"op": "close_window", "desk_id": "A", "window_id": "w", "expected_version": 2})
+    assert reply["results"] == [{"status": "conflict", "current": {"desk_id": "A", "version": 3}}]
+    reply = b.desk({"op": "close_window", "desk_id": "A", "window_id": "w", "expected_version": 3})
+    assert reply["results"] == [{"status": "conflict", "current": {"desk_id": "A", "version": 3, "window_id": "w",
+                                                                  "window_desk_id": "B"}}]
+    assert _slots(repository, "B") == [["w"]]
+
+
+def test_a_transfer_checks_the_destination_head_too(repository):
+    batches = Batches(repository)
+    _desk(batches)
+    _desk(batches, "d2")
+    batches.desk(_open("w1", 1), {"op": "rename_desk", "desk_id": "d2", "title": "moved on", "expected_version": 1})
+    before = _counts(repository)
+    reply = batches.desk({"op": "move_to_desk", "desk_id": "d1", "window_id": "w1", "to_desk_id": "d2",
+                          "expected_version": 2, "to_expected_version": 1})
+    assert reply["results"] == [{"status": "conflict", "current": {"desk_id": "d2", "version": 2}}]
+    assert _slots(repository) == [["w1"]] and _slots(repository, "d2") == [] and _version(repository) == 2
+    assert {k: v for k, v in _counts(repository).items() if k != "desk_op_receipts"} == {
+        k: v for k, v in before.items() if k != "desk_op_receipts"}
+
+
+def _linked_block(batches: Batches) -> None:
+    batches.pad("p1", {"op": "create_pad", "kind": "named"},
+                {"op": "insert_block", "block_id": "b", "version_id": "v1", "kind": "text", "provenance": "learner",
+                 "position_key": "a0"},
+                {"op": "link_anchor", "block_id": "b", "extraction_id": "ext_book", "span_id": "s1", "event_id": "e1",
+                 "anchor": {"old": True}, "expected_anchor_head": None})
+
+
+def test_an_anchor_change_names_the_anchor_head_it_expects(repository):
+    a, b = Batches(repository, "a"), Batches(repository, "b")
+    _linked_block(a)
+    a.pad("p1", {"op": "unlink_anchor", "block_id": "b", "extraction_id": "ext_book", "span_id": "s1",
+                 "event_id": "e2", "expected_anchor_head": "e1"},
+          {"op": "link_anchor", "block_id": "b", "extraction_id": "ext_book", "span_id": "s1", "event_id": "e3",
+           "anchor": {"new": True}, "expected_anchor_head": "e2"})
+    # Another installation still believes e1 is the head: its unlink is a conflict naming e3, not applied.
+    stale = b.pad("p1", {"op": "unlink_anchor", "block_id": "b", "extraction_id": "ext_book", "span_id": "s1",
+                         "event_id": "e4", "expected_anchor_head": "e1"})
+    assert stale["results"] == [{"status": "conflict", "current": {
+        "block_id": "b", "extraction_id": "ext_book", "span_id": "s1", "anchor_head": "e3"}}]
+    # "No link yet" is an expectation too: a first link onto a passage that has one is a conflict.
+    first = b.pad("p1", {"op": "link_anchor", "block_id": "b", "extraction_id": "ext_book", "span_id": "s1",
+                         "event_id": "e5", "expected_anchor_head": None})
+    assert first["results"][0]["current"]["anchor_head"] == "e3"
+    assert [(x["event_id"], x["anchor"]) for x in pad_view(repository, "p1")["anchors"]] == [("e3", {"new": True})]
+
+
+def test_an_anchor_op_without_its_expected_head_is_refused_by_the_params():
+    from pydantic import TypeAdapter, ValidationError
+
+    from learnloop.pads.blocks import PadOp
+
+    with pytest.raises(ValidationError):
+        TypeAdapter(PadOp).validate_python({"op": "unlink_anchor", "block_id": "b", "extraction_id": "x",
+                                            "span_id": "s"})
+
+
+def test_a_reused_client_id_is_a_refusal_and_the_outbox_moves_on(repository):
+    batches = Batches(repository)
+    _linked_block(batches)
+    reply = batches.pad("p1", {"op": "link_anchor", "block_id": "b", "extraction_id": "ext_book", "span_id": "s2",
+                               "event_id": "e1", "expected_anchor_head": None},
+                        {"op": "set_title", "title": "still lands", "expected_version": 1})
+    assert reply["applied_seq"] == 2
+    assert reply["results"][0]["status"] == "refused" and reply["results"][0]["code"] == "event_exists"
+    assert reply["results"][1] == {"status": "ok"}
+    lifted = batches.pad("p1", {"op": "lift_out", "block_id": "b", "expected_head": "v1", "new_pad_id": "p2",
+                                "new_block_id": "b2", "new_version_id": "same", "stub_version_id": "same"})
+    assert lifted["applied_seq"] == 3 and lifted["results"][0]["code"] == "id_collision"
+    assert pad_view(repository, "p1")["blocks"][0]["head_version_id"] == "v1"
+    assert batches.pad("p1", {"op": "keep", "expected_version": 2})["applied_seq"] == 4

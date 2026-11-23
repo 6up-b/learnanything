@@ -12,11 +12,14 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import closing
 from collections.abc import Mapping
 from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.db.connection import connect
+from learnloop.db.stores import span_projection_reads as spans_reads
 from learnloop.db.stores import span_projections as spans_store
 from learnloop.tutor.tutor_qa import delivered_answer_md
 
@@ -70,7 +73,7 @@ def _anchors(connection: Any, ids: list[str]) -> dict[str, dict[str, Any]]:
 
     rank = {"exact_selection": 0, "citation": 1, "source_context": 2}
     best: dict[str, dict[str, Any]] = {}
-    for row in spans_store.rows_for(connection, "question_event_spans", ids):
+    for row in spans_reads.rows_for(connection, "question_event_spans", ids):
         if row["span_id"] is None:
             continue
         current = best.get(row["question_event_id"])
@@ -105,13 +108,13 @@ def companion_history(repository: Any, *, date_from: str | None = None, date_to:
     sql = ("SELECT q.id, q.context, q.question_md, q.answer_md, q.answer_status, q.source_context_json, q.created_at "
            "FROM question_events AS q LEFT JOIN companion_exchange_context AS c ON c.question_event_id = q.id "
            f"{where} ORDER BY q.created_at DESC, q.id DESC LIMIT ?")
-    with repository.connection() as connection:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         cursor_rows = connection.execute(sql, [*params, PAGE_SIZE + 1])
         names = [column[0] for column in cursor_rows.description]
         rows = [dict(zip(names, row, strict=True)) for row in cursor_rows.fetchall()]
         page = rows[:PAGE_SIZE]
         ids = [str(row["id"]) for row in page]
-        contexts = spans_store.exchange_contexts(connection, ids)
+        contexts = spans_reads.exchange_contexts(connection, ids)
         anchors = _anchors(connection, ids)
     days: list[dict[str, Any]] = []
     for row in page:

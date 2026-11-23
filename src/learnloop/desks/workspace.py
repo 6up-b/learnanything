@@ -14,7 +14,7 @@ from typing import Annotated, Any, Literal, Union
 from pydantic import Field, model_validator
 
 from learnloop.db.stores import desks as store
-from learnloop.db.stores import pads as pad_store
+from learnloop.db.stores import pad_reads
 from learnloop.desks.content_ref import ContentRef, StackEntry, WireModel
 from learnloop.desks.protocol import OpConflict, OpRefused, apply_batch, client_seq_heads, run_op
 from learnloop.db.stores.workspace_batches import DESK
@@ -74,35 +74,43 @@ class OpenWindow(_Op):
 
 class CloseWindow(_Op):
     op: Literal["close_window"]
+    desk_id: str
     window_id: str
 
 
 class ReopenWindow(_Op):
     op: Literal["reopen_window"]
+    desk_id: str
     window_id: str
     slot: int | None = Field(default=None, ge=0)
 
 
 class MoveWindow(_Op):
     op: Literal["move_window"]
+    desk_id: str
     window_id: str
     to_slot: int = Field(ge=0)
 
 
 class MoveToDesk(_Op):
     op: Literal["move_to_desk"]
+    desk_id: str
     window_id: str
     to_desk_id: str
+    #: The destination's version: a transfer changes both desks, so it names both heads.
+    to_expected_version: int
     after_window_id: str | None = None
 
 
 class Pair(_Op):
     op: Literal["pair"]
+    desk_id: str
     window_id: str
 
 
 class Unpair(_Op):
     op: Literal["unpair"]
+    desk_id: str
     window_id: str
 
 
@@ -114,11 +122,13 @@ class SetFocus(_Op):
 
 class SetActivePane(_Op):
     op: Literal["set_active_pane"]
+    desk_id: str
     window_id: str
 
 
 class SetView(_Op):
     op: Literal["set_view"]
+    desk_id: str
     window_id: str
     view: dict[str, Any]
 
@@ -190,7 +200,7 @@ def desk_state(repository: Any) -> dict[str, Any]:
                 "version": int(desk["version"]),
                 "slots": _slots(store.open_windows(connection, desk["desk_id"])),
             })
-            running.extend(pad_store.running_pad_ids(connection, desk["desk_id"]))
+            running.extend(pad_reads.running_pad_ids(connection, desk["desk_id"]))
     return {"desks": out, "running_pad_ids": running, "server_seq": client_seq_heads(repository)}
 
 
@@ -248,13 +258,22 @@ def _desk(connection: Any, desk_id: str, expected: int | None) -> dict[str, Any]
     return desk
 
 
-def _window_desk(connection: Any, window_id: str, expected: int | None, *, open_only: bool = True) -> tuple[dict, dict]:
+def _window_desk(connection: Any, desk_id: str, window_id: str, expected: int | None, *,
+                 open_only: bool = True) -> tuple[dict, dict]:
+    """The window and the desk the op names, its version checked. The version is the named desk's, never
+    whichever desk holds the window now: a window that moved since the op was queued is a conflict naming
+    the desk it was queued for and where the window is."""
+
+    desk = _desk(connection, desk_id, expected)
     window = store.window(connection, window_id)
     if window is None:
         raise OpRefused("window_not_found", f"No window {window_id!r}.")
+    if window["desk_id"] != desk_id:
+        raise OpConflict({"desk_id": desk_id, "version": int(desk["version"]), "window_id": window_id,
+                          "window_desk_id": window["desk_id"]})
     if open_only and window["closed_at"] is not None:
         raise OpRefused("window_closed", "That window is closed.")
-    return window, _desk(connection, window["desk_id"], expected)
+    return window, desk
 
 
 def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int]) -> dict[str, Any] | None:
@@ -311,7 +330,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(op.desk_id)
         return None
     if isinstance(op, CloseWindow):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version)
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         layout.slots[index].remove(op.window_id)
@@ -324,7 +343,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(desk["desk_id"], **fields)
         return None
     if isinstance(op, ReopenWindow):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version, open_only=False)
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version, open_only=False)
         if window["closed_at"] is None:
             raise OpRefused("window_open", "That window is already open.")
         layout = _Layout(connection, desk["desk_id"])
@@ -334,7 +353,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(desk["desk_id"])
         return None
     if isinstance(op, MoveWindow):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version)
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         slot = layout.slots.pop(index)
@@ -343,12 +362,10 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(desk["desk_id"])
         return None
     if isinstance(op, MoveToDesk):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version)
-        target = store.desk(connection, op.to_desk_id)
-        if target is None or target["archived_at"] is not None:
-            raise OpRefused("desk_not_found", f"No open desk {op.to_desk_id!r}.")
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         if op.to_desk_id == desk["desk_id"]:
             raise OpRefused("same_desk", "The window is already on that desk.")
+        _desk(connection, op.to_desk_id, op.to_expected_version)
         source = _Layout(connection, desk["desk_id"])
         index = source.index_of(op.window_id)
         source.slots[index].remove(op.window_id)
@@ -365,7 +382,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(op.to_desk_id)
         return None
     if isinstance(op, Pair):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version)
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         if len(layout.slots[index]) >= PAIR_SIZE:
@@ -382,7 +399,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(desk["desk_id"])
         return None
     if isinstance(op, Unpair):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version)
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         if len(layout.slots[index]) < PAIR_SIZE:
@@ -393,7 +410,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(desk["desk_id"])
         return None
     if isinstance(op, SetActivePane):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version)
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         if len(layout.slots[index]) < PAIR_SIZE:
@@ -404,7 +421,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         bump(desk["desk_id"])
         return None
     if isinstance(op, SetView):
-        window, desk = _window_desk(connection, op.window_id, op.expected_version)
+        window, desk = _window_desk(connection, op.desk_id, op.window_id, op.expected_version)
         store.update_window(connection, op.window_id, {"view_json": json.dumps(op.view, sort_keys=True)})
         bump(desk["desk_id"])
         return None
