@@ -96,7 +96,7 @@ import { PadStackWindow } from "./pads/PadStackWindow";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, type PadLink } from "./pads/PassageMarks";
 import { keyAfter } from "./pads/model";
-import { PadsHostContext, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
+import { PadsHostContext, PendingFigures, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
@@ -213,6 +213,17 @@ function firstVisibleSpan(windowId: string | null): string | null {
   const spans = [...host.querySelectorAll<HTMLElement>("[data-span-id], [data-transcript-span]")];
   const visible = spans.find((element) => element.getBoundingClientRect().bottom > top + 40) ?? spans[0];
   return visible ? visible.getAttribute("data-span-id") ?? visible.getAttribute("data-transcript-span") : null;
+}
+
+const PENDING_FIGURES = new WeakMap<object, PendingFigures>();
+
+function pendingFiguresFor(store: object): PendingFigures {
+  let figures = PENDING_FIGURES.get(store);
+  if (!figures) {
+    figures = new PendingFigures();
+    PENDING_FIGURES.set(store, figures);
+  }
+  return figures;
 }
 
 /** A position key after a pad's last block. */
@@ -1966,6 +1977,8 @@ export function DeskShell({
     return out;
   }, [titleOf]);
 
+  // The vault's finished figures waiting for their pad windows (kept across the shell's mounts with the store).
+  const pendingFigures = useMemo(() => pendingFiguresFor(store), [store]);
   const padsHost = useMemo<PadsHost>(() => ({
     store,
     deskId,
@@ -1979,17 +1992,30 @@ export function DeskShell({
       setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "", ...(context ? { pad: context } : {}) });
       stepCompanion({ kind: "dock" });
     },
-    showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null) => {
-      // The Reader's figure build (RW5d), read until it is done; a figure that is not shown lands nowhere.
-      let job = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
-      for (let tries = 0; job.state === "pending" && tries < 120; tries += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        job = await padsTransport.readerFigureJob({ jobId: job.jobId });
-      }
+    showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null, ownerWindowId?: string) => {
+      // The Reader's figure build (RW5d), read through the one poller under the pad window that asked: a paused
+      // window's poll waits with it. A figure that is not shown lands nowhere.
+      const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
+      const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
+        poller.register<typeof first>({
+          key: `figure-job:${first.jobId}`,
+          owner: ownerWindowId ?? null,
+          request: () => padsTransport.readerFigureJob({ jobId: first.jobId }),
+          onResult: (read) => {
+            if (read.state === "pending") return { done: false };
+            resolve(read);
+            return { done: true };
+          },
+          onError: (error) => {
+            if (error && typeof error === "object" && (error as { code?: unknown }).code === "job_not_found") reject(error);
+          },
+        });
+      });
       const figure = job.result?.figure;
       if (!figure || !figure.shown) return null;
       return { figureId: figure.figureId, line: figure.demonstrates || figure.goalText || text };
     },
+    figures: pendingFigures,
     ...(reader?.onTeachMe ? { teachMe: (extractionId: string, spanIds: string[]) => reader.onTeachMe?.({ extractionId, spanIds }) } : {}),
     toast: toastNow,
     setView: (windowId, view) => {
@@ -2002,7 +2028,7 @@ export function DeskShell({
       else padHandles.current.delete(windowId);
     },
     carry: carryQuestion,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion]);
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures]);
 
   /** The pad stack the keys act on: the focused window when it is one. */
   const focusedStack = (): PadStackHandle | null => (focusIdRef.current ? padHandles.current.get(focusIdRef.current) ?? null : null);

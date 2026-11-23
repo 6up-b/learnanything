@@ -38,8 +38,9 @@ function anchorsOf(state: PadState | null, blockId: string | null): Array<{ extr
   return fromLinks;
 }
 
-export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubmit, onMute }: {
+export function PadMenu({ request, host, windowId, state, muted, onClose, onInsert, onSubmit, onMute }: {
   request: MenuRequest;
+  windowId: string;
   host: PadsHost;
   state: PadState | null;
   muted: boolean;
@@ -62,9 +63,10 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
     { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
     ...(host.showMe ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
       host.toast("◇ making a figure for this line · it lands below it when it's ready");
-      void host.showMe?.(text, anchors[0] ?? null).then((figure) => {
+      // The finished figure goes to the window's waiting figures: written only while the pad is live.
+      void host.showMe?.(text, anchors[0] ?? null, windowId).then((figure) => {
         if (!figure) host.toast("no figure for this line · nothing was shown");
-        else onInsert({ kind: "figure", provenance: "learnloop", bodyMd: figure.line, payload: { figure_id: figure.figureId } });
+        else host.figures.push(windowId, { padId: request.padId, afterBlockId: request.blockId, figureId: figure.figureId, line: figure.line });
       }, () => host.toast("couldn't make a figure for this line"));
     }) }] : []),
     ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),

@@ -8,7 +8,7 @@ import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
 import { PadStackWindow } from "../../screens/desks/pads/PadStackWindow";
-import { PadsHostContext, type PadsHost } from "../../screens/desks/pads/host";
+import { PadsHostContext, PendingFigures, type PadsHost } from "../../screens/desks/pads/host";
 import { DeskStore } from "../../screens/desks/store";
 import { REAL_TIMERS } from "../../screens/desks/keys/router";
 import { fixtureMathPad } from "./pads";
@@ -73,6 +73,7 @@ function LatexFixture() {
         requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }),
         submitTeachBackTurn: nothing, getSession: nothing },
       practiceSessionId: null, openPassage: noop, openSearch: noop, askAbout: noop, toast: noop, setView: noop, sourcePieces: () => [], register: noop, carry: noop,
+      figures: new PendingFigures(),
     };
   }, []);
   return (

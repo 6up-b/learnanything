@@ -58,8 +58,11 @@ export interface PadsHost {
   /** The companion, asking about `quote`; from a pad line, with its block and the passage it links to. */
   askAbout: (quote: string, context?: { padId: string; blockId: string | null; anchor: { extractionId: string; spanId: string } | null }) => void;
   teachMe?: (extractionId: string, spanIds: string[]) => void;
-  /** Show me (spec §13.1): a figure for the line, built as the Reader's are; null when none is shown. */
-  showMe?: (text: string, anchor: { extractionId: string; spanId: string } | null) => Promise<{ figureId: string; line: string } | null>;
+  /** Show me (spec §13.1): a figure for the line, built as the Reader's are; null when none is shown. Its job is
+   * polled under `ownerWindowId`, so a paused pad window's figure waits with it. */
+  showMe?: (text: string, anchor: { extractionId: string; spanId: string } | null, ownerWindowId?: string) => Promise<{ figureId: string; line: string } | null>;
+  /** Figures finished for a pad window, kept until the window is live to write them. */
+  figures: PendingFigures;
   toast: (text: string) => void;
   setView: (windowId: string, view: Record<string, unknown>) => void;
   sourcePieces: () => SourcePiece[];
@@ -83,6 +86,42 @@ export interface PadStackHandle {
   arrange(): void;
   /** `.` on the hovered line. */
   menuAtHover(): boolean;
+}
+
+/** A figure Show me finished, waiting to be written below its line. */
+export interface PendingFigure {
+  padId: string;
+  afterBlockId: string | null;
+  figureId: string;
+  line: string;
+}
+
+/** Finished figures per pad window: a paused window writes nothing, so its figures wait here (kept across its
+ * pause and a remount) until it is live again. */
+export class PendingFigures {
+  private byWindow = new Map<string, PendingFigure[]>();
+  private listeners = new Set<() => void>();
+  private version = 0;
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  getVersion = (): number => this.version;
+
+  push(windowId: string, figure: PendingFigure): void {
+    this.byWindow.set(windowId, [...(this.byWindow.get(windowId) ?? []), figure]);
+    this.version += 1;
+    for (const listener of [...this.listeners]) listener();
+  }
+
+  /** The window's waiting figures, handed over once. */
+  take(windowId: string): PendingFigure[] {
+    const waiting = this.byWindow.get(windowId) ?? [];
+    this.byWindow.delete(windowId);
+    return waiting;
+  }
 }
 
 export const PadsHostContext = createContext<PadsHost | null>(null);

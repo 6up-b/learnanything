@@ -8,7 +8,7 @@ import { FixtureDeskServer } from "../../../fixtures/desks/workspace";
 import { isTypingTarget, type Timers } from "../keys/router";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { DeskStore } from "../store";
-import { PadsHostContext, type PadsApi, type PadsHost } from "./host";
+import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost } from "./host";
 import { PadStackWindow } from "./PadStackWindow";
 
 class ManualTimers implements Timers {
@@ -95,6 +95,7 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
     sourcePieces: () => [],
     register: () => undefined,
     carry: vi.fn(),
+    figures: new PendingFigures(),
   };
   const padIds = options.padIds ?? ["fx_pad_running", "fx_pad_deriving"];
   const ui = (state: WindowState) => (
@@ -422,5 +423,23 @@ describe("the fix round (RD4 review)", () => {
       currentAnswer: JSON.stringify({ mode: "teach_back", state: { practice_item_id: "tb_item", turns: [{ role: "learner", content_md: "mine" }, { role: "ai", content_md: "and for a negative score?" }] } }) } })) as never;
     fireEvent.click(await openTeachBack(api));
     expect(await screen.findByText("and for a negative score?")).toBeTruthy();
+  });
+
+  it("a figure Show me asked for, finished while the pad is paused, writes nothing until the pad is back, then lands", async () => {
+    const { host, store, rerender } = mount({ server: anchoredRunning() });
+    let finish: (figure: { figureId: string; line: string }) => void = () => undefined;
+    host.showMe = (() => new Promise((resolve) => { finish = resolve; })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Show me"));
+    const before = store.pads.fx_pad_running.blocks.length;
+    rerender("hidden");
+    await act(async () => {
+      finish({ figureId: "fig9", line: "softmax at two temperatures" });
+      await Promise.resolve();
+    });
+    expect(store.pads.fx_pad_running.blocks.length).toBe(before);
+    rerender("active");
+    await waitFor(() => expect(store.pads.fx_pad_running.blocks.some((each) => each.kind === "figure" && each.payload.figure_id === "fig9")).toBe(true));
   });
 });

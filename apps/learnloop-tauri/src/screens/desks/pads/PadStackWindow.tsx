@@ -414,6 +414,18 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     return () => host.register(windowId, null);
   }, [host, windowId, proxy]);
 
+  // Figures Show me finished are written while the window is live; paused, they wait for its return.
+  const figureVersion = useSyncExternalStore(host.figures.subscribe, host.figures.getVersion);
+  useEffect(() => {
+    if (paused) return;
+    for (const figure of host.figures.take(windowId)) {
+      if (!store.pads[figure.padId]) continue;
+      insertAfter(figure.padId, figure.afterBlockId, { kind: "figure", provenance: "learnloop", bodyMd: figure.line, payload: { figure_id: figure.figureId } });
+    }
+    // insertAfter reads the store as it is now.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, figureVersion, windowId]);
+
   // A passage's ✎ link scrolls the pad to its block and flashes it.
   useHubListener<CustomEvent<{ blockId: string }>>("window", "learnloop:pad-flash", (event) => {
     const element = blockEls.current.get(event.detail.blockId);
@@ -706,6 +718,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         <PadMenu
           request={menu}
           host={host}
+          windowId={windowId}
           state={store.pads[menu.padId] ?? null}
           muted={muted.includes(menu.padId)}
           onClose={() => setMenu(null)}
