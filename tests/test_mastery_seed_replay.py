@@ -397,5 +397,7 @@ def test_the_golden_values_live_and_rebuilt(tmp_path, scenario):
     goldens = json.loads(GOLDEN.read_text()) if GOLDEN.exists() else {}
     if WRITE:
         goldens[name] = live
-        GOLDEN.write_text(json.dumps(goldens, indent=1, sort_keys=True) + "\n")
+        # One scenario per line: the structure ratchet counts golden JSON lines.
+        GOLDEN.write_text("{\n" + ",\n".join(
+            f"{json.dumps(key)}: {json.dumps(goldens[key], sort_keys=True)}" for key in sorted(goldens)) + "\n}\n")
     assert goldens[name] == live
