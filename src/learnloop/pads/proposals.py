@@ -24,7 +24,7 @@ from learnloop.content.sources.span_aliases import reading_source
 from learnloop.db.stores import pad_ledgers as store
 from learnloop.db.stores import pad_reads as reads
 from learnloop.ids import new_ulid
-from learnloop.pads.emission import emittable, lineage, words_version
+from learnloop.pads.emission import emittable, lineage, passages_of, words_version
 
 PAD_PROPOSAL, PROMOTED_ROW = "pad_proposal", "promoted_row"
 LABELS = ("opened", "not_this", "dismiss", "ignored")
@@ -50,11 +50,7 @@ def _table(connection: Any, name: str) -> bool:
 
 
 def _block_places(connection: Any, head: dict[str, Any]) -> set[tuple[str, str]]:
-    blocks = [str(head["block_id"])]
-    parent = (head.get("payload") or {}).get("parent_block_id")
-    if parent:
-        blocks.append(str(parent))
-    return {(str(a["extraction_id"]), str(a["span_id"])) for a in reads.standing_anchors_for_blocks(connection, blocks)}
+    return {(extraction_id, span_id) for extraction_id, span_id in passages_of(connection, head)}
 
 
 def _candidate(connection: Any, places: set[tuple[str, str]]) -> dict[str, Any] | None:

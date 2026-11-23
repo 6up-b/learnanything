@@ -169,6 +169,25 @@ class PadNotFound(LookupError):
     pass
 
 
+def _inherited_anchors(connection: Any, heads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Links a lifted block carries from the block it was lifted out of, where a lift made before links moved with
+    the words left them on the stub: shown on the lifted block, read-only (``inherited_from_block_id`` names the
+    stub's block, whose link events they are)."""
+
+    from learnloop.pads.emission import context_blocks
+
+    out: list[dict[str, Any]] = []
+    for head in heads:
+        blocks, _pads = context_blocks(connection, head)
+        parent = (head.get("payload") or {}).get("parent_block_id")
+        ancestors = [block_id for block_id in blocks[1:] if block_id != parent]
+        lifted_from = [block_id for block_id in ancestors
+                       if (reads.head(connection, block_id) or {}).get("kind") == "lifted"]
+        for anchor in reads.standing_anchors_for_blocks(connection, lifted_from):
+            out.append({**anchor, "block_id": head["block_id"], "inherited_from_block_id": anchor["block_id"]})
+    return out
+
+
 def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
     """``pad.get``: the pad, its standing blocks in order (removed blocks left out) and their links."""
 
@@ -178,7 +197,9 @@ def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
             raise PadNotFound(pad_id)
         heads = [head for head in reads.heads(connection, pad_id) if not head["tombstone"]]
         created = reads.first_versions(connection, [head["block_id"] for head in heads])
-        anchors = reads.standing_anchors_for_blocks(connection, [head["block_id"] for head in heads])
+        anchors = [{**anchor, "inherited_from_block_id": None}
+                   for anchor in reads.standing_anchors_for_blocks(connection, [head["block_id"] for head in heads])]
+        anchors += _inherited_anchors(connection, heads)
         submitted = submission_tags(connection, heads)
     for tags in submitted.values():
         for tag in tags:
@@ -193,7 +214,8 @@ def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
                     "submissions": submitted.get(str(head["block_id"]), [])} for head in heads],
         "anchors": [{"event_id": a["event_id"], "block_id": a["block_id"], "extraction_id": a["extraction_id"],
                      "span_id": a["span_id"], "anchor": a["anchor"], "annotation_id": a["annotation_id"],
-                     "created_at": a["created_at"]} for a in anchors],
+                     "created_at": a["created_at"], "inherited_from_block_id": a["inherited_from_block_id"]}
+                    for a in anchors],
     }
 
 
@@ -323,6 +345,15 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
             store.insert_version(connection, _successor(
                 head, version_id, client_id, now, kind="lifted", body_md="", provenance="learnloop",
                 payload={"lifted_to_pad_id": op.new_pad_id, "lifted_block_id": op.new_block_id}))
+            # The passages the block was linked to go with its words: the lifted block takes each standing link and
+            # the stub gives it up, so a later wording's emission, its quote check and the passage's marks all find
+            # them on the block that carries the words.
+            for anchor in reads.standing_anchors_for_blocks(connection, [op.block_id]):
+                for block_id, action in ((op.new_block_id, "link"), (op.block_id, "unlink")):
+                    store.insert_anchor_event(
+                        connection, event_id=new_ulid(), block_id=block_id, extraction_id=anchor["extraction_id"],
+                        span_id=anchor["span_id"], anchor=anchor["anchor"] if action == "link" else {},
+                        annotation_id=anchor["annotation_id"] if action == "link" else None, action=action, now=now)
             heads[op.new_block_id] = lifted_version
             versions[op.new_pad_id] = 1
         heads[op.block_id] = version_id

@@ -28,7 +28,7 @@ from typing import Any
 from learnloop.clock import utc_now_iso
 from learnloop.db.stores import pad_ledgers as store
 from learnloop.db.stores import pad_reads as reads
-from learnloop.pads.emission import QUOTE_KINDS, lineage, words_version
+from learnloop.pads.emission import lineage, quotes_of, words_version
 from learnloop.pads.quoting import includes_quote
 
 ATTEMPT, TEACH_BACK = "attempt", "teach_back"
@@ -85,23 +85,6 @@ def _answered_item(connection: Any, pad: dict[str, Any], version: dict[str, Any]
     return None
 
 
-def _quotes(connection: Any, repository: Any, pad_id: str, block: dict[str, Any]) -> list[str]:
-    quotes = [str(head["body_md"] or "") for head in reads.heads(connection, pad_id)
-              if not head["tombstone"] and head["kind"] in QUOTE_KINDS]
-    blocks = [str(block["block_id"])]
-    parent = (block.get("payload") or {}).get("parent_block_id")
-    if parent:
-        blocks.append(str(parent))
-    by_extraction: dict[str, set[str]] = {}
-    for anchor in reads.standing_anchors_for_blocks(connection, blocks):
-        by_extraction.setdefault(str(anchor["extraction_id"]), set()).add(str(anchor["span_id"]))
-    for extraction_id, spans in by_extraction.items():
-        ir = repository.load_document_ir(extraction_id)
-        quotes += [str(getattr(part, "text", "") or "") for part in getattr(ir, "blocks", ()) or ()
-                   if getattr(part, "span_id", None) in spans]
-    return quotes
-
-
 def prepare(repository: Any, *, submission_id: str, block_id: str, version_id: str, submitted_as: str,
             practice_item_id: str, session_id: str) -> Prepared:
     """Check one submission and freeze its text (raises :class:`SubmissionRefused`)."""
@@ -143,7 +126,7 @@ def prepare(repository: Any, *, submission_id: str, block_id: str, version_id: s
             raise SubmissionRefused(
                 "not_an_answer", "A block is submitted as an answer only from its problem pad or its check cell.",
                 {"practice_item_id": practice_item_id})
-        quotes = _quotes(connection, repository, str(version["pad_id"]), head)
+        quotes = quotes_of(connection, repository, head)
     if includes_quote(text, quotes):
         raise SubmissionRefused("includes_quote", QUOTED_MESSAGE)
     return Prepared(**base, pad_id=str(version["pad_id"]), text=text)
