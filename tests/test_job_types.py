@@ -4,7 +4,10 @@
 handler that runs it and whether it applies vault content (the sidecar reloads
 its vault after one), bumps Today's queue revision when it completes, runs in
 the parallel lane, and waits for the learner's one AI OK before it starts. It
-was first checked against the five lists the table replaced, unchanged.
+was first checked against the five lists the table replaced, unchanged; since,
+``legacy_ingest``, ``exam_ingest`` and ``source_exercise_import`` bump the queue
+revision too (they write scheduler-visible practice:
+``test_queue_revision_after_applying_jobs``).
 """
 
 from __future__ import annotations
@@ -26,15 +29,15 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 EXPECTED: dict[str, tuple[str, bool, bool, bool, bool]] = {
     "import": ("handle_import", False, False, False, False),
     "auto_study_map": ("handle_auto_study_map", False, False, False, False),
-    "legacy_ingest": ("handle_legacy_ingest", True, False, False, True),
-    "exam_ingest": ("handle_legacy_ingest", True, False, False, True),
+    "legacy_ingest": ("handle_legacy_ingest", True, True, False, True),
+    "exam_ingest": ("handle_legacy_ingest", True, True, False, True),
     "inventory": ("handle_inventory", False, False, False, True),
     "bootstrap_synthesis": ("handle_bootstrap_synthesis", True, False, False, True),
     "append_synthesis": ("handle_append_synthesis", True, False, False, True),
     "extraction_repair": ("handle_extraction_repair", False, False, False, False),
     "reader_quick_check": ("handle_reader_quick_check", False, False, True, True),
     "reader_exercise_import": ("handle_reader_exercise_import", True, True, False, True),
-    "source_exercise_import": ("handle_source_exercise_import", True, False, False, True),
+    "source_exercise_import": ("handle_source_exercise_import", True, True, False, True),
     "practice_expansion": ("handle_practice_expansion", True, True, False, True),
     "goal_population": ("handle_goal_population", True, True, False, True),
     "question_promotion": ("handle_question_promotion", True, True, False, True),
