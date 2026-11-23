@@ -38,6 +38,7 @@ from learnloop.algorithm_versions import (
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
+    MASTERY_SEED_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -211,6 +212,9 @@ UPGRADES: tuple[Link, ...] = (
     # wherever a sibling's lifecycle changed between answers. The attempts applied before the upgrade get the
     # predecessor's reading first, labelled a reconstruction.
     Link(LIFECYCLE_INPUTS_ALGORITHM_VERSION, legacy_lifecycle_inputs_then_rebuild),
+    # A learning object's mastery seeds from the claims recorded where its row was first persisted: what a rebuild
+    # derives moves wherever a claim that does not re-anchor was made after a learning object was materialized.
+    Link(MASTERY_SEED_ALGORITHM_VERSION, whole_vault_rebuild),
 )
 
 

@@ -1004,6 +1004,20 @@ APPLICATION_ORDER_ALGORITHM_VERSION = "mvp-0.65"
 # (owner rule 2026-11-16). ONE constant.
 LIFECYCLE_INPUTS_ALGORITHM_VERSION = "mvp-0.66"
 
+# mvp-0.67 (the mastery seed a topic started from is recorded and replayed; docs/reviews/algorithm-mvp-0.67.md), on top
+# of the lifecycle inputs, mvp-0.66. A learning object's mastery row is created once, from the learner claims then in
+# force, and a later claim that does not re-anchor (a changed starting level, a manual claim) leaves it as it is, by
+# the profile setter's explicit contract. Replay instead seeded a practised learning object from the claims made before
+# its first attempt and an attempt-free one from the claims in force at rebuild time, so a rebuild after such a claim
+# disagreed with live. At this tag the writer that first persists a learning object's mastery (vault sync, an attempt
+# on a learning object without a row, a re-anchoring claim on one) records every claim it considered, in the same
+# transaction (mastery_seed_inputs, migration 265); replay and the attempt-free rebuild seed from the record and apply
+# only the re-anchoring claims made after it. A starting-level change still affects future materializations only. The
+# upgrade records, for every learning object without a row, the claims the predecessor's own rebuild seeds it from
+# ('legacy_reconstructed': never observed history), freezes them, then rebuilds the whole vault. No kill switch (owner
+# rule 2026-11-16). ONE constant.
+MASTERY_SEED_ALGORITHM_VERSION = "mvp-0.67"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1068,6 +1082,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
     APPLICATION_ORDER_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
+    MASTERY_SEED_ALGORITHM_VERSION,
 )
 
 
@@ -1200,6 +1215,21 @@ def lifecycle_inputs_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in LIFECYCLE_INPUTS_VERSIONS
+
+# Versions where the seed a learning object's mastery started from is recorded where it was first persisted and replay
+# seeds from it. Every later successor keeps it; gates must use this set, never equality, and read it through
+# :func:`mastery_seed_on`.
+MASTERY_SEED_VERSIONS: frozenset[str] = successors_from(MASTERY_SEED_ALGORITHM_VERSION)
+
+
+def mastery_seed_on(config: object) -> bool:
+    """The mastery seed a learning object started from is recorded and replayed (mvp-0.67), gated by the vault's tag
+    alone (no kill switch): below it nothing is recorded and replay seeds a practised learning object from the claims
+    made before its first attempt and an attempt-free one from the claims in force now, exactly as at mvp-0.66.
+    ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in MASTERY_SEED_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

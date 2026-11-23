@@ -120,8 +120,8 @@ def _close(repository, *, minutes):
 
 
 def test_the_tag():
-    assert AT == "mvp-0.66" == SUCCESSOR_CHAIN[-1] and SUCCESSOR_CHAIN[-2] == BEFORE == "mvp-0.65"
-    assert LIFECYCLE_INPUTS_VERSIONS == frozenset({AT})
+    assert AT == "mvp-0.66" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-3] == BEFORE == "mvp-0.65"
+    assert LIFECYCLE_INPUTS_VERSIONS == frozenset({AT, "mvp-0.67"})
     for version, on in ((BEFORE, False), (AT, True)):
         config = type("C", (), {"algorithms": type("A", (), {"algorithm_version": version})()})()
         assert lifecycle_inputs_on(config) is on
