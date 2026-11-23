@@ -205,3 +205,55 @@ def test_a_pads_links_name_their_source_and_time_so_a_closed_source_can_be_reope
                               "t": anchors["q2"]["t"]}, "view": {"t": anchors["q2"]["t"]}})
     assert [w["content"]["kind"] for d in desk_state(repository)["desks"] for slot in d["slots"]
             for w in slot["windows"]] == ["video"]
+
+
+# -- finding 14 (server side already fine): every carried question is reachable, page by page ---------------------
+
+
+def test_the_carried_list_pages_past_the_first_fifty_and_each_question_takes_its_labels(tmp_path):
+    from learnloop.pads import carried
+
+    _paths, repository, _batches = pad_vault(tmp_path)
+    for index in range(carried.PAGE_SIZE + 1):
+        carried.carry(repository, carried_id=f"cq_{index:03d}", text=f"question {index}?", origin_kind="typed",
+                      origin_ref=None, anchor=None, desk_id=None)
+    first = carried.listing(repository, which="open", desk_id=None, cursor=None)
+    assert len(first["carried"]) == carried.PAGE_SIZE and first["cursor"] and first["shelf_limit"] == 3
+    rest = carried.listing(repository, which="open", desk_id=None, cursor=first["cursor"])
+    seen = [row["carried_id"] for row in first["carried"] + rest["carried"]]
+    assert sorted(seen) == [f"cq_{index:03d}" for index in range(carried.PAGE_SIZE + 1)] and rest["cursor"] is None
+    last = rest["carried"][0]
+    marked = carried.mark(repository, event_id="e1", carried_id=last["carried_id"], event="let_go",
+                          expected_version=last["version"], ref=None)
+    assert marked["state"] == "let_go" and marked["carried"] is False
+
+
+# -- finding 15 (server side already fine): passage marks come from the union read, aliases included ----------
+
+
+def test_a_pads_link_on_an_older_reading_marks_the_newer_one_from_the_union_alone(tmp_path):
+    """passage.union_range places a pad block's link made on another reading of the book through its aliases, with
+    the alias status (an exact one, or needs_reanchor for the same place only), with no pad loaded by the client."""
+
+    from learnloop.passage_union.union import union_range
+    from tests.desk_helpers import record_alias
+    from tests.reader_rd4_helpers import vault
+
+    paths, repository, batches = pad_vault(tmp_path)
+    seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id="ext_old", spans=["o1", "o2"])
+    seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id="ext_new",
+                 spans=["n1", "n2"])
+    record_alias(repository, from_extraction_id="ext_old", from_span_id="o1", to_extraction_id="ext_new",
+                 to_span_id="n1")
+    record_alias(repository, from_extraction_id="ext_old", from_span_id="o2", to_extraction_id="ext_new",
+                 to_span_id="n2", match_kind="geometry_section")
+    create_pad(batches)
+    batches.pad(PAD, insert("q1", "one", kind="source_quote", provenance="source"),
+                insert("q2", "two", kind="source_quote", provenance="source", position="a1"),
+                {"op": "link_anchor", "block_id": "q1", "extraction_id": "ext_old", "span_id": "o1",
+                 "expected_anchor_head": None},
+                {"op": "link_anchor", "block_id": "q2", "extraction_id": "ext_old", "span_id": "o2",
+                 "expected_anchor_head": None})
+    union = union_range(vault(paths), repository, extraction_id="ext_new", from_span_id="n1", to_span_id="n2")
+    assert [[(row["block_id"], row["pad_id"], row["alias"]) for row in span["pad_blocks"]] for span in union["spans"]
+            ] == [[("q1", PAD, "exact")], [("q2", PAD, "needs_reanchor")]]
