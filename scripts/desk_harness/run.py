@@ -84,8 +84,12 @@ def serve(directory: Path) -> tuple[http.server.ThreadingHTTPServer, int]:
     return server, server.server_address[1]
 
 
+OUTSIDE: list[str] = []
+
+
 async def route_outside(route: Route) -> None:
     url = route.request.url
+    OUTSIDE.append(url)
     if url.startswith("https://www.youtube-nocookie.com/embed/"):
         video = url.split("/embed/")[1].split("?")[0]
         await route.fulfill(status=200, content_type="text/html", body=STUB_PLAYER.replace(
@@ -267,6 +271,12 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
       out[el.dataset.deskSlot.split(':')[1]] = [...el.querySelectorAll('[data-desk-window]')].map((p) => p.dataset.deskWindow); }
       return Object.keys(out).sort().map((k) => out[k]); }""")
     results.check("the server's slots equal the screen's", server_slots == screen_slots, [server_slots, screen_slots])
+    fonts = await page.evaluate("""async () => {
+      const families = ["Inter Variable", "Literata Variable", "Source Serif 4 Variable", "JetBrains Mono Variable", "Caveat Variable"];
+      await Promise.all(families.map((family) => document.fonts.load(`16px "${family}"`)));
+      return families.filter((family) => !document.fonts.check(`16px "${family}"`));
+    }""")
+    results.check("the five desk fonts load from the app itself", fonts == [], fonts)
     errors = await page.evaluate("() => window.__deskHarnessErrors")
     results.check("no error reached the shell's error line", errors == [], errors)
 
@@ -319,6 +329,8 @@ async def main() -> int:
             await browser.close()
     finally:
         server.shutdown()
+    asked = sorted({url.split("/")[2] for url in OUTSIDE})
+    results.check("no request left the page but the stubbed player's", asked in ([], ["www.youtube-nocookie.com"]), asked)
     for name, passed, detail in results.rows:
         print(f"{'PASS' if passed else 'FAIL'}  {name}" + (f"  {detail}" if not passed and detail else ""))
     print(f"{sum(1 for row in results.rows if row[1])} passed, {sum(1 for row in results.rows if not row[1])} failed")

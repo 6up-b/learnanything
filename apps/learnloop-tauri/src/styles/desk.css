@@ -1,7 +1,7 @@
 /* Reader workbench v2: the desks (docs/specs/spec_reader_workbench_v2.md §4.2, §4.3).
  *
- * The design tokens are the spec's, copied exactly. Fonts are named, never fetched: the app loads no
- * remote font (the stacks fall back to what the system has until the font files ship with the app).
+ * The design tokens are the spec's, copied exactly. The fonts ship with the app: DeskShell imports the
+ * Fontsource variable packages (SIL OFL 1.1), whose families are named first here; nothing is fetched.
  * Everything here is scoped under .desk-shell so no other screen changes. */
 
 .desk-shell {
@@ -28,11 +28,11 @@
   --desk-search: #2563eb;
   --desk-pen: #2b4fa8;
   /* fonts (§4.2), local only */
-  --desk-ui: "Inter", system-ui, sans-serif;
-  --desk-book: "Literata", Georgia, serif;
-  --desk-paperfont: "Source Serif 4", "Times New Roman", serif;
-  --desk-mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
-  --desk-hand: "Caveat", cursive;
+  --desk-ui: "Inter Variable", "Inter", system-ui, sans-serif;
+  --desk-book: "Literata Variable", "Literata", Georgia, serif;
+  --desk-paperfont: "Source Serif 4 Variable", "Source Serif 4", "Times New Roman", serif;
+  --desk-mono: "JetBrains Mono Variable", "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+  --desk-hand: "Caveat Variable", "Caveat", cursive;
   /* timings (§4.3) */
   --desk-ease: cubic-bezier(.22, .7, .18, 1);
   --desk-camera: .55s;

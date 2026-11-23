@@ -65,6 +65,15 @@ import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windo
 import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import "../../styles/desk.css";
+// The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
+// bundles their files, so nothing is fetched from a font service.
+import "@fontsource-variable/inter";
+import "@fontsource-variable/literata";
+import "@fontsource-variable/literata/wght-italic.css";
+import "@fontsource-variable/source-serif-4";
+import "@fontsource-variable/source-serif-4/wght-italic.css";
+import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/caveat";
 
 export interface DeskTransport extends OutboxTransport {
   state(): Promise<DeskStateDto>;
