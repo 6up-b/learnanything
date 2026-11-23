@@ -61,7 +61,7 @@ def _in(values: Iterable[str]) -> tuple[str, list[str]]:
     return ",".join("?" for _ in wanted) or "NULL", wanted
 
 
-def _range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None,
+def span_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None,
            t1: float | None) -> list[str]:
     blocks = sorted(ir.blocks, key=lambda block: block.ordinal)
     if from_span_id is not None and to_span_id is not None:
@@ -113,7 +113,7 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
         raise UnionError("extraction_not_found", f"No reading {extraction_id!r}.")
-    span_ids = _range(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
+    span_ids = span_range(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
     sections, _blocks, span_to_section = extraction_sections(ir)
     out = {span: _empty(span, span_to_section.get(span)) for span in span_ids}
     if not out:
@@ -289,4 +289,4 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
     return {"extraction_id": extraction_id, "spans": [out[span] for span in span_ids], "sections": section_out}
 
 
-__all__ = ["UnionError", "union_range"]
+__all__ = ["UnionError", "span_range", "union_range"]

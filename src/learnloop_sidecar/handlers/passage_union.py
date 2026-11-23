@@ -114,7 +114,7 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
     from learnloop.db.stores import pad_reads
     from learnloop.pads.emission import passages_of
     from learnloop.passage_union import promoted as P
-    from learnloop.passage_union.union import _range
+    from learnloop.passage_union.union import span_range
 
     if params.object_kind == "pad_line":
         with repository.connection() as connection:
@@ -132,7 +132,7 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
         span_id = params.span_id
         if span_id is None:
             try:
-                spans = _range(ir, from_span_id=None, to_span_id=None, t0=params.t, t1=params.t)
+                spans = span_range(ir, from_span_id=None, to_span_id=None, t0=params.t, t1=params.t)
             except UnionError as exc:
                 raise SidecarError(exc.code, str(exc)) from exc
             if not spans:

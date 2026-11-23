@@ -12,7 +12,7 @@ from typing import Any
 
 from learnloop.content.sources.exam_material import exam_withheld
 from learnloop.content.sources.span_aliases import reading_source
-from learnloop.passage_union.union import UnionError, _range
+from learnloop.passage_union.union import UnionError, span_range
 from learnloop.section_map import extraction_sections
 
 _CUE_TIME = re.compile(r"^t=([0-9.]+)-([0-9.]+)$")
@@ -35,7 +35,7 @@ def passage_content(vault: Any, repository: Any, *, extraction_id: str, from_spa
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
         raise UnionError("extraction_not_found", f"No reading {extraction_id!r}.")
-    span_ids = _range(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
+    span_ids = span_range(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
     sections, blocks, span_to_section = extraction_sections(ir)
     labels = {str(section["id"]): section.get("label") for section in sections}
     by_span = {block.span_id: block for block in ir.blocks}
