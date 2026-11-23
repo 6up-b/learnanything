@@ -103,6 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarError`; statically calls `SidecarError`
@@ -179,7 +180,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 75 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 76 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -520,6 +521,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_answer_only_from_its_problem_pad_or_check_cell`
   - `test_an_edit_after_submitting_keeps_the_submitted_version_and_its_tag_says_so`
   - `test_what_is_refused`
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_range_reads_only_the_sections_it_touches`
+  - `test_read_it_anyway_on_a_dimmed_section_is_stored_idempotent_and_clearable`
+  - `test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written`
+  - `test_the_empty_and_thin_states`
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_unknown_recap_events_are_refused_before_any_write`

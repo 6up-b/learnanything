@@ -289,6 +289,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followups_helpers.py](../../../../../../tests/followups_helpers.py) — direct import
 - [tests/followups_nov2_help_fold_helpers.py](../../../../../../tests/followups_nov2_help_fold_helpers.py) — direct import
 - [tests/forecast_receipts_helpers.py](../../../../../../tests/forecast_receipts_helpers.py) — direct import
+- [tests/goal_lens_helpers.py](../../../../../../tests/goal_lens_helpers.py) — direct import
 - [tests/grading_hardcases_helpers.py](../../../../../../tests/grading_hardcases_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — direct import
 - [tests/graph_nomination_ingest_helpers.py](../../../../../../tests/graph_nomination_ingest_helpers.py) — direct import
@@ -2603,6 +2604,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
   - `test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once`
   - `test_the_umbrella_rebuild_runs_both_replayers`
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
+  - `test_the_empty_and_thin_states`
+  - `test_the_lens_levels_follow_the_real_path_and_coverage`
+  - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
 - [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_typed_summary_is_deterministic_from_the_ledgers`

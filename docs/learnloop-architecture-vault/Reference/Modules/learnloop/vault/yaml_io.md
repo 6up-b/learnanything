@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/facet_rewords_helpers.py](../../../../../../tests/facet_rewords_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/goal_certification_any_of_helpers.py](../../../../../../tests/goal_certification_any_of_helpers.py) — direct import
+- [tests/goal_lens_helpers.py](../../../../../../tests/goal_lens_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/hint_telemetry_helpers.py](../../../../../../tests/hint_telemetry_helpers.py) — direct import
 - [tests/identifiability_doctor_helpers.py](../../../../../../tests/identifiability_doctor_helpers.py) — direct import

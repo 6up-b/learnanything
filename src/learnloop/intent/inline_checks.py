@@ -144,4 +144,33 @@ def due_checks(vault: Any, repository: Any, *, goal_id: str | None = None,
     return out
 
 
-__all__ = ["due_checks"]
+def answered_checks(vault: Any, repository: Any, *, since: str, clock: Clock | None = None) -> list[dict[str, Any]]:
+    """Every "Check once" answered on the learner's own since ``since`` (a UTC stamp), one row per
+    (check, learning object): the goal band fills its ◇ once a check is answered. Answered as serving reads
+    it (a settled check, or one an attempt on your own has answered and settling has not recorded yet)."""
+
+    now = parse_utc(utc_now_iso(clock)) or datetime.now(UTC)
+    start = parse_utc(since)
+    view = intent_serving(vault, repository, now=now, force=True)
+    if view is None or start is None:  # pragma: no cover - force always builds the view
+        return []
+    items = getattr(vault, "practice_items", {}) or {}
+    out: list[dict[str, Any]] = []
+    for snapshot in sorted(view.resolution.snapshots.values(), key=lambda snap: (str(snap.satisfied_at), snap.id)):
+        if snapshot.action != "test_me_later" or snapshot.disposition != "satisfied" or not snapshot.satisfied_at:
+            continue
+        answered = parse_utc(snapshot.satisfied_at)
+        if answered is None or answered < start:
+            continue
+        los: set[str] = set(snapshot.learning_object_targets)
+        for item_id in snapshot.item_targets:
+            item = items.get(item_id)
+            if item is not None:
+                los.add(str(item.learning_object_id))
+        for lo_id in sorted(los):
+            out.append({"commitment_id": snapshot.id, "lo_id": lo_id,
+                        "answered_at": answered.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")})
+    return out
+
+
+__all__ = ["answered_checks", "due_checks"]
