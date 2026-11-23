@@ -55,7 +55,8 @@ export interface PadsHost {
   practiceSessionId: string | null;
   openPassage: (extractionId: string, spanId: string | null, t?: number) => void;
   openSearch: (query: string, insert?: (row: SearchRow) => void) => void;
-  askAbout: (quote: string) => void;
+  /** The companion, asking about `quote`; from a pad line, with its block and the passage it links to. */
+  askAbout: (quote: string, context?: { padId: string; blockId: string | null; anchor: { extractionId: string; spanId: string } | null }) => void;
   teachMe?: (extractionId: string, spanIds: string[]) => void;
   /** Show me (spec §13.1): a figure for the line, built as the Reader's are; null when none is shown. */
   showMe?: (text: string, anchor: { extractionId: string; spanId: string } | null) => Promise<{ figureId: string; line: string } | null>;

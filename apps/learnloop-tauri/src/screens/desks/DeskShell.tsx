@@ -149,9 +149,45 @@ interface Grounding {
   extractionId?: string;
   spanId?: string;
   windowId?: string;
+  /** Asked about a pad line: its block (recorded with the exchange; its words go with the question). */
+  padBlockId?: string;
+  /** The window whose top passage stands in when no reading place is known (the book beside a pad line). */
+  spanWindowId?: string;
 }
 
-function groundingFor(ws: Workspace, chip: { spanIds: string[]; windowId: string } | null, focus: DeskWindow | undefined, status: Record<string, SourceStatus>): Grounding {
+/** A pad line asked about ("Ask about this" in the pad menu or a card): its block and the passage it links to. */
+export interface PadAskContext {
+  padId: string;
+  blockId: string | null;
+  anchor: { extractionId: string; spanId: string } | null;
+}
+
+/** What the chip asks about: a selection in a window, or a pad line. */
+export interface AskChip {
+  quote?: string;
+  spanIds: string[];
+  windowId: string;
+  pad?: PadAskContext;
+}
+
+export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWindow | undefined, status: Record<string, SourceStatus>): Grounding {
+  if (chip?.pad) {
+    const padBlockId = chip.pad.blockId ?? undefined;
+    // A linked line is asked about its passage.
+    if (chip.pad.anchor) return { reason: null, extractionId: chip.pad.anchor.extractionId, spanId: chip.pad.anchor.spanId, windowId: chip.windowId, padBlockId };
+    // An unlinked line is asked beside the desk's book or video, where the learner reads (its reading place).
+    const deskId = ws.windows[chip.windowId]?.deskId ?? focus?.deskId;
+    const desk = deskId ? ws.desks.find((each) => each.deskId === deskId) : undefined;
+    for (const id of desk?.slots.flat() ?? Object.keys(ws.windows)) {
+      const window = ws.windows[id];
+      const content = window?.content;
+      if (!window || !content || (content.kind !== "source" && content.kind !== "video")) continue;
+      const span = status[id]?.readingSpan ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : undefined);
+      // Asked from the pad (its window owns the question's poll), about the book where the learner reads.
+      return { reason: null, extractionId: content.extractionId, spanId: span, windowId: chip.windowId, spanWindowId: id, padBlockId };
+    }
+    return { reason: "this line is linked to no passage, and no book or video is open on this desk to ask beside" };
+  }
   if (chip && chip.spanIds.length) {
     const content = ws.windows[chip.windowId]?.content;
     if (content && (content.kind === "source" || content.kind === "video")) {
@@ -436,7 +472,7 @@ export function DeskShell({
   // slides aside; search in context (§9.3) while open.
   const [companionState, setCompanionState] = useState<CompanionState>(HIDDEN);
   const [companionDock, setCompanionDockShown] = useState<CompanionDock>("br");
-  const [chip, setChip] = useState<{ quote: string; spanIds: string[]; windowId: string } | null>(null);
+  const [chip, setChip] = useState<(AskChip & { quote: string }) | null>(null);
   const [avoid, setAvoid] = useState(0);
   const [search, setSearch] = useState<{ query: string; insert?: ((row: SearchRow) => void) | null } | null>(null);
   // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
@@ -1766,7 +1802,7 @@ export function DeskShell({
   const askCompanion = useCallback((question: string) => {
     const grounding = groundingRef.current;
     if (grounding.reason !== null || !grounding.extractionId) return;
-    const spanId = grounding.spanId ?? firstVisibleSpan(grounding.windowId ?? null);
+    const spanId = grounding.spanId ?? firstVisibleSpan(grounding.spanWindowId ?? grounding.windowId ?? null);
     if (!spanId) {
       toastNow("select a passage to ask about it");
       return;
@@ -1775,15 +1811,19 @@ export function DeskShell({
     const lifecycle = lifecyclesRef.current[grounding.windowId ?? ""];
     if (overviewRef.current || (lifecycle && isPaused(lifecycle.state))) return;
     const selected = chipRef.current;
+    // A pad line is the learner's own text, which the tutor may read (§14): it goes with the question, never as
+    // the passage's words; the block is recorded with the exchange.
+    const padLine = selected?.pad ? selected.quote : null;
     asks.ask({
       deskId: deskIdRef.current,
       windowId: grounding.windowId ?? null,
       surface: "desk",
-      question,
+      question: padLine ? `${question}\n\n(about this line of my pad: “${padLine}”)` : question,
       extractionId: grounding.extractionId,
       spanId,
-      selectionSpanIds: selected?.spanIds,
-      quote: selected?.quote ?? null,
+      selectionSpanIds: padLine ? undefined : selected?.spanIds,
+      quote: padLine ? null : selected?.quote ?? null,
+      ...(grounding.padBlockId ? { padBlockIds: [grounding.padBlockId] } : {}),
     // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
     }, store.settled());
     setChip(null);
@@ -1935,8 +1975,8 @@ export function DeskShell({
     practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
     openPassage,
     openSearch: (query, insert) => setSearch({ query, insert: insert ?? null }),
-    askAbout: (quote) => {
-      setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
+    askAbout: (quote, context) => {
+      setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "", ...(context ? { pad: context } : {}) });
       stepCompanion({ kind: "dock" });
     },
     showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null) => {

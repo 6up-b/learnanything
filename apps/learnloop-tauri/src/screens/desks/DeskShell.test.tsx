@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 import type { DeskStateDto, SourceLibraryCard } from "../../api/dto";
 import { FixtureDeskServer, fixtureDeskState } from "../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../fixtures/desks/sources";
-import { DeskShell, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { DeskShell, groundingFor, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { fromDeskState } from "./model/workspace";
 import { Poller } from "../../api/poller";
 import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
 import { useBareAltClear } from "../reader/bareAlt";
@@ -1725,5 +1726,27 @@ describe("RD4b: pads in the desks", () => {
     const inserted = server.padBatches.flatMap((batch) => batch.ops).find((op) => op.op === "insert_block");
     expect(inserted).toMatchObject({ op: "insert_block", kind: "tutor_quote", provenance: "tutor", bodyMd: "Because the factor cancels." });
     expect(server.padBatches[0].padId).toBe("fx_pad_running");
+  });
+});
+
+describe("RD4 review: asking from a pad line", () => {
+  const ws = (() => {
+    const state = fixtureDeskState();
+    return { ...fromDeskState(state), closed: {} };
+  })();
+  it("an anchored pad line grounds the question in its passage, with the pad block named", () => {
+    const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r2", anchor: { extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3" } } }, ws.windows.fx_w_pads, {});
+    expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3", padBlockId: "fx_b_r2" });
+  });
+
+  it("an unanchored pad line is asked beside the desk's book (where the learner reads), the line named", () => {
+    const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, { fx_w_book: { readingSpan: "fx_ext_softmax_s2_1" } });
+    expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s2_1", windowId: "fx_w_pads", spanWindowId: "fx_w_book", padBlockId: "fx_b_r1" });
+  });
+
+  it("an unanchored pad line on a desk with no book or video says why it cannot ask", () => {
+    const empty = { ...ws, windows: { fx_w_pads: ws.windows.fx_w_pads } };
+    const grounding = groundingFor(empty, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, {});
+    expect(grounding.reason).toMatch(/linked to no passage/);
   });
 });

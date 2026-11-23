@@ -675,13 +675,13 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             <>
               <div className="head">◇ the tutor's words</div>
               <FitMath><MarkdownMath value={cardBlock.bodyMd} /></FitMath>
-              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd))}>open the thread</button>
+              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd), padContext(card.padId, cardBlock, store.pads[card.padId]?.anchors))}>open the thread</button>
             </>
           ) : card.kind === "figure" ? (
             <>
               <div className="head">a figure LearnLoop made for this line · help, not a check</div>
               <FitMath><MarkdownMath value={cardBlock.bodyMd} /></FitMath>
-              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd))}>open it in the tutor</button>
+              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd), padContext(card.padId, cardBlock, store.pads[card.padId]?.anchors))}>open it in the tutor</button>
             </>
           ) : cardProposal ? (
             <>
@@ -737,6 +737,15 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     </div>
   );
 });
+
+/** A pad block as the companion asks about it: the block, and the passage it links to (its first anchor). */
+function padContext(padId: string, block: PadBlockDto, anchors: Array<{ blockId: string; extractionId: string; spanId: string }> = []) {
+  const p = block.payload as Record<string, unknown>;
+  const own = anchors.find((anchor) => anchor.blockId === block.blockId);
+  const anchor = own ? { extractionId: own.extractionId, spanId: own.spanId }
+    : typeof p.extraction_id === "string" && typeof p.span_id === "string" ? { extractionId: p.extraction_id, spanId: p.span_id } : null;
+  return { padId, blockId: block.blockId, anchor };
+}
 
 function setRef(map: Map<string, HTMLElement>, key: string, node: HTMLElement | null) {
   if (node) map.set(key, node);

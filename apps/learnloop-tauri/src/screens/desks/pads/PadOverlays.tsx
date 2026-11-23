@@ -58,7 +58,7 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
     then?.();
   };
   const textRows: Row[] = text ? [
-    { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text)) },
+    { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text, { padId: request.padId, blockId: request.blockId, anchor: anchors[0] ?? null })) },
     { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
     ...(host.showMe ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
       host.toast("◇ making a figure for this line · it lands below it when it's ready");
