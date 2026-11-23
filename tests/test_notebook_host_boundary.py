@@ -200,7 +200,7 @@ def test_the_sandbox_has_no_writable_host_path(tmp_path):
     layout = Layout(run_dir=tmp_path / "run", notebook=tmp_path / "nb.py", config_dir=tmp_path / "cfg",
                     hosts_file=tmp_path / "hosts")
     argv, _env = launch_command(layout, Limits(memory_mib=512, scratch_mib=64), base_url="/s/x", unit="u",
-                                scoped=False, socket_fd=7, bwrap="/usr/bin/bwrap")
+                                scoped=True, socket_fd=7, bwrap="/usr/bin/bwrap")
     assert not {"--bind", "--bind-try", "--dev-bind", "--dev-bind-try"} & set(argv)
     assert str(layout.run_dir) not in argv and str(layout.socket) not in " ".join(argv)
     token = argv.index(str(layout.token_file))
@@ -218,7 +218,7 @@ def test_the_secret_path_is_not_in_any_process_arguments(tmp_path):
     layout = Layout(run_dir=tmp_path / "run", notebook=tmp_path / "nb.py", config_dir=tmp_path / "cfg",
                     hosts_file=tmp_path / "hosts")
     argv, env = launch_command(layout, Limits(memory_mib=512, scratch_mib=64), base_url="/s/SECRET123", unit="u",
-                               scoped=False, socket_fd=7, bwrap="/usr/bin/bwrap")
+                               scoped=True, socket_fd=7, bwrap="/usr/bin/bwrap")
     assert not any("SECRET123" in arg for arg in argv)
     assert env[BASE_URL_ENV] == "/s/SECRET123"
 
@@ -258,7 +258,7 @@ def test_the_sandboxes_tmp_is_size_capped_like_its_scratch(tmp_path):
     layout = Layout(run_dir=tmp_path / "run", notebook=tmp_path / "nb.py", config_dir=tmp_path / "cfg",
                     hosts_file=tmp_path / "hosts")
     argv, _env = launch_command(layout, Limits(memory_mib=512, scratch_mib=64), base_url="/s/x", unit="u",
-                                scoped=False, socket_fd=7, bwrap="/usr/bin/bwrap")
+                                scoped=True, socket_fd=7, bwrap="/usr/bin/bwrap")
     tmpfs = [i for i, arg in enumerate(argv) if arg == "--tmpfs" and argv[i + 1] == "/tmp"]
     assert tmpfs and argv[tmpfs[-1] - 2:tmpfs[-1]] == ["--size", str(64 * 1024 * 1024)]
 

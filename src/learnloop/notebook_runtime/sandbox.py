@@ -10,7 +10,8 @@ read-only last. No network namespace but its own loopback, no session bus, no GP
 
 Outside it, a ``systemd-run --user --scope`` caps memory (no swap), CPU and tasks, with ``OOMPolicy=continue``:
 under systemd's default policy one cell's child passing the memory cap stops the whole scope, server and kernel
-with it, and the session is lost. Without a user manager it falls back to ``prlimit --as``.
+with it, and the session is lost. Without a user manager there is no aggregate cap (``prlimit --as`` bounds each
+process, not the session's total or its tasks), so the runtime refuses to start rather than run uncapped.
 """
 from __future__ import annotations
 
@@ -85,6 +86,9 @@ def missing_requirements() -> list[str]:
         problems.append("only the sandboxed, CPU-only runtime is built")
     if bwrap_path() is None:
         problems.append("bubblewrap (bwrap) is not installed; notebooks run only inside it")
+    if bwrap_path() is not None and not scope_available():
+        problems.append("no systemd user manager (systemd-run --user --scope) to cap a notebook's memory and tasks "
+                        "as a whole; notebooks run only inside such a scope")
     for module in ("marimo", "uvicorn", "websockets", "httpx"):
         if importlib.util.find_spec(module) is None:
             problems.append(f"the notebook extra is not installed ({module} is missing)")
@@ -154,8 +158,8 @@ def scope_prefix(unit: str, limits: Limits, *, scoped: bool) -> list[str]:
         return [shutil.which("systemd-run") or "systemd-run", "--user", "--scope", "--quiet", f"--unit={unit}",
                 "-p", f"MemoryMax={memory}", "-p", "MemorySwapMax=0", "-p", f"CPUQuota={settings.CPU_QUOTA}",
                 "-p", f"TasksMax={settings.TASKS_MAX}", "-p", "OOMPolicy=continue", "--"]
-    prlimit = shutil.which("prlimit")
-    return [prlimit, f"--as={memory}", "--"] if prlimit else []
+    # A per-process limit is not a cap on the session: refused, never a silent fallback.
+    raise RuntimeUnavailable("no systemd user manager to cap the notebook's memory and tasks as a whole")
 
 
 def launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, scoped: bool, socket_fd: int,

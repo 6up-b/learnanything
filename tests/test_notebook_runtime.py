@@ -755,3 +755,14 @@ def test_closing_kills_a_server_that_stalls_its_shutdown_and_ignores_sigterm(mon
         made.close()
     assert process.returncode is not None and signals.SIGKILL in backend.signals
     assert time.monotonic() - started < 15
+
+
+# -- no notebook without aggregate memory and task caps -----------------------------------------------------------
+
+def test_without_a_user_manager_notebooks_are_refused_not_run_under_a_per_process_limit(monkeypatch):
+    from learnloop.notebook_runtime import sandbox as sandbox_module
+
+    monkeypatch.setitem(sandbox_module._SCOPE_PROBE, "ok", False)
+    assert any("user manager" in problem for problem in sandbox_module.missing_requirements())
+    with pytest.raises(sandbox_module.RuntimeUnavailable):
+        scope_prefix("u", Limits(memory_mib=512, scratch_mib=64), scoped=False)
