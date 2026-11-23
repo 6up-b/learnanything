@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/overview/controller.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/controller.ts) |
-| Source lines | 240 |
+| Source lines | 242 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/overview/_area|TypeScript/screens/desks/overview]] |
 | Refactor status | `ACTIVE` |
@@ -66,18 +66,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Internal implementation anchors
 
 - `const edge = Math.max(0, 1 - 3 * q)` — const, line 47
-- `const slot = targets.slots.get(item.key)` — const, line 93
-- `const targets = this.targets` — const, line 142
-- `const plan = this.plan` — const, line 181
-- `const dt = this.last ? (now - this.last) / 1000 : 1 / 60` — const, line 183
-- `const plan = this.plan` — const, line 201
-- `const plan = this.plan` — const, line 211
-- `const targets = this.targets` — const, line 212
-- `const slot = targets.slots.get(item.key)` — const, line 217
-- `const values = frame.items[index]` — const, line 218
-- `const element = targets.rings?.get(ring.key)` — const, line 230
-- `const q = frame.q` — const, line 232
-- `const r =` — const, line 233
+- `const slot = targets.slots.get(item.key)` — const, line 95
+- `const targets = this.targets` — const, line 144
+- `const plan = this.plan` — const, line 183
+- `const dt = this.last ? (now - this.last) / 1000 : 1 / 60` — const, line 185
+- `const plan = this.plan` — const, line 203
+- `const plan = this.plan` — const, line 213
+- `const targets = this.targets` — const, line 214
+- `const slot = targets.slots.get(item.key)` — const, line 219
+- `const values = frame.items[index]` — const, line 220
+- `const element = targets.rings?.get(ring.key)` — const, line 232
+- `const q = frame.q` — const, line 234
+- `const r =` — const, line 235
 
 ## Who imports or calls it
 

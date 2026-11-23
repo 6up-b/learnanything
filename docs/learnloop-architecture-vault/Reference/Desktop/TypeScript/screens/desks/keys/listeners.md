@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/keys/listeners.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/keys/listeners.ts) |
-| Source lines | 132 |
+| Source lines | 134 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/keys/_area|TypeScript/screens/desks/keys]] |
 | Refactor status | `ACTIVE` |
