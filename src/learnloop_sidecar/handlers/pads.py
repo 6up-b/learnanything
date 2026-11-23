@@ -14,7 +14,7 @@ from pydantic import Field
 from learnloop.desks.protocol import ProtocolError
 from learnloop.pads.blocks import PadNotFound, PadOp, apply_pad_ops, pad_list, pad_view
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, Verbatim, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.desks import protocol_error
 from learnloop_sidecar.registry import method
@@ -47,9 +47,15 @@ def pad_get_handler(ctx: SidecarContext, params: PadGetInput) -> dict[str, Any]:
 
     _vault, repository = ctx.require_vault()
     try:
-        return versioned(pad_view(repository, params.pad_id))
+        view = pad_view(repository, params.pad_id)
     except PadNotFound as exc:
         raise SidecarError("pad_not_found", f"No pad {params.pad_id!r}.") from exc
+    # A block's payload and an anchor's JSON are the client's, returned with their keys as stored.
+    for block in view["blocks"]:
+        block["payload"] = Verbatim(block["payload"])
+    for anchor in view["anchors"]:
+        anchor["anchor"] = Verbatim(anchor["anchor"])
+    return versioned(view)
 
 
 @method("pad.list", PadListInput)

@@ -111,3 +111,25 @@ def test_pad_get_of_an_unknown_pad_and_a_union_range_of_two_kinds_are_refused(ct
 def test_companion_history_takes_the_specs_from_and_to(ctx):
     reply = call(ctx, "companion.history", {"from": "2026-05-01", "to": "2026-05-31"})
     assert reply == {"version": 1, "days": [], "cursor": None}
+
+
+def test_opaque_json_round_trips_with_its_keys_as_stored(ctx):
+    """A block's payload, a window's view and an anchor's JSON are the client's: their keys come back as
+    stored, never camelCased (``a_b`` and ``aB`` would merge into one key)."""
+
+    opaque = {"a_b": 1, "aB": 2, "nested": {"c_d": [{"e_f": True}]}}
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 1, "padId": "p1", "ops": [
+        {"op": "create_pad", "kind": "named"},
+        {"op": "insert_block", "blockId": "b", "kind": "sketch", "provenance": "learner", "positionKey": "a0",
+         "payload": opaque},
+        {"op": "link_anchor", "blockId": "b", "extractionId": BOOK, "spanId": "s1", "anchor": opaque,
+         "expectedAnchorHead": None}]})
+    pad = call(ctx, "pad.get", {"padId": "p1"})
+    assert pad["blocks"][0]["payload"] == opaque and pad["anchors"][0]["anchor"] == opaque
+    assert "headVersionId" in pad["blocks"][0]  # declared fields stay camelCase
+    call(ctx, "desk.apply", {"clientId": "c", "seq": 2, "ops": [
+        {"op": "create_desk", "deskId": "d1", "title": "t", "position": "a0"},
+        {"op": "open_window", "deskId": "d1", "windowId": "w1", "expectedVersion": 1, "view": opaque,
+         "content": {"kind": "pad", "padId": "p1"}}]})
+    window = call(ctx, "desk.state", {})["desks"][0]["slots"][0]["windows"][0]
+    assert window["view"] == opaque and window["windowId"] == "w1"
