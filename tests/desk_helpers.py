@@ -266,7 +266,7 @@ def seed_annotation(repository: Repository, *, annotation_id: str, source_id: st
 def seed_union_kinds(connection: Any, *, extraction_id: str, span_id: str, section_id: str,
                      learning_object_id: str) -> None:
     """Everything else the union read gathers, on one passage: a passage link, a figure, an authored question,
-    the passage seen and shown, and its section's coverage."""
+    the passage shown twice, and its section's coverage."""
 
     connection.execute(
         "INSERT INTO passage_links (id, extraction_id, span_id, target_kind, target_id, relation, quote, pick_rank, "
@@ -278,8 +278,6 @@ def seed_union_kinds(connection: Any, *, extraction_id: str, span_id: str, secti
         "prompt_version, input_hash, created_at) VALUES ('fig_1', ?, ?, 'show_me', 'v1', 'failed', 'p', 'h', ?)",
         (extraction_id, json.dumps([span_id]), T0))
     seed_authored_question(connection, question_id="raq_union", extraction_id=extraction_id, spans=[span_id])
-    connection.execute("INSERT INTO reader_seen_spans (extraction_id, span_id, section_id, first_seen_at, origin) "
-                       "VALUES (?, ?, ?, ?, 'desktop')", (extraction_id, span_id, section_id, T0))
     for n in (1, 2):
         connection.execute("INSERT INTO source_exposure_events (id, context, extraction_id, span_id, created_at) "
                            "VALUES (?, 'reader', ?, ?, ?)", (f"see_{n}", extraction_id, span_id, f"2026-05-19T0{n}:00:00Z"))

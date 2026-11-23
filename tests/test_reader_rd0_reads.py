@@ -87,8 +87,7 @@ def test_the_union_returns_every_kind_for_a_passage_across_readings(seeded):
     assert [f["figure_id"] for f in s3["figures"]] == ["fig_1"]
     assert [q["question_id"] for q in s3["authored_questions"]] == ["raq_union"]
     assert s3["notes"] == [{"note_title": "my take"}]
-    assert s3["exposure"] == {"first_seen_at": "2026-05-19T09:00:00Z", "times_shown": 2,
-                              "last_shown_at": "2026-05-19T02:00:00Z", "withheld": False}
+    assert s3["exposure"] == {"times_shown": 2, "last_shown_at": "2026-05-19T02:00:00Z", "withheld": False}
     # A due check of the passage's learning object is hosted where its section starts, and the union names
     # nothing of it but its commitment.
     assert s3["checks_due"] == []

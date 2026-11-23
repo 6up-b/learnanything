@@ -10,7 +10,7 @@ citations name it; the exchanges where the tutor adjusted the learner's reasonin
 question was read as a misconception); learner-text gaps tied to it, with their anchor quality; passage
 links with their relation; figures made for it; "a check is due before this" (the host passage of a due
 check, with no item, learning object or purpose); linked notes; reader-authored questions; and its
-exposure (first seen, how often shown) and whether it is exam or held-out material. Per section of the
+exposure (how often and when last it was shown) and whether it is exam or held-out material. Per section of the
 range: its learning objects and their coverage.
 
 Goal-independent: the goal level is ``goal.lens``'s, a separate read. Read only: it writes nothing.
@@ -99,8 +99,7 @@ class _Placer:
 def _empty(span_id: str, section_id: str | None) -> dict[str, Any]:
     return {"span_id": span_id, "section_id": section_id, "annotations": [], "pad_blocks": [], "exchanges": [],
             "adjustments": [], "gaps": [], "passage_links": [], "figures": [], "checks_due": [], "notes": [],
-            "authored_questions": [], "exposure": {"first_seen_at": None, "times_shown": 0, "last_shown_at": None,
-                                                   "withheld": False}}
+            "authored_questions": [], "exposure": {"times_shown": 0, "last_shown_at": None, "withheld": False}}
 
 
 def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None = None,
@@ -216,11 +215,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
                         "question_id": row["id"], "status": row["status"], "question_style": row["question_style"],
                         "scope_kind": row["scope_kind"], "question_md": row["question_md"], "alias": placed[1]})
 
-        # Exposure: first seen in the Reader, and how often the passage was shown.
-        span_marks, span_list = _in(wanted)
-        for row in _rows(connection, f"SELECT span_id, first_seen_at FROM reader_seen_spans WHERE extraction_id = ? "
-                                     f"AND span_id IN ({span_marks})", [extraction_id, *span_list]):
-            out[row["span_id"]]["exposure"]["first_seen_at"] = row["first_seen_at"]
+        # Exposure: how often the passage was shown, and when last. The Reader's seen-passage rows are not read
+        # here: they are generation evidence with one reader of their own.
         for row in _rows(connection, "SELECT extraction_id, span_id, COUNT(*) AS n, MAX(created_at) AS last FROM "
                                      f"source_exposure_events WHERE extraction_id IN ({marks}) GROUP BY extraction_id, "
                                      "span_id", reading_ids):

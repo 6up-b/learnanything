@@ -10752,7 +10752,7 @@ export interface PassageUnionSpanDto {
   notes: unknown[];
   authoredQuestions: { questionId: string; status: string; questionStyle: string; scopeKind: string;
     questionMd: string; alias: SpanAlias }[];
-  exposure: { firstSeenAt: string | null; timesShown: number; lastShownAt: string | null; withheld: boolean };
+  exposure: { timesShown: number; lastShownAt: string | null; withheld: boolean };
 }
 
 export interface PassageUnionDto {
