@@ -239,6 +239,17 @@ region("pen_note_who", ".desk-pen-note .who", "height")
 region("pen_note_text", ".desk-pen-note .ocr", "none")
 region("pen_note_label", ".desk-pen-note .ocrl", "height")
 
+# ── ink pads (RD8a, `#pen=pad`): the mockup draws its ink as handwriting-font text (mock ink); the desks draw the
+# learner's strokes, so strokes are not compared here, only the paper, the bar and the transcription lines.
+region("ink_pad_paper", ".desk-pads .paper.handpad", "none", ("radius", "padding", "font", "color"))
+region("ink_bar", ".desk-pads .handbar", "height")
+region("ink_bar_button", ".desk-pads .handbar button", "height")
+region("ink_prov", ".desk-pads .pb .mark.prov", "none", ("padding",))
+region("ink_read", ".desk-pads .ocrl2", "none")
+region("ink_read_label", ".desk-pads .ocrl2 .ocrt", "height")
+region("ink_read_tex", ".desk-pads .ocrl2 .ocrtex", "none")
+region("ink_hint", ".desk-pads .hint2", "none")
+
 # The pointer's cursor is compared on these regions only (pen mode's crosshair on the text).
 CURSOR_REGIONS = frozenset({"pen_text_cursor"})
 
@@ -640,6 +651,15 @@ PEN_STROKE_JS = r"""
 """
 
 
+async def d_pen_pad(page: Page) -> None:
+    """The handwritten pad beside the book, open, in pen mode."""
+    await pads_beside_book(page)
+    await keys(page, "Alt+p")
+    tab = page.locator('[data-pad-tab="fx_pad_hand"]')
+    await tab.click()
+    await wait(page, 900)
+
+
 def d_pen(kind: str) -> Drive:
     async def drive(page: Page) -> None:
         await keys(page, "Alt+p")
@@ -660,6 +680,7 @@ class State:
     init_storage: tuple[tuple[str, str], ...] = ()
     note: str = ""
     geometry: bool = True  # False where the mockup's state is not a resting layout (its self-tests run on)
+    query: str = ""  # the harness page's query string (a fixture shown only for this state)
 
 
 SHELL = ("topbar", "brand", "desk_tab_on", "desk_tab", "top_chip", "shelf", "shelf_head", "shelf_switch", "shelf_row_focus",
@@ -729,6 +750,8 @@ STATES: list[State] = [
     State("pen=note", "rd8", d_pen("note"), PEN + ("pen_stroke_note", "pen_note", "pen_note_who", "pen_note_text", "pen_note_label")),
     State("pen=lasso", "rd8", d_pen("lasso"), PEN + ("pen_stroke_lasso", "pen_mark_sel", "pen_chip_ask")),
     State("pen=strike", "rd8", d_pen("strike"), PEN + ("pen_stroke_strike",)),
+    State("pen=pad", "rd8", d_pen_pad, ("pen_chip_top", "pen_hint", "ink_pad_paper", "ink_bar", "ink_bar_button", "ink_prov", "ink_read",
+                                         "ink_read_label", "ink_read_tex", "ink_hint", "pad_window_head", "pad_tab_open"), query="inkpad=1"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}
@@ -860,7 +883,7 @@ async def open_harness(browser: Any, base: str, viewport: dict[str, int], state:
     if state.init_storage:
         script = ";".join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)})" for k, v in state.init_storage)
         await page.add_init_script(script)
-    await page.goto(f"{base}/desk-harness.html")
+    await page.goto(f"{base}/desk-harness.html" + (f"?{state.query}" if state.query else ""))
     await page.wait_for_selector("[data-desk-window]")
     await page.evaluate("document.fonts.ready")
     await page.wait_for_timeout(1500)

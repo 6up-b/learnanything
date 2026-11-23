@@ -2,7 +2,7 @@
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
 import type { DeskApplyInput, DeskStateDto, PadViewDto } from "../../api/dto";
-import { fixturePads } from "./pads";
+import { FIXTURE_INK_PAD, fixtureInkOwners, fixtureInkPad, fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
@@ -26,13 +26,23 @@ function harnessDeskState(): DeskStateDto {
     desk.slots.push({ slot: desk.slots.length, windows: [{ windowId: `fx_w_pads_${desk.deskId}`, pane: 0, kind: "pad_stack", active: true, view: {}, stack: [{ kind: "pad", padId }] }] as never });
     state.runningPadIds.push(padId);
   }
+  // `?inkpad=1`: the handwritten pad joins the softmax desk's stack (pen and ink, RD8a).
+  if (INK_PAD_SHOWN) {
+    for (const slot of state.desks[0].slots) {
+      for (const window of slot.windows as Array<{ windowId: string; stack?: Array<{ kind: string; padId: string }> }>) {
+        if (window.windowId === "fx_w_pads") window.stack?.push({ kind: "pad", padId: FIXTURE_INK_PAD });
+      }
+    }
+  }
   return state;
 }
+
+const INK_PAD_SHOWN = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("inkpad") === "1";
 
 function harnessPads(): PadViewDto[] {
   const at = "2026-11-23T09:00:00Z";
   const empty = (padId: string, deskId: string): PadViewDto => ({ version: 1, pad: { padId, kind: "running", title: "running", kept: false, homeDeskId: deskId, workbenchSessionId: null, lessonId: null, version: 1, createdAt: at, updatedAt: at }, blocks: [], anchors: [] });
-  return [...fixturePads(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop")];
+  return [...fixturePads(), fixtureInkPad(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop")];
 }
 
 const server = new FixtureDeskServer(harnessDeskState(), harnessPads());
@@ -142,7 +152,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       pen.inks.push(input);
       return server.applyInk(input as unknown as { clientId: string; seq: number; inkId: string });
     case "ink_list":
-      return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: [] };
+      return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId === FIXTURE_INK_PAD ? fixtureInkOwners() : [] };
     case "ink_transcribe":
       return { version: 1, jobId: null, status: "failed", done: true, result: null,
         error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images, so nothing was sent.", retryable: false, details: null } };

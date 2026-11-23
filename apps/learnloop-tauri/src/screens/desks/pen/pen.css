@@ -47,15 +47,18 @@ svg.desk-pen-ink .stroke.strike { stroke: #a83a2b; opacity: .6; }
  * in the pen's colour; the transcription under each line as "read as …". */
 .desk-pads .pb .desk-ink { display: block; }
 .desk-pads .desk-ink-surface { position: relative; width: 100%; }
-.desk-pads .handpad .desk-ink-surface { background: repeating-linear-gradient(#fdfdfc 0 51px, #dfe6f2 51px 52px); }
-.desk-pads .handpad.dotted .desk-ink-surface { background: radial-gradient(#cfd6e2 1px, transparent 1.4px) 0 0 / 18px 18px, #fdfdfc; }
+/* Each ink line sits on its own rule (the mockup's 52 px rules, one under each line with its reading); the dot grid
+ * covers the paper instead. */
+.desk-pads .handpad .pb.k-ink { border-bottom: 1px solid #dfe6f2; border-radius: 0; }
+.desk-pads .handpad.dotted { background: radial-gradient(#cfd6e2 1px, transparent 1.4px) 0 0 / 18px 18px, #fdfdfc; }
+.desk-pads .handpad.dotted .pb.k-ink { border-bottom-color: transparent; }
 .desk-shell.pen-mode .desk-pads .desk-ink-surface { cursor: crosshair; }
 .desk-pads .desk-ink-strokes { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .desk-pads .desk-ink-strokes .stroke { fill: none; stroke: var(--desk-pen, #2b4fa8); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
 .desk-pads .handbar { display: flex; white-space: nowrap; gap: 10px; align-items: center; font: 10.5px var(--desk-mono); color: #7a766e; margin: 0 0 6px 34px; }
 .desk-pads .handbar button { color: #2b4fa8; font: 10.5px var(--desk-mono); background: none; border: 0; padding: 0; cursor: pointer; }
 .desk-pads .pb .mark.prov { font: 10px var(--desk-mono); color: #2b4fa8; opacity: .6; }
-.desk-pads .ocrl2 { font: 11px var(--desk-mono); color: #7a766e; margin: -6px 0 6px 6px; display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.desk-pads .ocrl2 { position: relative; font: 11px var(--desk-mono); color: #7a766e; margin: -6px 0 6px 6px; display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
 .desk-pads .ocrl2 .ocrt { font-size: 9.5px; color: #a09a8e; }
 .desk-pads .ocrl2 .ocrtex { color: #3b3832; font-size: 12px; }
 .desk-pads .ocrl2 .ocrl, .desk-pads .ocrl2 .ocrs { font-size: 9.5px; color: #8b8578; }
