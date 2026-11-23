@@ -3,12 +3,10 @@
 // out. React lays the page out only at rest: when a zoom begins (nothing moves yet) and in the one
 // commit after it ends, whose layout is exactly the zoom's last frame.
 import { frameAt, release, settleNow, step, type Camera, type Frame, type Motion, type ZoomItem } from "./engine";
+import type { Rect } from "../geometry";
 
 export interface SlotElements {
   box: HTMLElement;
-  /** The overview's ring around this card (the selection's amber, a relation's cyan), a sibling in the
-   * world laid out at the card's rect: it follows the box's morph and fades in with q. */
-  ring?: HTMLElement | null;
   /** The window's content (absent for a desk never opened: only its card shows). */
   inner: HTMLElement | null;
   card: HTMLElement | null;
@@ -18,12 +16,16 @@ export interface ZoomPlan {
   base: 0 | 1;
   A: Camera;
   B: Camera;
-  items: Array<ZoomItem & { key: string; focus?: boolean; related?: boolean }>;
+  items: Array<ZoomItem & { key: string; focus?: boolean }>;
+  /** The overview's rings around slots (the selection's amber, its relations' cyan): siblings in the world
+   * laid out at the slot's card rect, following the slot's morph and fading in with q. */
+  rings?: Array<{ key: string; a: Rect; b: Rect }>;
 }
 
 export interface ZoomTargets {
   world: HTMLElement;
   slots: Map<string, SlotElements>;
+  rings?: Map<string, HTMLElement>;
   /** Links and desk labels: they fade in late. */
   late: HTMLElement[];
   slivers: HTMLElement[];
@@ -97,8 +99,8 @@ export class ZoomController {
         slot.inner.style.visibility = item.live ? "visible" : "hidden";
       }
       if (slot.card) slot.card.style.visibility = "visible";
-      if (slot.ring) slot.ring.style.transformOrigin = "0 0";
     }
+    for (const ring of targets.rings?.values() ?? []) ring.style.transformOrigin = "0 0";
     this.write(frameAt(plan.base, plan.A, plan.B, plan.items));
   }
 
@@ -144,10 +146,6 @@ export class ZoomController {
         slot.box.style.transformOrigin = "";
         slot.box.style.opacity = "";
         slot.box.style.boxShadow = "";
-        if (slot.ring) {
-          slot.ring.style.transform = "";
-          slot.ring.style.opacity = "";
-        }
         if (slot.inner) {
           slot.inner.style.transform = "";
           slot.inner.style.transformOrigin = "";
@@ -158,6 +156,10 @@ export class ZoomController {
           slot.card.style.opacity = "";
           slot.card.style.visibility = "";
         }
+      }
+      for (const ring of targets.rings?.values() ?? []) {
+        ring.style.transform = "";
+        ring.style.opacity = "";
       }
       for (const element of targets.late) element.style.opacity = "";
       for (const element of targets.slivers) element.style.opacity = "";
@@ -218,17 +220,20 @@ export class ZoomController {
       slot.box.style.transform = `translate(${values.tx}px, ${values.ty}px) scale(${values.sx}, ${values.sy})`;
       if (item.recede) slot.box.style.opacity = String(values.opacity);
       if (item.focus) slot.box.style.boxShadow = focusEdge(frame.q);
-      if (slot.ring) {
-        const r = values.rect;
-        slot.ring.style.transform = `translate(${r.x - item.b.x}px, ${r.y - item.b.y}px) scale(${r.w / item.b.w}, ${r.h / item.b.h})`;
-        slot.ring.style.opacity = String(frame.q);
-      }
       if (slot.inner) {
         slot.inner.style.transform = `scale(${values.innerSx}, ${values.innerSy})`;
         if (item.live) slot.inner.style.opacity = String(values.contentOpacity);
       }
       if (slot.card) slot.card.style.opacity = String(values.cardOpacity);
     });
+    for (const ring of plan.rings ?? []) {
+      const element = targets.rings?.get(ring.key);
+      if (!element) continue;
+      const q = frame.q;
+      const r = { x: ring.a.x + (ring.b.x - ring.a.x) * q, y: ring.a.y + (ring.b.y - ring.a.y) * q, w: ring.a.w + (ring.b.w - ring.a.w) * q, h: ring.a.h + (ring.b.h - ring.a.h) * q };
+      element.style.transform = `translate(${r.x - ring.b.x}px, ${r.y - ring.b.y}px) scale(${r.w / ring.b.w}, ${r.h / ring.b.h})`;
+      element.style.opacity = String(q);
+    }
     for (const element of targets.late) element.style.opacity = String(frame.lateOpacity);
     for (const element of targets.slivers) element.style.opacity = String(frame.sliverOpacity);
   }

@@ -283,9 +283,10 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
     seqs = [row[1] for row in sent]
     results.check("the outbox sent numbered batches, in order, from one client", seqs == list(range(1, len(seqs) + 1)) and len({row[0] for row in sent}) == 1, sent)
     server_slots = await page.evaluate("() => window.__deskHarness.server.state().desks.find((d) => d.deskId === 'fx_desk_attention').slots.map((s) => s.windows.map((w) => w.windowId))")
+    # Each window is its own element, placed at desk:slot:pane.
     screen_slots = await page.evaluate("""() => { const out = {}; for (const el of document.querySelectorAll('[data-desk-slot^="fx_desk_attention:"]')) {
-      out[el.dataset.deskSlot.split(':')[1]] = [...el.querySelectorAll('[data-desk-window]')].map((p) => p.dataset.deskWindow); }
-      return Object.keys(out).sort().map((k) => out[k]); }""")
+      const [, slot, pane] = el.dataset.deskSlot.split(':'); (out[slot] ??= [])[Number(pane)] = el.dataset.deskSlotWindow; }
+      return Object.keys(out).sort((a, b) => Number(a) - Number(b)).map((k) => out[k]); }""")
     results.check("the server's slots equal the screen's", server_slots == screen_slots, [server_slots, screen_slots])
     fonts = await page.evaluate("""async () => {
       const families = ["Inter Variable", "Literata Variable", "Source Serif 4 Variable", "JetBrains Mono Variable", "Caveat Variable"];

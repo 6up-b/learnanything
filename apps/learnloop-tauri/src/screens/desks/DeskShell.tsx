@@ -82,7 +82,7 @@ import {
   type Timers,
 } from "./keys/router";
 import { DeskListenerRouter, WINDOW_ATTRIBUTE } from "./keys/listeners";
-import { WindowScope, isPaused, windowState, type ListenerHub, type WindowLifecycle } from "./lifecycle";
+import { WindowScope, isPaused, windowState, type ClaimedScope, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./lifecycle";
 import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
 import { Shelf, type ShelfRow } from "./Shelf";
@@ -306,9 +306,7 @@ export function DeskShell({
   const ringEls = useRef(new Map<string, HTMLElement>());
   const slotElements = useCallback((): Map<string, SlotElements> => {
     const out = new Map<string, SlotElements>();
-    for (const [key, box] of boxEls.current) {
-      out.set(key, { box, inner: innerEls.current.get(key) ?? null, card: cardEls.current.get(key) ?? null, ring: ringEls.current.get(key) ?? null });
-    }
+    for (const [key, box] of boxEls.current) out.set(key, { box, inner: innerEls.current.get(key) ?? null, card: cardEls.current.get(key) ?? null });
     return out;
   }, []);
   const lateEls = useRef(new Map<string, HTMLElement>());
@@ -546,26 +544,30 @@ export function DeskShell({
     const readingRow = Math.max(0, current.desks.findIndex((each) => each.deskId === readingDeskId));
     const related = relatedTo(selected);
     const items: ZoomPlan["items"] = [];
+    const rings: ZoomPlan["rings"] = [];
     current.desks.forEach((each, row) => each.slots.forEach((slot, index) => {
       const a = readingRectOf(current, row, index, readingRow, cams, st);
       const b = layout.cards[row][index];
-      items.push({
-        key: slotKey(each.deskId, slot),
-        a,
-        b,
-        base: base === 0 ? a : b,
-        live: visitedRef.current.has(each.deskId) && each.deskId === readingDeskId && intersects(a, st),
-        recede: recedes(slot, selected, related, showRelationsRef.current),
-        focus: selected !== null && slot.includes(selected),
-        related: showRelationsRef.current && slot.some((id) => related.some((relation) => relation.windowId === id)),
+      const readingPanes = paneRects(a, slot.length);
+      const cardPanes = paneRects(b, slot.length);
+      const live = visitedRef.current.has(each.deskId) && each.deskId === readingDeskId && intersects(a, st);
+      const recede = recedes(slot, selected, related, showRelationsRef.current);
+      const focus = selected !== null && slot.includes(selected);
+      const isRelated = showRelationsRef.current && slot.some((id) => related.some((relation) => relation.windowId === id));
+      slot.forEach((id, pane) => {
+        const pa = readingPanes[pane];
+        const pb = cardPanes[pane];
+        items.push({ key: id, a: pa, b: pb, base: base === 0 ? pa : pb, live, recede, focus: focus && id === selected });
       });
+      if (focus || isRelated) rings.push({ key: slotKey(each.deskId, slot), a, b });
     }));
-    return { base, A: IDENTITY, B, items };
+    return { base, A: IDENTITY, B, items, rings };
   }, [readingRectOf, relatedTo, recedes]);
 
   const zoomTargets = useCallback(() => ({
     world: worldRef.current as HTMLElement,
     slots: slotElements(),
+    rings: new Map(ringEls.current),
     late: [...lateEls.current.values()],
     slivers: [...sliverEls.current.values()],
   }), [slotElements]);
@@ -918,7 +920,15 @@ export function DeskShell({
       if (event.key === "Alt" || event.key === "Control" || event.key === "Shift" || event.key === "Meta") return false;
       // A key press during a zoom settles it first (spec §6.3); a repeat does not.
       if (controller.active && !event.repeat) controller.settle();
-      const resolution = resolveKey(event, { typing: isTypingTarget(event.target), focus: focusModeRef.current, overview: overviewRef.current }, modifiers.read(event));
+      const open = claimed.current.get(focusIdRef.current ?? "");
+      const has = (scope: ClaimedScope) => (open?.get(scope)?.size ?? 0) > 0;
+      const resolution = resolveKey(event, {
+        typing: isTypingTarget(event.target) || has("typing"),
+        menu: has("menu"),
+        check: has("check"),
+        focus: focusModeRef.current,
+        overview: overviewRef.current,
+      }, modifiers.read(event));
       if (!resolution || resolution.binding.later) return false;
       if (!runRef.current(resolution.binding.action)) return false;
       event.preventDefault();
@@ -933,6 +943,27 @@ export function DeskShell({
     router.ensure("window", "blur");
     return () => router.dispose();
   }, [router]);
+  // The scopes each window's content has open (a Reader's menu, its intent box): the router reads the
+  // active window's before the desk's own bindings.
+  const claimed = useRef(new Map<string, Map<ClaimedScope, Set<string>>>());
+  const claimsByWindow = useRef(new Map<string, ScopeClaims>());
+  const claimsFor = useCallback((windowId: string): ScopeClaims => {
+    let claims = claimsByWindow.current.get(windowId);
+    if (!claims) {
+      claims = {
+        claim: (scope, owner, open) => {
+          const byScope = claimed.current.get(windowId) ?? new Map<ClaimedScope, Set<string>>();
+          const owners = byScope.get(scope) ?? new Set<string>();
+          if (open) owners.add(owner);
+          else owners.delete(owner);
+          byScope.set(scope, owners);
+          claimed.current.set(windowId, byScope);
+        },
+      };
+      claimsByWindow.current.set(windowId, claims);
+    }
+    return claims;
+  }, []);
   const hubs = useRef(new Map<string, ListenerHub>());
   const hubFor = useCallback((windowId: string): ListenerHub => {
     let hub = hubs.current.get(windowId);
@@ -1111,7 +1142,7 @@ export function DeskShell({
     }
     if (!d.moved && Math.hypot(dx, dy) <= OVERVIEW.cardDragPx) return;
     d.moved = true;
-    const element = d.key ? boxEls.current.get(d.key) : null;
+    const element = d.windowId ? boxEls.current.get(d.windowId) : null;
     if (element) {
       element.style.transform = `translate(${dx / d.cam.s}px, ${dy / d.cam.s}px)`;
       element.style.zIndex = "30";
@@ -1127,7 +1158,7 @@ export function DeskShell({
       return;
     }
     if (d.kind !== "card" || !d.windowId || !d.deskId) return;
-    const element = d.key ? boxEls.current.get(d.key) : null;
+    const element = d.windowId ? boxEls.current.get(d.windowId) : null;
     if (element) {
       element.style.transform = "";
       element.style.zIndex = "";
@@ -1451,6 +1482,24 @@ export function DeskShell({
   const movedShown = movedNotice && movedNotice.deskId === deskId && movedNotice.until > timers.now() ? movedNotice : null;
   const focusWindow = focusId ? ws.windows[focusId] : undefined;
   const focusZoom = typeof focusWindow?.view?.zoom === "number" ? (focusWindow.view.zoom as number) : 1;
+  // Every window's place: its slot, its pane, its reading rect and its card rect. Rendered in window-id
+  // order, so reordering slots moves no element in the DOM (a moved iframe would reload its player).
+  const windowPlaces = ws.desks.flatMap((each, rowIndex) => {
+    const eachCam = camX[each.deskId] ?? 0;
+    const rects = slotRects(each.slots.length, stage);
+    const top = rowTop(rowIndex, stage) - rowTop(deskIndex, stage);
+    return each.slots.flatMap((slot, index) => {
+      const slotReading = { x: rects[index].x - eachCam, y: top + rects[index].y, w: rects[index].w, h: rects[index].h };
+      const slotCard = ovLayout?.cards[rowIndex]?.[index] ?? slotReading;
+      const readingPanes = paneRects(slotReading, slot.length);
+      const cardPanes = paneRects(slotCard, slot.length);
+      return slot.flatMap((id, pane) => {
+        const window = ws.windows[id];
+        return window ? [{ window, each, rowIndex, index, pane, slot, reading: readingPanes[pane], card: cardPanes[pane] }] : [];
+      });
+    });
+  }).sort((a, b) => (a.window.windowId < b.window.windowId ? -1 : a.window.windowId > b.window.windowId ? 1 : 0));
+
   // The slivers: the current desk's; while a zoom leaves the overview, the desk it lands on.
   const sliverDesk = leaveTarget ? deskById(ws, leaveTarget.deskId) : desk;
   const sliverCam = leaveTarget && sliverDesk ? leaveTarget.cams[sliverDesk.deskId] ?? 0 : cam;
@@ -1557,148 +1606,137 @@ export function DeskShell({
           onPointerUp={onStagePointerUp}
         >
           <div className={`desk-world${panEase && overview ? " pan-ease" : ""}`} ref={worldRef} data-desk-world="">
-            {ws.desks.map((each, rowIndex) => {
+            {/* One element per window, keyed by the window: pairing, unpairing and focus mode change its
+                style, never its place in the tree, so the Reader inside is never remounted (its drafts,
+                selection and scroll stay). */}
+            {windowPlaces.map((place) => {
+              const { window, each, rowIndex, index, pane, slot } = place;
+              const id = window.windowId;
               const onCurrent = each.deskId === deskId;
               const opened = visited.has(each.deskId) || onCurrent;
-              const eachCam = camX[each.deskId] ?? 0;
-              const rects = slotRects(each.slots.length, stage);
-              const top = rowTop(rowIndex, stage) - rowTop(deskIndex, stage);
-              const eachVisibility = onCurrent ? visibility : slotVisibility(eachCam, each.slots.length, stage);
-              return each.slots.map((slot, index) => {
-                const rect = rects[index];
-                const key = slotKey(each.deskId, slot);
-                const full = !overview && onCurrent && focusMode && slot.includes(focusId ?? "");
-                const reading = full
-                  ? { x: 0, y: 0, w: stage.width, h: stage.height }
-                  : { x: rect.x - eachCam, y: top + rect.y, w: rect.w, h: rect.h };
-                const card = ovLayout?.cards[rowIndex]?.[index] ?? reading;
-                const box = overview ? card : reading;
-                const leavingTo = leaveTarget?.deskId === each.deskId;
-                const mask = full || focusMode
-                  ? null
-                  : leavingTo
-                    ? softCropMask(slotVisibility(leaveTarget.cams[each.deskId] ?? 0, each.slots.length, stage)[index], rect.w)
-                    : !overview && !zooming && onCurrent ? softCropMask(eachVisibility[index], rect.w) : null;
-                const slotPaused = slot.every((id) => isPaused(lifecycles[id]?.state ?? "hidden"));
-                const panes = full ? slot.filter((id) => id === focusId) : slot;
-                const first = ws.windows[slot.find((id) => ws.windows[id]?.active) ?? slot[0]];
-                // `ov-selected` marks the selection (its ring is a sibling element; tests and the harness find it by this).
-                const selected = overview && selection !== null && slot.includes(selection.windowId);
-                const receding = overview && recedes(slot, selection?.windowId ?? null, selectedRelations, showRelations);
-                const firstKind = first?.kind ?? "source";
-                return (
-                  <div
-                    key={key}
-                    ref={(node) => {
-                      if (node) boxEls.current.set(key, node);
-                      else boxEls.current.delete(key);
-                    }}
-                    data-desk-slot={`${each.deskId}:${index}`}
-                    data-desk-slot-key={key}
-                    data-desk-slot-desk={each.deskId}
-                    data-desk-slot-window={first?.windowId}
-                    className={`desk-window${!overview && onCurrent && slot.includes(focusId ?? "") ? " focus" : ""}${full ? " focused-full" : ""}${slotPaused ? " paused" : ""}${slot.some((id) => entering.has(id)) ? " entering" : ""}${selected ? " ov-selected" : ""}${receding ? " ov-recede" : ""}`}
-                    style={{
-                      left: box.x,
-                      top: box.y,
-                      width: box.w,
-                      height: box.h,
-                      ...(mask ? { WebkitMaskImage: mask, maskImage: mask } : {}),
-                      ...(!overview && onCurrent && focusMode && !full ? { visibility: "hidden" as const } : {}),
-                    }}
-                  >
-                    {opened ? (
-                      <div
-                        className="desk-slot-inner"
-                        ref={(node) => {
-                          if (node) innerEls.current.set(key, node);
-                          else innerEls.current.delete(key);
-                        }}
-                        style={{ width: reading.w, height: reading.h }}
-                      >
-                        {panes.map((id, pane) => {
-                          const window = ws.windows[id];
-                          if (!window) return null;
-                          const lifecycle = lifecycles[id] ?? { windowId: id, state: "hidden" as const };
-                          const paired = panes.length > 1;
-                          const measure = FOCUS_MEASURE[window.kind] ?? FOCUS_MEASURE.source;
-                          return (
-                            <div
-                              key={id}
-                              {...{ [WINDOW_ATTRIBUTE]: id }}
-                              data-window-state={lifecycle.state}
-                              data-window-kind={window.kind}
-                              className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
-                              style={paired ? { flex: `0 0 ${paneRects({ x: 0, y: 0, w: reading.w, h: reading.h }, 2)[pane].h}px` } : undefined}
-                            >
-                              <div className="desk-pane-head">
-                                <span className="g">{KIND_GLYPH[window.kind] ?? "§"}</span>
-                                <span className="t">{titleOf(window)}</span>
-                                {status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
-                                {paired ? <span className="hint">{window.active ? "alt+. gives it its own slot" : "click or alt+j/k"}</span> : null}
-                                <button
-                                  type="button"
-                                  className="x"
-                                  aria-label={`close ${titleOf(window)}`}
-                                  title="close (alt+w)"
-                                  style={paired ? undefined : { marginLeft: "auto" }}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    const title = titleOf(window);
-                                    commit(closeWindow(wsRef.current, each.deskId, id));
-                                    setUndo({ deskId: each.deskId, windowId: id, title, until: timers.now() + UNDO_CLOSE_MS });
-                                  }}
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                              <div className="desk-pane-body" data-desk-pane-body="">
-                                {/* A window that fails to render fails alone: the desk and its other windows stay. */}
-                                <ScreenErrorBoundary resetKey={id}>
-                                <WindowScope lifecycle={lifecycle} hub={hubFor(id)}>
-                                  {full ? (
-                                    <div
-                                      className="desk-measure"
-                                      style={{ ["--desk-measure" as string]: `${measure}px`, zoom: focusZoom, display: "flex", flexDirection: "column", minHeight: 0, height: "100%" } as CSSProperties}
-                                    >
-                                      {paneBody(window, lifecycle)}
-                                    </div>
-                                  ) : paneBody(window, lifecycle)}
-                                </WindowScope>
-                                </ScreenErrorBoundary>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                    {/* The card face: laid out at its overview size, scaled to the box it sits in (static per
-                        layout; the zoom scales the box). */}
+              const full = !overview && onCurrent && focusMode && id === focusId;
+              const hiddenInFocus = !overview && onCurrent && focusMode && !full;
+              const reading = full ? { x: 0, y: 0, w: stage.width, h: stage.height } : place.reading;
+              const card = place.card;
+              const box = overview ? card : reading;
+              const leavingTo = leaveTarget?.deskId === each.deskId;
+              const slotCut = leavingTo
+                ? slotVisibility(leaveTarget.cams[each.deskId] ?? 0, each.slots.length, stage)[index]
+                : onCurrent ? visibility[index] : null;
+              const mask = full || focusMode || !slotCut ? null : leavingTo || (!overview && !zooming && onCurrent) ? softCropMask(slotCut, reading.w) : null;
+              const lifecycle = lifecycles[id] ?? { windowId: id, state: "hidden" as const };
+              const paused = isPaused(lifecycle.state);
+              const paired = slot.length > 1;
+              const selected = overview && selection !== null && slot.includes(selection.windowId);
+              const receding = overview && recedes(slot, selection?.windowId ?? null, selectedRelations, showRelations);
+              const measure = FOCUS_MEASURE[window.kind] ?? FOCUS_MEASURE.source;
+              return (
+                <div
+                  key={id}
+                  ref={(node) => {
+                    if (node) boxEls.current.set(id, node);
+                    else boxEls.current.delete(id);
+                  }}
+                  data-desk-slot={`${each.deskId}:${index}:${pane}`}
+                  data-desk-slot-key={slotKey(each.deskId, slot)}
+                  data-desk-slot-desk={each.deskId}
+                  data-desk-slot-window={id}
+                  className={`desk-window${!overview && onCurrent && id === focusId ? " focus" : ""}${full ? " focused-full" : ""}${paired && !full ? (pane === 0 ? " pair-top" : " pair-bottom") : ""}${paused ? " paused" : ""}${entering.has(id) ? " entering" : ""}${selected ? " ov-selected" : ""}${receding ? " ov-recede" : ""}`}
+                  style={{
+                    left: box.x,
+                    top: box.y,
+                    width: box.w,
+                    height: box.h,
+                    ...(mask ? { WebkitMaskImage: mask, maskImage: mask } : {}),
+                    ...(hiddenInFocus ? { visibility: "hidden" as const } : {}),
+                  }}
+                >
+                  {opened ? (
                     <div
-                      className="desk-card"
+                      className="desk-slot-inner"
                       ref={(node) => {
-                        if (node) cardEls.current.set(key, node);
-                        else cardEls.current.delete(key);
+                        if (node) innerEls.current.set(id, node);
+                        else innerEls.current.delete(id);
                       }}
-                      style={{ width: card.w, height: card.h, transform: `scale(${box.w / card.w}, ${box.h / card.h})` }}
+                      style={{ width: reading.w, height: reading.h }}
                     >
-                      <CardFace
-                        glyph={KIND_GLYPH[firstKind] ?? "§"}
-                        kind={KIND_WORD[firstKind] ?? firstKind}
-                        title={slot.map((id) => titleOf(ws.windows[id])).join(" + ")}
-                        where={first ? status[first.windowId]?.where ?? null : null}
-                        progress={first && typeof status[first.windowId]?.progress === "number" ? status[first.windowId].progress as number : null}
-                        paper={firstKind === "source" || firstKind === "video"}
-                        extra={first?.stack ? <div className="desk-card-bands">{first.stack.map((entry, band) => <span key={band}>› {entry.kind === "pad" ? "pad" : "lesson"} {band + 1}</span>)}</div> : undefined}
-                        miniatureHost={opened && first ? (node) => {
-                          if (node) miniHosts.current.set(first.windowId, node);
-                          else miniHosts.current.delete(first.windowId);
-                        } : null}
-                      />
+                      <div
+                        {...{ [WINDOW_ATTRIBUTE]: id }}
+                        data-window-state={lifecycle.state}
+                        data-window-kind={window.kind}
+                        className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
+                      >
+                        <div className="desk-pane-head">
+                          <span className="g">{KIND_GLYPH[window.kind] ?? "§"}</span>
+                          <span className="t">{titleOf(window)}</span>
+                          {status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
+                          {paired ? <span className="hint">{window.active ? "alt+. gives it its own slot" : "click or alt+j/k"}</span> : null}
+                          <button
+                            type="button"
+                            className="x"
+                            aria-label={`close ${titleOf(window)}`}
+                            title="close (alt+w)"
+                            style={paired ? undefined : { marginLeft: "auto" }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const title = titleOf(window);
+                              commit(closeWindow(wsRef.current, each.deskId, id));
+                              setUndo({ deskId: each.deskId, windowId: id, title, until: timers.now() + UNDO_CLOSE_MS });
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="desk-pane-body" data-desk-pane-body="">
+                          {/* A window that fails to render fails alone: the desk and its other windows stay. */}
+                          <ScreenErrorBoundary resetKey={id}>
+                          <WindowScope lifecycle={lifecycle} hub={hubFor(id)} claims={claimsFor(id)}>
+                            {/* The measure wrapper is always there (focus mode only restyles it), so entering
+                                focus mode never remounts the content. */}
+                            <div
+                              className="desk-measure"
+                              style={{
+                                ...(full ? { ["--desk-measure" as string]: `${measure}px`, zoom: focusZoom } : {}),
+                                display: "flex",
+                                flexDirection: "column",
+                                minHeight: 0,
+                                height: "100%",
+                              } as CSSProperties}
+                            >
+                              {paneBody(window, lifecycle)}
+                            </div>
+                          </WindowScope>
+                          </ScreenErrorBoundary>
+                        </div>
+                      </div>
                     </div>
+                  ) : null}
+                  {/* The card face: laid out at its overview size, scaled to the box it sits in (static per
+                      layout; the zoom scales the box). */}
+                  <div
+                    className="desk-card"
+                    ref={(node) => {
+                      if (node) cardEls.current.set(id, node);
+                      else cardEls.current.delete(id);
+                    }}
+                    style={{ width: card.w, height: card.h, transform: `scale(${box.w / card.w}, ${box.h / card.h})` }}
+                  >
+                    <CardFace
+                      glyph={KIND_GLYPH[window.kind] ?? "§"}
+                      kind={KIND_WORD[window.kind] ?? window.kind}
+                      title={titleOf(window)}
+                      where={status[id]?.where ?? null}
+                      progress={typeof status[id]?.progress === "number" ? status[id].progress as number : null}
+                      paper={window.kind === "source" || window.kind === "video"}
+                      extra={window.stack ? <div className="desk-card-bands">{window.stack.map((entry, band) => <span key={band}>› {entry.kind === "pad" ? "pad" : "lesson"} {band + 1}</span>)}</div> : undefined}
+                      miniatureHost={opened ? (node) => {
+                        if (node) miniHosts.current.set(id, node);
+                        else miniHosts.current.delete(id);
+                      } : null}
+                    />
                   </div>
-                );
-              });
+                </div>
+              );
             })}
             {overview || zooming ? (
               <>

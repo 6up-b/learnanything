@@ -150,7 +150,8 @@ describe("the desks on screen", () => {
     server.apply({ clientId: "other-device", seq: 1, ops: [{ op: "move_window", deskId: "fx_desk_softmax", windowId: "fx_w_paper", toSlot: 0, expectedVersion: 1 }] });
     alt("BracketRight", "]");
     await flush();
-    await waitFor(() => expect(screen.getAllByText(/fx_w_/).map((node) => node.textContent)[0]).toBe("fx_w_paper"));
+    // The windows render in a stable order (by id); the first slot is read from its place.
+    await waitFor(() => expect(document.querySelector('[data-desk-slot="fx_desk_softmax:0:0"]')?.getAttribute("data-desk-slot-window")).toBe("fx_w_paper"));
     const order = server.state().desks[0].slots.map((slot) => slot.windows[0].windowId);
     expect(order[0]).toBe("fx_w_paper");
   });
@@ -560,5 +561,40 @@ describe("fix round: saving", () => {
     await flush();
     expect(server.batches.map((batch) => batch.seq)).toEqual([1, 2]);
     expect(new Set(server.batches.map((batch) => batch.clientId)).size).toBe(1);
+  });
+});
+
+describe("fix round: windows are never remounted (finding 2)", () => {
+  const mounts: Record<string, number> = {};
+  function Draft({ input }: { input: PaneRenderInput }) {
+    const id = input.window.windowId;
+    useEffect(() => {
+      mounts[id] = (mounts[id] ?? 0) + 1;
+    }, [id]);
+    return <input aria-label={`draft ${id}`} defaultValue="" />;
+  }
+
+  it("a draft survives pairing, unpairing and focus mode, and its window mounts once", async () => {
+    for (const key of Object.keys(mounts)) delete mounts[key];
+    mount(new FixtureDeskServer(), { renderPane: (input) => <Draft input={input} /> });
+    const book = (await screen.findByLabelText("draft fx_w_book")) as HTMLInputElement;
+    const video = screen.getByLabelText("draft fx_w_video") as HTMLInputElement;
+    fireEvent.change(book, { target: { value: "half a thought" } });
+    fireEvent.change(video, { target: { value: "a note on the video" } });
+    alt("Comma", ",");
+    alt("Period", ".");
+    alt("Enter", "Enter");
+    act(() => {
+      fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+    });
+    alt("Comma", ",");
+    alt("Enter", "Enter");
+    expect(screen.getByLabelText("draft fx_w_book")).toBe(book);
+    expect(book.value).toBe("half a thought");
+    // The partner of a focused pane stays mounted too.
+    expect(screen.getByLabelText("draft fx_w_video")).toBe(video);
+    expect(video.value).toBe("a note on the video");
+    expect(mounts.fx_w_book).toBe(1);
+    expect(mounts.fx_w_video).toBe(1);
   });
 });

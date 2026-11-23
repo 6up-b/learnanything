@@ -123,6 +123,9 @@
   box-shadow: 0 0 0 1px #000;
   transition: left var(--desk-window-move) var(--desk-ease), top var(--desk-camera) var(--desk-ease), width .35s var(--desk-ease), height .35s var(--desk-ease), opacity .35s, box-shadow .3s;
 }
+/* A pair is two windows in one slot: square where they meet, with the divider between them. */
+.desk-window.pair-top { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.desk-window.pair-bottom { border-top-left-radius: 0; border-top-right-radius: 0; }
 .desk-window.focus { box-shadow: 0 0 0 1px #6b5534, 0 10px 40px rgba(0, 0, 0, .5); }
 .desk-window.entering { animation: desk-enter .45s var(--desk-ease); }
 @keyframes desk-enter { from { opacity: .3; transform: translateY(18px); } to { opacity: 1; transform: none; } }
@@ -181,7 +184,6 @@
 .desk-moved { color: var(--desk-cyan); }
 
 .desk-pane { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
-.desk-pane + .desk-pane { border-top: 6px solid #000; }
 .desk-pane.active-pane { box-shadow: inset 2px 0 0 var(--desk-amber); }
 .desk-pane-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid var(--desk-line); background: #151517; font: 11.5px var(--desk-mono); color: var(--desk-t); min-width: 0; }
 .desk-pane-head .g { color: var(--desk-t3); flex: none; }
