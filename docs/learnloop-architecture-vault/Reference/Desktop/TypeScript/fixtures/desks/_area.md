@@ -35,9 +35,9 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/fixtures/desks/companion|companion.ts]] | `ACTIVE` | Exposes deterministic `companion` fixture data for a reproducible desktop scenario. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|fakeCore.ts]] | `ACTIVE` | Exposes deterministic `fakeCore` fixture data for a reproducible desktop scenario. | 4 | 0 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|fakeCore.ts]] | `ACTIVE` | Exposes deterministic `fakeCore` fixture data for a reproducible desktop scenario. | 5 | 0 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/harness|harness.tsx]] | `ACTIVE` | Exposes deterministic `harness` fixture data for a reproducible desktop scenario. | 10 | 0 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/pads|pads.ts]] | `ACTIVE` | Exposes deterministic `pads` fixture data for a reproducible desktop scenario. | 2 | 3 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/pads|pads.ts]] | `ACTIVE` | Exposes deterministic `pads` fixture data for a reproducible desktop scenario. | 2 | 4 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/sources|sources.ts]] | `ACTIVE` | Exposes deterministic `sources` fixture data for a reproducible desktop scenario. | 1 | 5 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/workspace|workspace.ts]] | `ACTIVE` | Exposes deterministic `workspace` fixture data for a reproducible desktop scenario. | 5 | 2 |
 

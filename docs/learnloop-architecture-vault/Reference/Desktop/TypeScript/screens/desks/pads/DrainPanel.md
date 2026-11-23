@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/DrainPanel.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/DrainPanel.tsx) |
-| Source lines | 88 |
+| Source lines | 106 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -54,18 +54,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface DrainActions` — interface, line 8
-- `export function DrainPanel(` — function, line 14
+- `export interface DrainActions` — interface, line 9
+- `export function DrainPanel(` — function, line 15
 
 ## Internal implementation anchors
 
-- `const pending = useRef<number | null>(null)` — const, line 24
-- `let live = true` — let, line 26
-- `const onKey = (event: KeyboardEvent)` — const, line 33
-- `const match = /^([1-9])$/.exec(event.key)` — const, line 42
-- `const index = pending.current` — const, line 48
-- `const pad = index !== null ? drain?.pads[index] : drain?.pads.length === 1 ? drain.pads[0] : undefined` — const, line 49
-- `const act = (padId: string, said: string, run: ()` — const, line 61
+- `const pending = useRef<number | null>(null)` — const, line 28
+- `let live = true` — let, line 30
+- `const onKey = (event: KeyboardEvent)` — const, line 37
+- `const match = /^([1-9])$/.exec(event.key)` — const, line 46
+- `const index = pending.current` — const, line 52
+- `const pad = index !== null ? drain?.pads[index] : drain?.pads.length === 1 ? drain.pads[0] : undefined` — const, line 53
+- `const act = (padId: string, said: string, run: ()` — const, line 66
+- `const next =` — const, line 70
+- `const next =` — const, line 78
 
 ## Who imports or calls it
 

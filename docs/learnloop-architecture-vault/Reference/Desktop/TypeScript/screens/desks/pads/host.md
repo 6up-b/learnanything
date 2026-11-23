@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/host.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/host.ts) |
-| Source lines | 98 |
+| Source lines | 152 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -54,28 +54,31 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface PadsApi` — interface, line 17
-- `export interface SourcePiece` — interface, line 31
-- `export interface PadsHost` — interface, line 40
-- `export interface PadStackHandle` — interface, line 65
-- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 80
-- `export function usePadsHost(): PadsHost | null` — function, line 82
-- `export function localDay(date: Date = new Date()): string` — function, line 87
-- `export function dayHeading(day: string, today: string): string` — function, line 93
+- `export interface PadsApi` — interface, line 21
+- `export interface SourcePiece` — interface, line 41
+- `export interface PadsHost` — interface, line 50
+- `export interface PadStackHandle` — interface, line 83
+- `export interface PendingFigure` — interface, line 99
+- `export class PendingFigures` — class, line 108
+- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 134
+- `export function usePadsHost(): PadsHost | null` — function, line 136
+- `export function localDay(date: Date = new Date()): string` — function, line 141
+- `export function dayHeading(day: string, today: string): string` — function, line 147
 
 ## Internal implementation anchors
 
-- `const pad = (n: number)` — const, line 88
-- `const date = new Date(`$` — const, line 94
-- `const label = date.toLocaleDateString("en-GB",` — const, line 96
+- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 128
+- `const pad = (n: number)` — const, line 142
+- `const date = new Date(`$` — const, line 148
+- `const label = date.toLocaleDateString("en-GB",` — const, line 150
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `PadsHost`, `PadsHostContext`; references `PadsHost`, `PadsHostContext`
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `PadStackHandle`, `PadsApi`, `PadsHost`, `PadsHostContext`, `SourcePiece`, `localDay`; references `PadStackHandle`, `PadsApi`, `PadsHost`, `PadsHostContext`, `SourcePiece`, `localDay`
+- [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `PadsHost`, `PadsHostContext`, `PendingFigures`; references `PadsHost`, `PadsHostContext`, `PendingFigures`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `PadStackHandle`, `PadsApi`, `PadsHost`, `PadsHostContext`, `PendingFigures`, `SourcePiece`, `localDay`; references `PadStackHandle`, `PadsApi`, `PadsHost`, `PadsHostContext`, `PendingFigures`, `SourcePiece`, `localDay`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|src/screens/desks/pads/PadOverlays.tsx]] — import-or-re-export: `PadsHost`; references `PadsHost`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export: `PadStackHandle`, `PadsHost`, `dayHeading`, `usePadsHost`; references `PadStackHandle`, `PadsHost`, `dayHeading`, `usePadsHost`
 
@@ -83,7 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CarriedQuestionDto`, `CarryInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageUnionDto`, `PassageUnionInput`, `ProposalLabelInput`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CarriedQuestionDto`, `CarryInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageContentDto`, `PassageUnionDto`, `PassageUnionInput`, `ProposalLabelInput`, `SessionSnapshot`, `SubmitTeachBackTurnInput`, `TeachBackTurnResult`
 - [[Reference/Desktop/TypeScript/screens/desks/search/model|src/screens/desks/search/model.ts]] — import-or-re-export; imports `SearchRow`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export; imports `DeskStore`
 
@@ -100,6 +103,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

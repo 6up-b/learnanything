@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/harness.tsx](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/harness.tsx) |
-| Source lines | 117 |
+| Source lines | 119 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -55,8 +55,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export const LATEX_WIDTHS = [640, 430, 300] as const` — const, line 57
-- `export function Harness(` — function, line 92
-- `export function mountHarness(root: HTMLElement): void` — function, line 111
+- `export function Harness(` — function, line 94
+- `export function mountHarness(root: HTMLElement): void` — function, line 113
 
 ## Internal implementation anchors
 
@@ -69,8 +69,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const server = new FixtureDeskServer()` — const, line 61
 - `const store = new DeskStore("latex",` — const, line 63
 - `const nothing = async ()` — const, line 69
-- `const params = new URLSearchParams(search)` — const, line 93
-- `const preview = params.get("preview")` — const, line 94
+- `const params = new URLSearchParams(search)` — const, line 95
+- `const preview = params.get("preview")` — const, line 96
 
 ## Who imports or calls it
 
@@ -90,7 +90,7 @@ No live desktop source file directly imports this module. Do not infer dormancy:
 - [[Reference/Desktop/TypeScript/screens/desks/keys/router|src/screens/desks/keys/router.ts]] — import-or-re-export; imports `REAL_TIMERS`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `DIRECT_HUB`, `WindowScope`, `WindowState`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export; imports `PadStackWindow`
-- [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export; imports `PadsHost`, `PadsHostContext`
+- [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export; imports `PadsHost`, `PadsHostContext`, `PendingFigures`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export; imports `DeskStore`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] — import-or-re-export; imports `SourceWindow`
 
