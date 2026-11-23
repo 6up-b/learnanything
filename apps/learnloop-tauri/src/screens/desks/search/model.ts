@@ -133,9 +133,15 @@ export function shownGroups(input: {
         rows.push({ kind: "result", key, group: id, ...described, byMeaning: described.byMeaning || group.basis === "meaning", ref: raw.ref, target: raw.target, raw });
       });
     }
-    const off = words && words.status === "off" ? words.reason ?? "not available" : null;
+    // Not searched by words, or by meaning (unavailable, or failed): said under the group's name, never
+    // "nothing found".
+    const off = words && words.status !== "ok"
+      ? words.reason ?? "not available"
+      : meaning && meaning.status !== "ok"
+        ? `by meaning: ${meaning.reason ?? (meaning.status === "failed" ? "the search failed" : "not available")}`
+        : null;
     if (rows.length === 0 && !off && !pendingGroups.has(id)) continue;
-    out.push(limit({ id, label: words?.label ?? id, rows, hidden: 0, off, pending: pendingGroups.has(id) }, input.expanded));
+    out.push(limit({ id, label: words?.label ?? meaning?.label ?? id, rows, hidden: 0, off, pending: pendingGroups.has(id) }, input.expanded));
   }
   return out;
 }
@@ -150,9 +156,10 @@ export function selectableRows(groups: ShownGroup[]): SearchRow[] {
   return groups.flatMap((group) => group.rows);
 }
 
-/** Why the meaning pass is not running, said once under the results (each group's own reason). */
-export function meaningNote(words: SearchEverythingDto | null): string | null {
-  if (!words || words.meaning.status !== "unavailable" || words.meaning.unavailable.length === 0) return null;
-  const reasons = [...new Set(words.meaning.unavailable.map((entry) => entry.reason))];
-  return `by meaning: ${reasons.join(" · ")}`;
+/** Why some groups have no meaning pass, said once under the results (each group's own reason), whether or not
+ * another group's meaning job runs; the job's own list joins the start's. */
+export function meaningNote(words: SearchEverythingDto | null, fromJob: ReadonlyArray<{ group: string; reason: string }> = []): string | null {
+  if (!words) return null;
+  const reasons = [...new Set([...words.meaning.unavailable, ...fromJob].map((entry) => entry.reason))];
+  return reasons.length ? `by meaning: ${reasons.join(" · ")}` : null;
 }
