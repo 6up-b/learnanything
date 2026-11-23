@@ -488,3 +488,24 @@ describe("RD5 fix round: Show me", () => {
     expect(poller.size).toBe(0);
   });
 });
+
+describe("RD5 fix round: New desk from these", () => {
+  it("moves the window alone (no links needed) to a new desk titled from it, and focuses it there", async () => {
+    const { server } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(document.querySelector('[data-desk-window="fx_w_paper"] .desk-pane-head') as HTMLElement);
+    fireEvent.keyDown(window, { key: "d" });
+    await flush();
+    await flush();
+    const state = server.state();
+    const fresh = state.desks.find((desk) => desk.title.startsWith("new desk · "));
+    expect(fresh).toBeTruthy();
+    // The window alone came over (the new desk's own running pad joins it on its first visit, as any desk's).
+    const came = fresh?.slots.flatMap((slot) => slot.windows).map((window) => window.windowId).filter((windowId) => windowId.startsWith("fx_w_"));
+    expect(came).toEqual(["fx_w_paper"]);
+    expect(fresh?.focusWindowId).toBe("fx_w_paper");
+    // The window's neighbours stayed.
+    const old = state.desks.find((desk) => desk.deskId === "fx_desk_softmax");
+    expect(old?.slots.flatMap((slot) => slot.windows).map((window) => window.windowId)).toContain("fx_w_book");
+  });
+});

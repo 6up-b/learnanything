@@ -1201,6 +1201,30 @@ export function DeskShell({
     setCurrentDeskId(newDeskId);
   }, [commit, mintId, setCurrentDeskId, timers, titleOf, toastNow, ungather]);
 
+  /** The window menu's ⊞ New desk from these (spec §5.1, §9.2): the window moves to a new desk with its linked
+   * thread windows (none needed), titled from it; not gather, which moves what is related and refuses alone. */
+  const newDeskFrom = useCallback((windowId: string) => {
+    const current = wsRef.current;
+    const id = deskIdRef.current;
+    if (!id || current.windows[windowId]?.deskId !== id) return;
+    const threads = relationsOf(current, windowId)
+      .filter((relation) => current.windows[relation.windowId]?.deskId === id && current.windows[relation.windowId]?.content?.kind === "thread")
+      .map((relation) => relation.windowId);
+    const newDeskId = mintId("desk");
+    const title = `new desk · ${shortName(titleOf(current.windows[windowId]))}`;
+    let step = createDesk(current, newDeskId, title);
+    let after: string | null = null;
+    for (const moving of [windowId, ...threads]) {
+      const next = moveToDesk(step.ws, id, moving, newDeskId, after);
+      step = { ws: next.ws, ops: [...step.ops, ...next.ops] };
+      after = moving;
+    }
+    const focused = setFocus(step.ws, newDeskId, windowId);
+    commit({ ws: focused.ws, ops: [...step.ops, ...focused.ops] });
+    setMovedNotice({ deskId: id, title, until: timers.now() + MOVED_NOTICE_MS });
+    setCurrentDeskId(newDeskId);
+  }, [commit, mintId, setCurrentDeskId, timers, titleOf]);
+
   const run = useCallback((action: DeskAction): boolean => {
     const current = wsRef.current;
     const id = deskIdRef.current;
@@ -2839,16 +2863,19 @@ export function DeskShell({
     windowMove: (kind, windowId) => {
       const id = deskIdRef.current;
       if (!id) return;
+      if (kind === "new_desk") {
+        newDeskFrom(windowId);
+        return;
+      }
       commit(setFocus(wsRef.current, id, windowId));
-      if (kind === "new_desk") runRef.current({ kind: "gather", toNewDesk: true });
-      else if (kind === "gather") runRef.current({ kind: "gather", toNewDesk: false });
+      if (kind === "gather") runRef.current({ kind: "gather", toNewDesk: false });
       else if (kind === "share_slot") runRef.current({ kind: "pair" });
       else runRef.current({ kind: "unpair" });
     },
     showKnows: (object) => setKnows(objectInput(object, deskIdRef.current)),
     teachMe: (entry) => openLesson(entry),
     promotedRows: () => menuPromotedRows.current,
-  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson]);
+  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom]);
 
   // A right-click inside a notebook frame (spec §11.3) opens the pad menu in the stack window that shows the
   // notebook's owner: a pad's cells ("your pad") or a lesson's notebook ("the lesson", inserting under the lesson).
