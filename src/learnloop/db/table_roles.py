@@ -135,6 +135,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("capture_routes", TableRole.WORKFLOW),
     ("card_lineage_edges", TableRole.RAW_LEDGER),
     ("card_lineages", TableRole.RAW_LEDGER),
+    # Reader workbench v2 scratchpads (migration 266; spec §10.12, §15.1): a question the learner
+    # carries, with its latest label (WORKFLOW), and every carry, surfacing and label as an event
+    # (append-only by trigger).
+    ("carried_question_events", TableRole.RAW_LEDGER),
+    ("carried_questions", TableRole.WORKFLOW),
     ("causal_activity_classification_events", TableRole.RAW_LEDGER),
     ("causal_attribution_reports", TableRole.RECEIPT),
     ("causal_blind_prediction_bundles", TableRole.RECEIPT),
@@ -491,8 +496,13 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # version of every block and every block-to-passage link event (append-only by trigger: the
     # learner's own writing, never cleared), and one stored reply per applied pad batch.
     ("pad_block_anchors", TableRole.RAW_LEDGER),
+    # Migration 266 (spec §10.6, §10.9): each explicit submission of a block version as an attempt
+    # or a teach-back (append-only by trigger), and each connection LearnLoop suggested for a
+    # committed block version (a receipt, append-only by trigger).
+    ("pad_block_submissions", TableRole.RAW_LEDGER),
     ("pad_block_versions", TableRole.RAW_LEDGER),
     ("pad_op_receipts", TableRole.RECEIPT),
+    ("pad_proposals", TableRole.RECEIPT),
     ("pads", TableRole.WORKFLOW),
     ("parameter_bind_events", TableRole.RECEIPT),
     # Effective values are projectable, but promotions, lifecycle decisions,
@@ -563,6 +573,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Reader workbench v2 (migration 264): when each derived span projection first had a vault's history
     # projected into it, on open and whatever the algorithm tag (append-only). Never cleared by a rebuild.
     ("projection_initializations", TableRole.RECEIPT),
+    # Migration 266 (spec §10.6, §14): what the learner did with a suggested connection (opened,
+    # not this, dismiss, ignored), append-only by trigger: labels for ranking, never evidence.
+    ("proposal_labels", TableRole.RAW_LEDGER),
     ("proposed_patch_item_dependencies", TableRole.WORKFLOW),
     ("proposed_patch_items", TableRole.WORKFLOW),
     ("proposed_patches", TableRole.WORKFLOW),

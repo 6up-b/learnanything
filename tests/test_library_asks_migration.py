@@ -64,6 +64,8 @@ from tests.attempt_lifecycle_inputs_migration_helpers import LIFECYCLE_INPUTS_AD
 from tests.reader_rd0_migration_helpers import RD0_ADDED_OBJECTS
 from tests.reader_rd0_guards_migration_helpers import RD0_GUARDS_ADDED_OBJECTS
 from tests.mastery_seed_inputs_migration_helpers import MASTERY_SEED_ADDED_OBJECTS
+from tests.reader_rd4_migration_helpers import RD4_ADDED_OBJECTS
+from tests.reader_rd4_migration_helpers import RD4_ADDED_OBJECTS
 from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
@@ -107,7 +109,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H0's 210, help_assists, and H1's 211,
     # approach_maps) follow 209 on the way to head.
     added = {name for name in set(after) - set(before)
-             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS | TOPIC_WORK_ADDED_OBJECTS | JOB_PROGRESS_ADDED_OBJECTS | APPLICATION_ORDER_ADDED_OBJECTS | LIFECYCLE_INPUTS_ADDED_OBJECTS | RD0_ADDED_OBJECTS | RD0_GUARDS_ADDED_OBJECTS | MASTERY_SEED_ADDED_OBJECTS}
+             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS | TOPIC_WORK_ADDED_OBJECTS | JOB_PROGRESS_ADDED_OBJECTS | APPLICATION_ORDER_ADDED_OBJECTS | LIFECYCLE_INPUTS_ADDED_OBJECTS | RD0_ADDED_OBJECTS | RD0_GUARDS_ADDED_OBJECTS | MASTERY_SEED_ADDED_OBJECTS | RD4_ADDED_OBJECTS}
     assert added == {"library_asks", "idx_library_asks_created", "idx_library_asks_extraction"}
     # Adaptive hints H2b's 212 rebuilds the two learner-text tables on the way
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).

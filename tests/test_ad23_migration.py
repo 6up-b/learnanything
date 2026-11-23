@@ -204,8 +204,9 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     from tests.reader_rd0_migration_helpers import RD0_ADDED_OBJECTS
     from tests.reader_rd0_guards_migration_helpers import RD0_GUARDS_ADDED_OBJECTS
     from tests.mastery_seed_inputs_migration_helpers import MASTERY_SEED_ADDED_OBJECTS
+    from tests.reader_rd4_migration_helpers import RD4_ADDED_OBJECTS
 
-    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS == AD23_ADDED_OBJECTS
+    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS - RD4_ADDED_OBJECTS == AD23_ADDED_OBJECTS
     # Phone V3's 250 (help_assists' surface CHECK) runs after them too.
     from tests.mobile_v3_migration_helpers import V3_ALTERED_TABLES
     # RE0's 252 (practice_attempts.active_seconds) and refactor B1's 253 (model_call_receipts.trace_id) last.
@@ -213,7 +214,8 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     from tests.decision_records_migration_helpers import B1_ALTERED_TABLES
     from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
     from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
-    # Refactor J2's 260 drops five dead tables last.
+    # Refactor J2's 260 drops five dead tables, then the Reader workbench's 266 rebuilds three gap tables.
     from tests.drop_dead_tables_migration_helpers import J2_DROPPED_OBJECTS
+    from tests.reader_rd4_migration_helpers import RD4_ALTERED_TABLES
 
-    assert {name for name in before if before[name] != after.get(name)} - J2_DROPPED_OBJECTS == EPOCH_STAMPED | V3_ALTERED_TABLES | RE0_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES))
+    assert {name for name in before if before[name] != after.get(name)} - J2_DROPPED_OBJECTS == EPOCH_STAMPED | V3_ALTERED_TABLES | RE0_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | RD4_ALTERED_TABLES
