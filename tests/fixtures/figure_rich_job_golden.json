@@ -2144,12 +2144,38 @@
   "renders": [],
   "rich_prompts": [],
   "written": {
+   "decision_records": {
+    "added": [
+     {
+      "alternatives_json": [],
+      "chosen_ref": null,
+      "created_at": "<wall>",
+      "decided_by": "figure_protection",
+      "detail_id": "fig_<id:1>",
+      "detail_table": "interactive_figures",
+      "error_type": null,
+      "error_where": null,
+      "facts_json": {
+       "where": "list"
+      },
+      "id": "<id:2>",
+      "kind": "figure_withheld",
+      "parent_id": null,
+      "rule": "pick_withheld",
+      "status": "withdrawn",
+      "subject_id": "fig_<id:1>",
+      "subject_kind": "figure",
+      "trace_id": "<id:3>",
+      "versions_json": {}
+     }
+    ]
+   },
    "ingest_jobs": {
     "changed": [
      {
       "after": {
        "attempt_count": 1,
-       "batch_id": "batch_<id:1>",
+       "batch_id": "batch_<id:4>",
        "cancel_requested": 0,
        "created_at": "2026-10-12T09:00:00Z",
        "current_window": null,
@@ -2161,7 +2187,7 @@
        },
        "finished_at": "2026-10-12T09:00:00Z",
        "heartbeat_at": null,
-       "id": "ijob_<id:2>",
+       "id": "ijob_<id:5>",
        "job_type": "figure_rich",
        "message": "This passage is held out for evaluation (an exam you'll sit later), so LearnLoop won't explain it or make questions from it: that keeps the exam a fair test.",
        "ordinal": 0,
@@ -2238,12 +2264,12 @@
          "tier": "manim"
         },
         "build_mode": "pressed",
-        "fast_figure_id": "fig_<id:3>",
+        "fast_figure_id": "fig_<id:1>",
         "generation": 0,
         "input_hash": "553d8de0a9aeeed9c5e159de75acbca5951f755c3a3b2f7d68ed8d69c0424a54",
         "prompt_version": "figure_author.v2.1-panels+rich-v1[grammar,manim]",
         "quick_dropped": null,
-        "request_id": "frq_<id:4>",
+        "request_id": "frq_<id:6>",
         "span_texts": {
          "p1": "5.4 Mixtures of continuous distributions",
          "p2": "The two-sided exponential has density f_X(x) = p\\lambda e^{\\lambda x} for x < 0 and (1-p)\\lambda e^{-\\lambda x} for x \\ge 0, with 0 < p < 1 and \\lambda > 0.",
@@ -2268,14 +2294,14 @@
       },
       "before": {
        "attempt_count": 0,
-       "batch_id": "batch_<id:1>",
+       "batch_id": "batch_<id:4>",
        "cancel_requested": 0,
        "created_at": "2026-10-12T09:00:00Z",
        "current_window": null,
        "error_json": null,
        "finished_at": null,
        "heartbeat_at": null,
-       "id": "ijob_<id:2>",
+       "id": "ijob_<id:5>",
        "job_type": "figure_rich",
        "message": "Waiting to start",
        "ordinal": 0,
@@ -2352,12 +2378,12 @@
          "tier": "manim"
         },
         "build_mode": "pressed",
-        "fast_figure_id": "fig_<id:3>",
+        "fast_figure_id": "fig_<id:1>",
         "generation": 0,
         "input_hash": "553d8de0a9aeeed9c5e159de75acbca5951f755c3a3b2f7d68ed8d69c0424a54",
         "prompt_version": "figure_author.v2.1-panels+rich-v1[grammar,manim]",
         "quick_dropped": null,
-        "request_id": "frq_<id:4>",
+        "request_id": "frq_<id:6>",
         "span_texts": {
          "p1": "5.4 Mixtures of continuous distributions",
          "p2": "The two-sided exponential has density f_X(x) = p\\lambda e^{\\lambda x} for x < 0 and (1-p)\\lambda e^{-\\lambda x} for x \\ge 0, with 0 < p < 1 and \\lambda > 0.",

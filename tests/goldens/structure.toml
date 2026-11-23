@@ -44,7 +44,9 @@ source_text_assertions = 23
 # golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
 # 295944: the grade-application golden records the application's new grade_decision field, the records its core
 # returns (L6a): 802 lines, the eleven live applications' records and a null on each replay; no existing value moved.
-golden_json_lines = 295944
+# 295990: the figure goldens record each press's figure_request row and two figure_withheld rows (34 new rows,
+# about 1,040 lines); the existing rows are unchanged but for their trace tokens, a build's records now sharing one.
+golden_json_lines = 295990
 
 [members]
 import_component = [
