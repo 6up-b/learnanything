@@ -31,6 +31,16 @@ function bandProps(overrides: Partial<Parameters<typeof GoalBand>[0]> = {}) {
   };
 }
 
+describe("the reading passage", () => {
+  it("keeps full colour inside a dimmed section, as the active passage and an annotation do", () => {
+    const goal = new FixtureGoal();
+    const lens = readerLens({ index: indexLens(goal.lens(BOOK)), dimOn: true, windowId: "w", handlers: { hover: vi.fn(), tap: vi.fn() } })!;
+    const dimmed = indexLens(goal.lens(BOOK))!.sections.find((section) => section.dim)!.spanIds[0];
+    expect(lens.className!(dimmed, { annotated: false, active: false })).toContain("gl-dim");
+    expect(lens.className!(dimmed, { annotated: false, active: false, reading: true })).not.toContain("gl-dim");
+  });
+});
+
 describe("the band", () => {
   it("says the goal in the learner's words, its LOs as dots in path order, the depth and what is next", () => {
     const props = bandProps();

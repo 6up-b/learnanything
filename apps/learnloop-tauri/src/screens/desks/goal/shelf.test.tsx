@@ -25,6 +25,18 @@ describe("a shelf row through the lens", () => {
     expect(shelfGoal(null)).toBeNull();
   });
 
+  it("calls a source not needed only when every section is known not needed", () => {
+    const lens = new FixtureGoal().lens(FIXTURE_SOURCES.book.extractionId);
+    const skip = { level: "skippable" as const, mapping: "mapped" as const, reasonKey: "out_of_scope" as const, determiningLoId: null };
+    const allSkip = { ...lens, levels: lens.levels.map((level) => ({ ...level, ...skip })) };
+    expect(shelfGoal(indexLens(allSkip))!.line).toBe("not needed for your goal");
+    // One section not mapped (or partly): what it holds is unknown, so the source is not called not needed.
+    const oneOpen = { ...allSkip, levels: allSkip.levels.map((level, index) => (index === 0 ? { ...level, level: "unmapped" as const, mapping: "unmapped" as const } : level)) };
+    expect([shelfGoal(indexLens(oneOpen))!.mark, shelfGoal(indexLens(oneOpen))!.line]).toEqual(["partial", "partly mapped for this goal"]);
+    const later = { ...oneOpen, levels: oneOpen.levels.map((level, index) => (index === 1 ? { ...level, level: "later" as const } : level)) };
+    expect(shelfGoal(indexLens(later))!.line).toBe("partly mapped for this goal");
+  });
+
   it("draws the mark, the ranges and the line on the row's own markup", () => {
     const row: ShelfRow = { windowId: "w", slot: 0, glyph: "§", kind: "book", title: "Softmax, a short book", state: "focus", progress: 0.3,
       where: "1 Scores into weights", goal: { mark: "core", line: "primary for 4 of your LOs", ranges: [[0, 0.5], [0.7, 0.8]] } };

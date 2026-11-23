@@ -615,7 +615,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                           data-span-id={spanId}
                           data-transcript-span={spanId}
                           data-t={cue.start}
-                          className={lens && cueAnnotated ? "gl-keep" : undefined}
+                          className={lens && (cueAnnotated || cueActive) ? "gl-keep" : undefined}
                           onClick={() => seekToCue(cue)}
                           onContextMenu={(event) => {
                             event.preventDefault();

@@ -85,7 +85,8 @@ describe("the goal lens stays current", () => {
     // A refresh (a depth, a choice) asks again: the reply from before it never overwrites the one after.
     act(() => hook.result.current.refresh());
     await flush();
-    const after = replies.filter((each) => each.goalId === "goal_b").at(-1)!;
+    const mine = replies.filter((each) => each.goalId === "goal_b");
+    const after = mine[mine.length - 1];
     expect(after).not.toBe(b);
     after.reply.resolve(tagged(goal, "after the refresh"));
     await flush();
