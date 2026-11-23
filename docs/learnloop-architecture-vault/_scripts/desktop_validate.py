@@ -215,8 +215,9 @@ def main() -> int:
     # KnowsPanel.tsx (entry-reachable through DeskShell).
     # Reader workbench v2 RD6b (the goal lens): screens/desks/goal/ model.ts, controller.ts, GoalBand.tsx, marks.tsx,
     # PathView.tsx and GoalLayer.tsx (entry-reachable through DeskShell); fixtures/desks/goal.ts (vitest-support).
-    if len(ts_sources) != 389:
-        errors.append(f"source inventory drift: expected 389 TypeScript/TSX files, found {len(ts_sources)}")
+    # RD8a: the eight screens/desks/pen modules (recognizer, input, geometry, host, live, PenLayer, inkCache, InkLine).
+    if len(ts_sources) != 397:
+        errors.append(f"source inventory drift: expected 397 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -320,7 +321,8 @@ def main() -> int:
         # RD2: the five screens/desks/overview modules.
         # RD4b: the seven screens/desks/pads modules and screens/desks/fitMath.tsx.
         # RD5b: the four screens/desks/menu modules. RD6b: the six screens/desks/goal modules.
-        "entry-reachable build graph": 371,
+        # RD8a: the eight screens/desks/pen modules.
+        "entry-reachable build graph": 379,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -335,7 +337,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 395}:
+    if dict(status_counts) != {"ACTIVE": 403}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

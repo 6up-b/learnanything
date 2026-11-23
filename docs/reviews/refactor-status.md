@@ -353,7 +353,8 @@ The spec is `docs/specs/spec_reader_workbench_v2.md` (desks, the companion, scra
 | RD5, RD9a | Menus (the split right-click menu with promoted rows); lesson windows | not started | — | — | RD4. RD5's backend half is being built |
 | RD-retire | The old Reader goes, every parity row demonstrated | not started | — | — | RD4, RD5, RD6, RD9a |
 | RD7 | Inline checks and veils (tag) | not started | — | — | RD-retire; the Decider's narrowing waits for the reveal adjudication judgment |
-| RD8a, RD8b | Pen and ink; freeform ink help (tag) | not started | — | — | RD7; RD8b also the hint service's freeform context |
+| RD8a (backend) | Pen and ink, backend: `ink_strokes` and `ink_transcriptions` (migration 267), `ink.save`, `ink.list`, the `erase_ink` pad op, `ink.transcribe` as a polled, cancellable job that renders strokes to an image and reads it through a paid route, a reading as the block's next version, a learner's correction never overwritten | landed | this commit | [reader-rd8a.md](reader-rd8a.md) | No algorithm tag. On the default plan route a reading is refused before anything is sent, because no plan route reads images yet (owner decision open). The help ladder for ink is not built: it needs more than a new surface value (owner decision open) |
+| RD8a (frontend), RD8b | Pen input, the recognizer on sources, ink pads, the editable transcription; freeform ink help (tag) | not started | — | — | Moved ahead of RD7 by the owner on 2026-11-23 (RD8a only). The help ladder for ink and RD8b wait on a design decision and the hint service's freeform context |
 | RD9b | Notebook lessons and marimo cells in pads | not started | — | — | Notebook activities' native runtime contract, RD9a |
 | RD9c | Lesson redo and amendment | not started | — | — | Teacher v2, RD9a |
 | RD10 | Video and carried polish | not started | — | — | RD1, RD4 |

@@ -34,6 +34,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     graph_edit,
     hints,
     ingest,
+    ink,
     inline_checks,
     inspector,
     intent,

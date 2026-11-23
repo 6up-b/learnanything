@@ -288,6 +288,9 @@ export interface ReaderWindowing {
   /** The goal lens over this reading (the desks' RD6): what to draw before a passage, in its gutter, and
    *  the classes it takes. Absent, passages render as they always have. */
   lens?: ReaderLens | null;
+  /** Pen mode's way onto this source (RD8a): the text surface, the open reading's identity and the selection
+   * model for a range the pen marked (null while no text reading is shown). */
+  onPenSurface?: (surface: PenSurface | null) => void;
 }
 
 /** The desks' goal lens, laid over a reading's passages by span id (the text itself is never changed). */
@@ -301,6 +304,15 @@ export interface ReaderLens {
   className?: (spanId: string, state: { annotated: boolean; active: boolean }) => string | undefined;
   /** The same lens over a video's transcript. */
   watch?: WatchLens | null;
+}
+
+/** What the desk's pen layer needs of a source window's text (spec §10.10). */
+export interface PenSurface {
+  /** The scrolling text surface: the ink layer lives inside it, so ink scrolls with the text. */
+  body: HTMLElement;
+  identity: { sourceId: string; revisionId: string; extractionId: string; renderViewId: string | null };
+  /** A range's passages, one node per covered block, as a selection's (the same anchoring as a highlight). */
+  nodesFor: (range: Range) => Array<{ spanId: string; quote: string; start?: number; end?: number }>;
 }
 
 /** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
@@ -1471,11 +1483,10 @@ export function ReaderScreen({
   // block, in document order. Anchoring works per block, so a quote must never
   // cross a block boundary — the old single-anchor capture silently failed on
   // any multi-block selection (every transcript selection, in practice).
-  const collectSelectionNodes = useCallback((): Array<{ spanId: string; quote: string; start?: number; end?: number }> => {
-    const sel = window.getSelection();
+  // One range's per-block nodes: the selection's, and a pen mark's (RD8a).
+  const nodesForRange = useCallback((range: Range): Array<{ spanId: string; quote: string; start?: number; end?: number }> => {
     const container = bodyRef.current;
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !container) return [];
-    const range = sel.getRangeAt(0);
+    if (!container) return [];
     const nodes: Array<{ spanId: string; quote: string; start?: number; end?: number }> = [];
     const seen = new Set<string>();
     for (const el of Array.from(container.querySelectorAll<HTMLElement>("[data-span-id]"))) {
@@ -1507,6 +1518,11 @@ export function ReaderScreen({
     }
     return nodes;
   }, [renderBlocksBySpan]);
+  const collectSelectionNodes = useCallback((): Array<{ spanId: string; quote: string; start?: number; end?: number }> => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return [];
+    return nodesForRange(sel.getRangeAt(0));
+  }, [nodesForRange]);
 
   // RW1b: the intent box on a learner's selection, and active reading. Its
   // actions run through the palette's own handlers (runIntentRef, set below
@@ -2250,6 +2266,22 @@ export function ReaderScreen({
     onWindowJumpReady(render ? (spanId: string) => jumpToSpan(spanId, "start") : null);
     return () => onWindowJumpReady(null);
   }, [onWindowJumpReady, render, jumpToSpan]);
+  const onWindowPenSurface = windowed?.onPenSurface;
+  const penTextShown = Boolean(render) && !(pdfView && surface === "pdf");
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!onWindowPenSurface) return;
+    if (!render || !body || !penTextShown) {
+      onWindowPenSurface(null);
+      return;
+    }
+    onWindowPenSurface({
+      body,
+      identity: { sourceId: render.sourceId, revisionId: render.revisionId, extractionId: render.extractionId, renderViewId: render.renderViewId ?? null },
+      nodesFor: nodesForRange,
+    });
+    return () => onWindowPenSurface(null);
+  }, [onWindowPenSurface, render, penTextShown, nodesForRange]);
 
   // Rail card click → jump to the annotation on the current surface: the PDF
   // pane scrolls to its page/block; the text surface scrolls to its block.

@@ -1,0 +1,67 @@
+/* Pen and ink on the desks (spec §10.10; tokens §4.2: the pen stroke #2b4fa8, 2.2 px). The values are the
+ * mockup's pen layer, copied exactly; everything is scoped under the desks. */
+
+/* The layer sits inside the window's scroller: ink scrolls with the text. */
+.desk-pen-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.desk-pen-layer > * { pointer-events: none; }
+
+/* Marks under the words (the scroller is isolated, so a negative z-index stays above its background). */
+.desk-pen-marks { position: absolute; left: 0; top: 0; z-index: -1; }
+.desk-pen-mark { position: absolute; }
+.desk-pen-mark.underline { background: #fff0b8; border-radius: 1px; box-shadow: 0 0 0 1px #fff0b8; }
+.desk-pen-mark.bracket { background: #fff6d0; box-shadow: -10px 0 0 #fff6d0, 6px 0 0 #fff6d0; }
+.desk-pen-mark.lasso { background: #cfe0fa; box-shadow: 0 2px 0 #cfe0fa, 0 -2px 0 #cfe0fa; }
+[data-pen-host][data-pen-lasso] ::selection { background: transparent; }
+
+/* Ink over the words. */
+svg.desk-pen-ink { position: absolute; left: 0; top: 0; overflow: visible; z-index: 3; }
+svg.desk-pen-ink .stroke { fill: none; stroke: var(--desk-pen, #2b4fa8); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+svg.desk-pen-ink .stroke.under { opacity: .35; }
+svg.desk-pen-ink .stroke.bracket { opacity: .55; }
+svg.desk-pen-ink .stroke.lasso { opacity: .5; }
+svg.desk-pen-ink .stroke.strike { stroke: #a83a2b; opacity: .6; }
+
+/* A strike: the words' line-through (the mockup's text-decoration, 1.5 px). */
+.desk-pen-strike { position: absolute; z-index: 2; height: 1.5px; background: #a83a2b; }
+
+/* The recognition chip: "X → Y · undo · ✕". */
+.desk-pen-layer .desk-pen-chip { position: absolute; z-index: 6; pointer-events: auto; display: flex; gap: 8px; align-items: center; background: #181818; color: var(--desk-t, #d8d8e0); border: 1px solid #3a3a3a; border-radius: 12px; padding: 3px 10px; font: 10.5px var(--desk-mono); white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,.4); }
+.desk-pen-chip button { font: 10.5px var(--desk-mono); color: #f0b878; background: none; border: 0; padding: 0; cursor: pointer; }
+.desk-pen-chip button[data-x] { color: var(--desk-t3, #8b8b9d); }
+.desk-pen-chip .askc { color: #9fc2ff; }
+
+/* The handwritten margin note and its transcription. */
+.desk-pen-layer .desk-pen-note { position: absolute; z-index: 4; pointer-events: auto; width: 220px; border-left: 2px solid #2b4fa8; padding: 2px 0 2px 8px; font: 11px var(--desk-mono); color: #5a564e; background: rgba(247,245,240,.9); }
+.desk-pen-note .who { display: block; color: #2b4fa8; font-size: 10px; }
+.desk-pen-note .ocr { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; padding: 0; background: transparent; font: italic 13px/1.4 var(--desk-book); color: #2a2825; outline: none; }
+.desk-pen-note .ocrl { font-size: 9.5px; color: #8b8578; }
+
+/* Pen mode: the chip in the top bar, the footer's pen hints, the crosshair on text. */
+.desk-shell .desk-top .penchip { color: var(--desk-t3); border: 1px solid #3a3a3a; border-radius: 3px; }
+.desk-shell.pen-mode .desk-top .penchip { color: #9fc2ff; border-color: #3b5b8a; background: #121a26; }
+.desk-shell .desk-top .simpen { color: var(--desk-t3); font-size: 11px; }
+.desk-shell .penk { color: #9fc2ff; }
+.desk-shell.pen-mode [data-pen-host] [data-span-id] { cursor: crosshair; }
+
+/* Ink in pads (the mockup's handwritten pad): lined paper per ink line (52 px rules) or a dot grid; the strokes
+ * in the pen's colour; the transcription under each line as "read as …". */
+.desk-pads .pb .desk-ink { display: block; }
+.desk-pads .desk-ink-surface { position: relative; width: 100%; }
+/* Each ink line sits on its own rule (the mockup's 52 px rules, one under each line with its reading); the dot grid
+ * covers the paper instead. */
+.desk-pads .handpad .pb.k-ink { border-bottom: 1px solid #dfe6f2; border-radius: 0; }
+.desk-pads .handpad.dotted { background: radial-gradient(#cfd6e2 1px, transparent 1.4px) 0 0 / 18px 18px, #fdfdfc; }
+.desk-pads .handpad.dotted .pb.k-ink { border-bottom-color: transparent; }
+.desk-shell.pen-mode .desk-pads .desk-ink-surface { cursor: crosshair; }
+.desk-pads .desk-ink-strokes { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.desk-pads .desk-ink-strokes .stroke { fill: none; stroke: var(--desk-pen, #2b4fa8); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.desk-pads .handbar { display: flex; white-space: nowrap; gap: 10px; align-items: center; font: 10.5px var(--desk-mono); color: #7a766e; margin: 0 0 6px 34px; }
+.desk-pads .handbar button { color: #2b4fa8; font: 10.5px var(--desk-mono); background: none; border: 0; padding: 0; cursor: pointer; }
+.desk-pads .pb .mark.prov { font: 10px var(--desk-mono); color: #2b4fa8; opacity: .6; }
+.desk-pads .ocrl2 { position: relative; font: 11px var(--desk-mono); color: #7a766e; margin: -6px 0 6px 6px; display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.desk-pads .ocrl2 .ocrt { font-size: 9.5px; color: #a09a8e; }
+.desk-pads .ocrl2 .ocrtex { color: #3b3832; font-size: 12px; }
+.desk-pads .ocrl2 .ocrl, .desk-pads .ocrl2 .ocrs { font-size: 9.5px; color: #8b8578; }
+.desk-pads .ocrl2 button { color: #2b4fa8; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.desk-pads .ocrl2 .ocrfix { flex: 1; font: 12px var(--desk-mono); color: #3b3832; background: #fff8ec; border: 0; border-bottom: 1px dashed #9a5a17; outline: none; resize: none; }
+.desk-pads .hint2 { font: 11px/1.4 var(--desk-mono); color: #9a968e; display: block; padding-top: 16px; pointer-events: none; }

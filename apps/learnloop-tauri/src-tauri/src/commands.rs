@@ -1407,6 +1407,14 @@ sidecar_passthrough!(goal_band, "goal.band");
 sidecar_passthrough!(goal_lens, "goal.lens");
 sidecar_passthrough!(goal_section_choice, "goal.section_choice");
 sidecar_passthrough!(curriculum_path, "curriculum.path");
+// Reader workbench v2 RD8a: the learner's ink and reading it as a polled job (desktop only; no component calls
+// them yet).
+sidecar_passthrough!(ink_save, "ink.save");
+sidecar_passthrough!(ink_erase, "ink.erase");
+sidecar_passthrough!(ink_list, "ink.list");
+sidecar_passthrough!(ink_transcribe, "ink.transcribe");
+sidecar_passthrough!(ink_transcribe_job, "ink.transcribe_job");
+sidecar_passthrough!(ink_transcribe_cancel, "ink.transcribe_cancel");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");
