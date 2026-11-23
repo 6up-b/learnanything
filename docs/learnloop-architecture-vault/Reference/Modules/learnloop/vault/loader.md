@@ -2127,6 +2127,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rank_on_the_real_linear_algebra_fixture`
   - `test_registry_view_rank_counts_items_and_criteria`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
+- [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_plan_rows_preview_keeps_the_sentence_whole`
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`

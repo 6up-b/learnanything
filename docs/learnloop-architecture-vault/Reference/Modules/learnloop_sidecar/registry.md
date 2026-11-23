@@ -293,6 +293,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_exercises.py](../../../../../tests/test_library_exercises.py) — direct import
   - `test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement`
 - [tests/test_lp_claim_fixes_review.py](../../../../../tests/test_lp_claim_fixes_review.py) — direct import
+- [tests/test_menu_promoted_rows.py](../../../../../tests/test_menu_promoted_rows.py) — direct import
+  - `test_an_object_names_what_it_needs`
+  - `test_the_menu_rpcs_refuse_an_extra_field_and_are_desktop_only`
 - [tests/test_mobile_allowlist.py](../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed`
   - `test_every_other_registered_method_is_denied`

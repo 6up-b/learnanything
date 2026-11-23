@@ -27,6 +27,10 @@ import type {
   CarriedMarkInput,
   PassageUnionDto,
   PassageContentDto,
+  MenuObjectInput,
+  PassagePromotedDto,
+  PromotedJobDto,
+  PassageKnowsDto,
   PassageUnionInput,
   SearchEverythingDto,
   SearchEverythingInput,
@@ -1623,6 +1627,12 @@ export const api = {
   passageUnionRange: (input: PassageUnionInput) => call<PassageUnionDto>("passage_union_range", { input }),
   // RD4 fix round: a range of a reading as the source has it, for "a piece of another source" (desktop only).
   passageContent: (input: PassageUnionInput) => call<PassageContentDto>("passage_content", { input }),
+  // RD5 (desktop only): the split menu's promoted rows at once and their judged job (polled through the one poller;
+  // cancel when the menu closes), and What this knows as one read.
+  passagePromoted: (input: MenuObjectInput) => call<PassagePromotedDto>("passage_promoted", { input }),
+  passagePromotedJob: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_job", { input }),
+  passagePromotedCancel: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_cancel", { input }),
+  passageKnows: (input: MenuObjectInput) => call<PassageKnowsDto>("passage_knows", { input }),
   companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
     call<CompanionHistoryDto>("companion_history", { input }),
   checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>

@@ -7,6 +7,8 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/passage_union/__init__.py"
   - "src/learnloop/passage_union/content.py"
+  - "src/learnloop/passage_union/elsewhere.py"
+  - "src/learnloop/passage_union/promoted.py"
   - "src/learnloop/passage_union/union.py"
 generated: true
 generated_at: "2026-11-02"
@@ -46,22 +48,26 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/passage_union/__init__|learnloop.passage_union]] | [[Reference/Modules/learnloop/passage_union/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] | [[Reference/Modules/learnloop/passage_union/content#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] | [[Reference/Modules/learnloop/passage_union/elsewhere#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/passage_union/promoted|learnloop.passage_union.promoted]] | [[Reference/Modules/learnloop/passage_union/promoted#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] | [[Reference/Modules/learnloop/passage_union/union#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 4 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 3 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 4 static module edges
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -71,18 +77,22 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.passage_union"]
     n_learnloop_content_sources["learnloop.content.sources"]
+    n_learnloop_source_retrieval["learnloop.source_retrieval"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_intent["learnloop.intent"]
+    n_learnloop_pads["learnloop.pads"]
     n_learnloop_reader["learnloop.reader"]
-    center -->|4| n_learnloop_content_sources
-    center -->|2| n_learnloop
-    center -->|2| n_learnloop_db_stores
-    n_learnloop_sidecar_handlers -->|2| center
+    center -->|5| n_learnloop_content_sources
+    center -->|4| n_learnloop_source_retrieval
+    n_learnloop_sidecar_handlers -->|4| center
+    center -->|3| n_learnloop
+    center -->|3| n_learnloop_db_stores
     center -->|1| n_learnloop_db
     center -->|1| n_learnloop_intent
+    n_learnloop_pads -->|1| center
     center -->|1| n_learnloop_reader
 ```
 

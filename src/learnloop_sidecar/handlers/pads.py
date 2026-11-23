@@ -97,7 +97,7 @@ def _after_batch(ctx: SidecarContext, vault: Any, repository: Any, block_ids: li
     except Exception:  # noqa: BLE001 - the learner's write already committed
         LOG.warning("could not emit the pad's committed words", exc_info=True)
     try:
-        proposal_core.propose_for_blocks(repository, block_ids)
+        proposal_core.propose_for_blocks(repository, block_ids, vault=vault)
     except Exception:  # noqa: BLE001 - a suggestion never fails the learner's write
         LOG.warning("could not compute the pad's proposals", exc_info=True)
 

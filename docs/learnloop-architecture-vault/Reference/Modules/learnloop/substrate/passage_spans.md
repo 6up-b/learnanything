@@ -164,6 +164,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
 - [tests/test_reader_rd0_guards_migration.py](../../../../../../tests/test_reader_rd0_guards_migration.py) — direct import
   - `test_one_exchanges_answer_lookup_uses_the_index`
 - [tests/test_reader_rd0_reads.py](../../../../../../tests/test_reader_rd0_reads.py) — direct import
