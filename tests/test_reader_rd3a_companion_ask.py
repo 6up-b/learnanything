@@ -21,7 +21,8 @@ from pydantic import ValidationError
 from learnloop.db.connection import connect
 from learnloop.substrate.passage_spans import rebuild_question_event_spans
 from learnloop_sidecar.errors import SidecarError
-from tests.companion_rd3a_helpers import WAIT, HeldTutor, ask_params, seed_desk, seed_pad, wait_job, workbench_contexts
+from tests.companion_rd3a_helpers import (WAIT, HeldTutor, ask_params, hold_before_the_tutor, job_of, seed_desk,
+                                         seed_pad, wait_job, workbench_contexts)
 from tests.reading_path_fixtures import call
 
 COMPANION_ASK_RPCS = ("companion.ask", "companion.ask_job", "companion.ask_cancel")
@@ -190,7 +191,7 @@ def test_a_finished_job_dropped_from_memory_is_answered_as_expired_never_asked_a
     first = wait_job(ctx, "req_a")
     call(ctx, "companion.ask", ask_params("req_b", question="and why is the determinant multiplicative?"))
     wait_job(ctx, "req_b")
-    assert ctx.companion_ask_jobs.get("req_a") is None
+    assert job_of(ctx, "req_a") is None
     expired = call(ctx, "companion.ask", ask_params("req_a"))
     assert (expired["status"], expired["done"], expired["questionEventId"]) == (
         "expired", True, first["questionEventId"])
@@ -215,27 +216,10 @@ def test_a_failed_generation_is_reported_and_an_unknown_job_is_said_to_be_gone(w
     assert gone.value.code == "job_not_found" and "history" in gone.value.message
 
 
-def _hold_before_the_tutor(monkeypatch) -> tuple[threading.Event, threading.Event]:
-    """Hold the job after its context is read and before the tutor's request is admitted."""
-
-    from learnloop.reader import reader_dialogue as RD
-
-    reached, release = threading.Event(), threading.Event()
-    original = RD.build_reader_manifest
-
-    def held(*args: Any, **kwargs: Any) -> Any:
-        reached.set()
-        assert release.wait(WAIT)
-        return original(*args, **kwargs)
-
-    monkeypatch.setattr(RD, "build_reader_manifest", held)
-    return reached, release
-
-
 def test_a_job_cancelled_before_its_request_is_sent_sends_nothing(workbench, monkeypatch):
     tutor = HeldTutor(hold=False)
     _paths, ctx, repository, _spans = workbench(tutor)
-    reached, release = _hold_before_the_tutor(monkeypatch)
+    reached, release = hold_before_the_tutor(monkeypatch)
     call(ctx, "companion.ask", ask_params("req_cancel"))
     assert reached.wait(WAIT)
     cancelled = call(ctx, "companion.ask_cancel", {"requestId": "req_cancel"})
@@ -268,7 +252,7 @@ def test_a_job_cancelled_after_its_request_was_sent_keeps_the_exchange(workbench
 def test_closing_the_context_interrupts_a_job_honestly(workbench, monkeypatch):
     tutor = HeldTutor(hold=False)
     _paths, ctx, _repository, _spans = workbench(tutor)
-    reached, release = _hold_before_the_tutor(monkeypatch)
+    reached, release = hold_before_the_tutor(monkeypatch)
     call(ctx, "companion.ask", ask_params("req_closed"))
     assert reached.wait(WAIT)
     ctx.background_jobs.cancel()  # a vault switch or a close ends the epoch the job started in
@@ -327,6 +311,5 @@ def test_refusals_come_back_on_the_request_and_start_no_job(workbench, monkeypat
             call(ctx, "companion.ask", params)
         if code is not None:
             assert refused.value.code == code, params
-        jobs = getattr(ctx, "companion_ask_jobs", None)
-        assert jobs is None or jobs.get(params["requestId"]) is None
+        assert job_of(ctx, params["requestId"]) is None
     assert tutor.prompts == [] and _question_count(repository) == 0
