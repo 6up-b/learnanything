@@ -1,0 +1,915 @@
+"""The Reader workbench's visual reference check (docs/reviews/reader-visual-reference.md).
+
+The mockup is the design (docs/specs/spec_reader_workbench_v2.md §4): its deep links were captured, outside
+every checkout, into a private reference directory, one PNG and one JSON of measured facts per state and
+viewport. This script puts the desks' harness page (the same page scripts/desk_harness/run.py drives) in the
+equivalent state for each landed stage, measures the same facts, and diffs them:
+
+- design tokens exactly (§4.2): the mockup's :root custom properties against the desks' `--desk-*` ones;
+- colours exactly (text, background, borders, shadow), as hex;
+- type exactly (the designed family, size, weight, style, line height, letter spacing, case);
+- geometry within GEOMETRY_TOLERANCE_PX (bounding box, padding, radius, border widths);
+- a region the mockup shows and the harness does not is a missing element.
+
+It also writes, for the owner's eyes only and only into the private directory, a side-by-side image per
+state (mockup | harness | changed pixels) and the share of changed pixels. Nothing it writes goes in the
+repository: the reference holds the owner's book text.
+
+Build the harness page first (apps/learnloop-tauri: `npx vite build --config vite.desks.config.mjs`), then:
+
+    uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \\
+        python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd4
+
+`--stage` is rd1, rd2, rd3, rd4 or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
+Exit status 0 when the run completed (differences are findings, not failures), 2 when the reference is
+missing. `--dump NAME` prints the harness's element tree in that state (for mapping new regions).
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import re
+import sys
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from playwright.async_api import Page, async_playwright
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from run import DIST, route_outside, serve  # noqa: E402  (a sibling script, not a package)
+
+# The mockup's design viewport and the laptop it folds for (the shelf becomes a rail below 1400 px).
+VIEWPORTS = {"design": {"width": 1440, "height": 900}, "laptop": {"width": 1280, "height": 800}}
+
+# Geometry is compared within 2 px. The smallest design quantities in §4.3 are the 9 px order grade, the
+# 10 px slot gap and 14 px insets, so 2 px still catches every departure from a stated value, while it
+# absorbs what is not a design difference: sub-pixel rounding of percentages (52 % of the stage) and the
+# variable fonts' line boxes, which the app ships where the mockup fetched static cuts (±1 px per line).
+GEOMETRY_TOLERANCE_PX = 2.0
+
+# The share of pixels counted as changed uses the harness's own threshold (run.py PIXEL_THRESHOLD): a
+# channel differing by more than 24 is a different pixel, anything less is antialiasing.
+PIXEL_THRESHOLD = 24
+
+# What each region's box means for the comparison: "box" its position and size, "pos" its position and
+# height (its width follows its text, which differs between the owner's book and the fixture), "size" its
+# width and height (where it sits follows content above it), "none" no geometry (only colour and type).
+GEOM_KEYS = {"box": ("x", "y", "w", "h"), "pos": ("x", "y", "h"), "size": ("w", "h"), "width": ("w",), "height": ("h",), "none": ()}
+
+
+@dataclass(frozen=True)
+class Region:
+    harness: str  # a CSS selector in the harness page; the first visible match is measured
+    geom: str = "none"
+    skip: tuple[str, ...] = ()  # properties not compared: the two pages build this region differently
+
+
+# The named regions. A name is shared with the private capture, which holds the mockup's own selectors.
+REGIONS: dict[str, Region] = {}
+
+
+def region(name: str, harness: str, geom: str = "none", skip: tuple[str, ...] = ()) -> None:
+    REGIONS[name] = Region(harness, geom, skip)
+
+
+# ── the shell (RD1) ──
+region("topbar", ".desk-top", "box")
+region("brand", ".desk-brand", "box")
+region("desk_tab_on", ".desk-tabs button[aria-current='true']", "pos")
+region("desk_tab", ".desk-tabs button:not([aria-current='true'])", "pos")
+region("top_chip", ".desk-top .tb", "height")
+region("shelf", ".desk-shelf", "box")
+region("shelf_head", ".desk-shelf > h4", "box")
+region("shelf_switch", ".desk-shelf > h4 .switch", "size")
+region("shelf_row_focus", ".desk-shelf .desk-src.prim", "none")
+region("shelf_row_kind", ".desk-shelf .desk-src.prim .k", "height")
+region("shelf_row_name", ".desk-shelf .desk-src.prim .n", "none")
+region("shelf_row_where", ".desk-shelf .desk-src .w", "none")
+region("shelf_row_bar_line", ".desk-shelf .desk-src .bar .ln", "size")
+region("shelf_row_bar_read", ".desk-shelf .desk-src .bar .rd", "height")
+region("shelf_row_inview", ".desk-shelf .desk-src.open:not(.prim)", "none")
+region("shelf_row_other", ".desk-shelf .desk-src:not(.open):not(.prim)", "none")
+region("shelf_lower_head", ".desk-shelf .lower h4", "none")
+region("shelf_carried_head", ".desk-shelf .desk-carried h4", "none")
+region("shelf_carried_item", ".desk-shelf .desk-carried .q", "none")
+region("stage", ".desk-stage", "box")
+region("sliver_right", ".desk-sliver.r", "box")
+region("sliver_left", ".desk-sliver.l", "box")
+region("sliver_glyph", ".desk-sliver .sg", "none")
+region("sliver_title", ".desk-sliver .st", "none")
+region("footer", ".desk-keys", "box")
+region("footer_hint", ".desk-keys > span:not(.desk-dots):not(.note)", "pos")
+region("footer_kbd", ".desk-keys > span:not(.desk-dots):not(.note) kbd", "height")
+region("footer_dot_focus", ".desk-dots button.f", "size")
+region("footer_dot_inview", ".desk-dots button.in", "size")
+region("footer_dot", ".desk-dots button:not(.f):not(.in)", "size")
+region("footer_note", ".desk-keys .note", "pos")
+region("window_focus", ".desk-window.focus", "box")
+region("window_focus_head", ".desk-window.focus .desk-pane-head", "box")
+region("window_focus_glyph", ".desk-window.focus .desk-pane-head .g", "none")
+region("window_focus_title", ".desk-window.focus .desk-pane-head .t", "none")
+region("window_focus_loc", ".desk-window.focus .desk-pane-head .loc", "none")
+region("window_focus_close", ".desk-window.focus .desk-pane-head .x", "none")
+region("window_other", ".desk-window:not(.focus):not(.paused)", "size")
+region("window_other_head", ".desk-window:not(.focus):not(.paused) .desk-pane-head", "size")
+region("book_paper", ".desk-window [data-window-kind='source'] > .desk-pane-body", "none")
+# The first passage is the one being read (amber); the plain style is the next one's.
+region("book_prose", ".desk-window [data-window-kind='source'] [data-span-id] @1", "none")
+region("book_heading", ".desk-window [data-window-kind='source'] h2", "none")
+region("video_paper", ".desk-window [data-window-kind='video'] > .desk-pane-body", "none")
+region("video_cue", ".desk-window [data-window-kind='video'] [data-transcript-span]", "none")
+region("focus_badge", "~.desk-zoom-badge", "pos")
+# ── the overview (RD2) ──
+region("ov_label", ".desk-ov-label", "none")
+# The mockup draws the ring on the card itself, the desks on a ring element over it: only the ring compares.
+region("ov_ring_sel", ".desk-ov-ring.sel", "none", ("background", "background_eff", "radius", "padding", "font"))
+region("ov_ring_rel", ".desk-ov-ring.rel", "none", ("background", "background_eff", "radius", "padding", "font"))
+region("ov_card", ".desk-card", "none")
+region("ov_card_glyph", ".desk-card-g", "none")
+region("ov_card_name", ".desk-card-n", "none")
+region("ov_card_bar", ".desk-card-bar .ln", "height")
+region("ov_link", ".desk-ov-links path", "none")
+region("ov_link_label", ".desk-ov-links text", "none")
+region("ov_ghost", ".desk-ov-ghost", "none")
+region("hud", ".desk-hud", "pos")
+region("shelf_rail", ".desk-shelf-rail", "box")
+region("shelf_overlay", ".desk-shelf-overlay", "box")
+# ── the companion and search (RD3) ──
+region("comp_panel", ".desk-companion", "box")
+region("comp_grab", ".desk-companion .grab", "size")
+region("comp_tabs", ".desk-companion .ctabs", "size")
+region("comp_tab_on", ".desk-companion .ctabs button.on", "height")
+region("comp_tab", ".desk-companion .ctabs button:not(.on)", "height")
+region("comp_ctx", ".desk-companion .ctx", "height")
+region("comp_earlier", ".desk-companion .ctx .earlier", "none")
+region("comp_body", ".desk-companion .body", "none")
+region("comp_bub_you", ".desk-companion .bub.you", "none")
+region("comp_bub_you_who", ".desk-companion .bub.you .who", "none")
+region("comp_bub_ai", ".desk-companion .bub.ai", "none")
+region("comp_bub_ai_who", ".desk-companion .bub.ai .who", "none")
+region("comp_bub_ai_text", ".desk-companion .bub.ai p", "none")
+region("comp_claim", ".desk-companion .claim", "none")
+region("comp_chip", ".desk-companion .chip", "none")
+region("comp_chip_quote", ".desk-companion .chip .q", "none")
+region("comp_input", ".desk-companion .input", "height")
+region("comp_pill", ".desk-companion-pill.on", "box")
+region("comp_closed_tab", ".desk-companion-tab", "box")
+region("hist_note", ".desk-companion .history .hnote", "none")
+region("hist_day", ".desk-companion .history .hday", "none")
+region("hist_desk", ".desk-companion .history .hdesk", "none")
+region("hist_q", ".desk-companion .history .hq", "none")
+region("hist_a", ".desk-companion .history .ha", "none")
+region("search_backdrop", ".desk-search-backdrop", "box")
+region("search_panel", ".desk-search", "width")
+region("search_input", ".desk-search-in", "height")
+region("search_input_field", ".desk-search-in input", "none")
+region("search_group_head", ".desk-search-group .grp", "height")
+region("search_row", ".desk-search .r:not(.sel)", "height")
+region("search_row_where", ".desk-search .r:not(.sel) .w", "none")
+region("search_sel", ".desk-search-sel", "height")
+region("search_row_sel_text", ".desk-search .r.sel .t", "none")
+region("search_foot", ".desk-search-foot", "height")
+# ── the pads (RD4) ──
+region("pad_window_head", ".desk-window:has(.desk-pads) .desk-pane-head", "height")
+region("pad_tab_open", ".desk-pads .ptab.open .sheet", "height")
+region("pad_tab", ".desk-pads .ptab:not(.open) .sheet", "height")
+region("pad_tab_title", ".desk-pads .ptab.open .tt", "none")
+region("pad_tab_label", ".desk-pads .ptab.open .tl", "none")
+region("pad_tab_meta", ".desk-pads .ptab.open .tm", "none")
+region("pad_paper", ".desk-pads .paper.k-running", "none")
+region("pad_day", ".desk-pads .paper .day", "height")
+region("pad_prose", ".desk-pads .pb:not(.srcrow):not(.jot) .bx p", "none")
+region("pad_quote", ".desk-pads .quote", "none")
+region("pad_backlink", ".desk-pads .back", "height")
+region("pad_tutor", ".desk-pads .tutorq", "none")
+region("pad_tutor_who", ".desk-pads .tutorq .who", "none")
+region("pad_submitted", ".desk-pads .submitted", "height")
+region("pad_carry", ".desk-pads .carry", "none")
+region("pad_jot", ".desk-pads .pb.jot .wline", "none")
+region("pad_mark_src", ".desk-pads .mark.src", "none")
+region("pad_mark_ll", ".desk-pads .mark.ll", "none")
+region("pad_mark_fig", ".desk-pads .mark.fig", "none")
+region("pad_lift", ".desk-pads .lift", "none")
+region("pad_lifted", ".desk-pads .lifted", "none")
+region("pad_info_pop", ".desk-pads .pinfo-pop", "none")
+region("pad_info_button", ".desk-pads .pinfo", "none")
+region("pad_card", ".desk-pads .pcard", "size")
+region("pad_menu", ".desk-padmenu", "size")
+region("pad_menu_row", ".desk-padmenu button", "height")
+region("pad_menu_head", ".desk-padmenu h5, .desk-padmenu .head", "none")
+region("arrange_panel", ".desk-arrange", "none")
+region("arrange_card", ".desk-arrange .card, .desk-arrange li", "none")
+region("split_pane", ".desk-pads .split .pane", "none")
+region("sketch_bar", ".desk-pads .desk-sketch .bar", "height")
+region("sketch_tool", ".desk-pads .desk-sketch .bar button", "height")
+region("sketch_canvas", ".desk-pads .desk-sketch canvas, .desk-pads .desk-sketch svg", "none")
+region("pass_mark_pad", ".desk-pmark.pad", "none")
+region("pad_flash", ".desk-pads .pb.flash", "none")
+
+
+# The measured facts of one region: every computed colour, the type, the box model and the bounding box.
+MEASURE_JS = r"""
+(regions) => {
+  const hex = (v) => v.replace(/rgba?\(([^)]+)\)/g, (_, body) => {
+    const p = body.split(/[\s,\/]+/).filter(Boolean).map(Number);
+    const h = (n) => Math.round(n).toString(16).padStart(2, '0');
+    const a = p.length > 3 ? p[3] : 1;
+    return '#' + h(p[0]) + h(p[1]) + h(p[2]) + (a < 1 ? h(a * 255) : '');
+  });
+  const effOpacity = (e) => { let o = 1; for (let n = e; n && n.nodeType === 1; n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return Math.round(o * 1000) / 1000; };
+  const effBackground = (e) => { for (let n = e; n && n.nodeType === 1; n = n.parentElement) { const b = getComputedStyle(n).backgroundColor; if (b && b !== 'rgba(0, 0, 0, 0)' && b !== 'transparent') return hex(b); } return null; };
+  // Shown means on screen and not faded out: both pages keep some hidden controls at opacity 0.
+  const visible = (e, anyOpacity = false) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth && (anyOpacity || effOpacity(e) > 0.01); };
+  const out = {};
+  for (const [name, sel] of regions) {
+    // "selector @n" measures the n-th shown match (from 0), for a region whose first match is a special case.
+    // "~selector" also takes a match faded to opacity 0 (a badge that has faded out by the time it is measured).
+    const faded = sel.startsWith('~'); const bare = faded ? sel.slice(1) : sel;
+    const at = bare.match(/^(.*)\s@(\d+)$/); const query = at ? at[1] : bare; const nth = at ? Number(at[2]) : 0;
+    let els;
+    try { els = [...document.querySelectorAll(query)]; } catch (err) { out[name] = { error: String(err) }; continue; }
+    const vis = els.filter((e) => visible(e) || (faded && visible(e, true)));
+    if (vis.length <= nth) { out[name] = null; continue; }
+    const e = vis[nth]; const cs = getComputedStyle(e); const r = e.getBoundingClientRect();
+    const side = (p) => ['top', 'right', 'bottom', 'left'].map((s) => cs.getPropertyValue(p.replace('*', s)));
+    out[name] = {
+      count: vis.length,
+      box: { x: Math.round(r.x * 10) / 10, y: Math.round(r.y * 10) / 10, w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 },
+      color: hex(cs.color),
+      background: hex(cs.backgroundColor),
+      background_eff: effBackground(e),
+      background_image: cs.backgroundImage === 'none' ? 'none' : hex(cs.backgroundImage).slice(0, 300),
+      border_color: side('border-*-color').map(hex),
+      border_width: side('border-*-width'),
+      border_style: side('border-*-style'),
+      box_shadow: hex(cs.boxShadow),
+      outline: cs.outlineStyle === 'none' ? 'none' : hex(cs.outlineColor) + ' ' + cs.outlineWidth + ' ' + cs.outlineStyle,
+      font_family: cs.fontFamily,
+      font_size: cs.fontSize,
+      font_weight: cs.fontWeight,
+      font_style: cs.fontStyle,
+      line_height: cs.lineHeight,
+      letter_spacing: cs.letterSpacing,
+      text_transform: cs.textTransform,
+      radius: ['top-left', 'top-right', 'bottom-right', 'bottom-left'].map((c) => cs.getPropertyValue('border-' + c + '-radius')),
+      padding: side('padding-*'),
+      opacity: Number(cs.opacity),
+      opacity_eff: effOpacity(e),
+      filter: cs.filter,
+    };
+    if (e instanceof SVGElement) { out[name].stroke = hex(cs.stroke); out[name].fill = hex(cs.fill); out[name].stroke_width = cs.strokeWidth; }
+  }
+  return out;
+}
+"""
+
+# Every custom property the page's style sheets declare on :root (the mockup) or on .desk-shell (the desks
+# scope their tokens there so no other screen changes), with its computed value.
+ROOT_VARS_JS = r"""
+(scope) => {
+  const target = document.querySelector(scope) || document.documentElement;
+  const cs = getComputedStyle(target); const out = {};
+  const pattern = scope === ':root' ? /(^|,)\s*:root\b/ : new RegExp('(^|,)\\s*' + scope.replace('.', '\\.') + '\\s*($|,)');
+  const walk = (rules) => { for (const r of rules) {
+    if (r.cssRules && !r.selectorText) walk(r.cssRules);
+    if (r.selectorText && pattern.test(r.selectorText)) for (const n of r.style) if (n.startsWith('--')) out[n] = cs.getPropertyValue(n).trim(); } };
+  for (const sh of document.styleSheets) { try { walk(sh.cssRules); } catch (err) { /* a cross-origin sheet has no rules to read */ } }
+  return out;
+}
+"""
+
+
+async def measure(page: Page, selectors: dict[str, str]) -> dict[str, Any]:
+    return await page.evaluate(MEASURE_JS, [[name, sel] for name, sel in selectors.items()])
+
+
+async def root_vars(page: Page, scope: str) -> dict[str, str]:
+    return await page.evaluate(ROOT_VARS_JS, scope)
+
+
+# ── putting the harness in each state ──
+
+Drive = Callable[[Page], Awaitable[None]]
+
+
+async def wait(page: Page, ms: int) -> None:
+    await page.wait_for_timeout(ms)
+
+
+async def keys(page: Page, *pressed: str, gap: int = 250) -> None:
+    for key in pressed:
+        await page.keyboard.press(key)
+        await wait(page, gap)
+
+
+async def select_passage(page: Page, text: str) -> None:
+    await page.evaluate("""(text) => { const p = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].find((e) => e.textContent.includes(text));
+      const range = document.createRange(); range.selectNodeContents(p); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range); }""", text)
+
+
+async def scroll_book(page: Page, by: int) -> None:
+    await page.evaluate("""(by) => { const sc = [...document.querySelectorAll('[data-desk-window="fx_w_book"] *')].find((e) => e.scrollHeight > e.clientHeight + 20); if (sc) sc.scrollTop += by; }""", by)
+
+
+async def pads_in_view(page: Page) -> None:
+    """The pad stack is the first desk's last window: walk the focus to it."""
+    await keys(page, *["Alt+l"] * 6)
+    await page.wait_for_selector(".desk-pads [data-block]")
+    await wait(page, 900)
+
+
+async def pads_beside_book(page: Page) -> None:
+    """The mockup's pads sit beside the book: move the stack left until it is the book's neighbour."""
+    await pads_in_view(page)
+    # Move the stack left until it is second on the strip, just right of the book.
+    for _ in range(8):
+        # The strip's order from the windows' places (the shelf's rows are gone below 1400 px, where it is a rail).
+        place = await page.evaluate("""() => { const ws = [...document.querySelectorAll('[data-desk-window]')].filter((p) => p.dataset.windowState !== 'hidden')
+            .sort((a, b) => a.closest('.desk-window').getBoundingClientRect().x - b.closest('.desk-window').getBoundingClientRect().x);
+          return ws.findIndex((p) => p.querySelector('.desk-pads')); }""")
+        if place <= 1:
+            break
+        await keys(page, "Alt+BracketLeft")
+    # The book takes the focus again, as in the mockup: the camera then shows the book left, the pads right.
+    await keys(page, "Alt+h")
+    await wait(page, 1500)
+
+
+async def d_plain(page: Page) -> None:
+    return None
+
+
+async def d_desk1(page: Page) -> None:
+    await page.get_by_role("button", name="attention", exact=True).click()
+    await wait(page, 1500)
+
+
+async def d_focus3(page: Page) -> None:
+    await keys(page, "Alt+l", "Alt+l", "Alt+l")
+    await wait(page, 700)
+
+
+async def d_move(page: Page) -> None:
+    await keys(page, "Alt+BracketRight")
+    await wait(page, 700)
+
+
+async def d_zoom_after(page: Page) -> None:
+    await keys(page, "Alt+Enter")
+    await wait(page, 700)
+
+
+async def d_fs150(page: Page) -> None:
+    await keys(page, "Alt+Enter")
+    await wait(page, 500)
+    await keys(page, *["Equal"] * 5, gap=120)
+    await wait(page, 400)
+
+
+async def d_ov(page: Page) -> None:
+    await keys(page, "Alt+o")
+    await wait(page, 900)
+
+
+async def d_ovn_far(page: Page) -> None:
+    await d_ov(page)
+    await keys(page, *["l"] * 8, gap=120)
+    await wait(page, 600)
+
+
+async def d_ovn_down(page: Page) -> None:
+    await d_ov(page)
+    await keys(page, "j", "j", gap=200)
+    await wait(page, 600)
+
+
+async def d_scrub(page: Page) -> None:
+    await page.evaluate("() => { window.__deskDebug.beginZoom(); window.__deskDebug.setZoomProgress(0.5); }")
+    await wait(page, 300)
+
+
+async def d_ovg(page: Page) -> None:
+    await d_ov(page)
+    await page.keyboard.down("g")
+    await wait(page, 500)
+
+
+async def d_roundtrip(page: Page) -> None:
+    await d_ov(page)
+    await keys(page, "Escape")
+    await wait(page, 900)
+
+
+async def d_lap_open(page: Page) -> None:
+    await page.get_by_role("button", name="show the strip").click()
+    await wait(page, 400)
+
+
+async def d_lap_comp(page: Page) -> None:
+    await d_shiftc(page)
+
+
+async def ask(page: Page) -> None:
+    """The mockup's companion shows a thread; the fixture's starts empty, so one question is asked and answered."""
+    box = page.locator(".desk-companion .input")
+    if await box.count() and await box.is_enabled():
+        await box.fill("why does the largest score win?")
+        await box.press("Enter")
+        await page.wait_for_selector('.desk-companion [data-exchange-status="answered"]', timeout=8000)
+        # A focused input draws its focus border and keeps the desk's keys from the router.
+        await page.evaluate("() => document.activeElement?.blur()")
+        await wait(page, 300)
+
+
+async def d_cur_sel(page: Page) -> None:
+    # Not asked: asking takes the selection chip into the question, and the chip is what this state shows.
+    await select_passage(page, "largest score")
+    await keys(page, "c")
+    await wait(page, 500)
+
+
+async def d_cur_handoff(page: Page) -> None:
+    await select_passage(page, "Adding the same constant")
+    await keys(page, "c")
+    await wait(page, 400)
+    await ask(page)
+    await scroll_book(page, 240)
+    await wait(page, 700)
+
+
+async def d_shiftc(page: Page) -> None:
+    await keys(page, "Shift+C")
+    await wait(page, 500)
+    await ask(page)
+
+
+async def d_dock_right(page: Page) -> None:
+    await d_shiftc(page)
+    stage = await page.evaluate("() => { const r = document.querySelector('[data-desk-stage]').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width }; }")
+    grab = await page.locator(".desk-companion .grab").bounding_box()
+    if grab:
+        await page.mouse.move(grab["x"] + grab["width"] / 2, grab["y"] + 4)
+        await page.mouse.down()
+        await page.mouse.move(stage["x"] + stage["w"] - 120, stage["y"] + 120, steps=8)
+        await page.mouse.up()
+    await wait(page, 600)
+
+
+async def d_cov(page: Page) -> None:
+    await d_shiftc(page)
+    await d_ov(page)
+
+
+async def d_hist(page: Page) -> None:
+    await d_shiftc(page)
+    await page.locator(".desk-companion .ctabs button", has_text="history").click()
+    await wait(page, 600)
+
+
+async def d_selctx(page: Page) -> None:
+    await select_passage(page, "largest score")
+    await keys(page, "Shift+C")
+    await wait(page, 500)
+
+
+async def d_spot(page: Page) -> None:
+    await keys(page, "/")
+    await page.keyboard.type("softmax")
+    await wait(page, 4200)
+
+
+async def d_switch(page: Page) -> None:
+    # Below 1400 px the shelf is a rail: its ☰ shows the strip, whose heading has the switch.
+    if not await page.get_by_role("button", name="/ switch").is_visible():
+        await d_lap_open(page)
+    await page.get_by_role("button", name="/ switch").click()
+    await wait(page, 500)
+
+
+async def d_run(page: Page) -> None:
+    await pads_beside_book(page)
+
+
+async def d_tabs_distance(page: Page) -> None:
+    await pads_beside_book(page)
+    geo = await page.evaluate("""() => { const s = document.querySelector('.desk-pads .pscroller'); const p = document.querySelectorAll('.desk-pads .paper')[1]; return { top: p.offsetTop, h: s.clientHeight }; }""")
+    await page.locator(".desk-pads .pscroller").evaluate("(s, y) => { s.scrollTop = y; }", max(0, geo["top"] - geo["h"] * 0.6))
+    await wait(page, 500)
+
+
+async def d_lift(page: Page) -> None:
+    await pads_beside_book(page)
+    await page.locator('.desk-pads [data-block="fx_b_r7"]').hover()
+    await page.locator('.desk-pads [data-block="fx_b_r7"] .lift').click()
+    await wait(page, 600)
+    await page.mouse.move(5, 5)
+
+
+async def d_sketch(page: Page) -> None:
+    await pads_beside_book(page)
+    await keys(page, "Alt+l", "Alt+d")
+    await wait(page, 500)
+
+
+async def d_info(page: Page) -> None:
+    await pads_beside_book(page)
+    await page.locator(".desk-pads .pinfo").click()
+    await wait(page, 300)
+
+
+async def d_submitted(page: Page) -> None:
+    await pads_beside_book(page)
+    await page.locator('.desk-pads [data-block="fx_b_r4"]').scroll_into_view_if_needed()
+    await wait(page, 300)
+
+
+async def d_append(page: Page) -> None:
+    await pads_beside_book(page)
+    await page.locator(".desk-pads .pscroller").evaluate("(s) => { s.scrollTop = s.scrollHeight; }")
+    await wait(page, 400)
+
+
+async def d_markback(page: Page) -> None:
+    await pads_beside_book(page)
+    marks = page.locator(".desk-pmark.pad")
+    if await marks.count():
+        await marks.first.click()
+        await wait(page, 250)
+
+
+async def d_backlink(page: Page) -> None:
+    await pads_beside_book(page)
+    back = page.locator(".desk-pads .back")
+    if await back.count():
+        await back.first.click()
+        await wait(page, 600)
+
+
+async def d_padmenu(page: Page) -> None:
+    await pads_beside_book(page)
+    await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
+    await wait(page, 300)
+
+
+async def d_arrange(page: Page) -> None:
+    await pads_beside_book(page)
+    await keys(page, "Alt+l", "Alt+a")
+    await wait(page, 300)
+
+
+async def d_split(page: Page) -> None:
+    await d_arrange(page)
+    await keys(page, "Enter")
+    await wait(page, 500)
+
+
+@dataclass(frozen=True)
+class State:
+    name: str  # the mockup's deep link, without '#'
+    stage: str
+    drive: Drive
+    regions: tuple[str, ...]
+    viewports: tuple[str, ...] = ("design", "laptop")
+    variant: str = "arxiv_v2"
+    init_storage: tuple[tuple[str, str], ...] = ()
+    note: str = ""
+    geometry: bool = True  # False where the mockup's state is not a resting layout (its self-tests run on)
+
+
+SHELL = ("topbar", "brand", "desk_tab_on", "desk_tab", "top_chip", "shelf", "shelf_head", "shelf_switch", "shelf_row_focus",
+         "shelf_row_kind", "shelf_row_name", "shelf_row_where", "shelf_row_bar_line", "shelf_row_bar_read", "shelf_row_inview",
+         "shelf_row_other", "shelf_lower_head", "shelf_carried_head", "shelf_carried_item", "stage", "sliver_right", "sliver_left",
+         "sliver_glyph", "sliver_title", "footer", "footer_hint", "footer_kbd", "footer_dot_focus", "footer_dot_inview", "footer_dot",
+         "footer_note")
+WINDOWS = ("window_focus", "window_focus_head", "window_focus_glyph", "window_focus_title", "window_focus_loc", "window_focus_close",
+           "window_other", "window_other_head", "book_paper", "book_prose", "book_heading", "video_paper", "video_cue")
+OVERVIEW = ("ov_label", "ov_ring_sel", "ov_ring_rel", "ov_card", "ov_card_glyph", "ov_card_name", "ov_card_bar", "ov_link", "ov_link_label",
+            "ov_ghost", "hud", "comp_pill")
+COMPANION = ("comp_panel", "comp_grab", "comp_tabs", "comp_tab_on", "comp_tab", "comp_ctx", "comp_earlier", "comp_body", "comp_bub_you",
+             "comp_bub_you_who", "comp_bub_ai", "comp_bub_ai_who", "comp_bub_ai_text", "comp_claim", "comp_chip", "comp_chip_quote", "comp_input",
+             "comp_closed_tab", "comp_pill")
+# The selection chip is measured before a question is asked, the thread's bubbles after (asking takes the chip).
+COMPANION_CHIP = tuple(n for n in COMPANION if not n.startswith(("comp_bub", "comp_claim")))
+COMPANION_THREAD = tuple(n for n in COMPANION if not n.startswith("comp_chip"))
+HISTORY = ("hist_note", "hist_day", "hist_desk", "hist_q", "hist_a")
+SEARCH = ("search_backdrop", "search_panel", "search_input", "search_input_field", "search_group_head", "search_row", "search_row_where",
+          "search_sel", "search_row_sel_text", "search_foot")
+PADS = ("pad_window_head", "pad_tab_open", "pad_tab", "pad_tab_title", "pad_tab_label", "pad_tab_meta", "pad_paper", "pad_day",
+        "pad_prose", "pad_quote", "pad_backlink", "pad_tutor", "pad_tutor_who", "pad_submitted", "pad_carry", "pad_jot", "pad_mark_src",
+        "pad_mark_ll", "pad_mark_fig")
+
+STATES: list[State] = [
+    State("plain", "rd1", d_plain, SHELL + WINDOWS + ("comp_panel", "comp_closed_tab")),
+    State("desk=1", "rd1", d_desk1, SHELL + WINDOWS),
+    State("focus=3", "rd1", d_focus3, SHELL + WINDOWS),
+    State("move", "rd1", d_move, SHELL + WINDOWS),
+    State("zoom=after", "rd1", d_zoom_after, ("window_focus", "window_focus_head", "focus_badge", "book_paper", "book_prose", "topbar")),
+    State("s11=fs150", "rd1", d_fs150, ("window_focus", "window_focus_head", "focus_badge", "book_paper", "book_prose", "topbar")),
+    State("ov", "rd2", d_ov, SHELL + OVERVIEW),
+    State("ovn=far", "rd2", d_ovn_far, OVERVIEW),
+    State("ovn=down", "rd2", d_ovn_down, OVERVIEW),
+    State("scrub=0.5", "rd2", d_scrub, ("stage", "window_focus", "ov_card", "ov_label", "comp_panel")),
+    State("ovg", "rd2", d_ovg, OVERVIEW),
+    State("selftest", "rd2", d_roundtrip, SHELL + WINDOWS, note="the mockup's self-test is still running when captured", geometry=False),
+    State("selftest2", "rd2", d_roundtrip, SHELL + WINDOWS, note="the mockup's self-test is still running when captured", geometry=False),
+    State("lap=1", "rd2", d_plain, SHELL + WINDOWS + ("shelf_rail",), viewports=("laptop",)),
+    State("lap=open", "rd2", d_lap_open, SHELL + ("shelf_rail", "shelf_overlay"), viewports=("laptop",)),
+    State("cur=sel", "rd3", d_cur_sel, COMPANION_CHIP),
+    State("cur=handoff", "rd3", d_cur_handoff, COMPANION_THREAD),
+    State("cur=shiftc", "rd3", d_shiftc, COMPANION_THREAD),
+    State("dock=right", "rd3", d_dock_right, COMPANION_THREAD, note="the mockup's link leaves the panel at its default dock", geometry=False),
+    State("cov", "rd3", d_cov, OVERVIEW),
+    State("hist", "rd3", d_hist, COMPANION_THREAD + HISTORY),
+    State("selctx", "rd3", d_selctx, COMPANION_CHIP),
+    State("spot=softmax", "rd3", d_spot, SEARCH),
+    State("switch", "rd3", d_switch, SEARCH),
+    State("lap=comp", "rd3", d_lap_comp, COMPANION_THREAD + ("shelf_rail",), viewports=("laptop",)),
+    State("s11=run", "rd4", d_run, PADS),
+    State("tabs=distance,pad=2,padf=0.4", "rd4", d_tabs_distance, PADS),
+    State("tabs=order", "rd4", d_run, PADS, init_storage=(("learnloop.desks.tabGrade", "order"),)),
+    State("s11=lift", "rd4", d_lift, PADS + ("pad_lifted",)),
+    State("s11=sketchqk", "rd4", d_sketch, PADS + ("sketch_bar", "sketch_tool", "sketch_canvas")),
+    State("s12=info", "rd4", d_info, PADS + ("pad_info_pop", "pad_info_button")),
+    State("s12=submitted", "rd4", d_submitted, PADS),
+    State("append", "rd4", d_append, PADS),
+    State("markback", "rd4", d_markback, PADS + ("pass_mark_pad", "pad_flash")),
+    State("backlink", "rd4", d_backlink, PADS + ("book_prose",)),
+    State("s11=menu", "rd4", d_padmenu, ("pad_menu", "pad_menu_row", "pad_menu_head")),
+    State("s11=arrange", "rd4", d_arrange, ("arrange_panel", "arrange_card", "pad_window_head")),
+    State("s11=split", "rd4", d_split, PADS + ("split_pane",)),
+]
+
+STATE_BY_NAME = {state.name: state for state in STATES}
+
+
+def file_stem(variant: str, state: str, viewport: str) -> str:
+    """The reference's file name for one capture: safe on every file system, readable in a listing."""
+    return f"{variant}__{re.sub(r'[^A-Za-z0-9_.-]+', '_', state) or 'plain'}__{viewport}"
+
+
+# ── diffing ──
+
+COLOUR_KEYS = ("color", "background", "box_shadow", "outline", "stroke", "fill")
+TYPE_KEYS = ("font_size", "font_weight", "font_style", "line_height", "letter_spacing", "text_transform")
+
+
+def primary_family(stack: str) -> str:
+    """The designed family a stack asks for first; the app's fonts are the variable cuts of the same faces."""
+    first = stack.split(",")[0].strip().strip('"').strip("'")
+    return re.sub(r"\s+Variable$", "", first)
+
+
+def px(value: str) -> float | None:
+    match = re.fullmatch(r"(-?[\d.]+)px", value.strip())
+    return float(match.group(1)) if match else None
+
+
+def near(a: str, b: str) -> bool:
+    pa, pb = px(a), px(b)
+    if pa is not None and pb is not None:
+        return abs(pa - pb) <= GEOMETRY_TOLERANCE_PX
+    return a == b
+
+
+def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: bool = True) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    skip = REGIONS[name].skip
+
+    def add(kind: str, prop: str, m: Any, a: Any) -> None:
+        if prop in skip or (kind == "type" and "font" in skip) or (kind == "geometry" and not geometry):
+            return
+        rows.append({"region": name, "kind": kind, "prop": prop, "mockup": m, "app": a})
+
+    for key in COLOUR_KEYS:
+        if key in mock and mock.get(key) != app.get(key):
+            add("colour", key, mock.get(key), app.get(key))
+    # A transparent background is compared by what shows through it.
+    if mock.get("background") != app.get("background") and mock.get("background_eff") != app.get("background_eff"):
+        add("colour", "background_eff", mock.get("background_eff"), app.get("background_eff"))
+    for i, edge in enumerate(("top", "right", "bottom", "left")):
+        mw, aw = mock["border_width"][i], app["border_width"][i]
+        m_on, a_on = mock["border_style"][i] != "none" and px(mw) != 0, app["border_style"][i] != "none" and px(aw) != 0
+        if m_on != a_on or (m_on and not near(mw, aw)):
+            add("geometry", f"border_{edge}_width", f"{mw if m_on else '0px'} {mock['border_style'][i]}", f"{aw if a_on else '0px'} {app['border_style'][i]}")
+        if m_on and a_on and mock["border_color"][i] != app["border_color"][i]:
+            add("colour", f"border_{edge}_color", mock["border_color"][i], app["border_color"][i])
+    if primary_family(mock["font_family"]) != primary_family(app["font_family"]):
+        add("type", "font_family", mock["font_family"], app["font_family"])
+    for key in TYPE_KEYS:
+        if mock.get(key) != app.get(key) and not (key in ("line_height", "letter_spacing") and near(str(mock.get(key)), str(app.get(key))) and key != "letter_spacing"):
+            add("type", key, mock.get(key), app.get(key))
+    for key in ("radius", "padding"):
+        if any(not near(m, a) for m, a in zip(mock[key], app[key], strict=True)):
+            add("geometry", key, " ".join(mock[key]), " ".join(app[key]))
+    geom = REGIONS[name].geom
+    for k in GEOM_KEYS[geom]:
+        if abs(mock["box"][k] - app["box"][k]) > GEOMETRY_TOLERANCE_PX:
+            add("geometry", f"box.{k}", mock["box"][k], app["box"][k])
+    if abs(mock["opacity_eff"] - app["opacity_eff"]) > 0.05:
+        add("colour", "opacity", mock["opacity_eff"], app["opacity_eff"])
+    return rows
+
+
+def diff_tokens(mock_vars: dict[str, str], app_vars: dict[str, str]) -> list[dict[str, Any]]:
+    """The mockup's `--x` against the desks' `--desk-x`: a differing value is a finding; a token the desks lack
+    is listed (the app may write the value literally where it is used)."""
+    rows = []
+    for name, value in sorted(mock_vars.items()):
+        app_name = "--desk-" + name[2:]
+        got = app_vars.get(app_name)
+        norm = lambda v: re.sub(r"\s+", "", v or "").lower()  # noqa: E731
+        if got is None:
+            rows.append({"token": name, "kind": "absent", "mockup": value, "app": None})
+        elif norm(got) != norm(value):
+            rows.append({"token": name, "kind": "differs", "mockup": value, "app": got})
+    return rows
+
+
+def pixel_share(mock_png: Path, app_png: Path, side_by_side: Path) -> float:
+    from PIL import Image, ImageChops, ImageDraw
+
+    a = Image.open(mock_png).convert("RGB")
+    b = Image.open(app_png).convert("RGB")
+    if a.size != b.size:
+        b = b.resize(a.size)
+    diff = ImageChops.difference(a, b)
+    # A pixel is changed when any channel is past the threshold.
+    r, g, bl = diff.point(lambda v: 255 if v > PIXEL_THRESHOLD else 0).split()
+    changed_img = ImageChops.lighter(ImageChops.lighter(r, g), bl)
+    changed = sum(1 for v in changed_img.getdata() if v)
+    share = changed / (a.size[0] * a.size[1])
+    w, h = a.size
+    sheet = Image.new("RGB", (w * 3 + 40, h + 28), (20, 20, 22))
+    sheet.paste(a, (0, 28))
+    sheet.paste(b, (w + 20, 28))
+    heat = Image.new("RGB", a.size, (12, 12, 13))
+    heat.paste((227, 160, 99), mask=changed_img)
+    sheet.paste(heat, (2 * w + 40, 28))
+    draw = ImageDraw.Draw(sheet)
+    draw.text((8, 8), "mockup", fill=(216, 216, 224))
+    draw.text((w + 28, 8), "harness", fill=(216, 216, 224))
+    draw.text((2 * w + 48, 8), f"changed pixels {share:.1%}", fill=(216, 216, 224))
+    sheet.save(side_by_side)
+    return share
+
+
+# ── the run ──
+
+
+async def open_harness(browser: Any, base: str, viewport: dict[str, int], state: State) -> Page:
+    page = await browser.new_page(viewport=viewport)
+    await page.route("**/*", lambda route: route.continue_() if route.request.url.startswith(base) else route_outside(route))
+    if state.init_storage:
+        script = ";".join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)})" for k, v in state.init_storage)
+        await page.add_init_script(script)
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector("[data-desk-window]")
+    await page.evaluate("document.fonts.ready")
+    await page.wait_for_timeout(1500)
+    await state.drive(page)
+    return page
+
+
+async def compare_state(browser: Any, base: str, ref: Path, out: Path, state: State, viewport: str) -> dict[str, Any]:
+    stem = file_stem(state.variant, state.name, viewport)
+    ref_json = ref / f"{stem}.json"
+    if not ref_json.exists():
+        return {"state": state.name, "viewport": viewport, "status": "no reference capture", "file": ref_json.name}
+    reference = json.loads(ref_json.read_text())
+    page = await open_harness(browser, base, VIEWPORTS[viewport], state)
+    try:
+        app_png = out / f"{stem}__harness.png"
+        await page.screenshot(path=str(app_png))
+        names = [n for n in state.regions if n in REGIONS]
+        measured = await measure(page, {n: REGIONS[n].harness for n in names})
+        app_vars = await root_vars(page, ".desk-shell")
+        errors = await page.evaluate("() => window.__deskHarnessErrors || []")
+    finally:
+        await page.close()
+    # Below 1400 px the mockup's shelf element itself narrows to the rail, where the desks swap in a rail element.
+    shelf = reference["regions"].get("shelf")
+    if shelf and shelf["box"]["w"] <= 60 and not reference["regions"].get("shelf_rail"):
+        reference["regions"]["shelf_rail"], reference["regions"]["shelf"] = shelf, None
+    rows: list[dict[str, Any]] = []
+    missing, extra, unmapped = [], [], []
+    for name in names:
+        mock = reference["regions"].get(name, "unmapped")
+        app = measured.get(name)
+        if mock == "unmapped":
+            unmapped.append(name)
+        elif mock is None and app is None:
+            continue
+        elif mock is not None and app is None:
+            missing.append(name)
+        elif mock is None and app is not None:
+            extra.append(name)
+        elif "error" in mock or "error" in app:
+            rows.append({"region": name, "kind": "error", "prop": "selector", "mockup": mock.get("error"), "app": app.get("error")})
+        else:
+            rows += diff_region(name, mock, app, state.geometry)
+    share = pixel_share(ref / reference["screenshot"], app_png, out / f"{stem}__side_by_side.png")
+    return {
+        "state": state.name, "stage": state.stage, "viewport": viewport, "status": "compared",
+        "link_applied": reference.get("link_applied"), "pixel_changed_share": round(share, 4),
+        "missing_in_app": missing, "only_in_app": extra, "not_mapped_in_reference": unmapped,
+        "differences": rows, "tokens": diff_tokens(reference.get("root_vars", {}), app_vars), "harness_errors": errors,
+        "app": measured,
+    }
+
+
+async def dump(base: str, state: State, viewport: str) -> None:
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True)
+        page = await open_harness(browser, base, VIEWPORTS[viewport], state)
+        tree = await page.evaluate(r"""() => { const rows = []; const walk = (el, d) => { const cs = getComputedStyle(el); if (cs.display === 'none') return;
+          const r = el.getBoundingClientRect(); const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean).join('.') : '';
+          if (r.width >= 1 || r.height >= 1) rows.push('  '.repeat(d) + el.tagName.toLowerCase() + (cls ? '.' + cls : '') + ` [${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}]`);
+          if (d < 22) for (const c of el.children) walk(c, d + 1); }; walk(document.body, 0); return rows.join('\n'); }""")
+        print(tree)
+        await browser.close()
+
+
+def aggregate(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One row per distinct difference (region, property, mockup value, harness value), with the states and
+    viewports it shows in: the same wrong colour on ten states is one finding."""
+    rows: dict[tuple[str, ...], dict[str, Any]] = {}
+    for r in results:
+        if r["status"] != "compared":
+            continue
+        where = f"{r['state']} [{r['viewport']}]"
+        for d in r["differences"]:
+            key = (r["stage"], d["region"], d["kind"], d["prop"], json.dumps(d["mockup"]), json.dumps(d["app"]))
+            rows.setdefault(key, {"stage": r["stage"], **d, "where": []})["where"].append(where)
+        for name in r["missing_in_app"]:
+            key = (r["stage"], name, "missing", "", "", "")
+            rows.setdefault(key, {"stage": r["stage"], "region": name, "kind": "missing", "prop": "", "mockup": "shown", "app": "absent", "where": []})["where"].append(where)
+    return sorted(rows.values(), key=lambda row: (row["stage"], row["region"], row["kind"], row["prop"]))
+
+
+def summarise(results: list[dict[str, Any]]) -> str:
+    lines = []
+    for r in results:
+        if r["status"] != "compared":
+            lines.append(f"{r['state']} [{r['viewport']}]: {r['status']}")
+            continue
+        kinds: dict[str, int] = {}
+        for row in r["differences"]:
+            kinds[row["kind"]] = kinds.get(row["kind"], 0) + 1
+        lines.append(f"{r['state']} [{r['viewport']}]: pixels changed {r['pixel_changed_share']:.1%}; missing {len(r['missing_in_app'])}; "
+                     + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())) + f"; token rows {len(r['tokens'])}")
+    return "\n".join(lines)
+
+
+async def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "all"])
+    parser.add_argument("--state", default=None)
+    parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
+    parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")
+    parser.add_argument("--dump", default=None, metavar="STATE")
+    args = parser.parse_args()
+    if not DIST.exists():
+        print("build the harness page first: npx vite build --config vite.desks.config.mjs", file=sys.stderr)
+        return 2
+    server, port = serve(DIST)
+    base = f"http://127.0.0.1:{port}"
+    try:
+        if args.dump:
+            await dump(base, STATE_BY_NAME[args.dump], "design" if args.viewport == "both" else args.viewport)
+            return 0
+        if not args.ref.is_dir():
+            print("no reference directory: run the private capture first", file=sys.stderr)
+            return 2
+        out = args.out or (args.ref / "compare")
+        out.mkdir(parents=True, exist_ok=True, mode=0o700)
+        chosen = [s for s in STATES if (args.state is None or s.name == args.state) and (args.stage == "all" or s.stage == args.stage)]
+        results = []
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(headless=True)
+            for state in chosen:
+                for viewport in state.viewports:
+                    if args.viewport != "both" and viewport != args.viewport:
+                        continue
+                    try:
+                        results.append(await compare_state(browser, base, args.ref, out, state, viewport))
+                    except Exception as exc:  # a state the harness cannot reach is a finding, not the end of the run
+                        results.append({"state": state.name, "stage": state.stage, "viewport": viewport, "status": f"not reachable: {str(exc).splitlines()[0][:160]}"})
+            await browser.close()
+        tag = args.state and re.sub(r"[^A-Za-z0-9_.-]+", "_", args.state) or args.stage
+        (out / f"result__{tag}.json").write_text(json.dumps(results, indent=1, default=str))
+        (out / f"findings__{tag}.json").write_text(json.dumps(aggregate(results), indent=1, default=str))
+        print(summarise(results))
+        print(f"wrote {len(results)} comparisons to {out}")
+        return 0
+    finally:
+        server.shutdown()
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))
