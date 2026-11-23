@@ -55,7 +55,7 @@ AREA_RESPONSIBILITIES = {
     "TypeScript/screens/desks/model": "The client workspace model: desks, windows, slots and pairs, mirroring desk.apply op for op.",
     "TypeScript/screens/desks/windows": "Desk windows: the Reader's source pane as a scoped source or video window, thread windows, and the panel windows hosting v1 Reader surfaces.",
     "TypeScript/screens/desks/companion": "The app-wide companion: its docks, summon, dissolve, hand-off and pill (geometry and state machine), its questions as polled companion.ask jobs, the panel with the desk's thread and the history, and previewed diffs.",
-    "TypeScript/screens/desks/notebook": "A marimo notebook in a window: the frame served by the sidecar's sandboxed session, its honest states, the window lifecycle, and the bridge's four messages checked by source, origin and shape.",
+    "TypeScript/screens/desks/notebook": "A marimo notebook in a window: the frame served by the sidecar's sandboxed session, its honest states, the window lifecycle, the bridge's four messages checked by source, origin and shape, and a pad's marimo cells with their one live framed group.",
     "TypeScript/screens/desks/pads": "The scratchpads: pad stack windows (sticky tabs, the running pad, the live editor writing through pad.apply), provenance, gutter marks and hover cards, the pad menu, arrange and split, sketch blocks, submitting a block, passage marks for links and carried questions, and the desk drain.",
     "TypeScript/screens/desks/search": "Search in context: the groups of search.everything with the client's open-on-this-desk group, the meaning job, insert mode and the panel.",
     "TypeScript/screens/reader": "Reader request-state coordination extracted from the main reader screen.",

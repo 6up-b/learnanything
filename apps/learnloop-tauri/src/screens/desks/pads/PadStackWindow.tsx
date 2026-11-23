@@ -14,6 +14,7 @@ import { dayHeading, usePadsHost, type PadStackHandle, type PadsHost } from "./h
 import { EDITABLE_KINDS, firstLine, isLearnersWords, keyAfter, type PadState, plainLine } from "./model";
 import { PadMenu, ArrangeOverlay, SubmitSheet, type MenuRequest } from "./PadOverlays";
 import { SketchCanvas } from "./SketchCanvas";
+import { PadCell } from "../notebook/PadCell";
 import { activePad, fractionalOpen, mergeAmount, paperMinHeight, scrollTargetFor, tabMargin, type PadGeometry, type TabGrade } from "./stickyTabs";
 
 /** Hover cards (spec §10.6): open 160 ms after the pointer settles, hide 220 ms after it leaves. */
@@ -275,7 +276,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   }, [editing, host, proposalsFor, store, write]);
 
   const openEditor = (padId: string, block: PadBlockDto) => {
-    if (!EDITABLE_KINDS.has(block.kind) || block.kind === "sketch") return;
+    if (!EDITABLE_KINDS.has(block.kind) || block.kind === "sketch" || block.kind === "cell") return;
     // The block being edited is never reopened: that would reset the draft to the words it had when opened.
     if (editing?.blockId === block.blockId) return;
     if (window.getSelection?.()?.toString()) return;
@@ -287,7 +288,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     const blocks = store.pads[padId]?.blocks ?? [];
     const index = blocks.findIndex((each) => each.blockId === blockId);
     for (let i = index + direction; i >= 0 && i < blocks.length; i += direction) {
-      if (EDITABLE_KINDS.has(blocks[i].kind) && blocks[i].kind !== "sketch") return blocks[i];
+      if (EDITABLE_KINDS.has(blocks[i].kind) && blocks[i].kind !== "sketch" && blocks[i].kind !== "cell") return blocks[i];
     }
     return null;
   };
@@ -451,7 +452,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     const padId = state.pad.padId;
     const isEditing = editing?.blockId === block.blockId;
     const proposal = muted.includes(padId) ? null : (proposals[padId] ?? []).find((each) => each.blockId === block.blockId && each.shown && each.current) ?? null;
-    const editable = EDITABLE_KINDS.has(block.kind) && block.kind !== "sketch";
+    const editable = EDITABLE_KINDS.has(block.kind) && block.kind !== "sketch" && block.kind !== "cell";
     const submission = block.submissions.find((each) => each.current) ?? block.submissions[0] ?? null;
     let gutter: ReactNode = null;
     let body: ReactNode;
@@ -501,6 +502,19 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             payload={block.payload as Record<string, unknown>}
             editable={!paused}
             onCommit={(payload) => write(padId, [{ op: "edit_block", blockId: block.blockId, expectedHead: block.headVersionId, versionId: host.mintId("ver"), payload: payload as unknown as Record<string, unknown> }])}
+          />
+        );
+        break;
+      case "cell":
+        // A marimo cell edits its own code and runs in the pad's notebook (screens/desks/notebook).
+        gutter = <span className="mark ll">◆</span>;
+        body = (
+          <PadCell
+            padId={padId}
+            block={block}
+            blocks={state.blocks}
+            editable={!paused}
+            onCommit={(code) => write(padId, [{ op: "edit_block", blockId: block.blockId, expectedHead: block.headVersionId, versionId: host.mintId("ver"), bodyMd: code }])}
           />
         );
         break;

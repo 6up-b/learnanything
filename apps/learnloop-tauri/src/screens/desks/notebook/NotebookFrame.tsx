@@ -111,17 +111,19 @@ function errorOf(error: unknown): NotebookError {
 
 export interface NotebookFrameProps {
   owner: NotebookOwner;
-  /** The notebook file, relative to the vault root. */
-  path: string;
+  /** The notebook file, relative to the vault root; left out for a pad, whose notebook is its cells. */
+  path?: string;
   view?: "app" | "edit";
   /** The notebook's name, for the frame's title and the overview's placeholder. */
   title?: string;
   /** Overrides the sidecar's calls (tests, the harness). */
   calls?: NotebookApi;
   style?: CSSProperties;
+  /** Every session reading the frame takes (a pad's cells read their run states from it). */
+  onSession?: (session: NotebookSessionDto) => void;
 }
 
-export function NotebookFrame({ owner, path, view = "app", title = "notebook", calls = api, style }: NotebookFrameProps) {
+export function NotebookFrame({ owner, path, view = "app", title = "notebook", calls = api, style, onSession }: NotebookFrameProps) {
   const lifecycle = useWindowLifecycle();
   const paused = isPaused(lifecycle.state);
   const whenLive = useWhenLive();
@@ -132,6 +134,11 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
   const [attempt, setAttempt] = useState(0);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const preview = lifecycle.state === "preview";
+  const onSessionRef = useRef(onSession);
+  onSessionRef.current = onSession;
+  useEffect(() => {
+    if (session) onSessionRef.current?.(session);
+  }, [session]);
 
   // Open (or rejoin) the owner's session, then follow its state. A preview opens nothing.
   useEffect(() => {
@@ -156,7 +163,7 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
       await whenLive();
       if (cancelled) return;
       try {
-        const opened = await calls.notebookOpen({ owner, path, view });
+        const opened = await calls.notebookOpen(path === undefined ? { owner, view } : { owner, path, view });
         if (cancelled) return;
         setSession(opened);
         setError(null);

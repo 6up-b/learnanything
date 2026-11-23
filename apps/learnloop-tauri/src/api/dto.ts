@@ -11164,8 +11164,9 @@ export type NotebookOwner = `pad:${string}` | `lesson:${string}`;
 
 export interface NotebookOpenInput {
   owner: NotebookOwner;
-  /** The notebook file, relative to the vault root; the session runs a snapshot of its bytes. */
-  path: string;
+  /** The notebook file, relative to the vault root; the session runs a snapshot of its bytes. Left out for a pad
+   * (`pad:<id>`): its notebook is generated from the pad's marimo cells. */
+  path?: string;
   view?: "app" | "edit";
 }
 
@@ -11189,6 +11190,16 @@ export interface NotebookSessionDto {
   frameUrl: string;
   /** The session's scope memory, when it runs in a scope of its own. */
   memoryBytes: number | null;
+  /** Per cell name, its last run as marimo reported it. */
+  cellRuns?: Record<string, NotebookCellRunDto>;
+  /** A pad's session (from notebook.open only): each cell block's marimo name. */
+  padCells?: Record<string, string>;
+}
+
+export interface NotebookCellRunDto {
+  status: "queued" | "running" | "idle" | "stale" | "disabled-transitively" | null;
+  ms: number | null;
+  error: boolean;
 }
 
 export interface NotebookCellInput {

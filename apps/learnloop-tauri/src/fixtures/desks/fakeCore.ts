@@ -199,6 +199,9 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return companion.searchJob(String(input.jobId));
     case "notebook_open":
     case "notebook_status":
+    case "notebook_run_cells":
+      // The harness script answers these from a real sandboxed session when it exposes its bridge.
+      if (window.__nbRpc) return window.__nbRpc(command, input);
       return notebookSession(command, input);
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
@@ -209,7 +212,8 @@ function answer(command: string, input: Record<string, unknown>): unknown {
  * `window.__notebookHarness`), or a forced state (`?nbstate=`) for the frame's honest states. */
 declare global {
   interface Window {
-    __notebookHarness?: { frameUrl: string; sessionId: string };
+    __notebookHarness?: { frameUrl: string; sessionId: string; padCells?: Array<{ blockId: string; code: string }> };
+    __nbRpc?: (command: string, input: Record<string, unknown>) => Promise<unknown>;
   }
 }
 

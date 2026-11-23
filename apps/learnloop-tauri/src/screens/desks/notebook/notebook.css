@@ -48,3 +48,53 @@
   color: var(--desk-ink2, #55524c);
 }
 .ll-nb-placeholder .glyph { color: var(--desk-ll-ink, #5b4a9a); }
+
+/* A marimo cell in a pad (spec §11.5): a paper card with the purple voice edge; its header in the interface face;
+   its code in JetBrains Mono; under the pad's last cell, the framed group of every cell's output. */
+.ll-cell {
+  border: 1px solid #e3e0d8;
+  border-left: 3px solid var(--desk-ll-ink, #5b4a9a);
+  border-radius: 4px;
+  background: #fbfaf7;
+  margin: 2px 0;
+}
+.ll-cell-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 8px 3px;
+  font: 10.5px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink3, #7a766e);
+}
+.ll-cell-head .what { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ll-cell-head .state { color: var(--desk-ink2, #55524c); white-space: nowrap; }
+.ll-cell-head .run {
+  font: inherit;
+  color: var(--desk-ll-ink, #5b4a9a);
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.ll-cell-code, .ll-cell-editor textarea {
+  margin: 0;
+  padding: 4px 10px 8px;
+  font: 12px/1.55 var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink, #1f1e1c);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
+.ll-cell-code { cursor: text; min-height: 1.55em; }
+.ll-cell-editor textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  background: transparent;
+}
+.ll-cell-editor .hintline { padding: 0 10px 4px; font: 10px var(--desk-mono, monospace); color: var(--desk-ink3, #7a766e); }
+.ll-cell-group { margin: 6px -3px -1px; border-top: 1px solid #e3e0d8; }
+.ll-cell-group .ll-nb { padding: 8px 0 0; height: auto; }

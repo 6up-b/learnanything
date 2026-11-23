@@ -104,6 +104,8 @@ import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
 import { NotebookBridgeContext, type NotebookBridgeHost } from "./notebook/NotebookFrame";
 import type { BridgeMessage } from "./notebook/bridge";
+import { notebookMenuRequest, openNotebookMenu } from "./notebook/menuBridge";
+import type { NotebookOwner } from "../../api/dto";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
@@ -1756,9 +1758,16 @@ export function DeskShell({
   companionKeyRef.current = companionKey;
 
   /** A notebook frame's bridge (spec §11.3): `c` summons the companion at the frame's selection with its text as
-   * the chip (untrusted notebook text, quoted), `shift` docks it, and escape dissolves an anchored companion. The
+   * the chip (untrusted notebook text, quoted), `shift` docks it, escape dissolves an anchored companion, and a
+   * right-click opens the pad menu labelled for the notebook's owner. The
    * frame has already checked the message's source, origin and shape, and placed its geometry on the page. */
-  const notebookMessage = (message: BridgeMessage) => {
+  const notebookMessage = (message: BridgeMessage, owner: NotebookOwner) => {
+    if (message.ll === "menu") {
+      // The pad menu, labelled for the notebook's owner, once the menu registers its opener (notebook/menuBridge).
+      const request = notebookMenuRequest(message, owner);
+      if (request) openNotebookMenu(request);
+      return;
+    }
     if (message.ll === "escape") {
       if (companionStateRef.current.mode === "anchored") stepCompanion({ kind: "c", anchor: null, stage: stageNow.current });
       return;
@@ -1777,7 +1786,7 @@ export function DeskShell({
   };
   const notebookMessageRef = useRef(notebookMessage);
   notebookMessageRef.current = notebookMessage;
-  const notebookBridge = useMemo<NotebookBridgeHost>(() => ({ onMessage: (message) => notebookMessageRef.current(message) }), []);
+  const notebookBridge = useMemo<NotebookBridgeHost>(() => ({ onMessage: (message, _frame, owner) => notebookMessageRef.current(message, owner) }), []);
 
   // The dock and whether it shows come from the desk the desks open on; after that the companion is
   // app-wide and stays where it is when the learner switches desks (a docked companion never moves).
