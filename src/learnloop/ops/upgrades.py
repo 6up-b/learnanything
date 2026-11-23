@@ -42,6 +42,7 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
 )
+from learnloop.attempts.lifecycle_inputs import reconstructing_legacy_lifecycle_inputs
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
 from learnloop.db.stores.attempts import rank_legacy_attempts
@@ -145,8 +146,6 @@ def _observe_legacy_lifecycle_inputs(vault: LoadedVault, repository: Repository,
     # now, attempted items reset as replay resets them), and nothing it wrote survives (no receipt, no appended
     # version). Reconstructing the set from the flags directly would have to repeat every reset and re-close replay
     # does on the way.
-    from learnloop.attempts.lifecycle_inputs import reconstructing_legacy_lifecycle_inputs
-
     with reconstructing_legacy_lifecycle_inputs() as observed:
         try:
             with repository.atomic():
