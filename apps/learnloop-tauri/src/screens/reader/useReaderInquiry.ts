@@ -67,7 +67,7 @@ import {
   type ReturnEntry,
   type ReturnStack,
 } from "./returnStack";
-import { useListenerHub, useWindowPaused } from "../desks/lifecycle";
+import { useListenerHub, useScopeClaim, useWindowPaused } from "../desks/lifecycle";
 
 // The passage quick check's poll (F4): every 3 s for at most 10 minutes (the
 // Codex turn timeout is 8), then it fails as timed out.
@@ -279,6 +279,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   historyRef.current = history;
   const [collapsedAskIds, setCollapsedAskIds] = useState<Set<string>>(new Set());
   const [askFindOpen, setAskFindOpen] = useState(false);
+  // The find box owns esc while it is open.
+  useScopeClaim("menu", askFindOpen);
   const [askFindQuery, setAskFindQuery] = useState("");
   const askFindInputRef = useRef<HTMLInputElement | null>(null);
   // RW1a (reader_inquiry): the return stack and its detour strip; the

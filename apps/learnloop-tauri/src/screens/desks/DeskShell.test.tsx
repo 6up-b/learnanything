@@ -3,12 +3,13 @@
 // Layout, pixels and real iframes are the real-webview harness's (scripts/desk_harness/run.py).
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { DeskStateDto, SourceLibraryCard } from "../../api/dto";
 import { FixtureDeskServer, fixtureDeskState } from "../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../fixtures/desks/sources";
 import { DeskShell, type DeskTransport, type PaneRenderInput } from "./DeskShell";
-import { useListenerHub } from "./lifecycle";
+import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
+import { useBareAltClear } from "../reader/bareAlt";
 
 vi.mock("../../api/client", () => ({ api: {} }));
 vi.mock("./windows/SourceWindow", () => ({ SourceWindow: () => null }));
@@ -596,5 +597,71 @@ describe("fix round: windows are never remounted (finding 2)", () => {
     expect(video.value).toBe("a note on the video");
     expect(mounts.fx_w_book).toBe(1);
     expect(mounts.fx_w_video).toBe(1);
+  });
+});
+
+describe("fix round: the hosted content's scopes reach the router (finding 8)", () => {
+  const claims: Record<string, ClaimedScope> = {};
+  function ClaimingPane({ input }: { input: PaneRenderInput }) {
+    const id = input.window.windowId;
+    const [menu, setMenu] = useState(false);
+    const scope = menu ? "menu" : claims[id];
+    useScopeClaim(scope ?? "typing", scope !== undefined);
+    return (
+      <>
+        <Pane input={input} />
+        <button type="button" onClick={() => setMenu(true)}>{`open menu ${id}`}</button>
+      </>
+    );
+  }
+  afterEach(() => {
+    for (const key of Object.keys(claims)) delete claims[key];
+  });
+
+  it("an intent box open over a selection takes the typed key: x reaches it and swaps nothing", async () => {
+    claims.fx_w_book = "typing";
+    const { server } = mount(new FixtureDeskServer(), { renderPane: (input) => <ClaimingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    act(() => {
+      fireEvent.keyDown(window, { key: "x", code: "KeyX" });
+    });
+    await flush();
+    expect(heardKeys.fx_w_book).toContain("x");
+    expect(server.batches).toEqual([]);
+  });
+
+  it("an open menu in focus mode takes esc: focus mode stays and the menu hears it", async () => {
+    mount(new FixtureDeskServer(), { renderPane: (input) => <ClaimingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("Enter", "Enter");
+    const box = () => document.querySelector('[data-desk-slot-window="fx_w_book"]');
+    expect(box()?.className).toContain("focused-full");
+    fireEvent.click(screen.getByRole("button", { name: "open menu fx_w_book" }));
+    act(() => {
+      fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+    });
+    expect(heardKeys.fx_w_book).toContain("Escape");
+    expect(box()?.className).toContain("focused-full");
+  });
+});
+
+describe("fix round: one Alt tracker (finding 9)", () => {
+  const cleared: string[] = [];
+  function CapturePane({ input }: { input: PaneRenderInput }) {
+    useBareAltClear(() => cleared.push(input.window.windowId));
+    return <Pane input={input} />;
+  }
+
+  it("an Alt chord the shell takes never reaches the Reader as a bare-Alt tap; a real tap still clears", async () => {
+    cleared.length = 0;
+    mount(new FixtureDeskServer(), { renderPane: (input) => <CapturePane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("BracketRight", "]");
+    expect(cleared).toEqual([]);
+    act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    expect(cleared).toEqual(["fx_w_book"]);
   });
 });

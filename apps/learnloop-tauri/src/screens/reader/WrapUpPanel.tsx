@@ -13,7 +13,7 @@ import { Quoted, RecapLink } from "./RecapCard";
 import { RECAP_COPY, observationLine } from "./recapCopy";
 import { MeaningLabel } from "./voices";
 import { screenLeavesKey } from "../../app/keymap";
-import { useListenerHub } from "../desks/lifecycle";
+import { useListenerHub, useScopeClaim } from "../desks/lifecycle";
 
 export interface WrapUpPanelProps {
   wrapUp: ReaderWrapUpDto;
@@ -48,6 +48,8 @@ function reinforceLine(line: ReaderWrapUpReinforceLineDto): string {
 export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone, followups }: WrapUpPanelProps) {
   const [kept, setKept] = useState<Set<string>>(new Set());
   const hub = useListenerHub();
+  // Open, it owns esc: in a desk's focus mode esc closes it before it leaves focus mode.
+  useScopeClaim("menu", true);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event, { scopes: ["wrap-up", "screen"] })) return;

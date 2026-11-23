@@ -66,7 +66,7 @@ import { PreparingView } from "./reader/PreparingView";
 import { readerKeyBarKeys } from "./reader/readerKeys";
 import { type ReadingPosition } from "./reader/readingPosition";
 import { useBareAltClear } from "./reader/bareAlt";
-import { useListenerHub, useWindowPaused } from "./desks/lifecycle";
+import { useListenerHub, useScopeClaim, useWindowPaused } from "./desks/lifecycle";
 import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
@@ -1508,6 +1508,8 @@ export function ReaderScreen({
   // Curriculum C2: the › marks of the learner's linked notes (off: none, nothing read).
   const notesCtl = useNoteMarks({ settings: contract?.notes, extractionId: render?.extractionId ?? null, offline });
   const [notePicker, setNotePicker] = useState<{ spanId: string; x: number; y: number } | null>(null);
+  // An open tag menu or note picker owns the keys (esc closes it) before the desk's bindings.
+  useScopeClaim("menu", tagMenu !== null || notePicker !== null);
   // RW4d on the original PDF (Codex review F10): the ⇄ marks join the page's
   // overlay gutter beside the cue marks. They are the learner's own marks:
   // added after the cue placement, so the density setting never counts them.

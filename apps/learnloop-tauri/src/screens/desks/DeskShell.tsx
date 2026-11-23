@@ -910,9 +910,11 @@ export function DeskShell({
       if (type === "keyup") {
         modifiers.keyup(event);
         if (event.key === "g" || event.key === "G") setGatherPreview(false);
-        // Alt held long enough to show which-key: its release belongs to the panel, never to a window's
-        // capture-clearing tap.
-        return altTracker.release(event) === "hold";
+        // The shell's tracker is the one that saw every key while Alt was down (a chord it took never reaches
+        // a window): only a confirmed tap's release goes on to a window's capture-clearing gesture. A hold
+        // (which-key) or a chord keeps it.
+        const outcome = altTracker.release(event);
+        return outcome !== null && outcome !== "tap";
       }
       if (type !== "keydown") return false;
       modifiers.keydown(event);
