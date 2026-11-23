@@ -353,11 +353,15 @@ def begin_teach_back(
     scheduler_candidate_id: str | None = None,
     config: LearnLoopConfig | None = None,
     clock: Clock | None = None,
+    conversation_id: str | None = None,
 ) -> TeachBackState:
     """Start a conversation: plan the follow-ups and record the opening turn.
 
     ``scheduler_candidate_id`` is the queue offer the conversation answers; the
     caller validates it, and ``finish_teach_back`` links the attempt to it.
+    ``conversation_id``: an id the caller reserved before starting (a submitted pad
+    block's), so a retry after a crash finds this conversation, or its attempt, by
+    it; a fresh one otherwise.
     """
 
     if not opening_md.strip():
@@ -367,7 +371,7 @@ def begin_teach_back(
         practice_item_id=item.id,
         planned=planned,
         turns=[TeachBackTurn(role="learner", content_md=opening_md)],
-        conversation_id=new_ulid(),
+        conversation_id=conversation_id or new_ulid(),
         scheduler_candidate_id=scheduler_candidate_id,
     )
 

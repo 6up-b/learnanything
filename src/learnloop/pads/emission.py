@@ -97,11 +97,32 @@ def words_version(versions: list[dict[str, Any]]) -> dict[str, Any] | None:
     return found
 
 
-def _passages(connection: Any, block: Mapping[str, Any]) -> list[list[str]]:
-    blocks = [str(block["block_id"])]
-    parent = (block.get("payload") or {}).get("parent_block_id")
-    if parent:
-        blocks.append(str(parent))
+def context_blocks(connection: Any, head: Mapping[str, Any]) -> tuple[list[str], list[str]]:
+    """The blocks and pads whose links and quotes a block's words carry: the block itself, every block of its lift
+    lineage (a lifted block's words came from there, and a lift made before anchors moved with the words left its
+    links on the stub), and the block each of them is a note under; the pads all of these sit in. One definition for
+    the emission's snapshot, the submission's quote check, the proposals and the pad's own read."""
+
+    versions = lineage(connection, str(head["block_id"])) or [dict(head)]
+    blocks: list[str] = [str(head["block_id"])]
+    pads: list[str] = [str(head["pad_id"])]
+    for version in [head, *versions]:
+        for block_id in (version["block_id"], (version.get("payload") or {}).get("parent_block_id")):
+            if block_id and str(block_id) not in blocks:
+                blocks.append(str(block_id))
+        if str(version["pad_id"]) not in pads:
+            pads.append(str(version["pad_id"]))
+    for block_id in blocks[1:]:
+        parent = reads.head(connection, block_id)
+        if parent is not None and str(parent["pad_id"]) not in pads:
+            pads.append(str(parent["pad_id"]))
+    return blocks, pads
+
+
+def passages_of(connection: Any, head: Mapping[str, Any]) -> list[list[str]]:
+    """The passages a block's words are linked to, through :func:`context_blocks`, in written order."""
+
+    blocks, _pads = context_blocks(connection, head)
     seen: list[list[str]] = []
     for anchor in reads.standing_anchors_for_blocks(connection, blocks):
         place = [str(anchor["extraction_id"]), str(anchor["span_id"])]
@@ -110,11 +131,16 @@ def _passages(connection: Any, block: Mapping[str, Any]) -> list[list[str]]:
     return seen
 
 
-def _quotes(connection: Any, repository: Any, pad_id: str, passages: list[list[str]]) -> list[str]:
-    quotes = [str(head["body_md"] or "") for head in reads.heads(connection, pad_id)
-              if not head["tombstone"] and head["kind"] in QUOTE_KINDS]
+def quotes_of(connection: Any, repository: Any, head: Mapping[str, Any],
+              passages: list[list[str]] | None = None) -> list[str]:
+    """Someone else's words a block of the learner's might carry: the quote blocks of every pad its words passed
+    through (:func:`context_blocks`) and the text of the passages it is linked to."""
+
+    _blocks, pads = context_blocks(connection, head)
+    quotes = [str(other["body_md"] or "") for pad_id in pads for other in reads.heads(connection, pad_id)
+              if not other["tombstone"] and other["kind"] in QUOTE_KINDS]
     by_extraction: dict[str, set[str]] = {}
-    for extraction_id, span_id in passages:
+    for extraction_id, span_id in (passages if passages is not None else passages_of(connection, head)):
         by_extraction.setdefault(extraction_id, set()).add(span_id)
     for extraction_id, spans in by_extraction.items():
         try:
@@ -131,13 +157,13 @@ def snapshot(connection: Any, repository: Any, head: Mapping[str, Any], words: M
     """What the gap pipeline is handed for one wording: the learner's words and the facts about them, frozen."""
 
     pad = reads.pad(connection, str(head["pad_id"])) or {}
-    passages = _passages(connection, head)
+    passages = passages_of(connection, head)
     text = str(words["body_md"] or "")
     return {
         "version_id": str(words["version_id"]), "block_id": str(head["block_id"]), "pad_id": str(head["pad_id"]),
         "block_kind": str(words["kind"]), "provenance": str(words["provenance"]), "text": text,
         "transcribed": words["kind"] == "ink",
-        "quoted_by_learner": includes_quote(text, _quotes(connection, repository, str(head["pad_id"]), passages)),
+        "quoted_by_learner": includes_quote(text, quotes_of(connection, repository, head, passages)),
         "passages": passages, "pad_kind": str(pad.get("kind") or ""),
         "workbench_session_id": pad.get("workbench_session_id"), "written_at": str(words["created_at"]),
     }
@@ -227,6 +253,6 @@ def reconcile(vault: Any, repository: Any, *, clock: Any = None) -> Settled:
 
 
 __all__ = [
-    "EMITTED", "PAD_TEXT", "QUOTE_KINDS", "RETRACTED", "SNAPSHOT_KEY", "SUPERSEDED", "Settled", "emittable",
-    "lineage", "reconcile", "settle_blocks", "snapshot", "words_version",
+    "EMITTED", "PAD_TEXT", "QUOTE_KINDS", "RETRACTED", "SNAPSHOT_KEY", "SUPERSEDED", "Settled", "context_blocks",
+    "emittable", "lineage", "passages_of", "quotes_of", "reconcile", "settle_blocks", "snapshot", "words_version",
 ]

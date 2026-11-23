@@ -10687,9 +10687,25 @@ export type DeskOpDto = DeskOpBase & (
   | { op: "set_companion_shown"; deskId: string; shown: boolean }
   | { op: "set_goal"; deskId: string; goalId: string | null });
 
+/** RD4 fix round: a stack's membership by one entry (a union / a removal; no expected version is checked, so it
+ * commutes with every other desk change; it lives in the window's spec, never its view), and the desk's running pad
+ * with its stack, ensured idempotently (the ids are used only when something is created). Sent in desk.apply like
+ * any desk op (each applied one adds one to the desk's version); kept apart from DeskOpDto (and DeskApplyInput's
+ * ops) until the client model applies them optimistically. */
+export type DeskMembershipOpDto = DeskOpBase & (
+  | { op: "add_to_stack"; deskId: string; windowId: string; entry: PadStackEntryDto }
+  | { op: "remove_from_stack"; deskId: string; windowId: string; entry: PadStackEntryDto }
+  | { op: "ensure_running_pad"; deskId: string; padId: string; windowId: string; title?: string });
+
 /** One op's result: applied, not applied for a stale head (with the current head), or refused. */
 export type WriteOpResultDto =
-  | { status: "ok"; headVersionId?: string; eventId?: string }
+  | { status: "ok"; headVersionId?: string; eventId?: string;
+      /** edit_block with keepBoth on a stale head: the client's words, as the block they landed in. */
+      keptBoth?: { blockId: string; headVersionId: string };
+      /** add_to_stack / remove_from_stack: whether the stack changed, and the stack now. */
+      changed?: boolean; stack?: PadStackEntryDto[];
+      /** ensure_running_pad. */
+      padId?: string; windowId?: string; createdPad?: boolean; createdWindow?: boolean; addedToStack?: boolean }
   | { status: "conflict"; current: Record<string, unknown> }
   | { status: "refused"; code: string; message: string };
 
@@ -10753,6 +10769,12 @@ export interface PadAnchorDto {
   anchor: Record<string, unknown>;
   annotationId: string | null;
   createdAt: string;
+  /** A link a lift made before links moved left on the stub: shown here, read only (unlink it on that block). */
+  inheritedFromBlockId?: string | null;
+  /** Enough to open the link with no window of its source open: the ContentRef's sourceId, and a cue's start.
+   * Always sent by pad.get; optional here only for links the client makes before the server's answer. */
+  sourceId?: string | null;
+  t?: number | null;
 }
 
 export interface PadViewDto { version: number; pad: PadDto; blocks: PadBlockDto[]; anchors: PadAnchorDto[] }
@@ -10767,7 +10789,11 @@ export type PadOpDto =
   | { op: "insert_block"; blockId: string; versionId?: string; kind: PadBlockKind; provenance: PadProvenance;
       positionKey: string; day?: string | null; bodyMd?: string; payload?: Record<string, unknown> }
   | { op: "edit_block"; blockId: string; expectedHead: string; versionId?: string; bodyMd?: string;
-      payload?: Record<string, unknown> }
+      payload?: Record<string, unknown>;
+      /** On a stale head: keep the server's head and land these words as a new block right after it
+       * (payload.conflict names the block, the expected head, the server head and this label). Absent: a
+       * conflict, as before. Stale remove/move/lift are always conflicts: never retry them onto newer text. */
+      keepBoth?: { blockId: string; versionId?: string; label?: string } }
   | { op: "remove_block"; blockId: string; expectedHead: string; versionId?: string }
   | { op: "move_block"; blockId: string; expectedHead: string; positionKey: string; versionId?: string }
   | { op: "lift_out"; blockId: string; expectedHead: string; newPadId: string; newBlockId: string; title?: string;
@@ -10819,6 +10845,22 @@ export interface PadSubmitBlockDto {
   duplicate: boolean;
   /** The entry point's own reply (submit_attempt's, or submit_teach_back_turn's) on the call that handed it over. */
   entry: Record<string, unknown> | null;
+  /** A teach-back's conversation, found by the id reserved before the hand-off: completed (attemptId set),
+   * ongoing (its checkpointed state, keys as stored, to resume in the teach-back screen; on the opening call the
+   * entry's reply carries the student's question). Null for an attempt. */
+  teachBack: { status: "completed" | "ongoing"; conversationId: string; state: Record<string, unknown> | null } | null;
+}
+
+/** passage.content: one range of a reading as the source has it (a source_piece's words, location and time). */
+export interface PassageContentDto {
+  version: number;
+  extractionId: string;
+  sourceId: string | null;
+  title: string | null;
+  /** Any passage is exam or held-out material: its text is null, and it is not to be copied into a pad. */
+  withheld: boolean;
+  spans: { spanId: string; text: string | null; page: number | null; t0: number | null; t1: number | null;
+    sectionId: string | null; sectionLabel: string | null; withheld: boolean }[];
 }
 
 export type ProposalLabel = "opened" | "not_this" | "dismiss" | "ignored";
@@ -10910,7 +10952,9 @@ export interface PassageUnionSpanDto {
   sectionId: string | null;
   annotations: { annotationId: string; type: string; learnerText: string; placement: string }[];
   padBlocks: { blockId: string; padId: string; kind: PadBlockKind; provenance: PadProvenance; eventId: string;
-    annotationId: string | null; alias: SpanAlias }[];
+    annotationId: string | null; alias: SpanAlias;
+    /** The link sits on a lift-out stub (a lift made before links moved): blockId is the lifted block. */
+    liftedFromBlockId?: string | null }[];
   exchanges: { questionEventId: string; role: "selection" | "cited" | "context"; quality: AnchorQuality;
     alias: SpanAlias; context: string; questionMd: string; createdAt: string }[];
   adjustments: { questionEventId: string; gapId: string }[];

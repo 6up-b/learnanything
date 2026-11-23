@@ -510,10 +510,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_labels_are_logged_once_and_dismiss_or_not_this_hides_the_marker`
   - `test_three_labels_each_logged_and_a_stale_label_is_a_conflict`
 - [tests/test_reader_rd4_submission.py](../../../../../tests/test_reader_rd4_submission.py) — direct import
+  - `test_a_crash_before_the_hand_off_hands_the_frozen_words_over_under_the_same_id`
   - `test_a_retry_hands_nothing_over_again_and_a_reused_id_is_refused`
-  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
   - `test_an_answer_only_from_its_problem_pad_or_check_cell`
   - `test_an_edit_after_submitting_keeps_the_submitted_version_and_its_tag_says_so`
+  - `test_two_submissions_with_the_same_words_are_never_taken_for_one_conversation`
   - `test_what_is_refused`
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`

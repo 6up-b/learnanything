@@ -114,7 +114,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `module`; statically calls `alias_map`, `reading_source`
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `module`; statically calls `alias_map`, `completed_readings`, `current_reading`, `previous_readings`, `reading_source`, `record_aliases`, `source_readings`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `CITATION_MADE_AT_SQL`, `CitationResolver`, `CurrentKeys`, `reading_source`; statically calls `CitationResolver`, `CurrentKeys`, `reading_source`
+- [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `reading_source`; statically calls `reading_source`
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `reading_source`; statically calls `reading_source`
+- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `reading_source`; statically calls `reading_source`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `STATUS_CURRENT`, `SpanTranslator`, `other_readings`, `reading_source`; statically calls `SpanTranslator`, `other_readings`, `reading_source`
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `SpanTranslator`; statically calls `SpanTranslator`
 - [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `SpanTranslator`, `current_reading`, `reading_source`; statically calls `SpanTranslator`, `current_reading`, `reading_source`
@@ -151,7 +153,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
