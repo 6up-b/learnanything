@@ -279,3 +279,24 @@ On backup-API copies (`learnloop.db.copies`), never a live vault:
   test seeds (older payloads without `question_event_id` produce only the anchor row from `note_id`).
 - Concurrency between two sidecars applying batches for one client (one learner; `BEGIN IMMEDIATE` serialises them).
 - The landing gate, the whole suite, `npm test` beyond `src/api`, `npm run frontend:build`, and the durability lane.
+
+## 13. After D8 landed (merge of main `544a6d529a`)
+
+Migration 261 (`attempt_application_order`, mvp-0.65) is now under 262, so the number has no gap and deviation 1
+above no longer applies. The merge took main's 261 fixture and redid the 262 upgrade on it (applied `[262]` only;
+checkpoint (0, 0, 0); journal `delete`; integrity ok; foreign keys clean; 41 objects; only `schema_migrations` gains a
+row; 7,704,576 bytes); the earlier upgrade diffs admit `RD0_ADDED_OBJECTS` beside `APPLICATION_ORDER_ADDED_OBJECTS`.
+The diagnosis journey golden's `text_prerequisite` case gains its two derived passage rows (one
+`question_event_spans`, one `learner_text_gap_spans`, both unanchored; nothing else moved) and `golden_json_lines`
+rises by those 24 lines. Results after the merge:
+
+| Command | Result |
+|---|---|
+| the 28 range-asserting upgrade tests | 28 passed |
+| the migration set, 261's test, the rebuild orchestrator, table roles, the six RD0 test files | 396 passed |
+| `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
+| identity pins, structure ratchets, public tip guards | 374 passed |
+| the row-recording goldens (grade application, diagnosis journey, due queue, synthesis tail) and the ratchets, after regenerating the one case | 67 passed |
+| `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / 51 kept, 0 broken / collected 33069: landing 33003 + arc_close 66 |
+| `npx vitest run --maxWorkers=2` / `npm run frontend:build` | 328 files, 3656 tests passed / built |
+
