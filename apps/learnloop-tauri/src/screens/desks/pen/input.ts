@@ -71,7 +71,6 @@ export class PenInput {
   /** A pointer went down. `penOn`: pen mode is on now. */
   down(event: PointerLike, penOn: boolean): DownOutcome {
     if (this.active) return { kind: "pass" };
-    if (event.pointerType === "touch") return { kind: "pass" };
     const pen = event.pointerType === "pen";
     const mouse = event.pointerType === "mouse" && this.simulate();
     if (!pen && !mouse) return { kind: "pass" };
