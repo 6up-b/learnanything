@@ -317,3 +317,18 @@ def build_waiting_check_episode_vault(root):
         apply_choice(vault, repository, Scope("practice_item", item_id), "pause", clock=at)
     apply_choice(vault, repository, Scope("practice_item", "pi_svd_define_001"), "check_once", clock=at)
     return load_vault(vault.root), repository
+
+
+def build_intent_targets_vault(root):
+    """``(vault, repository)``: :func:`build_rich_vault` with "Master" on ``lo_c`` and "Light touch" on ``lo_b``
+    (recall targets other than 0.90, so the effective due and the push lane read intent), and a "Check once" on the
+    probe's LO set eight days ago (due now), whose candidates include the episode's instruments."""
+
+    from learnloop.intent.control import Scope, apply_choice
+
+    vault, repository = build_rich_vault(root)
+    at = FrozenClock(NOW - timedelta(days=8))
+    apply_choice(vault, repository, Scope("learning_object", "lo_c"), "master", clock=at)
+    apply_choice(vault, repository, Scope("learning_object", "lo_b"), "light_touch", clock=at)
+    apply_choice(vault, repository, Scope("learning_object", PROBE_LO), "check_once", clock=at)
+    return load_vault(vault.root), repository
