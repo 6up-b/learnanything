@@ -142,7 +142,7 @@ def _fetch_metadata(source: str, category: str) -> tuple[str | None, tuple[str, 
     if source_kind(category).fetch_as != "youtube_video":
         return None, ()
     try:
-        from learnloop.ingest.fetchers import youtube_oembed_metadata, youtube_video_id
+        from learnloop.ingest.youtube import youtube_oembed_metadata, youtube_video_id
 
         video_title, author = youtube_oembed_metadata(youtube_video_id(source))
     except Exception:  # pragma: no cover - metadata is strictly best-effort

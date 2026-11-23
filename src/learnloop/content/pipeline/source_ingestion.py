@@ -682,15 +682,6 @@ def _resolved_pdf_config(
         raise SourceIngestionError(f"invalid PDF extraction settings: {exc}") from exc
 
 
-def detect_source_kind(
-    source: str,
-    *,
-    kind: KindOption = "auto",
-    learning_object_ids: list[str] | None = None,
-) -> SourceKind:
-    return resolve_canonical_source(source, kind=kind, learning_object_ids=learning_object_ids)[1]
-
-
 def resolve_canonical_source(
     source: str,
     *,

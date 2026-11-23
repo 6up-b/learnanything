@@ -17,7 +17,6 @@ from learnloop.content.pipeline.source_ingestion import (
     FetchResult,
     SourceIngestionError,
     chunk_normalized_source,
-    detect_source_kind,
     fetch_source,
     ingest_canonical_source,
     normalize_source,
@@ -28,6 +27,12 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
 from tests.source_ingestion_adapters_helpers import _make_pdf_bytes
+
+
+def detect_source_kind(source, **kwargs):
+    """The legacy pipeline's kind for ``source``."""
+
+    return resolve_canonical_source(source, **kwargs)[1]
 
 
 def test_source_kind_detection_handles_special_cases(tmp_path):
