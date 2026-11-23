@@ -572,3 +572,33 @@ export function swapInView(ws: Workspace, deskId: string, otherSlot: number): St
   if (!id || index < 0 || otherSlot < 0 || otherSlot >= desk.slots.length || otherSlot === index) return start(ws);
   return push(start(ws), { op: "move_window", deskId, windowId: id, toSlot: otherSlot });
 }
+
+/** Reorder a desk's slots to `order` (the same slots, each named by its windows), as move_window ops:
+ * slot by slot from the left, each moved to its place. Gather and ungather use it (spec §6.6). */
+export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): Step {
+  let step = start(ws);
+  order.forEach((slot, index) => {
+    const desk = requireDesk(step.ws, deskId);
+    const at = slotIndexOf(desk, slot[0]);
+    if (at < 0 || at === index) return;
+    step = push(step, { op: "move_window", deskId, windowId: slot[0], toSlot: index });
+  });
+  return step;
+}
+
+/** A window to another desk, after `afterWindowId` there (or at the end), keeping its focus on the old
+ * desk's neighbour. Its pair partner, if any, stays. */
+export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step {
+  const desk = requireDesk(ws, deskId);
+  if (deskId === toDeskId || slotIndexOf(desk, windowId) < 0) return start(ws);
+  const index = slotIndexOf(desk, windowId);
+  const wasFocus = focusedWindowId(ws, desk) === windowId;
+  let step = push(start(ws), { op: "move_to_desk", deskId, windowId, toDeskId, toExpectedVersion: 0, afterWindowId });
+  if (wasFocus) {
+    const after = requireDesk(step.ws, deskId);
+    const at = Math.min(index, after.slots.length - 1);
+    const next = at >= 0 ? after.slots[at][0] : null;
+    if (next) step = push(step, { op: "set_focus", deskId, windowId: next });
+  }
+  return step;
+}

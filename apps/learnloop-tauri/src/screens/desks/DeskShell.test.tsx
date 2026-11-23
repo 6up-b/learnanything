@@ -240,8 +240,8 @@ describe("the key router", () => {
     });
     expect(screen.getByRole("dialog", { name: "alt keys" })).toBeTruthy();
     expect(screen.getByText("window left")).toBeTruthy();
-    // Not built yet, so not on the panel.
-    expect(screen.queryByText("overview")).toBeNull();
+    // Not built yet (RD4), so not on the panel.
+    expect(screen.queryByText("new pad")).toBeNull();
     act(() => {
       fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
     });
