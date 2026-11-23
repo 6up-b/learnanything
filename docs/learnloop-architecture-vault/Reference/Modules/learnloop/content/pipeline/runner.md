@@ -264,6 +264,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r3_f2_a_scan_or_image_imported_without_the_ok_asks_for_it_on_its_card`
 - [tests/test_import_split_parity.py](../../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_the_reader_job_records_an_import_row_and_leaves_the_item_unchanged`
+- [tests/test_ingest_eligibility_contract.py](../../../../../../../tests/test_ingest_eligibility_contract.py) — direct import
+  - `test_a_completed_batch_offers_no_retry`
 - [tests/test_ingest_jobs.py](../../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_batch_completion_triggers_one_vault_reload`
   - `test_bind_premarks_previously_completed_apply_jobs`

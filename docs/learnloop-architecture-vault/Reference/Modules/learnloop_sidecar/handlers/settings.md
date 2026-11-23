@@ -46,57 +46,57 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py) |
-| Source lines | 828 |
+| Source lines | 831 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `get_settings(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 242)
-- `class UseCaseChoice(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 246)
-- `class UpdateAiSettingsParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 251)
-- `update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 264) — Persist provider/model choices to learnloop.toml and reload.
-- `class UpdateIngestSettingsParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 432)
-- `update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 456)
-- `class DetectProviderCapabilitiesParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 551)
-- `detect_provider_capabilities(ctx: SidecarContext, params: DetectProviderCapabilitiesParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 558) — Look an OpenRouter profile's model up in the public model catalog.
-- `class UpdateProviderModalitiesParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 631)
-- `update_provider_modalities(ctx: SidecarContext, params: UpdateProviderModalitiesParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 637) — Record the media modalities a chat provider profile accepts natively.
-- `class SetTranscriptionApiKeyParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 671)
-- `set_transcription_api_key(ctx: SidecarContext, params: SetTranscriptionApiKeyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 676) — Save the [ingest.audio] endpoint's API key — same machinery and rules as the OpenRouter key (global settings.env + direct os.environ write).
-- `class SetTextRecognitionApiKeyParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 703)
-- `set_text_recognition_api_key(ctx: SidecarContext, params: SetTextRecognitionApiKeyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 708) — Save the z.ai key GLM-OCR text recognition uses ([ingest.pdf.glm_ocr] api_key_env) — same machinery and rules as the OpenRouter key (global settings.env + direct os.environ write).
-- `class SetOpenrouterApiKeyParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 737)
-- `set_openrouter_api_key(ctx: SidecarContext, params: SetOpenrouterApiKeyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 742)
-- `class UpdateAnimationSettingsParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 769)
-- `update_animation_settings(ctx: SidecarContext, params: UpdateAnimationSettingsParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 778) — Persist [animation] render quality / pacing cap / timeout and reload.
+- `get_settings(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 245)
+- `class UseCaseChoice(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 249)
+- `class UpdateAiSettingsParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 254)
+- `update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 267) — Persist provider/model choices to learnloop.toml and reload.
+- `class UpdateIngestSettingsParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 435)
+- `update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 459)
+- `class DetectProviderCapabilitiesParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 554)
+- `detect_provider_capabilities(ctx: SidecarContext, params: DetectProviderCapabilitiesParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 561) — Look an OpenRouter profile's model up in the public model catalog.
+- `class UpdateProviderModalitiesParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 634)
+- `update_provider_modalities(ctx: SidecarContext, params: UpdateProviderModalitiesParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 640) — Record the media modalities a chat provider profile accepts natively.
+- `class SetTranscriptionApiKeyParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 674)
+- `set_transcription_api_key(ctx: SidecarContext, params: SetTranscriptionApiKeyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 679) — Save the [ingest.audio] endpoint's API key — same machinery and rules as the OpenRouter key (global settings.env + direct os.environ write).
+- `class SetTextRecognitionApiKeyParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 706)
+- `set_text_recognition_api_key(ctx: SidecarContext, params: SetTextRecognitionApiKeyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 711) — Save the z.ai key GLM-OCR text recognition uses ([ingest.pdf.glm_ocr] api_key_env) — same machinery and rules as the OpenRouter key (global settings.env + direct os.environ write).
+- `class SetOpenrouterApiKeyParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 740)
+- `set_openrouter_api_key(ctx: SidecarContext, params: SetOpenrouterApiKeyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 745)
+- `class UpdateAnimationSettingsParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 772)
+- `update_animation_settings(ctx: SidecarContext, params: UpdateAnimationSettingsParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 781) — Persist [animation] render quality / pacing cap / timeout and reload.
 
 ### Module constants
 
-- `OPENROUTER_KEY_ENV` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 56)
-- `ANIMATION_QUALITY_OPTIONS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 59)
-- `ANIMATION_RENDERER_OPTIONS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 60)
-- `ANIMATION_SHOT_BOUNDS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 61)
-- `ANIMATION_DURATION_BOUNDS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 62)
-- `ANIMATION_TIMEOUT_BOUNDS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 63)
-- `_ROUTING_TASKS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 65)
-- `NATIVE_LIMIT_BOUNDS_MB` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 429)
-- `TRANSCRIPTION_PROVIDERS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 452)
+- `OPENROUTER_KEY_ENV` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 57)
+- `ANIMATION_QUALITY_OPTIONS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 60)
+- `ANIMATION_RENDERER_OPTIONS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 61)
+- `ANIMATION_SHOT_BOUNDS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 62)
+- `ANIMATION_DURATION_BOUNDS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 63)
+- `ANIMATION_TIMEOUT_BOUNDS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 64)
+- `_ROUTING_TASKS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 66)
+- `NATIVE_LIMIT_BOUNDS_MB` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 432)
+- `TRANSCRIPTION_PROVIDERS` ([src/learnloop_sidecar/handlers/settings.py](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 455)
 
 ## Internal implementation anchors
 
-- `_route_display(value: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 87) — A route as the Settings tab shows it; a panel list reads as one string.
-- `_key_state(env_name: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 95)
-- `_text_recognition_state(config) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 103) — GLM-OCR (Settings → Ingestion): the z.ai key's state and which backend would read a document now.
-- `_settings_payload(ctx: SidecarContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 121)
-- `_ingest_provider_name(config) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 219) — The provider the build plan measures its ceilings against (§3.1).
-- `_provider_limits(config) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 225) — `[ingest.providers.<routed>]` context/output limits.
-- `_validate_model_slug(slug: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 256)
-- `_cached_catalog_modalities(model: str | None) -> list[str] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 360) — Declared modalities for an OpenRouter model from the on-disk catalog only.
-- `_ordered_modalities(values: set[str]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 373) — Known modalities in vocabulary order; anything else declared by hand is kept after them.
-- `_provider_modality_updates(provider_name: str, profile: Any, input_modalities: list[str]) -> dict[tuple[str, ...], Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 380) — Config writes that declare ``input_modalities`` on a provider profile.
-- `_adopt_cached_modalities(ctx: SidecarContext, modalities: tuple[str, ...]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 401) — When a modality is routed natively to an OpenRouter profile that does not declare it but the cached catalog says its model accepts it, record the union on the profile.
+- `_route_display(value: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 88) — A route as the Settings tab shows it; a panel list reads as one string.
+- `_key_state(env_name: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 96)
+- `_text_recognition_state(config) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 104) — GLM-OCR (Settings → Ingestion): the z.ai key's state and which backend would read a document now.
+- `_settings_payload(ctx: SidecarContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 122)
+- `_ingest_provider_name(config) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 222) — The provider the build plan measures its ceilings against (§3.1).
+- `_provider_limits(config) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 228) — `[ingest.providers.<routed>]` context/output limits.
+- `_validate_model_slug(slug: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 259)
+- `_cached_catalog_modalities(model: str | None) -> list[str] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 363) — Declared modalities for an OpenRouter model from the on-disk catalog only.
+- `_ordered_modalities(values: set[str]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 376) — Known modalities in vocabulary order; anything else declared by hand is kept after them.
+- `_provider_modality_updates(provider_name: str, profile: Any, input_modalities: list[str]) -> dict[tuple[str, ...], Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 383) — Config writes that declare ``input_modalities`` on a provider profile.
+- `_adopt_cached_modalities(ctx: SidecarContext, modalities: tuple[str, ...]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/settings.py), line 404) — When a modality is routed natively to an OpenRouter profile that does not declare it but the cached catalog says its model accepts it, record the union on the profile.
 
 ## Who imports or calls it
 
@@ -123,7 +123,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/chatgpt_plan|learnloop_sidecar.handlers.chatgpt_plan]] — imports `chatgpt_plan_payload`; calls `chatgpt_plan_payload`
-- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `BUDGET_BOUNDS`, `PLAN_BUDGET_FIELDS`, `validated_budget_overrides`; calls `validated_budget_overrides`
+- [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `BUDGET_BOUNDS`, `PLAN_BUDGET_FIELDS`, `pdf_engines_refusing_page_ranges`, `validated_budget_overrides`; calls `pdf_engines_refusing_page_ranges`, `validated_budget_overrides`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies

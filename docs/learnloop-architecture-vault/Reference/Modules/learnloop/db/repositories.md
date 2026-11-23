@@ -1596,6 +1596,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pre_first_practice_doctor_watermark`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
+- [tests/test_ingest_eligibility_contract.py](../../../../../../tests/test_ingest_eligibility_contract.py) — direct import
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_a_build_asked_for_its_goal_carries_create_goal_to_the_synthesis_job`
   - `test_background_reader_drain_records_model_call_receipts`

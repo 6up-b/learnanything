@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/IngestActivity.tsx](../../../../../../apps/learnloop-tauri/src/components/IngestActivity.tsx) |
-| Source lines | 800 |
+| Source lines | 818 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,89 +54,91 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function IngestActivityStack(` — function, line 108
+- `export function IngestActivityStack(` — function, line 110
 
 ## Internal implementation anchors
 
-- `const STATUS_PILL: Record<DurableIngestStatus, PillColor> =` — const, line 20
-- `const STATUS_COLOR: Record<DurableIngestStatus, string> =` — const, line 30
-- `function statusLabel(status: DurableIngestStatus): string` — function, line 40
-- `function isActive(status: DurableIngestStatus): boolean` — function, line 44
-- `function relativeWhen(iso: string | null): string` — function, line 49
-- `const then = Date.parse(iso)` — const, line 51
-- `const seconds = Math.max(0, (Date.now() - then) / 1000)` — const, line 53
-- `function Card(` — function, line 61
-- `function batchTitle(batch: IngestBatchDto): string` — function, line 83
-- `const title = job.result?.title` — const, line 85
-- `const source = batch.jobs.find((job)` — const, line 88
-- `function importedSourceId(batch: IngestBatchDto): string | null` — function, line 95
-- `const isImport = (job: IngestJobView)` — const, line 97
-- `const id = job.result.sourceId ?? job.result.source_id` — const, line 101
-- `const reportedError = useRef(false)` — const, line 125
-- `const onErrorRef = useRef(onError)` — const, line 126
-- `const onBatchSettledRef = useRef(onBatchSettled)` — const, line 127
-- `const seededBatchRef = useRef<IngestBatchDto | null>(null)` — const, line 128
-- `const previousStatuses = useRef<Map<string, DurableIngestStatus>>(new Map())` — const, line 129
-- `const upsertBatch = useCallback((next: IngestBatchDto)` — const, line 133
-- `const index = prev.findIndex((batch)` — const, line 138
-- `const updated = [...prev]` — const, line 140
-- `let cancelled = false` — let, line 159
-- `let cancelled = false` — let, line 175
-- `let timer: number | undefined` — let, line 176
-- `const poll = async ()` — const, line 177
-- `const snapshot = await api.listIngestBatches(30)` — const, line 179
-- `const seed = seededBatchRef.current` — const, line 181
-- `let visibleBatches = snapshot.batches` — let, line 182
-- `const active = visibleBatches.some((batch)` — const, line 193
-- `const nextStatuses = new Map(previousStatuses.current)` — const, line 214
-- `const previous = previousStatuses.current.get(batch.id)` — const, line 216
-- `const patchBatch = useCallback((next: IngestBatchDto)` — const, line 226
-- `const reportError = useCallback((message: string)` — const, line 230
-- `const byNewest = (a: IngestBatchDto, b: IngestBatchDto)` — const, line 236
-- `const act = batches.filter((batch)` — const, line 238
-- `const fin = batches .filter((batch)` — const, line 239
-- `function toggle(batchId: string)` — function, line 246
-- `const next = new Set(prev)` — const, line 248
-- `const open = expanded.has(batch.id) || batch.id === focusBatchId` — const, line 276
-- `function CollapsedRow(` — function, line 296
-- `const done = batch.jobs.filter((job)` — const, line 297
-- `function BatchCard(` — function, line 334
-- `const ref = useRef<HTMLDivElement>(null)` — const, line 349
-- `const active = isActive(batch.status)` — const, line 350
-- `const failedSynthesis = batch.jobs.find( (job)` — const, line 351
-- `const inventoryOutputEstimate = batch.jobs .filter((job)` — const, line 356
-- `const suggestedSynthesisCeiling = Math.max( 100_000, Math.ceil((inventoryOutputEstimate * 2) / 10_000) * 10_000 )` — const, line 359
-- `const candidatePreserved = Boolean(failedSynthesis?.error?.details?.candidate_preserved)` — const, line 369
-- `const synthesisCeilingValid = unlimitedTokenBudget || (synthesisCeiling >= 10_000 && synthesisCeiling <= 2_000_000)` — const, line 370
-- `const synthesisOutputValid = unlimitedTokenBudget || (synthesisShardOutput >= 1_000 && synthesisShardOutput <= 200_000 && synthesisOutput >= 1_000 && synthesisOutput <= 200_000)` — const, line 371
-- `const resumable = (batch.status === "failed" || batch.status === "cancelled") && !failedSynthesis` — const, line 373
-- `const sourceId = importedSourceId(batch)` — const, line 374
-- `const facetIdentity = batch.jobs .filter( (job)` — const, line 375
-- `let cancelled = false` — let, line 400
-- `async function cancel()` — function, line 414
-- `async function resume()` — function, line 422
-- `async function retrySynthesis()` — function, line 430
-- `async function revalidateCandidate(repairCandidate = false)` — function, line 448
-- `function JobRow(` — function, line 617
-- `const borderColor = STATUS_COLOR[job.status]` — const, line 618
-- `function synthesisRecoveryMessage(code?: string): string` — function, line 649
-- `function IngestErrorPanel(` — function, line 665
-- `const diagnostics = error.details?.diagnostics ?? []` — const, line 666
-- `const hardFailures = diagnostics.filter((item)` — const, line 667
-- `function CheckpointLadder(` — function, line 706
-- `const activeIndex = phase ? ladder.indexOf(phase) : -1` — const, line 715
-- `const finished = status === "completed"` — const, line 719
-- `const done = activeIndex >= 0 && (index < activeIndex || (finished && index === activeIndex))` — const, line 723
-- `const current = !finished && index === activeIndex` — const, line 724
-- `const failed = current && (status === "failed" || status === "blocked" || status === "cancelled")` — const, line 725
-- `const color = failed ? COLOR.red : current ? COLOR.cyan : done ? COLOR.green : COLOR.textFaint` — const, line 726
-- `function TokenBars(` — function, line 741
-- `const keys = Array.from(new Set([...Object.keys(usage ||` — const, line 742
-- `const actual = usage?.[key] ?? 0` — const, line 747
-- `const est = estimate?.[key] ?? 0` — const, line 748
-- `const denom = Math.max(actual, est, 1)` — const, line 749
-- `const actualPct = Math.min(100, (actual / denom) * 100)` — const, line 750
-- `function WaitingCard(` — function, line 768
+- `const STATUS_PILL: Record<DurableIngestStatus, PillColor> =` — const, line 23
+- `const STATUS_COLOR: Record<DurableIngestStatus, string> =` — const, line 33
+- `function statusLabel(status: DurableIngestStatus): string` — function, line 43
+- `function isActive(status: DurableIngestStatus): boolean` — function, line 47
+- `function relativeWhen(iso: string | null): string` — function, line 52
+- `const then = Date.parse(iso)` — const, line 54
+- `const seconds = Math.max(0, (Date.now() - then) / 1000)` — const, line 56
+- `function Card(` — function, line 64
+- `function batchTitle(batch: IngestBatchDto): string` — function, line 86
+- `const title = job.result?.title` — const, line 88
+- `const source = batch.jobs.find((job)` — const, line 91
+- `function importedSourceId(batch: IngestBatchDto): string | null` — function, line 99
+- `const id = job.result.sourceId ?? job.result.source_id` — const, line 103
+- `const reportedError = useRef(false)` — const, line 127
+- `const onErrorRef = useRef(onError)` — const, line 128
+- `const onBatchSettledRef = useRef(onBatchSettled)` — const, line 129
+- `const seededBatchRef = useRef<IngestBatchDto | null>(null)` — const, line 130
+- `const previousStatuses = useRef<Map<string, DurableIngestStatus>>(new Map())` — const, line 131
+- `const upsertBatch = useCallback((next: IngestBatchDto)` — const, line 135
+- `const index = prev.findIndex((batch)` — const, line 140
+- `const updated = [...prev]` — const, line 142
+- `let cancelled = false` — let, line 161
+- `let cancelled = false` — let, line 177
+- `let timer: number | undefined` — let, line 178
+- `const poll = async ()` — const, line 179
+- `const snapshot = await api.listIngestBatches(30)` — const, line 181
+- `const seed = seededBatchRef.current` — const, line 183
+- `let visibleBatches = snapshot.batches` — let, line 184
+- `const active = visibleBatches.some((batch)` — const, line 195
+- `const nextStatuses = new Map(previousStatuses.current)` — const, line 216
+- `const previous = previousStatuses.current.get(batch.id)` — const, line 218
+- `const patchBatch = useCallback((next: IngestBatchDto)` — const, line 228
+- `const reportError = useCallback((message: string)` — const, line 232
+- `const byNewest = (a: IngestBatchDto, b: IngestBatchDto)` — const, line 238
+- `const act = batches.filter((batch)` — const, line 240
+- `const fin = batches .filter((batch)` — const, line 241
+- `function toggle(batchId: string)` — function, line 248
+- `const next = new Set(prev)` — const, line 250
+- `const open = expanded.has(batch.id) || batch.id === focusBatchId` — const, line 278
+- `function CollapsedRow(` — function, line 298
+- `const done = batch.jobs.filter((job)` — const, line 299
+- `function BatchCard(` — function, line 336
+- `const ref = useRef<HTMLDivElement>(null)` — const, line 351
+- `const active = isActive(batch.status)` — const, line 352
+- `const failedSynthesis = batch.canRetrySynthesis ? batch.jobs.find((job)` — const, line 355
+- `const settingsQuery = useCachedQuery(["get_settings"], ()` — const, line 358
+- `const bounds = settingsQuery.data?.ingest.budgetBounds` — const, line 362
+- `const inventoryOutputEstimate = batch.jobs .filter((job)` — const, line 363
+- `const suggestedSynthesisCeiling = Math.max( 100_000, Math.ceil((inventoryOutputEstimate * 2) / 10_000) * 10_000 )` — const, line 366
+- `const candidatePreserved = failedSynthesis !== undefined && batch.canReuseCandidate` — const, line 376
+- `const synthesisCeilingValid = unlimitedTokenBudget || withinBounds(bounds, "synthesisTotalInputCeiling", synthesisCeiling)` — const, line 377
+- `const synthesisOutputValid = unlimitedTokenBudget || (withinBounds(bounds, "synthesisShardOutputTokens", synthesisShardOutput) && withinBounds(bounds, "synthesisOutputTokens", synthesisOutput))` — const, line 378
+- `const resumable = (batch.status === "failed" || batch.status === "cancelled") && !failedSynthesis` — const, line 380
+- `const sourceId = importedSourceId(batch)` — const, line 381
+- `const facetIdentity = batch.jobs .filter( (job)` — const, line 382
+- `let cancelled = false` — let, line 407
+- `async function cancel()` — function, line 421
+- `async function resume()` — function, line 429
+- `async function retrySynthesis()` — function, line 437
+- `async function revalidateCandidate(repairCandidate = false)` — function, line 455
+- `function JobRow(` — function, line 624
+- `const borderColor = STATUS_COLOR[job.status]` — const, line 625
+- `function withinBounds( bounds: IngestBudgetBoundsDto | undefined, field: keyof IngestBudgetBoundsDto, value: number ): boolean` — function, line 658
+- `function synthesisRecoveryMessage(code?: string): string` — function, line 667
+- `function IngestErrorPanel(` — function, line 683
+- `const diagnostics = error.details?.diagnostics ?? []` — const, line 684
+- `const hardFailures = diagnostics.filter((item)` — const, line 685
+- `function CheckpointLadder(` — function, line 724
+- `const activeIndex = phase ? ladder.indexOf(phase) : -1` — const, line 733
+- `const finished = status === "completed"` — const, line 737
+- `const done = activeIndex >= 0 && (index < activeIndex || (finished && index === activeIndex))` — const, line 741
+- `const current = !finished && index === activeIndex` — const, line 742
+- `const failed = current && (status === "failed" || status === "blocked" || status === "cancelled")` — const, line 743
+- `const color = failed ? COLOR.red : current ? COLOR.cyan : done ? COLOR.green : COLOR.textFaint` — const, line 744
+- `function TokenBars(` — function, line 759
+- `const keys = Array.from(new Set([...Object.keys(usage ||` — const, line 760
+- `const actual = usage?.[key] ?? 0` — const, line 765
+- `const est = estimate?.[key] ?? 0` — const, line 766
+- `const denom = Math.max(actual, est, 1)` — const, line 767
+- `const actualPct = Math.min(100, (actual / denom) * 100)` — const, line 768
+- `function WaitingCard(` — function, line 786
 
 ## Who imports or calls it
 
@@ -150,7 +152,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `DurableIngestStatus`, `IngestBatchDto`, `IngestJobView`, `SynthesisCandidateSummary`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `DurableIngestStatus`, `IngestBatchDto`, `IngestBudgetBoundsDto`, `IngestJobView`, `SynthesisCandidateSummary`
+- [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
+- [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/components/FacetIdentityPanel|src/components/FacetIdentityPanel.tsx]] — import-or-re-export; imports `FacetIdentityPanel`, `facetIdentityOf`
 - [[Reference/Desktop/TypeScript/components/sourceTail|src/components/sourceTail.ts]] — import-or-re-export; imports `readableSourceTail`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `PillColor`, `TermCheckbox`
@@ -169,6 +173,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/IngestActivity.eligibility.test.tsx](../../../../../../apps/learnloop-tauri/src/components/IngestActivity.eligibility.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_source_ingestion.py](../../../../../../tests/test_source_ingestion.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

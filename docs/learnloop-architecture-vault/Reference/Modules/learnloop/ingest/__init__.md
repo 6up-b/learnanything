@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/__init__.py](../../../../../../src/learnloop/ingest/__init__.py) |
-| Source lines | 32 |
+| Source lines | 26 |
 | Owning package | [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -65,9 +65,6 @@ No public top-level function or class definition is declared in this file.
 - `IngestDependencyMissing`
 - `SourceFetchError`
 - `UnsupportedSourceError`
-- `SUPPORTED_KINDS`
-- `detect_source_kind`
-- `fetch_source`
 
 ## Internal implementation anchors
 
@@ -84,8 +81,6 @@ No live LearnLoop module directly imports this module in the static graph.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]] — imports `detect_source_kind`
-- [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] — imports `SUPPORTED_KINDS`, `fetch_source`
 - [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] — imports `FetchedSource`, `IngestDependencyMissing`, `IngestError`, `IngestResult`, `SourceFetchError`, `UnsupportedSourceError`
 
 ### Platform and third-party dependencies
