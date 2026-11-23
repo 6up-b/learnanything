@@ -1,0 +1,101 @@
+// A source window is the Reader's source pane as one scoped instance (spec §3.6, §7.1): a preview logs
+// no reading activity, an active window opens a visit, a window that leaves the view closes it, and the
+// window shows the pane alone, its rail in the panel window it is given.
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
+import type { ReaderActivityEvent, SourceLibraryCard } from "../../../api/dto";
+import { flushReaderActivity, resetReaderActivityForTests } from "../../reader/activity";
+import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
+import { SourceWindow } from "./SourceWindow";
+
+const api = vi.hoisted(() => ({
+  readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
+  readerDrainOutbox: vi.fn(), readerSourceAnnotations: vi.fn(), readerAskHistory: vi.fn(), readerLogActivity: vi.fn(),
+  readerNoteReadingProgress: vi.fn(), readerMarkSectionProgress: vi.fn(),
+}));
+vi.mock("../../../api/client", () => ({ api }));
+vi.mock("../../../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? { readerEnabled: true, inquiryEnabled: true } : { sources: [card] }, error: null }) }));
+vi.mock("../../reader/readerCache", () => ({ cachedSourceRead: (_id: string, _key: unknown, fetch: () => unknown) => fetch() }));
+vi.mock("../../reader/guidePlan", () => ({ readGuidePlan: () => Promise.resolve({ sections: [] }), useGuideDiagnosisRefresh: () => undefined }));
+vi.mock("../../reader/useReaderRequests", () => ({
+  useReaderRequests: () => ({ requests: [], proposalCount: 0, synthesizedObjects: new Map(), openProposalIds: new Set(), loadError: null, refresh: () => Promise.resolve() }),
+  parseRequestError: () => null, parseRequestResult: () => ({}),
+}));
+vi.mock("../../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
+vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
+
+const card = { sourceId: view.sourceId, title: "Matrices", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard;
+const noop = () => undefined;
+
+function Window({ state, railHost = null }: { state: WindowState; railHost?: { node: HTMLElement; tab: "guide" | "notes" } | null }) {
+  return (
+    <WindowScope lifecycle={{ windowId: "w1", state }} hub={DIRECT_HUB}>
+      <SourceWindow
+        content={{ kind: "source", sourceId: view.sourceId, extractionId: view.extractionId }}
+        card={card}
+        libraryLoaded
+        startSpan={null}
+        railHost={railHost}
+        onStatus={noop}
+        onJumpReady={noop}
+        onMediaReady={noop}
+        onError={noop}
+      />
+    </WindowScope>
+  );
+}
+
+function logged(): ReaderActivityEvent[] {
+  act(() => flushReaderActivity());
+  return api.readerLogActivity.mock.calls.flatMap(([input]) => (input as { events: ReaderActivityEvent[] }).events);
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  resetReaderActivityForTests();
+  Element.prototype.scrollIntoView = vi.fn();
+  api.readerRenderView.mockResolvedValue(view);
+  api.readerGetProgress.mockResolvedValue({ sections: [] });
+  api.readerPdfView.mockResolvedValue({ available: false });
+  api.readerDrainOutbox.mockResolvedValue({ failed: [], drained: [] });
+  api.readerSourceAnnotations.mockResolvedValue({ annotations: [] });
+  api.readerAskHistory.mockResolvedValue({ exchanges: [] });
+  api.readerLogActivity.mockResolvedValue({ recorded: 0 });
+});
+afterEach(cleanup);
+
+it("a preview opens no reading visit and logs nothing", async () => {
+  render(<Window state="preview" />);
+  await screen.findByText(view.blocks[1].markdown);
+  expect(logged().map((event) => event.kind)).toEqual([]);
+});
+
+it("the same window, active, opens a visit; leaving the view closes it, and an offscreen window opens none", async () => {
+  const { rerender } = render(<Window state="active" />);
+  await screen.findByText(view.blocks[1].markdown);
+  expect(logged().map((event) => event.kind)).toEqual(["reader_view_opened"]);
+  rerender(<Window state="hidden" />);
+  expect(logged().map((event) => event.kind)).toEqual(["reader_view_opened", "reader_view_closed"]);
+  rerender(<Window state="offscreen" />);
+  expect(logged().map((event) => event.kind)).toEqual(["reader_view_opened", "reader_view_closed"]);
+});
+
+it("shows the source pane alone: no Reader header, no key bar, no rail without a panel window", async () => {
+  render(<Window state="active" />);
+  await screen.findByText(view.blocks[1].markdown);
+  expect(screen.queryByText("READER")).toBeNull();
+  expect(screen.queryByText("← Library")).toBeNull();
+  expect(screen.queryByRole("complementary")).toBeNull();
+});
+
+it("renders its rail into the panel window it is given, on that window's tab", async () => {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  render(<Window state="active" railHost={{ node: host, tab: "notes" }} />);
+  await screen.findByText(view.blocks[1].markdown);
+  const rail = host.querySelector('[role="complementary"]');
+  expect(rail).not.toBeNull();
+  expect(rail?.getAttribute("aria-label")).toBe("Notes");
+  host.remove();
+});

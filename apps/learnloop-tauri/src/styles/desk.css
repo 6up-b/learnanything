@@ -1,0 +1,222 @@
+/* Reader workbench v2: the desks (docs/specs/spec_reader_workbench_v2.md §4.2, §4.3).
+ *
+ * The design tokens are the spec's, copied exactly. Fonts are named, never fetched: the app loads no
+ * remote font (the stacks fall back to what the system has until the font files ship with the app).
+ * Everything here is scoped under .desk-shell so no other screen changes. */
+
+.desk-shell {
+  /* colours (§4.2) */
+  --desk-shell: #0c0c0d;
+  --desk-shell2: #131315;
+  --desk-line: #26262a;
+  --desk-line2: #34343a;
+  --desk-t: #d8d8e0;
+  --desk-t2: #a8a8b8;
+  --desk-t3: #8b8b9d;
+  --desk-paper: #f7f5f0;
+  --desk-pad-paper: #fdfdfc;
+  --desk-ink: #1f1e1c;
+  --desk-ink2: #55524c;
+  --desk-ink3: #7a766e;
+  --desk-rule: #dcd7cc;
+  --desk-amber: #e3a063;
+  --desk-amber-ink: #9a5a17;
+  --desk-ll: #dccdf2;
+  --desk-ll-ink: #5b4a9a;
+  --desk-ll-wash: #efeaf9;
+  --desk-cyan: #6ad0e0;
+  --desk-search: #2563eb;
+  --desk-pen: #2b4fa8;
+  /* fonts (§4.2), local only */
+  --desk-ui: "Inter", system-ui, sans-serif;
+  --desk-book: "Literata", Georgia, serif;
+  --desk-paperfont: "Source Serif 4", "Times New Roman", serif;
+  --desk-mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+  --desk-hand: "Caveat", cursive;
+  /* timings (§4.3) */
+  --desk-ease: cubic-bezier(.22, .7, .18, 1);
+  --desk-camera: .55s;
+  --desk-window-move: .45s;
+  --desk-focus-ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* The desks fill the Reader place; focus mode alone takes the whole window. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 38px minmax(0, 1fr) 26px;
+  background: var(--desk-shell);
+  color: var(--desk-t);
+  font: 12px var(--desk-ui);
+  overflow: hidden;
+}
+
+/* The desks' own controls start bare; :where keeps this reset below every component rule. The Reader's
+   own controls inside a window keep their styles. */
+:where(.desk-top, .desk-shelf, .desk-shelf-rail, .desk-keys, .desk-sliver, .desk-pane-head, .desk-whichkey, .desk-quiet) button,
+:where(.desk-sliver) { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.desk-shell kbd { font: 500 10.5px var(--desk-mono); color: var(--desk-t); }
+.desk-shell :focus-visible { outline: 1px solid var(--desk-amber); outline-offset: 2px; }
+
+/* Source and video windows read on paper (spec §4.2, §7.1): the Reader's palette variables, remapped
+   inside the window, and the book's prose in Literata. */
+.desk-pane[data-window-kind="source"] > .desk-pane-body,
+.desk-pane[data-window-kind="video"] > .desk-pane-body {
+  color-scheme: light;
+  --bg: #f7f5f0;
+  --elev: #efece4;
+  --input: #fdfdfc;
+  --border: #dcd7cc;
+  --border-strong: #c9c2b4;
+  --text: #1f1e1c;
+  --text-strong: #1f1e1c;
+  --dim: #55524c;
+  --faint: #7a766e;
+  --text-italic: #55524c;
+  --amber: #9a5a17;
+  --amber-link: #9a5a17;
+  --amber-hi: #9a5a17;
+  --purple-text: #5b4a9a;
+  --cyan: #1f7f8f;
+  --green: #2f7a45;
+  --wash-amber: #fbeedc;
+  --wash-amber-strong: #f6e2c6;
+  --wash-purple: #efeaf9;
+  --wash-cyan: #e2f3f5;
+  --wash-cyan-banner: #e2f3f5;
+  --wash-green: #e3f1e6;
+  --scrollbar-thumb: rgba(85, 82, 76, 0.25);
+  background: var(--desk-paper);
+  color: var(--desk-ink);
+}
+.desk-pane[data-window-kind="source"] [data-span-id],
+.desk-pane[data-window-kind="video"] [data-transcript-span] {
+  font-family: var(--desk-book) !important;
+  line-height: 1.6;
+}
+
+/* ── the top bar: desks are rooms ── */
+.desk-top { display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--desk-line); background: #09090a; white-space: nowrap; min-width: 0; }
+.desk-brand { font: 12px var(--desk-mono); color: var(--desk-ll); }
+.desk-tabs { display: flex; gap: 2px; min-width: 0; overflow: hidden; }
+.desk-tabs button { padding: 4px 10px; border-radius: 5px; color: var(--desk-t3); font: 12px var(--desk-mono); }
+.desk-tabs button[aria-current="true"] { color: var(--desk-t); background: #1d1d21; }
+.desk-tabs input { font: 12px var(--desk-mono); background: #1d1d21; color: var(--desk-t); border: 1px solid var(--desk-line2); border-radius: 5px; padding: 3px 8px; width: 180px; }
+.desk-top .grow { flex: 1; }
+.desk-top .tb { font: 12px var(--desk-mono); color: var(--desk-t2); padding: 4px 8px; border-radius: 5px; }
+.desk-top .tb:hover { color: var(--desk-t); background: #1d1d21; }
+
+/* ── the main area: the shelf and the stage ── */
+.desk-main { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 0; transition: grid-template-columns .28s var(--desk-focus-ease); }
+.desk-main.rail { grid-template-columns: 44px minmax(0, 1fr); }
+
+.desk-stage { position: relative; overflow: hidden; background: #0a0a0b; min-width: 0; min-height: 0; }
+
+/* A window sits at its slot: left and top move over .45 s as the strip slides or the desk changes. */
+.desk-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1c;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px #000;
+  transition: left var(--desk-window-move) var(--desk-ease), top var(--desk-camera) var(--desk-ease), width .35s var(--desk-ease), height .35s var(--desk-ease), opacity .35s, box-shadow .3s;
+}
+.desk-window.focus { box-shadow: 0 0 0 1px #6b5534, 0 10px 40px rgba(0, 0, 0, .5); }
+.desk-window.entering { animation: desk-enter .45s var(--desk-ease); }
+@keyframes desk-enter { from { opacity: .3; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+/* An offscreen or hidden window is not rendered until it is shown again (spec §3.6). */
+.desk-window.paused > .desk-pane-body { content-visibility: auto; contain-intrinsic-size: auto 900px; }
+.desk-window.paused .desk-pane-body * { animation-play-state: paused !important; }
+
+.desk-pane { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
+.desk-pane + .desk-pane { border-top: 6px solid #000; }
+.desk-pane.active-pane { box-shadow: inset 2px 0 0 var(--desk-amber); }
+.desk-pane-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid var(--desk-line); background: #151517; font: 11.5px var(--desk-mono); color: var(--desk-t); min-width: 0; }
+.desk-pane-head .g { color: var(--desk-t3); flex: none; }
+.desk-pane-head .t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desk-pane-head .loc { color: var(--desk-t2); flex: none; }
+.desk-pane-head .hint { margin-left: auto; color: var(--desk-t3); font-size: 10px; flex: none; }
+.desk-pane-head .x { margin-left: 6px; color: var(--desk-t3); flex: none; }
+.desk-pane-head .x:hover { color: var(--desk-t); }
+/* The body fills the rest of the slot's height: every window fills its slot (O12). */
+.desk-pane-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.desk-pane-body > * { flex: 1 1 auto; min-height: 0; }
+
+/* ── slivers: the off-screen neighbours at the stage edge ── */
+.desk-sliver { position: absolute; top: 8px; bottom: 8px; width: 30px; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0; background: rgba(24, 24, 24, .94); border: 1px solid #2c2c31; border-radius: 3px; color: var(--desk-t2); }
+.desk-sliver.l { left: 2px; }
+.desk-sliver.r { right: 2px; }
+.desk-sliver:hover { color: var(--desk-t); border-color: #6b5534; }
+.desk-sliver .sg { font-size: 14px; color: var(--desk-t3); }
+.desk-sliver .sgl { font: 11px var(--desk-mono); color: var(--desk-cyan); }
+.desk-sliver .st { writing-mode: vertical-rl; font: 11px var(--desk-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 80%; }
+.desk-sliver.l .st { transform: rotate(180deg); }
+
+/* ── the footer: hints, column dots, "hold alt for navi hints" ── */
+.desk-keys { display: flex; gap: 16px; align-items: center; padding: 0 16px; border-top: 1px solid var(--desk-line); background: #070708; color: var(--desk-t2); font: 11px var(--desk-mono); white-space: nowrap; overflow: hidden; }
+.desk-keys .note { color: var(--desk-t3); }
+.desk-keys .note kbd { color: var(--desk-amber); }
+.desk-dots { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.desk-dots button { display: inline-block; width: 18px; height: 4px; border-radius: 2px; background: #3a3a40; transition: background .2s, width .2s, opacity .2s; }
+.desk-dots button.in { background: #9a6f3a; }
+.desk-dots button.f { background: var(--desk-amber); }
+
+/* ── the shelf (the strip's minimap) ── */
+.desk-shelf { border-right: 1px solid var(--desk-line); background: #0e0e10; display: flex; flex-direction: column; min-height: 0; padding: 10px 0 8px; overflow: hidden; }
+.desk-shelf h4 { margin: 0 14px 6px; font: 500 10px var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--desk-t3); display: flex; gap: 6px; }
+.desk-shelf h4 .grow { flex: 1; }
+.desk-shelf .rows { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+.desk-src { display: block; width: calc(100% - 12px); margin: 0 6px 2px; padding: 6px 8px 7px; border-radius: 6px; text-align: left; transition: background .2s, transform .18s; }
+.desk-src:hover { background: #17171a; }
+.desk-src.open { background: #1a1a1e; box-shadow: inset 2px 0 0 var(--desk-t2); }
+.desk-src.prim { box-shadow: inset 2px 0 0 var(--desk-amber); }
+.desk-src.dragging { opacity: .6; }
+.desk-src .k { font: 9.5px var(--desk-mono); color: var(--desk-t3); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 6px; }
+.desk-src .n { font-size: 12px; color: var(--desk-t); line-height: 1.35; margin-top: 1px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.desk-src .bar { position: relative; height: 10px; margin-top: 5px; }
+.desk-src .bar .ln { position: absolute; left: 0; right: 0; top: 4px; height: 2px; background: #2e2e34; border-radius: 1px; }
+.desk-src .bar .rd { position: absolute; left: 0; top: 4px; height: 2px; background: #8a7556; }
+.desk-src .w { font: 10px var(--desk-mono); color: var(--desk-t3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-shelf .lower { flex: none; margin-top: auto; border-top: 1px solid var(--desk-line); padding-top: 8px; }
+.desk-shelf .undo { display: block; margin: 0 14px 6px; color: var(--desk-amber); font: 11px var(--desk-mono); text-align: left; }
+.desk-shelf .quiet { margin: 0 14px 6px; color: var(--desk-t3); font: 11px var(--desk-mono); }
+.desk-shelf-rail { display: flex; flex-direction: column; align-items: center; padding-top: 10px; border-right: 1px solid var(--desk-line); background: #0e0e10; }
+.desk-shelf-overlay { position: absolute; left: 44px; top: 38px; bottom: 26px; width: 260px; z-index: 60; box-shadow: 12px 0 30px rgba(0, 0, 0, .5); }
+
+/* ── which-key: Alt held 400 ms ── */
+.desk-whichkey { position: fixed; z-index: 130; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(920px, calc(100vw - 40px)); background: rgba(20, 20, 22, .97); border: 1px solid #3a3a3a; border-radius: 6px; padding: 12px 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, .6); font: 11.5px var(--desk-mono); }
+.desk-whichkey .wkh { color: var(--desk-amber); margin-bottom: 8px; }
+.desk-whichkey .wkg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.desk-whichkey .wkt { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--desk-t3); margin-bottom: 4px; }
+.desk-whichkey .wkr { display: grid; grid-template-columns: 74px 1fr; gap: 6px; line-height: 1.8; color: var(--desk-t2); }
+@media (max-width: 1240px) { .desk-whichkey .wkg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ── the toast (the gesture HUD's line) ── */
+.desk-toast { position: fixed; z-index: 140; left: 50%; bottom: 40px; transform: translateX(-50%); background: rgba(20, 20, 22, .97); border: 1px solid #3a3a3a; border-radius: 6px; padding: 7px 14px; font: 11.5px var(--desk-mono); color: var(--desk-t); pointer-events: none; animation: desk-toast 2.2s ease forwards; }
+@keyframes desk-toast { 0% { opacity: 0; } 8% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ── focus mode: truly full screen (owner decision 11) ── */
+.desk-shell.focus-mode { position: fixed; inset: 0; z-index: 200; grid-template-rows: 0 minmax(0, 1fr) 0; }
+.desk-shell.focus-mode .desk-top, .desk-shell.focus-mode .desk-keys { overflow: hidden; border: 0; padding: 0; }
+.desk-shell.focus-mode .desk-main { grid-template-columns: 0 minmax(0, 1fr); }
+.desk-shell.focus-mode .desk-shelf, .desk-shell.focus-mode .desk-shelf-rail { visibility: hidden; }
+.desk-shell.focus-mode .desk-sliver { opacity: 0; pointer-events: none; }
+.desk-window.focused-full { border-radius: 0; box-shadow: none; z-index: 20; }
+.desk-window.focused-full .desk-pane-body .desk-measure { max-width: var(--desk-measure); margin: 0 auto; width: 100%; }
+.desk-zoom-badge { position: fixed; z-index: 140; right: 18px; top: 12px; font: 11px var(--desk-mono); color: var(--desk-t2); background: rgba(20, 20, 22, .9); border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px 8px; }
+.desk-zoom-badge.fade { animation: desk-zoom-badge 2.2s ease forwards; }
+@keyframes desk-zoom-badge { 0% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ── panel windows and empty states ── */
+.desk-panel { padding: 14px 16px; overflow-y: auto; min-height: 0; color: var(--desk-t); }
+.desk-quiet { color: var(--desk-t3); font: 12px var(--desk-mono); line-height: 1.6; }
+.desk-quiet button { color: var(--desk-amber); text-decoration: underline; text-underline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-window, .desk-main, .desk-src, .desk-dots button { transition: opacity .2s !important; }
+  .desk-window.entering { animation: none; }
+}

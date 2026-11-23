@@ -335,7 +335,10 @@ export function ReaderScreen({
   askRequest,
   initialLibrarySearch = "",
   windowed = null,
+  onOpenDesks,
 }: {
+  /** Reader workbench v2: the header's way to the desks (absent: no link, as before). */
+  onOpenDesks?: () => void;
   /** Reader workbench v2: a source window on a desk (absent: the Reader place, as before). */
   windowed?: ReaderWindowing | null;
   onError: (message: string) => void;
@@ -2169,9 +2172,11 @@ export function ReaderScreen({
   // A source window: its rail opens on the tab its panel window asked for; the frame and the desk hear the
   // book's title and get a way to jump to a passage.
   const railHostTab = windowed?.railHost?.tab ?? null;
+  const windowExtraction = render?.extractionId ?? null;
   useEffect(() => {
+    // Opening the source resets the rail to the Guide: the panel's tab is applied again once it is open.
     if (railHostTab) setRailTab(railHostTab);
-  }, [railHostTab]);
+  }, [railHostTab, windowExtraction]);
   const onWindowTitle = windowed?.onTitle;
   useEffect(() => {
     if (onWindowTitle && sourceTitle) onWindowTitle(sourceTitle);
@@ -3703,6 +3708,16 @@ export function ReaderScreen({
           >
             ← Library
           </button>
+          {onOpenDesks ? (
+            <button
+              type="button"
+              onClick={onOpenDesks}
+              title="the Reader's new workbench: desks of windows side by side"
+              style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
+            >
+              desks ▸
+            </button>
+          ) : null}
           <Meta>{sourceTitle ?? "Untitled source"}</Meta>
           {offline ? <Pill color="amber">offline demo</Pill> : null}
           {progress.placeApproximate && !offline ? (
