@@ -24,11 +24,11 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/reading_requests.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/companion/search.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/build_plan.py"
-  - "src/learnloop/content/pipeline/exam_marking.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/companion/search.py`
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/add_source.py`
@@ -145,7 +146,6 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/stores/reader.py`
 - `src/learnloop/db/stores/source_documents.py`
-- `src/learnloop/experiments/contextual_embeddings/corpus.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

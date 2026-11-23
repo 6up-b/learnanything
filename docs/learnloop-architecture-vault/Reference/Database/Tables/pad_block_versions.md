@@ -16,6 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
+  - "src/learnloop/companion/search.py"
   - "src/learnloop/db/stores/pad_reads.py"
   - "src/learnloop/db/stores/pads.py"
 tags:
@@ -96,6 +97,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/companion/search.py`
 - `src/learnloop/db/stores/pad_reads.py`
 
 ### Direct SQL writers

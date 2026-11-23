@@ -116,7 +116,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `connect`; statically calls `connect`
@@ -273,6 +275,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop_sidecar/handlers/source_service|learnloop_sidecar.handlers.source_service]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `connect`; statically calls `connect`
@@ -302,7 +305,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 183 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 186 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -313,6 +316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ad_ingest_fakes.py](../../../../../../tests/ad_ingest_fakes.py) — direct import
 - [tests/ad_projection_helpers.py](../../../../../../tests/ad_projection_helpers.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/companion_rd3a_helpers.py](../../../../../../tests/companion_rd3a_helpers.py) — direct import
 - [tests/compare_methods_helpers.py](../../../../../../tests/compare_methods_helpers.py) — direct import
 - [tests/compare_sources_keep_helpers.py](../../../../../../tests/compare_sources_keep_helpers.py) — direct import
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
@@ -779,6 +783,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_quote_across_two_anchor_blocks_is_not_shown_as_one_blocks_words`
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
   - `test_projecting_a_practice_question_reads_no_reader_answer`
+- [tests/test_reader_rd3a_companion_ask.py](../../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
 - [tests/test_reader_rw1b_review.py](../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
   - `test_f1_a_formative_gap_is_not_a_weak_prerequisite_signal`

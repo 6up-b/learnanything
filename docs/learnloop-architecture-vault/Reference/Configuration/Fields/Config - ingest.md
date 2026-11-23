@@ -37,9 +37,9 @@ source_paths:
   - "tests/apply_write_ahead_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/check_credit_report_helpers.py"
+  - "tests/companion_rd3a_helpers.py"
   - "tests/conftest.py"
   - "tests/connection_reuse.py"
-  - "tests/contamination_report_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -140,9 +140,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/apply_write_ahead_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/check_credit_report_helpers.py`
+- `tests/companion_rd3a_helpers.py`
 - `tests/conftest.py`
 - `tests/connection_reuse.py`
-- `tests/contamination_report_helpers.py`
 
 ## Extension and modification guidance
 

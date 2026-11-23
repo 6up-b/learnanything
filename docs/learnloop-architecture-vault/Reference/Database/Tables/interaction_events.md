@@ -128,6 +128,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/cli/field_classification.py`
+- `src/learnloop/companion/search.py`
 - `src/learnloop/db/stores/activity.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/db/stores/workbench.py`

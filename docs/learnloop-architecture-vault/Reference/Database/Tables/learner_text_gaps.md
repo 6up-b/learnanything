@@ -111,6 +111,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/companion/search.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/diagnosis/split/history.py`

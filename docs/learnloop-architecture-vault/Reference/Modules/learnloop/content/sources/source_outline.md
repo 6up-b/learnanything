@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `build_source_outline`, `resolve_extraction_id`; statically calls `build_source_outline`, `resolve_extraction_id`
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
+- [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `build_source_outline`, `title_from_file_name`, `title_from_local_uri`; statically calls `build_source_outline`, `title_from_file_name`, `title_from_local_uri`
 - [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] — imports `OutlineUnit`, `build_source_outline`; statically calls `build_source_outline`
@@ -142,7 +143,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 29 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] and 30 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
