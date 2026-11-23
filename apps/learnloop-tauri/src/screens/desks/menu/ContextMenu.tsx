@@ -61,6 +61,8 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [index, setIndex] = useState(0);
   const [submenuOpen, setSubmenuOpen] = useState(false);
+  // The submenu's own selection (its pads, then "a new pad"): its keys move it while it is open.
+  const [subIndex, setSubIndex] = useState(0);
   const [place, setPlace] = useState<{ left: number; top: number }>({ left: at.x + 2, top: at.y + 2 });
   const [subPlace, setSubPlace] = useState<{ left: number; top: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -148,6 +150,7 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     const row = appendRef.current?.getBoundingClientRect();
     if (!row) return;
     setSubPlace(placeSubmenu({ right: row.right, top: row.top }, MENU_SIZES.submenuWidth, { w: window.innerWidth }));
+    if (!submenuOpen) setSubIndex(Math.max(0, append?.pads.findIndex((pad) => pad.padId === append.current) ?? 0));
     setSubmenuOpen(true);
   };
 
@@ -162,6 +165,18 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
       // A modal menu: it owns the keyboard while it is open, never a chord.
       if (screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
       const current = runnable[Math.min(index, runnable.length - 1)];
+      if (submenuOpen && append) {
+        // The Append submenu owns the keys while open: its rows move and run; left or escape go back to the menu.
+        const count = append.pads.length + 1;
+        if (event.key === "ArrowDown" || event.key === "j" || (event.key === "Tab" && !event.shiftKey)) setSubIndex((now) => (now + 1) % count);
+        else if (event.key === "ArrowUp" || event.key === "k" || (event.key === "Tab" && event.shiftKey)) setSubIndex((now) => (now - 1 + count) % count);
+        else if (event.key === "Enter") append.onPick(subIndex < append.pads.length ? append.pads[subIndex].padId : "+");
+        else if (event.key === "Escape" || event.key === "ArrowLeft") setSubmenuOpen(false);
+        else return;
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (event.key === "Escape") {
         if (submenuOpen) setSubmenuOpen(false);
         else onClose();
@@ -246,15 +261,15 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
       {submenuOpen && append && subPlace ? (
         <div className="desk-menu submenu" role="menu" aria-label="append to" style={{ left: subPlace.left, top: subPlace.top }}>
           <div className="mh">append to</div>
-          {append.pads.map((pad) => (
-            <button key={pad.padId} type="button" role="menuitem" className={`mi${pad.padId === append.current ? " sel" : ""}`} onClick={() => append.onPick(pad.padId)}>
+          {append.pads.map((pad, padIndex) => (
+            <button key={pad.padId} type="button" role="menuitem" className={`mi${padIndex === subIndex ? " sel" : ""}`} onMouseEnter={() => setSubIndex(padIndex)} onClick={() => append.onPick(pad.padId)}>
               <span className="g">{pad.padId === append.current ? "✓" : ""}</span>
               <span className="t">{pad.title}</span>
               <span className="k" />
             </button>
           ))}
           <div className="sep" />
-          <button type="button" role="menuitem" className="mi" onClick={() => append.onPick("+")}>
+          <button type="button" role="menuitem" className={`mi${subIndex === append.pads.length ? " sel" : ""}`} onMouseEnter={() => setSubIndex(append.pads.length)} onClick={() => append.onPick("+")}>
             <span className="g">+</span>
             <span className="t">a new pad</span>
             <span className="k">alt+n</span>

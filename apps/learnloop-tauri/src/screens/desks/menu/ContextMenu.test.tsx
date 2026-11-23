@@ -209,6 +209,30 @@ describe("the context menu", () => {
     expect(onPick).toHaveBeenCalledWith("p2");
   });
 
+  it("the Append submenu takes the keys while open: arrows and Tab move in it, enter picks there, left goes back", () => {
+    const onPick = vi.fn();
+    const runs = { ask: vi.fn(), note: vi.fn() };
+    render(<ContextMenu header="h" rows={verbs(runs)} at={{ x: 0, y: 0 }} onClose={() => undefined}
+      append={{ pads: [{ padId: "p1", title: "running" }, { padId: "p2", title: "deriving" }], current: "p1", onPick }} />);
+    fireEvent.keyDown(window, { key: "w" });
+    const submenu = screen.getByRole("menu", { name: "append to" });
+    const selected = () => submenu.querySelector(".mi.sel")?.textContent ?? "";
+    expect(selected()).toContain("running");
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(selected()).toContain("deriving");
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(selected()).toContain("a new pad");
+    fireEvent.keyDown(window, { key: "k" });
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(onPick).toHaveBeenCalledWith("p2");
+    // The parent menu did not move or run meanwhile.
+    expect(runs.note).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.queryByRole("menu", { name: "append to" })).toBeNull();
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(document.querySelector(".desk-menu .mi.sel")?.textContent).toContain("Note in margin");
+  });
+
   it("keeps the verbs below the promoted block, What this knows after the separator", async () => {
     const { api } = promotedApi(promoted([row("r1")]));
     render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onClose={() => undefined} />);
