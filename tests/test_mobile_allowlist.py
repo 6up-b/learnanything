@@ -989,6 +989,16 @@ def test_the_pinned_rd4a_rpcs_are_all_of_them():
     assert set(READER_RD4A_RPCS) == set(PAD_RD4_RPCS)
 
 
+# RD4's fix round: a passage's canonical content for "a piece of another source". Desktop only.
+READER_RD4FIX_RPCS = ("passage.content",)
+
+
+def test_the_pinned_rd4_fix_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.passage_union import PASSAGE_CONTENT_RPCS
+
+    assert set(READER_RD4FIX_RPCS) == set(PASSAGE_CONTENT_RPCS)
+
+
 # Reader workbench v2 RD6 (spec §3.4, §12): the goal band, the goal lens and the learner's section choice.
 # Desktop only, as RD0's.
 READER_RD6A_RPCS = (
@@ -1002,16 +1012,6 @@ def test_the_pinned_rd6a_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.goal_lens import GOAL_LENS_RPCS
 
     assert set(READER_RD6A_RPCS) == set(GOAL_LENS_RPCS)
-
-
-# RD4's fix round: a passage's canonical content for "a piece of another source". Desktop only.
-READER_RD4FIX_RPCS = ("passage.content",)
-
-
-def test_the_pinned_rd4_fix_rpcs_are_all_of_them():
-    from learnloop_sidecar.handlers.passage_union import PASSAGE_CONTENT_RPCS
-
-    assert set(READER_RD4FIX_RPCS) == set(PASSAGE_CONTENT_RPCS)
 
 
 # Reader workbench v2 RD9a (spec §11.1, §12.5): the lessons a lesson window's tab and the path view name. Desktop only.

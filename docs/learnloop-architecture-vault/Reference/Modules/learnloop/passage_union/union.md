@@ -47,21 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/passage_union/union.py](../../../../../../src/learnloop/passage_union/union.py) |
-| Source lines | 290 |
+| Source lines | 276 |
 | Owning package | [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class UnionError(ValueError)` ([source](../../../../../../src/learnloop/passage_union/union.py), line 39)
-  - `__init__(self, code: str, message: str) -> None` (line 40; internal)
-- `union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None, notes_by_span: Mapping[str, list[dict[str, Any]]] | None=None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 107) — ``notes_by_span``: the notes linked beside each passage of this reading, handed in by the caller (the sidecar, which reaches the notes' code; nothing in learnloop below it does).
+- `class UnionError(ValueError)` ([source](../../../../../../src/learnloop/passage_union/union.py), line 37)
+  - `__init__(self, code: str, message: str) -> None` (line 38; internal)
+- `union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None, notes_by_span: Mapping[str, list[dict[str, Any]]] | None=None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 93) — ``notes_by_span``: the notes linked beside each passage of this reading, handed in by the caller (the sidecar, which reaches the notes' code; nothing in learnloop below it does).
 
 ### Module constants
 
-- `_CUE_TIME` ([src/learnloop/passage_union/union.py](../../../../../../src/learnloop/passage_union/union.py), line 35)
-- `EXACT` ([src/learnloop/passage_union/union.py](../../../../../../src/learnloop/passage_union/union.py), line 36)
+- `EXACT` ([src/learnloop/passage_union/union.py](../../../../../../src/learnloop/passage_union/union.py), line 34)
 
 ### Explicit exports
 
@@ -72,12 +71,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_json_list(value: Any) -> list[Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 45)
-- `_rows(connection: Any, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 53)
-- `_in(values: Iterable[str]) -> tuple[str, list[str]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 59)
-- `_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None, t1: float | None) -> list[str]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 64)
-- `class _Placer` ([source](../../../../../../src/learnloop/passage_union/union.py), line 84) — Places a (reading, span) of any reading of the book on this reading's range.
-- `_empty(span_id: str, section_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 101)
+- `_json_list(value: Any) -> list[Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 43)
+- `_rows(connection: Any, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 51)
+- `_in(values: Iterable[str]) -> tuple[str, list[str]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 57)
+- `_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None, t1: float | None) -> list[str]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 62)
+- `class _Placer` ([source](../../../../../../src/learnloop/passage_union/union.py), line 70) — Places a (reading, span) of any reading of the book on this reading's range.
+- `_empty(span_id: str, section_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 87)
 
 ## Who imports or calls it
 
@@ -98,11 +97,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/span_projection_reads|learnloop.db.stores.span_projection_reads]] — imports `module`; calls `rows_on_readings`
 - [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `due_checks`; calls `due_checks`
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `annotation_placements`; calls `annotation_placements`
-- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `extraction_sections`; calls `extraction_sections`
+- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `RangeError`, `extraction_sections`, `range_span_ids`; calls `extraction_sections`, `range_span_ids`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `json`, `re`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

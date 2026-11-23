@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/inline_checks.py](../../../../../../src/learnloop/intent/inline_checks.py) |
-| Source lines | 147 |
+| Source lines | 176 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,11 +55,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `due_checks(vault: Any, repository: Any, *, goal_id: str | None=None, learning_object_ids: Iterable[str] | None=None, extraction_id: str | None=None, span_id: str | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 104) — Every due check, one row per (check, learning object), oldest due first, filtered.
+- `answered_checks(vault: Any, repository: Any, *, since: str, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 147) — Every "Check once" answered on the learner's own since ``since`` (a UTC stamp), one row per (check, learning object): the goal band fills its ◇ once a check is answered.
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `answered_checks`
 - `due_checks`
 
 ## Internal implementation anchors
@@ -76,6 +78,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `due_checks`; statically calls `due_checks`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `answered_checks`, `due_checks`; statically calls `answered_checks`, `due_checks`
 - [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `due_checks`; statically calls `due_checks`
 
 ## Dependencies
@@ -99,7 +102,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]], [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]].
+Static participation evidence comes from [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]], [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]], [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

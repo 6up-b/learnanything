@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/Shelf.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/Shelf.tsx) |
-| Source lines | 176 |
+| Source lines | 244 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,40 +54,44 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ShelfRow` — interface, line 6
-- `export function Shelf(` — function, line 21
+- `export interface ShelfRow` — interface, line 7
+- `export function Shelf(` — function, line 22
+- `export function CarriedList(` — function, line 189
 
 ## Internal implementation anchors
 
-- `const DRAG_THRESHOLD_PX = 5` — const, line 19
-- `const body = ( <> <ShelfBody rows=` — const, line 50
-- `function ShelfBody(` — function, line 80
-- `const press = useRef<` — const, line 93
-- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 94
-- `const slotAt = (clientY: number): number` — const, line 97
-- `const list = listRef.current` — const, line 98
-- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 100
-- `let target = 0` — let, line 101
-- `const box = item.getBoundingClientRect()` — const, line 103
-- `const onPointerDown = (row: ShelfRow)` — const, line 109
-- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 112
-- `const current = press.current` — const, line 113
-- `const onPointerUp = (row: ShelfRow)` — const, line 121
+- `const DRAG_THRESHOLD_PX = 5` — const, line 20
+- `const body = ( <> <ShelfBody rows=` — const, line 55
+- `function ShelfBody(` — function, line 89
+- `const press = useRef<` — const, line 102
+- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 103
+- `const slotAt = (clientY: number): number` — const, line 106
+- `const list = listRef.current` — const, line 107
+- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 109
+- `let target = 0` — let, line 110
+- `const box = item.getBoundingClientRect()` — const, line 112
+- `const onPointerDown = (row: ShelfRow)` — const, line 118
+- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 121
 - `const current = press.current` — const, line 122
-- `const to = slotAt(event.clientY)` — const, line 126
+- `const onPointerUp = (row: ShelfRow)` — const, line 130
+- `const current = press.current` — const, line 131
+- `const to = slotAt(event.clientY)` — const, line 135
+- `const read = (at?: string)` — const, line 198
+- `const base = at ? now ?? [] : []` — const, line 202
+- `const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go")` — const, line 214
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `Shelf`, `ShelfRow`; references `Shelf`, `ShelfRow`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `CarriedList`, `Shelf`, `ShelfRow`; references `CarriedList`, `Shelf`, `ShelfRow`
 
 ## Dependencies
 
 ### Desktop source modules
 
-No local TypeScript/TSX or Rust module dependency was detected.
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CarriedQuestionDto`
 
 ### Assets, platform, and third-party dependencies
 
