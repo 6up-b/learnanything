@@ -76,8 +76,10 @@ export class ZoomController {
     return this.motion.p;
   }
 
+  /** Where a gesture takes p from. Undecided, the fingers' place; while the spring carries p to a goal,
+   * where p is now: a wheel that takes over the spring starts there, never from the old target. */
   get target(): number {
-    return this.motion.target;
+    return this.motion.goal !== null ? this.motion.p : this.motion.target;
   }
 
   get velocity(): number {

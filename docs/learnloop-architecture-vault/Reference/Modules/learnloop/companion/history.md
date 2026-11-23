@@ -88,7 +88,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]] — imports `companion_history`; statically calls `companion_history`
 - [[Reference/Modules/learnloop_sidecar/handlers/companion|learnloop_sidecar.handlers.companion]] — imports `companion_history`; statically calls `companion_history`
+- [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] — imports `record_exchange_context`; statically calls `record_exchange_context`
 
 ## Dependencies
 
@@ -112,7 +114,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/companion|learnloop_sidecar.handlers.companion]].
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]], [[Reference/Modules/learnloop_sidecar/handlers/companion|learnloop_sidecar.handlers.companion]], [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

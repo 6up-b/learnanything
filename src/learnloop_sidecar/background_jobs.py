@@ -27,6 +27,7 @@ later ``load`` or request starts work again, as the post-attempt worker's
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import Any, Callable
@@ -34,6 +35,8 @@ from typing import Any, Callable
 from learnloop import provenance
 from learnloop.ai.execution import active_request_gate, gate_model_requests
 from learnloop.ai.spend import SpendCancelled
+
+LOG = logging.getLogger(__name__)
 
 #: How long ``close`` waits for the jobs it cancelled, in all (a guardrail,
 #: not a parameter: the post-attempt worker's own bounded join).
@@ -128,6 +131,11 @@ class BackgroundJobs:
         for thread in threads:
             if thread is not threading.current_thread():
                 thread.join(timeout=max(0.0, deadline - time.monotonic()))
+        stuck = [thread.name for thread in threads if thread.is_alive() and thread is not threading.current_thread()]
+        if stuck:
+            # Said, never hidden: a job still inside a request already sent ends with that request (a daemon
+            # thread); its next request is refused, and its poll reads interrupted.
+            LOG.warning("background jobs still running after the close's %.1f s bound: %s", timeout, stuck)
 
     @property
     def running(self) -> list[threading.Thread]:

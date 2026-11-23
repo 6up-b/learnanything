@@ -80,7 +80,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] | [[Reference/Modules/learnloop/figures/build#^module-purpose|purpose]] | `ACTIVE` | 3 | 28 |
 | [[Reference/Modules/learnloop/figures/display_format|learnloop.figures.display_format]] | [[Reference/Modules/learnloop/figures/display_format#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]] | [[Reference/Modules/learnloop/figures/elements#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] | [[Reference/Modules/learnloop/figures/foreground#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
+| [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] | [[Reference/Modules/learnloop/figures/foreground#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/figures/grammar|learnloop.figures.grammar]] | [[Reference/Modules/learnloop/figures/grammar#^module-purpose|purpose]] | `ACTIVE` | 8 | 12 |
 | [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] | [[Reference/Modules/learnloop/figures/grounding#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] | [[Reference/Modules/learnloop/figures/help#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -131,8 +131,8 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 16 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 4 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 4 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 1 static module edge
 
 ### Dependency neighborhood

@@ -87,6 +87,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `deep_search_caps`, `plan_library_search`, `search_library`; statically calls `deep_search_caps`, `plan_library_search`, `search_library`
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `plan_library_search`; statically calls `plan_library_search`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `search_library`; statically calls `search_library`
+- [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `meaning_search_state`, `search_library`; statically calls `meaning_search_state`, `search_library`
 
 ## Dependencies
 
@@ -122,13 +123,17 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]], [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+- [tests/test_reader_rd3a_search.py](../../../../../../tests/test_reader_rd3a_search.py) — direct import
+  - `test_a_newer_search_from_the_desk_supersedes_the_older_job`
+  - `test_the_meaning_job_adds_only_what_the_words_did_not_find`
+  - `test_waiting_for_the_ok_to_use_ai_runs_nothing_by_meaning`
 - [tests/test_source_retrieval_cli.py](../../../../../../tests/test_source_retrieval_cli.py) — direct import
   - `test_deep_search_caps_bound_the_paid_steps`
 - [tests/test_source_retrieval_codex_unavailable.py](../../../../../../tests/test_source_retrieval_codex_unavailable.py) — direct import

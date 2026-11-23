@@ -450,7 +450,9 @@ export function openBeside(
     deskId,
     windowId,
     content,
-    view: options.view ?? {},
+    // The window it was opened beside: an explicit relation (the overview's links, gather), kept in the
+    // view so later view saves (which spread the view) carry it on.
+    view: { ...(options.view ?? {}), ...(focus ? { openedBeside: focus } : {}) },
     afterWindowId: focus ? lastOfSlot(desk, focus) : null,
   });
   step = push(step, { op: "set_focus", deskId, windowId });
@@ -593,6 +595,21 @@ export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): 
     if (at < 0 || at === index) return;
     step = push(step, { op: "move_window", deskId, windowId: slot[0], toSlot: index });
   });
+  return step;
+}
+
+/** A window to another desk's slot `toIndex` (a drop on a card's place, alt+shift+j/k). The transfer op
+ * places a window after another one or at the end, so a move to slot 0 of a desk that has slots is the
+ * transfer and then a move to slot 0 at the destination's next version. */
+export function moveToDeskAt(ws: Workspace, deskId: string, windowId: string, toDeskId: string, toIndex: number): Step {
+  const to = requireDesk(ws, toDeskId);
+  const at = Math.max(0, Math.min(toIndex, to.slots.length));
+  const afterSlot = to.slots[at - 1];
+  let step = moveToDesk(ws, deskId, windowId, toDeskId, afterSlot ? afterSlot[afterSlot.length - 1] : null);
+  if (at === 0 && to.slots.length > 0 && step.ops.length > 0) {
+    const landed = requireDesk(step.ws, toDeskId);
+    if (slotIndexOf(landed, windowId) !== 0) step = push(step, { op: "move_window", deskId: toDeskId, windowId, toSlot: 0 });
+  }
   return step;
 }
 

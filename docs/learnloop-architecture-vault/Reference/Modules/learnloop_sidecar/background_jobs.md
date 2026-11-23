@@ -50,26 +50,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/background_jobs.py](../../../../../src/learnloop_sidecar/background_jobs.py) |
-| Source lines | 151 |
+| Source lines | 159 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class BackgroundJobs` ([source](../../../../../src/learnloop_sidecar/background_jobs.py), line 67) — The request-started job threads of one sidecar context.
-  - `__init__(self) -> None` (line 70; internal)
-  - `epoch(self) -> int` (line 75; public) — The epoch a job starting now belongs to (capture it before building the job's cancellation predicate, and pass it to :meth:`spawn`).
-  - `closed_since(self, epoch: int) -> bool` (line 82; public) — Whether the context was closed after a job of ``epoch`` started.
-  - `spawn(self, target: Callable[[], Any], *, name: str, epoch: int | None=None) -> threading.Thread` (line 88; public) — Start ``target`` on a daemon thread owned by this context: a close cancels it (its requests refused from then on) and joins it, bounded.
-  - `cancel(self) -> list[threading.Thread]` (line 113; public) — End the current epoch: every job started so far is cancelled.
-  - `close(self, timeout: float=CLOSE_JOIN_SECONDS) -> None` (line 122; public) — Cancel every job started so far, then join them for at most ``timeout`` seconds in all.
-  - `running(self) -> list[threading.Thread]` (line 133; public)
-- `background_jobs(ctx: Any) -> BackgroundJobs` ([source](../../../../../src/learnloop_sidecar/background_jobs.py), line 138) — ``ctx``'s job registry (a stand-in context without one gets its own).
+- `class BackgroundJobs` ([source](../../../../../src/learnloop_sidecar/background_jobs.py), line 70) — The request-started job threads of one sidecar context.
+  - `__init__(self) -> None` (line 73; internal)
+  - `epoch(self) -> int` (line 78; public) — The epoch a job starting now belongs to (capture it before building the job's cancellation predicate, and pass it to :meth:`spawn`).
+  - `closed_since(self, epoch: int) -> bool` (line 85; public) — Whether the context was closed after a job of ``epoch`` started.
+  - `spawn(self, target: Callable[[], Any], *, name: str, epoch: int | None=None) -> threading.Thread` (line 91; public) — Start ``target`` on a daemon thread owned by this context: a close cancels it (its requests refused from then on) and joins it, bounded.
+  - `cancel(self) -> list[threading.Thread]` (line 116; public) — End the current epoch: every job started so far is cancelled.
+  - `close(self, timeout: float=CLOSE_JOIN_SECONDS) -> None` (line 125; public) — Cancel every job started so far, then join them for at most ``timeout`` seconds in all.
+  - `running(self) -> list[threading.Thread]` (line 141; public)
+- `background_jobs(ctx: Any) -> BackgroundJobs` ([source](../../../../../src/learnloop_sidecar/background_jobs.py), line 146) — ``ctx``'s job registry (a stand-in context without one gets its own).
 
 ### Module constants
 
-- `CLOSE_JOIN_SECONDS` ([src/learnloop_sidecar/background_jobs.py](../../../../../src/learnloop_sidecar/background_jobs.py), line 40)
+- `LOG` ([src/learnloop_sidecar/background_jobs.py](../../../../../src/learnloop_sidecar/background_jobs.py), line 39)
+- `CLOSE_JOIN_SECONDS` ([src/learnloop_sidecar/background_jobs.py](../../../../../src/learnloop_sidecar/background_jobs.py), line 43)
 
 ### Explicit exports
 
@@ -81,7 +82,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _ClosingGate` ([source](../../../../../src/learnloop_sidecar/background_jobs.py), line 43) — Refuses a job's physical model requests once its epoch has ended; an outer gate (installed by the job itself) is admitted first and settled on a refusal, so nothing it reserved is kept for a request never sent.
+- `class _ClosingGate` ([source](../../../../../src/learnloop_sidecar/background_jobs.py), line 46) — Refuses a job's physical model requests once its epoch has ended; an outer gate (installed by the job itself) is admitted first and settled on a refusal, so nothing it reserved is kept for a request never sent.
 
 ## Who imports or calls it
 
@@ -97,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]] — imports `background_jobs`; statically calls `background_jobs`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `background_jobs`; statically calls `background_jobs`
 - [[Reference/Modules/learnloop_sidecar/handlers/reading_paths|learnloop_sidecar.handlers.reading_paths]] — imports `background_jobs`; statically calls `background_jobs`
+- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `background_jobs`; statically calls `background_jobs`
 
 ## Dependencies
 
@@ -108,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `threading`, `time`, `typing`
+- Standard library: `__future__`, `logging`, `threading`, `time`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -121,7 +123,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]], [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]], [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]], [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]], [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]], [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]], [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

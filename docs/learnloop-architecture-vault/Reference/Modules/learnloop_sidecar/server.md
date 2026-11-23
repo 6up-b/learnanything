@@ -168,6 +168,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_question_queue.py](../../../../../tests/test_question_queue.py) — direct import
   - `test_sidecar_queue_roundtrip`
   - `test_sidecar_reader_question_transcript_can_be_resumed`
+- [tests/test_reader_rd3a_companion_ask.py](../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
 - [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_reopening_feedback_does_not_charge_again`
 - [tests/test_sidecar_animation.py](../../../../../tests/test_sidecar_animation.py) — direct import

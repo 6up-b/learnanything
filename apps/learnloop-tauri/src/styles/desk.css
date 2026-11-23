@@ -137,6 +137,8 @@
    overview the camera's (spec §6.3). Only the zoom and the overview's keyboard camera move it. */
 .desk-world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
 .desk-world.pan-ease { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
+/* A zoom writes the world's camera every frame: no CSS transition may animate it too. */
+.desk-shell.zooming .desk-world { transition: none; }
 .desk-world.desk-fadeswap { animation: desk-fadeswap .25s linear; }
 @keyframes desk-fadeswap { from { opacity: .15; } to { opacity: 1; } }
 /* A window's content keeps its reading size (frozen while its box is a card). */

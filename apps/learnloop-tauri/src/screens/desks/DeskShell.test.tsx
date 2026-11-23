@@ -723,3 +723,391 @@ describe("fix round: a reading place still waiting to be saved survives leaving 
     expect(saved?.view?.spanId).toBe(`${FIXTURE_SOURCES.book.extractionId}_s2_1`);
   });
 });
+
+// -- the RD2 fix round --------------------------------------------------------------------------------
+
+function wheel(init: WheelEventInit) {
+  const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+  const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, ...init });
+  act(() => {
+    stage.dispatchEvent(event);
+  });
+  return event;
+}
+
+function shellHas(name: string): boolean {
+  return document.querySelector("[data-desk-shell]")?.classList.contains(name) ?? false;
+}
+
+describe("RD2 fix round: input in the overview (finding 1)", () => {
+  it("no window hears keys while the overview shows: the reading focus is a preview card", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    expect(overviewOn()).toBe(true);
+    for (const key of Object.keys(heardKeys)) delete heardKeys[key];
+    act(() => {
+      fireEvent.keyDown(window, { key: "z", code: "KeyZ", ctrlKey: true });
+    });
+    expect(heardKeys.fx_w_book ?? []).not.toContain("z");
+  });
+});
+
+describe("RD2 fix round: one transition at a time (finding 2)", () => {
+  it("an exit's late cleanup never dismantles the zoom that started after it", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    frames.run();
+    expect(overviewOn()).toBe(true);
+    press("Escape", "Escape");
+    frames.run(2);
+    // o settles the exit and starts entering again at once.
+    press("o", "KeyO");
+    expect(shellHas("zooming")).toBe(true);
+    // The exit's cleanup was due two frames after its commit.
+    frames.run(3);
+    expect(shellHas("zooming")).toBe(true);
+    frames.run();
+    expect(overviewOn()).toBe(true);
+  });
+});
+
+describe("RD2 fix round: the world's camera has one animator (finding 4)", () => {
+  it("after keyboard navigation in the overview, the world's CSS transition is off once a zoom starts", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    frames.run();
+    press("j", "KeyJ");
+    const world = () => document.querySelector("[data-desk-world]") as HTMLElement;
+    expect(world().classList.contains("pan-ease")).toBe(true);
+    press("Enter", "Enter");
+    frames.run(2);
+    expect(shellHas("zooming")).toBe(true);
+    expect(world().classList.contains("pan-ease")).toBe(false);
+  });
+});
+
+describe("RD2 fix round: the wheel through the real router (findings 9, 10, 11)", () => {
+  it("a touchpad pinch (ctrl+wheel with no Ctrl key held) is classed as a pinch", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    wheel({ deltaY: 4, ctrlKey: true });
+    expect(screen.getByRole("status").textContent).toContain("pinch · zooming out");
+  });
+
+  it("with Ctrl held, ctrl+wheel is ctrl + scroll, not a pinch", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    act(() => {
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft", ctrlKey: true });
+    });
+    wheel({ deltaY: 4, ctrlKey: true });
+    expect(screen.getByRole("status").textContent).toContain("ctrl + scroll · zooming out");
+  });
+
+  it("reduced motion: an alt-wheel zoom crossfades to the overview at once, with no zoom", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    wheel({ deltaY: 6, altKey: true });
+    expect(shellHas("zooming")).toBe(false);
+    expect(frames.queue.length).toBe(0);
+    expect(overviewOn()).toBe(true);
+  });
+
+  it("reduced motion: a ctrl+drag on the background crossfades, with no zoom", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    act(() => {
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft", ctrlKey: true });
+      fireEvent.pointerDown(stage, { ctrlKey: true, clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerMove(stage, { ctrlKey: true, clientX: 10, clientY: 200, pointerId: 1 });
+      fireEvent.pointerUp(stage, { ctrlKey: true, clientX: 10, clientY: 200, pointerId: 1 });
+    });
+    expect(shellHas("zooming")).toBe(false);
+    expect(frames.queue.length).toBe(0);
+    expect(overviewOn()).toBe(true);
+  });
+
+  it("an alt-wheel gesture is no bare-Alt tap: the capture stays", async () => {
+    const cleared: string[] = [];
+    function CapturePane({ input }: { input: PaneRenderInput }) {
+      useBareAltClear(() => cleared.push(input.window.windowId));
+      return <Pane input={input} />;
+    }
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false, renderPane: (input) => <CapturePane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+    });
+    wheel({ deltaX: 300, deltaY: 2, altKey: true });
+    act(() => {
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    expect(cleared).toEqual([]);
+  });
+});
+
+describe("RD2 fix round: a card moved to another desk's first slot lands there (finding 6)", () => {
+  it("alt+shift+j on the first card puts it first on the desk below, on the server too", async () => {
+    const { server } = mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyDown(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    await flush();
+    const attention = server.state().desks.find((desk) => desk.deskId === "fx_desk_attention");
+    expect(attention?.slots[0].windows[0].windowId).toBe("fx_w_book");
+  });
+});
+
+describe("RD2 fix round: opened beside is remembered (finding 7)", () => {
+  it("a window opened beside the focus keeps that window as its origin, on the server, and draws the relation", async () => {
+    const { server } = mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByRole("button", { name: "+ open beside" }));
+    fireEvent.click(screen.getByRole("button", { name: /⇄ compare/ }));
+    await flush();
+    const opened = server.state().desks[0].slots.flatMap((slot) => slot.windows).find((window) => window.content?.kind === "panel" && window.content.panel === "library");
+    expect(opened?.view?.openedBeside).toBe("fx_w_book");
+  });
+});
+
+describe("RD2 fix round: the overview's selection is always a card on show (finding 12)", () => {
+  it("with the first desk empty, the overview still selects a card and the keys move it", async () => {
+    const server = new FixtureDeskServer();
+    const first = server.state().desks[0];
+    let version = first.version;
+    const ids = first.slots.flatMap((slot) => slot.windows.map((window) => window.windowId));
+    server.apply({ clientId: "setup", seq: 1, ops: ids.map((windowId) => ({ op: "close_window" as const, deskId: first.deskId, windowId, expectedVersion: version++ })) });
+    mount(server, { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_video2").catch(() => undefined);
+    alt("KeyO", "o");
+    expect(overviewOn()).toBe(true);
+    expect(document.querySelector(".ov-selected")).not.toBeNull();
+    const before = document.querySelector(".ov-selected")?.getAttribute("data-desk-slot-window");
+    press("l", "KeyL");
+    expect(document.querySelector(".ov-selected")?.getAttribute("data-desk-slot-window")).not.toBe(before);
+  });
+
+  it("a card moved down with alt+shift+j stays in view: the camera follows it", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true, initialViewport: { width: 1600, height: 420 } });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    const moveDown = () => act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyDown(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    moveDown();
+    moveDown();
+    await flush();
+    const selected = document.querySelector(".ov-selected") as HTMLElement;
+    expect(selected.getAttribute("data-desk-slot-desk")).toBe("fx_desk_backprop");
+    const world = (document.querySelector("[data-desk-world]") as HTMLElement).style.transform;
+    const [x, y, s] = world.match(/-?[\d.]+/g)!.map(Number);
+    void x;
+    const top = y + parseFloat(selected.style.top) * s;
+    const bottom = top + parseFloat(selected.style.height) * s;
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(bottom).toBeLessThanOrEqual(420);
+  });
+});
+
+describe("RD2 fix round: cancelled pointer gestures (findings 14, 15)", () => {
+  // jsdom has no PointerEvent: a MouseEvent with a pointer id carries the coordinates.
+  beforeEach(() => {
+    vi.stubGlobal("PointerEvent", class extends MouseEvent {
+      pointerId: number;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 0;
+      }
+    });
+  });
+  it("a card drag that is cancelled puts the card back and moves it no more", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    const card = document.querySelector('[data-desk-slot-window="fx_w_video"]') as HTMLElement;
+    act(() => {
+      fireEvent.pointerDown(card, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(stage, { clientX: 160, clientY: 140, pointerId: 1 });
+    });
+    expect(card.style.transform).not.toBe("");
+    act(() => {
+      fireEvent.pointerCancel(stage, { pointerId: 1 });
+    });
+    expect(card.style.transform).toBe("");
+    expect(card.style.zIndex).toBe("");
+    act(() => {
+      fireEvent.pointerMove(stage, { clientX: 260, clientY: 240, pointerId: 1 });
+    });
+    expect(card.style.transform).toBe("");
+  });
+
+  it("the window losing focus cancels a card drag; an element blurring as the press moves the focus does not", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    const card = document.querySelector('[data-desk-slot-window="fx_w_video"]') as HTMLElement;
+    act(() => {
+      fireEvent.pointerDown(card, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(stage, { clientX: 160, clientY: 140, pointerId: 1 });
+      fireEvent.blur(window);
+    });
+    expect(card.style.transform).toBe("");
+    // A click on a card while a shelf button loses the focus still opens the card.
+    const shelfButton = screen.getByRole("button", { name: "attention" });
+    act(() => shelfButton.focus());
+    act(() => {
+      fireEvent.pointerDown(card, { clientX: 100, clientY: 100, pointerId: 2 });
+      fireEvent.blur(shelfButton);
+      fireEvent.pointerUp(stage, { clientX: 100, clientY: 100, pointerId: 2 });
+    });
+    expect(overviewOn()).toBe(false);
+    expect(state("fx_w_video")).toBe("active");
+  });
+
+  it("a cancelled ctrl+drag scrub settles the zoom instead of leaving it mid-way", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    act(() => {
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft", ctrlKey: true });
+      fireEvent.pointerDown(stage, { ctrlKey: true, clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerMove(stage, { ctrlKey: true, clientX: 10, clientY: 60, pointerId: 1 });
+    });
+    expect(shellHas("zooming")).toBe(true);
+    act(() => {
+      fireEvent.pointerCancel(stage, { pointerId: 1 });
+    });
+    frames.run(90);
+    expect(shellHas("zooming")).toBe(false);
+  });
+
+  it("ctrl+drag starting on a sliver scrubs the zoom, and the sliver's click is not taken as well", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    const sliver = document.querySelector(".desk-sliver") as HTMLElement;
+    expect(sliver).not.toBeNull();
+    act(() => {
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft", ctrlKey: true });
+      fireEvent.pointerDown(sliver, { ctrlKey: true, clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerMove(sliver, { ctrlKey: true, clientX: 10, clientY: 60, pointerId: 1 });
+    });
+    expect(shellHas("zooming")).toBe(true);
+    act(() => {
+      fireEvent.pointerUp(sliver, { ctrlKey: true, clientX: 10, clientY: 60, pointerId: 1 });
+      fireEvent.click(sliver, { ctrlKey: true });
+    });
+    frames.run(90);
+    expect(state("fx_w_book")).toBe("active");
+  });
+});
+
+describe("RD2 fix round: miniatures (finding 13)", () => {
+  function CountingPane({ input }: { input: PaneRenderInput }) {
+    const [count, setCount] = useState(0);
+    return (
+      <div data-testid={`pane-${input.window.windowId}`} data-state={input.lifecycle.state}>
+        <button type="button" onClick={() => setCount((value) => value + 1)}>{`count ${input.window.windowId} ${count}`}</button>
+      </div>
+    );
+  }
+  const host = (windowId: string) => document.querySelector(`[data-desk-slot-window="${windowId}"] .desk-card`) as HTMLElement;
+
+  it("a picture is rebuilt after the window's content changed, though its status did not", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true, renderPane: (input) => <CountingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 0");
+    press("Escape", "Escape");
+    fireEvent.click(screen.getByRole("button", { name: "count fx_w_book 0" }));
+    await flush();
+    alt("KeyO", "o");
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 1");
+  });
+
+  it("a card moved between two opened desks keeps its picture", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true, renderPane: (input) => <CountingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyJ", "j");
+    await screen.findByTestId("pane-fx_w_video2");
+    alt("KeyK", "k");
+    alt("KeyO", "o");
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 0");
+    act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyDown(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).toContain("count fx_w_book 0");
+  });
+
+  it("no picture is put in while a zoom runs: a build due during an exit waits for its commit", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false, renderPane: (input) => <CountingPane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    frames.run();
+    expect(overviewOn()).toBe(true);
+    press("Escape", "Escape");
+    expect(shellHas("zooming")).toBe(true);
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(host("fx_w_book").textContent).not.toContain("count fx_w_book");
+  });
+});
+
+describe("RD2 fix round: a resize during a zoom (finding 3)", () => {
+  it("settles the zoom first, so the new layout is laid out at rest, never under the old plan's transforms", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    frames.run(3);
+    expect(shellHas("zooming")).toBe(true);
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    Object.defineProperty(stage, "clientWidth", { value: 1200, configurable: true });
+    Object.defineProperty(stage, "clientHeight", { value: 800, configurable: true });
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(shellHas("zooming")).toBe(false);
+    const boxes = [...document.querySelectorAll<HTMLElement>("[data-desk-slot]")];
+    expect(boxes.every((box) => box.style.transform === "")).toBe(true);
+  });
+});

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/model/workspace.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/model/workspace.ts) |
-| Source lines | 614 |
+| Source lines | 631 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/model/_area|TypeScript/screens/desks/model]] |
 | Refactor status | `ACTIVE` |
@@ -75,21 +75,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function restampOp(ws: Workspace, op: DeskOpDto):` — function, line 414
 - `export function setFocus(ws: Workspace, deskId: string, windowId: string): Step` — function, line 423
 - `export function openBeside( ws: Workspace, deskId: string, content: ContentRefDto, mintId: ()` — function, line 436
-- `export function closeWindow(ws: Workspace, deskId: string, windowId: string): Step` — function, line 466
-- `export function undoClose(ws: Workspace, deskId: string): Step` — function, line 482
-- `export function moveFocused(ws: Workspace, deskId: string, direction: -1 | 1): Step` — function, line 493
-- `export function moveWindowTo(ws: Workspace, deskId: string, windowId: string, toSlot: number): Step` — function, line 503
-- `export function pairFocused(ws: Workspace, deskId: string): Step` — function, line 511
-- `export function unpairFocused(ws: Workspace, deskId: string): Step` — function, line 523
-- `export function focusAlong(ws: Workspace, deskId: string, direction: -1 | 1): Step` — function, line 534
-- `export function focusPane(ws: Workspace, deskId: string, direction: -1 | 1): Step | null` — function, line 545
-- `export function positionAfter(ws: Workspace): string` — function, line 558
-- `export function createDesk(ws: Workspace, deskId: string, title: string): Step` — function, line 563
-- `export function renameDesk(ws: Workspace, deskId: string, title: string): Step` — function, line 567
-- `export function setView(ws: Workspace, deskId: string, windowId: string, view: Record<string, unknown>): Step` — function, line 571
-- `export function swapInView(ws: Workspace, deskId: string, otherSlot: number): Step` — function, line 578
-- `export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): Step` — function, line 588
-- `export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step` — function, line 601
+- `export function closeWindow(ws: Workspace, deskId: string, windowId: string): Step` — function, line 468
+- `export function undoClose(ws: Workspace, deskId: string): Step` — function, line 484
+- `export function moveFocused(ws: Workspace, deskId: string, direction: -1 | 1): Step` — function, line 495
+- `export function moveWindowTo(ws: Workspace, deskId: string, windowId: string, toSlot: number): Step` — function, line 505
+- `export function pairFocused(ws: Workspace, deskId: string): Step` — function, line 513
+- `export function unpairFocused(ws: Workspace, deskId: string): Step` — function, line 525
+- `export function focusAlong(ws: Workspace, deskId: string, direction: -1 | 1): Step` — function, line 536
+- `export function focusPane(ws: Workspace, deskId: string, direction: -1 | 1): Step | null` — function, line 547
+- `export function positionAfter(ws: Workspace): string` — function, line 560
+- `export function createDesk(ws: Workspace, deskId: string, title: string): Step` — function, line 565
+- `export function renameDesk(ws: Workspace, deskId: string, title: string): Step` — function, line 569
+- `export function setView(ws: Workspace, deskId: string, windowId: string, view: Record<string, unknown>): Step` — function, line 573
+- `export function swapInView(ws: Workspace, deskId: string, otherSlot: number): Step` — function, line 580
+- `export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): Step` — function, line 590
+- `export function moveToDeskAt(ws: Workspace, deskId: string, windowId: string, toDeskId: string, toIndex: number): Step` — function, line 604
+- `export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step` — function, line 618
 
 ## Internal implementation anchors
 
@@ -177,56 +178,61 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const windowId = mintId()` — const, line 446
 - `const focus = focusedWindowId(ws, desk)` — const, line 447
 - `let step = push(start(ws),` — let, line 448
-- `function lastOfSlot(desk: Desk, windowId: string): string` — function, line 460
-- `const slot = desk.slots[slotIndexOf(desk, windowId)]` — const, line 461
-- `const desk = requireDesk(ws, deskId)` — const, line 467
-- `const index = slotIndexOf(desk, windowId)` — const, line 468
-- `const wasFocus = focusedWindowId(ws, desk) === windowId` — const, line 470
-- `let step = push(start(ws),` — let, line 471
-- `const after = requireDesk(step.ws, deskId)` — const, line 473
-- `const at = Math.min(index, after.slots.length - 1)` — const, line 474
-- `const next = at >= 0 ? (after.slots[at].find((id)` — const, line 475
-- `const list = ws.closed[deskId] ?? []` — const, line 483
-- `const entry = list[list.length - 1]` — const, line 484
-- `let step = push(start(ws),` — let, line 487
-- `const desk = requireDesk(ws, deskId)` — const, line 494
-- `const id = focusedWindowId(ws, desk)` — const, line 495
-- `const index = slotIndexOf(desk, id)` — const, line 496
-- `const to = index + direction` — const, line 497
-- `const desk = requireDesk(ws, deskId)` — const, line 504
-- `const index = slotIndexOf(desk, windowId)` — const, line 505
-- `const desk = requireDesk(ws, deskId)` — const, line 512
-- `const id = focusedWindowId(ws, desk)` — const, line 513
-- `const index = slotIndexOf(desk, id)` — const, line 514
-- `const desk = requireDesk(ws, deskId)` — const, line 524
-- `const id = focusedWindowId(ws, desk)` — const, line 525
-- `const index = slotIndexOf(desk, id)` — const, line 526
-- `let step = push(start(ws),` — let, line 528
-- `const desk = requireDesk(ws, deskId)` — const, line 535
-- `const index = focusedSlot(ws, desk)` — const, line 536
-- `const to = index + direction` — const, line 537
-- `const target = desk.slots[to].find((id)` — const, line 539
-- `const desk = requireDesk(ws, deskId)` — const, line 546
-- `const id = focusedWindowId(ws, desk)` — const, line 547
-- `const index = slotIndexOf(desk, id)` — const, line 548
-- `const slot = desk.slots[index]` — const, line 550
-- `const pane = slot.indexOf(id)` — const, line 551
-- `const to = pane + direction` — const, line 552
-- `const last = ws.desks[ws.desks.length - 1]?.position ?? ""` — const, line 559
-- `const desk = requireDesk(ws, deskId)` — const, line 572
-- `const desk = requireDesk(ws, deskId)` — const, line 579
-- `const id = focusedWindowId(ws, desk)` — const, line 580
-- `const index = slotIndexOf(desk, id)` — const, line 581
-- `let step = start(ws)` — let, line 589
-- `const desk = requireDesk(step.ws, deskId)` — const, line 591
-- `const at = slotIndexOf(desk, slot[0])` — const, line 592
-- `const desk = requireDesk(ws, deskId)` — const, line 602
-- `const index = slotIndexOf(desk, windowId)` — const, line 604
-- `const wasFocus = focusedWindowId(ws, desk) === windowId` — const, line 605
-- `let step = push(start(ws),` — let, line 606
-- `const after = requireDesk(step.ws, deskId)` — const, line 608
-- `const at = Math.min(index, after.slots.length - 1)` — const, line 609
-- `const next = at >= 0 ? after.slots[at][0] : null` — const, line 610
+- `function lastOfSlot(desk: Desk, windowId: string): string` — function, line 462
+- `const slot = desk.slots[slotIndexOf(desk, windowId)]` — const, line 463
+- `const desk = requireDesk(ws, deskId)` — const, line 469
+- `const index = slotIndexOf(desk, windowId)` — const, line 470
+- `const wasFocus = focusedWindowId(ws, desk) === windowId` — const, line 472
+- `let step = push(start(ws),` — let, line 473
+- `const after = requireDesk(step.ws, deskId)` — const, line 475
+- `const at = Math.min(index, after.slots.length - 1)` — const, line 476
+- `const next = at >= 0 ? (after.slots[at].find((id)` — const, line 477
+- `const list = ws.closed[deskId] ?? []` — const, line 485
+- `const entry = list[list.length - 1]` — const, line 486
+- `let step = push(start(ws),` — let, line 489
+- `const desk = requireDesk(ws, deskId)` — const, line 496
+- `const id = focusedWindowId(ws, desk)` — const, line 497
+- `const index = slotIndexOf(desk, id)` — const, line 498
+- `const to = index + direction` — const, line 499
+- `const desk = requireDesk(ws, deskId)` — const, line 506
+- `const index = slotIndexOf(desk, windowId)` — const, line 507
+- `const desk = requireDesk(ws, deskId)` — const, line 514
+- `const id = focusedWindowId(ws, desk)` — const, line 515
+- `const index = slotIndexOf(desk, id)` — const, line 516
+- `const desk = requireDesk(ws, deskId)` — const, line 526
+- `const id = focusedWindowId(ws, desk)` — const, line 527
+- `const index = slotIndexOf(desk, id)` — const, line 528
+- `let step = push(start(ws),` — let, line 530
+- `const desk = requireDesk(ws, deskId)` — const, line 537
+- `const index = focusedSlot(ws, desk)` — const, line 538
+- `const to = index + direction` — const, line 539
+- `const target = desk.slots[to].find((id)` — const, line 541
+- `const desk = requireDesk(ws, deskId)` — const, line 548
+- `const id = focusedWindowId(ws, desk)` — const, line 549
+- `const index = slotIndexOf(desk, id)` — const, line 550
+- `const slot = desk.slots[index]` — const, line 552
+- `const pane = slot.indexOf(id)` — const, line 553
+- `const to = pane + direction` — const, line 554
+- `const last = ws.desks[ws.desks.length - 1]?.position ?? ""` — const, line 561
+- `const desk = requireDesk(ws, deskId)` — const, line 574
+- `const desk = requireDesk(ws, deskId)` — const, line 581
+- `const id = focusedWindowId(ws, desk)` — const, line 582
+- `const index = slotIndexOf(desk, id)` — const, line 583
+- `let step = start(ws)` — let, line 591
+- `const desk = requireDesk(step.ws, deskId)` — const, line 593
+- `const at = slotIndexOf(desk, slot[0])` — const, line 594
+- `const to = requireDesk(ws, toDeskId)` — const, line 605
+- `const at = Math.max(0, Math.min(toIndex, to.slots.length))` — const, line 606
+- `const afterSlot = to.slots[at - 1]` — const, line 607
+- `let step = moveToDesk(ws, deskId, windowId, toDeskId, afterSlot ? afterSlot[afterSlot.length - 1] : null)` — let, line 608
+- `const landed = requireDesk(step.ws, toDeskId)` — const, line 610
+- `const desk = requireDesk(ws, deskId)` — const, line 619
+- `const index = slotIndexOf(desk, windowId)` — const, line 621
+- `const wasFocus = focusedWindowId(ws, desk) === windowId` — const, line 622
+- `let step = push(start(ws),` — let, line 623
+- `const after = requireDesk(step.ws, deskId)` — const, line 625
+- `const at = Math.min(index, after.slots.length - 1)` — const, line 626
+- `const next = at >= 0 ? after.slots[at][0] : null` — const, line 627
 
 ## Who imports or calls it
 
@@ -234,7 +240,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`; references `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `DeskWindow`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `moveFocused`, `moveToDesk`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`; references `DeskWindow`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `moveFocused`, `moveToDesk`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `DeskWindow`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `moveFocused`, `moveToDesk`, `moveToDeskAt`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`; references `DeskWindow`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `moveFocused`, `moveToDesk`, `moveToDeskAt`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`
 - [[Reference/Desktop/TypeScript/screens/desks/overview/links|src/screens/desks/overview/links.ts]] — import-or-re-export: `Workspace`; references `Workspace`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `EMPTY_WORKSPACE`, `OpRefusal`, `Step`, `Workspace`, `fromDeskState`, `restampOp`; references `EMPTY_WORKSPACE`, `OpRefusal`, `Step`, `Workspace`, `fromDeskState`, `restampOp`
 

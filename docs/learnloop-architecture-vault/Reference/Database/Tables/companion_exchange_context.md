@@ -16,9 +16,11 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
+  - "src/learnloop/companion/asks.py"
   - "src/learnloop/companion/history.py"
   - "src/learnloop/db/stores/span_projection_reads.py"
   - "src/learnloop/db/stores/span_projections.py"
+  - "src/learnloop_sidecar/handlers/companion_ask.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,6 +108,7 @@ None found by exact static reference scan.
 - `tests/reader_rd0_migration_helpers.py`
 - `tests/test_reader_rd0_guards_migration.py`
 - `tests/test_reader_rd0_migration.py`
+- `tests/test_reader_rd3a_companion_ask.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

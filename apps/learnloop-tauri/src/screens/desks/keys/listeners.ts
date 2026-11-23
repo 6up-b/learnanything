@@ -121,7 +121,9 @@ export class DeskListenerRouter {
       for (const subscription of [...this.subscriptions]) {
         if (stopped) break;
         if (subscription.target !== target || subscription.type !== type || subscription.capture !== capture) continue;
-        if (input ? subscription.windowId !== active : this.hooks.isPaused(subscription.windowId)) continue;
+        // Input goes only to the active window, and never to a paused one (a card in the overview, a
+        // hidden desk); other events skip paused windows.
+        if (input ? subscription.windowId !== active || this.hooks.isPaused(subscription.windowId) : this.hooks.isPaused(subscription.windowId)) continue;
         subscription.handler(event);
       }
     } finally {

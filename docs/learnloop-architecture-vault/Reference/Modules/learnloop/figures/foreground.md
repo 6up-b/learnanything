@@ -91,6 +91,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `wait_idle`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `foreground`, `module`; statically calls `foreground`, `wait_idle`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `foreground`; statically calls `foreground`
+- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `foreground`; statically calls `foreground`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `FOREGROUND_METHODS`, `foreground`; statically calls `foreground`
 
 ## Dependencies
@@ -111,7 +112,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]], [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]], [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

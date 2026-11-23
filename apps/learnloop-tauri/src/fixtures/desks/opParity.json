@@ -1,5 +1,5 @@
 {
-  "about": "One desk.apply script (its last batch: reopening an open window is refused, as is reopening one twice) run by both the client's workspace model (screens/desks/model/workspace.ts, through the harness's version-checking server) and the sidecar (tests/test_reader_rd1_model_parity.py): both must give these results and this final state.",
+  "about": "One desk.apply script (its sixth batch: reopening an open window is refused, as is reopening one twice; its last: a window moved to another desk's first slot, a transfer then a move at the incremented version) run by both the client's workspace model (screens/desks/model/workspace.ts, through the harness's version-checking server) and the sidecar (tests/test_reader_rd1_model_parity.py): both must give these results and this final state.",
   "batches": [
     [{ "op": "create_desk", "deskId": "d1", "title": "first", "position": "a" }],
     [
@@ -35,6 +35,10 @@
       { "op": "close_window", "deskId": "d2", "windowId": "w4", "expectedVersion": 2 },
       { "op": "reopen_window", "deskId": "d2", "windowId": "w4", "expectedVersion": 3 },
       { "op": "reopen_window", "deskId": "d2", "windowId": "w4", "expectedVersion": 4 }
+    ],
+    [
+      { "op": "move_to_desk", "deskId": "d1", "windowId": "w2", "toDeskId": "d2", "expectedVersion": 17, "toExpectedVersion": 4, "afterWindowId": null },
+      { "op": "move_window", "deskId": "d2", "windowId": "w2", "toSlot": 0, "expectedVersion": 5 }
     ]
   ],
   "results": [
@@ -43,10 +47,11 @@
     ["ok", "ok", "ok", "ok"],
     ["ok", "ok", "ok", "ok"],
     ["ok", "ok", "ok", "ok", "ok", "refused", "conflict", "refused"],
-    ["refused", "ok", "ok", "refused"]
+    ["refused", "ok", "ok", "refused"],
+    ["ok", "ok"]
   ],
   "final": [
-    { "deskId": "d1", "title": "renamed", "focusWindowId": null, "version": 17, "slots": [[["w2", true]], [["w3", true], ["w1", false]]] },
-    { "deskId": "d2", "title": "second", "focusWindowId": null, "version": 4, "slots": [[["w4", true]]] }
+    { "deskId": "d1", "title": "renamed", "focusWindowId": null, "version": 18, "slots": [[["w3", true], ["w1", false]]] },
+    { "deskId": "d2", "title": "second", "focusWindowId": null, "version": 6, "slots": [[["w2", true]], [["w4", true]]] }
   ]
 }

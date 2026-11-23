@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1331 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **716 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **74 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1336 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **716 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **74 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1310 | Live ownership after the refactor. |
+| `ACTIVE` | 1315 | Live ownership after the refactor. |
 | `COMPAT` | 2 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 18 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -47,7 +47,7 @@ tags:
 | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] | `domain` | `ACTIVE` | 35 | Attempt acceptance, grading, interaction evidence, feedback, and post-attempt processing. |
 | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] | `domain` | `ACTIVE` | 8 | The shared capture domain (the capture inbox); importing it never attaches or migrates. |
 | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] | `adapter` | `ACTIVE` | 58 | Typer command adapters, rendering, argument contracts, and command registration. |
-| [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] | `domain` | `ACTIVE` | 2 | The Reader workbench's companion: the tutor's history by day and desk, and the context each exchange was asked in. Read-only over exchanges. |
+| [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] | `domain` | `ACTIVE` | 4 | The Reader workbench's companion: the tutor's history by day and desk, and the context each exchange was asked in. Read-only over exchanges. |
 | [[Reference/Modules/learnloop/config/_package|learnloop.config]] | `infrastructure` | `ACTIVE` | 8 | Typed configuration schema, compatibility normalization, loading, and template emission. |
 | [[Reference/Modules/learnloop/content/_package|learnloop.content]] | `domain` | `ACTIVE` | 0 | Source-derived content, authoring, synthesis, proposal, and canonical pipeline ownership. |
 | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] | `domain` | `ACTIVE` | 19 | Practice-content authoring gates, generation contracts, and authored artifacts. |
@@ -111,8 +111,8 @@ tags:
 | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] | `infrastructure` | `ACTIVE` | 14 | Filesystem layout, Markdown/YAML I/O, hashes, models, loading, and writing. |
 | [[Reference/Modules/learnloop/why/_package|learnloop.why]] | `domain` | `ACTIVE` | 4 | Why x and not y: the one reader over decision records, and the labelled reconstruction of decisions older than them (ADR-017). |
 | [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] | `domain` | `ACTIVE` | 9 | The Reader workbench's checks and the help ladder's Reader side: Check my work, declared symbolic checks and the ladder. |
-| [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] | `adapter` | `ACTIVE` | 17 | Desktop sidecar process, RPC registry, transport context, DTOs, and server lifecycle. |
-| [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] | `adapter` | `ACTIVE` | 79 | RPC adapters that validate requests and delegate to domain and infrastructure APIs. |
+| [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] | `adapter` | `ACTIVE` | 18 | Desktop sidecar process, RPC registry, transport context, DTOs, and server lifecycle. |
+| [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] | `adapter` | `ACTIVE` | 81 | RPC adapters that validate requests and delegate to domain and infrastructure APIs. |
 
 ## Desktop client modules
 
@@ -168,6 +168,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 2014 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 2017 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.
