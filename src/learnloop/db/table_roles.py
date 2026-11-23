@@ -756,6 +756,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("trace_exercised_facets", TableRole.RAW_LEDGER),
     ("unresolved_cause_factors", TableRole.WORKFLOW),
     ("vault_epigraphs", TableRole.RAW_LEDGER),
+    # Reader workbench v2 suggested video chapters (migration 268; spec §7.9, §15.1): a video's chapters as
+    # the chapters judge suggested them and as the learner decided (accepted or "not this", once). Workflow:
+    # a proposal, never evidence, never rebuilt.
+    ("video_chapters", TableRole.WORKFLOW),
     # EVSI calibration Part B: the forecast a live value-of-information
     # decision ran on, recorded beside it. A historical decision artifact,
     # never recomputed (the inputs it froze are gone by rebuild time).
