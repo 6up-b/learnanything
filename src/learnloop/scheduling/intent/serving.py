@@ -197,6 +197,10 @@ class CheckState:
         return item_id in self.eligible
 
 
+def _anchors_not_gathered() -> dict[str, tuple[str, str]]:
+    raise RuntimeError("an effective due needed review anchors the frozen intent view was not asked to load")
+
+
 @dataclass
 class IntentServing:
     resolution: Resolution
@@ -255,6 +259,41 @@ class IntentServing:
                 for commitment_id, check in self.raw_checks.items()
             }
         return self._checks
+
+    def frozen(self, anchors_for: Iterable[str] | None = None) -> "IntentServing":
+        """This view with every read it makes done, and none of its readers.
+
+        The checks are split (by the bound admission, or the view's own), and the
+        review anchors are loaded when one of ``anchors_for`` (default: every
+        item) has a recall target other than 0.90; at 0.90 the effective due
+        never reads them. A queue build answers its intent gate, effective dues,
+        pushes and checks from the copy after the split, so nothing it asks of
+        intent reaches the repository; an effective due the caller did not
+        foresee raises rather than reading. The copy keeps its own per-item
+        caches; the original is left as it was."""
+
+        checks = self.checks
+        anchors = self._anchors
+        anchor_loader = None
+        if anchors is None and self._anchor_loader is not None:
+            item_ids = self.item_learning_objects if anchors_for is None else anchors_for
+            if any(self.target_for(item_id) != 0.90 for item_id in item_ids):
+                anchors = self._anchor_loader()
+            else:
+                anchor_loader = _anchors_not_gathered
+        return replace(
+            self,
+            _checks=checks,
+            _anchors=anchors if anchors is not None or anchor_loader is not None else {},
+            _anchor_loader=anchor_loader,
+            _eligibility=None,
+            _admission=None,
+            _admission_factory=None,
+            _gate_factory=None,
+            _followup_gate=None,
+            _intents=dict(self._intents),
+            _fallback_items={kind: set(items) for kind, items in self._fallback_items.items()},
+        )
 
     # -- per item ------------------------------------------------------------
 
