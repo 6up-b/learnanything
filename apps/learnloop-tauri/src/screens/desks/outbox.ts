@@ -1,0 +1,153 @@
+// The client's write outbox for desk ops (spec §3.4, §3.5): batches numbered by one `seq` per client,
+// sent in order, each kept until the server's receipt for its `seq` comes back.
+//
+// This is the in-memory outbox. The durable local store (IndexedDB, or a SQLite file through a Rust
+// command) is chosen by the RD-spike, so everything here sits behind `OutboxStore`, which that store
+// replaces; until then an op queued and not yet acknowledged is lost if the app closes, and the desks
+// say nothing is saved on this device. A conflict (a stale head) takes the server's state, as §3.5
+// says for moves and pairs: the shell reloads `desk.state` and re-renders.
+import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto } from "../../api/dto";
+
+export interface Batch {
+  seq: number;
+  ops: DeskOpDto[];
+}
+
+/** Where unacknowledged batches live. The RD-spike's durable store implements this same interface. */
+export interface OutboxStore {
+  readonly durable: boolean;
+  load(): Batch[];
+  put(batch: Batch): void;
+  remove(seq: number): void;
+}
+
+export class MemoryOutboxStore implements OutboxStore {
+  readonly durable = false;
+  private batches = new Map<number, Batch>();
+
+  load(): Batch[] {
+    return [...this.batches.values()].sort((a, b) => a.seq - b.seq);
+  }
+
+  put(batch: Batch): void {
+    this.batches.set(batch.seq, batch);
+  }
+
+  remove(seq: number): void {
+    this.batches.delete(seq);
+  }
+}
+
+export interface OutboxTransport {
+  apply(input: DeskApplyInput): Promise<DeskApplyDto>;
+}
+
+export type FlushOutcome =
+  | { kind: "idle" }
+  | { kind: "applied"; reply: DeskApplyDto }
+  /** At least one op hit a stale head or was refused: the server's state wins, reload it. */
+  | { kind: "conflict"; reply: DeskApplyDto }
+  /** The server refused the batch number (a gap or a reuse): resynchronise the sequence and reload. */
+  | { kind: "resync"; message: string }
+  | { kind: "offline"; message: string };
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+/** A stable id for this installation and vault, kept per machine. The server keeps each client's
+ * last applied `seq`, so a client that comes back continues where it stopped. */
+export function clientIdFor(vaultKey: string, storage: Pick<Storage, "getItem" | "setItem"> | null, mint: () => string): string {
+  const key = `learnloop.desks.client.${vaultKey}`;
+  try {
+    const stored = storage?.getItem(key);
+    if (stored) return stored;
+    const minted = mint();
+    storage?.setItem(key, minted);
+    return minted;
+  } catch {
+    return mint();
+  }
+}
+
+export class DeskOutbox {
+  private nextSeq = 1;
+  private sending: Promise<FlushOutcome> | null = null;
+
+  constructor(
+    readonly clientId: string,
+    private readonly transport: OutboxTransport,
+    private readonly store: OutboxStore = new MemoryOutboxStore(),
+  ) {}
+
+  /** Continue the sequence the server holds for this client (`desk.state`'s `serverSeq`). */
+  syncSeq(state: Pick<DeskStateDto, "serverSeq">): void {
+    const head = state.serverSeq.find((entry) => entry.clientId === this.clientId)?.seq ?? 0;
+    const pending = this.store.load();
+    const maxPending = pending.length ? pending[pending.length - 1].seq : 0;
+    this.nextSeq = Math.max(head, maxPending) + 1;
+    // Batches the server already applied leave the outbox.
+    for (const batch of pending) if (batch.seq <= head) this.store.remove(batch.seq);
+  }
+
+  get pending(): number {
+    return this.store.load().length;
+  }
+
+  get durable(): boolean {
+    return this.store.durable;
+  }
+
+  enqueue(ops: DeskOpDto[]): number | null {
+    if (ops.length === 0) return null;
+    const seq = this.nextSeq;
+    this.nextSeq += 1;
+    this.store.put({ seq, ops });
+    return seq;
+  }
+
+  /** Send the oldest unacknowledged batch, then the next, until the outbox is empty or a batch comes
+   * back with a conflict. One flush at a time: a second call waits for the first. */
+  flush(): Promise<FlushOutcome> {
+    if (this.sending) return this.sending.then(() => this.flush());
+    this.sending = this.drain().finally(() => {
+      this.sending = null;
+    });
+    return this.sending;
+  }
+
+  private async drain(): Promise<FlushOutcome> {
+    let last: FlushOutcome = { kind: "idle" };
+    for (;;) {
+      const [batch] = this.store.load();
+      if (!batch) return last;
+      let reply: DeskApplyDto;
+      try {
+        reply = await this.transport.apply({ clientId: this.clientId, seq: batch.seq, ops: batch.ops });
+      } catch (error) {
+        const message = errorText(error);
+        const code = error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
+        if (code === "seq_gap" || code === "seq_reused") {
+          // The numbering is the server's to keep: drop what it refused and let the shell reload.
+          for (const stale of this.store.load()) this.store.remove(stale.seq);
+          return { kind: "resync", message };
+        }
+        return { kind: "offline", message };
+      }
+      this.store.remove(batch.seq);
+      if (reply.results.some((result) => result.status !== "ok")) {
+        // The ops queued after a conflict expected heads that no longer hold; the server's state wins.
+        for (const stale of this.store.load()) this.store.remove(stale.seq);
+        this.nextSeq = reply.appliedSeq + 1;
+        return { kind: "conflict", reply };
+      }
+      last = { kind: "applied", reply };
+    }
+  }
+}
