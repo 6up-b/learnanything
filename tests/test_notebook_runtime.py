@@ -523,7 +523,9 @@ def test_the_launch_uses_the_shared_hardened_profile_and_the_servers_mounts(tmp_
     assert ["--ro-bind", str(layout.token_file), "/ll/token"] == flags[flags.index(str(layout.token_file)) - 1:][:3]
     assert "--dev-bind" not in flags  # CPU only: no device node beyond the profile's minimal /dev
     assert inner[2:4] == ["-B", "/ll/launcher.py"] and inner[4] == "9"
-    assert inner[inner.index("--token-password-file") + 1] == "/ll/token" and inner[inner.index("--base-url") + 1] == "/s/x"
+    # The secret path is in the environment, never the arguments (any local user reads a command line).
+    assert inner[inner.index("--token-password-file") + 1] == "/ll/token" and "--base-url" not in inner
+    assert env["LEARNLOOP_NOTEBOOK_BASE_URL"] == "/s/x"
     assert env["HOME"] == "/scratch" and env["XDG_CONFIG_HOME"] == "/ll/config"
     assert flags[flags.index("--unsetenv") + 1] == "DBUS_SESSION_BUS_ADDRESS"
     assert argv[:argv.index("/usr/bin/bwrap")][-1] == "--"

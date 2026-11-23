@@ -36,6 +36,9 @@ SANDBOX_LAUNCHER = "/ll/launcher.py"
 SANDBOX_CONFIG = "/ll/config"
 SANDBOX_SCRATCH = "/scratch"
 SANDBOX_TOKEN = "/ll/token"
+#: The session's secret path reaches the server through this variable, never its arguments: any local user can
+#: read a process's command line, only this user its environment. The launcher takes it out before marimo runs.
+BASE_URL_ENV = adapter.BASE_URL_ENV
 
 
 class RuntimeUnavailable(RuntimeError):
@@ -163,7 +166,7 @@ def launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, 
         raise RuntimeUnavailable("bubblewrap (bwrap) is not installed; notebooks run only inside it")
     python = python or sys.executable
     inner = [python, "-I", "-B", SANDBOX_LAUNCHER, str(socket_fd), "--",
-             *adapter.marimo_edit_args(SANDBOX_NOTEBOOK, SANDBOX_TOKEN, base_url)]
+             *adapter.marimo_edit_args(SANDBOX_NOTEBOOK, SANDBOX_TOKEN)]
     extra = ["--ro-bind", str(layout.notebook), SANDBOX_NOTEBOOK,
              "--ro-bind", str(layout.token_file), SANDBOX_TOKEN,
              "--ro-bind", adapter.__file__, SANDBOX_LAUNCHER,
@@ -187,6 +190,7 @@ def launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, 
         "XDG_STATE_HOME": f"{SANDBOX_SCRATCH}/.local/state",
         "MPLCONFIGDIR": f"{SANDBOX_SCRATCH}/.cache",
         "PYTHONDONTWRITEBYTECODE": "1",
+        BASE_URL_ENV: base_url,
     }
     if scoped:
         env.update({key: os.environ[key] for key in SESSION_BUS_VARS if os.environ.get(key)})

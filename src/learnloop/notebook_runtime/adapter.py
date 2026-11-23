@@ -92,12 +92,17 @@ enabled = false
 """
 
 
-def marimo_edit_args(notebook: str, token_file: str, base_url: str) -> list[str]:
-    """``marimo edit``'s arguments: headless, token from a file, served under ``base_url``, no update check and no
-    marimo-managed sandbox (bubblewrap is the sandbox)."""
+def marimo_edit_args(notebook: str, token_file: str) -> list[str]:
+    """``marimo edit``'s arguments: headless, token from a file, no update check and no marimo-managed sandbox
+    (bubblewrap is the sandbox). The base URL (the session's secret path) is added by the launcher from its
+    environment, so it never appears in a command line."""
 
-    return ["edit", notebook, "--headless", "--skip-update-check", "--no-sandbox",
-            "--token-password-file", token_file, "--base-url", base_url]
+    return ["edit", notebook, "--headless", "--skip-update-check", "--no-sandbox", "--token-password-file", token_file]
+
+
+#: The launcher's environment variable carrying the base URL (``sandbox.BASE_URL_ENV``; named here too because the
+#: launcher runs alone inside the sandbox).
+BASE_URL_ENV = "LEARNLOOP_NOTEBOOK_BASE_URL"
 
 
 def server_token(index_html: str) -> str | None:
@@ -403,7 +408,10 @@ def launch(argv: list[str]) -> None:
     uvicorn.Config.__init__ = on_the_socket  # type: ignore[method-assign]
     from marimo._cli.cli import main as marimo_main
 
-    sys.argv = ["marimo", *argv[3:]]
+    # The secret path stays out of every command line: marimo reads it from this process's own argv in memory,
+    # and the variable is taken out so no child (the kernel) inherits it.
+    base_url = os.environ.pop(BASE_URL_ENV, "")
+    sys.argv = ["marimo", *argv[3:], *(["--base-url", base_url] if base_url else [])]
     marimo_main()
 
 

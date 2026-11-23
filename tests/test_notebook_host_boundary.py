@@ -207,3 +207,46 @@ def test_the_sandbox_has_no_writable_host_path(tmp_path):
     assert str(layout.run_dir) not in argv and str(layout.socket) not in " ".join(argv)
     token = argv.index(str(layout.token_file))
     assert argv[token - 1] == "--ro-bind" and argv[token + 1] == SANDBOX_TOKEN
+
+
+# -- the frame's capability never appears in a process's arguments ----------------------------------------------
+
+def test_the_secret_path_is_not_in_any_process_arguments(tmp_path):
+    """Another local user can read every process's command line, so the session's secret path (the frame's
+    capability) reaches the server through its environment instead (readable only by this user)."""
+
+    from learnloop.notebook_runtime.sandbox import BASE_URL_ENV, Layout, Limits, launch_command
+
+    layout = Layout(run_dir=tmp_path / "run", notebook=tmp_path / "nb.py", config_dir=tmp_path / "cfg",
+                    hosts_file=tmp_path / "hosts")
+    argv, env = launch_command(layout, Limits(memory_mib=512, scratch_mib=64), base_url="/s/SECRET123", unit="u",
+                               scoped=False, socket_fd=7, bwrap="/usr/bin/bwrap")
+    assert not any("SECRET123" in arg for arg in argv)
+    assert env[BASE_URL_ENV] == "/s/SECRET123"
+
+
+def test_a_running_sessions_secret_is_in_no_command_line():
+    from pathlib import Path
+
+    from learnloop.notebook_runtime.runtime import NotebookRuntime
+    from tests.notebook_runtime_helpers import SYNTHETIC_NOTEBOOK
+
+    with short_base_dir() as base:
+        runtime = NotebookRuntime(base_dir=base)
+        try:
+            view = runtime.open(vault_key="/v1", owner="pad:p1", source=SYNTHETIC_NOTEBOOK.encode(), view="app",
+                                limits=LIMITS, idle_minutes=10, max_sessions=2)
+            view = wait_state(runtime, "/v1", view["session_id"], "ready")
+            asyncio.run(frame_round_trip(view["frame_url"], marimo_session="s_argv", wanted=["square=9"]))
+            secret = runtime.sessions()[0].secret
+            leaked = []
+            for entry in Path("/proc").iterdir():
+                if entry.name.isdigit():
+                    try:
+                        if secret.encode() in (entry / "cmdline").read_bytes():
+                            leaked.append(int(entry.name))
+                    except OSError:
+                        pass
+            assert leaked == []
+        finally:
+            runtime.close()
