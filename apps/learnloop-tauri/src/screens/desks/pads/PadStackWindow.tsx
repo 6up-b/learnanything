@@ -267,6 +267,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
 
   const openEditor = (padId: string, block: PadBlockDto) => {
     if (!EDITABLE_KINDS.has(block.kind) || block.kind === "sketch") return;
+    // The block being edited is never reopened: that would reset the draft to the words it had when opened.
+    if (editing?.blockId === block.blockId) return;
     if (window.getSelection?.()?.toString()) return;
     if (editing) commitEdit();
     setEditing({ padId, blockId: block.blockId, draft: block.bodyMd, original: block.bodyMd, focus: Date.now() });
@@ -536,7 +538,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
           if (hovered.current?.blockId === block.blockId) hovered.current = null;
         }}
         onClick={(event) => {
-          if ((event.target as Element).closest("button, a, svg, .desk-sketch")) return;
+          // A click inside the editor (moving the caret) is the editor's, not a request to open the block.
+          if ((event.target as Element).closest("button, a, svg, .desk-sketch, [data-pad-editor]")) return;
           openEditor(padId, block);
         }}
         onContextMenu={(event) => {

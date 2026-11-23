@@ -319,3 +319,23 @@ describe("a pad stack window", () => {
     expect(within(block("fx_b_r1")).queryByRole("button", { name: "proposal mark" })).toBeNull();
   });
 });
+
+describe("the fix round (RD4 review)", () => {
+  it("a click inside the editor (moving the caret) keeps the draft; blur writes it", async () => {
+    const { store, server, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.click(block("fx_b_r1"));
+    await waitFor(() => expect(textarea()).toBeTruthy());
+    fireEvent.change(textarea() as HTMLTextAreaElement, { target: { value: "my new words" } });
+    // The learner clicks inside the box to move the caret: the click bubbles to the block.
+    fireEvent.mouseDown(textarea() as HTMLTextAreaElement);
+    fireEvent.click(textarea() as HTMLTextAreaElement);
+    expect(textarea()?.value).toBe("my new words");
+    fireEvent.blur(textarea() as HTMLTextAreaElement);
+    await waitFor(() => expect(textarea()).toBeNull());
+    expect(store.pads.fx_pad_running.blocks[0].bodyMd).toBe("my new words");
+    await flush();
+    const edits = sentOps(server).filter((op) => op.op === "edit_block");
+    expect(edits.map((op) => (op as { bodyMd?: string }).bodyMd)).toEqual(["my new words"]);
+  });
+});
