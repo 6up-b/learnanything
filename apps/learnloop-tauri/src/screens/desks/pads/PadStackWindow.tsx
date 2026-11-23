@@ -241,10 +241,15 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     const state = store.pads[padId];
     if (!state) return null;
     const blockId = host.mintId("blk");
+    // A piece of a source is linked to its passage in the same write: the passage shows ✎ back to it.
+    const p = block.payload ?? {};
+    const link = block.kind === "source_piece" && typeof p.extraction_id === "string" && typeof p.span_id === "string"
+      ? [{ op: "link_anchor" as const, blockId, extractionId: p.extraction_id, spanId: p.span_id, eventId: host.mintId("lnk"), expectedAnchorHead: null }]
+      : [];
     const ok = write(padId, [{
       op: "insert_block", blockId, versionId: host.mintId("ver"), kind: block.kind, provenance: block.provenance,
-      positionKey: keyAfter(state.blocks, after), day: state.pad.kind === "running" ? today : null, bodyMd: block.bodyMd ?? "", payload: block.payload ?? {},
-    }]);
+      positionKey: keyAfter(state.blocks, after), day: state.pad.kind === "running" ? today : null, bodyMd: block.bodyMd ?? "", payload: p,
+    }, ...link]);
     if (ok && edit) setEditing({ padId, blockId, draft: block.bodyMd ?? "", original: block.bodyMd ?? "", focus: Date.now() });
     return ok ? blockId : null;
   }, [host, store, today, write]);
@@ -525,6 +530,10 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         title={isLearnersWords(block) || isEditing ? undefined : "quoted, not read as your words"}
         onMouseEnter={(event) => {
           hovered.current = { padId, blockId: block.blockId, text: firstLine(block.bodyMd), x: event.clientX, y: event.clientY };
+        }}
+        onMouseLeave={() => {
+          // `.` opens the menu on the line under the pointer, never on one it has left.
+          if (hovered.current?.blockId === block.blockId) hovered.current = null;
         }}
         onClick={(event) => {
           if ((event.target as Element).closest("button, a, svg, .desk-sketch")) return;

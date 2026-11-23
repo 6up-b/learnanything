@@ -240,6 +240,19 @@ describe("a pad stack window", () => {
     expect(within(menu).getByText("Submit this block as…")).toBeTruthy();
   });
 
+  it("a piece of a source inserted from the menu lands below the line, linked to its passage in the same write", async () => {
+    const { store, host, server, flush } = mount();
+    host.sourcePieces = () => [{ label: "the passage in view · a book", extractionId: "fx_ext_x", spanId: "fx_ext_x_s4", text: "a passage's words", sourceTitle: "a book" }];
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("the passage in view · a book"));
+    const blocks = store.pads.fx_pad_running.blocks;
+    expect(blocks[1]).toMatchObject({ kind: "source_piece", provenance: "source", bodyMd: "a passage's words" });
+    expect(store.pads.fx_pad_running.anchors.some((anchor) => anchor.blockId === blocks[1].blockId && anchor.spanId === "fx_ext_x_s4")).toBe(true);
+    await flush();
+    expect(server.padBatches.map((batch) => (batch.ops as PadOpDto[]).map((op) => op.op))).toEqual([["insert_block", "link_anchor"]]);
+  });
+
   it("a problem pad's block is submitted as my answer to its item, in the session, and shows its tag", async () => {
     const server = new FixtureDeskServer();
     const deriving = server.pads.fx_pad_deriving as PadViewDto;
