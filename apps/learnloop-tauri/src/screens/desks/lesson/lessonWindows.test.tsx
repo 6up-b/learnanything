@@ -358,6 +358,21 @@ describe("reads a lesson window makes only while it is live", () => {
   });
 });
 
+describe("a finished lesson's quick question", () => {
+  it("is shown in its review where it was asked, with the answer and result after it", async () => {
+    api.lessonView.mockImplementation(async () => ({ ...FIXTURE_LESSON_VIEW, feed: [
+      { kind: "probe_question", probeRef: "p1", question: "Which vector does A stretch by three?" },
+      { kind: "learner", text: "(1, 0)", checkRef: null },
+      { kind: "probe_result", probeRef: "p1", result: "right" },
+      ...FIXTURE_LESSON_VIEW.feed,
+    ] }));
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }] });
+    const question = await screen.findByTestId("lesson-probe-question");
+    expect(question.textContent).toContain("Which vector does A stretch by three?");
+    expect(question.compareDocumentPosition(screen.getByTestId("lesson-probe-result")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe("the notebook seam", () => {
   it("a notebook lesson shows the host's frame instead of the lesson; any other lesson shows itself", async () => {
     api.lessonView.mockImplementation(async () => ({ ...FIXTURE_LESSON_VIEW, medium: "notebook" }));

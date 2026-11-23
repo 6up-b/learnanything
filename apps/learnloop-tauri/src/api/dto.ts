@@ -10481,6 +10481,8 @@ export type LessonFeedEntryDto =
   | { kind: "learner"; text: string; checkRef?: string | null }
   | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
       answerLabel?: string | null }
+  /** Teacher TE2: a quick question as it was served, where it was (shown once answered, or in a review). */
+  | { kind: "probe_question"; probeRef: string; question: string }
   /** Teacher TE2: a quick question's grade. */
   | { kind: "probe_result"; probeRef: string; result: string; graderFeedback?: string | null }
   | { kind: "notice"; text: string }

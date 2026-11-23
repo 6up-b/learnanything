@@ -37,3 +37,23 @@ def test_a_lesson_has_one_additions_pad_and_older_duplicates_are_all_named(tmp_p
                              workbench_session_id=None, lesson_id=lesson_id, now="2099-01-01T00:00:00Z")
     listed = call(ctx, "lesson.list", {})["lessons"][0]
     assert (listed["additionsPadId"], listed["additionsPadIds"]) == ("pad_a", ["pad_a", "pad_z"])
+
+
+def test_a_finished_te2_lesson_reviews_its_quick_question_in_recorded_order(tmp_path):
+    from tests.teacher_fakes import close_turn
+    from tests.teacher_te2_probes_helpers import _Lesson, probe_turn
+
+    lesson = _Lesson(tmp_path, [probe_turn])
+    lesson.generate()
+    lesson.look()
+    lesson.act("answer_probe", {"answer": "(1, 0) by three"}, turns=[close_turn()])
+    lesson.act("stop", {}, turns=[close_turn()])
+    review = lesson.look()
+    assert review["closed"]
+    kinds = [entry["kind"] for entry in review["feed"]]
+    # The question, the answer and its result where they happened; the close card last.
+    assert "probe_question" in kinds and kinds[-1] == "close"
+    at = kinds.index("probe_question")
+    assert kinds[at + 1:at + 3] == ["learner", "probe_result"]
+    question = review["feed"][at]
+    assert question["question"] and question["probe_ref"]

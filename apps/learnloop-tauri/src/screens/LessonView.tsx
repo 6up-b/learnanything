@@ -776,6 +776,13 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck, windowed }: {
           {item.answerLabel ? <Faint>{item.answerLabel}</Faint> : null}
         </div>
       );
+    case "probe_question":
+      return (
+        <div data-testid="lesson-probe-question" style={{ margin: "10px 0", padding: 10, border: `1px solid ${COLOR.border}` }}>
+          <Faint>A quick question</Faint>
+          <Prose windowed={windowed} value={item.question} />
+        </div>
+      );
     case "probe_result":
       return (
         <div data-testid="lesson-probe-result" style={{ margin: "6px 0 12px", color: COLOR.textDim }}>
