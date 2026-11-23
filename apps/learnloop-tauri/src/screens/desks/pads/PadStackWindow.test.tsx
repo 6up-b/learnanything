@@ -68,7 +68,7 @@ function fakeApi(): PadsApi & { calls: Array<[string, unknown]> } {
 
 let minted = 0;
 
-function mount(options: { state?: WindowState; server?: FixtureDeskServer; padIds?: string[]; practiceSessionId?: string | null } = {}) {
+function mount(options: { state?: WindowState; server?: FixtureDeskServer; padIds?: string[]; practiceSessionId?: string | null; view?: Record<string, unknown> } = {}) {
   const server = options.server ?? new FixtureDeskServer();
   const timers = new ManualTimers();
   const store = new DeskStore("me", {
@@ -101,7 +101,7 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
   const ui = (state: WindowState) => (
     <WindowScope lifecycle={{ windowId: "w1", state }} hub={DIRECT_HUB}>
       <PadsHostContext.Provider value={host}>
-        <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={{}} />
+        <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={options.view ?? {}} />
       </PadsHostContext.Provider>
     </WindowScope>
   );
@@ -441,5 +441,24 @@ describe("the fix round (RD4 review)", () => {
     expect(store.pads.fx_pad_running.blocks.length).toBe(before);
     rerender("active");
     await waitFor(() => expect(store.pads.fx_pad_running.blocks.some((each) => each.kind === "figure" && each.payload.figure_id === "fig9")).toBe(true));
+  });
+
+  it("in split view a gutter mark still opens its card", async () => {
+    mount({ view: { split: { pads: ["fx_pad_running", "fx_pad_deriving"], ratios: [1, 1] } } });
+    await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
+    expect(document.querySelector(".desk-pads .split")).not.toBeNull();
+    const mark = within(block("fx_b_r2")).getByRole("button", { name: "source mark" });
+    vi.useFakeTimers();
+    fireEvent.mouseEnter(mark);
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(document.querySelector('[data-pad-card="source"]')).not.toBeNull();
+    fireEvent.mouseLeave(mark);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.click(mark);
+    expect(document.querySelector('[data-pad-card="source"]')).not.toBeNull();
   });
 });

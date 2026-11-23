@@ -103,6 +103,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
 
   const [grade] = useState<TabGrade>(readGrade);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const tabEls = useRef(new Map<string, HTMLElement>());
   const paperEls = useRef(new Map<string, HTMLElement>());
   const blockEls = useRef(new Map<string, HTMLElement>());
@@ -320,8 +321,9 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     if (cardTimer.current) clearTimeout(cardTimer.current);
     cardTimer.current = setTimeout(() => setCard(next), next ? CARD_MS.open : CARD_MS.hide);
   };
+  // Cards are placed in the pad window's own box, which both layouts (the tab scroller and split panes) share.
   const cardFor = (padId: string, blockId: string, kind: Card["kind"], mark: HTMLElement) => {
-    const scroller = scrollerRef.current;
+    const scroller = rootRef.current;
     if (!scroller) return null;
     const box = mark.getBoundingClientRect();
     const frame = scroller.getBoundingClientRect();
@@ -449,7 +451,11 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     const markLeave = () => scheduleCard(null);
     const markTap = (kind: Card["kind"]) => (event: React.MouseEvent<HTMLElement>) => {
       event.stopPropagation();
-      setCard((now) => (now?.blockId === block.blockId && now.kind === kind ? null : cardFor(padId, block.blockId, kind, event.currentTarget)));
+      // The mark is read now: the event's currentTarget is gone by the time the state updater runs.
+      const markEl = event.currentTarget;
+      const next = cardFor(padId, block.blockId, kind, markEl);
+      if (cardTimer.current) clearTimeout(cardTimer.current);
+      setCard((now) => (now?.blockId === block.blockId && now.kind === kind ? null : next));
     };
     const mark = (kind: Card["kind"], glyph: string, className: string) => (
       <button type="button" className={`mark ${className}`} data-mark={kind} aria-label={`${kind} mark`} onMouseEnter={markEnter(kind)} onMouseLeave={markLeave} onClick={markTap(kind)}>{glyph}</button>
@@ -644,7 +650,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const cardProposal = card ? (proposals[card.padId] ?? []).find((each) => each.blockId === card.blockId && each.shown) ?? null : null;
 
   return (
-    <div className="desk-pads" data-pad-stack={windowId}>
+    <div className="desk-pads" data-pad-stack={windowId} ref={rootRef}>
       <div className="pbar"><button type="button" className="pinfo" aria-label="where your words go" aria-expanded={info} onClick={() => setInfo((now) => !now)}>ⓘ yours</button></div>
       {info ? (
         <div className="pinfo-pop" role="dialog" aria-label="where your words go">
