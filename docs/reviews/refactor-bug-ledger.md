@@ -564,3 +564,54 @@ Found by three independent reviews of the teacher v2 design (spec `docs/specs/sp
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|
 | RD4b-1 | RD4b, testing a pad edit's reconcile | The desk store let two flushes run at once: the idle timer's flush and another could overlap, and while the first was reconciling a conflict the second sent the batches queued after the conflicting one with heads that no longer held, before they were rebased (they then conflicted or were refused instead of landing). | `store.test.ts > pads in the store > an edit whose head moved elsewhere is rebased…` (two notices instead of one: the queued edit was sent stale) | `DeskStore.flush` chains: one flush at a time, each with its reconcile | fixed |
+
+## From the Reader workbench v2 visual reference (2026-11-23; `docs/reviews/reader-visual-reference.md`)
+
+Measured differences between the mockup's deep links and the desks' harness in the same state. No fix in this step;
+each is due in its stage's fix round. The fail-first check is the comparison script's run
+(`scripts/desk_harness/visual_reference.py --ref <the private reference directory> …`), which reports the
+difference until it is fixed.
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| VR-1 | visual reference, RD1 | Interface type: the desks set chrome text in Inter (§4.2's UI font); the mockup sets every interface region in JetBrains Mono, so the shell mixes the two faces | `visual_reference.py --stage rd1` | Owner reads §4.2 against the mockup; then RD1's fix round | owner |
+| VR-2 | visual reference, RD1 | Window head colours: background `#151517` (mockup `#161618f0`), rule `#26262a` (`#000000`), head text `#d8d8e0` (`#a8a8b8`), kind glyph `#8b8b9d` (`#d8d8e0`) | `visual_reference.py --stage rd1` | RD1's fix round | open |
+| VR-3 | visual reference, RD1 | Book and transcript are not set on a sheet: no 22 px window margin, no 40/44/54/60 px (transcript 18/22/30/12) padding, no `0 10px 40px #00000073` shadow | `visual_reference.py --stage rd1` | RD1's fix round | open |
+| VR-4 | visual reference, RD1 | Book prose 15 px on 22.1 px (mockup 16.5 on 27.4) at 1440 × 900; 13 px (mockup 15 on 24.9) at 1280 × 800 | `visual_reference.py --stage rd1` | RD1's fix round | open |
+| VR-5 | visual reference, RD1 | Transcript cues 11 px on 17.6 px in `#55524c` with a 1 px rule; mockup 15 px Literata on 24.3 px in `#1f1e1c`, no rule | `visual_reference.py --state 'desk=1'` | RD1's fix round | open |
+| VR-6 | visual reference, RD1 | Shelf rows: background `#1a1a1e` (mockup `#1b1a17`), focus bar 2 px (3 px), in-view bar `#a8a8b8` (`#9a6f3a`) | `visual_reference.py --stage rd1` | RD1's fix round | open |
+| VR-7 | visual reference, RD1 | Footer desk dots 18 px wide; mockup 15 px | `visual_reference.py --stage rd1` | RD1's fix round | open |
+| VR-8 | visual reference, RD1 | Focus mode's zoom badge at the top right (24 px, radius 4, `#141416e6`, `#a8a8b8` 11 px); mockup a bottom-centre pill (28 px, radius 12, `#181818f0`, `#d8d8e0` 12 px) | `visual_reference.py --state 's11=fs150'` | RD1's fix round | open |
+| VR-9 | visual reference, RD1 | Top-bar chips 12 px; mockup 11.5 px | `visual_reference.py --stage rd1` | RD1's fix round | open |
+| VR-10 | visual reference, RD1 | The shelf's "/ switch" weight 400; mockup 500 | `visual_reference.py --stage rd1` | RD1's fix round | open |
+| VR-11 | visual reference, RD1 | Below 1400 px the top bar stays 38 px; the mockup's is 34 px | `visual_reference.py --stage rd1 --viewport laptop` | RD1's fix round | open |
+| VR-12 | visual reference, RD1 | The companion starts closed; the mockup starts with it docked open at `br` | `visual_reference.py --state plain` | Owner decides the first-load state; then RD3's fix round | owner |
+| VR-13 | visual reference, RD2 | Overview desk labels `#8b8b9d`, 10.9 px on screen, weight 500 (mockup `#a8a8b8`, 13.0 px, weight 400, wider spacing) | `visual_reference.py --stage rd2` | RD2's fix round | open |
+| VR-14 | visual reference, RD2 | Overview card names weight 400 at 12.9 px on screen; mockup weight 500 at 12.0 px | `visual_reference.py --stage rd2` | RD2's fix round | open |
+| VR-15 | visual reference, RD2 | Overview card kind glyph `#8b8b9d`; mockup cyan `#6ad0e0` | `visual_reference.py --stage rd2` | RD2's fix round | open |
+| VR-16 | visual reference, RD2 | Overview card minimap bar `#2e2e34`, radius 3; mockup `#3a3a40`, square | `visual_reference.py --stage rd2` | RD2's fix round | open |
+| VR-17 | visual reference, RD2 | The focused overview card's face `#202024`; mockup `#2a261e` | `visual_reference.py --stage rd2` | RD2's fix round | open |
+| VR-18 | visual reference, RD2 | Overview link labels `#6ad0e0` without a halo, links at opacity 0.9; mockup `#bfeef5` with a `#0a0a0b` stroke halo, opacity 1 | `visual_reference.py --state ov` | RD2's fix round | open |
+| VR-19 | visual reference, RD2 | Overview rings: related ring 2.0 px on screen (mockup 1.5); selection halo alpha 18 % (mockup 25 %) | `visual_reference.py --state ov` | RD2's fix round | open |
+| VR-20 | visual reference, RD3 | Companion text on the browser's normal line (about 1.2) where the mockup's is 1.6; the tab row 27 px (30.6), a tab 20 px (23.6) | `visual_reference.py --stage rd3` | RD3's fix round | open |
+| VR-21 | visual reference, RD3 | The companion's active tab underline 2 px; mockup 1 px | `visual_reference.py --stage rd3` | RD3's fix round | open |
+| VR-22 | visual reference, RD3 | The companion opened at the cursor is 360 px wide at 1440 × 900 (mockup 400): the 360 px rule of §4.3 (below 1240 px) seems to read the stage width, not the window's | `visual_reference.py --state 'cur=sel'` | RD3's fix round | open |
+| VR-23 | visual reference, RD3 | Docked companion at 1280 × 800 is 400 × 383 px; the mockup draws 330 × 368 (§4.3 says 400) | `visual_reference.py --stage rd3 --viewport laptop` | Owner reads §4.3 against the mockup; then RD3's fix round | owner |
+| VR-24 | visual reference, RD3 | Selection chip colours and type: rule `#9a6f3a` (mockup `#3a3a3a`), label `#8b8b9d` (`#d8d8e0`), quote `#f0c890` 12 px (`#d8d8e0` 12.5 px), padding 6/8 (3/0/3/8) | `visual_reference.py --state 'cur=sel'` | RD3's fix round | open |
+| VR-25 | visual reference, RD3 | In the harness shift+C with a passage selected opens the docked companion without the selection chip; the mockup's shows it | `visual_reference.py --state selctx` | RD3's fix round (confirm against the sidecar app first) | open |
+| VR-26 | visual reference, RD3 | History day headers lack the mockup's 1 px top rule | `visual_reference.py --state hist` | RD3's fix round | open |
+| VR-27 | visual reference, RD3 | Search footer has no band of its own; the mockup's sits on `#111113` between 1 px rules | `visual_reference.py --state 'spot=softmax'` | RD3's fix round | open |
+| VR-28 | visual reference, RD3 | Search input text `#eeeeee` (mockup `#ffffff`); selected row text `#ffffff` (mockup `#d8d8e0`) | `visual_reference.py --state 'spot=softmax'` | RD3's fix round | open |
+| VR-29 | visual reference, RD4 | The shelf has no TODAY · RUNNING PAD section above CARRIED | `visual_reference.py --state 's11=run'` | RD4's fix round | open |
+| VR-30 | visual reference, RD4 | Carried questions in the shelf `#a8a8b8`, upright, normal line; mockup `#d8d8e0`, italic, 15.4 px line | `visual_reference.py --stage rd1` | RD4's fix round | open |
+| VR-31 | visual reference, RD4 | Pad paper and tab borders `#4a4740`; mockup `#2a2825` | `visual_reference.py --stage rd4` | RD4's fix round | open |
+| VR-32 | visual reference, RD4 | Pad gutter marks are bare glyphs; the mockup's are chips (3 px radius, 3/2/1/2 padding) | `visual_reference.py --stage rd4` | RD4's fix round | open |
+| VR-33 | visual reference, RD4 | A quote's back-link chip is transparent; the mockup's sits on `#fff8ec` | `visual_reference.py --stage rd4` | RD4's fix round | open |
+| VR-34 | visual reference, RD4 | Pad text colours: quote `#2a2825` (mockup `#3b3832`), tutor block `#3b3832` (`#2a2825`), its rule `#7d6fb8` (`#6a5aa8`), its who-line `#5b4a9a` (`#6a5aa8`) | `visual_reference.py --stage rd4` | RD4's fix round | open |
+| VR-35 | visual reference, RD4 | Submitted tag `#2f7a46` on a `#8cc39c` border, 10 px; mockup `#2f6b3b`, `#9fc9a8`, 9.5 px with 0.38 px spacing | `visual_reference.py --state 's12=submitted'` | RD4's fix round | open |
+| VR-36 | visual reference, RD4 | Open pad tab title weight 400 (mockup 500); block prose without the mockup's 6 px left padding | `visual_reference.py --stage rd4` | RD4's fix round | open |
+| VR-37 | visual reference, RD4 | ⓘ bare `#a8a8b8` text (mockup circled, `#8b8b9d`); its popover `#a8a8b8` 11 px (mockup `#d8d8e0` 12 px), shadow `0 14px 40px` (`0 12px 30px`) | `visual_reference.py --state 's12=info'` | RD4's fix round | open |
+| VR-38 | visual reference, RD4 | The lifted stub `#7a766e`, no padding; mockup `#1f1e1c`, 3 px above and below | `visual_reference.py --state 's11=lift'` | RD4's fix round | open |
+| VR-39 | visual reference, RD4 | Arrange is a floating panel (`#181818`, border, radius 4, shadow, padding 6); the mockup's covers the pad window (`#0c0c0df5`, no border, padding 14) | `visual_reference.py --state 's11=arrange'` | RD4's fix round | open |
+| VR-40 | visual reference, RD4 | Pad menu frame 340 px wide (mockup 360), text `#d8d8e0` (`#eeeeee`), heading `#8b8b9d` 10.5 px over a rule (`#a8a8b8` 10 px, none), rows on the normal line (16.8 px) | `visual_reference.py --state 's11=menu'` | RD4's fix round | open |
+| VR-41 | visual reference, RD4 | A passage's ✎ mark has 3 px side padding on the normal line; mockup none, 18 px line | `visual_reference.py --state markback` | RD4's fix round | open |
