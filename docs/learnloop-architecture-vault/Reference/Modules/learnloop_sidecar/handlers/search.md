@@ -50,26 +50,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py) |
-| Source lines | 268 |
+| Source lines | 357 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SearchEverythingInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 50)
-- `class SearchJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 57)
-- `search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 160) — ``{query, groups, meaning}``: the groups by words now, and the search by meaning's job or why none.
-- `search_job(ctx: SidecarContext, params: SearchJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 252) — The search by meaning's state, at once (never a wait on the request path).
+- `class SearchEverythingInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 57)
+- `class SearchJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 64)
+- `search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 244) — ``{query, groups, meaning}``: the groups by words now, and the search by meaning's job or why none.
+- `search_job(ctx: SidecarContext, params: SearchJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 339) — The search by meaning's state, at once (never a wait on the request path).
 
 ### Module constants
 
-- `SEARCH_RPCS` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 36)
-- `KIND` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 37)
-- `_REGISTRY` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 38)
-- `SCOPES` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 39)
-- `NO_MEANING_INDEX` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 42)
-- `_MEANING_LISTS` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 47)
+- `SEARCH_RPCS` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 43)
+- `KIND` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 44)
+- `_REGISTRY` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 45)
+- `SCOPES` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 46)
+- `NO_MEANING_INDEX` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 49)
+- `_MEANING_LISTS` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 54)
+- `MAX_RUNNING_SEARCHES` ([src/learnloop_sidecar/handlers/search.py](../../../../../../src/learnloop_sidecar/handlers/search.py), line 69)
 
 ### Explicit exports
 
@@ -81,15 +82,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 61)
-- `_require_desk(repository: Any, desk_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 65)
-- `_passages_state(vault: Any) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 77) — Whether the library's passages can be searched at all (the Reader and its retrieval on).
-- `_passages_meaning(vault: Any, repository: Any) -> tuple[bool, str | None, str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 87) — (searchable by meaning, why not, coverage label): the library's stored passage vectors.
-- `_passage_rows(repository: Any, hits: list[dict[str, Any]], *, basis: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 103)
-- `_note_row(hit: dict[str, Any], *, basis: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 109)
-- `_word_groups(ctx: SidecarContext, vault: Any, repository: Any, words: str, desk_id: str | None, scopes: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 115)
-- `_seen_keys(groups: list[dict[str, Any]]) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 146) — What the words found, by group, so a meaning result repeats none of it.
-- `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 232)
+- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 72)
+- `_require_desk(repository: Any, desk_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 77)
+- `_passages_state(vault: Any) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 89) — Whether the library's passages can be searched at all (the Reader and its retrieval on).
+- `_passages_meaning(vault: Any, repository: Any) -> tuple[bool, str | None, str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 99) — (searchable by meaning, why not, coverage label): the library's stored passage vectors.
+- `_passage_rows(repository: Any, hits: list[dict[str, Any]], *, basis: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 115)
+- `_note_row(hit: dict[str, Any], source_ids: CS.SourceIds, *, basis: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 121) — A vault note as a result row that opens it: a Reader note or highlight at its passage in its book (``ref`` the source, ``target`` the passage and the note), a capture-inbox note in the notes panel (``target`` the note).
+- `_word_groups(ctx: SidecarContext, vault: Any, repository: Any, words: str, desk_id: str | None, scopes: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 142)
+- `_seen_keys(groups: list[dict[str, Any]]) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 175) — What the words found, by group, so a meaning result repeats none of it.
+- `_meaning_group(name: str, rows: list[dict[str, Any]], *, more: bool, status: str='ok', reason: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 188) — A group found by meaning; ``status`` ``unavailable`` or ``failed`` says why it holds nothing, so an unrun search is never shown as "nothing found".
+- `_passages_by_meaning(vault: Any, repository: Any, words: str, seen: set[str], coverage: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 200)
+- `_notes_by_meaning(ctx: SidecarContext, vault: Any, repository: Any, words: str, seen: set[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 223)
+- `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/search.py), line 316)
 
 ## Who imports or calls it
 
@@ -104,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `waiting`
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `relay_job_offer`
-- [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]] — imports `module`; calls `cue_starts`, `group`, `off_group`, `passage_row`, `word_groups`, `words_of`
+- [[Reference/Modules/learnloop/companion/search|learnloop.companion.search]] — imports `module`; calls `SourceIds`, `cue_starts`, `group`, `off_group`, `passage_row`, `source_ref`, `word_groups`, `words_of`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/desks|learnloop.db.stores.desks]] — imports `module`; calls `desk`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -115,7 +119,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `notes_search_state`, `search_vault_notes`; calls `notes_search_state`, `search_vault_notes`
-- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `module`; calls `registry`
+- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `module`; calls `as_job_error`, `registry`, `vault_key`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies

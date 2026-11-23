@@ -253,7 +253,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `content_key`, `record_model_calls`; statically calls `content_key`, `record_model_calls`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] — imports `record_model_calls`; statically calls `record_model_calls`
 - [[Reference/Modules/learnloop_sidecar/handlers/reading_paths|learnloop_sidecar.handlers.reading_paths]] — imports `record_model_calls`; statically calls `record_model_calls`
-- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `active_request_gate`, `gate_model_requests`, `observe_model_output`, `record_model_calls`; statically calls `active_request_gate`, `gate_model_requests`, `observe_model_output`, `record_model_calls`
+- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `active_request_gate`, `annotate_calls`, `gate_model_requests`, `observe_model_output`, `record_model_calls`; statically calls `active_request_gate`, `annotate_calls`, `gate_model_requests`, `observe_model_output`, `record_model_calls`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `record_model_calls`; statically calls `record_model_calls`
 
 ## Dependencies
@@ -473,6 +473,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
 - [tests/test_reader_passage_check.py](../../../../../../tests/test_reader_passage_check.py) — direct import
   - `test_a_metered_check_is_one_admitted_physical_request_held_to_its_output_allowance`
+- [tests/test_reader_rd3_fix_backend.py](../../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
+  - `test_a_receipt_a_nested_recorder_owns_still_names_the_job`
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b1_ignores_cache_rows_without_a_writer`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import

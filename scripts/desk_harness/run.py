@@ -787,6 +787,13 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
     pill = await page.evaluate("() => { const p = document.querySelector('[data-desk-companion-pill]'); return p ? { on: p.classList.contains('on'), o: getComputedStyle(p).opacity } : null; }")
     results.check("in the overview the companion is its pill (#ov)", pill is not None and pill["on"] and float(pill["o"]) > 0.95, pill)
     await shot(page, shots, "companion-pill")
+    # Away, the faded panel is inert: Tab never reaches its controls.
+    inside = []
+    for _ in range(12):
+        await page.keyboard.press("Tab")
+        inside.append(await page.evaluate("() => Boolean(document.activeElement?.closest('[data-desk-companion], [data-desk-companion-tab]'))"))
+    inert = await page.evaluate("() => [...document.querySelectorAll('[data-desk-companion], [data-desk-companion-tab]')].every((e) => e.hasAttribute('inert'))")
+    results.check("in the overview the hidden companion is inert: Tab never lands in it", not any(inside) and inert, [inside, inert])
     await page.keyboard.press("Escape")
     await settle(page, 900)
     errors = await page.evaluate("() => window.__deskHarnessErrors")
@@ -946,6 +953,23 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     await shot(page, shots, "pads-menu")
     await page.keyboard.press("Escape")
 
+    # Ask about this, from a pad line linked to no passage: asked beside the desk's book, the block named and
+    # its words with the question.
+    await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
+    await page.locator(".desk-padmenu").get_by_text("Ask about this").click()
+    await settle(page, 500)
+    box = page.locator(".desk-companion .input")
+    cannot = await page.locator(".desk-companion .cannot").count()
+    await box.fill("why only in proportion?", timeout=5000)
+    await box.press("Enter")
+    await settle(page, 600)
+    asked = [call["input"] for call in await calls(page, "companion_ask")]
+    last = asked[-1] if asked else {}
+    results.check("Ask about this on a pad line asks (beside the desk's book), naming the block, its words with the question",
+                  cannot == 0 and last.get("padBlockIds") == ["fx_b_r1"] and last.get("extractionId") == "fx_ext_softmax" and "my pad" in str(last.get("question")), [cannot, {k: last.get(k) for k in ("padBlockIds", "extractionId", "question")}])
+    await page.locator(".desk-companion").get_by_role("button", name="c hide").click()
+    await settle(page, 600)
+
     # #s11=lift: lift out leaves a stub and adds the block's own pad to the stack.
     await page.locator('.desk-pads [data-block="fx_b_r7"]').hover()
     await page.locator('.desk-pads [data-block="fx_b_r7"] .lift').click()
@@ -1019,6 +1043,56 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     await shot(page, shots, "companion-math")
 
 
+async def drag_select(page: Page, text: str) -> None:
+    """Select a passage of the book window the way a learner does: a real mouse drag across its text."""
+    box = await page.evaluate("""(text) => { const p = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].find((e) => e.textContent.includes(text));
+      p.scrollIntoView({ block: 'center' }); const r = p.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }""", text)
+    await page.mouse.move(box["x"] + 2, box["y"] + 6)
+    await page.mouse.down()
+    await page.mouse.move(box["x"] + box["w"] * 0.5, box["y"] + box["h"] - 4, steps=6)
+    await page.mouse.move(box["x"] + box["w"] - 4, box["y"] + box["h"] - 4, steps=6)
+    await page.mouse.up()
+
+
+async def run_intent(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """The Reader's intent box over a selection against the desks' c, shift+c and / (a real Reader selection)."""
+    await page.goto(f"{base}/desk-harness.html?intent=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    await page.locator('[data-desk-window="fx_w_book"]').click(position={"x": 30, "y": 30})
+    await drag_select(page, "largest score")
+    await page.wait_for_selector("[data-intent-box]", timeout=4000)
+    await shot(page, shots, "intent-armed")
+    typed_before = await page.locator("[data-intent-box] input").input_value()
+    await page.keyboard.press("c")
+    await settle(page, 400)
+    rect = await companion_rect(page)
+    typed_after = await page.locator("[data-intent-box] input").input_value() if await page.locator("[data-intent-box] input").count() else ""
+    results.check("with the intent box shown over a Reader selection, c (focus on the page) summons the companion, typing nothing into the box",
+                  rect is not None and rect["mode"] == "anchored" and typed_after == typed_before, [rect, typed_before, typed_after])
+    await page.keyboard.press("c")
+    await settle(page, 600)
+    await page.mouse.click(5, 300)
+    await drag_select(page, "every class keeps some")
+    await settle(page, 300)
+    await shot(page, shots, "intent-second")
+    await page.wait_for_selector("[data-intent-box]", timeout=4000)
+    await page.keyboard.press("/")
+    await settle(page, 400)
+    search_open = await page.locator("[data-desk-search]").count() > 0
+    results.check("with the intent box shown, / (focus on the page) opens search in context", search_open, search_open)
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    # Real typing keeps its keys: with the focus in the box, c is typed there and summons nothing.
+    await drag_select(page, "largest score")
+    await page.wait_for_selector("[data-intent-box] input", timeout=4000)
+    await page.locator("[data-intent-box] input").click()
+    await page.keyboard.type("cc/")
+    value = await page.locator("[data-intent-box] input").input_value()
+    rect = await companion_rect(page)
+    results.check("with the focus in the intent box, c and / are typed into it and summon nothing", value.endswith("cc/") and rect is None and await page.locator("[data-desk-search]").count() == 0, [value, rect])
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -1040,7 +1114,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
-    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, pads, latex, preview); all by default")
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, latex, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -1056,7 +1130,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "pads", "latex", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "latex", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex") else browser).new_context(viewport=VIEWPORT)
@@ -1069,6 +1143,8 @@ async def main() -> int:
                         await run_overview(page, base, results, args.shots)
                     elif runner == "companion":
                         await run_companion(page, base, results, args.shots)
+                    elif runner == "intent":
+                        await run_intent(page, base, results, args.shots)
                     elif runner == "pads":
                         await run_pads(page, base, results, args.shots)
                     elif runner == "latex":

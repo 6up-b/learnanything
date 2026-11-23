@@ -53,7 +53,8 @@ export interface CompanionProps {
   cannotAsk: string | null;
   /** The sideways shift that clears what it would cover (0 when nothing). */
   avoid: number;
-  loadHistory: (query: string) => Promise<CompanionHistoryDto>;
+  /** A page of the history: the first without a cursor, then each older page by the cursor the last gave. */
+  loadHistory: (query: string, cursor?: string) => Promise<CompanionHistoryDto>;
   deskTitle: (deskId: string | null) => string;
   proposals?: (exchange: CompanionExchange) => ProposedDiff[];
   onAsk: (question: string) => void;
@@ -192,14 +193,37 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
     },
   }), [mounted, shownRect, stage]);
 
-  // History: loaded when its tab opens (and on a query), newest first, by day and then desk.
+  // History: loaded when its tab opens (and on a query), newest first, by day and then desk; older pages are
+  // read by the cursor and appended.
+  const historyGeneration = useRef(0);
+  const [olderLoading, setOlderLoading] = useState(false);
+  const loadOlder = () => {
+    const cursor = history?.cursor;
+    if (!cursor || olderLoading) return;
+    const generation = historyGeneration.current;
+    setOlderLoading(true);
+    props.loadHistory(historyQuery.trim(), cursor).then(
+      (page) => {
+        if (generation !== historyGeneration.current) return;
+        setHistory((now) => (now ? appendHistory(now, page) : page));
+        setOlderLoading(false);
+      },
+      (error: unknown) => {
+        if (generation !== historyGeneration.current) return;
+        setOlderLoading(false);
+        setHistoryFailed(error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error));
+      },
+    );
+  };
   useEffect(() => {
     if (tab !== "history" || !showing) return;
     let live = true;
+    const generation = ++historyGeneration.current;
+    setOlderLoading(false);
     const handle = timers.set(() => {
       props.loadHistory(historyQuery.trim()).then(
         (found) => {
-          if (!live) return;
+          if (!live || generation !== historyGeneration.current) return;
           setHistory(found);
           setHistoryFailed(null);
         },
@@ -267,6 +291,35 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
     props.onSnap(nearestDock({ x: dropped.x + dropped.w / 2, y: dropped.y + dropped.h / 2 }, stage));
   };
 
+  // Away (the overview) the panel and its tab are inert: Tab cannot reach the hidden input, and the focus moves
+  // out of it (to the pill, the overview's way back); back from the overview it returns where it was.
+  const returnFocus = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    for (const element of [panel, tabRef.current]) {
+      if (!element) continue;
+      if (overview) {
+        element.setAttribute("inert", "");
+        element.setAttribute("aria-hidden", "true");
+      } else {
+        element.removeAttribute("inert");
+        element.removeAttribute("aria-hidden");
+      }
+    }
+    if (overview) {
+      const active = document.activeElement;
+      if (panel && active instanceof HTMLElement && panel.contains(active)) {
+        returnFocus.current = active;
+        active.blur();
+        pillRef.current?.focus({ preventScroll: true });
+      }
+    } else if (returnFocus.current) {
+      const back = returnFocus.current;
+      returnFocus.current = null;
+      if (back.isConnected && (document.activeElement === document.body || document.activeElement === pillRef.current || document.activeElement === null)) back.focus({ preventScroll: true });
+    }
+  }, [overview, mounted]);
+
   const motionClass = reducedMotion ? " still" : "";
   const enter = state.last === "summon" ? " summon" : state.last === "show" ? " show" : "";
   const anchorOrigin = state.mode === "anchored" && state.anchored ? `${Math.round(state.anchored.w / 2)}px 0px` : "50% 100%";
@@ -332,6 +385,8 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
             ) : (
               <HistoryView
                 history={history}
+                olderLoading={olderLoading}
+                onOlder={loadOlder}
                 failed={historyFailed}
                 query={historyQuery}
                 onQuery={setHistoryQuery}
@@ -417,8 +472,21 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
 }) {
   let answer: ReactNode;
   switch (exchange.status) {
-    case "asking":
+    case "waiting":
       answer = (
+        <div className="bub ai asking" data-exchange-status="waiting">
+          <span className="who">◇ LearnLoop · saving your desk first</span>
+          <p className="thinking">◐ it is asked about the desk as you left it, once that is saved</p>
+        </div>
+      );
+      break;
+    case "asking":
+      answer = exchange.stopping ? (
+        <div className="bub ai asking" data-exchange-status="stopping">
+          <span className="who">◇ LearnLoop · stopping…</span>
+          <p className="thinking">◐ waiting to hear how it ended</p>
+        </div>
+      ) : (
         <div className="bub ai asking" data-exchange-status="asking">
           <span className="who">◇ LearnLoop · {exchange.jobStatus === "queued" || exchange.jobStatus === null ? "asked" : "answering"}{exchange.streamedPieces > 0 ? ` · ${exchange.streamedPieces} pieces so far` : ""}</span>
           <p className="thinking">◐ writing the answer…</p>
@@ -458,7 +526,11 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
       answer = (
         <div className="bub ai stopped" data-exchange-status="cancelled">
           <span className="who">◇ stopped</span>
-          <p>{exchange.kept ? "The question was already sent; its answer is kept in your history, not shown here." : "Nothing was sent."}</p>
+          <p>{exchange.kept
+            ? "The question was already sent; its answer is kept in your history, not shown here."
+            : exchange.sent
+              ? "The question was sent before it stopped; no answer is shown."
+              : "Stopped before it was sent."}</p>
         </div>
       );
       break;
@@ -483,8 +555,36 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
   );
 }
 
-function HistoryView({ history, failed, query, onQuery, deskTitle, onOpenAnchor }: {
+/** An older page of the history appended to the pages read: a day (and a desk in it) split across pages joins. */
+export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto {
+  const days = now.days.map((day) => ({ ...day, desks: day.desks.map((desk) => ({ ...desk, exchanges: [...desk.exchanges] })) }));
+  const seen = new Set(days.flatMap((day) => day.desks.flatMap((desk) => desk.exchanges.map((exchange) => exchange.questionEventId))));
+  for (const day of page.days) {
+    let into = days.find((each) => each.date === day.date);
+    if (!into) {
+      into = { ...day, desks: [] };
+      days.push(into);
+    }
+    for (const desk of day.desks) {
+      let deskInto = into.desks.find((each) => each.deskId === desk.deskId);
+      if (!deskInto) {
+        deskInto = { ...desk, exchanges: [] };
+        into.desks.push(deskInto);
+      }
+      for (const exchange of desk.exchanges) {
+        if (seen.has(exchange.questionEventId)) continue;
+        seen.add(exchange.questionEventId);
+        deskInto.exchanges.push(exchange);
+      }
+    }
+  }
+  return { ...page, days, cursor: page.cursor };
+}
+
+function HistoryView({ history, olderLoading, onOlder, failed, query, onQuery, deskTitle, onOpenAnchor }: {
   history: CompanionHistoryDto | null;
+  olderLoading: boolean;
+  onOlder: () => void;
   failed: string | null;
   query: string;
   onQuery: (query: string) => void;
@@ -519,6 +619,9 @@ function HistoryView({ history, failed, query, onQuery, deskTitle, onOpenAnchor 
           ))}
         </div>
       ))}
+      {history?.cursor ? (
+        <button type="button" className="older" disabled={olderLoading} onClick={onOlder}>{olderLoading ? "◐ reading older exchanges…" : "older exchanges ›"}</button>
+      ) : null}
     </div>
   );
 }

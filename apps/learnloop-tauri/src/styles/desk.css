@@ -565,3 +565,16 @@
 .desk-shell .desk-math .katex-display.desk-math-scroll { overflow-x: auto; overflow-y: hidden; padding-top: calc(.45em + 4px); padding-bottom: calc(.55em + 10px); }
 .desk-shell .desk-math .katex-display.desk-math-scroll::-webkit-scrollbar { height: 6px; }
 .desk-shell .desk-math .katex-display.desk-math-scroll::-webkit-scrollbar-thumb { background: #9a968e; border-radius: 3px; }
+.desk-companion .history .older { display: block; margin: 8px 0 4px; padding: 0; background: none; border: 0; color: #f0c890; font: 11px var(--desk-mono); cursor: pointer; }
+.desk-companion .history .older:disabled { color: var(--desk-t3); cursor: default; }
+.desk-drain .note.err { color: #e8a0a0; }
+.desk-pads .conflict { display: inline-block; margin-top: 3px; margin-right: 6px; padding: 0 5px; font: 10px var(--desk-mono); color: var(--desk-amber-ink); border: 1px dashed #d8b98f; border-radius: 2px; }
+.desk-carried .q { width: 100%; text-align: left; cursor: pointer; }
+.desk-carried .q:hover .t { color: var(--desk-t); }
+.desk-carried .more { display: block; text-align: left; cursor: pointer; color: #f0c890; }
+.desk-carried-list { max-height: 70vh; overflow-y: auto; }
+.desk-carried-list .row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 6px 8px; border-top: 1px solid #2a2a2a; }
+.desk-carried-list .row .t { color: var(--desk-t); }
+.desk-carried-list .row .s { color: var(--desk-t3); font-size: 10px; }
+.desk-carried-list .row .acts { grid-column: 1 / -1; display: flex; gap: 12px; }
+.desk-carried-list .row .acts button, .desk-carried-list > .acts button { color: #f0c890; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; }

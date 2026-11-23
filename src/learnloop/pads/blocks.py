@@ -14,6 +14,7 @@ evidence: the explicit exits are ``pads.emission`` (committed words to learner-t
 """
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any, Literal, Union
 
 from pydantic import Field
@@ -76,6 +77,16 @@ class InsertBlock(_Op):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class KeepBoth(WireModel):
+    """Where a stale edit's words go instead of being lost (spec §3.5): a new block, client-minted, right after the
+    block's current head, marked with what it conflicted with."""
+
+    block_id: str = Field(min_length=1)
+    version_id: str | None = None
+    #: The client's own words for the mark (spec: "from your other device · <time>"), kept in the payload.
+    label: str = ""
+
+
 class EditBlock(_Op):
     op: Literal["edit_block"]
     block_id: str
@@ -83,6 +94,9 @@ class EditBlock(_Op):
     version_id: str | None = None
     body_md: str | None = None
     payload: dict[str, Any] | None = None
+    #: On a stale head: keep the server's head and put these words in a block of their own after it (one op, so a
+    #: retried batch never writes them twice). Absent: a stale head is a conflict, as before.
+    keep_both: KeepBoth | None = None
 
 
 class RemoveBlock(_Op):
@@ -169,6 +183,49 @@ class PadNotFound(LookupError):
     pass
 
 
+class _Places:
+    """Where a link points, enough to open it with no window of that source open (review finding 13): the source
+    the reading belongs to (a ``ContentRef``'s ``source_id``), and on a transcript the cue's start (``t``, a video
+    reference's time). Each reading is looked up once."""
+
+    _CUE = re.compile(r"^t=([0-9.]+)-([0-9.]+)$")
+
+    def __init__(self, repository: Any) -> None:
+        self.repository = repository
+        self.sources: dict[str, str | None] = {}
+        self.cues: dict[str, dict[str, float]] = {}
+
+    def where(self, extraction_id: str, span_id: str) -> dict[str, Any]:
+        from learnloop.content.sources.span_aliases import reading_source
+
+        if extraction_id not in self.sources:
+            self.sources[extraction_id] = reading_source(self.repository, extraction_id)
+            ir = self.repository.load_document_ir(extraction_id)
+            self.cues[extraction_id] = {
+                block.span_id: float(match.group(1)) for block in getattr(ir, "blocks", ()) or ()
+                if (match := self._CUE.match(str(getattr(block, "extractor_block_id", "") or "")))}
+        return {"source_id": self.sources[extraction_id], "t": self.cues[extraction_id].get(span_id)}
+
+
+def _inherited_anchors(connection: Any, heads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Links a lifted block carries from the block it was lifted out of, where a lift made before links moved with
+    the words left them on the stub: shown on the lifted block, read-only (``inherited_from_block_id`` names the
+    stub's block, whose link events they are)."""
+
+    from learnloop.pads.emission import context_blocks
+
+    out: list[dict[str, Any]] = []
+    for head in heads:
+        blocks, _pads = context_blocks(connection, head)
+        parent = (head.get("payload") or {}).get("parent_block_id")
+        ancestors = [block_id for block_id in blocks[1:] if block_id != parent]
+        lifted_from = [block_id for block_id in ancestors
+                       if (reads.head(connection, block_id) or {}).get("kind") == "lifted"]
+        for anchor in reads.standing_anchors_for_blocks(connection, lifted_from):
+            out.append({**anchor, "block_id": head["block_id"], "inherited_from_block_id": anchor["block_id"]})
+    return out
+
+
 def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
     """``pad.get``: the pad, its standing blocks in order (removed blocks left out) and their links."""
 
@@ -178,15 +235,27 @@ def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
             raise PadNotFound(pad_id)
         heads = [head for head in reads.heads(connection, pad_id) if not head["tombstone"]]
         created = reads.first_versions(connection, [head["block_id"] for head in heads])
-        anchors = reads.standing_anchors_for_blocks(connection, [head["block_id"] for head in heads])
+        anchors = [{**anchor, "inherited_from_block_id": None}
+                   for anchor in reads.standing_anchors_for_blocks(connection, [head["block_id"] for head in heads])]
+        anchors += _inherited_anchors(connection, heads)
         submitted = submission_tags(connection, heads)
+    for tags in submitted.values():
+        for tag in tags:
+            if tag["as"] == "teach_back" and tag["attempt_id"] is None and tag["teach_back_id"]:
+                # A teach-back's attempt comes when its conversation finishes, carrying the conversation's id.
+                tag["attempt_id"] = repository.find_attempt_id_by_evidence_agent_run(
+                    practice_item_id=tag["practice_item_id"], agent_run_id=tag["teach_back_id"],
+                    attempt_type="teach_back")
+    places = _Places(repository)
     return {
         "pad": _pad_out(row),
         "blocks": [{**_block_out(head, created.get(head["block_id"])),
                     "submissions": submitted.get(str(head["block_id"]), [])} for head in heads],
         "anchors": [{"event_id": a["event_id"], "block_id": a["block_id"], "extraction_id": a["extraction_id"],
                      "span_id": a["span_id"], "anchor": a["anchor"], "annotation_id": a["annotation_id"],
-                     "created_at": a["created_at"]} for a in anchors],
+                     "created_at": a["created_at"], "inherited_from_block_id": a["inherited_from_block_id"],
+                     **places.where(a["extraction_id"], a["span_id"])}
+                    for a in anchors],
     }
 
 
@@ -213,6 +282,76 @@ def pad_list(repository: Any, *, desk_id: str | None = None, query: str | None =
 
 
 # -- ops ----------------------------------------------------------------------------------------------
+
+#: The client's fractional position keys (``F:screens/desks/pads/model.ts`` ``keyBetween``), ported so the server can
+#: place a block between two others the same way: keys compare as plain strings and never end in the lowest digit.
+_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+
+def _midpoint(a: str, b: str | None) -> str:
+    if b is not None:
+        n = 0
+        while (a[n] if n < len(a) else _DIGITS[0]) == (b[n] if n < len(b) else None):
+            n += 1
+        if n > 0:
+            if n >= len(b):
+                raise ValueError("no key between them")
+            return b[:n] + _midpoint(a[n:], b[n:])
+    low = _DIGITS.index(a[0]) if a else 0
+    high = _DIGITS.index(b[0]) if b is not None else len(_DIGITS)
+    if high - low > 1:
+        return _DIGITS[round((low + high) / 2)]
+    if b is not None and len(b) > 1:
+        return b[:1]
+    return _DIGITS[low] + _midpoint(a[1:], None)
+
+
+def key_between(a: str | None, b: str | None) -> str:
+    """A position key strictly between ``a`` and ``b`` (either may be None: before or after everything)."""
+
+    if a is not None and b is not None and a >= b:
+        raise ValueError(f"no key between {a} and {b}")
+    return _midpoint(a or "", b)
+
+
+def _key_after(connection: Any, pad_id: str, head: dict[str, Any]) -> str:
+    """A key right after ``head`` in its pad, before the next block; the head's own key when the next block shares
+    it (equal keys order by block id: as close as the keys allow)."""
+
+    here = str(head["position_key"])
+    following = [str(other["position_key"]) for other in reads.heads(connection, pad_id)
+                 if not other["tombstone"] and other["block_id"] != head["block_id"] and str(other["position_key"]) > here]
+    try:
+        return key_between(here, min(following) if following else None)
+    except ValueError:
+        return here
+
+
+def _keep_both(connection: Any, pad_id: str, client_id: str, op: EditBlock, head: dict[str, Any],
+               base: dict[str, Any], now: str, heads: dict[str, str]) -> dict[str, Any]:
+    """A stale edit's words as a block of their own right after the current head; the head is left as it is."""
+
+    keep = op.keep_both
+    assert keep is not None
+    if reads.head(connection, keep.block_id) is not None:
+        raise OpRefused("block_exists", f"A block {keep.block_id!r} already exists.")
+    payload = dict(op.payload if op.payload is not None else base["payload"])
+    payload["conflict"] = {"of_block_id": op.block_id, "expected_head": op.expected_head,
+                           "server_head_version_id": head["version_id"], "label": keep.label, "at": now}
+    version_id = _version_id(connection, keep.version_id)
+    store.insert_version(connection, {
+        "version_id": version_id, "block_id": keep.block_id, "supersedes_id": None, "pad_id": pad_id,
+        "position_key": _key_after(connection, pad_id, head), "day": head["day"], "kind": base["kind"],
+        "body_md": op.body_md if op.body_md is not None else base["body_md"], "payload": payload,
+        # An ink block's words typed over are the learner's correction, as an edit of it would be.
+        "provenance": "learner_correction" if base["kind"] == "ink" else base["provenance"],
+        "tombstone": False, "client_id": client_id, "created_at": now,
+    })
+    heads[keep.block_id] = version_id
+    store.touch_pad(connection, pad_id, now)
+    return {"head_version_id": head["version_id"],
+            "kept_both": {"block_id": keep.block_id, "head_version_id": version_id}}
+
 
 
 def _version_id(connection: Any, minted: str | None) -> str:
@@ -277,6 +416,16 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
         heads[op.block_id] = version_id
         store.touch_pad(connection, pad_id, now)
         return {"head_version_id": version_id}
+    if isinstance(op, EditBlock) and op.keep_both is not None:
+        current = _current_head(connection, pad_id, op.block_id, None)
+        if current["version_id"] != op.expected_head:
+            # The words were typed over the version the client saw; the block may since have been removed or lifted
+            # out, so their kind is that version's.
+            seen = reads.version(connection, op.expected_head)
+            base = seen if seen is not None and seen["block_id"] == op.block_id else current
+            if base["kind"] not in EDITABLE_KINDS:
+                raise OpRefused("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.")
+            return _keep_both(connection, pad_id, client_id, op, current, base, now, heads)
     if isinstance(op, (EditBlock, RemoveBlock, MoveBlock, LiftOut)):
         head = _current_head(connection, pad_id, op.block_id, op.expected_head)
         if head["tombstone"]:
@@ -316,6 +465,15 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
             store.insert_version(connection, _successor(
                 head, version_id, client_id, now, kind="lifted", body_md="", provenance="learnloop",
                 payload={"lifted_to_pad_id": op.new_pad_id, "lifted_block_id": op.new_block_id}))
+            # The passages the block was linked to go with its words: the lifted block takes each standing link and
+            # the stub gives it up, so a later wording's emission, its quote check and the passage's marks all find
+            # them on the block that carries the words.
+            for anchor in reads.standing_anchors_for_blocks(connection, [op.block_id]):
+                for block_id, action in ((op.new_block_id, "link"), (op.block_id, "unlink")):
+                    store.insert_anchor_event(
+                        connection, event_id=new_ulid(), block_id=block_id, extraction_id=anchor["extraction_id"],
+                        span_id=anchor["span_id"], anchor=anchor["anchor"] if action == "link" else {},
+                        annotation_id=anchor["annotation_id"] if action == "link" else None, action=action, now=now)
             heads[op.new_block_id] = lifted_version
             versions[op.new_pad_id] = 1
         heads[op.block_id] = version_id

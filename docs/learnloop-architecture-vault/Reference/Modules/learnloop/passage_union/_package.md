@@ -6,6 +6,7 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "src/learnloop/passage_union/__init__.py"
+  - "src/learnloop/passage_union/content.py"
   - "src/learnloop/passage_union/union.py"
 generated: true
 generated_at: "2026-11-02"
@@ -44,22 +45,23 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/passage_union/__init__|learnloop.passage_union]] | [[Reference/Modules/learnloop/passage_union/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] | [[Reference/Modules/learnloop/passage_union/union#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] | [[Reference/Modules/learnloop/passage_union/content#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] | [[Reference/Modules/learnloop/passage_union/union#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 1 static module edge
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
 
 ### Dependency neighborhood
 
@@ -69,19 +71,19 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.passage_union"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop["learnloop"]
+    n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_intent["learnloop.intent"]
     n_learnloop_reader["learnloop.reader"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    center -->|2| n_learnloop_content_sources
+    center -->|4| n_learnloop_content_sources
+    center -->|2| n_learnloop
     center -->|2| n_learnloop_db_stores
-    center -->|1| n_learnloop
+    n_learnloop_sidecar_handlers -->|2| center
     center -->|1| n_learnloop_db
     center -->|1| n_learnloop_intent
     center -->|1| n_learnloop_reader
-    n_learnloop_sidecar_handlers -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

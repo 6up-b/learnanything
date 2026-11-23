@@ -126,11 +126,11 @@ Indexes and uniqueness:
 - `src/learnloop/figures/source_check.py`
 - `src/learnloop/intent/control.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/passage_union/content.py`
 - `src/learnloop/reader/part_read.py`
 - `src/learnloop/reader/phone_media.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/source_search.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

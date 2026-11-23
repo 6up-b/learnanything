@@ -164,7 +164,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/learner_review_feed.py`
-- `src/learnloop/tui/screens/feedback.py`
+- `src/learnloop/pads/blocks.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

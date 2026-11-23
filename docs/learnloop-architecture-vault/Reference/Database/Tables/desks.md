@@ -103,11 +103,13 @@ None found by exact static reference scan.
 - `tests/reader_rd0_migration_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_mobile_allowlist.py`
+- `tests/test_pad_stale_edits_stacks_and_passage_reads.py`
 - `tests/test_reader_rd0_fences.py`
 - `tests/test_reader_rd0_protocol.py`
 - `tests/test_reader_rd0_reads.py`
 - `tests/test_reader_rd0_rpcs.py`
 - `tests/test_reader_rd1_model_parity.py`
+- `tests/test_reader_rd3_fix_backend.py`
 - `tests/test_reader_rd3a_companion_ask.py`
 - `tests/test_reader_rd4_rpcs.py`
 

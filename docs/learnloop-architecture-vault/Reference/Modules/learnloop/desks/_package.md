@@ -48,13 +48,13 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/desks/__init__|learnloop.desks]] | [[Reference/Modules/learnloop/desks/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/desks/content_ref|learnloop.desks.content_ref]] | [[Reference/Modules/learnloop/desks/content_ref#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] | [[Reference/Modules/learnloop/desks/protocol#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
-| [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] | [[Reference/Modules/learnloop/desks/workspace#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] | [[Reference/Modules/learnloop/desks/workspace#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 
 ### Packages that import this package
@@ -73,7 +73,7 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_pads["learnloop.pads"]
     n_learnloop["learnloop"]
-    center -->|4| n_learnloop_db_stores
+    center -->|5| n_learnloop_db_stores
     n_learnloop_sidecar_handlers -->|3| center
     n_learnloop_pads -->|2| center
     center -->|1| n_learnloop

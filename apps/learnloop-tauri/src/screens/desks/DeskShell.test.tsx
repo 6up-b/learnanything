@@ -1,15 +1,17 @@
 // DeskShell in jsdom (spec §18.2): the key router reaching the workspace, the writes the outbox sends,
 // a conflict taking the server's state, first-run desks, the typing scope, hidden desks and which-key.
 // Layout, pixels and real iframes are the real-webview harness's (scripts/desk_harness/run.py).
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useState } from "react";
 import type { DeskStateDto, SourceLibraryCard } from "../../api/dto";
 import { FixtureDeskServer, fixtureDeskState } from "../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../fixtures/desks/sources";
-import { DeskShell, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { DeskShell, groundingFor, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { fromDeskState } from "./model/workspace";
 import { Poller } from "../../api/poller";
 import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
+import { usePadsHost } from "./pads/host";
 import { useBareAltClear } from "../reader/bareAlt";
 
 vi.mock("../../api/client", () => ({ api: {} }));
@@ -472,7 +474,9 @@ describe("gather", () => {
     });
     await flush();
     const gathered = server.state().desks.find((desk) => desk.title.startsWith("gathered · "));
-    expect(gathered?.slots.map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path"]);
+    // The gathered windows, then the new desk's running pad in its stack (every desk has one).
+    expect(gathered?.slots.slice(0, 3).map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path"]);
+    expect(gathered?.slots[3]?.windows[0].kind).toBe("pad_stack");
     expect(gathered?.focusWindowId).toBe("fx_w_book");
     expect(server.state().desks[0].slots.map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_video", "fx_w_paper", "fx_w_pads"]);
   });
@@ -1297,10 +1301,12 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     fireEvent.change(input, { target: { value: "why does it cancel?" } });
     fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     expect(panel()?.textContent).toContain("why does it cancel?");
-    expect(panel()?.querySelector('[data-exchange-status="asking"]')).not.toBeNull();
+    // Shown at once, waiting while the desk's writes are acknowledged (none are queued here), then asking.
+    expect(panel()?.querySelector('[data-exchange-status="waiting"]')).not.toBeNull();
     await act(async () => {
-      await Promise.resolve();
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
     });
+    expect(panel()?.querySelector('[data-exchange-status="asking"]')).not.toBeNull();
     expect(transport.companionAsk).toHaveBeenCalledWith(expect.objectContaining({ surface: "desk", deskId: "fx_desk_softmax", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", question: "why does it cancel?", selectionQuote: "the first passage of fx_w_book" }));
     await act(async () => {
       await poller.tick();
@@ -1315,6 +1321,112 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     await flush();
     // The cited passage's source is the book, already on the desk: it takes the focus (no second window).
     expect(server.state().desks[0].focusWindowId).toBe("fx_w_book");
+  });
+
+  it("a question waits until the desk writes it depends on are acknowledged, shown as waiting, and is asked after them", async () => {
+    const { transport, answer: _answer, server } = mountCompanion();
+    const order: string[] = [];
+    const deskApply = server.apply.bind(server);
+    server.apply = (input) => {
+      order.push(`apply:${input.ops.map((op) => op.op).join(",")}`);
+      return deskApply(input);
+    };
+    transport.companionAsk.mockImplementation(async (input: { requestId: string }) => {
+      order.push("ask");
+      return { version: 1, requestId: input.requestId, status: "queued", done: false, partialMd: "", citations: [], streamedPieces: 0, questionEventId: null, kept: false, answer: null, error: null };
+    });
+    await screen.findByTestId("pane-fx_w_book");
+    // The focus moves (a desk write, queued for the idle flush) and the learner asks at once.
+    alt("KeyL", "l");
+    alt("KeyH", "h");
+    selectIn("fx_w_book", 1);
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "right away?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(panel()?.querySelector('[data-exchange-status="waiting"]')).not.toBeNull();
+    expect(order).toEqual([]);
+    await act(async () => {
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(order.length).toBeGreaterThan(1);
+    expect(order[order.length - 1]).toBe("ask");
+    expect(order.slice(0, -1).every((entry) => entry.startsWith("apply:"))).toBe(true);
+  });
+
+  it("a history anchor whose book is on no desk opens it beside, its source read from the passage's reading", async () => {
+    const server = new FixtureDeskServer();
+    const resolved: string[] = [];
+    const { transport } = mountCompanion({
+      transport: { ...transportFor(server), sourceOfExtraction: async (extractionId: string) => {
+        resolved.push(extractionId);
+        return "fx_src_elsewhere";
+      } },
+    });
+    transport.companionHistory.mockResolvedValue({ version: 1, cursor: null, days: [{ date: "2026-11-20", desks: [{ deskId: null, exchanges: [{
+      questionEventId: "q9", questionMd: "an old question", answerFirstSentence: "", answerStatus: "answered", context: "reader", surface: "reader", where: "in the Reader",
+      origin: "live", goalId: null, padBlockIds: [], anchor: { extractionId: "fx_ext_elsewhere", spanId: "fx_ext_elsewhere_s2", quality: "exact_selection" }, createdAt: "2026-11-20T10:00:00Z" }] }] }] } as never);
+    await screen.findByTestId("pane-fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    fireEvent.click(screen.getByRole("tab", { name: "history" }));
+    await flush();
+    fireEvent.click(await screen.findByRole("button", { name: "§ the passage ↗" }));
+    await flush();
+    await flush();
+    expect(resolved).toEqual(["fx_ext_elsewhere"]);
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "source", sourceId: "fx_src_elsewhere", extractionId: "fx_ext_elsewhere" });
+  });
+
+  it("a question whose window closes is read no more; nor is any once the shell detaches", async () => {
+    const { poller, reads, view } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "a question" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await flush();
+    await act(async () => {
+      await poller.tick();
+    });
+    const before = reads.length;
+    expect(before).toBeGreaterThan(0);
+    // Close the window it was asked from (alt+w closes the focus).
+    alt("KeyW", "w");
+    await flush();
+    expect(screen.queryByTestId("pane-fx_w_book")).toBeNull();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads.length).toBe(before);
+    view.unmount();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads.length).toBe(before);
+    expect(poller.size).toBe(0);
+  });
+
+  it("detached, the shell's threads stop polling; mounted again, they are followed again", async () => {
+    const { poller, reads, view } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "still there?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await flush();
+    expect(poller.size).toBe(1);
+    view.unmount();
+    expect(poller.size).toBe(0);
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads).toHaveLength(0);
   });
 
   it("a question from a window whose desk is left is not read until the learner comes back (paused windows ask nothing)", async () => {
@@ -1418,6 +1530,50 @@ describe("RD3b: search in context (spec §9.3)", () => {
     expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId });
   });
 
+  it("a note result opens its note by its identity: a Reader note at its passage in its book, an inbox note said where it lives", async () => {
+    const { server, transport } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    const noteRows = [
+      { ref: { kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId, extractionId: FIXTURE_SOURCES.video2.extractionId }, target: { spanId: "fx_v2_c3", noteKey: "annotation:an7", annotationId: "an7" },
+        noteKind: "note", noteKey: "annotation:an7", noteRefKind: "annotation", title: "masks", heading: null, snippet: "masks hide the future", capturedOn: null, byMeaning: false },
+      { ref: { kind: "panel", panel: "notes" }, target: { noteKey: "capture:cap3", captureId: "cap3" },
+        noteKind: "note", noteKey: "capture:cap3", noteRefKind: "capture", title: "masks, again", heading: null, snippet: "ask about causal masks", capturedOn: "2026-11-20", byMeaning: false },
+    ];
+    for (const index of [0, 1]) {
+      transport.searchEverything.mockResolvedValueOnce({
+        version: 1, query: "masks",
+        groups: [{ group: "notes", label: "your notes", basis: "words", status: "ok", more: false, rows: [noteRows[index]] }],
+        meaning: { status: "unavailable", jobId: null, unavailable: [] },
+      } as never);
+    }
+    const search = async (title: string) => {
+      press("/", "Slash");
+      const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+      fireEvent.change(input, { target: { value: "masks" } });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+        await Promise.resolve();
+      });
+      // The note's row (the window opened by the first search is in "open on this desk" above it).
+      const row = [...document.querySelectorAll<HTMLElement>("[data-search-row]")].find((each) => each.textContent?.includes(title));
+      fireEvent.click(row as HTMLElement);
+      await flush();
+    };
+    await search("masks hide");
+    const opened = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window");
+    expect(opened).toHaveLength(1);
+    expect(opened[0].op === "open_window" ? [opened[0].content, opened[0].view] : null).toMatchObject([
+      { kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId }, { spanId: "fx_v2_c3", noteKey: "annotation:an7", annotationId: "an7" },
+    ]);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    await search("ask about causal masks");
+    // No desk window shows an inbox note: nothing opens (no unbound Notes panel), and it says where the note is.
+    expect(server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window")).toHaveLength(1);
+    expect(document.querySelector(".desk-toast")?.textContent).toMatch(/inbox note/);
+  });
+
   it("esc closes it", async () => {
     mountCompanion({ reducedMotion: true });
     await screen.findByTestId("pane-fx_w_book");
@@ -1444,6 +1600,9 @@ describe("RD4b: pads in the desks", () => {
         passageUnionRange: async () => ({ sections: [] }) as never,
         authorPracticeItem: async () => ({ practiceItemId: "x" }),
         workbenchOpenProblems: async () => ({ problems: [] }),
+        submitTeachBackTurn: async () => ({ done: true }) as never,
+        getSession: async () => ({ checkpoint: null }) as never,
+        passageContent: async () => ({ version: 1, extractionId: "", sourceId: null, title: null, withheld: false, spans: [] }) as never,
         padDrain: async ({ deskId }: { deskId: string }) => ({
           version: 1, deskId, day: "2026-11-23",
           pads: [{ padId: "fx_pad_running", kind: "running", title: "running", kept: false, version: 1, firstLine: "softmax keeps the winner", lastLine: "is it the same move?", carryCandidate: "is it the same move?", updatedAt: "2026-11-23T10:00:00Z" }],
@@ -1516,7 +1675,63 @@ describe("RD4b: pads in the desks", () => {
     });
     expect(shelf.querySelectorAll(".q")).toHaveLength(3);
     expect(shelf.textContent).toContain("since 20 Nov");
-    expect(shelf.textContent).toContain("1 more in the library");
+    // The rest is a working link to every carried question (not a mention of the library).
+    expect(within(shelf).getByRole("button", { name: /all carried questions \(1 more\)/ })).toBeTruthy();
+  });
+
+  it("the shelf's link opens every carried question, page by page, each with fruitful, not now and let it go", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const question = (n: number) => ({ carriedId: `c${n}`, text: `question ${n}?`, originKind: "typed", originRef: null, anchor: null, deskId: null, since: "2026-11-20T10:00:00Z", state: "carried", carried: true, version: n, updatedAt: "2026-11-20T10:00:00Z" });
+    const pages: Array<string | undefined> = [];
+    fakes.transport.carriedList = (async (input: { cursor?: string }) => {
+      pages.push(input.cursor);
+      return input.cursor ? { carried: [question(5)], shelfLimit: 3, cursor: null } : { carried: [1, 2, 3, 4].map(question), shelfLimit: 3, cursor: "c4" };
+    }) as never;
+    const marks: unknown[] = [];
+    fakes.transport.carriedMark = async (input: unknown) => {
+      marks.push(input);
+      return {};
+    };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const shelf = document.querySelector("[data-shelf-carried]") as HTMLElement;
+    expect(shelf.querySelectorAll(".q")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: /all carried questions/ }));
+    const list = await screen.findByRole("dialog", { name: "carried questions" });
+    expect(list.querySelectorAll("[data-carried-row]")).toHaveLength(4);
+    fireEvent.click(screen.getByRole("button", { name: /older/ }));
+    await flush();
+    expect(list.querySelectorAll("[data-carried-row]")).toHaveLength(5);
+    expect(pages).toContain("c4");
+    const row = list.querySelector('[data-carried-row="c2"]') as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "let it go" }));
+    await flush();
+    expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c2", event: "let_go", expectedVersion: 2 });
+    expect(list.querySelector('[data-carried-row="c2"]')).toBeNull();
+  });
+
+  it("a passage's ✎ marks come from the passage union (no pad loaded), an alias that needs re-anchoring marked as such", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const asked: unknown[] = [];
+    fakes.transport.passageUnionRange = (async (input: unknown) => {
+      asked.push(input);
+      return { version: 1, extractionId: FIXTURE_SOURCES.book.extractionId, sections: [], spans: [
+        { spanId: "fx_w_book_s1", sectionId: null, annotations: [], exchanges: [], adjustments: [], padBlocks: [{ blockId: "b_old", padId: "p_old", kind: "text", provenance: "learner", eventId: "e1", annotationId: null, alias: "needs_reanchor" }] },
+        { spanId: "fx_w_book_s2", sectionId: null, annotations: [], exchanges: [], adjustments: [], padBlocks: [{ blockId: "b9", padId: "p9", kind: "source_quote", provenance: "source", eventId: "e2", annotationId: null, alias: "exact" }] },
+      ] };
+    }) as never;
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport, renderPane: (input) => <PassagePane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    await flush();
+    expect(asked.some((input) => (input as { extractionId: string }).extractionId === FIXTURE_SOURCES.book.extractionId)).toBe(true);
+    const marks = [...document.querySelectorAll<HTMLElement>(".desk-pmark.pad")];
+    expect(marks).toHaveLength(2);
+    expect(marks.filter((mark) => mark.classList.contains("reanchor"))).toHaveLength(1);
+    expect(marks.find((mark) => mark.classList.contains("reanchor"))?.getAttribute("title")).toMatch(/re-anchor/);
   });
 
   it("a carried question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {
@@ -1539,6 +1754,25 @@ describe("RD4b: pads in the desks", () => {
     fireEvent.click(screen.getByRole("button", { name: "let it go" }));
     await flush();
     expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c1", event: "let_go", expectedVersion: 3 });
+  });
+
+  it("the drain says carried or kept only once it is saved; a failed carry keeps its controls and says why", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    fakes.transport.carriedCarry = async () => {
+      throw { code: "sidecar_unavailable", message: "LearnLoop is not running" };
+    };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyQ", "Q", { shiftKey: true });
+    const drain = await screen.findByRole("dialog", { name: "closing softmax and cross-entropy" });
+    press("1", "Digit1");
+    press("c", "KeyC");
+    await flush();
+    await flush();
+    expect(drain.textContent).not.toContain("carried");
+    expect(drain.textContent).toContain("LearnLoop is not running");
+    expect(drain.querySelector("[data-drain-pad] .acts")).not.toBeNull();
   });
 
   it("an answer proposes a diff into the desk's running pad; accept writes it as the tutor's words", async () => {
@@ -1571,5 +1805,98 @@ describe("RD4b: pads in the desks", () => {
     const inserted = server.padBatches.flatMap((batch) => batch.ops).find((op) => op.op === "insert_block");
     expect(inserted).toMatchObject({ op: "insert_block", kind: "tutor_quote", provenance: "tutor", bodyMd: "Because the factor cancels." });
     expect(server.padBatches[0].padId).toBe("fx_pad_running");
+  });
+});
+
+describe("RD4 review: asking from a pad line", () => {
+  const ws = (() => {
+    const state = fixtureDeskState();
+    return { ...fromDeskState(state), closed: {} };
+  })();
+  it("an anchored pad line grounds the question in its passage, with the pad block named", () => {
+    const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r2", anchor: { extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3" } } }, ws.windows.fx_w_pads, {});
+    expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3", padBlockId: "fx_b_r2" });
+  });
+
+  it("an unanchored pad line is asked beside the desk's book (where the learner reads), the line named", () => {
+    const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, { fx_w_book: { readingSpan: "fx_ext_softmax_s2_1" } });
+    expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s2_1", windowId: "fx_w_pads", spanWindowId: "fx_w_book", padBlockId: "fx_b_r1" });
+  });
+
+  it("an unanchored pad line on a desk with no book or video says why it cannot ask", () => {
+    const empty = { ...ws, windows: { fx_w_pads: ws.windows.fx_w_pads } };
+    const grounding = groundingFor(empty, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, {});
+    expect(grounding.reason).toMatch(/linked to no passage/);
+  });
+});
+
+describe("RD4 review: the running pad and stack membership on the desks", () => {
+  it("a desk with no running pad in its stacks gets one ensured (an idempotent desk op) when it opens", async () => {
+    const state = fixtureDeskState();
+    const server = new FixtureDeskServer({ ...state, runningPadIds: [] });
+    mount(server, { transport: { ...transportFor(server), padGet: async ({ padId }: { padId: string }) => server.padGet(padId) } });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const ensured = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "ensure_running_pad");
+    expect(ensured).toHaveLength(1);
+    expect(ensured[0]).toMatchObject({ op: "ensure_running_pad", deskId: "fx_desk_softmax", title: "running" });
+  });
+
+  it("a desk whose stacks hold its running pad sends nothing", async () => {
+    const server = new FixtureDeskServer();
+    mount(server);
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    expect(server.batches.flatMap((batch) => batch.ops).some((op) => op.op === "ensure_running_pad")).toBe(false);
+  });
+
+  it("pads an earlier build kept in a stack window's view join its stack by add_to_stack", async () => {
+    const state = fixtureDeskState();
+    const desk = state.desks[0];
+    const stackSlot = desk.slots.find((slot) => slot.windows.some((window) => window.kind === "pad_stack"))!;
+    stackSlot.windows = stackSlot.windows.map((window) => (window.kind === "pad_stack" ? { ...window, view: { addedPads: ["fx_pad_deriving", "fx_pad_lifted_old"] } } : window));
+    const server = new FixtureDeskServer(state);
+    mount(server);
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    const added = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "add_to_stack");
+    // fx_pad_deriving is already in the stack: only the other one is added.
+    expect(added.map((op) => (op as { entry: { padId: string } }).entry.padId)).toEqual(["fx_pad_lifted_old"]);
+  });
+});
+
+describe("RD4 review: a pad's back-link reopens its source", () => {
+  function BackLinkPane({ input, target }: { input: PaneRenderInput; target: [string, string, number | undefined, string | undefined] }) {
+    const host = usePadsHost();
+    return (
+      <div data-testid={`pane-${input.window.windowId}`} data-state={input.lifecycle.state}>
+        <button type="button" onClick={() => host?.openPassage(...target)}>{`back from ${input.window.windowId}`}</button>
+      </div>
+    );
+  }
+
+  it("a quote's back-link to a source on no desk opens it beside, at the stored passage", async () => {
+    const server = new FixtureDeskServer();
+    mount(server, { renderPane: (input) => <BackLinkPane input={input} target={["fx_ext_closed", "fx_ext_closed_s4", undefined, "fx_src_closed"]} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByText("back from fx_w_book"));
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? [opened.content, opened.view] : null).toMatchObject([{ kind: "source", sourceId: "fx_src_closed", extractionId: "fx_ext_closed" }, { spanId: "fx_ext_closed_s4" }]);
+  });
+
+  it("a video piece's back-link with no source id reads it from the reading and opens the video at its time", async () => {
+    const server = new FixtureDeskServer();
+    const library = [...FIXTURE_LIBRARY, { ...FIXTURE_LIBRARY[0], sourceId: "fx_src_closed_video", title: "a closed video", kindNoun: "video", acquisitionKind: "youtube" }];
+    mount(server, {
+      transport: { ...transportFor(server, library as never), sourceOfExtraction: async () => "fx_src_closed_video" },
+      renderPane: (input) => <BackLinkPane input={input} target={["fx_ext_closed_video", "fx_ext_closed_video_c3", 72, undefined]} />,
+    });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByText("back from fx_w_book"));
+    await flush();
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: "fx_src_closed_video", extractionId: "fx_ext_closed_video", t: 72 });
   });
 });

@@ -109,11 +109,13 @@ None found by exact static reference scan.
 - `tests/reader_rd4_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_mobile_allowlist.py`
+- `tests/test_pad_stale_edits_stacks_and_passage_reads.py`
 - `tests/test_reader_rd0_fences.py`
 - `tests/test_reader_rd0_guards_migration.py`
 - `tests/test_reader_rd0_migration.py`
 - `tests/test_reader_rd0_protocol.py`
 - `tests/test_reader_rd0_rpcs.py`
+- `tests/test_reader_rd3_fix_backend.py`
 - `tests/test_reader_rd3a_search.py`
 - `tests/test_reader_rd4_carried_and_proposals.py`
 - `tests/test_reader_rd4_emission.py`

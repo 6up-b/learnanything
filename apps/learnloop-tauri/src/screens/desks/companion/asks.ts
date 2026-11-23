@@ -5,6 +5,9 @@
 // What the learner sees follows the job honestly: asking (queued or running, with the pieces streamed so
 // far when the transport streams), the answer, a failure in its own words, cancelled (and whether the
 // answer was kept in the history), or interrupted (the sidecar restarted or the vault closed under it).
+// A question waits (shown) until the desk writes it depends on are acknowledged; stopping shows until the
+// job resolves; a retry resends the original request whole. The store follows its jobs only while a shell
+// shows it (suspend / resume) and never again once its vault is gone (dispose).
 import type { CompanionAskInput, CompanionAskJobDto, CompanionAskStatus, CompanionAskSurface, ReaderAnswerDto } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
 
@@ -14,7 +17,7 @@ export interface CompanionApi {
   companionAskCancel(input: { requestId: string }): Promise<CompanionAskJobDto>;
 }
 
-export type ExchangeStatus = "asking" | "answered" | "failed" | "cancelled" | "interrupted";
+export type ExchangeStatus = "waiting" | "asking" | "answered" | "failed" | "cancelled" | "interrupted";
 
 export interface CompanionExchange {
   requestId: string;
@@ -31,10 +34,19 @@ export interface CompanionExchange {
   streamedPieces: number;
   answer: ReaderAnswerDto | null;
   error: { code: string; message: string; retryable: boolean } | null;
-  /** Cancelled after the request was sent: the exchange is in the history, the answer not delivered. */
+  /** The sidecar kept the exchange in the history (said only when it says so). */
   kept: boolean;
+  /** Stop was pressed and the job has not resolved yet. */
+  stopping: boolean;
+  /** The question reached the tutor (a worker took it, or the question was recorded): never read from `kept`. */
+  sent: boolean;
   askedAt: number;
+  /** What was asked, whole (a retry resends exactly this with a new request id). */
+  request: Omit<CompanionAskInput, "requestId">;
 }
+
+/** Whether the desk writes a question depends on were acknowledged before it is sent. */
+export type DeskWritesSettled = "saved" | "unsaved";
 
 export interface AskRequest {
   deskId: string | null;
@@ -45,6 +57,8 @@ export interface AskRequest {
   spanId: string;
   selectionSpanIds?: string[];
   quote?: string | null;
+  /** Pad blocks asked about (recorded with the exchange). */
+  padBlockIds?: string[];
 }
 
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
@@ -59,6 +73,12 @@ function errorOf(error: unknown): { code: string; message: string; retryable: bo
   return { code: "error", message: String(error), retryable: false };
 }
 
+const UNSAVED = {
+  code: "desk_not_saved",
+  message: "Your desk's latest changes couldn't be saved, so this question was not sent (it is asked about the desk as it is saved).",
+  retryable: true,
+};
+
 export function threadKey(deskId: string | null): string {
   return deskId ?? "(no desk)";
 }
@@ -67,6 +87,11 @@ export class CompanionAsks {
   private threads = new Map<string, CompanionExchange[]>();
   private listeners = new Set<() => void>();
   private polls = new Map<string, () => void>();
+  private owners = new Map<string, string | null>();
+  /** Jobs to follow again when a shell resumes the store. */
+  private held = new Map<string, string | null>();
+  private suspended = false;
+  private disposed = false;
   private version = 0;
 
   constructor(
@@ -116,31 +141,11 @@ export class CompanionAsks {
     return null;
   }
 
-  /** Ask: the question shows at once (asking), then follows its job. Returns the request id. */
-  ask(request: AskRequest): string {
-    const requestId = this.mintRequestId();
-    const exchange: CompanionExchange = {
-      requestId,
-      deskId: request.deskId,
-      windowId: request.windowId,
-      question: request.question,
-      quote: request.quote ?? null,
-      extractionId: request.extractionId,
-      spanId: request.spanId,
-      status: "asking",
-      jobStatus: null,
-      streamedPieces: 0,
-      answer: null,
-      error: null,
-      kept: false,
-      askedAt: this.now(),
-    };
+  /** Ask: the question shows at once, waiting while `ready` (the desk writes it depends on) settles, then
+   * asking as it follows its job. Returns the request id. */
+  ask(request: AskRequest, ready?: Promise<DeskWritesSettled>): string {
     const parent = this.parentFor(request);
-    const key = threadKey(request.deskId);
-    this.threads.set(key, [...(this.threads.get(key) ?? []), exchange]);
-    this.emit();
-    const input: CompanionAskInput = {
-      requestId,
+    const input: Omit<CompanionAskInput, "requestId"> = {
       surface: request.surface,
       deskId: request.deskId,
       extractionId: request.extractionId,
@@ -149,52 +154,103 @@ export class CompanionAsks {
       parentExchangeId: parent,
       ...(request.selectionSpanIds?.length ? { selectionSpanIds: request.selectionSpanIds } : {}),
       ...(request.quote ? { selectionQuote: request.quote } : {}),
+      ...(request.padBlockIds?.length ? { padBlockIds: request.padBlockIds } : {}),
     };
-    void this.api.companionAsk(input).then(
-      (job) => {
-        this.apply(job);
-        if (!job.done) this.watch(requestId, request.windowId);
-      },
-      // A refusal at the request (the Reader off, no OK to use AI, a held-out passage): said, no job.
-      (error: unknown) => this.update(requestId, (current) => ({ ...current, status: "failed", error: errorOf(error) })),
-    );
+    return this.send(input, request.windowId, request.quote ?? null, ready);
+  }
+
+  private send(input: Omit<CompanionAskInput, "requestId">, windowId: string | null, quote: string | null, ready?: Promise<DeskWritesSettled>): string {
+    const requestId = this.mintRequestId();
+    const exchange: CompanionExchange = {
+      requestId,
+      deskId: input.deskId ?? null,
+      windowId,
+      question: input.question,
+      quote,
+      extractionId: input.extractionId,
+      spanId: input.spanId,
+      status: ready ? "waiting" : "asking",
+      jobStatus: null,
+      streamedPieces: 0,
+      answer: null,
+      error: null,
+      kept: false,
+      stopping: false,
+      sent: false,
+      askedAt: this.now(),
+      request: input,
+    };
+    const key = threadKey(exchange.deskId);
+    this.threads.set(key, [...(this.threads.get(key) ?? []), exchange]);
+    this.emit();
+    const go = () => {
+      if (this.disposed) return;
+      this.update(requestId, (current) => (current.status === "waiting" ? { ...current, status: "asking" } : current));
+      void this.api.companionAsk({ requestId, ...input }).then(
+        (job) => {
+          if (this.disposed) return;
+          this.apply(job);
+          if (!job.done) this.watch(requestId, windowId);
+        },
+        // A refusal at the request (the Reader off, no OK to use AI, a held-out passage): said, no job.
+        (error: unknown) => this.update(requestId, (current) => ({ ...current, status: "failed", error: errorOf(error) })),
+      );
+    };
+    if (!ready) go();
+    else {
+      // The sidecar reads the desk's focus and windows when it records the question: they must be its.
+      void ready.then(
+        (settled) => {
+          if (settled === "saved") go();
+          else this.update(requestId, (current) => ({ ...current, status: "failed", error: UNSAVED }));
+        },
+        () => this.update(requestId, (current) => ({ ...current, status: "failed", error: UNSAVED })),
+      );
+    }
     return requestId;
   }
 
-  /** The same question again, as a new request (an interrupted or failed one). */
+  /** The same question again, as a new request: the original request whole, with a new id. */
   retry(requestId: string): string | null {
     const exchange = [...this.threads.values()].flat().find((each) => each.requestId === requestId);
     if (!exchange) return null;
-    return this.ask({
-      deskId: exchange.deskId,
-      windowId: exchange.windowId,
-      surface: exchange.deskId ? "desk" : "reader",
-      question: exchange.question,
-      extractionId: exchange.extractionId,
-      spanId: exchange.spanId,
-      quote: exchange.quote,
-    });
+    return this.send(exchange.request, exchange.windowId, exchange.quote);
   }
 
   cancel(requestId: string): void {
+    // "stopping" until the job says how it ended (an already-sent question may still be written).
+    this.update(requestId, (current) => ({ ...current, stopping: true }));
     void this.api.companionAskCancel({ requestId }).then(
       (job) => {
         this.apply(job);
         if (job.done) this.unwatch(requestId);
+        else this.watch(requestId, this.ownerOf(requestId));
       },
       (error: unknown) => this.update(requestId, (current) => ({ ...current, error: errorOf(error) })),
     );
   }
 
+  private ownerOf(requestId: string): string | null {
+    return [...this.threads.values()].flat().find((each) => each.requestId === requestId)?.windowId ?? null;
+  }
+
   private watch(requestId: string, owner: string | null): void {
-    if (this.polls.has(requestId)) return;
+    if (this.disposed || this.polls.has(requestId)) return;
+    if (this.suspended) {
+      // Detached from every shell: followed again on resume.
+      this.held.set(requestId, owner);
+      return;
+    }
     const remove = this.poller.register<CompanionAskJobDto>({
       key: `companion-ask:${requestId}`,
       owner,
       request: () => this.api.companionAskJob({ requestId }),
       onResult: (job) => {
         this.apply(job);
-        if (job.done) this.polls.delete(requestId);
+        if (job.done) {
+          this.polls.delete(requestId);
+          this.owners.delete(requestId);
+        }
         return { done: job.done };
       },
       onError: (error) => {
@@ -207,24 +263,32 @@ export class CompanionAsks {
       },
     });
     this.polls.set(requestId, remove);
+    this.owners.set(requestId, owner);
   }
 
   private unwatch(requestId: string): void {
     const remove = this.polls.get(requestId);
     this.polls.delete(requestId);
+    this.owners.delete(requestId);
+    this.held.delete(requestId);
     remove?.();
   }
 
   private apply(job: CompanionAskJobDto): void {
     this.update(job.requestId, (current) => {
-      const base = { ...current, jobStatus: job.status, streamedPieces: job.streamedPieces, kept: job.kept };
+      // Sent once the sidecar says a model request went out (an older sidecar: once a worker ran it or an answer
+      // was kept); the recorded question alone is not a sent request, and nothing is inferred from `kept` missing.
+      const sent = current.sent || (job.sent ?? (job.status === "running" || job.status === "done" || job.kept));
+      const base = { ...current, jobStatus: job.status, streamedPieces: job.streamedPieces, kept: job.kept, sent };
+      // A cancel the sidecar has not resolved yet: still stopping.
+      if (!job.done && (job.status === "cancelled" || current.stopping)) return { ...base, status: "asking", stopping: true };
       switch (job.status) {
         case "done":
           return { ...base, status: "answered", answer: job.answer, error: null };
         case "failed":
           return { ...base, status: job.error?.code === "interrupted" ? "interrupted" : "failed", error: job.error ? { code: job.error.code, message: job.error.message, retryable: job.error.retryable } : null };
         case "cancelled":
-          return { ...base, status: "cancelled" };
+          return { ...base, status: "cancelled", stopping: false };
         case "expired":
           // Finished and dropped from the sidecar's memory: the exchange is in the history.
           return { ...base, status: "interrupted", error: { code: "expired", message: "This finished while the panel was away; it is in your history.", retryable: false } };
@@ -234,14 +298,44 @@ export class CompanionAsks {
     });
   }
 
-  /** Stop following every job (the vault closes). */
+  /** No shell shows this store (it unmounted): its polls stop, remembered for `resume`. */
+  suspend(): void {
+    this.suspended = true;
+    for (const [requestId, remove] of this.polls) {
+      this.held.set(requestId, this.owners.get(requestId) ?? null);
+      remove();
+    }
+    this.polls.clear();
+    this.owners.clear();
+  }
+
+  /** A shell shows it again: the jobs still open are followed again. */
+  resume(): void {
+    if (this.disposed) return;
+    this.suspended = false;
+    const held = [...this.held];
+    this.held.clear();
+    for (const [requestId, owner] of held) this.watch(requestId, owner);
+  }
+
+  /** The vault is gone: stop following every job, for good (a late first reply included). */
   dispose(): void {
+    this.disposed = true;
     for (const remove of this.polls.values()) remove();
     this.polls.clear();
+    this.owners.clear();
+    this.held.clear();
   }
 }
 
 const STORES = new WeakMap<object, Map<string, CompanionAsks>>();
+
+/** The vault closed: its store is disposed and forgotten (a later mount for it starts afresh). */
+export function forgetCompanionAsks(vaultKey: string, owner: object): void {
+  const byVault = STORES.get(owner);
+  byVault?.get(vaultKey)?.dispose();
+  byVault?.delete(vaultKey);
+}
 
 /** The vault's one set of companion threads (per transport), kept across the shell's mounts. */
 export function companionAsksFor(vaultKey: string, owner: object, make: () => CompanionAsks): CompanionAsks {

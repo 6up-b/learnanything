@@ -2058,8 +2058,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../../tests/test_reader_rd4_carried_and_proposals.py) — direct import
   - `test_a_carried_question_comes_back_beside_its_passage_in_the_union_read`
   - `test_a_committed_note_under_a_linked_quote_gets_one_proposal_from_the_passage_links`
-- [tests/test_reader_rd4_submission.py](../../../../../../tests/test_reader_rd4_submission.py) — direct import
-  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
+- [tests/test_reader_rd4_rpcs.py](../../../../../../tests/test_reader_rd4_rpcs.py) — direct import
+  - `test_the_fix_rounds_read_is_desktop_only_refuses_an_extra_field_and_is_versioned`
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
   - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`

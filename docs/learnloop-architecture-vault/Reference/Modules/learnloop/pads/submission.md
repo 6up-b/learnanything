@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/submission.py](../../../../../../src/learnloop/pads/submission.py) |
-| Source lines | 190 |
+| Source lines | 177 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,9 +58,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `__init__(self, code: str, message: str, details: dict[str, Any] | None=None) -> None` (line 49; internal)
 - `class Prepared` ([source](../../../../../../src/learnloop/pads/submission.py), line 55) — A block version cleared for hand-off, or the row of a submission already made (``existing``).
 - `request_hash(*, block_id: str, version_id: str, submitted_as: str, practice_item_id: str, session_id: str) -> str` ([source](../../../../../../src/learnloop/pads/submission.py), line 70)
-- `prepare(repository: Any, *, submission_id: str, block_id: str, version_id: str, submitted_as: str, practice_item_id: str, session_id: str) -> Prepared` ([source](../../../../../../src/learnloop/pads/submission.py), line 105) — Check one submission and freeze its text (raises :class:`SubmissionRefused`).
-- `record(repository: Any, prepared: Prepared, *, attempt_id: str | None, teach_back_id: str | None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/submission.py), line 148) — Write the submission's row once (a concurrent retry that wrote it first wins); returns the row.
-- `tags(connection: Any, heads: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/pads/submission.py), line 167) — Each block's submissions for ``pad.get`` (the "submitted · …" tag), each saying whether it froze the block's current words or an earlier version.
+- `prepare(repository: Any, *, submission_id: str, block_id: str, version_id: str, submitted_as: str, practice_item_id: str, session_id: str) -> Prepared` ([source](../../../../../../src/learnloop/pads/submission.py), line 88) — Check one submission and freeze its text (raises :class:`SubmissionRefused`).
+- `record(repository: Any, prepared: Prepared, *, attempt_id: str | None, teach_back_id: str | None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/submission.py), line 135) — Write the submission's row once (a concurrent retry that wrote it first wins); returns the row.
+- `tags(connection: Any, heads: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/pads/submission.py), line 154) — Each block's submissions for ``pad.get`` (the "submitted · …" tag), each saying whether it froze the block's current words or an earlier version.
 
 ### Module constants
 
@@ -87,7 +87,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_answered_item(connection: Any, pad: dict[str, Any], version: dict[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/pads/submission.py), line 76) — The item this block may be "my answer to": its check cell's, else its problem pad's.
-- `_quotes(connection: Any, repository: Any, pad_id: str, block: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/pads/submission.py), line 88)
 
 ## Who imports or calls it
 
@@ -103,8 +102,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/pad_ledgers|learnloop.db.stores.pad_ledgers]] — imports `module`; calls `insert_submission`
-- [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`, `heads`, `pad`, `standing_anchors_for_blocks`, `submission`, `submissions_for_blocks`, `version`
-- [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `QUOTE_KINDS`, `lineage`, `words_version`; calls `lineage`, `words_version`
+- [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`, `pad`, `submission`, `submissions_for_blocks`, `version`
+- [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `lineage`, `quotes_of`, `words_version`; calls `lineage`, `quotes_of`, `words_version`
 - [[Reference/Modules/learnloop/pads/quoting|learnloop.pads.quoting]] — imports `includes_quote`; calls `includes_quote`
 
 ### Platform and third-party dependencies

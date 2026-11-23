@@ -8,14 +8,21 @@ through their own services) and the state of the search by meaning:
 * ``meaning.status = "pending"`` with a ``job_id``: the groups that can be searched by meaning run on a
   thread the context owns (``search.job`` reads it at once). Today those are the passages (the
   library's stored passage vectors and one query embedding, ``reader.search_sources``' deep search)
-  and the vault's notes (``notes.search``' meaning mode). A newer search from the same desk cancels
-  the older job: its next model request is refused, and its result is never delivered.
+  and the vault's notes (``notes.search``' meaning mode). Each group the job returns says whether it
+  ran (``status`` ``ok``), could not (``unavailable``, with the retrieval's reason: the query not
+  embedded, no note embedded yet) or failed (``failed``), never an empty "nothing found"; the job's
+  poll also carries the groups that had no search by meaning at all (``unavailable``).
 * ``meaning.status = "unavailable"``: nothing to search by meaning, each group with its reason
-  (embeddings off, the library index missing, no OK to use AI yet, a group with no meaning index).
+  (embeddings off, the library index missing, no OK to use AI yet, a group with no meaning index,
+  searches already running).
 
-Every group is bounded (``companion.search.GROUP_ROWS`` rows and whether there are more); a result
+Every search from a desk supersedes the desk's running search by meaning, whatever it returns: its
+next model request is refused and its result is never delivered. Every group is bounded
+(``companion.search.GROUP_ROWS`` rows; ``more`` is read from every match before the cap); a result
 found by meaning that the words already found is left out, so the meaning rows merge in without
-repeats. Nothing here writes, and none of it is evidence. Desktop only (pinned in
+repeats. A note row opens its note: a Reader note or highlight at its passage in its book, a
+capture-inbox note in the notes panel, with the note named in ``target``. Jobs belong to the vault
+open when they started (``polled_jobs``). Nothing here writes, and none of it is evidence. Desktop only (pinned in
 tests/test_mobile_allowlist.py).
 """
 from __future__ import annotations
@@ -58,8 +65,13 @@ class SearchJobInput(ParamsModel):
     job_id: str = Field(min_length=1, max_length=128)
 
 
+#: Searches by meaning running at once (a superseded one keeps its thread until its request returns).
+MAX_RUNNING_SEARCHES = 4
+
+
 def _jobs(ctx: SidecarContext) -> PJ.PolledJobs:
-    return PJ.registry(ctx, _REGISTRY)
+    # Search ids are the server's: only records of recent jobs are kept (a stale id reads expired).
+    return PJ.registry(ctx, _REGISTRY, running=MAX_RUNNING_SEARCHES, remember_ids=False)
 
 
 def _require_desk(repository: Any, desk_id: str) -> None:
@@ -106,10 +118,25 @@ def _passage_rows(repository: Any, hits: list[dict[str, Any]], *, basis: str) ->
             for hit in hits]
 
 
-def _note_row(hit: dict[str, Any], *, basis: str) -> dict[str, Any]:
-    return {"note_kind": "note", "note_key": hit.get("note_key"), "title": hit.get("title"),
+def _note_row(hit: dict[str, Any], source_ids: CS.SourceIds, *, basis: str) -> dict[str, Any]:
+    """A vault note as a result row that opens it: a Reader note or highlight at its passage in its book
+    (``ref`` the source, ``target`` the passage and the note), a capture-inbox note in the notes panel
+    (``target`` the note)."""
+
+    note_key = str(hit.get("note_key") or "")
+    kind, _, note_id = note_key.partition(":")
+    extraction_id, span_id = hit.get("extraction_id"), hit.get("span_id")
+    source_id = source_ids(str(extraction_id)) if extraction_id else None
+    if kind == "annotation" and source_id and extraction_id:
+        ref: dict[str, Any] = CS.source_ref(source_id, str(extraction_id)) or {}
+        target: dict[str, Any] = {"note_key": note_key, "annotation_id": note_id,
+                                  **({"span_id": span_id} if span_id else {})}
+    else:
+        ref = {"kind": "panel", "panel": "notes"}
+        target = {"note_key": note_key, **({"capture_id": note_id} if kind == "capture" else {})}
+    return {"note_kind": "note", "note_key": note_key, "note_ref_kind": kind or None, "title": hit.get("title"),
             "heading": hit.get("heading"), "snippet": hit.get("snippet"), "captured_on": hit.get("captured_on"),
-            "by_meaning": basis == "meaning", "ref": {"kind": "panel", "panel": "notes"}, "target": None}
+            "by_meaning": basis == "meaning", "ref": ref, "target": target}
 
 
 def _word_groups(ctx: SidecarContext, vault: Any, repository: Any, words: str, desk_id: str | None,
@@ -118,6 +145,7 @@ def _word_groups(ctx: SidecarContext, vault: Any, repository: Any, words: str, d
     from learnloop_sidecar.handlers.notes import notes_search_state, search_vault_notes
 
     found = CS.word_groups(repository, words, desk_id=desk_id, scopes=scopes)
+    source_ids = CS.SourceIds(repository)
     groups: list[dict[str, Any]] = []
     for name in scopes:
         if name == "passages":
@@ -131,8 +159,9 @@ def _word_groups(ctx: SidecarContext, vault: Any, repository: Any, words: str, d
         elif name == "notes":
             gaps, more_gaps = found["gaps"]
             state = notes_search_state(vault)
-            notes = search_vault_notes(ctx, vault, repository, query=words, mode="words") if state["on"] else []
-            rows = [*(_note_row(hit, basis="words") for hit in notes[:CS.GROUP_ROWS]), *gaps]
+            notes = search_vault_notes(ctx, vault, repository, query=words, mode="words")["hits"] if state["on"] else []
+            # Whether more exist is read from every match before the cap, never from the capped rows.
+            rows = [*(_note_row(hit, source_ids, basis="words") for hit in notes), *gaps]
             entry = CS.group(name, rows[:CS.GROUP_ROWS], more=more_gaps or len(rows) > CS.GROUP_ROWS)
             if not state["on"]:
                 # The learner's words LearnLoop read are still searched; the notes themselves are not.
@@ -156,6 +185,61 @@ def _seen_keys(groups: list[dict[str, Any]]) -> dict[str, set[str]]:
     return seen
 
 
+def _meaning_group(name: str, rows: list[dict[str, Any]], *, more: bool, status: str = "ok",
+                   reason: str | None = None) -> dict[str, Any]:
+    """A group found by meaning; ``status`` ``unavailable`` or ``failed`` says why it holds nothing, so an
+    unrun search is never shown as "nothing found"."""
+
+    entry = CS.group(name, rows, more=more, basis="meaning")
+    entry["status"] = status
+    if reason:
+        entry["reason"] = reason
+    return entry
+
+
+def _passages_by_meaning(vault: Any, repository: Any, words: str, seen: set[str],
+                         coverage: str | None) -> dict[str, Any]:
+    from learnloop.source_retrieval.library import search_library
+
+    found = search_library(vault, repository, query=words, limit=CS.GROUP_ROWS + 1, deep=True)
+    retrieval = found.get("retrieval") or {}
+    if "meaning" not in str(found.get("basis") or ""):
+        # The deep pass ranked nothing by meaning: the query was not embedded, or the index could not be
+        # read. Said with the retrieval's own reason.
+        reason = ((retrieval.get("query_embedding") or {}).get("reason") or (retrieval.get("dense") or {}).get("reason")
+                  or (found.get("meaning_search") or {}).get("reason") or "the search by meaning did not run")
+        entry = _meaning_group("passages", [], more=False, status="unavailable", reason=str(reason))
+    else:
+        hits = [hit for hit in found["hits"] if _MEANING_LISTS & set(hit.get("matched_by") or ())
+                and f"{hit['extraction_id']}:{hit['span_id']}" not in seen]
+        entry = _meaning_group("passages", _passage_rows(repository, hits[:CS.GROUP_ROWS], basis="meaning"),
+                               more=len(hits) > CS.GROUP_ROWS)
+    entry["retrieval_basis"] = found.get("basis")
+    if coverage:
+        entry["coverage"] = coverage
+    return entry
+
+
+def _notes_by_meaning(ctx: SidecarContext, vault: Any, repository: Any, words: str, seen: set[str]) -> dict[str, Any]:
+    from learnloop_sidecar.handlers.notes import search_vault_notes
+
+    found = search_vault_notes(ctx, vault, repository, query=words, mode="meaning")
+    meaning = found.get("meaning") or {}
+    status = str(meaning.get("status") or "")
+    if status in ("unavailable", "empty"):
+        reason = meaning.get("reason") or ("none of your notes is embedded yet" if status == "empty"
+                                           else "the query could not be embedded")
+        return _meaning_group("notes", [], more=False, status="unavailable", reason=str(reason))
+    source_ids = CS.SourceIds(repository)
+    hits = [hit for hit in found["hits"] if str(hit.get("note_key")) not in seen]
+    entry = _meaning_group("notes", [_note_row(hit, source_ids, basis="meaning") for hit in hits[:CS.GROUP_ROWS]],
+                           more=len(hits) > CS.GROUP_ROWS)
+    if status == "partial":
+        entry["coverage"] = (f"by meaning over {meaning.get('covered')} of {meaning.get('total')} notes "
+                             "(the rest are searched by words)")
+    return entry
+
+
 @method("search.everything", SearchEverythingInput)
 def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dict[str, Any]:
     """``{query, groups, meaning}``: the groups by words now, and the search by meaning's job or why none."""
@@ -166,6 +250,10 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
     vault, repository = ctx.require_vault()
     if params.desk_id is not None:
         _require_desk(repository, params.desk_id)
+    jobs = _jobs(ctx)
+    supersede_key = f"desk:{params.desk_id or ''}"
+    # Every search from the desk replaces the one before, whether or not it searches by meaning itself.
+    jobs.supersede(PJ.vault_key(ctx), supersede_key)
     words = CS.words_of(params.query)
     scopes = [name for name in SCOPES if params.scopes is None or name in params.scopes]
     if len(words) < CS.MIN_QUERY_CHARS:
@@ -203,28 +291,24 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
     seen = _seen_keys(groups)
 
     def work(_job: PJ.PolledJob) -> dict[str, Any]:
-        from learnloop.source_retrieval.library import search_library
-        from learnloop_sidecar.handlers.notes import search_vault_notes
-
         out: list[dict[str, Any]] = []
-        if "passages" in meaning:
-            found = search_library(vault, repository, query=words, limit=CS.GROUP_ROWS, deep=True)
-            hits = [hit for hit in found["hits"] if _MEANING_LISTS & set(hit.get("matched_by") or ())
-                    and f"{hit['extraction_id']}:{hit['span_id']}" not in seen["passages"]]
-            entry = CS.group("passages", _passage_rows(repository, hits, basis="meaning"), more=False, basis="meaning")
-            entry["retrieval_basis"] = found.get("basis")
-            if coverage:
-                entry["coverage"] = coverage
-            out.append(entry)
-        if "notes" in meaning:
-            hits = [hit for hit in search_vault_notes(ctx, vault, repository, query=words, mode="meaning")
-                    if str(hit.get("note_key")) not in seen["notes"]]
-            out.append(CS.group("notes", [_note_row(hit, basis="meaning") for hit in hits[:CS.GROUP_ROWS]],
-                                more=len(hits) > CS.GROUP_ROWS, basis="meaning"))
-        return {"groups": out}
+        for name in meaning:
+            try:
+                out.append(_passages_by_meaning(vault, repository, words, seen["passages"], coverage)
+                           if name == "passages" else _notes_by_meaning(ctx, vault, repository, words, seen["notes"]))
+            except Exception as exc:  # noqa: BLE001 - one group's failure is that group's, said with its reason
+                error = PJ.as_job_error(exc, cancelled=_job.cancelled)
+                out.append(_meaning_group(name, [], more=False, status="failed", reason=error.message))
+        return {"groups": out, "unavailable": unavailable}
 
-    job = _jobs(ctx).start(ctx, kind=KIND, job_id=f"srch_{new_ulid()}", work=work,
-                           supersede_key=f"desk:{params.desk_id or ''}")
+    try:
+        job = jobs.start(ctx, kind=KIND, job_id=f"srch_{new_ulid()}", work=work, supersede_key=supersede_key)
+    except SidecarError as busy:
+        if busy.code != "jobs_busy":
+            raise
+        unavailable.extend({"group": name, "reason": busy.message} for name in meaning)
+        return versioned({"query": words, "groups": groups,
+                          "meaning": {"status": "unavailable", "job_id": None, "unavailable": unavailable}})
     return versioned({"query": words, "groups": groups, "meaning": {
         "status": "pending", "job_id": job.job_id, "groups": meaning, "unavailable": unavailable}})
 
@@ -237,12 +321,15 @@ def _job_payload(job: PJ.PolledJob) -> dict[str, Any]:
         plan_fallback.relay_job_offer(job)
     status = state["status"]
     error = state["error"] if status == PJ.FAILED else None
+    result = state["result"] or {}
     return versioned({
         "job_id": job.job_id,
         "status": status,
         "done": bool(state["finished"]),
         # A superseded or cancelled search delivers nothing, even when its work finished.
-        "groups": (state["result"] or {}).get("groups", []) if status == PJ.DONE else [],
+        "groups": result.get("groups", []) if status == PJ.DONE else [],
+        # The groups that could not be searched by meaning, carried on every poll (not only the start's reply).
+        "unavailable": result.get("unavailable", []) if status == PJ.DONE else [],
         "error": None if error is None else {"code": error.code, "message": error.message,
                                              "retryable": error.retryable},
     })
@@ -254,14 +341,16 @@ def search_job(ctx: SidecarContext, params: SearchJobInput) -> dict[str, Any]:
 
     ctx.require_vault()
     jobs = _jobs(ctx)
-    job = jobs.get(params.job_id)
+    vault = PJ.vault_key(ctx)
+    job = jobs.get(vault, params.job_id)
     if job is None:
-        receipt = jobs.receipt(params.job_id)
+        receipt = jobs.receipt(vault, params.job_id)
         if receipt is None:
             raise SidecarError("job_not_found", "That search is no longer kept; search again.",
                                details={"job_id": params.job_id})
-        return versioned({"job_id": params.job_id, "status": PJ.EXPIRED, "done": True, "groups": [],
-                          "error": None})
+        status = PJ.CANCELLED if receipt.status == PJ.CANCELLED else PJ.EXPIRED
+        return versioned({"job_id": params.job_id, "status": status, "done": True, "groups": [],
+                          "unavailable": [], "error": None})
     return _job_payload(job)
 
 

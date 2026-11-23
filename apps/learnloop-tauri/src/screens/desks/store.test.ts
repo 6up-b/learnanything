@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DeskApplyInput } from "../../api/dto";
 import { FixtureDeskServer } from "../../fixtures/desks/workspace";
-import { closeWindow, deskById, renameDesk, moveFocused, undoClose, openBeside } from "./model/workspace";
+import { addToStack, closeWindow, deskById, renameDesk, moveFocused, undoClose, openBeside } from "./model/workspace";
 import { REAL_TIMERS, type Timers } from "./keys/router";
 import { DeskStore, deskStoreFor, type DeskNotice } from "./store";
 
@@ -220,7 +220,7 @@ describe("pads in the store (RD4b)", () => {
     expect(server.padGet("fx_pad_running").blocks[0]).toMatchObject({ bodyMd: "my edit", headVersionId: "mine1" });
   });
 
-  it("an edit whose head moved elsewhere is rebased on the new head (the other version stays in history); an edit of a block removed elsewhere is dropped and reported", async () => {
+  it("an edit whose head moved elsewhere keeps the newer words and lands as its own marked block; so does an edit of a block removed elsewhere", async () => {
     const server = new FixtureDeskServer();
     const timers = new ManualTimers();
     let interfered = false;
@@ -240,10 +240,158 @@ describe("pads in the store (RD4b)", () => {
     store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1", versionId: "mine7", bodyMd: "an edit of a removed block" }]);
     await settle(store, timers);
     const saved = server.padGet("fx_pad_running");
-    expect(saved.blocks.find((block) => block.blockId === "fx_b_r1")).toMatchObject({ bodyMd: "my edit", headVersionId: "mine1" });
+    // The other device's words stay the block's head; mine land right after it, marked as written over them.
+    expect(saved.blocks.find((block) => block.blockId === "fx_b_r1")).toMatchObject({ bodyMd: "their edit", headVersionId: "theirs" });
+    const at = saved.blocks.findIndex((block) => block.blockId === "fx_b_r1");
+    expect(saved.blocks[at + 1]).toMatchObject({ bodyMd: "my edit", provenance: "learner" });
+    expect(saved.blocks[at + 1].payload.conflict).toMatchObject({ of_block_id: "fx_b_r1", expected_head: "fx_b_r1_v1", server_head_version_id: "theirs" });
+    // The removed block stays removed; the words typed into it are kept as their own block.
     expect(saved.blocks.some((block) => block.blockId === "fx_b_r7")).toBe(false);
-    expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r1")?.bodyMd).toBe("my edit");
-    expect(notices).toEqual([{ kind: "conflict", dropped: 0, lost: 1 }]);
+    expect(saved.blocks.some((block) => block.bodyMd === "an edit of a removed block")).toBe(true);
+    // What the learner sees is what was saved.
+    expect(store.pads.fx_pad_running.blocks.map((block) => [block.blockId, block.bodyMd])).toEqual(saved.blocks.map((block) => [block.blockId, block.bodyMd]));
+    // Each edit kept apart is said once, as it lands.
+    expect(notices).toEqual([{ kind: "kept-both", count: 1 }, { kind: "kept-both", count: 1 }]);
   });
 });
 
+
+describe("an ask waits for the desk writes it depends on (RD3 review)", () => {
+  it("settled() sends what is queued at once and resolves saved only once the server has it", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    const store = new DeskStore("me", transportOver(server), timers);
+    await store.load();
+    store.commit(renameDesk(store.ws, "fx_desk_attention", "renamed"));
+    expect(server.batches).toHaveLength(0);
+    // No timer fires: the ask does not wait for the idle flush.
+    const settled = await store.settled();
+    expect(settled).toBe("saved");
+    expect(server.batches).toHaveLength(1);
+  });
+
+  it("settled() with nothing queued is saved at once; a write that cannot be sent is unsaved", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let offline = false;
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => {
+        if (offline) throw { code: "sidecar_unavailable", message: "LearnLoop is not running." };
+        return server.apply(input);
+      },
+    }, timers);
+    await store.load();
+    expect(await store.settled()).toBe("saved");
+    offline = true;
+    store.commit(renameDesk(store.ws, "fx_desk_attention", "renamed"));
+    expect(await store.settled()).toBe("unsaved");
+  });
+});
+
+describe("reconciling keeps what was queued meanwhile (RD4 review)", () => {
+  it("an edit queued while the reconcile reads the pads is rebased and sent, not dropped", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let interfered = false;
+    let holdReads = false;
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let readStarted: () => void = () => undefined;
+    const reading = new Promise<void>((resolve) => { readStarted = resolve; });
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => server.apply(input),
+      applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => {
+        if (!interfered) {
+          interfered = true;
+          server.applyPad({ clientId: "other", seq: 1, padId: "fx_pad_running", ops: [
+            { op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "theirs", bodyMd: "their edit" },
+          ] });
+          holdReads = true;
+        }
+        return server.applyPad(input);
+      },
+      padGet: async ({ padId }: { padId: string }) => {
+        if (holdReads) {
+          holdReads = false;
+          readStarted();
+          await held;
+        }
+        return server.padGet(padId);
+      },
+    }, timers);
+    await store.load();
+    await store.loadPad("fx_pad_running");
+    store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r1", expectedHead: "fx_b_r1_v1", versionId: "mine1", bodyMd: "my edit" }]);
+    const flushing = store.flush();
+    await reading;
+    // While the reconcile waits on its pad reads, the learner writes another line.
+    const head = store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r7")!.headVersionId;
+    store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r7", expectedHead: head, versionId: "mine7", bodyMd: "written meanwhile" }]);
+    release();
+    await flushing;
+    await settle(store, timers);
+    expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("written meanwhile");
+    expect(server.padGet("fx_pad_running").blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("written meanwhile");
+  });
+});
+
+describe("the conflict policy (RD4 review)", () => {
+  it("a stale remove is dropped and said, never retried onto the newer words", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let interfered = false;
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => server.apply(input),
+      applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => {
+        if (!interfered) {
+          interfered = true;
+          server.applyPad({ clientId: "other", seq: 1, padId: "fx_pad_running", ops: [{ op: "edit_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1", versionId: "theirs7", bodyMd: "their newer words" }] });
+        }
+        return server.applyPad(input);
+      },
+      padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
+    }, timers);
+    const notices: DeskNotice[] = [];
+    store.onNotice((notice) => notices.push(notice));
+    await store.load();
+    await store.loadPad("fx_pad_running");
+    store.commitPad("fx_pad_running", [{ op: "remove_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1" }]);
+    await settle(store, timers);
+    expect(server.padGet("fx_pad_running").blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("their newer words");
+    expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("their newer words");
+    // One remove sent, refused, and not sent again.
+    expect(server.padBatches.filter((batch) => batch.clientId === "me").flatMap((batch) => batch.ops).map((op) => op.op)).toEqual(["remove_block"]);
+    expect(notices).toEqual([{ kind: "conflict", dropped: 1, lost: 0 }]);
+  });
+});
+
+describe("stack membership by its own op (RD4 review)", () => {
+  it("a pad added to a stack stays there though another device changed the desk meanwhile", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let interfered = false;
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => {
+        if (!interfered) {
+          interfered = true;
+          const desk = server.state().desks.find((each) => each.deskId === "fx_desk_softmax")!;
+          server.apply({ clientId: "other", seq: 1, ops: [{ op: "rename_desk", deskId: "fx_desk_softmax", title: "renamed elsewhere", expectedVersion: desk.version }] });
+        }
+        return server.apply(input);
+      },
+      applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => server.applyPad(input),
+      padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
+    }, timers);
+    await store.load();
+    store.commitPad("fx_pad_new", [{ op: "create_pad", kind: "named", title: "a new pad", homeDeskId: "fx_desk_softmax" }]);
+    store.commit(addToStack(store.ws, "fx_desk_softmax", "fx_w_pads", "fx_pad_new"));
+    await settle(store, timers);
+    const stack = server.state().desks.find((each) => each.deskId === "fx_desk_softmax")!.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_pads")!.stack;
+    expect(stack).toContainEqual({ kind: "pad", padId: "fx_pad_new" });
+    expect(store.ws.windows.fx_w_pads.stack).toContainEqual({ kind: "pad", padId: "fx_pad_new" });
+  });
+});

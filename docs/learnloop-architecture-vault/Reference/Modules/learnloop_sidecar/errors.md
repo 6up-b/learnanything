@@ -500,6 +500,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd0_rpcs.py](../../../../../tests/test_reader_rd0_rpcs.py) — direct import
   - `test_desk_apply_speaks_camel_case_and_maps_the_protocols_refusals`
   - `test_pad_get_of_an_unknown_pad_and_a_union_range_of_two_kinds_are_refused`
+- [tests/test_reader_rd3_fix_backend.py](../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
+  - `test_a_full_record_of_ids_refuses_a_new_id_rather_than_forget_one`
+  - `test_a_job_is_found_only_in_the_vault_it_was_started_in`
+  - `test_a_request_id_is_remembered_after_its_result_is_dropped`
+  - `test_running_asks_are_bounded`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_a_failed_generation_is_reported_and_an_unknown_job_is_said_to_be_gone`
   - `test_a_repeated_request_id_answers_the_same_job_and_asks_once`
@@ -511,10 +516,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_labels_are_logged_once_and_dismiss_or_not_this_hides_the_marker`
   - `test_three_labels_each_logged_and_a_stale_label_is_a_conflict`
 - [tests/test_reader_rd4_submission.py](../../../../../tests/test_reader_rd4_submission.py) — direct import
+  - `test_a_crash_before_the_hand_off_hands_the_frozen_words_over_under_the_same_id`
   - `test_a_retry_hands_nothing_over_again_and_a_reused_id_is_refused`
-  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
   - `test_an_answer_only_from_its_problem_pad_or_check_cell`
   - `test_an_edit_after_submitting_keeps_the_submitted_version_and_its_tag_says_so`
+  - `test_two_submissions_with_the_same_words_are_never_taken_for_one_conversation`
   - `test_what_is_refused`
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_range_reads_only_the_sections_it_touches`
