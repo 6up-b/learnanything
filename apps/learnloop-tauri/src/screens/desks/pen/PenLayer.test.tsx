@@ -122,14 +122,15 @@ function setup({ state = "active" as WindowState, on = true, api = fakeApi() } =
     identity: { sourceId: "src", revisionId: "rev", extractionId: "ext", renderViewId: "rv" },
     nodesFor: vi.fn((range: Range) => [{ spanId: "s1", quote: range.toString() }]),
   };
-  render(
+  const ui = (value: PenHost) => (
     <WindowLifecycleContext.Provider value={{ windowId: "w1", state }}>
-      <PenHostContext.Provider value={host}>
+      <PenHostContext.Provider value={value}>
         <PenLayer surface={surface} />
       </PenHostContext.Provider>
-    </WindowLifecycleContext.Provider>,
+    </WindowLifecycleContext.Provider>
   );
-  return { host, surface, api };
+  const view = render(ui(host));
+  return { host, surface, api, rerenderOn: (now: boolean) => view.rerender(ui({ ...host, on: now })) };
 }
 
 function pointer(type: string, x: number, y: number, over: Record<string, unknown> = {}) {
@@ -153,6 +154,13 @@ const flat = (x0: number, x1: number, y: number): Array<[number, number]> => {
   for (let x = x0; x <= x1; x += 6) out.push([x, y]);
   return out;
 };
+
+/** ↵ outside a text field: the margin note being written ends (it is kept and read then). */
+function endNote() {
+  act(() => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  });
+}
 
 async function settle() {
   await act(async () => {
@@ -209,6 +217,7 @@ describe("the pen layer", () => {
     const points: Array<[number, number]> = [];
     for (let t = 0; t < 1; t += 0.02) points.push([530 + t * 150, 110 + Math.sin(t * 60) * 7]);
     draw(points);
+    endNote();
     await settle();
     await settle();
     expect(vi.mocked(api.readerCapture).mock.calls[0][0]).toMatchObject({ action: "interpretation", rawSelection: { nodes: [{ spanId: "s1", start: 0, end: 1_000_000 }] } });
@@ -227,6 +236,7 @@ describe("the pen layer", () => {
     const points: Array<[number, number]> = [];
     for (let t = 0; t < 1; t += 0.02) points.push([530 + t * 150, 110 + Math.sin(t * 60) * 7]);
     draw(points);
+    endNote();
     await settle();
     await settle();
     const field = screen.getByLabelText("your note's words") as HTMLTextAreaElement;
@@ -437,6 +447,7 @@ describe("marks taken back and readings stopped", () => {
     vi.mocked(api.inkTranscribeCancel).mockResolvedValue({ version: 1, jobId: "job_late", status: "cancelled", done: false, result: null, error: null });
     const { host } = setup({ api });
     draw(scribble());
+    endNote();
     await settle();
     await settle();
     expect(api.inkTranscribe).toHaveBeenCalled();
@@ -452,6 +463,7 @@ describe("marks taken back and readings stopped", () => {
     vi.mocked(api.inkTranscribeCancel).mockResolvedValue({ version: 1, jobId: "job_1", status: "cancelled", done: false, result: null, error: null });
     const { host } = setup({ api });
     draw(scribble());
+    endNote();
     await settle();
     await settle();
     expect(host.poller.size).toBe(1);
@@ -466,6 +478,7 @@ describe("marks taken back and readings stopped", () => {
     vi.mocked(api.inkTranscribe).mockReturnValue(start.promise);
     setup({ api });
     draw(scribble());
+    endNote();
     await settle();
     await settle();
     const field = screen.getByLabelText("your note's words") as HTMLTextAreaElement;
@@ -477,5 +490,92 @@ describe("marks taken back and readings stopped", () => {
     expect(api.readerEditAnnotation).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("use it"));
     expect(api.readerEditAnnotation).toHaveBeenCalledWith({ annotationId: "ann_1", learnerText: "does $e^x$ cancel?" });
+  });
+});
+
+/** One pen stroke along a polyline, sampled every few pixels (a recognizer needs more than three points). */
+function along(points: Array<[number, number]>): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let i = 1; i < points.length; i += 1) {
+    const [x0, y0] = points[i - 1];
+    const [x1, y1] = points[i];
+    for (let k = 0; k < 6; k += 1) out.push([x0 + ((x1 - x0) * k) / 6, y0 + ((y1 - y0) * k) / 6]);
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+
+describe("a handwritten margin note", () => {
+  it("a two-stroke x is one note: one annotation holding both strokes and one reading, made when the note ends", async () => {
+    const { api, host } = setup();
+    draw(along([[540, 104], [552, 110], [566, 122]]));
+    await settle();
+    draw(along([[566, 104], [552, 112], [540, 122]]));
+    await settle();
+    expect(api.readerCapture).not.toHaveBeenCalled();
+    expect(body.querySelectorAll("[data-pen-note]")).toHaveLength(1);
+    endNote();
+    await settle();
+    await settle();
+    expect(api.readerCapture).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.readerCapture).mock.calls[0][0]).toMatchObject({ action: "interpretation", rawSelection: { nodes: [{ spanId: "s1" }] } });
+    expect(host.saveInk).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(host.saveInk).mock.calls[0][0].strokes).toHaveLength(2);
+    expect(api.inkTranscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("two notes beside different passages stay two", async () => {
+    const { api, host } = setup();
+    draw(along([[540, 104], [552, 110], [566, 122]]));
+    await settle();
+    // Close enough to overlap the first note grown by a line, but beside the second passage: a note of its own.
+    draw(along([[540, 132], [552, 140], [566, 150]]));
+    await settle();
+    endNote();
+    await settle();
+    await settle();
+    expect(api.readerCapture).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(api.readerCapture).mock.calls.map((call) => call[0].rawSelection?.nodes[0]?.spanId)).toEqual(["s1", "s2"]);
+    expect(vi.mocked(host.saveInk).mock.calls.map((call) => call[0].strokes.length)).toEqual([1, 1]);
+    expect(api.inkTranscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it("a stroke far from the open note, or a stroke that is not a margin note, ends it", async () => {
+    const { api } = setup();
+    draw(along([[540, 104], [552, 110], [566, 122]]));
+    await settle();
+    draw(along([[760, 104], [772, 110], [786, 122]])); // beside the same passage, beyond a line from the note
+    await settle();
+    expect(api.readerCapture).toHaveBeenCalledTimes(1);
+    draw(flat(140, 300, 100 + 30 + LINE + 2)); // an underline of the second passage
+    await settle();
+    await settle();
+    expect(vi.mocked(api.readerCapture).mock.calls.map((call) => call[0].action)).toEqual(["interpretation", "interpretation", "highlight"]);
+  });
+
+  it("undo takes the open note's last stroke back, and the note with its only one; nothing was kept", async () => {
+    const { api } = setup();
+    draw(along([[540, 104], [552, 110], [566, 122]]));
+    await settle();
+    draw(along([[566, 104], [552, 112], [540, 122]]));
+    await settle();
+    expect(body.querySelectorAll('path[data-pen-stroke="note"]')).toHaveLength(2);
+    fireEvent.click(screen.getByText("undo"));
+    expect(body.querySelectorAll('path[data-pen-stroke="note"]')).toHaveLength(1);
+    fireEvent.click(screen.getByText("undo"));
+    expect(body.querySelectorAll('path[data-pen-stroke="note"]')).toHaveLength(0);
+    expect(body.querySelector("[data-pen-note]")).toBeNull();
+    endNote();
+    await settle();
+    expect(api.readerCapture).not.toHaveBeenCalled();
+  });
+
+  it("leaving pen mode ends the open note", async () => {
+    const { api, rerenderOn } = setup();
+    draw(along([[540, 104], [552, 110], [566, 122]]));
+    await settle();
+    rerenderOn(false);
+    await settle();
+    expect(api.readerCapture).toHaveBeenCalledTimes(1);
   });
 });

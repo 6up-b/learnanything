@@ -121,6 +121,39 @@ function chipOf(body: HTMLElement, kind: MarkKind | "ink", box: Box, text: strin
   return { x: local.x, y: local.y, below: toLocal(body, at.x, box.y1 + 8).y, text };
 }
 
+function boxFrom(x0: number, y0: number, x1: number, y1: number): Box {
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+}
+
+function grown(box: Box, by: number): Box {
+  return boxFrom(box.x0 - by, box.y0 - by, box.x1 + by, box.y1 + by);
+}
+
+function overlaps(a: Box, b: Box): boolean {
+  return a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
+}
+
+function union(a: Box, b: Box): Box {
+  return boxFrom(Math.min(a.x0, b.x0), Math.min(a.y0, b.y0), Math.max(a.x1, b.x1), Math.max(a.y1, b.y1));
+}
+
+/** One rendered text line of a passage, read from the page: its computed line height, else the height of its first
+ * character's line box as laid out. */
+function lineHeightOf(passage: HTMLElement): number {
+  const computed = parseFloat(passage.ownerDocument.defaultView?.getComputedStyle(passage).lineHeight ?? "");
+  if (Number.isFinite(computed) && computed > 0) return computed;
+  const walker = passage.ownerDocument.createTreeWalker(passage, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    if (!node.data.trim()) continue;
+    const range = passage.ownerDocument.createRange();
+    range.setStart(node, 0);
+    range.setEnd(node, 1);
+    const height = range.getClientRects()[0]?.height ?? 0;
+    if (height > 0) return height;
+  }
+  return 0;
+}
+
 /** The note box's own width (pen.css: 220 px, an 8 px inset and a 2 px edge). */
 const NOTE_BOX_WIDTH = 230;
 
@@ -256,6 +289,10 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
   }, [body]);
 
   const penTypeRef = useRef<"pen" | "mouse">("pen");
+  /** The margin note still being written: its passage, its strokes and their box (client coordinates). */
+  const openNote = useRef<{ markId: string; passage: HTMLElement; box: Box; strokes: InkStroke[] } | null>(null);
+  /** End the open note: keep it and read it (assigned once readNote exists, below). */
+  const endNoteRef = useRef<(learnerText?: string) => void>(() => undefined);
   /** Marks taken back (undo, the barrel) while their annotation was still being made: it is removed once made. */
   const undone = useRef(new Set<string>());
   /** The window closed: a reply arriving later changes nothing and starts nothing. */
@@ -322,6 +359,19 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     const base: Mark = { id, kind: "ink", strokes: [stroke], box, rects: [], annotationId: null, inkId: null, state: "local", chip: null };
     // Ink that became no mark stays on the page as the learner's marks: kept for this reading (owner kind
     // "source"), redrawn when the source reopens, erasable; never read and never learner text.
+    // A margin stroke beside the open note's passage, overlapping its strokes grown by one rendered line, is more of
+    // that note; anything else ends it first (it is then kept and read, once, as a whole).
+    const open = openNote.current;
+    const beside = recognition.kind === "note" ? passageBeside(body, box) : null;
+    if (open && recognition.kind === "note" && beside === open.passage && overlaps(box, grown(open.box, lineHeightOf(open.passage)))) {
+      open.strokes = [...open.strokes, stroke];
+      open.box = union(open.box, box);
+      const at = notePlace(body, open.box);
+      const grownBox = open.box;
+      update(open.markId, (mark) => ({ ...mark, strokes: [...mark.strokes, stroke], box: grownBox, note: mark.note ? { ...mark.note, x: at.x, y: at.y } : mark.note }));
+      return;
+    }
+    endNoteRef.current();
     const plainInk = (why: string) => {
       const inkId = h.mintId("ink");
       h.saveInk({ owner: { extractionId: surface.identity.extractionId }, inkId, strokes: [stroke],
@@ -369,21 +419,18 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
         return;
       }
       case "note": {
-        const beside = passageBeside(body, box);
         if (!beside?.dataset.spanId) {
           plainInk("ink · no passage beside it · kept on the page");
           return;
         }
+        // The note stays open for more strokes; it is kept (one annotation) and read (one reading) when it ends.
         const at = notePlace(body, box);
         const mark: Mark = {
-          ...base, kind: "note", state: "saving", chip: chipFor("note", RECOGNIZED_AS.note),
+          ...base, kind: "note", state: "local", chip: chipFor("note", RECOGNIZED_AS.note),
           note: { x: at.x, y: at.y, text: "", source: "none", reading: "idle" },
         };
+        openNote.current = { markId: mark.id, passage: beside, box, strokes: [stroke] };
         setMarks((all) => [...all, mark]);
-        const nodes: ReaderRawSelectionNode[] = [{ spanId: beside.dataset.spanId, start: 0, end: WHOLE_BLOCK }];
-        void persist(mark, nodes, "interpretation", "").then((saved) => {
-          if (saved) void readNote(mark.id, saved.inkId);
-        });
         return;
       }
       case "ink":
@@ -392,7 +439,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     }
   // readNote is stable (declared below with useCallback on stable deps)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body, persist, surface]);
+  }, [body, persist, surface, update]);
 
   // The margin note's transcription (spec §10.10): asked once its ink is saved, polled through the central poller.
   const polls = useRef(new Map<string, () => void>());
@@ -476,6 +523,37 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     for (const markId of [...polls.current.keys(), ...jobs.current.keys()]) stopReading(markId);
   }, [stopReading]);
 
+  // The open note ends: one annotation holding all its strokes, then one reading of them.
+  endNoteRef.current = (learnerText = "") => {
+    const open = openNote.current;
+    if (!open) return;
+    openNote.current = null;
+    const mark = marksRef.current.find((each) => each.id === open.markId);
+    if (!mark || !open.passage.dataset.spanId) return;
+    const kept: Mark = { ...mark, strokes: open.strokes, box: open.box, state: "saving" };
+    update(mark.id, (current) => ({ ...current, state: "saving" }));
+    const nodes: ReaderRawSelectionNode[] = [{ spanId: open.passage.dataset.spanId, start: 0, end: WHOLE_BLOCK }];
+    void persist(kept, nodes, "interpretation", learnerText).then((saved) => {
+      if (saved) void readNote(mark.id, saved.inkId);
+    });
+  };
+  // ↵ (outside a text field), leaving pen mode, pausing or closing the window ends the open note.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || !openNote.current) return;
+      const target = event.target as Element | null;
+      if (target?.closest?.("input, textarea, select, [contenteditable]")) return;
+      endNoteRef.current();
+    };
+    const doc = body.ownerDocument;
+    doc.addEventListener("keydown", onKey);
+    return () => doc.removeEventListener("keydown", onKey);
+  }, [body]);
+  useEffect(() => {
+    if (!host.on || paused) endNoteRef.current();
+  }, [host.on, paused]);
+  useEffect(() => () => endNoteRef.current(), []);
+
   /** Erase strokes of plain page ink (the barrel, or its chip's undo): an ink.erase in the write sequence. */
   const eraseStrokes = useCallback((mark: Mark, strokeIds: string[]) => {
     hostRef.current.eraseInk({ owner: { extractionId: surface.identity.extractionId }, eraseId: hostRef.current.mintId("erase"), strokeIds });
@@ -485,9 +563,31 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     });
   }, [surface.identity.extractionId, update]);
 
+  /** Take strokes out of the note still being written (nothing of it was saved yet); the note goes with its last. */
+  const dropFromOpenNote = useCallback((mark: Mark, strokeIds: string[]) => {
+    const open = openNote.current;
+    if (!open || open.markId !== mark.id) return;
+    open.strokes = open.strokes.filter((stroke) => !strokeIds.includes(stroke.strokeId));
+    if (!open.strokes.length) {
+      openNote.current = null;
+      update(mark.id, () => null);
+      return;
+    }
+    open.box = boxOf(open.strokes.flatMap((stroke) => stroke.points.map((point) => toClient(body, point[0], point[1]))));
+    const strokes = open.strokes;
+    const box = open.box;
+    update(mark.id, (current) => ({ ...current, strokes, box }));
+  }, [body, update]);
+
   const undo = useCallback((mark: Mark) => {
     if (mark.kind === "ink") {
       eraseStrokes(mark, mark.strokes.map((stroke) => stroke.strokeId));
+      return;
+    }
+    const open = openNote.current;
+    if (open && open.markId === mark.id) {
+      // A note still being written: undo takes its last stroke back, the whole note with its only one.
+      dropFromOpenNote(mark, [open.strokes[open.strokes.length - 1].strokeId]);
       return;
     }
     stopReading(mark.id);
@@ -495,12 +595,17 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     if (mark.annotationId) removeAnnotation(mark, mark.annotationId);
     else if (mark.state === "saving") undone.current.add(mark.id);
     update(mark.id, () => null);
-  }, [body, update, eraseStrokes, stopReading, removeAnnotation]);
+  }, [body, update, eraseStrokes, stopReading, removeAnnotation, dropFromOpenNote]);
 
   const keepNote = useCallback((mark: Mark, text: string) => {
-    if (!mark.annotationId) return;
     const words = text.trim();
     update(mark.id, (current) => (current.note ? { ...current, note: { ...current.note, text, source: "yours" } } : current));
+    if (openNote.current?.markId === mark.id) {
+      // Words typed into a note still being written end it: it is kept with them as the learner's.
+      endNoteRef.current(words);
+      return;
+    }
+    if (!mark.annotationId) return;
     void hostRef.current.api.readerEditAnnotation({ annotationId: mark.annotationId, learnerText: words }).catch(() => undefined);
   }, [update]);
 
@@ -604,6 +709,10 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
           if (mark.kind === "ink") {
             for (const stroke of hit) erased.add(stroke.strokeId);
             eraseStrokes(mark, hit.map((stroke) => stroke.strokeId));
+          } else if (openNote.current?.markId === mark.id) {
+            // A note still being written loses the strokes passed over (all of them: the note goes).
+            for (const stroke of hit) erased.add(stroke.strokeId);
+            dropFromOpenNote(mark, hit.map((stroke) => stroke.strokeId));
           } else {
             erased.add(mark.id);
             undo(mark);
@@ -621,7 +730,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       body.removeEventListener("pointerup", onUp, true);
       body.removeEventListener("pointercancel", onCancel, true);
     };
-  }, [body, input, finish, undo, eraseStrokes]);
+  }, [body, input, finish, undo, eraseStrokes, dropFromOpenNote]);
 
   // A lasso's words are the selection (the companion reads it) and show as the mark under them, not as the native
   // selection's paint.
