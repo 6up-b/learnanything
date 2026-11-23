@@ -10,8 +10,10 @@ from, as they were then.
 ## Reader workbench v2 pen and ink (migration 267), `reader/rd8a-ink-backend`, 2026-11-23
 
 Upgraded in place (no rename; base: main at `ba7884c102`, head 266) by the B1 procedure below:
-`267_reader_workbench_ink.sql` (two new tables, `ink_strokes` RAW_LEDGER and `ink_transcriptions` RECEIPT, each
-refusing UPDATE, DELETE and a replacing INSERT by trigger, both empty here) applied through
+`267_reader_workbench_ink.sql` (two new tables, `ink_strokes` RAW_LEDGER, owned by an ink block, an annotation or a
+source's reading (`owner_kind` `'block'`, `'annotation'`, `'source'`), and `ink_transcriptions` RECEIPT (a block's or an
+annotation's only), each refusing UPDATE, DELETE and a replacing INSERT by trigger, both empty here; rebuilt the same
+day from the tracked 266 copy after the migration, not yet landed, gained the `'source'` owner) applied through
 `learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
 `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[267]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
