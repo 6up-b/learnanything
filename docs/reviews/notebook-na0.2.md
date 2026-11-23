@@ -24,7 +24,8 @@ namespace, listens only on a Unix socket bound into the sandbox, and is reached 
    launcher's main file. The socket launcher keeps its work under `if __name__ == "__main__"`.
 3. **The scope needs `OOMPolicy=continue`.** Under systemd's default policy, one cell's child process hitting the
    scope's `MemoryMax` stops the whole scope: server and kernel die and the session is lost. With
-   `OOMPolicy=continue`, only the process the OOM killer chose dies, and the session keeps serving.
+   `OOMPolicy=continue`, only the process the OOM killer chose dies, and the session keeps serving. A scope stopped
+   that way also stays listed as a failed unit until it is reset, so the supervisor resets its own unit by name.
 4. **The proxy owns marimo's skew-protection token.** After a supervised restart the server has a new token, so the
    open page's calls fail ("Invalid server token") and it shows "Failed to instantiate". Rewriting the
    `Marimo-Server-Token` header at the proxy (the frame is always the pinned marimo, so skew protection guards
