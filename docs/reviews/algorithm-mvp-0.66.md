@@ -359,10 +359,9 @@ vault (at `mvp-0.66`) every count is 0 and the shadow is 0, 0, 0.
 
 ## Judgment calls to read first
 
-1. **Migration 263 with a gap at 262** (the parallel branch's number). 28 tests in 16 files that assert every
-   migration from theirs to the head applies (`list(range(n, migration_head() + 1))`) fail on this branch alone, at
-   index 262 only; with a local stand-in 262 (never committed) they pass. They pass once 262 lands; if this lands first the
-   orchestrator renumbers (and redoes the fixture commit).
+1. **Migration 263 follows RD0's 262.** It was built beside RD0, before 262 existed, and its 28 migration-range tests
+   failed on the branch alone until RD0 landed. After merging main, the fixture upgrade was redone on main's 262 file
+   and all 28 pass ("After merging main", below).
 2. **The observation pass is the predecessor's own rebuild in a rolled-back savepoint** rather than a re-derivation of
    its reading from the flags: exact by construction, at the cost of one extra whole-vault replay at the upgrade.
 3. **A context variable carries the observation's collector** into the rebuild, instead of a parameter threaded through
@@ -380,4 +379,36 @@ vault (at `mvp-0.66`) every count is 0 and the shadow is 0, 0, 0.
 - The owner's vaults: no copy opened (the orchestrator's lane, above).
 - The full suite, the arc-close gate and the durability lane (WAL, production pragmas).
 - Vault references were not regenerated (the landing does).
-- The 28 migration-range tests pass on this branch only with the parallel 262 present (judgment call 1).
+
+## After merging main
+
+RD0's migration 262 and I2b landed while this was built. The branch merged main twice. The head fixture's 263
+upgrade was redone on main's 262 file by CLAUDE.md's procedure: only 263 was applied, integrity and foreign keys are
+clean, and only `schema_migrations` changed. The 28 migration-range tests that failed on the branch alone (the commands
+table above) pass, with the migration set at 183 passed. The row-recording goldens, the AD contract, pins, ratchets
+and public-tip guards gave 818 passed, and `db_validate_reference` reported no errors. After merging I2b, the
+overlapping files (due-queue and journey goldens, the frozen intent view, the grade-application golden, the
+closed-row tests and the upgrade table) gave 729 passed.
+
+## Owner copies (run by the orchestrator)
+
+The procedure above, on backup-API copies of the owner's three vaults (vault A from `mvp-0.61`, B and C from
+`mvp-0.58`, each upgraded to `mvp-0.65` first). Counts only.
+
+| Step | A | B | C |
+|---|---|---|---|
+| 1. Attempts; inactive items; affected learning objects | 60; 8; 4 | 70; 41; 7 | 3; 10; 1 |
+| 2. Predecessor shadow: mastery, facet, schedule changed | 0, 0, 0 | 0, 0, 0 | 0, 0, 0 |
+| 3. Activation: lifecycle rows added; mastery, facet, schedule, surprise changed; due dates earlier, later | 60; 0, 0, 0, 0; 0, 0 | 70; 0, 0, 0, 0; 0, 0 | 3; 0, 0, 0, 0; 0, 0 |
+| 3. `integrity_check`; foreign-key violations | ok; 0 | ok; 0 | ok; 0 |
+| 4. Legacy reconstructions; exact captures; missing; orphaned; on another LO | 60; 0; 0; 0; 0 | 70; 0; 0; 0; 0 | 3; 0; 0; 0; 0 |
+| 4. Reconstructions narrower than today's items | 0 | 0 | 0 |
+| 5. Successor shadow: mastery, facet, schedule changed | 0, 0, 0 | 0, 0, 0 | 0, 0, 0 |
+| 5. Second live rebuild, then compare (lifecycle rows included) | 0 changed | 0 changed | 0 changed |
+| 6. Live database unchanged | yes | yes | yes |
+
+The three vaults have closed items on practised learning objects, but no reconstructed reading is narrower than
+today's: every closure in them came after the item stopped contributing a facet, or touched an item whose facet
+another open item also measures. So the activation changes no value on them. `learnloop doctor` exits 1 on each copy
+for content findings that predate this tag; none concerns state.
+
