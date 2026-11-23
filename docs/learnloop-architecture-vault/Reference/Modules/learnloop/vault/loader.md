@@ -2974,6 +2974,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_a_judgment_for_an_older_state_is_stale_and_the_plan_keeps_the_order`
 - [tests/test_rw7b_fix_round2.py](../../../../../../tests/test_rw7b_fix_round2.py) — direct import
   - `test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection`
+- [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
+  - `test_the_upgrade_ranks_legacy_attempts_in_id_order_then_new_ones_follow_in_application_order`
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_inserted_followup_records_its_lane`
   - `test_ordinary_due_pick_carries_no_followup_kind`

@@ -892,6 +892,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw4d_rw3b_composition.py](../../../../../../tests/test_rw4d_rw3b_composition.py) — direct import
   - `test_every_passage_rw4ds_predicate_withholds_is_one_the_cues_never_surface`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
+- [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
+  - `test_adaptive_difficultys_replay_gives_the_first_surface_to_the_first_in_the_ledgers_order`
+  - `test_the_field_fsrs_history_chains_a_tie_in_the_ledgers_order`
 - [tests/test_secondary_attach.py](../../../../../../tests/test_secondary_attach.py) — direct import
   - `test_second_process_attaches_beside_a_writing_primary_on_wal`
   - `test_secondary_refuses_a_schema_it_would_have_to_migrate`

@@ -405,6 +405,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_placement_components_and_exclusions_are_in_the_candidate_set`
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
   - `test_teach_back_items_are_probe_near_ties`
+- [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`

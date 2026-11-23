@@ -189,8 +189,8 @@ Indexes and uniqueness:
 - `tests/test_ad3_subject_view.py`
 - `tests/test_answer_signal_arms.py`
 - `tests/test_assumed_known.py`
+- `tests/test_attempt_application_order_migration.py`
 - `tests/test_characterization_certification_ledger.py`
-- `tests/test_cli_attempt.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
