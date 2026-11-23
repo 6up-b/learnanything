@@ -644,7 +644,11 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
     def near(a: dict[str, float] | None, b: dict[str, float], tol: float = 1.5) -> bool:
         return a is not None and all(abs(a[k] - b[k]) <= tol for k in ("x", "y", "w", "h"))
 
-    # #cur=sel: c with a selection opens it anchored 10 px below the selection, the selection its chip.
+    # #cur=sel: c with a selection opens it anchored 10 px below the selection, the selection its chip. The
+    # passage is brought to the top of the book first, so the panel has room below it at the book's reading size.
+    await page.evaluate("""() => { const p = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].find((e) => e.textContent.includes("largest score"));
+      const sc = p.closest('.ll-scroll'); sc.scrollTop += p.getBoundingClientRect().top - sc.getBoundingClientRect().top - 40; }""")
+    await settle(page, 300)
     sel = await select_passage(page, "largest score")
     await page.keyboard.press("c")
     samples = await sample_rects(page, 320)
