@@ -26,7 +26,7 @@ from learnloop.daily_plan.headline import classify_learning_objects, today_headl
 from learnloop.db.repositories import Repository
 from learnloop.placement.decisions import record_self_report
 from learnloop.placement.state import load_placement_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, read_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, scheduled, seed_due
@@ -45,7 +45,7 @@ def _plan_env(vault, repository, hours: float) -> PlanEnv:
         vault=vault,
         repository=repository,
         clock=clock,
-        eligible=lambda minutes: build_due_queue(
+        eligible=lambda minutes: serve_due_queue(
             vault, repository, clock=clock,
             session=SchedulerSession(available_minutes=int(round(minutes))), limit=None,
         ),

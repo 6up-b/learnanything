@@ -16,7 +16,7 @@ from learnloop.content.authoring.item_authoring import (
     retire_item,
     split_item,
 )
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
@@ -82,7 +82,7 @@ def test_edit_item_rewords_in_place(env) -> None:
 def test_retire_item_stops_all_serving(env) -> None:
     root, repo = env
     vault = load_vault(root)
-    assert any(e.practice_item_id == ITEM for e in build_due_queue(vault, repo, clock=CLOCK))
+    assert any(e.practice_item_id == ITEM for e in serve_due_queue(vault, repo, clock=CLOCK))
 
     retire_item(
         root, repo, practice_item_id=ITEM, reason="knew_prompt_not_concept", note="just parroting"
@@ -92,7 +92,7 @@ def test_retire_item_stops_all_serving(env) -> None:
     assert item.status == "retired"
     assert item.status_reason == "knew_prompt_not_concept: just parroting"
     # Immediately excluded from the queue (independent of sync ordering) ...
-    assert not any(e.practice_item_id == ITEM for e in build_due_queue(reloaded, repo, clock=CLOCK))
+    assert not any(e.practice_item_id == ITEM for e in serve_due_queue(reloaded, repo, clock=CLOCK))
     # ... and the narrow write deactivates scheduler state immediately without
     # waiting for a global replay.
     assert not repo.practice_item_states()[ITEM].active

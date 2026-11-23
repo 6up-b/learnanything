@@ -13,7 +13,7 @@ from learnloop.scheduling.scheduler import (
     _insert_pending_followups,
     _rotate_same_day_frontier_repeats,
     _selection_propensities,
-    build_due_queue,
+    serve_due_queue,
     read_due_queue,
 )
 from learnloop.vault.loader import add_subject, init_vault, load_vault
@@ -261,7 +261,7 @@ def test_scheduler_persists_bounded_reward_debug_and_rejected_candidates(tmp_pat
             clock=clock,
         )
 
-    queue = build_due_queue(loaded, repository, clock=clock, limit=1, session=SchedulerSession(session_id="s_rewards"))
+    queue = serve_due_queue(loaded, repository, clock=clock, limit=1, session=SchedulerSession(session_id="s_rewards"))
 
     explanations = repository.latest_scheduler_explanations_by_session("s_rewards")
     slate = repository.latest_scheduler_slate_by_session("s_rewards")
@@ -519,8 +519,8 @@ def test_scheduler_candidate_logs_are_retained_per_configured_limit(tmp_path):
         clock=clock,
     )
 
-    build_due_queue(loaded, repository, clock=clock, session=SchedulerSession(session_id="s_retention"))
-    build_due_queue(loaded, repository, clock=clock, session=SchedulerSession(session_id="s_retention"))
+    serve_due_queue(loaded, repository, clock=clock, session=SchedulerSession(session_id="s_retention"))
+    serve_due_queue(loaded, repository, clock=clock, session=SchedulerSession(session_id="s_retention"))
 
     explanations = repository.latest_scheduler_explanations_by_session("s_retention")
     assert len(explanations) == 1
@@ -631,7 +631,7 @@ def test_a_revealed_cold_task_is_withheld_and_says_so_in_the_slate(tmp_path):
     )
     at = FrozenClock(NOW + timedelta(hours=2))
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         loaded, repository, clock=at, session=SchedulerSession(session_id="s_defer")
     )
     assert all(item.followup_kind != "cold_retry" for item in queue)
@@ -816,7 +816,7 @@ def test_scheduler_preserves_draw_diagnostics_without_claiming_final_propensity(
     # Wide window so both due items are eligible near-ties -> non-degenerate propensity.
     loaded.config.scheduler.selection_exploration_rate = 0.1
     loaded.config.scheduler.selection_exploration_reward_window = 1.0
-    build_due_queue(loaded, repository, clock=clock, session=SchedulerSession(session_id="s_prop"))
+    serve_due_queue(loaded, repository, clock=clock, session=SchedulerSession(session_id="s_prop"))
 
     slate = repository.latest_scheduler_slate_by_session("s_prop")
     candidates = repository.scheduler_slate_candidates(slate["id"])

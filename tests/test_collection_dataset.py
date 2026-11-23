@@ -14,7 +14,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.storage import header_journal_mode
 from learnloop.outcome_contract import COLLECTION_VERSION, retention_exclusions
-from learnloop.scheduling.scheduler import SELECTION_FEATURE_SCHEMA, SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SELECTION_FEATURE_SCHEMA, SchedulerSession, serve_due_queue
 from learnloop.scheduling.selection_rewards import item_demand_vector
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import DEFAULT_EMBARGO, export_dataset, parse_embargo, split_assignments
@@ -30,10 +30,10 @@ def test_exact_offer_survives_refresh_recovery_and_dataset_export(tmp_path):
     vault = load_vault(paths.root)
     clock = FrozenClock(NOW)
     session = repository.create_session(clock=clock)
-    first = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    first = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
     repository.finalize_scheduler_offer(first.scheduler_slate_id, [first.scheduler_candidate_id])
     repository.bind_submission_offer(submission_id="stable", session_id=session, practice_item_id=first.practice_item_id, scheduler_candidate_id=first.scheduler_candidate_id)
-    later = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    later = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
     restored = repository.bind_submission_offer(submission_id="stable", session_id=session, practice_item_id=first.practice_item_id, scheduler_candidate_id=None)
     assert restored == first.scheduler_candidate_id != later.scheduler_candidate_id
     result = complete_self_graded_attempt(vault, repository, AttemptDraft(practice_item_id=first.practice_item_id, learner_answer_md="A factorization", session_id=session, submission_id="stable", scheduler_candidate_id=restored, entry_surface="desktop_practice", evidence_origin="human"), SelfGradeInput(criterion_points={"correctness": 4}, confidence=3), clock=clock)
@@ -82,7 +82,7 @@ def test_selection_decision_features_reference_the_item_and_stay_compact(tmp_pat
     vault = load_vault(paths.root)
     clock = FrozenClock(NOW)
     session = repository.create_session(clock=clock)
-    offered = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    offered = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
     features = repository.decision_features(decision_id=offered.scheduler_candidate_id, decision_type="selection")
     item = vault.practice_items[offered.practice_item_id]
     learning_object = vault.learning_object_for_item(item)
@@ -128,12 +128,12 @@ def test_scored_item_text_is_snapshotted_once_per_revision_and_exported(tmp_path
         return {json.loads(row[0])["practice_item_id"] for row in rows}
 
     for _ in range(5):
-        offered = build_due_queue(vault, repository, clock=clock, session=session)[0]
+        offered = serve_due_queue(vault, repository, clock=clock, session=session)[0]
     assert sorted(row["practice_item_id"] for row in snapshots()) == sorted(scored_item_ids())
 
     item = vault.practice_items[offered.practice_item_id]
     vault.practice_items[item.id] = item.model_copy(update={"prompt": item.prompt + " (edited)"})
-    build_due_queue(vault, repository, clock=clock, session=session)
+    serve_due_queue(vault, repository, clock=clock, session=session)
     revisions = [row for row in snapshots() if row["practice_item_id"] == item.id]
     assert len(revisions) == 2
     assert {json.loads(row["item_json"])["prompt"] for row in revisions} == {item.prompt, item.prompt + " (edited)"}
@@ -162,7 +162,7 @@ def test_final_offer_refuses_filtered_and_cross_session_candidates(tmp_path):
     repository = seed_due_item(paths)
     vault = load_vault(paths.root)
     session = repository.create_session(clock=FrozenClock(NOW))
-    item = build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session))[0]
+    item = serve_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session))[0]
     repository.finalize_scheduler_offer(item.scheduler_slate_id, [])
     with pytest.raises(ValueError, match="offer"):
         repository.bind_submission_offer(submission_id="filtered", session_id=session, practice_item_id=item.practice_item_id, scheduler_candidate_id=item.scheduler_candidate_id)
@@ -592,7 +592,7 @@ def test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key(tmp_path):
     vault = load_vault(paths.root)
     clock = FrozenClock(NOW)
     session = repository.create_session(clock=clock)
-    offer = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    offer = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
     repository.finalize_scheduler_offer(offer.scheduler_slate_id, [offer.scheduler_candidate_id])
     repository.bind_submission_offer(submission_id="sub-1", session_id=session, practice_item_id=offer.practice_item_id, scheduler_candidate_id=offer.scheduler_candidate_id)
     attempt = _self_graded_attempt(paths, repository)
@@ -807,7 +807,7 @@ def test_writers_stamp_the_current_collection_version(tmp_path, monkeypatch):
     vault = load_vault(paths.root)
     clock = FrozenClock(NOW)
     session = repository.create_session(clock=clock)
-    offer = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    offer = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
     repository.finalize_scheduler_offer(offer.scheduler_slate_id, [offer.scheduler_candidate_id])
     attempt = _self_graded_attempt(paths, repository)
     with repository.connection() as connection:

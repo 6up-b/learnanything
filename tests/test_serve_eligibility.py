@@ -85,7 +85,7 @@ def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_i
     and no cold retry on the item is ever served after it."""
 
     from learnloop.diagnosis.causal_cold_verification import sweep_expired_cold_retries
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
     from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     vault, repository, misconception_id = _repair(tmp_path)
@@ -98,7 +98,7 @@ def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_i
     )
     moment = NOW + timedelta(days=1, hours=1)
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(moment))
+    queue = serve_due_queue(vault, repository, clock=FrozenClock(moment))
 
     by_id = {item.practice_item_id: item for item in queue}
     assert cold_item in by_id
@@ -122,7 +122,7 @@ def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_i
     # Nothing comes back as a cold check on this item: the measurement ended,
     # honestly, instead of being spent on an answer that could not be cold.
     for days in (0, 1, 2, 7):
-        later = build_due_queue(vault, repository, clock=FrozenClock(moment + timedelta(days=days, minutes=7)))
+        later = serve_due_queue(vault, repository, clock=FrozenClock(moment + timedelta(days=days, minutes=7)))
         assert cold_item not in [item.practice_item_id for item in later if item.followup_kind == "cold_retry"]
         assert not any("no longer counts" in reason for item in later for reason in item.plain_english)
     assert [row["outcome"] for row in repository.causal_cold_outcomes() if row["followup_task_id"] == task["id"]] == [
@@ -428,7 +428,7 @@ def test_the_real_serve_paths_agree_with_submit(tmp_path, seed):
     queue serves the cold retry, submit at that instant is not primed; and an
     unassisted answer after any serve path's decision is never refused."""
 
-    from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_hold
+    from learnloop.scheduling.scheduler import serve_due_queue, cold_check_serve_hold
     from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
     rng = random.Random(seed)
@@ -452,7 +452,7 @@ def test_the_real_serve_paths_agree_with_submit(tmp_path, seed):
             continue
         if submitted:
             continue
-        cold_lane = [item.practice_item_id for item in build_due_queue(vault, repository, clock=clock)
+        cold_lane = [item.practice_item_id for item in serve_due_queue(vault, repository, clock=clock)
                      if item.followup_kind == "cold_retry"]
         if cold_item in cold_lane:
             draft, _total = auto_primed_draft(

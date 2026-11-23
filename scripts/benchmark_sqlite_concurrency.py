@@ -209,7 +209,7 @@ def queue_build_wal_growth(fixture: Path, directory: Path) -> dict:
 
     from learnloop.db.checkpoint import checkpoint_wal
     from learnloop.db.connection import connect
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop.vault.repository import open_vault_repository
 
@@ -224,7 +224,7 @@ def queue_build_wal_growth(fixture: Path, directory: Path) -> dict:
         seconds = []
         for _ in range(QUEUE_BUILDS):
             started = time.perf_counter()
-            build_due_queue(vault, repository)
+            serve_due_queue(vault, repository)
             seconds.append(round(time.perf_counter() - started, 3))
             sizes.append(_wal_bytes(sqlite_path))
         result = checkpoint_wal(sqlite_path, reason="benchmark")

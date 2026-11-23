@@ -14,7 +14,7 @@ import yaml
 
 from learnloop.clock import FrozenClock
 from learnloop.diagnosis.probe_episodes import enter_episode
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -115,7 +115,7 @@ def build_rich_vault(root):
     # An hour ago the session's serving build committed the probe it put first (value stopping off for that
     # build alone: with it on, these probes' value does not pay for their minutes).
     vault.config.voi_stopping.enabled = False
-    build_due_queue(vault, repository, clock=FrozenClock(NOW - timedelta(hours=1)),
+    serve_due_queue(vault, repository, clock=FrozenClock(NOW - timedelta(hours=1)),
                     session=SchedulerSession(session_id=SESSION))
     assert repository.active_probe_presentation_for_session(SESSION) is not None
     # Added after that build, so no earlier build of the session has recorded the pair's serving.
@@ -331,4 +331,23 @@ def build_intent_targets_vault(root):
     apply_choice(vault, repository, Scope("learning_object", "lo_c"), "master", clock=at)
     apply_choice(vault, repository, Scope("learning_object", "lo_b"), "light_touch", clock=at)
     apply_choice(vault, repository, Scope("learning_object", PROBE_LO), "check_once", clock=at)
+    return load_vault(vault.root), repository
+
+
+def build_generated_followup_vault(root):
+    """``(vault, repository)``: :func:`build_rich_vault` with a due cold retry on ``pi_c1``, which also carries the
+    generated-probe identity, so the follow-up door must not insert it (FG1 §4.2); and one on ``pi_c2``, which it
+    inserts."""
+
+    from learnloop.followup_serve import identity
+
+    vault, repository = build_rich_vault(root)
+    for item_id in ("pi_c1", "pi_c2"):
+        repository.create_followup_task(
+            kind="cold_retry", case_kind="misconception", case_ref=f"mc_{item_id}", learning_object_id="lo_c",
+            not_before=(NOW - timedelta(hours=6)).isoformat().replace("+00:00", "Z"), selected_item_id=item_id,
+            expires_at=(NOW + timedelta(days=5)).isoformat().replace("+00:00", "Z"),
+            clock=FrozenClock(NOW - timedelta(days=2)),
+        )
+    identity.register(repository, practice_item_id="pi_c1", revision="rev-pi_c1", source="workflow", clock=CLOCK)
     return load_vault(vault.root), repository

@@ -84,10 +84,10 @@ def _cold_lane_ids(vault, repository, clock):
     says the serve is the measurement.
     """
 
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
 
     return [
         item.practice_item_id
-        for item in build_due_queue(vault, repository, clock=clock)
+        for item in serve_due_queue(vault, repository, clock=clock)
         if item.followup_kind == "cold_retry"
     ]

@@ -2419,7 +2419,7 @@ def test_f1j_no_serve_path_serves_a_cold_check_submit_would_prime(tmp_path, seed
     import random
 
     from learnloop.daily_plan.engine import advance, get_or_create_today
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
 
     rng = random.Random(seed)
     env, clock = _plan_with_a_cold_check(tmp_path, f"property_{seed}")
@@ -2439,7 +2439,7 @@ def test_f1j_no_serve_path_serves_a_cold_check_submit_would_prime(tmp_path, seed
         else:
             cold_lane = [
                 item.practice_item_id
-                for item in build_due_queue(env.vault, env.repository, clock=FrozenClock(clock.instant))
+                for item in serve_due_queue(env.vault, env.repository, clock=FrozenClock(clock.instant))
                 if item.followup_kind == "cold_retry"
             ]
             if "pi_cold" in cold_lane:
@@ -2741,7 +2741,7 @@ def test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe(tmp_path, mon
     import learnloop_sidecar.handlers  # noqa: F401
     from learnloop.db.repositories import Repository
     from learnloop.diagnosis.probe_episodes import enter_episode
-    from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+    from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop_sidecar.context import SidecarContext
     from learnloop_sidecar.handlers import practice as practice_handlers
@@ -2760,7 +2760,7 @@ def test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe(tmp_path, mon
     if covered:
         _routine_disclosure(repository, ITEM, clock=_later(hours=-1))
 
-    queue = build_due_queue(loaded, repository, session=SchedulerSession(session_id="probe_session"), limit=1)
+    queue = serve_due_queue(loaded, repository, session=SchedulerSession(session_id="probe_session"), limit=1)
 
     assert queue and queue[0].practice_item_id == ITEM
     assert (repository.active_probe_presentation(episode.id) is None) is covered

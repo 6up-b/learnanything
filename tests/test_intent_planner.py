@@ -17,7 +17,7 @@ from learnloop.scheduling.intent_planner import (
     shadow_intent_plan,
 )
 from learnloop.diagnosis.probe_audit import shadow_intent_report
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -66,7 +66,7 @@ def _drive_session(vault_root, *, shadow_enabled: bool, session_id: str):
     loaded.config.probe.shadow.enabled = shadow_enabled
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     sync_vault_state(loaded, repository, clock=FrozenClock(NOW))
-    queue = build_due_queue(
+    queue = serve_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),

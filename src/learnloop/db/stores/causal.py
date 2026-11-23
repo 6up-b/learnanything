@@ -2666,7 +2666,7 @@ class CausalStoreMixin:
         """Record which member of an A4 pair this session's queue offered first.
 
         ``None`` on a duplicate ``(practice_item_id, session_id)``:
-        ``build_due_queue`` re-plans the same session repeatedly, and the order
+        ``serve_due_queue`` re-plans the same session repeatedly, and the order
         the learner actually saw is the one the first plan chose.
         """
 

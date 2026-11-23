@@ -2059,7 +2059,7 @@ def review(
     repository = _repository(loaded.root)
     sync_vault_state(loaded, repository)
     run_startup_maintenance(loaded, repository)
-    queue = build_due_queue(
+    queue = serve_due_queue(
         loaded,
         repository,
         limit=limit,

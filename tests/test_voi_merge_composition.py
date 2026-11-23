@@ -26,7 +26,7 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis import voi_stopping as voi
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import unresolved_cost as UC
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 
 from learnloop.daily_plan.lanes import register_scheduled_check_provider, unregister_scheduled_check_provider
 
@@ -360,7 +360,7 @@ def test_an_explored_probe_value_forecast_carries_router_r1s_marker(tmp_path, mo
 
     monkeypatch.setattr(S, "_exploration_support", support)
     monkeypatch.setattr(S, "_exploration_draws", lambda queue, session, now, alternatives: (0.0, 0.0))
-    S.build_due_queue(
+    S.serve_due_queue(
         vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id),
     )
     presentation = repository.active_probe_presentation_for_session(session_id)
@@ -456,7 +456,7 @@ def test_teach_back_offers_log_one_forecast_per_teach_back_per_offer(tmp_path, m
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
 
     def offer():
-        return build_due_queue(
+        return serve_due_queue(
             vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id),
         )
 
@@ -664,7 +664,7 @@ def test_the_report_scores_a_kept_teach_back_through_its_offers_candidate(tmp_pa
     vault, repository = _teach_back_vault(tmp_path, "mvp-0.21")
     _minutes(monkeypatch, 0.01)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
-    build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id))
+    serve_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id))
     rows = _joined(vault, repository, "teach_back_value_decision")
     assert rows and all(joined["status"] == "pending" for _row, joined in rows)  # none answered yet
     kept, _ = rows[0]
@@ -696,7 +696,7 @@ def test_a_dropped_teach_back_is_not_administered(tmp_path, monkeypatch):
     vault, repository = _teach_back_vault(tmp_path, "mvp-0.21")
     _minutes(monkeypatch, 10_000.0)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
-    build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id))
+    serve_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id))
     rows = _joined(vault, repository, "teach_back_value_decision")
     assert rows and {row["verdict"] for row, _ in rows} == {"stop"}
     assert {joined["status"] for _row, joined in rows} == {"not_administered"}

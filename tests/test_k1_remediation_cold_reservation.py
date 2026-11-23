@@ -58,7 +58,7 @@ def test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_i
     (``tests/test_untaken_repair_episode.py``)."""
 
     from learnloop.algorithm_versions import SECTION_END_ALGORITHM_VERSION
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
     from tests.helpers import set_algorithm_version
 
     paths = create_basic_vault(tmp_path / "vault")
@@ -67,7 +67,7 @@ def test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_i
     cold_item = next(iter(vault.practice_items))
 
     def queued() -> bool:
-        return cold_item in [item.practice_item_id for item in build_due_queue(vault, repository)]
+        return cold_item in [item.practice_item_id for item in serve_due_queue(vault, repository)]
 
     assert queued()
     episode = _episode(repository, cold_item, "treatment")
@@ -126,7 +126,7 @@ def test_a_cold_retry_that_expires_unanswered_releases_its_reservation(world):
     from datetime import UTC, datetime
 
     from learnloop.clock import FrozenClock
-    from learnloop.scheduling.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import serve_due_queue
 
     vault, repository = world
     cold_item = next(iter(vault.practice_items))
@@ -141,7 +141,7 @@ def test_a_cold_retry_that_expires_unanswered_releases_its_reservation(world):
     assert repository.open_followup_tasks_of_kind("cold_retry") == []
     assert not cold_administration_open(repository, cold_item)
     assert repository.remediation_episode(episode["id"])["state"] == "abandoned"
-    assert cold_item in [item.practice_item_id for item in build_due_queue(vault, repository, clock=after)]
+    assert cold_item in [item.practice_item_id for item in serve_due_queue(vault, repository, clock=after)]
 
 
 def test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation(world):

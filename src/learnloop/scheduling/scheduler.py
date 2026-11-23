@@ -140,7 +140,7 @@ class ExplorationOutcome:
 class OfferTrace:
     """What one queue build decided, for router decision logging (router R1).
 
-    Filled only when a caller passes it to :func:`build_due_queue`; the build
+    Filled only when a caller passes it to :func:`serve_due_queue`; the build
     itself is unchanged. ``exclusions`` maps a reason code to the item ids the
     candidate loop withheld for it. ``outcomes`` enumerates the exploration's
     whole support, each recomposed through the same steps as the live build,
@@ -184,7 +184,7 @@ class OfferTrace:
 
 
 @pinned_repository_call
-def build_due_queue(
+def serve_due_queue(
     vault: LoadedVault,
     repository: Repository,
     *,
@@ -197,10 +197,10 @@ def build_due_queue(
     """Today's routine queue, built to serve: the build's writes go with it.
 
     Before ranking it reconciles supply, placement's fast track and the cold
-    lane's deferrals; with a session it then persists the offer
-    (:func:`_persist_offer`: a presentation the composition left no place for
-    ended, the contrast pair's drawn order, the slate, its explanations and
-    forecasts, and the slate's decision record). :func:`read_due_queue`
+    lane's deferrals; with a session it then makes the one persist call
+    (:func:`_persist_due_queue`: a presentation the composition left no place
+    for ended, the contrast pair's drawn order, the slate, its explanations
+    and forecasts, then the slate's decision record). :func:`read_due_queue`
     returns the same queue and writes none of these.
     """
 
@@ -221,7 +221,7 @@ def read_due_queue(
     offer_trace: OfferTrace | None = None,
     device_filter: DeviceFilter | None = None,
 ) -> list[ScheduledItem]:
-    """The queue :func:`build_due_queue` would serve now, for a caller that
+    """The queue :func:`serve_due_queue` would serve now, for a caller that
     only looks at it (a chart, a shadow comparison, the simulator, the plan's
     prefetch on a read-only attach). The build writes nothing of its own; the
     follow-up tasks' lazy status marks (``Repository.due_followup_tasks``)
@@ -244,17 +244,16 @@ def _due_queue(
     device_filter: DeviceFilter | None,
     serving: bool,
 ) -> list[ScheduledItem]:
-    """Every item through one admission predicate, ranked, drawn from, composed.
+    """The shell around the two pure stages: reads, :func:`admit_due`, the check split, :func:`rank_due`, persist.
 
-    Each item is asked ``admission_reason`` once (a withheld item's reason is
-    kept, never consulted); the admitted ones are scored and sorted by selection
-    reward, the seeded exploration draws over that order, and the composition
-    (teach-back cap, goal quota, requested floor, follow-ups, contrast pairs)
-    reorders it. Every write after the composition is in :func:`_persist_offer`
-    and the slate's decision record (``record_slate``, after the offer trace,
-    which reads the components the persist step stamps), and only a serving
-    build with a session reaches either. A serving build's writes before
-    ranking stay where they are: the reads after them must see them.
+    It reads what the admission and the ranking need (a serving build's
+    writes before ranking stay among those reads: the reads after them must
+    see them), builds stage one over the admission's reads, lets intent split
+    its due checks with it (the one read between the stages), adds the reads
+    the split decides, and ranks. A serving build with a session then makes
+    one persist call (:func:`_persist_due_queue`: the offer and the slate's
+    decision record); the offer trace, when asked for, is filled last, from
+    the queue the persist step stamped.
     """
 
     now = (clock or SystemClock()).now().astimezone(UTC)
@@ -268,10 +267,6 @@ def _due_queue(
     traced_exclusions = offer_trace.exclusions if offer_trace is not None else None
     if traced_exclusions is None and records_slate:
         traced_exclusions = {}
-
-    def withheld(reason: str, item_id: str) -> None:
-        if traced_exclusions is not None:
-            traced_exclusions.setdefault(reason, []).append(item_id)
 
     if serving:
         # Freshness supply reconciliation: a consumed (administered) single-use
@@ -415,12 +410,6 @@ def _due_queue(
         if head is not None:
             evaluated_head_ids.append(head.id)
 
-    queue: list[ScheduledItem] = []
-    # Annotation-only rows for diagnostic surfaces the freshness rules kept out
-    # of the queue. Logged with the slate ("no silent caps"), never served.
-    probe_reserved_exclusions: list[ScheduledItem] = []
-    probe_item_ids: dict[str, str] = {}
-    probe_entropy_before: dict[str, float] = {}
     # One partitioned query supplies the familiarity window for every LO that
     # can contribute to an active goal frontier.  The former lazy cache still
     # issued one query per frontier LO on every queue rebuild.
@@ -479,9 +468,9 @@ def _due_queue(
             ),
         ),
     )
-    admission = _BuildAdmission(
+    admission = admit_due(
         vault,
-        reads=reads,
+        reads,
         now=now,
         session=session,
         voi_probe_active=voi_probe_active,
@@ -489,6 +478,8 @@ def _due_queue(
         short_session=short_session,
         voi_probe_decisions=voi_probe_decisions,
     )
+    # Between the two stages, the shell's one read in intent: the check split asks stage one of the due checks'
+    # candidates.
     if intent_view is not None:
         intent_view.bind_admission(admission.check_candidate_refusal)
         requested_item_ids = intent_view.filter_requests(requested_item_ids)
@@ -510,18 +501,6 @@ def _due_queue(
         reads, vault, repository, session=session, voi_context=voi_context, voi_probe_active=voi_probe_active,
         intent_view=intent_view, reachable=reachable,
     )
-    if intent_view is not None:
-        # DL2 (Codex review F1): follow-up insertion is a second door that
-        # rebuilds an item by id after the ranked loop, so the intent gate
-        # applies here too: a paused, referenced, let-go or answered-check
-        # item, or one a "Check once" still holds, is never resurrected. The
-        # task stays pending (nothing is written) and serves once intent
-        # allows it again.
-        pending_followups = [
-            pending
-            for pending in pending_followups
-            if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
-        ]
     # The head probe's presentation (the persist step) reads its episode from these; that episode is always one
     # the admission consulted, so a failed read here was already raised.
     episode_posterior_cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None] = {
@@ -534,14 +513,395 @@ def _due_queue(
         for episode_id, eligible in reads.episode_eligibles.items()
         if not isinstance(eligible, _ReadFailed)
     }
+    taught_first = None
+    if placement_serving is not None and any(
+        admission.placement(item, item_states.get(item.id))[1] for item in reachable
+    ):
+        from learnloop.placement.signals import taught_first_by_predecessor
+
+        # Read only when a reachable item can be new material (stage one's own placement answer, which reads
+        # nothing); every LO's, which the ranking filters to its new-material slots as the read filtered them.
+        taught_first = taught_first_by_predecessor(vault, repository, vault.learning_objects.keys())
+    from learnloop.followup_serve.identity import generated_probe_ids
+
+    ranked = rank_due(vault, admission, RankInputs(
+        now=now,
+        session=session,
+        limit=limit,
+        readiness_factor=readiness_factor,
+        short_session=short_session,
+        requested_item_ids=requested_item_ids,
+        pending_followups=pending_followups,
+        quality_states=quality_states,
+        facet_states_by_lo=facet_states_by_lo,
+        evaluated_head_ids=evaluated_head_ids,
+        taught_first=taught_first,
+        generated_probe_ids=generated_probe_ids(repository),
+        active_session_presentation=(
+            repository.active_probe_presentation_for_session(session.session_id)
+            if session.session_id is not None
+            else None
+        ),
+    ))
+    if traced_exclusions is not None:
+        for reason, item_ids in ranked.exclusions.items():
+            traced_exclusions.setdefault(reason, []).extend(item_ids)
     if device_filter is not None:
+        device_filter.deferred.update(ranked.device_deferred)
+    queue, considered_queue, greedy_queue = ranked.queue, ranked.considered_queue, ranked.greedy_queue
+    active_session_presentation = ranked.active_session_presentation
+    propensity_by_id, compose = ranked.propensity_by_id, ranked.compose
+    teach_back_voi_decisions = ranked.teach_back_voi_decisions
+    traced_slate_id: str | None = None
+    traced_candidate_ids: dict[str, str] = {}
+    if serving and session.session_id is not None:
+        queue, traced_slate_id, traced_candidate_ids = _persist_due_queue(
+            vault, repository, clock=clock, session=session, limit=limit, ranked=ranked,
+            cold_deferrals=cold_deferrals, readiness_factor=readiness_factor, short_session=short_session,
+            open_episodes=open_episodes, probe_block_reason=probe_block_reason,
+            episode_posterior_cache=episode_posterior_cache, episode_eligible_cache=episode_eligible_cache,
+            voi_probe_decisions=voi_probe_decisions, mastery_states=mastery_states,
+            facet_states_by_lo=facet_states_by_lo, quality_states=quality_states,
+            withheld=traced_exclusions or {}, placement_serving=placement_serving,
+        )
+    if offer_trace is not None:
+        _fill_offer_trace(
+            offer_trace,
+            config=config,
+            session=session,
+            now=now,
+            limit=limit,
+            greedy_queue=greedy_queue,
+            considered=considered_queue,
+            compose=compose,
+            base_propensity=propensity_by_id,
+            pinned_item_id=(
+                active_session_presentation.practice_item_id
+                if active_session_presentation is not None
+                else None
+            ),
+            probe_block_reason=probe_block_reason,
+            cold_deferrals=cold_deferrals,
+            slate_id=traced_slate_id,
+            candidate_ids=traced_candidate_ids,
+            placement_active=placement_serving is not None,
+            session_context=_session_context(
+                session, short_session=short_session, readiness_factor=readiness_factor
+            ),
+        )
+        offer_trace.voi_decisions = tuple(
+            [decision.as_dict() for _episode_id, decision in sorted(voi_probe_decisions.items())]
+            + list(teach_back_voi_decisions)
+        )
+        offer_trace.voi_forecasts = tuple(
+            voi.candidate_forecasts(decision for _episode_id, decision in sorted(voi_probe_decisions.items()))
+        )
+        if voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
+            offer_trace.teach_back_exclusion_reason = "teach_back_value_below_minutes_cost"
+    return queue
+
+
+@dataclass(frozen=True)
+class RankInputs:
+    """What the ranking reads besides the admission's reads (:class:`AdmissionReads`), all read by the shell.
+
+    ``requested_item_ids`` are after intent's filter (the check split's
+    candidates added) and ``pending_followups`` after the cold lane's
+    deferrals. ``taught_first`` is ``(taught_first, predecessor_taught_first)``
+    over every LO (``placement.signals.taught_first_by_predecessor``), None
+    when placement does not serve. ``active_session_presentation`` is the
+    session's committed presentation as the shell read it, before the ranking
+    decides whether it stays pinned."""
+
+    now: datetime
+    session: SchedulerSession
+    limit: int | None
+    readiness_factor: float | None
+    short_session: bool
+    requested_item_ids: list[str]
+    pending_followups: list[dict[str, Any]]
+    quality_states: Mapping[str, PracticeItemQualityState]
+    facet_states_by_lo: Mapping[str, Any]
+    evaluated_head_ids: list[str]
+    taught_first: tuple[set[str], set[str]] | None
+    generated_probe_ids: frozenset[str]
+    active_session_presentation: Any
+
+
+@dataclass(frozen=True)
+class RankedQueue:
+    """The ranking's result: the queue to serve (``limit`` applied), what it was cut from (``considered_queue``) and
+    ranked as (``greedy_queue``), and everything the persist step and the offer trace record of it.
+
+    ``compose`` is the composition after the exploration draw, for the trace's
+    and the head probe's counterfactual outcomes. ``exclusions`` are the
+    withheld items by reason, in the order withheld; ``device_deferred`` the
+    items waiting for the desktop (``DeviceFilter.deferred``)."""
+
+    queue: list[ScheduledItem]
+    considered_queue: list[ScheduledItem]
+    greedy_queue: list[ScheduledItem]
+    probe_reserved_exclusions: list[ScheduledItem]
+    probe_item_ids: dict[str, str]
+    probe_entropy_before: dict[str, float]
+    propensity_by_id: dict[str, float]
+    check_item_ids: frozenset[str]
+    teach_back_voi_decisions: list[dict[str, Any]]
+    contrast_decisions: list[Any]
+    active_session_presentation: Any
+    invalidated_presentation_id: str | None
+    shadow_intent: Any
+    compose: Any
+    exclusions: dict[str, list[str]]
+    device_deferred: frozenset[str]
+
+
+def admit_due(
+    vault: LoadedVault,
+    reads: AdmissionReads,
+    *,
+    now: datetime,
+    session: SchedulerSession,
+    voi_probe_active: bool,
+    carry_hypothesis_channels: bool,
+    short_session: bool,
+    voi_probe_decisions: dict[str, Any],
+) -> "_BuildAdmission":
+    """Stage one: the build's admission over its gathered reads, which reads nothing. The shell asks it of the due
+    checks' candidates (the check split, the one read between the stages), then gives it the reads after the split
+    (``admission.reads``) and hands it to :func:`rank_due`."""
+
+    return _BuildAdmission(
+        vault,
+        reads=reads,
+        now=now,
+        session=session,
+        voi_probe_active=voi_probe_active,
+        carry_hypothesis_channels=carry_hypothesis_channels,
+        short_session=short_session,
+        voi_probe_decisions=voi_probe_decisions,
+    )
+
+
+def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInputs) -> RankedQueue:
+    """Stage two: every item through the admission, ranked, drawn from and composed, from values alone.
+
+    The follow-up doors are filtered by intent and the device; each item is asked
+    ``admission_reason`` once (a withheld item's reason is kept, never
+    consulted); the admitted ones are scored (:func:`_score_candidates`) and
+    sorted by selection reward; new material is ordered, the due checks picked,
+    the propensities taken on the greedy order, the teach-backs valued, the
+    seeded exploration drawn; the composition (teach-back cap, goal quota,
+    requested floor, follow-ups, contrast pairs) reorders it; the session's
+    committed presentation is pinned or let go; ``limit`` cuts it. Reads no
+    repository and writes nothing: :func:`_due_queue` persists what it returns."""
+
+    reads = admission.reads
+    config = vault.config
+    now, session, limit = inputs.now, inputs.session, inputs.limit
+    item_states, frontier, intent_view = reads.item_states, reads.frontier, reads.intent_view
+    placement_serving, probe_block_reason = reads.placement_serving, reads.probe_block_reason
+    device_refusals = reads.device_refusals
+    readiness_factor = inputs.readiness_factor
+    requested_item_ids = inputs.requested_item_ids
+    pending_followups = inputs.pending_followups
+    taught_first, generated_probe_ids = inputs.taught_first, inputs.generated_probe_ids
+    exclusions: dict[str, list[str]] = {}
+    device_deferred: set[str] = set()
+
+    def withheld(reason: str, item_id: str) -> None:
+        exclusions.setdefault(reason, []).append(item_id)
+
+    if intent_view is not None:
+        # DL2 (Codex review F1): follow-up insertion is a second door that
+        # rebuilds an item by id after the ranked loop, so the intent gate
+        # applies here too: a paused, referenced, let-go or answered-check
+        # item, or one a "Check once" still holds, is never resurrected. The
+        # task stays pending (nothing is written) and serves once intent
+        # allows it again.
+        pending_followups = [
+            pending
+            for pending in pending_followups
+            if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
+        ]
+    if device_refusals is not None:
         # Mobile PR-6: the follow-up door again; the task stays pending for the desktop.
         pending_followups = [
             pending
             for pending in pending_followups
-            if not _held_for_device(vault, device_filter, str(pending["practice_item_id"]), withheld)
+            if not _held_for_device(vault, device_refusals, str(pending["practice_item_id"]), withheld, device_deferred)
         ]
     requested_id_set = set(requested_item_ids)
+    queue, probe_reserved_exclusions, probe_item_ids, probe_entropy_before = _score_candidates(
+        vault, admission, inputs, requested_id_set, withheld, device_deferred
+    )
+    queue.sort(
+        key=lambda scheduled: (
+            -scheduled.components.get("selection_reward", 0.0),
+            -scheduled.priority,
+            scheduled.practice_item_id,
+        )
+    )
+    if placement_serving is not None:
+        queue = _order_new_material(vault, queue, placement_serving, taught_first)
+    # DL2 (§5.2): the items due "Check once" requests chose; composition never
+    # drops them for value or cost (fix round 4, R2: the learner asked).
+    check_item_ids: frozenset[str] = frozenset()
+    if intent_view is not None and intent_view.due_checks():
+        # DL2 (§5.2): one item per due "Check once", the top-ranked of its
+        # candidates; the dated request is that item.
+        queue, chosen_checks = intent_view.pick_checks(queue)
+        chosen = set(chosen_checks)
+        check_item_ids = frozenset(chosen)
+        candidates = {item_id for check in intent_view.due_checks() for item_id in check.candidates}
+        requested_item_ids = [
+            item_id for item_id in requested_item_ids if item_id not in candidates or item_id in chosen
+        ]
+    # Propensity is computed on the greedy-sorted order, before exploration reorders
+    # it: it is P(this candidate is served | slate) under the seeded exploration
+    # policy, which is what off-policy estimation reweights by.
+    propensity_by_id = _selection_propensities(queue, session, config)
+    greedy_queue = list(queue)
+    # mvp-0.21 (voi_stopping): no teach-back count; each teach-back stays
+    # while its value, conditional on those already kept, pays for its
+    # minutes (a teach-back is a valued probe, router D11). Valued once,
+    # before the draw.
+    # A due check's teach-back is the learner's request, served, not valued
+    # (DL2 verify F14, fix round 4 R2): it is left out of the value
+    # admission and kept by the cap without counting toward it.
+    teach_back_admitted, teach_back_voi_decisions = _teach_back_value_admission(
+        vault,
+        reads.voi_context,
+        [scheduled for scheduled in greedy_queue if scheduled.practice_item_id not in check_item_ids]
+        if check_item_ids
+        else greedy_queue,
+        config,
+    )
+    queue = _apply_seeded_exploration(queue, session, config, now)
+
+    # The contrast pairs' drawn order of the live composition, recorded by the persist step.
+    live_contrast_decisions: list[Any] = []
+
+    def compose(composed: list[ScheduledItem], *, record: bool) -> list[ScheduledItem]:
+        # The deterministic composition after the exploration draw. One function
+        # for the live build and for router R1's counterfactual outcomes, so an
+        # offer's logged propensity is computed through exactly these steps;
+        # ``record`` is False only for those counterfactuals, whose pair order is
+        # never the one served.
+        composed = _enforce_teach_back_session_cap(
+            composed, config.teach_back.session_cap, admitted=teach_back_admitted, keep=check_item_ids
+        )
+        # Goal-composition quota: guarantee a floor share of goal-frontier items in the
+        # ordered queue while a goal has at-risk facets. Applied before the limit slice
+        # so the floor holds even in short sessions, and before follow-up insertion
+        # (force-inserted follow-ups are a separate triggered decision).
+        composed = _apply_goal_quota(composed, frontier.quota_floor)
+        # Requested-items floor (spec §4a): the learner explicitly asked to chase a
+        # promoted item, so guarantee up to N of them a front slot. Applied AFTER the
+        # goal quota — the goal quota establishes its floor first, then this pulls at
+        # most `requested_items_per_session` items to the very front, displacing the
+        # goal prefix by at most that many positions (a tiny cap, default 1). Reorder
+        # only: it can never surface a requested item that failed eligibility/gates,
+        # because it only touches items already in the built (eligible) queue.
+        composed = _apply_requested_floor(
+            composed,
+            requested_item_ids,
+            config.tutor_promotion.requested_items_per_session,
+        )
+        composed = _rotate_same_day_frontier_repeats(composed, item_states, now)
+        composed = _insert_pending_followups(
+            vault, composed, pending_followups, readiness_factor, item_states=item_states,
+            generated_probes=generated_probe_ids,
+        )
+        composed, decisions = _apply_contrast_pair_order(vault, composed, session)
+        if record:
+            live_contrast_decisions[:] = decisions
+        return composed
+
+    queue = compose(queue, record=True)
+    active_session_presentation = inputs.active_session_presentation
+    # The session's committed presentation this build ends ("invalidated"), by the persist step.
+    invalidated_presentation_id: str | None = None
+    if active_session_presentation is not None and probe_block_reason is not None:
+        invalidated_presentation_id = active_session_presentation.id
+        active_session_presentation = None
+    if active_session_presentation is not None:
+        # A selected presentation is a durable assignment, not a suggestion to
+        # recompute on every queue refresh. Keep it at the front until it is
+        # served/consumed or explicitly ended.
+        assigned = next(
+            (
+                item
+                for item in queue
+                if item.practice_item_id == active_session_presentation.practice_item_id
+            ),
+            None,
+        )
+        if assigned is not None:
+            queue = [assigned] + [item for item in queue if item is not assigned]
+        elif device_refusals is not None and _held_for_device(vault, device_refusals, active_session_presentation.practice_item_id, withheld, device_deferred):
+            # Not this device's to show, and still the session's assignment: the
+            # desktop resumes it, so this build neither pins nor ends it.
+            active_session_presentation = None
+        else:
+            invalidated_presentation_id = active_session_presentation.id
+            active_session_presentation = None
+    considered_queue = list(queue)
+    if limit is not None:
+        queue = queue[:limit]
+    # §11.2 intent-first composition — SHADOW ONLY. Compute the intent + rankings
+    # over the already-composed live queue and log them alongside live behavior;
+    # the live queue is NOT reordered (promotion needs held-out gains, not here).
+    shadow_intent = None
+    if vault.config.probe.shadow.enabled:
+        from learnloop.scheduling.intent_planner import shadow_intent_plan
+
+        shadow_intent = shadow_intent_plan(vault, considered_queue)
+    return RankedQueue(
+        queue=queue,
+        considered_queue=considered_queue,
+        greedy_queue=greedy_queue,
+        probe_reserved_exclusions=probe_reserved_exclusions,
+        probe_item_ids=probe_item_ids,
+        probe_entropy_before=probe_entropy_before,
+        propensity_by_id=propensity_by_id,
+        check_item_ids=check_item_ids,
+        teach_back_voi_decisions=teach_back_voi_decisions,
+        contrast_decisions=live_contrast_decisions,
+        active_session_presentation=active_session_presentation,
+        invalidated_presentation_id=invalidated_presentation_id,
+        shadow_intent=shadow_intent,
+        compose=compose,
+        exclusions=exclusions,
+        device_deferred=frozenset(device_deferred),
+    )
+
+
+def _score_candidates(
+    vault: LoadedVault,
+    admission: "_BuildAdmission",
+    inputs: RankInputs,
+    requested_id_set: set[str],
+    withheld: Any,
+    device_deferred: set[str],
+) -> tuple[list[ScheduledItem], list[ScheduledItem], dict[str, str], dict[str, float]]:
+    """The candidate loop: each item's admission reason, then the admitted items' ranking components, selection
+    reward and floors. Returns ``(queue, probe_reserved_exclusions, probe_item_ids, probe_entropy_before)``, the
+    queue unsorted."""
+
+    reads = admission.reads
+    config = vault.config
+    item_states, exclusions, intent_view = reads.item_states, reads.exclusions, reads.intent_view
+    mastery_states, open_episodes, errors_by_lo = reads.mastery_states, reads.open_episodes, reads.errors_by_lo
+    placement_serving, device_refusals = reads.placement_serving, reads.device_refusals
+    readiness_factor, quality_states = inputs.readiness_factor, inputs.quality_states
+    facet_states_by_lo, evaluated_head_ids = inputs.facet_states_by_lo, inputs.evaluated_head_ids
+    queue: list[ScheduledItem] = []
+    # Annotation-only rows for diagnostic surfaces the freshness rules kept out
+    # of the queue. Logged with the slate ("no silent caps"), never served.
+    probe_reserved_exclusions: list[ScheduledItem] = []
+    probe_item_ids: dict[str, str] = {}
+    probe_entropy_before: dict[str, float] = {}
     for item in vault.practice_items.values():
         state = item_states.get(item.id)
         requested = item.id in requested_id_set
@@ -652,7 +1012,7 @@ def _due_queue(
             # the gate, so only an item the build would have served counts as
             # waiting; before the draw, the composition and the limit, which only
             # ever see what it can answer.
-            _held_for_device(vault, device_filter, item.id, withheld)
+            _held_for_device(vault, device_refusals, item.id, withheld, device_deferred)
             continue
         plain_english = _plain_english(item, components)
         if evaluated_head_ids and goal_frontier_component > 0:
@@ -674,211 +1034,74 @@ def _due_queue(
             )
         )
 
-    queue.sort(
-        key=lambda scheduled: (
-            -scheduled.components.get("selection_reward", 0.0),
-            -scheduled.priority,
-            scheduled.practice_item_id,
-        )
+    return queue, probe_reserved_exclusions, probe_item_ids, probe_entropy_before
+
+
+def _persist_due_queue(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None,
+    session: SchedulerSession,
+    limit: int | None,
+    ranked: RankedQueue,
+    cold_deferrals: list[dict[str, Any]],
+    readiness_factor: float | None,
+    short_session: bool,
+    open_episodes: Mapping[str, Any],
+    probe_block_reason: str | None,
+    episode_posterior_cache: dict[str, Any],
+    episode_eligible_cache: dict[str, Any],
+    voi_probe_decisions: dict[str, Any],
+    mastery_states: Mapping[str, MasteryState],
+    facet_states_by_lo: Mapping[str, Any],
+    quality_states: Mapping[str, PracticeItemQualityState],
+    withheld: dict[str, list[str]],
+    placement_serving: Any,
+) -> tuple[list[ScheduledItem], str, dict[str, str]]:
+    """The one persist call a serving build with a session makes: the offer (:func:`_persist_offer`), then the
+    slate's decision record (ADR-017: one record per slate row, after everything the build decided). Returns the
+    served queue stamped with its slate and candidate ids, the slate id and the candidate ids by item."""
+
+    config = vault.config
+    queue, slate_id, candidate_ids = _persist_offer(
+        vault, repository, clock=clock, session=session, limit=limit, queue=ranked.queue,
+        considered_queue=ranked.considered_queue, greedy_queue=ranked.greedy_queue,
+        probe_reserved_exclusions=ranked.probe_reserved_exclusions, cold_deferrals=cold_deferrals,
+        readiness_factor=readiness_factor, short_session=short_session, shadow_intent=ranked.shadow_intent,
+        open_episodes=open_episodes, active_session_presentation=ranked.active_session_presentation,
+        invalidated_presentation_id=ranked.invalidated_presentation_id, contrast_decisions=ranked.contrast_decisions,
+        probe_block_reason=probe_block_reason, episode_posterior_cache=episode_posterior_cache,
+        episode_eligible_cache=episode_eligible_cache, propensity_by_id=ranked.propensity_by_id,
+        voi_probe_decisions=voi_probe_decisions, teach_back_voi_decisions=ranked.teach_back_voi_decisions,
+        compose=ranked.compose, mastery_states=mastery_states, facet_states_by_lo=facet_states_by_lo,
+        quality_states=quality_states, probe_item_ids=ranked.probe_item_ids,
+        probe_entropy_before=ranked.probe_entropy_before,
     )
-    if placement_serving is not None:
-        queue = _order_new_material(vault, repository, queue, placement_serving)
-    # DL2 (§5.2): the items due "Check once" requests chose; composition never
-    # drops them for value or cost (fix round 4, R2: the learner asked).
-    check_item_ids: frozenset[str] = frozenset()
-    if intent_view is not None and intent_view.due_checks():
-        # DL2 (§5.2): one item per due "Check once", the top-ranked of its
-        # candidates; the dated request is that item.
-        queue, chosen_checks = intent_view.pick_checks(queue)
-        chosen = set(chosen_checks)
-        check_item_ids = frozenset(chosen)
-        candidates = {item_id for check in intent_view.due_checks() for item_id in check.candidates}
-        requested_item_ids = [
-            item_id for item_id in requested_item_ids if item_id not in candidates or item_id in chosen
-        ]
-    # Propensity is computed on the greedy-sorted order, before exploration reorders
-    # it: it is P(this candidate is served | slate) under the seeded exploration
-    # policy, which is what off-policy estimation reweights by.
-    propensity_by_id = _selection_propensities(queue, session, config)
-    greedy_queue = list(queue)
-    # mvp-0.21 (voi_stopping): no teach-back count; each teach-back stays
-    # while its value, conditional on those already kept, pays for its
-    # minutes (a teach-back is a valued probe, router D11). Valued once,
-    # before the draw.
-    # A due check's teach-back is the learner's request, served, not valued
-    # (DL2 verify F14, fix round 4 R2): it is left out of the value
-    # admission and kept by the cap without counting toward it.
-    teach_back_admitted, teach_back_voi_decisions = _teach_back_value_admission(
-        vault,
-        reads.voi_context,
-        [scheduled for scheduled in greedy_queue if scheduled.practice_item_id not in check_item_ids]
-        if check_item_ids
-        else greedy_queue,
-        config,
+    record_slate(
+        repository,
+        served=queue,
+        considered=ranked.considered_queue,
+        greedy=ranked.greedy_queue,
+        withheld=withheld,
+        teach_back_value=voi.voi_stopping_active(config, voi.SITE_TEACH_BACK),
+        cold_deferrals=cold_deferrals,
+        placement_check_exclusions=placement_serving.check_exclusions if placement_serving is not None else {},
+        propensity=ranked.propensity_by_id,
+        limit=limit,
+        slate_id=slate_id,
+        session_id=session.session_id,
+        pinned_item_id=(
+            ranked.active_session_presentation.practice_item_id
+            if ranked.active_session_presentation is not None
+            else None
+        ),
+        check_item_ids=ranked.check_item_ids,
+        probe_block_reason=probe_block_reason,
+        algorithm_version=config.algorithms.algorithm_version,
+        selection_policy=SELECTION_POLICY,
     )
-    queue = _apply_seeded_exploration(queue, session, config, now)
-
-    # The contrast pairs' drawn order of the live composition, recorded by the persist step.
-    live_contrast_decisions: list[Any] = []
-
-    def compose(composed: list[ScheduledItem], *, record: bool) -> list[ScheduledItem]:
-        # The deterministic composition after the exploration draw. One function
-        # for the live build and for router R1's counterfactual outcomes, so an
-        # offer's logged propensity is computed through exactly these steps;
-        # ``record`` is False only for those counterfactuals, whose pair order is
-        # never the one served.
-        composed = _enforce_teach_back_session_cap(
-            composed, config.teach_back.session_cap, admitted=teach_back_admitted, keep=check_item_ids
-        )
-        # Goal-composition quota: guarantee a floor share of goal-frontier items in the
-        # ordered queue while a goal has at-risk facets. Applied before the limit slice
-        # so the floor holds even in short sessions, and before follow-up insertion
-        # (force-inserted follow-ups are a separate triggered decision).
-        composed = _apply_goal_quota(composed, frontier.quota_floor)
-        # Requested-items floor (spec §4a): the learner explicitly asked to chase a
-        # promoted item, so guarantee up to N of them a front slot. Applied AFTER the
-        # goal quota — the goal quota establishes its floor first, then this pulls at
-        # most `requested_items_per_session` items to the very front, displacing the
-        # goal prefix by at most that many positions (a tiny cap, default 1). Reorder
-        # only: it can never surface a requested item that failed eligibility/gates,
-        # because it only touches items already in the built (eligible) queue.
-        composed = _apply_requested_floor(
-            composed,
-            requested_item_ids,
-            config.tutor_promotion.requested_items_per_session,
-        )
-        composed = _rotate_same_day_frontier_repeats(composed, item_states, now)
-        from learnloop.followup_serve.identity import generated_probe_ids
-
-        composed = _insert_pending_followups(
-            vault, composed, pending_followups, readiness_factor, item_states=item_states,
-            generated_probes=generated_probe_ids(repository),
-        )
-        composed, decisions = _apply_contrast_pair_order(vault, composed, session)
-        if record:
-            live_contrast_decisions[:] = decisions
-        return composed
-
-    queue = compose(queue, record=True)
-    active_session_presentation = (
-        repository.active_probe_presentation_for_session(session.session_id)
-        if session.session_id is not None
-        else None
-    )
-    # The session's committed presentation this build ends ("invalidated"), by the persist step.
-    invalidated_presentation_id: str | None = None
-    if active_session_presentation is not None and probe_block_reason is not None:
-        invalidated_presentation_id = active_session_presentation.id
-        active_session_presentation = None
-    if active_session_presentation is not None:
-        # A selected presentation is a durable assignment, not a suggestion to
-        # recompute on every queue refresh. Keep it at the front until it is
-        # served/consumed or explicitly ended.
-        assigned = next(
-            (
-                item
-                for item in queue
-                if item.practice_item_id == active_session_presentation.practice_item_id
-            ),
-            None,
-        )
-        if assigned is not None:
-            queue = [assigned] + [item for item in queue if item is not assigned]
-        elif device_filter is not None and _held_for_device(
-            vault, device_filter, active_session_presentation.practice_item_id, withheld
-        ):
-            # Not this device's to show, and still the session's assignment: the
-            # desktop resumes it, so this build neither pins nor ends it.
-            active_session_presentation = None
-        else:
-            invalidated_presentation_id = active_session_presentation.id
-            active_session_presentation = None
-    considered_queue = list(queue)
-    if limit is not None:
-        queue = queue[:limit]
-    # §11.2 intent-first composition — SHADOW ONLY. Compute the intent + rankings
-    # over the already-composed live queue and log them alongside live behavior;
-    # the live queue is NOT reordered (promotion needs held-out gains, not here).
-    shadow_intent = None
-    if vault.config.probe.shadow.enabled:
-        from learnloop.scheduling.intent_planner import shadow_intent_plan
-
-        shadow_intent = shadow_intent_plan(vault, considered_queue)
-    traced_slate_id: str | None = None
-    traced_candidate_ids: dict[str, str] = {}
-    if serving and session.session_id is not None:
-        queue, traced_slate_id, traced_candidate_ids = _persist_offer(
-            vault, repository, clock=clock, session=session, limit=limit, queue=queue,
-            considered_queue=considered_queue, greedy_queue=greedy_queue,
-            probe_reserved_exclusions=probe_reserved_exclusions, cold_deferrals=cold_deferrals,
-            readiness_factor=readiness_factor, short_session=short_session, shadow_intent=shadow_intent,
-            open_episodes=open_episodes, active_session_presentation=active_session_presentation,
-            invalidated_presentation_id=invalidated_presentation_id, contrast_decisions=live_contrast_decisions,
-            probe_block_reason=probe_block_reason, episode_posterior_cache=episode_posterior_cache,
-            episode_eligible_cache=episode_eligible_cache, propensity_by_id=propensity_by_id,
-            voi_probe_decisions=voi_probe_decisions, teach_back_voi_decisions=teach_back_voi_decisions,
-            compose=compose, mastery_states=mastery_states, facet_states_by_lo=facet_states_by_lo,
-            quality_states=quality_states, probe_item_ids=probe_item_ids,
-            probe_entropy_before=probe_entropy_before,
-        )
-    if offer_trace is not None:
-        _fill_offer_trace(
-            offer_trace,
-            config=config,
-            session=session,
-            now=now,
-            limit=limit,
-            greedy_queue=greedy_queue,
-            considered=considered_queue,
-            compose=compose,
-            base_propensity=propensity_by_id,
-            pinned_item_id=(
-                active_session_presentation.practice_item_id
-                if active_session_presentation is not None
-                else None
-            ),
-            probe_block_reason=probe_block_reason,
-            cold_deferrals=cold_deferrals,
-            slate_id=traced_slate_id,
-            candidate_ids=traced_candidate_ids,
-            placement_active=placement_serving is not None,
-            session_context=_session_context(
-                session, short_session=short_session, readiness_factor=readiness_factor
-            ),
-        )
-        offer_trace.voi_decisions = tuple(
-            [decision.as_dict() for _episode_id, decision in sorted(voi_probe_decisions.items())]
-            + list(teach_back_voi_decisions)
-        )
-        offer_trace.voi_forecasts = tuple(
-            voi.candidate_forecasts(decision for _episode_id, decision in sorted(voi_probe_decisions.items()))
-        )
-        if voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
-            offer_trace.teach_back_exclusion_reason = "teach_back_value_below_minutes_cost"
-    if records_slate and traced_slate_id is not None:
-        # ADR-017: one record per slate row, after everything the build decided.
-        record_slate(
-            repository,
-            served=queue,
-            considered=considered_queue,
-            greedy=greedy_queue,
-            withheld=traced_exclusions or {},
-            teach_back_value=voi.voi_stopping_active(config, voi.SITE_TEACH_BACK),
-            cold_deferrals=cold_deferrals,
-            placement_check_exclusions=placement_serving.check_exclusions if placement_serving is not None else {},
-            propensity=propensity_by_id,
-            limit=limit,
-            slate_id=traced_slate_id,
-            session_id=session.session_id,
-            pinned_item_id=(
-                active_session_presentation.practice_item_id if active_session_presentation is not None else None
-            ),
-            check_item_ids=check_item_ids,
-            probe_block_reason=probe_block_reason,
-            algorithm_version=config.algorithms.algorithm_version,
-            selection_policy=SELECTION_POLICY,
-        )
-    return queue
+    return queue, slate_id, candidate_ids
 
 
 def _persist_offer(
@@ -1282,15 +1505,23 @@ def _exploration_draws(
     return roll, choice
 
 
-def _held_for_device(vault: LoadedVault, device_filter: DeviceFilter, practice_item_id: str, withheld: Any) -> bool:
+def _held_for_device(
+    vault: LoadedVault, device_refusals: Mapping[str, Any], practice_item_id: str, withheld: Any, deferred: set[str]
+) -> bool:
     """The by-id ways into a build: a follow-up task, a committed presentation. A
-    task naming a retired card is not an item waiting for the desktop."""
+    task naming a retired card is not an item waiting for the desktop.
+
+    ``device_refusals``: the device's refusal of every item, gathered
+    (``AdmissionReads.device_refusals``); an item it refuses is added to
+    ``deferred``, which the shell adds to ``DeviceFilter.deferred``
+    (``DeviceFilter.holds_back``, without the host call)."""
 
     item = vault.practice_items.get(practice_item_id)
     if item is None or item.status != "active" or not practice_item_servable(vault, item):
         return False
-    if not device_filter.holds_back(item):
+    if not _gathered(device_refusals[item.id]):
         return False
+    deferred.add(item.id)
     withheld("device_ineligible", practice_item_id)
     return True
 
@@ -1603,9 +1834,9 @@ def _placement_serving(
 
 def _order_new_material(
     vault: LoadedVault,
-    repository: Repository,
     queue: list[ScheduledItem],
     placement: _PlacementServing,
+    taught_first_signals: tuple[set[str], set[str]],
 ) -> list[ScheduledItem]:
     """Reorder new-material items among the slots they already hold.
 
@@ -1618,13 +1849,14 @@ def _order_new_material(
     slots = [index for index, scheduled in enumerate(queue) if scheduled.components.get("new_material", 0.0) > 0]
     if not slots:
         return queue
-    from learnloop.placement.signals import taught_first_by_predecessor
     from learnloop.placement.state import order_new_material
 
     by_id = {queue[index].practice_item_id: queue[index] for index in slots}
-    taught_first, predecessor_taught_first = taught_first_by_predecessor(
-        vault, repository, {queue[index].learning_object_id for index in slots}
-    )
+    # ``taught_first_signals``: every LO's (``taught_first_by_predecessor``), filtered to the slots' LOs as the read
+    # filtered them.
+    slot_learning_objects = {queue[index].learning_object_id for index in slots}
+    taught_first = {lo for lo in slot_learning_objects if lo in taught_first_signals[0]}
+    predecessor_taught_first = {lo for lo in slot_learning_objects if lo in taught_first_signals[1]}
     ordered = order_new_material(
         vault,
         placement.predictor,
@@ -1649,7 +1881,7 @@ def _order_new_material(
     return result
 
 
-#: Policy name recorded on every persisted slate built by ``build_due_queue``.
+#: Policy name recorded on every persisted slate built by ``serve_due_queue``.
 SELECTION_POLICY = "composed_offer_v2"
 
 #: ``propensity_kind`` of every candidate on a composed-offer slate. The offer
@@ -1930,7 +2162,7 @@ def _defer_revealed_cold_followups(
       set): the task is withdrawn with its typed disposition and the item stays
       in the queue as ordinary practice, labelled (Codex review F2, F3).
 
-    The writes are persisted only on a serving build (:func:`build_due_queue`);
+    The writes are persisted only on a serving build (:func:`serve_due_queue`);
     a read build (:func:`read_due_queue`) still withholds the
     task and recomputes the same decision next time. ``expires_at`` is never
     extended. Non-cold lanes are untouched.
@@ -2340,7 +2572,7 @@ def _insert_pending_followups(
         practice_item_id = pending["practice_item_id"]
         if practice_item_id in inserted_ids:
             continue
-        # Meas §3.A2/§3.A3, second door. `build_due_queue`'s loop refuses an item
+        # Meas §3.A2/§3.A3, second door. `serve_due_queue`'s loop refuses an item
         # whose stimulus the practice surface cannot render, and this function
         # then RESURRECTS it: a follow-up task naming that id rebuilds a
         # `ScheduledItem` from the vault and pushes it above every ordinary pick.
@@ -2482,7 +2714,7 @@ def _apply_contrast_pair_order(
       every other item keeps its position and the selection reward's ordering
       survives. A control that reshuffled the queue would confound the nuisance
       parameter it exists to remove.
-    * **Deterministic per session.** ``build_due_queue`` is called repeatedly for
+    * **Deterministic per session.** ``serve_due_queue`` is called repeatedly for
       one session and must produce the same slate; the draw is seeded on
       ``(session_id, pair_key)``, so it varies across sessions — where the
       balance accumulates — and never within one. A staged plan's pool
@@ -2914,7 +3146,7 @@ def _intent_for_item(item: PracticeItem, *, in_probe: bool, components: dict[str
     if item.practice_mode == "teach_back":
         return SchedulerIntent.PROBE
     if item.practice_mode == "diagnostic_probe":
-        # Effectively dead in `build_due_queue` since the freshness reserve:
+        # Effectively dead in `serve_due_queue` since the freshness reserve:
         # diagnostic surfaces only reach intent scoring with probe_eig > 0
         # (caught by the PROBE branch above). Kept for defense in depth — a
         # diagnostic surface must never be scored as ordinary practice/repair
@@ -3583,7 +3815,7 @@ class _BuildAdmission:
     over the reads behind them (``reads``: :class:`AdmissionReads`, gathered
     before the build decides), each item's score computed once per build.
 
-    ``build_due_queue`` asks them through ``serving_exclusions.admission_reason``
+    ``serve_due_queue`` asks them through ``serving_exclusions.admission_reason``
     for every item, and binds :meth:`admits_check_candidate` (the same
     predicate, for a request) to its DL2 intent view, so a "Check once"
     prefers a cold candidate over practice only among candidates this build
@@ -3948,7 +4180,7 @@ def pool_admission(
     """THE plan pool's per-item predicate asked of one item outside a queue
     build: ``refusal(item_id) -> reason | None``.
 
-    It is ``build_due_queue``'s own loop question (``admission_reason``,
+    It is ``serve_due_queue``'s own loop question (``admission_reason``,
     orchestrator ruling R1) over the same reads: the routine gate, DL2's
     intent gate (intent's view built as the build builds it, its checks split
     by this admission), and the build's gates (freshness reserve, placement,

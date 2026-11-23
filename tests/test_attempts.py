@@ -7,7 +7,7 @@ from datetime import timedelta
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, AttemptValidationError, SelfGradeInput, complete_self_graded_attempt
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
@@ -115,7 +115,7 @@ def test_attempt_links_to_scheduler_slate_and_later_retention_label(tmp_path):
     clock = FrozenClock(NOW)
     sync_vault_state(vault, repository, clock=clock)
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         vault,
         repository,
         clock=clock,

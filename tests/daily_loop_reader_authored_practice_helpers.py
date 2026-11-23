@@ -7,7 +7,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.reader import reader_authoring as AUTH
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import serve_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -78,4 +78,4 @@ def _queue_ids(paths: VaultPaths, *, at=NOW) -> list[str]:
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(at))
-    return [entry.practice_item_id for entry in build_due_queue(vault, repository, clock=FrozenClock(at))]
+    return [entry.practice_item_id for entry in serve_due_queue(vault, repository, clock=FrozenClock(at))]

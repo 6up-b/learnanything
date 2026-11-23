@@ -40,7 +40,7 @@ from learnloop.diagnosis.probe_families import (
 )
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.substrate.state_sync import sync_vault_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, read_due_queue
 
 from tests.helpers import (
     NOW,
@@ -747,7 +747,7 @@ def test_scheduler_slate_atomically_commits_its_selected_probe_presentation(tmp_
     sync_vault_state(loaded, repository, clock=CLOCK)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
 
-    queue = build_due_queue(
+    queue = serve_due_queue(
         loaded,
         repository,
         clock=CLOCK,
@@ -767,7 +767,7 @@ def test_scheduler_slate_atomically_commits_its_selected_probe_presentation(tmp_
     assert presentation.scheduler_candidate_id == candidate["id"]
     assert presentation.status == "selected"
 
-    refreshed_queue = build_due_queue(
+    refreshed_queue = serve_due_queue(
         loaded,
         repository,
         clock=CLOCK,
