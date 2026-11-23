@@ -2,8 +2,11 @@
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
 import { useEffect, useMemo, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
+import type { MenuObjectInput } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
 import { useListenerHub, useWindowLifecycle } from "../lifecycle";
+import { ContextMenu } from "../menu/ContextMenu";
+import type { MenuRow } from "../menu/model";
 import type { PadsHost } from "./host";
 import { isLearnersWords, type PadState } from "./model";
 
@@ -60,7 +63,9 @@ function anchorsOf(state: PadState | null, blockId: string | null): Array<{ extr
   return fromLinks;
 }
 
-export function PadMenu({ request, host, windowId, state, muted, onClose, onInsert, onSubmit, onMute }: {
+/** The pad menu (spec §9.2) in the one context menu: the rows on the line's words, then the inserts, then muting
+ * suggestions; its promoted rows come from passage.promoted for the line (its passages are its own links). */
+export function PadMenu({ request, host, windowId, state, muted, onClose, onInsert, onNote, onSubmit, onMute }: {
   request: MenuRequest;
   windowId: string;
   host: PadsHost;
@@ -68,6 +73,8 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   muted: boolean;
   onClose: () => void;
   onInsert: (block: InsertBlock) => void;
+  /** Note in margin on a pad line: a note block attached under it (opened in the editor). */
+  onNote: () => void;
   onSubmit: () => void;
   onMute: () => void;
 }) {
@@ -75,15 +82,24 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   const anchors = anchorsOf(state, request.blockId);
   const pieces = useMemo(() => host.sourcePieces(), [host]);
   const [practicing, setPracticing] = useState(false);
+  const hub = useListenerHub();
   const text = request.text.trim();
   const close = (then?: () => void) => () => {
     onClose();
     then?.();
   };
+  // A press in another window makes it the active one: the menu goes with the focus.
+  const lifecycle = useWindowLifecycle();
+  useEffect(() => {
+    if (lifecycle.state !== "active") onClose();
+  }, [lifecycle.state, onClose]);
+  const object: MenuObjectInput | null = request.blockId ? { objectKind: "pad_line", blockId: request.blockId, windowId, ...(host.deskId ? { deskId: host.deskId } : {}) } : null;
   const textRows: Row[] = text ? [
     { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text, { padId: request.padId, blockId: request.blockId, anchor: anchors[0] ?? null })) },
+    ...(request.blockId ? [{ key: "n", glyph: "›", label: "Note in margin", note: "a note attached under this line", run: close(onNote) }] : []),
     { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
-    ...(host.showMe ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
+    // A line with no passage has no Show me (the figure is built for a passage).
+    ...(host.showMe && anchors.length ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
       host.toast("◇ making a figure for this line · it lands below it when it's ready");
       // The finished figure goes to the window's waiting figures: written only while the pad is live.
       void host.showMe?.(text, anchors[0] ?? null, windowId).then((figure) => {
@@ -117,72 +133,33 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
       void insertPiece(host, onInsert, row.ref.extractionId, spanId);
     })) },
   ];
-  const rows = [...textRows, ...insertRows, { key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }];
-  const runnable = rows.filter((row) => !row.disabled);
-  const [index, setIndex] = useState(0);
-  const hub = useListenerHub();
-  // A press in another window makes it the active one: the menu goes with the focus.
-  const lifecycle = useWindowLifecycle();
-  useEffect(() => {
-    if (lifecycle.state !== "active") onClose();
-  }, [lifecycle.state, onClose]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      // A modal menu: it owns the keyboard while it is open, but never a chord.
-      if (practicing || screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "ArrowDown" || event.key === "j") {
-        event.preventDefault();
-        setIndex((now) => Math.min(runnable.length - 1, now + 1));
-      } else if (event.key === "ArrowUp" || event.key === "k") {
-        event.preventDefault();
-        setIndex((now) => Math.max(0, now - 1));
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        runnable[index]?.run?.();
-      } else {
-        const row = runnable.find((each) => each.key === event.key);
-        if (row) {
-          event.preventDefault();
-          row.run?.();
-        }
-      }
-    };
-    const onDown = (event: MouseEvent) => {
-      if (!(event.target as Element).closest?.(".desk-padmenu, .desk-sheet")) onClose();
-    };
-    const offs = [hub.listen("window", "keydown", onKey), hub.listen("window", "mousedown", onDown, true)];
-    return () => offs.forEach((off) => off());
-  }, [hub, index, onClose, practicing, runnable]);
-
-  if (practicing && state && block) {
-    return <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} />;
-  }
-  const rowView = (row: Row) => {
-    const selected = runnable[index] === row;
-    return (
-      <button key={row.key} type="button" className={`row${selected ? " sel" : ""}`} disabled={row.disabled} onClick={row.run} onMouseEnter={() => {
-        const at = runnable.indexOf(row);
-        if (at >= 0) setIndex(at);
-      }}>
-        <span className="g">{row.glyph}</span>
-        <span className="l">{row.label}{row.note ? <span className="n"> · {row.note}</span> : null}</span>
-        <span className="k">{row.key.length === 1 ? row.key : ""}</span>
-      </button>
-    );
-  };
+  const tailRows: Row[] = [
+    ...(request.blockId && host.menu ? [{ key: "knows", glyph: "i", label: "What this knows", run: close(() => host.menu?.knows({ objectKind: "pad_line", blockId: request.blockId as string, windowId })) }] : []),
+    { key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) },
+  ];
+  const toRow = (section: MenuRow["section"]) => (row: Row): MenuRow => ({
+    id: row.key, glyph: row.glyph, label: row.label, note: row.note, disabled: row.disabled, run: row.run, section,
+    ...(row.key.length === 1 ? { key: row.key } : {}),
+    ...(row.key === "knows" ? { aid: true } : {}),
+  });
+  const rows: MenuRow[] = [...textRows.map(toRow("verb")), ...insertRows.map(toRow("insert")), ...tailRows.map(toRow("tail"))];
   return (
-    <div className="desk-padmenu" role="menu" aria-label="the pad menu" style={{ left: Math.min(request.x, window.innerWidth - 340), top: Math.min(request.y, window.innerHeight - 420) }}>
-      <div className="head">your pad · “{(text || "this line").slice(0, 46)}”</div>
-      {textRows.map(rowView)}
-      <div className="sep">{request.blockId ? "INSERT BELOW THIS LINE" : "INSERT AT THE END OF THIS PAD"}</div>
-      {insertRows.map(rowView)}
-      <div className="sep" />
-      {rowView(rows[rows.length - 1])}
-    </div>
+    <ContextMenu
+      label="the pad menu"
+      header={`your pad · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
+      rows={rows}
+      at={{ x: request.x, y: request.y }}
+      object={object}
+      promoted={host.menu?.promoted ?? null}
+      onPromoted={host.menu?.onPromoted}
+      poller={host.menu?.poller}
+      owner={windowId}
+      insertHeading={request.blockId ? "insert below this line" : "insert at the end of this pad"}
+      onClose={onClose}
+      listen={(target, type, handler, capture) => hub.listen(target, type, handler, capture)}
+    >
+      {practicing && state && block ? <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} /> : undefined}
+    </ContextMenu>
   );
 }
 

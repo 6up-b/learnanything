@@ -539,6 +539,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                         <span
                           data-span-id={spanId}
                           data-transcript-span={spanId}
+                          data-t={cue.start}
                           onClick={() => seekToCue(cue)}
                           onContextMenu={(event) => {
                             event.preventDefault();

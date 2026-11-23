@@ -8,7 +8,8 @@ import { FixtureDeskServer } from "../../../fixtures/desks/workspace";
 import { isTypingTarget, type Timers } from "../keys/router";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { DeskStore } from "../store";
-import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost } from "./host";
+import { objectAt } from "../menu/model";
+import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost, type PadStackHandle } from "./host";
 import { PadStackWindow } from "./PadStackWindow";
 
 class ManualTimers implements Timers {
@@ -101,16 +102,28 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
     toast: (text) => toasts.push(text),
     setView: (_windowId, view) => views.push(view),
     sourcePieces: () => [],
-    register: () => undefined,
+    register: (_windowId, handle) => {
+      stackHandle = handle;
+    },
     carry: vi.fn(),
     figures: new PendingFigures(),
     addToStack: vi.fn(),
   };
   const padIds = options.padIds ?? ["fx_pad_running", "fx_pad_deriving"];
+  let stackHandle: PadStackHandle | null = null;
+  // The desks' one right-click listener, as the shell has it: a pad line's menu opens in its window.
+  const onContextMenuCapture = (event: React.MouseEvent) => {
+    const object = objectAt(event.target as Element, () => "pad_stack", () => null, { x: event.clientX, y: event.clientY });
+    if (object?.kind !== "pad_line" || !object.padId || !stackHandle) return;
+    event.preventDefault();
+    stackHandle.openMenu(object.padId, object.blockId ?? null, object.at, object.selection);
+  };
   const ui = (state: WindowState) => (
     <WindowScope lifecycle={{ windowId: "w1", state }} hub={DIRECT_HUB}>
       <PadsHostContext.Provider value={host}>
-        <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={options.view ?? {}} />
+        <div data-desk-window="w1" onContextMenuCapture={onContextMenuCapture}>
+          <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={options.view ?? {}} />
+        </div>
       </PadsHostContext.Provider>
     </WindowScope>
   );

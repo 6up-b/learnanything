@@ -1262,6 +1262,18 @@ export function ReaderScreen({
     () => new Set(annotations.filter((a) => removed?.annotation !== a).flatMap((a) => placedSpanIds(a))),
     [annotations, removed],
   );
+  // The desks' context menu reads a marked passage as the learner's highlight (or note): its first saved annotation.
+  const annotationBySpan = useMemo(() => {
+    const map = new Map<string, MarginAnnotation>();
+    for (const annotation of annotations) {
+      if (!annotation.annotationId || removed?.annotation === annotation) continue;
+      for (const spanId of placedSpanIds(annotation)) {
+        const before = map.get(spanId);
+        if (!before || (before.kind !== "highlight" && annotation.kind === "highlight")) map.set(spanId, annotation);
+      }
+    }
+    return map;
+  }, [annotations, removed]);
   const boundaryBlock = useMemo(() => blocks.find((b) => (b.blockType ?? "") !== "Section") ?? null, [blocks]);
 
   const revealedPassages = useMemo(() => {
@@ -4044,6 +4056,10 @@ export function ReaderScreen({
               ) : null}
               <div
                 data-span-id={block.spanId ?? undefined}
+                {...(block.spanId && annotationBySpan.get(block.spanId) ? {
+                  "data-annotation-id": annotationBySpan.get(block.spanId)?.annotationId ?? undefined,
+                  "data-annotation-kind": annotationBySpan.get(block.spanId)?.kind === "highlight" ? "highlight" : "note",
+                } : {})}
                 {...(folded ? { "data-folded": "" } : {})}
                 data-extraction-id={render?.extractionId}
                 onContextMenu={(e) => {

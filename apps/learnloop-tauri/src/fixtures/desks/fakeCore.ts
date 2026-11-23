@@ -3,7 +3,7 @@
 // asked for (reading activity above all). Nothing leaves the page.
 import type { DeskApplyInput, DeskStateDto, PadViewDto } from "../../api/dto";
 import { fixturePads } from "./pads";
-import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
+import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_SOURCES, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
 
@@ -92,6 +92,23 @@ const CONTRACT = {
     : {}),
 };
 
+// The context menu's promoted rows: a cheap row per passage (the learner's own question there, so rows differ by
+// passage) and a judged job that adds a correspondent found by search, unchecked, on its second read.
+const promotedJobs = new Map<string, { rows: Array<Record<string, unknown>>; reads: number; cancelled: boolean }>();
+let promotedJobCount = 0;
+
+function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown>> {
+  const spanId = typeof input.spanId === "string" ? input.spanId : null;
+  if (!spanId) return [];
+  return [{ rowId: `row_q_${spanId}`, kind: "question", glyph: "?", label: `your question on ${spanId}`, reason: "you asked the tutor about this passage",
+    action: { verb: "open", ref: { kind: "thread", rootExchangeId: `q_${spanId}` } }, learnerAt: "2026-11-22T10:00:00Z", checked: true, judgeRank: 0, basis: "union", extra: {} }];
+}
+
+function emptyUnion(spanId: string): Record<string, unknown> {
+  return { spanId, sectionId: null, annotations: [], padBlocks: [], exchanges: [], adjustments: [], gaps: [], passageLinks: [], figures: [], checksDue: [], notes: [],
+    authoredQuestions: [], carried: [], exposure: { timesShown: 1, lastShownAt: null, withheld: false } };
+}
+
 function answer(command: string, input: Record<string, unknown>): unknown {
   switch (command) {
     case "desk_state":
@@ -169,6 +186,35 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     }
     case "pad_drain":
       return fixtureDrain(String(input.deskId));
+    case "passage_promoted": {
+      const rows = cheapRows(input);
+      const jobId = typeof input.spanId === "string" ? `pj_${++promotedJobCount}` : null;
+      if (jobId) promotedJobs.set(jobId, { rows, reads: 0, cancelled: false });
+      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, paid: false };
+    }
+    case "passage_promoted_job": {
+      const job = promotedJobs.get(String(input.jobId));
+      if (!job) return { version: 1, jobId: input.jobId, status: "expired", done: true, rows: [], error: null };
+      if (job.cancelled) return { version: 1, jobId: input.jobId, status: "cancelled", done: true, rows: [], error: null };
+      job.reads += 1;
+      if (job.reads < 2) return { version: 1, jobId: input.jobId, status: "running", done: false, rows: [], error: null };
+      const paper = FIXTURE_SOURCES.paper;
+      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, rows: [...job.rows, {
+        rowId: `row_elsewhere_${input.jobId}`, kind: "correspondent", glyph: "§", label: "the same step in another source", reason: "treats the same step",
+        action: { verb: "open", ref: { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }, target: {} },
+        learnerAt: null, checked: false, judgeRank: 1, basis: "judged", extra: {},
+      }] };
+    }
+    case "passage_promoted_cancel": {
+      const job = promotedJobs.get(String(input.jobId));
+      if (job) job.cancelled = true;
+      return { version: 1, jobId: input.jobId, status: "cancelled", done: true, rows: [], error: null };
+    }
+    case "passage_knows": {
+      const spanId = typeof input.spanId === "string" ? input.spanId : null;
+      const extractionId = typeof input.extractionId === "string" ? input.extractionId : null;
+      return { version: 1, objectKey: JSON.stringify(input), sourceIds: [], places: spanId && extractionId ? [{ extractionId, spanId, role: null, knows: emptyUnion(spanId) }] : [] };
+    }
     case "carried_list":
       return { version: 1, carried: carried.filter((question) => question.carried), shelfLimit: 3, cursor: null };
     case "carried_carry": {

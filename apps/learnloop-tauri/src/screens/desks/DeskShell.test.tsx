@@ -1597,7 +1597,7 @@ describe("RD4b: pads in the desks", () => {
           return { carried: {} as never, created: true };
         },
         requestTeachBack: async () => ({ practiceItemId: "tb" }),
-        passageUnionRange: async () => ({ sections: [] }) as never,
+        passageUnionRange: async () => ({ version: 1, extractionId: "", sections: [], spans: [] }) as never,
         authorPracticeItem: async () => ({ practiceItemId: "x" }),
         workbenchOpenProblems: async () => ({ problems: [] }),
         submitTeachBackTurn: async () => ({ done: true }) as never,

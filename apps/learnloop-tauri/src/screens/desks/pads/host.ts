@@ -16,6 +16,9 @@ import type {
   TeachBackTurnResult,
 } from "../../../api/dto";
 import type { DeskStore } from "../store";
+import type { MenuObjectInput, PromotedRowDto } from "../../../api/dto";
+import type { Poller } from "../../../api/poller";
+import type { PromotedApi } from "../menu/ContextMenu";
 import type { SearchRow } from "../search/model";
 
 export interface PadsApi {
@@ -71,6 +74,13 @@ export interface PadsHost {
   toast: (text: string) => void;
   setView: (windowId: string, view: Record<string, unknown>) => void;
   sourcePieces: () => SourcePiece[];
+  /** The context menu's shared parts (promoted rows and their job, What this knows), lent by the desks. */
+  menu?: {
+    promoted: PromotedApi;
+    poller: Poller;
+    onPromoted: (row: PromotedRowDto) => void;
+    knows: (object: MenuObjectInput) => void;
+  };
   /** A pad joins a stack window by its own desk op (add_to_stack), never through the window's view. */
   addToStack: (windowId: string, padId: string) => void;
   /** A window's keys reach its stack through this handle. */
@@ -93,6 +103,10 @@ export interface PadStackHandle {
   arrange(): void;
   /** `.` on the hovered line. */
   menuAtHover(): boolean;
+  /** The desks' right-click on a pad line (or the pad's body, `blockId` null): its menu opens here. */
+  openMenu(padId: string, blockId: string | null, at: { x: number; y: number }, selection?: string): void;
+  /** Bring one of its pads into view (the shelf's running pad "open"). */
+  showPad(padId: string): void;
 }
 
 /** A figure Show me finished, waiting to be written below its line. */

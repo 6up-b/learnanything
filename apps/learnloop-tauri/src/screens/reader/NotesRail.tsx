@@ -7,7 +7,7 @@ import { COLOR, Card, Faint, FONT_MONO, Pill, SectionHeader } from "../../compon
 import { PrimaryButton, SecondaryButton } from "../../components/goldenpath/shared";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./authoredQuestion";
-import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
+import { clip, placedSpanIds, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
 import { MeaningLabel, ModelVoice } from "./voices";
 import { parseRequestError, parseRequestResult, type BackgroundRequest, type SynthesizedObject } from "./useReaderRequests";
 
@@ -630,8 +630,10 @@ export function NotesRail(props: NotesRailProps) {
         <Faint style={{ fontSize: 12 }}>no annotations yet.</Faint>
       ) : (
         annotations.map((a, i) => (
+          // The desks' context menu reads the card as the learner's highlight or margin note on its passage.
+          <div key={a.annotationId ?? i} style={{ display: "contents" }}
+            {...(a.annotationId ? { "data-annotation-id": a.annotationId, "data-annotation-kind": a.kind === "highlight" ? "highlight" : "note", "data-annotation-span": placedSpanIds(a)[0] ?? "" } : {})}>
           <Card
-            key={a.annotationId ?? i}
             onClick={() => jumpToAnnotation(a)}
             style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}
           >
@@ -719,6 +721,7 @@ export function NotesRail(props: NotesRailProps) {
               </>
             )}
           </Card>
+          </div>
         ))
       )}
     </div>
