@@ -46,6 +46,7 @@ covers it and the lesson's spend envelope admits its requests.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import Field
@@ -286,12 +287,19 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
 def lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]:
     """The lesson as the screen shows it (no model call)."""
 
+    from learnloop.notebook_runtime.lessons import lesson_notebook_path
+
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
-        return versioned(S.view_lesson(vault, repository, params.lesson_id))
+        view = S.view_lesson(vault, repository, params.lesson_id)
     except S.LessonError as exc:
         raise _error(exc) from exc
+    # Reader workbench RD9b (spec §11.2): a lesson whose notebook is in the vault is shown as that notebook.
+    notebook = lesson_notebook_path(Path(vault.root), params.lesson_id)
+    if notebook is not None:
+        view = {**view, "medium": "notebook", "notebook_path": notebook}
+    return versioned(view)
 
 
 @method("lesson.goal", LessonGoalInput)

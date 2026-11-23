@@ -51,6 +51,49 @@ if __name__ == "__main__":
     app.run()
 '''
 
+#: A lesson notebook: a commit point (its own text field), a held reveal under it, and a held cell above every
+#: commit point (released by none).
+LESSON_NOTEBOOK = '''import marimo
+
+app = marimo.App()
+
+
+@app.cell
+def imports():
+    import marimo as mo
+    return (mo,)
+
+
+@app.cell(disabled=True)
+def preface(mo):
+    mo.md("preface=shown")
+    return
+
+
+@app.cell
+def commit_square(mo):
+    answer = mo.ui.text(placeholder="will the square grow faster than x?")
+    mo.Html("<div class='ll-commit'>Will the square grow faster than x?</div>")
+    answer
+    return (answer,)
+
+
+@app.cell
+def echo(answer, mo):
+    mo.md(f"committed={answer.value or 'nothing'}")
+    return
+
+
+@app.cell(disabled=True)
+def reveal_square(mo):
+    mo.md("revealed=yes, quadratically")
+    return
+
+
+if __name__ == "__main__":
+    app.run()
+'''
+
 LIMITS = Limits(memory_mib=1024, scratch_mib=64)
 
 
@@ -162,10 +205,11 @@ def wait_state(runtime: Any, vault_key: str, session_id: str, state: str, timeou
 
 async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[str],
                            set_value: tuple[str, Any] | None = None, then_wanted: tuple[str, ...] = (),
-                           during: Any = None) -> dict[str, Any]:
+                           during: Any = None, after_during: tuple[str, ...] = ()) -> dict[str, Any]:
     """Load the page, open the WebSocket, instantiate, wait for ``wanted`` in the cells' output; then optionally set
     a UI element's value (object id from a cell name) or call ``during()`` in a thread, and wait for
-    ``then_wanted``. What a browser frame would do, through the proxy."""
+    ``then_wanted`` (with both, ``during()`` runs after the value is set, and ``after_during`` is waited for).
+    What a browser frame would do, through the proxy."""
 
     import httpx
     import websockets
@@ -207,9 +251,9 @@ async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[
                 out["set_status"] = reply.status_code
                 await wait_for(then_wanted)
                 out["round_trip_seconds"] = time.monotonic() - started
-            elif during is not None:
+            if during is not None:
                 out["during"] = await asyncio.get_running_loop().run_in_executor(None, during)
-                await wait_for(then_wanted)
+                await wait_for(after_during if set_value is not None else then_wanted)
     out["seen"] = sorted(seen)
     return out
 
@@ -217,8 +261,14 @@ async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[
 class RecordingRuntime:
     """A notebook runtime that records what it is asked to open and answers as a starting session would."""
 
-    def __init__(self) -> None:
+    def __init__(self, refuse_release: Exception | None = None) -> None:
         self.opens: list[dict[str, Any]] = []
+        self.refuse_release = refuse_release
+
+    def release(self, **kwargs: Any) -> dict[str, Any]:
+        if self.refuse_release is not None:
+            raise self.refuse_release
+        return {"session_id": kwargs["session_id"], "released": list(kwargs["names"])}
 
     def open(self, **kwargs: Any) -> dict[str, Any]:
         self.opens.append(kwargs)

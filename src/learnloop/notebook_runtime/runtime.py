@@ -78,6 +78,10 @@ class KernelRefused(RuntimeError):
     """marimo answered a sidecar request with an error."""
 
 
+class ReleaseRefused(PermissionError):
+    """A lesson notebook's held cells are released only by the learner's commit, and never in a review."""
+
+
 @dataclass
 class _Entry:
     session: Session
@@ -140,16 +144,18 @@ class NotebookRuntime:
     # -- the request thread's calls -----------------------------------------------------------------------------
 
     def open(self, *, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
-             max_sessions: int, revision: str | None = None) -> dict[str, Any]:
+             max_sessions: int, revision: str | None = None, contract: dict[str, Any] | None = None,
+             review: bool = False) -> dict[str, Any]:
         """``revision`` names the notebook's identity when its bytes are not it: a pad's cells are one notebook
         while the same cells stand in the same order, whatever their code (an edit reaches the running kernel
-        through ``run_cells``), so moving or reopening the pad keeps its kernel."""
+        through ``run_cells``), so moving or reopening the pad keeps its kernel. ``contract`` is a lesson
+        notebook's commit points and held cells, and ``review`` says the lesson is closed (nothing is released)."""
 
         problems = self._requirements()
         if problems:
             raise RuntimeUnavailable("; ".join(problems))
         return self._call(lambda: self._open(vault_key, owner, source, view, limits, idle_minutes, max_sessions,
-                                             revision))
+                                             revision, contract, review))
 
     def status(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
         return self._call(lambda: self._status(vault_key, session_id))
@@ -224,13 +230,16 @@ class NotebookRuntime:
         return view
 
     async def _open(self, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
-                    max_sessions: int, revision: str | None = None) -> dict[str, Any]:
+                    max_sessions: int, revision: str | None = None, contract: dict[str, Any] | None = None,
+                    review: bool = False) -> dict[str, Any]:
         revision = revision or notebook_revision(source)
         for entry in list(self._entries.values()):
             if entry.session.vault_key != vault_key or entry.session.owner != owner:
                 continue
             if entry.session.revision == revision and entry.session.view == view:
                 entry.idle_minutes = idle_minutes
+                # A lesson closed while its notebook ran is a review from now on (a lesson never reopens).
+                entry.session.review = entry.session.review or review
                 if entry.session.state not in LIVE_STATES:
                     await self._make_room(max_sessions, keep=entry)
                     entry.session.limits = limits
@@ -255,7 +264,7 @@ class NotebookRuntime:
             notebook.unlink()
             raise RuntimeUnavailable(f"the runtime directory {base} is too deep for a Unix socket's path")
         session = Session(session_id=session_id, owner=owner, vault_key=vault_key, revision=revision,
-                          layout=layout, limits=limits, view=view, epoch=self._epoch)
+                          layout=layout, limits=limits, view=view, epoch=self._epoch, contract=contract, review=review)
         supervisor = Supervisor(session, self._backend_now(), **self._supervisor_options)
         proxy = FrameProxy(session)
         await proxy.start()
@@ -324,12 +333,27 @@ class NotebookRuntime:
 
     async def _release(self, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]:
         entry = self._entry(vault_key, session_id)
+        session = entry.session
+        if session.contract is not None:
+            if session.review:
+                raise ReleaseRefused("a review shows the notebook as it is and releases nothing")
+            locked = [name for name in names if name not in session.releasable()]
+            if locked:
+                raise ReleaseRefused(f"not released by a commit yet: {', '.join(locked)}")
         self._connected(entry)
         ids = self._cell_ids(entry, names)
         status, text = await self._backend_now().api(entry.session, adapter.SET_CELL_CONFIG,
                                                      adapter.cell_config_body(ids, disabled=False))
         if status != 200:
             raise KernelRefused(f"marimo refused the release ({status})")
+        # marimo runs an enabled cell only when it went stale while held; a held cell whose inputs never changed
+        # would stay blank. Running the released cells shows them either way.
+        codes = [entry.session.cell_codes.get(cell_id) for cell_id in ids]
+        if all(code is not None for code in codes):
+            status, text = await self._backend_now().api(entry.session, adapter.RUN, adapter.run_body(ids, codes))
+            if status != 200:
+                raise KernelRefused(f"marimo refused to run the released cells ({status})")
+        entry.session.released.update(names)
         entry.session.touch()
         return {"session_id": session_id, "released": list(names)}
 

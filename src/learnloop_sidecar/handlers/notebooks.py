@@ -34,7 +34,8 @@ CELL_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,200}$"
 class NotebookOpenInput(ParamsModel):
     owner: str = Field(pattern=OWNER_PATTERN)
     #: The notebook file, relative to the vault root; the session runs a snapshot of its bytes. Left out for a
-    #: pad (``pad:<id>``): its notebook is generated from the pad's cells.
+    #: pad (``pad:<id>``), whose notebook is generated from the pad's cells, and for a lesson (``lesson:<id>``),
+    #: whose notebook is its own (``notebook_runtime.lessons``).
     path: str | None = Field(default=None, min_length=1, max_length=1000)
     view: Literal["app", "edit"] = "app"
 
@@ -115,6 +116,29 @@ def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes,
     return source, revision, {cell["block_id"]: name for cell, (name, _code) in zip(cells, named, strict=True)}
 
 
+def lesson_notebook(vault_root: Path, repository: Any, lesson_id: str,
+                    path: str | None) -> tuple[bytes, dict[str, Any], bool]:
+    """A lesson's notebook (spec §11.2): its bytes, its commit points and held cells, and whether the lesson is
+    closed (a review: nothing is released). A lesson that exists is opened on its own notebook only; a ``path``
+    names a notebook for an owner key no lesson has (the frame's fixtures)."""
+
+    from learnloop.notebook_runtime.lessons import lesson_contract, lesson_notebook_path
+
+    with repository.connection() as connection:
+        row = connection.execute("SELECT closed_at FROM lessons WHERE id = ?", (lesson_id,)).fetchone()
+    if row is not None:
+        own = lesson_notebook_path(vault_root, lesson_id)
+        if own is None:
+            raise SidecarError("notebook_path_invalid", "This lesson is not a notebook lesson.")
+        if path is not None and Path(path).as_posix() != own:
+            raise SidecarError("notebook_path_invalid", "A lesson opens its own notebook only.")
+        path = own
+    elif path is None:
+        raise SidecarError("notebook_path_invalid", "A lesson's notebook is named by its lesson.")
+    source = _source(vault_root, path)
+    return source, lesson_contract(source), row is not None and row["closed_at"] is not None
+
+
 def _errors(exc: Exception) -> SidecarError:
     if isinstance(exc, RuntimeUnavailable):
         return SidecarError("notebook_runtime_unavailable", f"Notebooks can't run here: {exc}.")
@@ -128,6 +152,8 @@ def _errors(exc: Exception) -> SidecarError:
         return SidecarError("notebook_not_connected", f"The notebook isn't ready: {exc}.", retryable=True)
     if isinstance(exc, R.CellUnknown):
         return SidecarError("notebook_cell_unknown", f"The notebook has no cell named {exc.args[0]}.")
+    if isinstance(exc, R.ReleaseRefused):
+        return SidecarError("notebook_release_refused", f"Nothing was released: {exc}.")
     if isinstance(exc, R.KernelRefused):
         return SidecarError("notebook_kernel_refused", f"{exc}.", retryable=True)
     if isinstance(exc, TimeoutError):
@@ -161,18 +187,23 @@ def notebook_open_handler(ctx: SidecarContext, params: NotebookOpenInput) -> dic
     vault, repository = ctx.require_vault()
     revision = None
     names: dict[str, str] | None = None
-    if params.path is not None:
-        source = _source(vault.root, params.path)
-    elif params.owner.startswith("pad:"):
-        source, revision, names = pad_notebook(Path(vault.root), repository, params.owner[len("pad:"):])
+    contract: dict[str, Any] | None = None
+    review = False
+    if params.owner.startswith("pad:"):
+        if params.path is not None:
+            source = _source(vault.root, params.path)
+        else:
+            source, revision, names = pad_notebook(Path(vault.root), repository, params.owner[len("pad:"):])
     else:
-        raise SidecarError("notebook_path_invalid", "A lesson's notebook is named by its path.")
+        source, contract, review = lesson_notebook(Path(vault.root), repository, params.owner[len("lesson:"):],
+                                                   params.path)
     config = vault.config.notebooks
 
     def opened() -> dict[str, Any]:
         view = _runtime(ctx).open(vault_key=_vault_key(ctx), owner=params.owner, source=source, view=params.view,
                                   limits=Limits.from_config(config), idle_minutes=config.idle_minutes,
-                                  max_sessions=config.max_sessions, revision=revision)
+                                  max_sessions=config.max_sessions, revision=revision, contract=contract,
+                                  review=review)
         return view if names is None else {**view, "pad_cells": names}
 
     return _call(opened)

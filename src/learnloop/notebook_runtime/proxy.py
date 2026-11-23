@@ -26,7 +26,7 @@ import socket
 from typing import Any, Callable
 
 from learnloop.notebook_runtime import adapter, settings, theme
-from learnloop.notebook_runtime.supervisor import READY, Session, note_cell_progress
+from learnloop.notebook_runtime.supervisor import READY, Session, note_cell_progress, note_commits
 
 LOG = logging.getLogger(__name__)
 
@@ -291,7 +291,9 @@ class FrameProxy:
         if headers.get(adapter.SESSION_HEADER.lower()):
             session.marimo_session_id = headers[adapter.SESSION_HEADER.lower()]
         if rel == adapter.SET_UI_ELEMENT_VALUE:
-            session.ui_values.update(adapter.ui_values(body))
+            values = adapter.ui_values(body)
+            session.ui_values.update(values)
+            note_commits(session, values)
         elif rel == adapter.INSTANTIATE:
             filled = adapter.instantiate_with_values(body, session.ui_values)
             if filled is not None:

@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 
 from learnloop.notebook_runtime.sandbox import missing_requirements
-from tests.notebook_runtime_helpers import LIMITS, SYNTHETIC_NOTEBOOK, frame_round_trip, short_base_dir, wait_state
+from tests.notebook_runtime_helpers import (LESSON_NOTEBOOK, LIMITS, SYNTHETIC_NOTEBOOK, frame_round_trip, short_base_dir,
+                                            wait_state)
 
 pytestmark = [pytest.mark.notebook_sandbox,
               pytest.mark.skipif(bool(missing_requirements()), reason="; ".join(missing_requirements()) or "ok")]
@@ -178,3 +179,64 @@ def test_moving_a_pad_keeps_its_kernel_and_an_edited_cell_runs_in_it(runtime):
     # A new cell is a new shape: a new session, every cell run again from the pad's code.
     grown = _open_pad(runtime, "pad:a", edited + [("c_more", "z = x.value + 1")], "shape-2")
     assert grown["session_id"] != first["session_id"] and not _group_alive(pid)
+
+
+# -- a lesson notebook: held cells released at its commit points, nothing released in a review -------------------
+
+def _open_lesson(runtime, review):
+    from learnloop.notebook_runtime.lessons import lesson_contract
+
+    view = runtime.open(vault_key="/v1", owner="lesson:les_1", source=LESSON_NOTEBOOK.encode(), view="app",
+                        limits=LIMITS, idle_minutes=10, max_sessions=4,
+                        contract=lesson_contract(LESSON_NOTEBOOK.encode()), review=review)
+    return wait_state(runtime, "/v1", view["session_id"], "ready")
+
+
+def test_a_lessons_held_cells_are_released_at_its_commit_point_and_not_before(runtime):
+    from learnloop.notebook_runtime.runtime import ReleaseRefused
+
+    view = _open_lesson(runtime, review=False)
+    assert view["lesson"] == {"review": False, "released": [],
+                              "commit_points": [{"name": "commit_square", "held": ["reveal_square"], "committed": False}]}
+    with pytest.raises(ReleaseRefused):
+        runtime.release(vault_key="/v1", session_id=view["session_id"], names=["reveal_square"])
+
+    def release_after_the_commit():
+        status = runtime.status(vault_key="/v1", session_id=view["session_id"])
+        try:
+            runtime.release(vault_key="/v1", session_id=view["session_id"], names=["preface"])
+            preface = "released"
+        except ReleaseRefused:
+            preface = "refused"
+        released = runtime.release(vault_key="/v1", session_id=view["session_id"], names=["reveal_square"])
+        return status["lesson"], preface, released
+
+    result = asyncio.run(frame_round_trip(view["frame_url"], marimo_session="s_lesson", wanted=["committed=nothing"],
+                                          set_value=("commit_square", "faster"), then_wanted=("committed=faster",),
+                                          during=release_after_the_commit, after_during=("revealed=yes",)))
+    lesson, preface, released = result["during"]
+    assert lesson["commit_points"][0]["committed"] is True
+    assert preface == "refused" and released["released"] == ["reveal_square"]  # above every commit point: never
+    assert "revealed=yes" in result["seen"] and "preface=shown" not in result["seen"]
+    assert runtime.status(vault_key="/v1", session_id=view["session_id"])["lesson"]["released"] == ["reveal_square"]
+
+
+def test_a_review_of_a_finished_lesson_releases_nothing_and_commits_nothing(runtime):
+    from learnloop.notebook_runtime.runtime import ReleaseRefused
+
+    view = _open_lesson(runtime, review=True)
+
+    def try_release():
+        try:
+            runtime.release(vault_key="/v1", session_id=view["session_id"], names=["reveal_square"])
+            return "released"
+        except ReleaseRefused:
+            return "refused"
+
+    result = asyncio.run(frame_round_trip(view["frame_url"], marimo_session="s_review", wanted=["committed=nothing"],
+                                          set_value=("commit_square", "faster"), then_wanted=("committed=faster",),
+                                          during=try_release, after_during=()))
+    assert result["during"] == "refused" and "revealed=yes" not in result["seen"]
+    lesson = runtime.status(vault_key="/v1", session_id=view["session_id"])["lesson"]
+    assert lesson == {"review": True, "released": [],
+                      "commit_points": [{"name": "commit_square", "held": ["reveal_square"], "committed": False}]}
