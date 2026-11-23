@@ -37,6 +37,7 @@ from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
+    LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -166,6 +167,9 @@ UPGRADES: tuple[Link, ...] = (
     # so what a rebuild derives moves. The attempts applied before the upgrade are ranked first, in the
     # predecessor's order.
     Link(APPLICATION_ORDER_ALGORITHM_VERSION, legacy_order_then_rebuild),
+    # A grade application's required facets are the ones captured with its attempt: what a rebuild derives moves
+    # wherever a sibling's lifecycle changed between answers.
+    Link(LIFECYCLE_INPUTS_ALGORITHM_VERSION, whole_vault_rebuild),
 )
 
 
