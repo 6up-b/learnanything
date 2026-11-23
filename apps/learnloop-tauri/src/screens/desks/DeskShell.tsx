@@ -4,14 +4,13 @@
 // The workspace model (model/workspace.ts) is the truth on screen; every change the learner makes is
 // applied there at once and queued as `desk.apply` ops in the outbox (outbox.ts), which sends them in
 // order. A conflict takes the server's state: the shell reads `desk.state` again.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../../api/client";
 import { cachedSourceRead } from "../reader/readerCache";
 import { poller } from "../../api/poller";
 import type { ContentRefDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard } from "../../api/dto";
 import {
-  EMPTY_WORKSPACE,
   closeWindow,
   createDesk,
   deskById,
@@ -19,7 +18,6 @@ import {
   focusPane,
   focusedSlot,
   focusedWindowId,
-  fromDeskState,
   moveFocused,
   moveToDesk,
   moveWindowTo,
@@ -85,7 +83,8 @@ import {
 } from "./keys/router";
 import { DeskListenerRouter, WINDOW_ATTRIBUTE } from "./keys/listeners";
 import { WindowScope, isPaused, windowState, type ListenerHub, type WindowLifecycle } from "./lifecycle";
-import { DeskOutbox, clientIdFor, type OutboxTransport } from "./outbox";
+import { clientIdFor, type OutboxTransport } from "./outbox";
+import { deskStoreFor } from "./store";
 import { Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
 import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
@@ -128,8 +127,6 @@ export interface PaneRenderInput {
 const UNDO_CLOSE_MS = 9_000;
 /** A toast stays 2.2 s (spec §4.3). */
 const TOAST_MS = 2_200;
-/** Ops are sent shortly after the last change, so a burst of moves is one batch. */
-const FLUSH_IDLE_MS = 250;
 /** A window's reading place is saved once the learner settles on it. */
 const VIEW_SAVE_IDLE_MS = 2_000;
 /** A gather to a new desk leaves a placeholder sliver this long (spec §6.6). */
@@ -252,8 +249,16 @@ export function DeskShell({
   reducedMotion,
   onDebugHandle,
 }: DeskShellProps) {
-  const [ws, setWs] = useState<Workspace | null>(null);
-  const wsRef = useRef<Workspace>(EMPTY_WORKSPACE);
+  // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
+  // second outbox for the same client.
+  const store = useMemo(
+    () => deskStoreFor(vaultKey, transport, timers, () => clientIdFor(vaultKey, typeof window === "undefined" ? null : window.localStorage, () => mintId("client"))),
+    [vaultKey, transport, timers, mintId],
+  );
+  const storeWs = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const [storeReady, setStoreReady] = useState(store.loaded);
+  const ws: Workspace | null = storeReady ? storeWs : null;
+  const wsRef = useMemo(() => ({ get current(): Workspace { return store.ws; } }), [store]);
   const [library, setLibrary] = useState<SourceLibraryCard[] | null>(null);
   const deskKey = `learnloop.desks.current.${vaultKey}`;
   const [currentDeskId, setCurrentDeskIdState] = useState<string | null>(() => readStored(deskKey));
@@ -262,7 +267,7 @@ export function DeskShell({
   const [focusMode, setFocusMode] = useState(false);
   const [whichKey, setWhichKey] = useState(false);
   const [toast, setToast] = useState<{ text: string; key: number } | null>(null);
-  const [undo, setUndo] = useState<{ deskId: string; title: string; until: number } | null>(null);
+  const [undo, setUndo] = useState<{ deskId: string; windowId: string; title: string; until: number } | null>(null);
   const [status, setStatus] = useState<Record<string, SourceStatus>>({});
   const [entering, setEntering] = useState<Set<string>>(() => new Set());
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -316,11 +321,6 @@ export function DeskShell({
   const media = useRef(new Map<string, () => void>());
   const pendingJump = useRef(new Map<string, string>());
 
-  const outbox = useMemo(
-    () => new DeskOutbox(clientIdFor(vaultKey, typeof window === "undefined" ? null : window.localStorage, () => mintId("client")), transport),
-    [vaultKey, transport, mintId],
-  );
-
   const toastNow = useCallback((text: string) => setToast({ text, key: Date.now() }), []);
   useEffect(() => {
     if (!toast) return;
@@ -335,28 +335,20 @@ export function DeskShell({
     if (deskId) writeStored(deskKey, deskId);
   }, [deskKey]);
 
-  const flushTimer = useRef<unknown>(null);
-  const reloadRef = useRef<() => Promise<void>>(async () => undefined);
-  const scheduleFlush = useCallback(() => {
-    if (flushTimer.current !== null) timers.clear(flushTimer.current);
-    flushTimer.current = timers.set(() => {
-      flushTimer.current = null;
-      void outbox.flush().then((outcome) => {
-        if (outcome.kind === "conflict" || outcome.kind === "resync") void reloadRef.current();
-        else if (outcome.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
-      });
-    }, FLUSH_IDLE_MS);
-  }, [outbox, timers, toastNow]);
-
   const commit = useCallback((step: Step) => {
-    wsRef.current = step.ws;
-    setWs(step.ws);
+    store.commit(step);
     if (step.notice) toastNow(step.notice);
-    if (step.ops.length > 0) {
-      outbox.enqueue(step.ops);
-      scheduleFlush();
-    }
-  }, [outbox, scheduleFlush, toastNow]);
+  }, [store, toastNow]);
+
+  // What the store could not save, said in one line.
+  useEffect(() => store.onNotice((notice) => {
+    if (notice.kind === "rejected") toastNow("that change couldn't be saved, and was undone");
+    else if (notice.kind === "conflict") {
+      const total = notice.dropped + notice.lost;
+      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn't be kept`);
+    } else if (notice.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
+    else onError(notice.message);
+  }), [store, toastNow, onError]);
 
   const chain = useCallback((first: Step, next: (ws: Workspace) => Step): Step => {
     const second = next(first.ws);
@@ -373,29 +365,26 @@ export function DeskShell({
     return chain(created, (next) => openBeside(next, deskId, contentForCard(card, extractionId), () => mintId("win")));
   }, [chain, firstSourceId, mintId, transport]);
 
-  const load = useCallback(async () => {
-    try {
-      const [state, cards] = await Promise.all([transport.state(), transport.library().catch(() => null)]);
-      setLibrary(cards);
-      outbox.syncSeq(state);
-      const loaded = fromDeskState(state);
-      if (loaded.desks.length === 0) {
-        commit(await firstRun(loaded, cards));
-      } else {
-        // Keep the closed windows this session can still undo.
-        commit({ ws: { ...loaded, closed: wsRef.current.closed }, ops: [] });
-      }
-    } catch (error) {
-      onError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error));
-    }
-  }, [transport, outbox, commit, firstRun, onError]);
-  reloadRef.current = load;
-
   useEffect(() => {
-    void load();
-    // Loaded once per vault; a conflict reloads through reloadRef.
+    let live = true;
+    void (async () => {
+      try {
+        const [state, cards] = await Promise.all([store.load(), transport.library().catch(() => null)]);
+        if (!live) return;
+        setLibrary(cards);
+        if (state && store.ws.desks.length === 0) store.commit(await firstRun(store.ws, cards));
+        if (live) setStoreReady(true);
+      } catch (error) {
+        if (live) onError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error));
+      }
+    })();
+    // A load that lands after this shell unmounted changes nothing here.
+    return () => {
+      live = false;
+    };
+    // Loaded once per store; a conflict reconciles inside the store.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultKey]);
+  }, [store]);
 
   // -- the current desk, focus and camera ------------------------------------------------------------
 
@@ -838,7 +827,7 @@ export function DeskShell({
         if (!focus) return true;
         const title = titleOf(current.windows[focus]);
         commit(closeWindow(current, id, focus));
-        setUndo({ deskId: id, title, until: timers.now() + UNDO_CLOSE_MS });
+        setUndo({ deskId: id, windowId: focus, title, until: timers.now() + UNDO_CLOSE_MS });
         return true;
       }
       case "toggleFocusMode":
@@ -1222,11 +1211,15 @@ export function DeskShell({
     }
     if (!step.existed) {
       setEntering((now) => new Set([...now, step.windowId]));
-      timers.set(() => setEntering((now) => {
-        const next = new Set(now);
-        next.delete(step.windowId);
-        return next;
-      }), 450);
+      const handle = timers.set(() => {
+        shellTimers.current.delete(handle);
+        setEntering((now) => {
+          const next = new Set(now);
+          next.delete(step.windowId);
+          return next;
+        });
+      }, 450);
+      shellTimers.current.add(handle);
     }
     setOpener(false);
   }, [commit, mintId, timers]);
@@ -1241,6 +1234,14 @@ export function DeskShell({
   // -- window status from inside (title, reading place, rail hosts, media) ------------------------
 
   const viewTimers = useRef(new Map<string, unknown>());
+  const shellTimers = useRef(new Set<unknown>());
+  // The shell's own timers (a pending view save, an entering fade) end with it; the store's flush does not.
+  useEffect(() => () => {
+    for (const handle of viewTimers.current.values()) timers.clear(handle);
+    viewTimers.current.clear();
+    for (const handle of shellTimers.current) timers.clear(handle);
+    shellTimers.current.clear();
+  }, [timers]);
   const statusFor = useMemo(() => new Map<string, (next: SourceStatus) => void>(), []);
   const onStatusFor = useCallback((windowId: string) => {
     let handler = statusFor.get(windowId);
@@ -1337,7 +1338,9 @@ export function DeskShell({
 
   // -- rendering ------------------------------------------------------------------------------------
 
-  const undoShown = undo && undo.deskId === deskId && undo.until > timers.now() ? undo : null;
+  // An undo offer holds only while the window is still closed (a close the server refused is no close).
+  const undoShown = undo && undo.deskId === deskId && undo.until > timers.now()
+    && (ws?.closed[undo.deskId] ?? []).some((entry) => entry.window.windowId === undo.windowId) ? undo : null;
   useEffect(() => {
     if (!undo) return;
     const handle = timers.set(() => setUndo(null), Math.max(0, undo.until - timers.now()));
@@ -1643,7 +1646,7 @@ export function DeskShell({
                                     event.stopPropagation();
                                     const title = titleOf(window);
                                     commit(closeWindow(wsRef.current, each.deskId, id));
-                                    setUndo({ deskId: each.deskId, title, until: timers.now() + UNDO_CLOSE_MS });
+                                    setUndo({ deskId: each.deskId, windowId: id, title, until: timers.now() + UNDO_CLOSE_MS });
                                   }}
                                 >
                                   ✕
@@ -1923,7 +1926,7 @@ function OpenBeside({
         ) : null}
         <div className="wkt">the library</div>
         <div className="wkr"><span /><button type="button" style={{ textAlign: "left" }} onClick={() => onOpen({ kind: "panel", panel: "library" })}>◇ ask across the library</button></div>
-        <div className="wkr"><span /><button type="button" style={{ textAlign: "left" }} onClick={() => onOpen({ kind: "compare", query: filter.trim() || undefined })}>⇄ compare{filter.trim() ? ` “${filter.trim()}”` : ""}</button></div>
+        <div className="wkr"><span /><button type="button" style={{ textAlign: "left" }} onClick={() => onOpen(filter.trim() ? { kind: "compare", query: filter.trim() } : { kind: "panel", panel: "library" })}>⇄ compare{filter.trim() ? ` “${filter.trim()}”` : ""}</button></div>
         <div className="wkt" style={{ marginTop: 8 }}>sources</div>
         {library === null ? <div className="desk-quiet">◐ reading the library…</div> : null}
         {sources.map((card) => (

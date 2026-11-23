@@ -44,7 +44,7 @@ describe("flushing", () => {
     expect(outbox.pending).toBe(0);
   });
 
-  it("a conflict drops the batches queued after it, continues the numbering, and asks for the server's state", async () => {
+  it("a conflict keeps the batches queued after it, for the store to rebase", async () => {
     const sent: number[] = [];
     const outbox = new DeskOutbox("me", {
       apply: async (input) => {
@@ -55,10 +55,28 @@ describe("flushing", () => {
     outbox.syncSeq({ serverSeq: [] });
     outbox.enqueue([op("a")]);
     outbox.enqueue([op("b")]);
-    expect((await outbox.flush()).kind).toBe("conflict");
+    const outcome = await outbox.flush();
+    expect(outcome.kind).toBe("conflict");
     expect(sent).toEqual([1]);
-    expect(outbox.pending).toBe(0);
-    expect(outbox.enqueue([op("c")])).toBe(2);
+    expect(outbox.queued().map((batch) => [batch.seq, batch.ops[0]])).toEqual([[2, op("b")]]);
+  });
+
+  it("a request refused for good is rejected, never retried, and the batches after it move up one", async () => {
+    const apply = vi.fn(async (input: DeskApplyInput) => {
+      if (input.ops[0] === bad) throw { code: "validation_error", message: "a compare reference names a comparison_id or a query" };
+      return reply(input.seq);
+    });
+    const bad = op("bad");
+    const outbox = new DeskOutbox("me", { apply });
+    outbox.syncSeq({ serverSeq: [] });
+    outbox.enqueue([bad]);
+    outbox.enqueue([op("b")]);
+    const outcome = await outbox.flush();
+    expect(outcome.kind).toBe("rejected");
+    // The server consumed no number for it: the next batch takes 1.
+    expect(outbox.queued().map((batch) => [batch.seq, batch.ops[0]])).toEqual([[1, op("b")]]);
+    expect((await outbox.flush()).kind).toBe("applied");
+    expect(apply.mock.calls.map(([input]) => [input.seq, input.ops[0]])).toEqual([[1, bad], [1, op("b")]]);
   });
 
   it("a refused batch number resynchronises", async () => {

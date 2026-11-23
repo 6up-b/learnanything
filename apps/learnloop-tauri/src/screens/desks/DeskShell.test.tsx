@@ -515,3 +515,50 @@ describe("the wheel", () => {
     expect(overviewOn()).toBe(false);
   });
 });
+
+// -- the RD1 fix round --------------------------------------------------------------------------------
+
+describe("fix round: saving", () => {
+  it("compare with nothing typed opens the library pane, never an invalid compare reference (finding 1)", async () => {
+    const { server } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByRole("button", { name: "+ open beside" }));
+    fireEvent.click(screen.getByRole("button", { name: /⇄ compare/ }));
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window");
+    expect(opened).toHaveLength(1);
+    const content = opened[0].op === "open_window" ? opened[0].content : undefined;
+    expect(content).toEqual({ kind: "panel", panel: "library" });
+  });
+
+  it("an undo offer for a close the server refused goes away (finding 11)", async () => {
+    const server = new FixtureDeskServer();
+    mount(server);
+    await screen.findByTestId("pane-fx_w_book");
+    // Another installation renames the desk first: our close is stale.
+    server.apply({ clientId: "other-device", seq: 1, ops: [{ op: "rename_desk", deskId: "fx_desk_softmax", title: "elsewhere", expectedVersion: 1 }] });
+    alt("KeyW", "w");
+    expect(screen.getByRole("button", { name: /undo close/ })).toBeTruthy();
+    await flush();
+    await flush();
+    expect(screen.getByTestId("pane-fx_w_book")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /undo close/ })).toBeNull();
+  });
+
+  it("leaving the desks before a change is sent and coming back keeps one numbering (finding 5)", async () => {
+    const server = new FixtureDeskServer();
+    const transport = transportFor(server);
+    const props = { vaultKey: "vault-remount", onError: vi.fn(), transport, renderPane: (input: PaneRenderInput) => <Pane input={input} />, initialViewport: { width: 1600, height: 960 }, mintId: mint };
+    const first = render(<DeskShell {...props} />);
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyL", "l");
+    first.unmount();
+    render(<DeskShell {...props} />);
+    await screen.findByTestId("pane-fx_w_book");
+    alt("BracketRight", "]");
+    await flush();
+    await flush();
+    expect(server.batches.map((batch) => batch.seq)).toEqual([1, 2]);
+    expect(new Set(server.batches.map((batch) => batch.clientId)).size).toBe(1);
+  });
+});
