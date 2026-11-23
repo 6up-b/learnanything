@@ -47,34 +47,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py) |
-| Source lines | 349 |
+| Source lines | 363 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CreatePad(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 39)
-- `class SetTitle(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 48)
-- `class Keep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 54)
-- `class Unkeep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 59)
-- `class InsertBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 64)
-- `class EditBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 76)
-- `class RemoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 85)
-- `class MoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 92)
-- `class LiftOut(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 100)
-- `class LinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 112)
-- `class UnlinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 123)
-- `class PadNotFound(LookupError)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 163)
-- `pad_view(repository: Any, pad_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 167) — ``pad.get``: the pad, its standing blocks in order (removed blocks left out) and their links.
-- `pad_list(repository: Any, *, desk_id: str | None=None, query: str | None=None, kept: bool | None=None, cursor: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 186) — ``pad.list``: pads most recently changed first, a page at a time, each with its first line.
-- `apply_pad_ops(repository: Any, *, client_id: str, seq: int, pad_id: str, ops: list[Any], clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 328) — ``pad.apply``: one batch on one pad, applied once and in order (``learnloop.desks.protocol``).
+- `class CreatePad(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 40)
+- `class SetTitle(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 49)
+- `class Keep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 55)
+- `class Unkeep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 60)
+- `class InsertBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 65)
+- `class EditBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 77)
+- `class RemoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 86)
+- `class MoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 93)
+- `class LiftOut(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 101)
+- `class LinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 113)
+- `class UnlinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 126)
+- `class PadNotFound(LookupError)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 166)
+- `pad_view(repository: Any, pad_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 170) — ``pad.get``: the pad, its standing blocks in order (removed blocks left out) and their links.
+- `pad_list(repository: Any, *, desk_id: str | None=None, query: str | None=None, kept: bool | None=None, cursor: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 189) — ``pad.list``: pads most recently changed first, a page at a time, each with its first line.
+- `apply_pad_ops(repository: Any, *, client_id: str, seq: int, pad_id: str, ops: list[Any], clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 342) — ``pad.apply``: one batch on one pad, applied once and in order (``learnloop.desks.protocol``).
 
 ### Module constants
 
-- `EDITABLE_KINDS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 30)
-- `PAGE_SIZE` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 32)
-- `PAD_OPS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 138)
+- `EDITABLE_KINDS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 31)
+- `PAGE_SIZE` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 33)
+- `PAD_OPS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 141)
 
 ### Explicit exports
 
@@ -91,13 +91,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Op(WireModel)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 35)
-- `_block_out(head: dict[str, Any], created: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 147)
-- `_pad_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 156)
-- `_version_id(connection: Any, minted: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 211)
-- `_current_head(connection: Any, pad_id: str, block_id: str, expected: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 219)
-- `_successor(head: dict[str, Any], version_id: str, client_id: str, now: str, **changes: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 230)
-- `_apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: str, heads: dict[str, str], versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/blocks.py), line 238)
+- `class _Op(WireModel)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 36)
+- `_block_out(head: dict[str, Any], created: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 150)
+- `_pad_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 159)
+- `_version_id(connection: Any, minted: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 214)
+- `_current_head(connection: Any, pad_id: str, block_id: str, expected: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 222)
+- `_successor(head: dict[str, Any], version_id: str, client_id: str, now: str, **changes: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 233)
+- `_apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: str, heads: dict[str, str], versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/blocks.py), line 241)
 
 ## Who imports or calls it
 
@@ -110,7 +110,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/db/stores/pads|learnloop.db.stores.pads]] — imports `module`; calls `first_versions`, `head`, `heads`, `insert_anchor_event`, `insert_pad`, `insert_version`, `list_pads`, `pad`, `standing_anchors_for_blocks`, `touch_pad`, `update_pad`, `version_exists`
+- [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `anchor_event_exists`, `first_versions`, `head`, `heads`, `latest_anchor_event`, `list_pads`, `pad`, `standing_anchors_for_blocks`, `version_exists`
+- [[Reference/Modules/learnloop/db/stores/pads|learnloop.db.stores.pads]] — imports `module`; calls `insert_anchor_event`, `insert_pad`, `insert_version`, `touch_pad`, `update_pad`
 - [[Reference/Modules/learnloop/db/stores/workspace_batches|learnloop.db.stores.workspace_batches]] — imports `PAD`
 - [[Reference/Modules/learnloop/desks/content_ref|learnloop.desks.content_ref]] — imports `WireModel`
 - [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] — imports `OpConflict`, `OpRefused`, `apply_batch`, `run_op`; calls `OpConflict`, `OpRefused`, `apply_batch`, `run_op`
@@ -136,6 +137,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — direct import
 - [tests/test_reader_rd0_protocol.py](../../../../../../tests/test_reader_rd0_protocol.py) — direct import
+  - `test_a_reused_client_id_is_a_refusal_and_the_outbox_moves_on`
+  - `test_an_anchor_change_names_the_anchor_head_it_expects`
+  - `test_an_anchor_op_without_its_expected_head_is_refused_by_the_params`
   - `test_blocks_chain_and_a_stale_edit_returns_the_current_head`
   - `test_pad_metadata_versions_and_keep`
   - `test_provenance_is_never_laundered`

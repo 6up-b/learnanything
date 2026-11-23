@@ -47,24 +47,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py) |
-| Source lines | 152 |
+| Source lines | 155 |
 | Owning package | [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `record_exchange_context(repository: Any, *, question_event_id: str, surface: str, desk_id: str | None=None, window_spec: Mapping[str, Any] | None=None, pad_block_ids: list[str] | None=None, goal_id: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/companion/history.py), line 34) — Record where one exchange was asked (origin ``live``); a second record of it is ignored.
-- `companion_history(repository: Any, *, date_from: str | None=None, date_to: str | None=None, desk_id: str | None=None, query: str | None=None, cursor: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/companion/history.py), line 83)
+- `record_exchange_context(repository: Any, *, question_event_id: str, surface: str, desk_id: str | None=None, window_spec: Mapping[str, Any] | None=None, pad_block_ids: list[str] | None=None, goal_id: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/companion/history.py), line 37) — Record where one exchange was asked (origin ``live``); a second record of it is ignored.
+- `companion_history(repository: Any, *, date_from: str | None=None, date_to: str | None=None, desk_id: str | None=None, query: str | None=None, cursor: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/companion/history.py), line 86)
 
 ### Module constants
 
-- `PAGE_SIZE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 24)
-- `LIVE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 25)
-- `BACKFILL` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 26)
-- `SURFACE_BY_CONTEXT` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 28)
-- `WHERE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 29)
-- `_SENTENCE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 31)
+- `PAGE_SIZE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 27)
+- `LIVE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 28)
+- `BACKFILL` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 29)
+- `SURFACE_BY_CONTEXT` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 31)
+- `WHERE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 32)
+- `_SENTENCE` ([src/learnloop/companion/history.py](../../../../../../src/learnloop/companion/history.py), line 34)
 
 ### Explicit exports
 
@@ -78,10 +78,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_first_sentence(text: str | None) -> str` ([source](../../../../../../src/learnloop/companion/history.py), line 48)
-- `_local_day(stamp: str) -> str` ([source](../../../../../../src/learnloop/companion/history.py), line 56)
-- `_day_start(day: str, *, days_after: int=0) -> str` ([source](../../../../../../src/learnloop/companion/history.py), line 61) — A local calendar day's first instant (or that of a day after it), in UTC, as stored stamps are.
-- `_anchors(connection: Any, ids: list[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/companion/history.py), line 68) — Each exchange's passage: its selection if it has one, else its first citation, else its context.
+- `_first_sentence(text: str | None) -> str` ([source](../../../../../../src/learnloop/companion/history.py), line 51)
+- `_local_day(stamp: str) -> str` ([source](../../../../../../src/learnloop/companion/history.py), line 59)
+- `_day_start(day: str, *, days_after: int=0) -> str` ([source](../../../../../../src/learnloop/companion/history.py), line 64) — A local calendar day's first instant (or that of a day after it), in UTC, as stored stamps are.
+- `_anchors(connection: Any, ids: list[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/companion/history.py), line 71) — Each exchange's passage: its selection if it has one, else its first citation, else its context.
 
 ## Who imports or calls it
 
@@ -95,12 +95,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/db/stores/span_projections|learnloop.db.stores.span_projections]] — imports `module`; calls `exchange_contexts`, `insert_exchange_context`, `rows_for`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/db/stores/span_projection_reads|learnloop.db.stores.span_projection_reads]] — imports `module`; calls `exchange_contexts`, `rows_for`
+- [[Reference/Modules/learnloop/db/stores/span_projections|learnloop.db.stores.span_projections]] — imports `module`; calls `insert_exchange_context`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `delivered_answer_md`; calls `delivered_answer_md`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `datetime`, `json`, `re`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `datetime`, `json`, `re`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

@@ -2589,6 +2589,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_time_range_reads_a_transcripts_cues_and_a_bad_range_is_refused`
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
+  - `test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once`
   - `test_the_umbrella_rebuild_runs_both_replayers`
 - [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`

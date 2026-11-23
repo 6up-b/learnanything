@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1327 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **671 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **74 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1329 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **671 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **74 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1306 | Live ownership after the refactor. |
+| `ACTIVE` | 1308 | Live ownership after the refactor. |
 | `COMPAT` | 2 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 18 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -60,7 +60,7 @@ tags:
 | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] | `domain` | `ACTIVE` | 42 | The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card. |
 | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] | `domain` | `ACTIVE` | 4 | What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them. |
 | [[Reference/Modules/learnloop/db/_package|learnloop.db]] | `infrastructure` | `ACTIVE` | 16 | SQLite connections, migrations, repository compatibility, table roles, rebuilds, and persistence infrastructure. |
-| [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 76 | Table-family persistence owners extracted from the repository facade. |
+| [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 78 | Table-family persistence owners extracted from the repository facade. |
 | [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] | `domain` | `ACTIVE` | 4 | The Reader workbench's desks: workspace persistence, the write protocol desks and scratchpads share (client sequence, expected heads, stored receipts) and the one content reference. Workflow data, never evidence. |
 | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 67 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] | `domain` | `ACTIVE` | 10 | The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault. |
@@ -168,6 +168,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 2005 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 2007 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

@@ -50,7 +50,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 
@@ -69,7 +69,7 @@ flowchart LR
     n_learnloop_desks["learnloop.desks"]
     n_learnloop["learnloop"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    center -->|2| n_learnloop_db_stores
+    center -->|3| n_learnloop_db_stores
     center -->|2| n_learnloop_desks
     center -->|1| n_learnloop
     n_learnloop_sidecar_handlers -->|1| center

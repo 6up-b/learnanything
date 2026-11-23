@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/desks.py](../../../../../../src/learnloop_sidecar/handlers/desks.py) |
-| Source lines | 52 |
+| Source lines | 58 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -60,7 +60,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `protocol_error(exc: ProtocolError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 24)
 - `class DeskApplyInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 28)
 - `desk_state_handler(ctx: SidecarContext, params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 35) — Every open desk with its slots (authoritative: a pair is two windows sharing a slot), the running pads, and each client's last applied batch.
-- `desk_apply_handler(ctx: SidecarContext, params: DeskApplyInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 44) — One batch of desk ops: ``{applied_seq, results: [ok | conflict{current} | refused{code}], versions}``.
+- `desk_apply_handler(ctx: SidecarContext, params: DeskApplyInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 50) — One batch of desk ops: ``{applied_seq, results: [ok | conflict{current} | refused{code}], versions}``.
 
 ### Module constants
 
@@ -85,7 +85,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] — imports `ProtocolError`
 - [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `DeskOp`, `apply_desk_ops`, `desk_state`; calls `apply_desk_ops`, `desk_state`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
-- [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `versioned`; calls `versioned`
+- [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `Verbatim`, `versioned`; calls `Verbatim`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 

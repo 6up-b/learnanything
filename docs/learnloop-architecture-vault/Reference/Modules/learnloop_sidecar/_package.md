@@ -100,13 +100,13 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 3 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 2 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 2 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge

@@ -50,8 +50,9 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 1 static module edge
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 
 ### Packages that import this package
@@ -65,12 +66,14 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.companion"]
-    n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop["learnloop"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop_tutor["learnloop.tutor"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    center -->|2| n_learnloop_db_stores
     center -->|1| n_learnloop
-    center -->|1| n_learnloop_db_stores
+    center -->|1| n_learnloop_db
     center -->|1| n_learnloop_tutor
     n_learnloop_sidecar_handlers -->|1| center
 ```

@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
   - "src/learnloop/companion/history.py"
+  - "src/learnloop/db/stores/span_projection_reads.py"
   - "src/learnloop/db/stores/span_projections.py"
 tags:
   - "learnloop/database/table"
@@ -44,7 +45,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
-- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`, `264_reader_workbench_guards.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -74,6 +75,7 @@ Indexes and uniqueness:
 Database triggers:
 
 - `companion_exchange_context_no_delete` — schema-enforced lifecycle or immutability constraint.
+- `companion_exchange_context_no_replace` — schema-enforced lifecycle or immutability constraint.
 - `companion_exchange_context_no_update` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
@@ -85,11 +87,12 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/companion/history.py`
+- `src/learnloop/db/stores/span_projection_reads.py`
 - `src/learnloop/db/stores/span_projections.py`
 
 ### Direct SQL writers
 
-None found by exact static reference scan.
+- `src/learnloop/db/stores/span_projections.py`
 
 ### Upstream callers of the repository access surface
 
@@ -101,6 +104,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/reader_rd0_migration_helpers.py`
+- `tests/test_reader_rd0_guards_migration.py`
 - `tests/test_reader_rd0_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

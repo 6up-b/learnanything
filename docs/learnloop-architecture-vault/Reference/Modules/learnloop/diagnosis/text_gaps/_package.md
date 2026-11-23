@@ -58,7 +58,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/actions#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates|learnloop.diagnosis.text_gaps.candidates]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/contract#^module-purpose|purpose]] | `ACTIVE` | 10 | 14 |
-| [[Reference/Modules/learnloop/diagnosis/text_gaps/figure_inputs|learnloop.diagnosis.text_gaps.figure_inputs]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/figure_inputs#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
+| [[Reference/Modules/learnloop/diagnosis/text_gaps/figure_inputs|learnloop.diagnosis.text_gaps.figure_inputs]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/figure_inputs#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs#^module-purpose|purpose]] | `ACTIVE` | 14 | 29 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/judges#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/kinds|learnloop.diagnosis.text_gaps.kinds]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/kinds#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
