@@ -38,12 +38,23 @@ Every params model is `extra="forbid"` (nested models too) and every reply `vers
 
 | Method | Input | Reply |
 |---|---|---|
-| `ink.save` | `{clientId, seq, owner: {blockId} \| {annotationId}, inkId, strokes: [{strokeId, points: [[x, y, t, pressure, tiltX, tiltY], ...]}], pointerMeta: {pointerType: pen\|mouse, devicePixelRatio?}}` | `{appliedSeq, inkId, results: [ok{duplicate} \| refused{code}]}` |
+| `ink.save` | `{clientId, seq, owner: {blockId} \| {annotationId} \| {extractionId}, inkId, strokes: [{strokeId, points: [[x, y, t, pressure, tiltX, tiltY], ...]}], pointerMeta: {pointerType: pen\|mouse, devicePixelRatio?}}` | `{appliedSeq, inkId, results: [ok{duplicate} \| refused{code}]}` |
 | `ink.list` | `{padId}` or `{sourceId}` | `{padId, sourceId, owners: [{ownerKind, ownerId, contentHash, devicePixelRatio, strokes: [{strokeId, inkId, points}], transcription: {transcriptionId, latexMd, confidenceLabel, contentHash, current, createdAt} \| null}]}` |
 | `ink.transcribe` | `{inkId}` | `{jobId, status, done, result, error}` at once |
 | `ink.transcribe_job` | `{jobId}` | the same, at once (never a wait) |
 | `ink.transcribe_cancel` | `{jobId}` | the same |
+| `ink.erase` | `{clientId, seq, owner: {annotationId} \| {extractionId}, eraseId, strokeIds}` | `{appliedSeq, eraseId, results: [ok{duplicate} \| refused{code}]}` |
 | `pad.apply` op `erase_ink` | `{op: "erase_ink", blockId, strokeIds, eraseId?}` | `ok{eraseId}` or `refused{code}` |
+
+**Ink on a source's page** (owner kind `source`, added to migration 267 before it landed anywhere; the owner id is the
+reading's extraction id): what the learner draws on a source that becomes no mark. `ink.save` takes it (the reading
+must exist: `reading_not_found`; the receipt filed under no pad, as an annotation's ink); `ink.list {sourceId}` returns
+it after the annotations' ink, one owner per reading of the source; `ink.erase` tombstones its strokes (also an
+annotation's; a block's ink stays `pad.apply`'s `erase_ink`: `erase_in_the_pad`), idempotent by `eraseId`. **It is the
+learner's marks, never learner text:** `ink.transcribe` refuses it (`not_read`), `ink_transcriptions`' `owner_kind`
+CHECK has no `source`, and nothing emits it (it is in no block); it becomes words only if the learner makes it a note.
+Pinned by `tests/test_reader_rd8a_transcribe.py::test_ink_on_a_page_is_never_read_nor_learner_text` and the migration's
+constraint test.
 
 **`ink.save` and the write protocol.** One save is one batch in the client's one sequence with `desk.apply` and
 `pad.apply` (spec §3.5: one outbox): a gap is `seq_gap`, a repeated `seq` returns the stored reply, the same `seq` with
@@ -315,9 +326,11 @@ Screenshots and measurements stay in the private reference directory.
 
 ### 10.3 Judgment calls
 
-1. **Plain ink on a source is not kept.** The backend's ink owners are a block or an annotation; a stroke the
-   recognizer cannot place has neither, and making an annotation for it would be the guess the brief forbids. Its chip
-   says "not kept". Options: a kind of annotation for free ink (a backend change), or a per-source scratch owner.
+1. **Plain ink on a source stays on the page** (as decided after part 2): a stroke the recognizer cannot place, or a
+   mark with no words or paragraph to attach to, is saved for the reading it was drawn on (owner kind `source`), its
+   chip reading "… · kept on the page · undo · ✕"; it is redrawn when the source reopens (only that reading's), and the
+   barrel erases it stroke by stroke (`ink.erase` in the write sequence; its undo erases all its strokes). It is never
+   read or emitted. It never becomes a mark: making an annotation for it would be a guess.
 2. **The bracket's and the note's anchors are whole passages** (`start 0, end 1_000_000`, as the Reader anchors a
    block); the note goes beside the passage it overlaps, else the nearest one.
 3. **Marks are drawn as boxes under the words** (the scroller isolated, the layer at z-index −1), not by wrapping the
@@ -380,11 +393,9 @@ read once you start the next"): the mockup's "LearnLoop marks only the gutter (�
 not built. (4) Rules are drawn per line, not as one paper background: lines grow with their strokes and readings, and a
 paper-wide rule would cross them.
 
-**Plain ink on a source (part 1's judgment call 1), stopped as instructed.** The mockup keeps what the learner draws on
-the page (its recognizer's last branch draws the ink and returns), and so do the desks for the session (the chip says
-it is not kept); the reference has no state that shows it. Keeping it needs a third owner kind, and `ink_strokes`'
-`owner_kind` CHECK (`'block', 'annotation'`) forbids one. Options: (a) amend migration 267 in place (it has landed
-nowhere: one CHECK value, `'source'`, owner id the reading's extraction id, and the fixture rebuilt), with `ink.save` and
-`ink.list {sourceId}` taking it; (b) a new migration rebuilding the table; (c) leave it as now.
+**Plain ink on a source (part 1's judgment call 1): done as option (a).** Migration 267 (landed nowhere) amended in
+place: `ink_strokes.owner_kind` admits `'source'`; the fixture rebuilt from the tracked 266 copy (its own commit, its
+README section updated). The backend (§2) and the frontend (§10.3 item 1) keep it, redraw it and erase it; it is never
+read or emitted.
 
 **What waits.** The help ladder and its ◇ marker (`#pen=ladder`, `#pen=rung2`), `#pen=veil`; the real tablet.
