@@ -252,3 +252,89 @@ still alive; the search fixture waits for the gap queue to drain before seeding 
 logs jobs still running after its bounded join. The combined set ran 10 times at `-n 2` and the two RD3a files 10
 times at `-n 1`, all clean.
 
+
+## Fix round (backend): the RD3 adversarial review (Codex Astra, 2026-11-23)
+
+Branch `reader/rd3-fix-backend` from main `c8ef04e6b3` (RD3b, RD4a and mvp-0.68 landed). The backend half of the one
+fix round: findings 1, 2, 8, 9, 10, 16, 18, 19 and the backend side of 7 and 13. Each has a fail-first test in
+`tests/test_reader_rd3_fix_backend.py` and a ledger row (`RD3-<finding>`; ids follow the review's numbers so the
+frontend half's rows join the table without a clash). No migration, no algorithm tag, no prompt change, no config key.
+
+| # | What was wrong | What changed |
+|---|---|---|
+| 1 (blocker) | Jobs and records lived per context: after a vault switch, vault A's job id answered in B, a repeated id consulted A's record, and `load()` never ended the epoch | Jobs and records keyed by `polled_jobs.vault_key(ctx)` (the open vault, resolved), checked on every poll, repeat and cancel; `SidecarContext.load` cancels the background epoch on a switch (before the old vault's map builds stop), so A's job sends nothing more and ends `interrupted`; `PolledJob.live()` is false from then on and gates its completion (below) |
+| 2 | An answer finishing after `close()`'s bounded joins restarted the post-attempt worker (the gap notification) and queued prefetch work | `reader.reader_ask_reply(live=...)`: with the job's epoch closed it queues the gap reading in the question's own vault without waking the context's worker (`learner_gaps.queue_tutor_question_gap(wake=False)`) and queues no prefetch. The exchange is kept. `reader.ask` passes nothing and is unchanged |
+| 8 | The context row was written after the whole generation: failed or cancelled-before-sending questions had no desk; a failed write was swallowed | `tutor_qa.ask_question(on_question_recorded=...)`, passed through `reader_dialogue.ask` and `reader.generate_reader_answer`: called with the question's id right after its row and passages are written, before the model call. The companion's writer records the context then (and notes `question_event_id`, so polls expose it at once). A failed write is retried at the job's end and on every later poll; the poll says `context_recorded` (null before a question exists, false while a write is pending). Two keyword parameters, defaulting to none: no prompt or behaviour change for any other caller |
+| 9 | Request-id records were evicted with results (1,024), so a resent old id asked again, even with other input | Every admitted client id is remembered for the sidecar's life in records apart from the kept results (its params, status, notes); a repeat of a dropped one reads `expired`, other input is `request_reused`. Full (10,000 per registry), new ids are refused (`request_ids_full`) rather than an old one forgotten. Search ids are the server's: that registry keeps records of recent jobs only (1,024), as before |
+| 10 | No bound on running jobs; finished results pruned only when another job started | At most four jobs run per registry (`jobs_busy`, retryable; a search's meaning pass reports itself unavailable with that reason instead); results beyond 64 are pruned as each job finishes |
+| 16 | A nested recorder (query embedding, rewrite) replaced the job's receipt observer | Every root receipt started on a job's thread carries `owning_job: "<kind>:<job_id>"` in its `budget_json` (`execution.annotate_calls`), whoever records it; the nested recorder still owns its row, so there is still one row per call |
+| 18 | A newer same-desk search superseded only when it started a job itself | `search.everything` supersedes the desk's running search before any return (a pads-only or too-short search included) |
+| 19 | The notes group's `more` was read from rows already cut to twelve | `more` from every match, then the cap |
+| 7 (backend) | Note results carried only `panel: notes` | A Reader note or highlight: `ref` its source, `target {note_key, annotation_id, span_id}`; a capture note: `ref` the notes panel, `target {note_key, capture_id}`; rows say `note_ref_kind`. `handlers/notes.search_vault_notes` returns `{hits, basis, meaning}` with each hit's reading and passage (read back through the notes' own module) |
+| 13 (backend) | An unrun notes meaning search came back as an empty success; one group's failure failed the job; the job's poll lost the groups with no meaning search | Each meaning group has `status` `ok`, `unavailable` (the retrieval's own reason: the query not embedded, the index unreadable, no note embedded yet) or `failed` (that group only), and `coverage` when partial; `notes.search`'s meaning mode adds `meaning {status, reason, covered, total}`; `search.job` carries `unavailable` |
+
+Also: the cancel gate counts the requests it admits, so the poll says `sent` (a cancel after a request went cannot
+unsend it; review 15's backend half), and `kept` now means the cancelled job's answer was recorded (the question id
+alone is known early since finding 8).
+
+**Contract changes for the frontend worker** (`apps/learnloop-tauri/src/api/dto.ts`; no `client.ts` call changed):
+
+1. `CompanionAskJobDto.sent?: boolean`: a model request of the job was sent; render "stopping" rather than "nothing
+   was sent" when true.
+2. `CompanionAskJobDto.contextRecorded?: boolean | null`: null before the question exists, false while a failed
+   context write is retried (each poll retries).
+3. `CompanionAskJobDto.questionEventId` is set as soon as the question is recorded (before the answer; also on a
+   failed or cancelled job). `kept` is true only when a cancelled job's answer was recorded.
+4. New `companion.ask` errors: `jobs_busy` (retryable; four asks already generating) and `request_ids_full`.
+5. `SearchRowBase.target` may hold `noteKey`, `annotationId` (with `spanId`) or `captureId`; a note row has
+   `noteRefKind` (`annotation` | `capture`); an annotation note's `ref` is its source (`kind: "source"`), a capture
+   note's the notes panel.
+6. `SearchGroupDto.status` adds `unavailable` and `failed` (meaning groups), each with `reason`; `coverage` may come
+   on the notes meaning group too.
+7. `SearchJobDto.unavailable?: {group, reason}[]`: the groups with no meaning search, on every poll; a stale job id
+   whose record says cancelled reads `cancelled`.
+8. A poll, repeat or cancel after a vault switch does not find the other vault's job (`job_not_found`).
+
+`sent`, `contextRecorded` and `unavailable` are optional in the types only so the frontend's fixtures still
+typecheck; the sidecar always sends them.
+
+**Fail-first.** Each fix was broken on purpose (one line, by the scratch script), its tests run, and the file
+restored from git (`git status` clean after each):
+
+| Broken | Tests | Result |
+|---|---|---|
+| `vault_key` returns "" (no vault scope) | `test_a_job_is_found_only_in_the_vault_it_was_started_in` | 1 failed (DID NOT RAISE `job_not_found`) |
+| no epoch cancel in `load` | `test_a_vault_switch_ends_the_jobs_epoch_before_its_request_is_sent` | 1 failed (the job finished, no error) |
+| `awake = True` (no live gate) | the stale-completion and after-close tests | 2 failed (`{'prefetch': 1, 'worker': 1}`) |
+| no `on_question_recorded` | the failed-answer and cancelled-before-sending tests | 2 failed (no context row) |
+| no retry on poll | `test_a_context_write_that_failed_is_retried_and_reported_until_it_lands` | 1 failed (`False is True`) |
+| records dropped with results | `test_a_request_id_is_remembered_after_its_result_is_dropped` | 1 failed (DID NOT RAISE `request_reused`) |
+| no running bound | `test_running_asks_are_bounded` | 1 failed (DID NOT RAISE `jobs_busy`) |
+| no prune on completion | `test_results_are_pruned_as_jobs_finish_not_only_when_the_next_starts` | 1 failed (`2 == 1`); its first version passed with the break (the next start pruned), so it was rewritten to run two jobs at once |
+| no `owning_job` annotation | `test_a_receipt_a_nested_recorder_owns_still_names_the_job` | 1 failed (no `budget_json`) |
+| no supersede before the returns | `test_every_newer_search_from_the_desk_supersedes_the_running_one` (2 cases) | 2 failed (the old job `done` with groups) |
+| `more` after the cap | `test_more_notes_than_the_group_shows_says_there_are_more` | 1 failed (`False is True`) |
+| every note row `panel: notes` | `test_a_reader_note_opens_at_its_passage_and_a_capture_note_names_itself` | 1 failed |
+| no unavailable branch (notes) | `test_an_unrun_search_by_meaning_is_said_per_group_never_shown_as_nothing_found` | 1 failed (`KeyError: 'reason'`) |
+| no per-group catch | `test_a_group_whose_search_by_meaning_fails_says_so_and_the_other_group_still_answers` | 1 failed (the whole job `failed`) |
+
+**Commands and results** (after merging main `ba7884c102`; each pytest run `-n 1 -m "not arc_close"` through the
+scratch wrapper in a 3G `systemd-run` scope, one at a time):
+
+| Command | Result |
+|---|---|
+| `tests/test_reader_rd3_fix_backend.py` | 18 passed |
+| the three RD3 files (`test_reader_rd3a_companion_ask.py`, `test_reader_rd3a_search.py`, `test_reader_rd3_fix_backend.py`) five times | 42 passed in each run |
+| `scripts/affected_tests.py --files <the 10 changed src files>` | 984 files (more than 150) |
+| the 266 of them whose names match `reader|ask|tutor|companion|search|notes|rd0|rd3|rd4|desk|text_gap|learner_gap|gaps|sidecar|context|close|switch|library|mobile|phone|prefetch|plan_first|one_ai_ok|question|model_call|receipt|load|vault_open|rw1|rw4|ca2|ca3|ca6|learner_blindness|protection_surface|explorable`, in seven chunks of at most 40 | 4,425 passed, 9 skipped, 1 xfailed, 1 error: the teardown error of `test_mobile_v3_carried.py::test_keep_going_on_a_finished_plan_commits_its_override_with_the_extension` (a post-attempt worker thread past its grace while the machine logged `database is locked`), which is ledger row L2-1, open before this round; the file alone, three runs: 5 passed each |
+| identity pins, structure ratchets, RD0 fences, effective defaults, CLI snapshot, kill switches, sqlite copies, mobile allowlist, desktop RPC contract, notes-never-read, public tip guards | 790 passed |
+| `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
+| `uv run ruff check` / `uv run lint-imports --no-cache` | All checks passed! / Contracts: 52 kept, 0 broken. |
+| `uv run python scripts/check_gate_partition.py` | collected 33452: landing 33386 + arc_close 66 |
+| `db_validate_reference.py` | exit 1: 14 config notes cite line numbers in `context.py` and `reader_dialogue.py` that this round's inserted lines moved ("cites unrelated source line"); the landing's regeneration of the vault references rewrites them (the brief leaves that to the landing). No database note is affected (no migration) |
+| `npx tsc --noEmit` (`npm run typecheck`) / `npx vitest run --maxWorkers=2 src/api` | exit 0 / 4 files, 57 tests passed |
+
+No identity pin, effective default, CLI snapshot or kill switch moved; the structure ratchets hold
+(`handlers/reader.py` stays at 3026 lines).
+
+**After the landing gate (regression RD3-1a).** The gate failed `tests/test_hint_service.py::test_a_job_of_another_vault_is_never_delivered_after_a_switch`: finding 1's fix ended the whole background epoch on a vault switch, so a hint job of the old vault whose writer call was in flight lost its next call and recorded no assist in its own vault. The switch now interrupts only the old vault's polled jobs (`polled_jobs.interrupt_vault`, through the registries the context knows, `polled_registries`): each sends no further request, ends `interrupted` and wakes nothing, while every other background job keeps its own vault guard and records an in-flight call as before; a close still ends the epoch. With `context.py` at `860851e73a` the hint test fails (1 failed); without the new call RD3-1's two switch tests fail (2 failed). Run after the change: `test_hint_service.py` with the three RD3 files (73 passed, 1 skipped), and the 70 test files that name background jobs, epochs, a vault switch or load a context twice (two chunks: 927 passed, 15 skipped, 1 xfailed; 986 passed, 11 skipped).

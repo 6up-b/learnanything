@@ -608,9 +608,13 @@ def ask(
     reader_binding: Any | None = None,
     learner_state: Any | None = None,
     context_withheld: Any | None = None,
+    on_question_recorded: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``on_question_recorded`` (``tutor_qa.ask_question``'s) is called with the question's id once the
+    question is recorded, before its answer is asked for.
 
     ``context_withheld`` (K6-4: a ``content.sources.exam_material.Material``
     the adapter derives for its destination, the phone's exam material) joins
@@ -802,6 +806,7 @@ def ask(
         reader_binding=reader_binding,
         **({"reader_learner_state": learner_state} if learner_state is not None else {}),
         **({"reader_withheld": context_withheld} if context_withheld is not None else {}),
+        **({"on_question_recorded": on_question_recorded} if on_question_recorded is not None else {}),
         clock=clock,
     )
     if source_span_provider is not None or "reader_tutor" in result or reader_binding is not None:

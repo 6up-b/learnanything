@@ -207,7 +207,14 @@ class SidecarContext:
         self.secondary = False
         self.content_fingerprint = None
         if self.vault_root is not None and target != self.vault_root:
-            # A switch: the previous vault's map builds stop before anything of the new one opens.
+            # A switch interrupts the previous vault's polled jobs first (the companion's asks, searches by
+            # meaning): each sends no further request, ends interrupted, and its completion never touches the
+            # new vault's context. Other background jobs keep their own vault guards: a hint whose writer call
+            # is in flight still records it in its own vault.
+            from learnloop_sidecar.polled_jobs import interrupt_vault
+
+            interrupt_vault(self, self.vault_root)
+            # The previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
             # followups-nov1c B: the previous vault's fold memo and its watcher go too.
             forget_fold_memo()

@@ -766,6 +766,7 @@ def ask_question(
     worked_help_check: Callable[[str, Any], Sequence[str]] | None = None,
     reader_learner_state: Any = None,
     reader_withheld: Any = None,
+    on_question_recorded: Callable[[str], None] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -1142,6 +1143,10 @@ def ask_question(
             {**question_row, "source_context": source_context}, clock=clock,
         )
         write_through_question_events(repository, vault, [event_id])
+        if on_question_recorded is not None:
+            # The question exists before its answer is asked for, so a caller recording where it was asked
+            # (the workbench companion) does it now, and a failed or cancelled answer keeps it too.
+            on_question_recorded(str(event_id))
     else:
         # Reader CA2 (K5): the attempt key lands with the question, so the
         # thread and *earlier on this question* read it even when the answer
@@ -1151,6 +1156,10 @@ def ask_question(
             {**question_row, "source_context": source_context}, clock=clock,
         )
         write_through_question_events(repository, vault, [event_id])
+        if on_question_recorded is not None:
+            # The question exists before its answer is asked for, so a caller recording where it was asked
+            # (the workbench companion) does it now, and a failed or cancelled answer keeps it too.
+            on_question_recorded(str(event_id))
         try:
             if source_span_provider is not None:
                 provided_spans, retrieval_manifest = _provided_source_spans(

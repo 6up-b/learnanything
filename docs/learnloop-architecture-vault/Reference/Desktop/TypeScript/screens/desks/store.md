@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/store.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/store.ts) |
-| Source lines | 310 |
+| Source lines | 333 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type DeskNotice = |` — type, line 25
 - `export const FLUSH_IDLE_MS = 250` — const, line 32
 - `export class DeskStore` — class, line 40
-- `export function deskStoreFor(vaultKey: string, transport: DeskStoreTransport, timers: Timers, clientId: ()` — function, line 298
+- `export function deskStoreFor(vaultKey: string, transport: DeskStoreTransport, timers: Timers, clientId: ()` — function, line 321
 
 ## Internal implementation anchors
 
@@ -68,29 +68,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const state = this.pads[padId]` — const, line 112
 - `const blocks = state.blocks.map((block)` — const, line 114
 - `let pads = this.pads` — let, line 121
-- `const run = this.flushChain.then(()` — const, line 190
-- `const outcome = await this.outbox.flush()` — const, line 197
-- `const pad = outcome.batch.pad` — const, line 201
-- `const carried = pad ? pad.ops.filter((_op, index)` — const, line 202
-- `const dropped = outcome.reply.results.filter((result)` — const, line 203
-- `let state: DeskStateDto` — let, line 222
-- `const queued: BatchBody[] = [...(first ? [first] : []), ...this.outbox.queued()]` — const, line 230
-- `const head = state.serverSeq.find((entry)` — const, line 231
-- `let ws: Workspace =` — let, line 232
-- `const still = entries.filter((entry)` — const, line 234
-- `let pads: Pads =` — let, line 238
-- `const padIds = [...new Set([...Object.keys(this.pads), ...queued.flatMap((batch)` — const, line 239
-- `const reads = await Promise.all(padIds.map((padId)` — const, line 241
-- `const now = new Date().toISOString()` — const, line 246
-- `let lost = 0` — let, line 247
-- `const rebased: BatchBody[] = []` — const, line 248
-- `const padOps: PadOpDto[] = []` — const, line 251
-- `const next = restampPadOp(pads, batch.pad.padId, op, now)` — const, line 254
-- `const ops: DeskOpDto[] = []` — const, line 265
-- `const next = restampOp(ws, op)` — const, line 268
-- `const STORES = new WeakMap<object, Map<string, DeskStore>>()` — const, line 295
-- `let byVault = STORES.get(transport)` — let, line 299
-- `let store = byVault.get(vaultKey)` — let, line 304
+- `const run = this.flushChain.then(()` — const, line 194
+- `const kind = await this.flushReporting()` — const, line 210
+- `const outcome = await this.outbox.flush()` — const, line 219
+- `const pad = outcome.batch.pad` — const, line 223
+- `const carried = pad ? pad.ops.filter((_op, index)` — const, line 224
+- `const dropped = outcome.reply.results.filter((result)` — const, line 225
+- `let state: DeskStateDto` — let, line 245
+- `const queued: BatchBody[] = [...(first ? [first] : []), ...this.outbox.queued()]` — const, line 253
+- `const head = state.serverSeq.find((entry)` — const, line 254
+- `let ws: Workspace =` — let, line 255
+- `const still = entries.filter((entry)` — const, line 257
+- `let pads: Pads =` — let, line 261
+- `const padIds = [...new Set([...Object.keys(this.pads), ...queued.flatMap((batch)` — const, line 262
+- `const reads = await Promise.all(padIds.map((padId)` — const, line 264
+- `const now = new Date().toISOString()` — const, line 269
+- `let lost = 0` — let, line 270
+- `const rebased: BatchBody[] = []` — const, line 271
+- `const padOps: PadOpDto[] = []` — const, line 274
+- `const next = restampPadOp(pads, batch.pad.padId, op, now)` — const, line 277
+- `const ops: DeskOpDto[] = []` — const, line 288
+- `const next = restampOp(ws, op)` — const, line 291
+- `const STORES = new WeakMap<object, Map<string, DeskStore>>()` — const, line 318
+- `let byVault = STORES.get(transport)` — let, line 322
+- `let store = byVault.get(vaultKey)` — let, line 327
 
 ## Who imports or calls it
 
@@ -108,7 +109,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskOpDto`, `DeskStateDto`, `PadBlockSubmissionDto`, `PadOpDto`, `PadViewDto`
 - [[Reference/Desktop/TypeScript/screens/desks/keys/router|src/screens/desks/keys/router.ts]] — import-or-re-export; imports `Timers`
 - [[Reference/Desktop/TypeScript/screens/desks/model/workspace|src/screens/desks/model/workspace.ts]] — import-or-re-export; imports `EMPTY_WORKSPACE`, `OpRefusal`, `Step`, `Workspace`, `fromDeskState`, `restampOp`
-- [[Reference/Desktop/TypeScript/screens/desks/outbox|src/screens/desks/outbox.ts]] — import-or-re-export; imports `BatchBody`, `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`
+- [[Reference/Desktop/TypeScript/screens/desks/outbox|src/screens/desks/outbox.ts]] — import-or-re-export; imports `BatchBody`, `DeskOutbox`, `FlushOutcome`, `MemoryOutboxStore`, `OutboxTransport`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export; imports `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`
 
 ### Assets, platform, and third-party dependencies

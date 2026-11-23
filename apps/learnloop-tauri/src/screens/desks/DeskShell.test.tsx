@@ -1297,10 +1297,12 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     fireEvent.change(input, { target: { value: "why does it cancel?" } });
     fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     expect(panel()?.textContent).toContain("why does it cancel?");
-    expect(panel()?.querySelector('[data-exchange-status="asking"]')).not.toBeNull();
+    // Shown at once, waiting while the desk's writes are acknowledged (none are queued here), then asking.
+    expect(panel()?.querySelector('[data-exchange-status="waiting"]')).not.toBeNull();
     await act(async () => {
-      await Promise.resolve();
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
     });
+    expect(panel()?.querySelector('[data-exchange-status="asking"]')).not.toBeNull();
     expect(transport.companionAsk).toHaveBeenCalledWith(expect.objectContaining({ surface: "desk", deskId: "fx_desk_softmax", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", question: "why does it cancel?", selectionQuote: "the first passage of fx_w_book" }));
     await act(async () => {
       await poller.tick();
@@ -1315,6 +1317,112 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     await flush();
     // The cited passage's source is the book, already on the desk: it takes the focus (no second window).
     expect(server.state().desks[0].focusWindowId).toBe("fx_w_book");
+  });
+
+  it("a question waits until the desk writes it depends on are acknowledged, shown as waiting, and is asked after them", async () => {
+    const { transport, answer: _answer, server } = mountCompanion();
+    const order: string[] = [];
+    const deskApply = server.apply.bind(server);
+    server.apply = (input) => {
+      order.push(`apply:${input.ops.map((op) => op.op).join(",")}`);
+      return deskApply(input);
+    };
+    transport.companionAsk.mockImplementation(async (input: { requestId: string }) => {
+      order.push("ask");
+      return { version: 1, requestId: input.requestId, status: "queued", done: false, partialMd: "", citations: [], streamedPieces: 0, questionEventId: null, kept: false, answer: null, error: null };
+    });
+    await screen.findByTestId("pane-fx_w_book");
+    // The focus moves (a desk write, queued for the idle flush) and the learner asks at once.
+    alt("KeyL", "l");
+    alt("KeyH", "h");
+    selectIn("fx_w_book", 1);
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "right away?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(panel()?.querySelector('[data-exchange-status="waiting"]')).not.toBeNull();
+    expect(order).toEqual([]);
+    await act(async () => {
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(order.length).toBeGreaterThan(1);
+    expect(order[order.length - 1]).toBe("ask");
+    expect(order.slice(0, -1).every((entry) => entry.startsWith("apply:"))).toBe(true);
+  });
+
+  it("a history anchor whose book is on no desk opens it beside, its source read from the passage's reading", async () => {
+    const server = new FixtureDeskServer();
+    const resolved: string[] = [];
+    const { transport } = mountCompanion({
+      transport: { ...transportFor(server), sourceOfExtraction: async (extractionId: string) => {
+        resolved.push(extractionId);
+        return "fx_src_elsewhere";
+      } },
+    });
+    transport.companionHistory.mockResolvedValue({ version: 1, cursor: null, days: [{ date: "2026-11-20", desks: [{ deskId: null, exchanges: [{
+      questionEventId: "q9", questionMd: "an old question", answerFirstSentence: "", answerStatus: "answered", context: "reader", surface: "reader", where: "in the Reader",
+      origin: "live", goalId: null, padBlockIds: [], anchor: { extractionId: "fx_ext_elsewhere", spanId: "fx_ext_elsewhere_s2", quality: "exact_selection" }, createdAt: "2026-11-20T10:00:00Z" }] }] }] } as never);
+    await screen.findByTestId("pane-fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    fireEvent.click(screen.getByRole("tab", { name: "history" }));
+    await flush();
+    fireEvent.click(await screen.findByRole("button", { name: "§ the passage ↗" }));
+    await flush();
+    await flush();
+    expect(resolved).toEqual(["fx_ext_elsewhere"]);
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "source", sourceId: "fx_src_elsewhere", extractionId: "fx_ext_elsewhere" });
+  });
+
+  it("a question whose window closes is read no more; nor is any once the shell detaches", async () => {
+    const { poller, reads, view } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "a question" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await flush();
+    await act(async () => {
+      await poller.tick();
+    });
+    const before = reads.length;
+    expect(before).toBeGreaterThan(0);
+    // Close the window it was asked from (alt+w closes the focus).
+    alt("KeyW", "w");
+    await flush();
+    expect(screen.queryByTestId("pane-fx_w_book")).toBeNull();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads.length).toBe(before);
+    view.unmount();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads.length).toBe(before);
+    expect(poller.size).toBe(0);
+  });
+
+  it("detached, the shell's threads stop polling; mounted again, they are followed again", async () => {
+    const { poller, reads, view } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "still there?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await flush();
+    expect(poller.size).toBe(1);
+    view.unmount();
+    expect(poller.size).toBe(0);
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads).toHaveLength(0);
   });
 
   it("a question from a window whose desk is left is not read until the learner comes back (paused windows ask nothing)", async () => {
@@ -1416,6 +1524,50 @@ describe("RD3b: search in context (spec §9.3)", () => {
     await flush();
     const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
     expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId });
+  });
+
+  it("a note result opens its note by its identity: a Reader note at its passage in its book, an inbox note said where it lives", async () => {
+    const { server, transport } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    const noteRows = [
+      { ref: { kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId, extractionId: FIXTURE_SOURCES.video2.extractionId }, target: { spanId: "fx_v2_c3", noteKey: "annotation:an7", annotationId: "an7" },
+        noteKind: "note", noteKey: "annotation:an7", noteRefKind: "annotation", title: "masks", heading: null, snippet: "masks hide the future", capturedOn: null, byMeaning: false },
+      { ref: { kind: "panel", panel: "notes" }, target: { noteKey: "capture:cap3", captureId: "cap3" },
+        noteKind: "note", noteKey: "capture:cap3", noteRefKind: "capture", title: "masks, again", heading: null, snippet: "ask about causal masks", capturedOn: "2026-11-20", byMeaning: false },
+    ];
+    for (const index of [0, 1]) {
+      transport.searchEverything.mockResolvedValueOnce({
+        version: 1, query: "masks",
+        groups: [{ group: "notes", label: "your notes", basis: "words", status: "ok", more: false, rows: [noteRows[index]] }],
+        meaning: { status: "unavailable", jobId: null, unavailable: [] },
+      } as never);
+    }
+    const search = async (title: string) => {
+      press("/", "Slash");
+      const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+      fireEvent.change(input, { target: { value: "masks" } });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+        await Promise.resolve();
+      });
+      // The note's row (the window opened by the first search is in "open on this desk" above it).
+      const row = [...document.querySelectorAll<HTMLElement>("[data-search-row]")].find((each) => each.textContent?.includes(title));
+      fireEvent.click(row as HTMLElement);
+      await flush();
+    };
+    await search("masks hide");
+    const opened = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window");
+    expect(opened).toHaveLength(1);
+    expect(opened[0].op === "open_window" ? [opened[0].content, opened[0].view] : null).toMatchObject([
+      { kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId }, { spanId: "fx_v2_c3", noteKey: "annotation:an7", annotationId: "an7" },
+    ]);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    await search("ask about causal masks");
+    // No desk window shows an inbox note: nothing opens (no unbound Notes panel), and it says where the note is.
+    expect(server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window")).toHaveLength(1);
+    expect(document.querySelector(".desk-toast")?.textContent).toMatch(/inbox note/);
   });
 
   it("esc closes it", async () => {

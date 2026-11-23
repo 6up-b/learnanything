@@ -99,11 +99,11 @@ import { keyAfter } from "./pads/model";
 import { PadsHostContext, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
-import { CompanionAsks, companionAsksFor, type CompanionApi, type CompanionExchange } from "./companion/asks";
+import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
 import type { SearchRow } from "./search/model";
-import { readWindowSelection, type WindowSelection } from "./selection";
+import { clipQuote, readWindowSelection, type WindowSelection } from "./selection";
 import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import "../../styles/desk.css";
@@ -123,6 +123,8 @@ export interface DeskTransport extends OutboxTransport {
   library(): Promise<SourceLibraryCard[]>;
   /** A source's current reading, which a window names (its content reference carries both). */
   resolveExtraction(sourceId: string): Promise<string>;
+  /** The source a reading belongs to (a passage named by its reading alone: a history anchor, a citation). */
+  sourceOfExtraction?(extractionId: string): Promise<string>;
 }
 
 export const LIVE_DESK_TRANSPORT: DeskTransport = {
@@ -134,6 +136,8 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
   // The Reader's own cached read: the window that opens next reads it from the cache.
   resolveExtraction: async (sourceId) => (await cachedSourceRead(sourceId, ["reader_render_view", sourceId], () =>
     api.readerRenderView({ extractionId: sourceId }))).extractionId,
+  // The same read by the reading's id: its render names the source.
+  sourceOfExtraction: async (extractionId) => (await api.readerRenderView({ extractionId })).sourceId,
 };
 
 /** The companion's hand-off waits this long after an anchored summon before a scroll counts (spec §8.3). */
@@ -213,7 +217,7 @@ export const LIVE_PADS_TRANSPORT: PadsTransport = {
 
 /** The companion's and search's calls (spec §3.4; RD3a's jobs). */
 export interface CompanionTransport extends CompanionApi, SearchApi {
-  companionHistory(input: { query?: string; deskId?: string }): Promise<CompanionHistoryDto>;
+  companionHistory(input: { query?: string; deskId?: string; cursor?: string }): Promise<CompanionHistoryDto>;
 }
 
 export const LIVE_COMPANION_TRANSPORT: CompanionTransport = {
@@ -621,9 +625,17 @@ export function DeskShell({
   lifecyclesRef.current = lifecycles;
   const focusIdRef = useRef(focusId);
   focusIdRef.current = focusId;
+  // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
+  // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
+  const knownOwners = useRef(new Set<string>());
   useEffect(() => {
     for (const [id, lifecycle] of Object.entries(lifecycles)) poller.setOwnerPaused(id, isPaused(lifecycle.state));
-  }, [lifecycles]);
+    for (const id of knownOwners.current) if (!(id in lifecycles)) poller.setOwnerPaused(id, true);
+    for (const id of Object.keys(lifecycles)) knownOwners.current.add(id);
+  }, [lifecycles, poller]);
+  useEffect(() => () => {
+    for (const id of knownOwners.current) poller.setOwnerPaused(id, true);
+  }, [poller]);
 
   // -- actions -------------------------------------------------------------------------------------
 
@@ -1214,7 +1226,9 @@ export function DeskShell({
       const open = claimed.current.get(focusIdRef.current ?? "");
       const has = (scope: ClaimedScope) => (open?.get(scope)?.size ?? 0) > 0;
       const resolution = resolveKey(event, {
-        typing: isTypingTarget(event.target) || has("typing"),
+        typing: isTypingTarget(event.target),
+        // A claim with the focus on the page (the Reader's intent box): the selection's shortcuts still pass.
+        typingClaim: has("typing"),
         // Search in context or the drain is open: its keys are its own (as an open menu owns them).
         menu: has("menu") || searchOpenRef.current || drainingRef.current,
         check: has("check"),
@@ -1609,6 +1623,17 @@ export function DeskShell({
     [vaultKey, companionTransport, poller, mintId],
   );
   useSyncExternalStore(asks.subscribe, asks.getVersion);
+  // The threads are followed while this shell shows them; another vault's store is gone for good.
+  useEffect(() => {
+    asks.resume();
+    return () => asks.suspend();
+  }, [asks]);
+  const shownVault = useRef<{ vaultKey: string; transport: object } | null>(null);
+  useEffect(() => {
+    const before = shownVault.current;
+    if (before && (before.vaultKey !== vaultKey || before.transport !== companionTransport)) forgetCompanionAsks(before.vaultKey, before.transport);
+    shownVault.current = { vaultKey, transport: companionTransport };
+  }, [vaultKey, companionTransport]);
   const statusRef = useRef(status);
   statusRef.current = status;
   const companionStateRef = useRef(companionState);
@@ -1657,7 +1682,7 @@ export function DeskShell({
       const id = focusIdRef.current;
       const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null;
       if (selected) {
-        setChip({ quote: selected.quote.slice(0, 400), spanIds: selected.spanIds, windowId: selected.windowId });
+        setChip({ quote: clipQuote(selected.quote, 400), spanIds: selected.spanIds, windowId: selected.windowId });
         anchor = selected.bounds;
       } else if (lastPointer.current) {
         anchor = { x: lastPointer.current.x, y: lastPointer.current.y, w: 1, h: 1 };
@@ -1757,11 +1782,12 @@ export function DeskShell({
       spanId,
       selectionSpanIds: selected?.spanIds,
       quote: selected?.quote ?? null,
-    });
+    // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
+    }, store.settled());
     setChip(null);
-  }, [asks, toastNow]);
+  }, [asks, store, toastNow]);
 
-  const loadHistory = useCallback((query: string) => companionTransport.companionHistory(query ? { query } : {}), [companionTransport]);
+  const loadHistory = useCallback((query: string, cursor?: string) => companionTransport.companionHistory({ ...(query ? { query } : {}), ...(cursor ? { cursor } : {}) }), [companionTransport]);
 
   const deskTitle = useCallback((id: string | null) => (id ? deskById(wsRef.current, id)?.title ?? "an archived desk" : "no desk"), []);
 
@@ -1777,14 +1803,25 @@ export function DeskShell({
         break;
       }
     }
-    if (!sourceId) {
+    const open = (found: string, known: "source" | "video") => {
+      const card = library?.find((entry) => entry.sourceId === found);
+      const shown = card && isVideoCard(card) ? "video" : known;
+      openContent({ kind: shown, sourceId: found, extractionId: citation.extractionId } as ContentRefDto, { spanId: citation.spanId });
+    };
+    if (sourceId) {
+      open(sourceId, kind);
+      return;
+    }
+    // Its book is on no desk: the reading names its source (a backend read), and it opens beside.
+    if (!transport.sourceOfExtraction) {
       toastNow("that passage's source isn't on a desk · find it with /");
       return;
     }
-    const card = library?.find((entry) => entry.sourceId === sourceId);
-    if (card && isVideoCard(card)) kind = "video";
-    openContent({ kind, sourceId, extractionId: citation.extractionId } as ContentRefDto, { spanId: citation.spanId });
-  }, [library, openContent, toastNow]);
+    void transport.sourceOfExtraction(citation.extractionId).then(
+      (found) => open(found, "source"),
+      () => toastNow("couldn't find that passage's source · find it with /"),
+    );
+  }, [library, openContent, toastNow, transport]);
 
   const openThread = useCallback((exchange: CompanionExchange) => {
     const root = exchange.answer?.readerAnswerEventId || exchange.answer?.eventId;
@@ -1803,6 +1840,19 @@ export function DeskShell({
     const ref = row.ref;
     if (!ref) {
       toastNow("this result has nothing to open yet");
+      return;
+    }
+    // A note opens by its identity: a Reader note or highlight in its book at its passage (the window's view
+    // names the note); an inbox note has no desk window yet, so it is said where it lives, not opened as an
+    // unbound Notes panel.
+    const note = row.raw as { noteKind?: string; noteRefKind?: string | null; snippet?: string; title?: string };
+    if (note.noteKind === "note") {
+      const target = row.target ?? {};
+      if (note.noteRefKind === "capture" || ref.kind === "panel") {
+        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note · it opens from Today's inbox`);
+        return;
+      }
+      openContent(ref, { spanId: target.spanId ?? null, view: { ...(target.noteKey ? { noteKey: target.noteKey } : {}), ...(target.annotationId ? { annotationId: target.annotationId } : {}) } });
       return;
     }
     if (ref.kind === "thread") {
@@ -1884,7 +1934,7 @@ export function DeskShell({
     openPassage,
     openSearch: (query, insert) => setSearch({ query, insert: insert ?? null }),
     askAbout: (quote) => {
-      setChip({ quote: quote.slice(0, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
+      setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
       stepCompanion({ kind: "dock" });
     },
     showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null) => {

@@ -247,3 +247,36 @@ describe("pads in the store (RD4b)", () => {
   });
 });
 
+
+describe("an ask waits for the desk writes it depends on (RD3 review)", () => {
+  it("settled() sends what is queued at once and resolves saved only once the server has it", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    const store = new DeskStore("me", transportOver(server), timers);
+    await store.load();
+    store.commit(renameDesk(store.ws, "fx_desk_attention", "renamed"));
+    expect(server.batches).toHaveLength(0);
+    // No timer fires: the ask does not wait for the idle flush.
+    const settled = await store.settled();
+    expect(settled).toBe("saved");
+    expect(server.batches).toHaveLength(1);
+  });
+
+  it("settled() with nothing queued is saved at once; a write that cannot be sent is unsaved", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let offline = false;
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => {
+        if (offline) throw { code: "sidecar_unavailable", message: "LearnLoop is not running." };
+        return server.apply(input);
+      },
+    }, timers);
+    await store.load();
+    expect(await store.settled()).toBe("saved");
+    offline = true;
+    store.commit(renameDesk(store.ws, "fx_desk_attention", "renamed"));
+    expect(await store.settled()).toBe("unsaved");
+  });
+});

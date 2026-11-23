@@ -141,6 +141,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v2_a_trigger_that_names_no_provenance_never_retries`
   - `test_v2_an_offer_from_the_learners_own_question_carries_learner_activity`
 - [tests/test_followups_batch7_prefetch_link_served.py](../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
+- [tests/test_reader_rd3_fix_backend.py](../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
 
 ## Modification guidance
 
