@@ -581,6 +581,16 @@ source_modules = [
     "learnloop.teacher.brief",
     "learnloop.teacher.guards",
     "learnloop.teacher.delayed",
+    # Reader workbench v2 fence 6 (spec 3.3): a scratchpad is not a note. A pad is the learner's text
+    # emitted (read for gaps as pad_text, and submitted only by an explicit act), while a note stays
+    # never a source, a generation input or evidence; so the desks and the pads never reach the notes'
+    # code either, and a margin note stays a note. The span projection places a linked note's gap on the
+    # passage the learner linked it to, by SQL and for display only (tests/test_notes_never_read.py names
+    # the file); the union read gets the linked notes from the sidecar, which reads the notes' code.
+    "learnloop.desks",
+    "learnloop.pads",
+    "learnloop.passage_union",
+    "learnloop.companion",
 ]
 forbidden_modules = [
     "learnloop.source_retrieval.note_links",
@@ -666,6 +676,10 @@ source_modules = [
     "learnloop.bootstrap",
     "learnloop.capture",
     "learnloop.causal_activity_policy",
+    "learnloop.companion",
+    "learnloop.desks",
+    "learnloop.pads",
+    "learnloop.passage_union",
     "learnloop.reading_sources",
     "learnloop.section_map",
     "learnloop.data_capture",
@@ -876,6 +890,152 @@ ignore_imports = [
     "learnloop.diagnosis.text_gaps.sources -> learnloop.source_retrieval.note_gaps",
 ]
 allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "evidence-never-reads-desks-or-pads"
+name = "Nothing that writes evidence reads pads, ink, desks or veil sets (Reader workbench v2 fence 1, spec 3.3)"
+type = "forbidden"
+# The same shape as evidence-never-reads-the-workbench: replay, evidence, serving and adaptive difficulty
+# never import the workbench's desks, its scratchpads (ink strokes live with them) or the veil sets of an
+# inline check. The only exits are explicit and run the other way: a submitted block goes to the attempt
+# and teach-back entry points, a committed one to learner_text_gaps as pad_text (RD4). The veil sets'
+# module is declared before it exists (RD7), so the fence holds from its first line.
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.adaptive_difficulty",
+]
+forbidden_modules = [
+    "learnloop.desks",
+    "learnloop.pads",
+    "learnloop.db.stores.desks",
+    "learnloop.db.stores.pads",
+    "learnloop.db.stores.workspace_batches",
+    "learnloop.intent.inline_veils",
+]
+ignore_imports = [
+    # Curriculum C5's declared note door (see notes-are-never-a-source-or-evidence): the chains this
+    # contract would see run through note_gaps -> note_links (the Reader's notes code), never a gap
+    # write into evidence (text_gaps writes tier-2 gap rows; nothing there is evidence, G13).
+    "learnloop.diagnosis.text_gaps.sources -> learnloop.source_retrieval.note_gaps",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "graders-never-read-the-workbench-v2"
+name = "The grader never reads pads, ink, threads, desks, veils or the goal lens (Reader workbench v2 fence 2, spec 3.3)"
+type = "forbidden"
+# Extends the grader contracts above: every grading prompt builder lives in learnloop.attempts. Threads
+# and the companion's history are learnloop.companion; the union read is learnloop.passage_union. The
+# goal lens and the veil sets are declared before they exist (RD6, RD7).
+source_modules = ["learnloop.attempts"]
+forbidden_modules = [
+    "learnloop.desks",
+    "learnloop.pads",
+    "learnloop.companion",
+    "learnloop.passage_union",
+    "learnloop.db.stores.desks",
+    "learnloop.db.stores.pads",
+    "learnloop.intent.inline_veils",
+    "learnloop.curriculum.goal_lens",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "desks-stay-off-scheduling-and-evidence"
+name = "Desks import nothing from scheduling, evidence or the router (Reader workbench v2 fence 3, spec 3.3)"
+type = "forbidden"
+# A desk is a view: its persistence and the write protocol it shares with the pads reach the stores only.
+source_modules = ["learnloop.desks"]
+forbidden_modules = [
+    "learnloop.scheduling",
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.adaptive_difficulty",
+    "learnloop.daily_plan",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "passage-projections-are-read-only"
+name = "The passage union and the goal lens are read-only projections (Reader workbench v2 fence 4, spec 3.3)"
+type = "forbidden"
+# They write only receipts and caches: neither imports an evidence writer. The union read reads through
+# other readers (annotations, notes, due checks), so only its direct imports are fenced. A source module
+# must exist, so the goal lens (learnloop.curriculum.goal_lens) joins this list in the stage that adds it
+# (RD6); tests/test_reader_rd0_fences.py says so.
+source_modules = ["learnloop.passage_union"]
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.adaptive_difficulty",
+    "learnloop.hints",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "passage-spans-reach-only-the-stores"
+name = "The span projections import no domain package: their writers import them (Reader workbench v2 fence 4, spec 3.3)"
+type = "forbidden"
+# The derived span rows are written through by the Ask, the tutor and the gap pipeline and replayed by the
+# rebuild, so the projection imports nothing above the stores (indirect imports refused): it can never
+# reach an evidence writer, the workbench or a package cycle.
+source_modules = ["learnloop.substrate.passage_spans"]
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.adaptive_difficulty",
+    "learnloop.hints",
+    "learnloop.reader",
+    "learnloop.tutor",
+    "learnloop.desks",
+    "learnloop.pads",
+    "learnloop.source_retrieval",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "workbench-v2-calls-the-one-hint-service"
+name = "The workbench v2 defines no hint writer, chooser or map builder: the ink help ladder calls learnloop.hints (Reader workbench v2 fence 5, spec 3.3)"
+type = "forbidden"
+# workbench-calls-the-one-hint-service still holds for the Reader; the desks, the scratchpads (where the
+# ink ladder will live, RD8a), the companion and the union read reach the hint service the same way.
+source_modules = ["learnloop.desks", "learnloop.pads", "learnloop.companion", "learnloop.passage_union"]
+forbidden_modules = [
+    "learnloop.hints.writer",
+    "learnloop.hints.chooser",
+    "learnloop.hints.map_builder",
+    "learnloop.hints.map_seeds",
+    "learnloop.hints.options",
+    "learnloop.hints.contracts",
+    "learnloop.hints.discriminating",
+    "learnloop.hints.maps",
+]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 id = "lesson-checks-never-read-figures"
@@ -1425,6 +1585,7 @@ source_modules = [
     "learnloop.cli.surfaces",
     "learnloop.cli.teacher",
     "learnloop.clock",
+    "learnloop.companion",
     "learnloop.confidence_events",
     "learnloop.config",
     "learnloop.curriculum",
@@ -1434,6 +1595,7 @@ source_modules = [
     "learnloop.decider_judgments",
     "learnloop.delayed_checks",
     "learnloop.delayed_completion",
+    "learnloop.desks",
     "learnloop.diagnosis",
     "learnloop.evsi_calibration",
     "learnloop.experiments",
@@ -1460,7 +1622,9 @@ source_modules = [
     "learnloop.numeric",
     "learnloop.ops",
     "learnloop.outcome_contract",
+    "learnloop.pads",
     "learnloop.params",
+    "learnloop.passage_union",
     "learnloop.placement",
     "learnloop.plan_refs",
     "learnloop.practice_index",
