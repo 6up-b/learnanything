@@ -885,3 +885,117 @@ describe("RD2 fix round: opened beside is remembered (finding 7)", () => {
     expect(opened?.view?.openedBeside).toBe("fx_w_book");
   });
 });
+
+describe("RD2 fix round: the overview's selection is always a card on show (finding 12)", () => {
+  it("with the first desk empty, the overview still selects a card and the keys move it", async () => {
+    const server = new FixtureDeskServer();
+    const first = server.state().desks[0];
+    let version = first.version;
+    const ids = first.slots.flatMap((slot) => slot.windows.map((window) => window.windowId));
+    server.apply({ clientId: "setup", seq: 1, ops: ids.map((windowId) => ({ op: "close_window" as const, deskId: first.deskId, windowId, expectedVersion: version++ })) });
+    mount(server, { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_video2").catch(() => undefined);
+    alt("KeyO", "o");
+    expect(overviewOn()).toBe(true);
+    expect(document.querySelector(".ov-selected")).not.toBeNull();
+    const before = document.querySelector(".ov-selected")?.getAttribute("data-desk-slot-window");
+    press("l", "KeyL");
+    expect(document.querySelector(".ov-selected")?.getAttribute("data-desk-slot-window")).not.toBe(before);
+  });
+
+  it("a card moved down with alt+shift+j stays in view: the camera follows it", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true, initialViewport: { width: 1600, height: 420 } });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    const moveDown = () => act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyDown(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    moveDown();
+    moveDown();
+    await flush();
+    const selected = document.querySelector(".ov-selected") as HTMLElement;
+    expect(selected.getAttribute("data-desk-slot-desk")).toBe("fx_desk_backprop");
+    const world = (document.querySelector("[data-desk-world]") as HTMLElement).style.transform;
+    const [x, y, s] = world.match(/-?[\d.]+/g)!.map(Number);
+    void x;
+    const top = y + parseFloat(selected.style.top) * s;
+    const bottom = top + parseFloat(selected.style.height) * s;
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(bottom).toBeLessThanOrEqual(420);
+  });
+});
+
+describe("RD2 fix round: cancelled pointer gestures (findings 14, 15)", () => {
+  // jsdom has no PointerEvent: a MouseEvent with a pointer id carries the coordinates.
+  beforeEach(() => {
+    vi.stubGlobal("PointerEvent", class extends MouseEvent {
+      pointerId: number;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 0;
+      }
+    });
+  });
+  it("a card drag that is cancelled puts the card back and moves it no more", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    const card = document.querySelector('[data-desk-slot-window="fx_w_video"]') as HTMLElement;
+    act(() => {
+      fireEvent.pointerDown(card, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(stage, { clientX: 160, clientY: 140, pointerId: 1 });
+    });
+    expect(card.style.transform).not.toBe("");
+    act(() => {
+      fireEvent.pointerCancel(stage, { pointerId: 1 });
+    });
+    expect(card.style.transform).toBe("");
+    expect(card.style.zIndex).toBe("");
+    act(() => {
+      fireEvent.pointerMove(stage, { clientX: 260, clientY: 240, pointerId: 1 });
+    });
+    expect(card.style.transform).toBe("");
+  });
+
+  it("a cancelled ctrl+drag scrub settles the zoom instead of leaving it mid-way", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    act(() => {
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft", ctrlKey: true });
+      fireEvent.pointerDown(stage, { ctrlKey: true, clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerMove(stage, { ctrlKey: true, clientX: 10, clientY: 60, pointerId: 1 });
+    });
+    expect(shellHas("zooming")).toBe(true);
+    act(() => {
+      fireEvent.pointerCancel(stage, { pointerId: 1 });
+    });
+    frames.run(90);
+    expect(shellHas("zooming")).toBe(false);
+  });
+
+  it("ctrl+drag starting on a sliver scrubs the zoom, and the sliver's click is not taken as well", async () => {
+    const frames = new ManualFrames();
+    mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
+    await screen.findByTestId("pane-fx_w_book");
+    const sliver = document.querySelector(".desk-sliver") as HTMLElement;
+    expect(sliver).not.toBeNull();
+    act(() => {
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft", ctrlKey: true });
+      fireEvent.pointerDown(sliver, { ctrlKey: true, clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerMove(sliver, { ctrlKey: true, clientX: 10, clientY: 60, pointerId: 1 });
+    });
+    expect(shellHas("zooming")).toBe(true);
+    act(() => {
+      fireEvent.pointerUp(sliver, { ctrlKey: true, clientX: 10, clientY: 60, pointerId: 1 });
+      fireEvent.click(sliver, { ctrlKey: true });
+    });
+    frames.run(90);
+    expect(state("fx_w_book")).toBe("active");
+  });
+});

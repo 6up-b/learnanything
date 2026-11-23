@@ -749,6 +749,31 @@ export function DeskShell({
     }
   }, [controller, beginEnter, beginLeave]);
 
+  // The overview's selection is always a card on show: a selection that names no window there (none on
+  // entering, a window closed or moved by a reload) becomes the reading focus's card, else the first card.
+  useEffect(() => {
+    if (!overview || !ws) return;
+    if (selection && ws.windows[selection.windowId]?.deskId === selection.deskId) return;
+    const focusWindow = focusId ? ws.windows[focusId] : null;
+    if (focusWindow) {
+      setSelection({ deskId: focusWindow.deskId, windowId: focusWindow.windowId });
+      return;
+    }
+    const first = ws.desks.find((each) => each.slots.length > 0);
+    const windowId = first ? first.slots[0].find((id) => ws.windows[id]?.active) ?? first.slots[0][0] : null;
+    setSelection(first && windowId ? { deskId: first.deskId, windowId } : null);
+  }, [overview, ws, selection, focusId]);
+  // After a card is moved (alt+[ ], alt+shift+j/k) the camera follows it to its new place.
+  const followMoved = useRef(false);
+  useEffect(() => {
+    if (!followMoved.current || !overview || !selection) return;
+    followMoved.current = false;
+    const rect = cardOf(selection.windowId);
+    if (!rect) return;
+    setPanEase(true);
+    setOvCam((cam) => followSelection(cam, rect, stageNow.current));
+  }, [overview, ovLayout, selection, cardOf]);
+
   /** Move the overview's selection; the camera follows over .2 s, keeping it 48 px inside. */
   const moveOverviewSelection = useCallback((direction: "left" | "right" | "up" | "down") => {
     const layout = ovLayoutRef.current;
@@ -833,7 +858,10 @@ export function DeskShell({
         if (sel) {
           const each = deskById(current, sel.deskId);
           const index = each ? slotIndexOf(each, sel.windowId) : -1;
-          if (each && index >= 0) commit(moveWindowTo(current, sel.deskId, sel.windowId, index + action.direction));
+          if (each && index >= 0) {
+            followMoved.current = true;
+            commit(moveWindowTo(current, sel.deskId, sel.windowId, index + action.direction));
+          }
           return true;
         }
         commit(moveFocused(current, id, action.direction));
@@ -847,6 +875,7 @@ export function DeskShell({
         const from = current.desks[row];
         if (!to || !from) return true;
         const index = slotIndexOf(from, sel.windowId);
+        followMoved.current = true;
         commit(moveToDeskAt(current, sel.deskId, sel.windowId, to.deskId, index));
         setSelection({ deskId: to.deskId, windowId: sel.windowId });
         return true;
@@ -951,6 +980,7 @@ export function DeskShell({
     intercept: (type, phase, event) => {
       if (phase !== "capture") return false;
       if (type === "blur") {
+        cancelDragRef.current();
         modifiers.blur();
         altTracker.cancel();
         altTracker.reset();
@@ -1163,7 +1193,9 @@ export function DeskShell({
   const onStagePointerDown = useCallback((event: React.PointerEvent<HTMLElement>) => {
     const target = event.target as Element;
     const onCard = target.closest("[data-desk-slot]");
-    const inContent = target.closest(".desk-slot-inner, .desk-sliver, button, input, textarea");
+    // A sliver is background (spec §5.5): a ctrl+drag from it scrubs, and its click still navigates.
+    const onSliver = target.closest(".desk-sliver") !== null;
+    const inContent = !onSliver && target.closest(".desk-slot-inner, button, input, textarea") !== null;
     if (overviewRef.current) {
       if (onCard) {
         const key = onCard.getAttribute("data-desk-slot-key") ?? undefined;
@@ -1211,12 +1243,34 @@ export function DeskShell({
       element.style.zIndex = "30";
     }
   }, [controller, beginEnter]);
+  /** A gesture the system took away (pointercancel, a lost capture, the window losing focus): the card
+   * goes back to its place and a scrub settles; nothing moves until the next press. */
+  const cancelDrag = useCallback(() => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    if (d.kind === "scrub") {
+      setHud("");
+      if (controller.active) controller.settle();
+      return;
+    }
+    const element = d.windowId ? boxEls.current.get(d.windowId) : null;
+    if (element) {
+      element.style.transform = "";
+      element.style.zIndex = "";
+    }
+  }, [controller]);
+  const cancelDragRef = useRef(cancelDrag);
+  cancelDragRef.current = cancelDrag;
+  // A click that ends a scrub started on a sliver is the scrub's, not the sliver's.
+  const scrubbedClick = useRef(false);
   const onStagePointerUp = useCallback((event: React.PointerEvent<HTMLElement>) => {
     const d = drag.current;
     drag.current = null;
     if (!d) return;
     if (d.kind === "scrub") {
       setHud("");
+      if (d.moved) scrubbedClick.current = true;
       if (controller.active) controller.release();
       return;
     }
@@ -1676,6 +1730,17 @@ export function DeskShell({
           onPointerDown={onStagePointerDown}
           onPointerMove={onStagePointerMove}
           onPointerUp={onStagePointerUp}
+          onPointerCancel={cancelDrag}
+          onLostPointerCapture={(event) => {
+            // pointerup releases the capture too (after it has run): only a capture lost mid-gesture cancels.
+            if (drag.current && event.pointerId !== undefined) cancelDrag();
+          }}
+          onClickCapture={(event) => {
+            if (!scrubbedClick.current) return;
+            scrubbedClick.current = false;
+            event.stopPropagation();
+            event.preventDefault();
+          }}
         >
           <div className={`desk-world${panEase && overview && !zooming ? " pan-ease" : ""}`} ref={worldRef} data-desk-world="">
             {/* One element per window, keyed by the window: pairing, unpairing and focus mode change its
