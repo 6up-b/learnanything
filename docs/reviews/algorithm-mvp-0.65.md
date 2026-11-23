@@ -359,7 +359,7 @@ Per copy (keep the JSON value files private; publish counts only):
    **duplicate or orphaned bindings** (`duplicate_orders`, `orders_without_an_attempt`), all expected 0, and
    `same_lo_same_second_groups_reordered` (0: no applied row yet).
 5. `learnloop rebuild --shadow --json` at `mvp-0.65` (comparison 3, **successor shadow changes**: identical semantic
-   values and empty `schedule_effects` required), then a second `rebuild` of the copy and `compare` again
+   values and empty `schedule_effects` required), then a second live rebuild of the copy (`learnloop rebuild-derived-state --vault "$COPY"`) and `compare` again
    (comparison 4, idempotence: 0 changed).
 6. Verify the live databases' SHA-256 unchanged.
 
@@ -410,3 +410,27 @@ reordered; step 5's shadow 0, 0, 0.
 - The 206-file run's last five chunks started while the table's writers moved into the attempt store (a pure move);
   the files that touch the moved functions, and the three that had failed, were rerun after it (above).
 - `pypdfium2==5.14.0` was not in the offline cache; 4.30.0 stayed installed (no test in these runs needed it).
+
+## Owner copies (run by the orchestrator)
+
+The procedure above on backup-API copies of the owner's three vaults (vault A at `mvp-0.61`, B and C at `mvp-0.58`,
+each upgraded to `mvp-0.64` first). Counts only.
+
+| Step | A | B | C |
+|---|---|---|---|
+| 1. Attempts; same-LO same-second groups; same-item groups | 60; 0; 0 | 70; 0; 0 | 3; 0; 0 |
+| 2. Predecessor shadow: mastery, facet, schedule changed | 37, 12, 0 (the algorithm tag stamp only) | 21, 4, 0 (stamp only) | 18, 1, 0 (stamp only) |
+| 3. Activation's value changes: mastery, facet, schedule, surprise | 0, 0, 0, 0 | 0, 0, 0, 0 | 0, 0, 0, 0 |
+| 3. `integrity_check`; foreign-key violations | ok; 0 | ok; 0 | ok; 0 |
+| 4. Legacy-unknown orders; applied; missing; duplicate; orphaned; groups reordered | 60; 0; 0; 0; 0; 0 | 70; 0; 0; 0; 0; 0 | 3; 0; 0; 0; 0; 0 |
+| 5. Successor shadow: mastery, facet, schedule changed | 0, 0, 0 | 0, 0, 0 | 0, 0, 0 |
+| 5. Second live rebuild, then compare | 0 changed | 0 changed | 0 changed |
+| 6. Live database unchanged | yes | yes | yes |
+
+None of the three vaults holds a same-second group, so the activation changes no value on them. `learnloop doctor`
+exits 1 on each copy for content findings that predate this tag (criteria naming an unknown dependency, a directory the
+copy does not carry, two YAML files that do not parse); none concerns state.
+
+The landing gate first failed one test: `tests/test_grade_application_golden.py` records every row each phase adds, and
+gains this table's eleven rows (16 lines, nothing else). It was regenerated in the landing.
+
