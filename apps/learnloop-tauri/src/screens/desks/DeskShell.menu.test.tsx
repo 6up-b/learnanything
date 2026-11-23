@@ -554,3 +554,37 @@ describe("RD5 fix round: the menu's sheets own the focus", () => {
     expect(transport.readerCapture).not.toHaveBeenCalled();
   });
 });
+
+describe("RD5 fix round: labels are kept until stored", () => {
+  it("a label whose send failed is sent again under the same id on the poller; one refused outright says so", async () => {
+    const { transport, poller } = mount();
+    const sent: Array<{ labelId: string; label: string }> = [];
+    let failures = 1;
+    (transport.proposalLabel as ReturnType<typeof vi.fn>).mockImplementation(async (input: { labelId: string; label: string; proposalId: string }) => {
+      sent.push(input);
+      if (input.proposalId === "r2") throw { code: "validation_error", message: "no such row", retryable: false };
+      if (failures > 0) {
+        failures -= 1;
+        throw { code: "database_busy", message: "busy", retryable: true };
+      }
+      return {};
+    });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    const promoted = (await screen.findByText("your question on the first passage")).closest("button") as HTMLElement;
+    fireEvent.click(within(promoted).getByLabelText("dismiss"));
+    await flush();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(sent).toHaveLength(2);
+    expect(sent[1].labelId).toBe(sent[0].labelId);
+    expect(poller.size).toBe(0);
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.contextMenu(passage("fx_w_book_s2"));
+    const second = (await screen.findByText("your question on the second passage")).closest("button") as HTMLElement;
+    fireEvent.click(within(second).getByLabelText("dismiss"));
+    await flush();
+    expect(await screen.findByText(/couldn't keep that you set it aside/)).toBeTruthy();
+  });
+});

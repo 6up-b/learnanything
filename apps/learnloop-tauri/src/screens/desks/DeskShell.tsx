@@ -2372,8 +2372,31 @@ export function DeskShell({
     passagePromoted: (input) => menuTransport.passagePromoted(input),
     passagePromotedJob: (input) => menuTransport.passagePromotedJob(input),
     passagePromotedCancel: (input) => menuTransport.passagePromotedCancel(input),
-    label: (rowId, label) => void menuTransport.proposalLabel({ labelId: mintId("lbl"), proposalKind: "promoted_row", proposalId: rowId, label }).catch(() => undefined),
-  }), [menuTransport, mintId]);
+    label: (rowId, label) => {
+      // A label keeps its id until it is stored (labels are idempotent by id): a failed send is retried on the one
+      // poller with its backoff; one the sidecar refuses outright says so (the row may come back next time).
+      const input = { labelId: mintId("lbl"), proposalKind: "promoted_row" as const, proposalId: rowId, label };
+      const refused = (error: unknown) => Boolean(error && typeof error === "object" && (error as { retryable?: unknown }).retryable === false);
+      const giveUp = () => toastNow(label === "opened" ? "couldn't note that you opened it" : "couldn't keep that you set it aside · it may come back");
+      void menuTransport.proposalLabel(input).catch((error: unknown) => {
+        if (refused(error)) {
+          giveUp();
+          return;
+        }
+        const stop = poller.register<unknown>({
+          key: `promoted-label:${input.labelId}`,
+          owner: null,
+          request: () => menuTransport.proposalLabel(input),
+          onResult: () => ({ done: true }),
+          onError: (again) => {
+            if (!refused(again)) return;
+            stop();
+            giveUp();
+          },
+        });
+      });
+    },
+  }), [menuTransport, mintId, poller, toastNow]);
   const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
   const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
