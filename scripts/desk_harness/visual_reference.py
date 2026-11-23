@@ -20,7 +20,7 @@ Build the harness page first (apps/learnloop-tauri: `npx vite build --config vit
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \\
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd4
 
-`--stage` is rd1, rd2, rd3, rd4 or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
+`--stage` is rd1, rd2, rd3, rd4, rd6 or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
 Exit status 0 when the run completed (differences are findings, not failures), 2 when the reference is
 missing. `--dump NAME` prints the harness's element tree in that state (for mapping new regions).
 """
@@ -75,6 +75,69 @@ REGIONS: dict[str, Region] = {}
 def region(name: str, harness: str, geom: str = "none", skip: tuple[str, ...] = ()) -> None:
     REGIONS[name] = Region(harness, geom, skip)
 
+
+# ── the goal lens (RD6; the goal variant, the harness's ?goal=1 page) ──
+region("goal_band", ".goalband", "box")
+region("goal_band_lab", ".goalband .gb-goal .gb-lab", "height")
+region("goal_band_sentence", ".goalband .gb-t", "height")
+region("goal_band_counts", ".goalband .gb-path .gb-lab", "height")
+region("goal_band_dot", ".gb-stops .gs:not(.chk):not(.unm):not(.rd-likely):not(.pre)", "size")
+region("goal_band_dot_likely", ".gb-stops .gs.rd-likely", "size")
+region("goal_band_dot_pre", ".gb-stops .gs.pre:not(.later)", "size")
+region("goal_band_dot_later", ".gb-stops .gs.later", "size")
+region("goal_band_dot_unmatched", ".gb-stops .gs.unm", "size")
+region("goal_band_depth_on", ".gb-depth button.on", "height")
+region("goal_band_depth", ".gb-depth button:not(.on)", "height")
+region("goal_band_here_lab", ".gb-here .gb-lab", "height")
+region("goal_band_here", ".gb-here .gb-ht", "height")
+region("goal_band_next_lab", ".gb-next .gb-lab", "height")
+region("goal_band_next", ".gb-nb", "height")
+region("goal_band_dim", ".gb-dim", "height")
+region("goal_band_path", ".gb-pth", "height")
+# The marks: their width (their height follows the passage, their place the book's layout). The mark-to-text gap
+# is the harness run's own check (scripts/desk_harness/run.py, the goal run).
+# A mark holds no text: the type and text colour it inherits from its passage are not its own.
+MARK_SKIP = ("color", "font")
+region("goal_mark_core", "[data-window-kind='source'] .gm.gl-core:not(.gl-paper)", "width", skip=MARK_SKIP)
+region("goal_mark_sup", "[data-window-kind='source'] .gm.gl-sup:not(.gl-paper)", "width", skip=MARK_SKIP)
+region("goal_mark_skip", "[data-window-kind='source'] .gm.gl-skip:not(.gl-paper)", "width", skip=MARK_SKIP)
+region("goal_mark_later", "[data-window-kind='source'] .gm.gl-later:not(.gl-paper)", "width", skip=MARK_SKIP)
+region("goal_mark_on", "[data-window-kind='source'] .gm.on", "width", skip=MARK_SKIP)
+# Dimmed text: its colour (the prose's own type and box are the book window's, VR-3, VR-4).
+region("goal_text_dimmed", "[data-window-kind='source'] [data-span-id].gl-dim", "none",
+       skip=("font", "padding", "radius", "background", "background_eff", "box_shadow", "border_left_width", "border_left_color"))
+region("goal_why", ".gwhy.on", "width")
+region("goal_why_head", ".gwhy.on .gwh", "none")
+region("goal_why_body", ".gwhy.on .gwr", "none")
+region("goal_why_for", ".gwhy.on .gwr b", "none")
+region("goal_why_coverage", ".gwhy.on .gwc", "none")
+region("goal_callout", "[data-window-kind='source'] .callout.gcall", "none")
+region("goal_callout_lab", "[data-window-kind='source'] .callout.gcall .lab", "none")
+region("goal_path", ".ovl.gpath", "box")
+region("goal_path_left", ".gpath .gp-l", "size")
+region("goal_path_h3", ".gpath h3", "none")
+region("goal_path_scope", ".gp-scope", "none")
+region("goal_path_unmatched", ".gp-unm", "none")
+region("goal_path_depth_on", ".gp-d.on", "width")
+region("goal_path_depth", ".gp-d:not(.on)", "width")
+region("goal_path_ready", ".gp-ready", "none")
+region("goal_path_key", ".gp-key", "none")
+region("goal_path_head", ".gp-r-wrap > .gp-gh", "height")
+region("goal_path_lo", ".gp-lo", "width")
+region("goal_path_lo_title", ".gp-h .gp-ti", "none")
+region("goal_path_tag_core", ".gp-tag.core", "height")
+region("goal_path_tag_pre", ".gp-tag.prerequisite", "height")
+region("goal_path_dot", ".gp-h .gp-n.rd-likely", "size")
+region("goal_path_primary", ".gp-prim", "width")
+region("goal_path_primary_src", ".gp-prim .gp-src", "width")
+region("goal_path_primary_at", ".gp-prim .gp-at", "width")
+region("goal_path_primary_why", ".gp-prim .gp-why", "none")
+region("goal_path_alt", ".gp-alt", "width")
+region("goal_path_skip", ".gp-s", "width")
+region("goal_path_skip_head", ".skipg .gp-gh", "none")
+region("goal_pad_line", ".gfor", "none")
+region("goal_paper_mark", "[data-window-kind='source'] .gm.gl-paper", "width", skip=MARK_SKIP)
+region("goal_paper_callout", ".gpcall", "none")
 
 # ── the shell (RD1) ──
 region("topbar", ".desk-top", "box")
@@ -568,6 +631,78 @@ async def d_split(page: Page) -> None:
     await wait(page, 500)
 
 
+# The goal lens (RD6) on the synthetic goal: the book focused, its first section in view.
+GOAL_BOOK = "[data-desk-window='fx_w_book']"
+
+
+async def goal_ready(page: Page) -> None:
+    await page.wait_for_selector(".goalband")
+    await page.locator(f"{GOAL_BOOK} [data-span-id='fx_ext_softmax_s1_2']").scroll_into_view_if_needed()
+    await wait(page, 900)
+
+
+async def goal_hover(page: Page, selector: str) -> None:
+    """Hover a mark that is not the first of its kind: the first stays at rest for its own comparison (the reference
+    opens its why from code, with no pointer over the mark)."""
+    mark = page.locator(selector).nth(1)
+    await mark.scroll_into_view_if_needed()
+    await wait(page, 300)
+    await mark.hover()
+    await wait(page, 500)
+
+
+async def d_goal_frame(page: Page) -> None:
+    await goal_ready(page)
+
+
+async def d_goal_why(page: Page) -> None:
+    await goal_ready(page)
+    await goal_hover(page, f"{GOAL_BOOK} .gm.gl-core")
+
+
+async def d_goal_whysup(page: Page) -> None:
+    await goal_ready(page)
+    await goal_hover(page, f"{GOAL_BOOK} .gm.gl-sup")
+
+
+async def d_goal_whyskip(page: Page) -> None:
+    await goal_ready(page)
+    await goal_hover(page, f"{GOAL_BOOK} .gm.gl-skip")
+
+
+async def d_goal_basics(page: Page) -> None:
+    await goal_ready(page)
+    await page.click("[data-gdepth='get_the_idea']")
+    await wait(page, 1200)
+    await goal_hover(page, f"{GOAL_BOOK} .gm.gl-later")
+
+
+async def d_goal_path(page: Page) -> None:
+    await goal_ready(page)
+    await page.mouse.click(700, 500)
+    await keys(page, "p")
+    await wait(page, 600)
+
+
+async def d_goal_paper(page: Page) -> None:
+    await goal_ready(page)
+    # The note is the desk's third window (the shelf is a rail on the laptop): walk the focus to it.
+    await keys(page, "Alt+l", "Alt+l")
+    await wait(page, 1800)
+
+
+async def d_goal_pads(page: Page) -> None:
+    await goal_ready(page)
+    await pads_in_view(page)
+
+
+async def d_goal_nodim(page: Page) -> None:
+    await goal_ready(page)
+    await page.click("[data-gdim]")
+    await page.mouse.move(700, 600)
+    await wait(page, 500)
+
+
 @dataclass(frozen=True)
 class State:
     name: str  # the mockup's deep link, without '#'
@@ -578,6 +713,7 @@ class State:
     variant: str = "arxiv_v2"
     init_storage: tuple[tuple[str, str], ...] = ()
     note: str = ""
+    query: str = ""  # the harness page's query (the goal lens is `?goal=1`)
     geometry: bool = True  # False where the mockup's state is not a resting layout (its self-tests run on)
 
 
@@ -602,6 +738,16 @@ SEARCH = ("search_backdrop", "search_panel", "search_input", "search_input_field
 PADS = ("pad_window_head", "pad_tab_open", "pad_tab", "pad_tab_title", "pad_tab_label", "pad_tab_meta", "pad_paper", "pad_day",
         "pad_prose", "pad_quote", "pad_backlink", "pad_tutor", "pad_tutor_who", "pad_submitted", "pad_carry", "pad_jot", "pad_mark_src",
         "pad_mark_ll", "pad_mark_fig")
+
+GOAL_BAND = ("goal_band", "goal_band_lab", "goal_band_sentence", "goal_band_counts", "goal_band_dot", "goal_band_dot_likely",
+             "goal_band_dot_pre", "goal_band_dot_unmatched", "goal_band_depth_on", "goal_band_depth", "goal_band_here_lab", "goal_band_here",
+             "goal_band_next_lab", "goal_band_next", "goal_band_dim", "goal_band_path")
+GOAL_MARKS = ("goal_mark_core", "goal_mark_sup", "goal_mark_skip", "goal_text_dimmed")
+GOAL_WHY = ("goal_why", "goal_why_head", "goal_why_body", "goal_why_for", "goal_why_coverage", "goal_mark_on", "goal_mark_later")
+GOAL_PATH = ("goal_path", "goal_path_left", "goal_path_h3", "goal_path_scope", "goal_path_unmatched", "goal_path_depth_on", "goal_path_depth",
+             "goal_path_ready", "goal_path_key", "goal_path_head", "goal_path_lo", "goal_path_lo_title", "goal_path_tag_core", "goal_path_tag_pre",
+             "goal_path_dot", "goal_path_primary", "goal_path_primary_src", "goal_path_primary_at", "goal_path_primary_why", "goal_path_alt",
+             "goal_path_skip", "goal_path_skip_head")
 
 STATES: list[State] = [
     State("plain", "rd1", d_plain, SHELL + WINDOWS + ("comp_panel", "comp_closed_tab")),
@@ -642,6 +788,15 @@ STATES: list[State] = [
     State("s11=menu", "rd4", d_padmenu, ("pad_menu", "pad_menu_row", "pad_menu_head")),
     State("s11=arrange", "rd4", d_arrange, ("arrange_panel", "arrange_card", "pad_window_head")),
     State("s11=split", "rd4", d_split, PADS + ("split_pane",)),
+    State("goal=frame", "rd6", d_goal_frame, GOAL_BAND + GOAL_MARKS + ("goal_callout", "goal_callout_lab"), variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=why", "rd6", d_goal_why, GOAL_BAND + GOAL_MARKS + GOAL_WHY, variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=whysup", "rd6", d_goal_whysup, GOAL_BAND + GOAL_MARKS + GOAL_WHY, variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=whyskip", "rd6", d_goal_whyskip, GOAL_BAND + GOAL_MARKS + GOAL_WHY, variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=basics", "rd6", d_goal_basics, GOAL_BAND + GOAL_MARKS + GOAL_WHY + ("goal_band_dot_later",), variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=path", "rd6", d_goal_path, GOAL_BAND + GOAL_PATH, variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=paper", "rd6", d_goal_paper, GOAL_BAND + ("goal_paper_mark", "goal_paper_callout"), variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=pads", "rd6", d_goal_pads, GOAL_BAND + ("goal_pad_line",), variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=frame,nodim", "rd6", d_goal_nodim, GOAL_BAND + GOAL_MARKS, variant="arxiv_v2_goal", query="?goal=1"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}
@@ -767,7 +922,7 @@ async def open_harness(browser: Any, base: str, viewport: dict[str, int], state:
     if state.init_storage:
         script = ";".join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)})" for k, v in state.init_storage)
         await page.add_init_script(script)
-    await page.goto(f"{base}/desk-harness.html")
+    await page.goto(f"{base}/desk-harness.html{state.query}")
     await page.wait_for_selector("[data-desk-window]")
     await page.evaluate("document.fonts.ready")
     await page.wait_for_timeout(1500)
@@ -868,7 +1023,7 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd6", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")
