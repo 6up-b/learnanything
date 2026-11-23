@@ -10,6 +10,7 @@ import type {
 } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
 import type { InkSaveBody } from "../outbox";
+import type { InkCache } from "./inkCache";
 
 export interface PenApi {
   readerCapture(input: ReaderCaptureInput): Promise<ReaderCaptureReceiptDto>;
@@ -37,6 +38,8 @@ export interface PenHost {
   poller: Poller;
   /** Open the companion at the current selection (a lasso's "ask the tutor · c"). */
   askCompanion: () => void;
+  /** The ink of the pads shown, and their lines' readings. */
+  ink: InkCache;
 }
 
 export const PenHostContext = createContext<PenHost | null>(null);

@@ -101,6 +101,7 @@ import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMark
 import { keyAfter } from "./pads/model";
 import { PenHostContext, type PenApi, type PenHost } from "./pen/host";
 import { LIVE_PEN_API } from "./pen/live";
+import { InkCache } from "./pen/inkCache";
 import { PadsHostContext, PendingFigures, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
@@ -2102,7 +2103,8 @@ export function DeskShell({
     },
     carry: carryQuestion,
   }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures]);
-  // Pen and ink (RD8a): what a source window's pen layer reaches through.
+  // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
+  const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId) }), [penApi, poller, store]);
   const penHost = useMemo<PenHost>(() => ({
     on: penOn,
     simulate: simulatePen,
@@ -2113,7 +2115,8 @@ export function DeskShell({
     api: penApi,
     poller,
     askCompanion: () => companionKeyRef.current(false),
-  }), [penOn, simulatePen, store, mintId, penApi, poller]);
+    ink: inkCache,
+  }), [penOn, simulatePen, store, mintId, penApi, poller, inkCache]);
 
   /** The pad stack the keys act on: the focused window when it is one. */
   const focusedStack = (): PadStackHandle | null => (focusIdRef.current ? padHandles.current.get(focusIdRef.current) ?? null : null);

@@ -9,6 +9,7 @@ import { Poller } from "../../../api/poller";
 import type { PenSurface } from "../../ReaderScreen";
 import { WindowLifecycleContext, type WindowState } from "../lifecycle";
 import { PenHostContext, type PenApi, type PenHost } from "./host";
+import { InkCache } from "./inkCache";
 import { PenLayer, STRIKE_WORDS } from "./PenLayer";
 
 // Each passage is one line: left 100, 8 px a character, 24 px tall, the first at y 100, then every 30 px.
@@ -112,7 +113,9 @@ function setup({ state = "active" as WindowState, on = true, api = fakeApi() } =
     api,
     poller: new Poller({ setInterval: () => 1, clearInterval: () => undefined }),
     askCompanion: vi.fn(),
+    ink: undefined as unknown as InkCache,
   };
+  host.ink = new InkCache({ api, poller: host.poller, settled: host.settled, refreshPad: async () => undefined });
   const surface: PenSurface = {
     body,
     identity: { sourceId: "src", revisionId: "rev", extractionId: "ext", renderViewId: "rv" },
