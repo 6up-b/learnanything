@@ -5,11 +5,6 @@
  * scoped under .desk-shell so no other screen changes. */
 
 .desk-shell {
-  --gl: #5b4a9a;
-  --gl-sup: rgba(91, 74, 154, .34);
-  --gl-skip: #b9b2cc;
-  --gdim: #8e897f;
-  --gband: #0f0e12;
   --gl-elev: #181818;
   --gl-bd2: #3a3a3a;
   --gl-purple-line: #7d6fb8;
@@ -21,7 +16,7 @@
 :where(.desk-shell .goalband, .desk-shell .gpath, .desk-goalchip) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
 
 /* ── the band ── */
-.desk-shell .goalband { box-sizing: border-box; display: flex; align-items: stretch; gap: 0; min-width: 0; height: 50px; background: var(--gband); border-bottom: 1px solid var(--desk-line); font: 11px var(--desk-mono); color: var(--desk-t2); position: relative; z-index: 5; }
+.desk-shell .goalband { box-sizing: border-box; display: flex; align-items: stretch; gap: 0; min-width: 0; height: 50px; background: var(--desk-gband); border-bottom: 1px solid var(--desk-line); font: 11px var(--desk-mono); color: var(--desk-t2); position: relative; z-index: 5; }
 .desk-shell .goalband > div { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 13px; min-width: 0; border-right: 1px solid #1d1c22; }
 .desk-shell .goalband > div:last-child { border-right: 0; }
 .desk-shell .gb-lab { font: 9.5px var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: #8f86b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -39,7 +34,7 @@
 .desk-shell .gs.rd-likely { background: linear-gradient(90deg, #a99fd0 50%, transparent 50%); }
 .desk-shell .gs.pre { width: 7px; height: 7px; }
 .desk-shell .gs.later { opacity: .35; }
-.desk-shell .gs.here { box-shadow: 0 0 0 3px var(--gband), 0 0 0 4.5px #e8e4f6; }
+.desk-shell .gs.here { box-shadow: 0 0 0 3px var(--desk-gband), 0 0 0 4.5px #e8e4f6; }
 .desk-shell .gs:hover { border-color: #e8e4f6 !important; }
 .desk-shell .gs.chk { width: 7px; height: 7px; margin-left: 4px; border-color: #c9c0ee !important; border-radius: 1px; transform: rotate(45deg) scale(.86); }
 .desk-shell .gs.chk::before { display: none; }
@@ -86,19 +81,19 @@
    a 3 px border and 12 px of padding, so the bar sits at 1 px) ── */
 .desk-shell .gm { position: absolute; left: 1px; top: 5px; bottom: 5px; width: 3px; border-radius: 1px; cursor: help; font-style: normal; z-index: 1; }
 .desk-shell .gm::before { content: ""; position: absolute; left: -5px; right: -5px; top: -4px; bottom: -4px; }
-.desk-shell .gm.gl-core { background: var(--gl); }
-.desk-shell .gm.gl-sup { background: var(--gl-sup); }
-.desk-shell .gm.gl-skip, .desk-shell .gm.gl-later { width: 0; border-left: 1px dotted var(--gl-skip); left: 2px; }
-.desk-shell .gm.gl-shown { width: 0; border-left: 1px dotted var(--gl); left: 2px; }
+.desk-shell .gm.gl-core { background: var(--desk-gl); }
+.desk-shell .gm.gl-sup { background: var(--desk-gl-sup); }
+.desk-shell .gm.gl-skip, .desk-shell .gm.gl-later { width: 0; border-left: 1px dotted var(--desk-gl-skip); left: 2px; }
+.desk-shell .gm.gl-shown { width: 0; border-left: 1px dotted var(--desk-gl); left: 2px; }
 /* partial: a short grey tick (coverage hasn't settled every topic of the goal here) */
 .desk-shell .gm.gl-partial { bottom: auto; height: 5px; background: #b9b2cc; }
 /* a paper's passages keep 11 px between the mark and the text */
 .desk-shell .gm.gl-paper { left: -2px; }
 .desk-shell .gm:hover, .desk-shell .gm.on { box-shadow: 0 0 0 2px rgba(91, 74, 154, .16); }
-.desk-shell .gm.gl-skip:hover, .desk-shell .gm.gl-later:hover, .desk-shell .gm.gl-skip.on { border-left-color: var(--gl); }
+.desk-shell .gm.gl-skip:hover, .desk-shell .gm.gl-later:hover, .desk-shell .gm.gl-skip.on { border-left-color: var(--desk-gl); }
 /* dimmed, never hidden: skippable and later text, its math too; a passage read anyway stays lit */
-.desk-shell [data-span-id].gl-dim { color: var(--gdim) !important; }
-.desk-shell [data-span-id].gl-dim .katex { color: var(--gdim); }
+.desk-shell [data-span-id].gl-dim { color: var(--desk-gdim) !important; }
+.desk-shell [data-span-id].gl-dim .katex { color: var(--desk-gdim); }
 
 /* ── the why ── */
 .desk-shell .gwhy { position: fixed; z-index: 120; max-width: 330px; box-sizing: border-box; background: #1b1a20; border: 1px solid #34314a; border-left: 2px solid #8f86b3; border-radius: 3px; padding: 8px 11px 9px; font: 12px/1.55 var(--desk-mono); color: var(--desk-t); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); opacity: 0; transform: translateY(2px); transition: opacity .14s, transform .14s; pointer-events: none; }
@@ -115,13 +110,13 @@
 .desk-shell .callout.gcall .lab { display: block; font: 9.5px var(--desk-mono); letter-spacing: .08em; color: #b9b0e0; text-transform: uppercase; margin-bottom: 3px; }
 
 /* a paper's section head takes the light form (the reference's paper and transcript heads) */
-.desk-shell .gpcall { box-sizing: border-box; font: 11.5px/1.55 var(--desk-mono); color: #3f3566; background: #f1eef9; border-left: 2px solid var(--gl); padding: 7px 10px; margin: 0 0 14px; border-radius: 0 2px 2px 0; }
+.desk-shell .gpcall { box-sizing: border-box; font: 11.5px/1.55 var(--desk-mono); color: #3f3566; background: #f1eef9; border-left: 2px solid var(--desk-gl); padding: 7px 10px; margin: 0 0 14px; border-radius: 0 2px 2px 0; }
 .desk-shell .gpcall b { font-weight: 600; color: #3a2f68; }
-.desk-shell .gpcall .gg { color: var(--gl); }
+.desk-shell .gpcall .gg { color: var(--desk-gl); }
 
 /* ── a pad stack says what it is for ── */
 .desk-shell .gfor { flex: none; font: 10.5px/1.5 var(--desk-mono); color: #5b4f8a; padding: 6px 14px; border-bottom: 1px dotted #d9d3e8; background: #f6f4fb; }
-.desk-shell .gfor .gg { color: var(--gl); }
+.desk-shell .gfor .gg { color: var(--desk-gl); }
 .desk-shell .gfor.g-skip { color: #6d6880; background: #f1f0f3; }
 
 /* ── the path view ── */

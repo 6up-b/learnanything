@@ -23,15 +23,15 @@ function rectOf(event: ReactMouseEvent<HTMLElement>): WhyState["rect"] {
 }
 
 /** The lens for one window's reading, or none (no goal, a paused window, a reading not read yet). */
-export function readerLens({ index, dimOn, windowId, handlers, paper = false, openSection = null }: {
+export function readerLens({ index, dimOn, windowId, handlers, paper = false, openSpan = null }: {
   index: LensIndex | null;
   dimOn: boolean;
   windowId: string;
   handlers: MarkHandlers;
   /** A paper's section heads take the light one-line form. */
   paper?: boolean;
-  /** The section whose why card is open here: its marks stay lit. */
-  openSection?: string | null;
+  /** The passage whose why card is open here: its mark stays lit. */
+  openSpan?: string | null;
 }): ReaderLens | null {
   if (!index) return null;
   return {
@@ -45,10 +45,10 @@ export function readerLens({ index, dimOn, windowId, handlers, paper = false, op
       const section = index.bySpan.get(spanId);
       const kind = section ? markKind(section.level) : null;
       if (!section || !kind) return null;
-      const why = (event: ReactMouseEvent<HTMLElement>): WhyState => ({ section, extractionId: index.extractionId, windowId, rect: rectOf(event) });
+      const why = (event: ReactMouseEvent<HTMLElement>): WhyState => ({ section, spanId, extractionId: index.extractionId, windowId, rect: rectOf(event) });
       return (
         <i
-          className={`gm gl-${kind}${paper ? " gl-paper" : ""}${openSection === section.sectionId ? " on" : ""}`}
+          className={`gm gl-${kind}${paper ? " gl-paper" : ""}${openSpan === spanId ? " on" : ""}`}
           data-gm={`${index.extractionId}:${spanId}`}
           aria-label={section.level.replace("_", " ")}
           role="button"

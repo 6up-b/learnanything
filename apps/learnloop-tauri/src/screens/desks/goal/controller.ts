@@ -75,6 +75,8 @@ function writeDim(on: boolean): void {
 
 export interface WhyState {
   section: GoalLensSectionDto;
+  /** The passage whose mark opened it (the section's other passages' marks stay at rest). */
+  spanId?: string;
   extractionId: string;
   windowId: string;
   rect: { left: number; top: number; right: number; bottom: number };

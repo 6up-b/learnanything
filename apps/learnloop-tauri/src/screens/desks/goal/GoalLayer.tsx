@@ -107,7 +107,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
       if (pending.current !== null) timers.clear(pending.current);
       pending.current = null;
       const now = shownRef.current;
-      showWhy(now && now.section.sectionId === next.section.sectionId && now.windowId === next.windowId ? null : next);
+      showWhy(now && now.spanId === next.spanId && now.windowId === next.windowId ? null : next);
     },
   }), [timers, showWhy]);
   useEffect(() => {
@@ -122,7 +122,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     for (const reading of readings) {
       out.set(reading.windowId, band && band.status !== "not_a_deliverable"
         ? readerLens({ index: indexFor(reading.extractionId), dimOn, windowId: reading.windowId, handlers, paper: reading.paper,
-          openSection: why && why.windowId === reading.windowId ? why.section.sectionId : null })
+          openSpan: why && why.windowId === reading.windowId ? why.spanId ?? null : null })
         : null);
     }
     return out;
