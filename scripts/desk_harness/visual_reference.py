@@ -209,6 +209,38 @@ region("sketch_tool", ".desk-pads .desk-sketch .bar button", "height")
 region("sketch_canvas", ".desk-pads .desk-sketch canvas, .desk-pads .desk-sketch svg", "none")
 region("pass_mark_pad", ".desk-pmark.pad", "none")
 region("pad_flash", ".desk-pads .pb.flash", "none")
+# ── pen and ink on sources (RD8a) ──
+region("pen_chip_top", ".desk-top .penchip", "height")
+region("pen_sim_top", ".desk-top .simpen", "height")
+region("pen_hint", ".desk-keys .penk", "height")
+region("pen_hint_kbd", ".desk-keys .penk kbd", "height")
+# Only the pointer's cursor over the text (the prose itself is book_prose's, RD1's).
+region("pen_text_cursor", ".desk-window [data-window-kind='source'] [data-span-id] @1", "none",
+       ("color", "background", "background_eff", "box_shadow", "outline", "font", "radius", "padding", "border", "opacity"))
+# A path's text colour and type are inherited and never drawn: a stroke compares its stroke, width and opacity.
+STROKE_ONLY = ("color", "font", "background", "background_eff")
+# Every stroke of a kind: its colour, width and opacity (the harness draws the learner's own stroke, the mockup a synthetic one).
+region("pen_stroke_under", "svg.desk-pen-ink path.stroke.under", "none", STROKE_ONLY)
+region("pen_stroke_bracket", "svg.desk-pen-ink path.stroke.bracket", "none", STROKE_ONLY)
+region("pen_stroke_lasso", "svg.desk-pen-ink path.stroke.lasso", "none", STROKE_ONLY)
+region("pen_stroke_strike", "svg.desk-pen-ink path.stroke.strike", "none", STROKE_ONLY)
+region("pen_stroke_note", "svg.desk-pen-ink path.stroke.note", "none", STROKE_ONLY)
+# The mockup wraps the words in a <mark> (or colours the paragraph); the desks lay a box under them: colours only.
+region("pen_mark_hl", ".desk-pen-mark.underline", "height", ("radius", "padding", "font", "color"))
+region("pen_mark_para", ".desk-pen-mark.bracket", "none", ("radius", "padding", "font", "color"))
+region("pen_mark_sel", ".desk-pen-mark.lasso", "height", ("radius", "padding", "font", "color"))
+region("pen_chip", ".desk-pen-chip", "height")
+region("pen_chip_text", ".desk-pen-chip > span", "height")
+region("pen_chip_undo", ".desk-pen-chip [data-undo]", "height")
+region("pen_chip_x", ".desk-pen-chip [data-x]", "height")
+region("pen_chip_ask", ".desk-pen-chip .askc", "height")
+region("pen_note", ".desk-pen-note", "width")
+region("pen_note_who", ".desk-pen-note .who", "height")
+region("pen_note_text", ".desk-pen-note .ocr", "none")
+region("pen_note_label", ".desk-pen-note .ocrl", "height")
+
+# The pointer's cursor is compared on these regions only (pen mode's crosshair on the text).
+CURSOR_REGIONS = frozenset({"pen_text_cursor"})
 
 
 # The measured facts of one region: every computed colour, the type, the box model and the bounding box.
@@ -261,6 +293,7 @@ MEASURE_JS = r"""
       opacity: Number(cs.opacity),
       opacity_eff: effOpacity(e),
       filter: cs.filter,
+      cursor: cs.cursor,
     };
     if (e instanceof SVGElement) { out[name].stroke = hex(cs.stroke); out[name].fill = hex(cs.fill); out[name].stroke_width = cs.strokeWidth; }
   }
@@ -568,6 +601,54 @@ async def d_split(page: Page) -> None:
     await wait(page, 500)
 
 
+# ── pen and ink (RD8a): pen mode on, then one synthetic pen stroke (pointer events with pointerType "pen", pressure
+# and tilt) drawn on the book's text with the mockup's own stroke shapes (st_16.js: strokeUnder, strokeStrike,
+# strokeBracket, strokeLasso, strokeScribble), through the same input and recognizer a real pen goes through.
+PEN_STROKE_JS = r"""
+(kind) => {
+  const win = document.querySelector('[data-desk-window="fx_w_book"]');
+  const body = win.querySelector('[data-pen-host]');
+  const ps = [...win.querySelectorAll('[data-span-id]')].filter((p) => p.getBoundingClientRect().width > 100 && (p.textContent || '').trim().split(/\s+/).length > 12);
+  const jit = (i, a = 1.2) => Math.sin(i * 2.3) * a;
+  const words = (p, from, n) => {
+    const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    for (let node = w.nextNode(); node; node = w.nextNode()) {
+      const parts = [...node.data.matchAll(/\S+/g)];
+      for (let k = from; k + n <= parts.length; k++) {
+        const r = document.createRange(); r.setStart(node, parts[k].index); r.setEnd(node, parts[k + n - 1].index + parts[k + n - 1][0].length);
+        const rs = [...r.getClientRects()]; if (rs.length === 1) return rs;
+      }
+    }
+    return [];
+  };
+  let pts = []; let target = ps[1];
+  if (kind === 'underline') { const rect = words(ps[1], 2, 6)[0]; for (let x = rect.left; x <= rect.right; x += 6) pts.push([x, rect.bottom + 2 + jit(x)]); }
+  if (kind === 'strike') { target = ps[2]; const rect = words(ps[2], 2, 5)[0]; const y = rect.top + rect.height * .55; for (let x = rect.left; x <= rect.right; x += 6) pts.push([x, y + jit(x, .8)]); }
+  if (kind === 'bracket') { target = ps[3]; const r = ps[3].getBoundingClientRect(); const x = r.left - 22; pts.push([x + 10, r.top + 4]); for (let y = r.top + 4; y <= r.bottom - 4; y += 8) pts.push([x + jit(y, 1), y]); pts.push([x + 10, r.bottom - 4]); }
+  if (kind === 'note') { const r = ps[1].getBoundingClientRect(); const side = ps[2].getBoundingClientRect(); const x = r.right + 28, y = Math.min(side.bottom + 30, r.bottom + 40), w = 170;
+    for (let t = 0; t < 1; t += .006) pts.push([x + t * w, y + Math.sin(t * 60) * 7 + Math.sin(t * 13) * 3]); }
+  if (kind === 'lasso') { const rs = words(ps[1], 3, 4); const f = rs[0], l = rs[rs.length - 1], P = 5;
+    const seg = (a, b) => { for (let t = 0; t < 1; t += .08) pts.push([a[0] + (b[0] - a[0]) * t + jit(pts.length * 3, 1.5), a[1] + (b[1] - a[1]) * t + jit(pts.length * 5, 1.5)]); };
+    const L = Math.min(...rs.map((r) => r.left)) - P, R = Math.max(...rs.map((r) => r.right)) + P;
+    const c = [[f.left - P, f.top - P], [R, f.top - P], [R, l.top - P], [l.right + P, l.top - P], [l.right + P, l.bottom + P], [L, l.bottom + P], [L, f.bottom + 1], [f.left - P, f.bottom + 1], [f.left - P + 4, f.top - P]];
+    for (let i = 0; i < c.length - 1; i++) seg(c[i], c[i + 1]); pts.push([f.left - P + 6, f.top - P - 2]); }
+  const fire = (type, [x, y], i) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: 7, pointerType: 'pen', isPrimary: true,
+    clientX: x, clientY: y, pressure: type === 'pointerup' ? 0 : .45 + .1 * Math.sin(i), tiltX: 18, tiltY: -9, button: type === 'pointermove' ? -1 : 0, buttons: type === 'pointerup' ? 0 : 1 }));
+  fire('pointerdown', pts[0], 0); pts.slice(1).forEach((p, i) => fire('pointermove', p, i + 1)); fire('pointerup', pts[pts.length - 1], pts.length);
+  return { body: !!body, points: pts.length };
+}
+"""
+
+
+def d_pen(kind: str) -> Drive:
+    async def drive(page: Page) -> None:
+        await keys(page, "Alt+p")
+        await page.locator('[data-desk-window="fx_w_book"] [data-pen-host]').wait_for(timeout=8000)
+        await page.evaluate(PEN_STROKE_JS, kind)
+        await wait(page, 900)
+    return drive
+
+
 @dataclass(frozen=True)
 class State:
     name: str  # the mockup's deep link, without '#'
@@ -599,6 +680,7 @@ COMPANION_THREAD = tuple(n for n in COMPANION if not n.startswith("comp_chip"))
 HISTORY = ("hist_note", "hist_day", "hist_desk", "hist_q", "hist_a")
 SEARCH = ("search_backdrop", "search_panel", "search_input", "search_input_field", "search_group_head", "search_row", "search_row_where",
           "search_sel", "search_row_sel_text", "search_foot")
+PEN = ("pen_chip_top", "pen_sim_top", "pen_hint", "pen_hint_kbd", "pen_text_cursor", "pen_chip", "pen_chip_text", "pen_chip_undo", "pen_chip_x")
 PADS = ("pad_window_head", "pad_tab_open", "pad_tab", "pad_tab_title", "pad_tab_label", "pad_tab_meta", "pad_paper", "pad_day",
         "pad_prose", "pad_quote", "pad_backlink", "pad_tutor", "pad_tutor_who", "pad_submitted", "pad_carry", "pad_jot", "pad_mark_src",
         "pad_mark_ll", "pad_mark_fig")
@@ -642,6 +724,11 @@ STATES: list[State] = [
     State("s11=menu", "rd4", d_padmenu, ("pad_menu", "pad_menu_row", "pad_menu_head")),
     State("s11=arrange", "rd4", d_arrange, ("arrange_panel", "arrange_card", "pad_window_head")),
     State("s11=split", "rd4", d_split, PADS + ("split_pane",)),
+    State("pen=underline", "rd8", d_pen("underline"), PEN + ("pen_stroke_under", "pen_mark_hl")),
+    State("pen=bracket", "rd8", d_pen("bracket"), PEN + ("pen_stroke_bracket", "pen_mark_para")),
+    State("pen=note", "rd8", d_pen("note"), PEN + ("pen_stroke_note", "pen_note", "pen_note_who", "pen_note_text", "pen_note_label")),
+    State("pen=lasso", "rd8", d_pen("lasso"), PEN + ("pen_stroke_lasso", "pen_mark_sel", "pen_chip_ask")),
+    State("pen=strike", "rd8", d_pen("strike"), PEN + ("pen_stroke_strike",)),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}
@@ -683,6 +770,8 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
     def add(kind: str, prop: str, m: Any, a: Any) -> None:
         if prop in skip or (kind == "type" and "font" in skip) or (kind == "geometry" and not geometry):
             return
+        if "border" in skip and prop.startswith("border_"):
+            return
         rows.append({"region": name, "kind": kind, "prop": prop, "mockup": m, "app": a})
 
     for key in COLOUR_KEYS:
@@ -712,6 +801,10 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
             add("geometry", f"box.{k}", mock["box"][k], app["box"][k])
     if abs(mock["opacity_eff"] - app["opacity_eff"]) > 0.05:
         add("colour", "opacity", mock["opacity_eff"], app["opacity_eff"])
+    if name in CURSOR_REGIONS and "cursor" in mock and mock.get("cursor") != app.get("cursor"):
+        add("cursor", "cursor", mock.get("cursor"), app.get("cursor"))
+    if "stroke_width" in mock and "stroke_width" in app and mock["stroke_width"] != app["stroke_width"]:
+        add("colour", "stroke_width", mock["stroke_width"], app["stroke_width"])
     return rows
 
 
@@ -868,7 +961,7 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd8", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")

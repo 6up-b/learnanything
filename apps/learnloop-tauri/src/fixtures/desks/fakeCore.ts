@@ -92,6 +92,9 @@ const CONTRACT = {
     : {}),
 };
 
+/** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
+const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string } }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
+
 function answer(command: string, input: Record<string, unknown>): unknown {
   switch (command) {
     case "desk_state":
@@ -122,7 +125,27 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return plan;
     }
     case "reader_source_annotations":
-      return { annotations: [] };
+      return { annotations: pen.annotations.filter((head) => head.sourceId === String(input.sourceId)).map(({ sourceId: _source, ...head }) => head) };
+    // Pen and ink (RD8a): a recognized mark's annotation, its ink, and a reading refused as the default route
+    // refuses it today (the plan's transport reads no images).
+    case "reader_capture": {
+      const annotationId = `fx_ann_${pen.annotations.length + 1}`;
+      pen.annotations.push({ sourceId: String(input.sourceId), annotation: { id: annotationId }, version: { annotationType: input.action === "highlight" ? "highlight" : String(input.action), learnerText: String(input.learnerText ?? "") } });
+      return { annotationId, outboxId: `fx_out_${annotationId}`, interactionEventId: `fx_ev_${annotationId}`, anchorStatus: "exact", captureKind: "annotation", deduplicated: false, receipt: "captured" };
+    }
+    case "reader_delete_intent_annotation":
+      pen.annotations = pen.annotations.filter((head) => head.annotation.id !== String(input.annotationId));
+      return { eventId: `fx_del_${String(input.annotationId)}` };
+    case "reader_edit_annotation":
+      return { annotationId: String(input.annotationId), status: "exact" };
+    case "ink_save":
+      pen.inks.push(input);
+      return server.applyInk(input as unknown as { clientId: string; seq: number; inkId: string });
+    case "ink_list":
+      return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: [] };
+    case "ink_transcribe":
+      return { version: 1, jobId: null, status: "failed", done: true, result: null,
+        error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images, so nothing was sent.", retryable: false, details: null } };
     case "reader_ask_history":
       return { exchanges: [] };
     case "reader_drain_outbox":
