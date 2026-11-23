@@ -33,6 +33,9 @@ export interface Rect {
 export interface Stage {
   width: number;
   height: number;
+  /** The desks' own width (the window's, in the app), where a mockup rule is by window width rather than
+   * the stage's; unknown in pure layout. */
+  viewport?: number;
 }
 
 /** One uniform slot: two slots and the gap between them fill the stage inside its side margins. */

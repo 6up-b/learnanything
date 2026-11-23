@@ -58,7 +58,7 @@ PIXEL_THRESHOLD = 24
 # What each region's box means for the comparison: "box" its position and size, "pos" its position and
 # height (its width follows its text, which differs between the owner's book and the fixture), "size" its
 # width and height (where it sits follows content above it), "none" no geometry (only colour and type).
-GEOM_KEYS = {"box": ("x", "y", "w", "h"), "pos": ("x", "y", "h"), "size": ("w", "h"), "width": ("w",), "height": ("h",), "none": ()}
+GEOM_KEYS = {"box": ("x", "y", "w", "h"), "pos": ("x", "y", "h"), "yh": ("y", "h"), "size": ("w", "h"), "width": ("w",), "height": ("h",), "none": ()}
 
 
 @dataclass(frozen=True)
@@ -188,7 +188,7 @@ region("footer_kbd", ".desk-keys > span:not(.desk-dots):not(.note) kbd", "height
 region("footer_dot_focus", ".desk-dots button.f", "size")
 region("footer_dot_inview", ".desk-dots button.in", "size")
 region("footer_dot", ".desk-dots button:not(.f):not(.in)", "size")
-region("footer_note", ".desk-keys .note", "pos")
+region("footer_note", ".desk-keys .note", "height")
 region("window_focus", ".desk-window.focus", "box")
 region("window_focus_head", ".desk-window.focus .desk-pane-head", "box")
 region("window_focus_glyph", ".desk-window.focus .desk-pane-head .g", "none")
@@ -197,19 +197,22 @@ region("window_focus_loc", ".desk-window.focus .desk-pane-head .loc", "none")
 region("window_focus_close", ".desk-window.focus .desk-pane-head .x", "none")
 region("window_other", ".desk-window:not(.focus):not(.paused)", "size")
 region("window_other_head", ".desk-window:not(.focus):not(.paused) .desk-pane-head", "size")
-region("book_paper", ".desk-window [data-window-kind='source'] > .desk-pane-body", "none")
+# The page sheet: the Reader's scroller that holds the passages (the mockup's .sheet).
+region("book_paper", ".desk-window [data-window-kind='source'] .ll-scroll:has(> [data-span-id])", "none")
 # The first passage is the one being read (amber); the plain style is the next one's.
 region("book_prose", ".desk-window [data-window-kind='source'] [data-span-id] @1", "none")
 region("book_heading", ".desk-window [data-window-kind='source'] h2", "none")
 region("video_paper", ".desk-window [data-window-kind='video'] > .desk-pane-body", "none")
 region("video_cue", ".desk-window [data-window-kind='video'] [data-transcript-span]", "none")
-region("focus_badge", "~.desk-zoom-badge", "pos")
+region("focus_badge", "~.desk-zoom-badge", "yh")
 # ── the overview (RD2) ──
 region("ov_label", ".desk-ov-label", "none")
 # The mockup draws the ring on the card itself, the desks on a ring element over it: only the ring compares.
 region("ov_ring_sel", ".desk-ov-ring.sel", "none", ("background", "background_eff", "radius", "padding", "font"))
 region("ov_ring_rel", ".desk-ov-ring.rel", "none", ("background", "background_eff", "radius", "padding", "font"))
-region("ov_card", ".desk-card", "none")
+# The mockup pads its card; the desks pad the face inside the card (compared by eye, not here).
+region("ov_card", ".desk-card", "none", ("padding",))
+region("ov_card_sel", ".desk-window.ov-selected .desk-card", "none", ("padding",))
 region("ov_card_glyph", ".desk-card-g", "none")
 region("ov_card_name", ".desk-card-n", "none")
 region("ov_card_bar", ".desk-card-bar .ln", "height")
@@ -263,7 +266,7 @@ region("pad_tab_label", ".desk-pads .ptab.open .tl", "none")
 region("pad_tab_meta", ".desk-pads .ptab.open .tm", "none")
 region("pad_paper", ".desk-pads .paper.k-running", "none")
 region("pad_day", ".desk-pads .paper .day", "height")
-region("pad_prose", ".desk-pads .pb:not(.srcrow):not(.jot) .bx p", "none")
+region("pad_prose", ".desk-pads .pb:not(.srcrow):not(.jot) .bx", "none")
 region("pad_quote", ".desk-pads .quote", "none")
 region("pad_backlink", ".desk-pads .back", "height")
 region("pad_tutor", ".desk-pads .tutorq", "none")
@@ -271,25 +274,29 @@ region("pad_tutor_who", ".desk-pads .tutorq .who", "none")
 region("pad_submitted", ".desk-pads .submitted", "height")
 region("pad_carry", ".desk-pads .carry", "none")
 region("pad_jot", ".desk-pads .pb.jot .wline", "none")
-region("pad_mark_src", ".desk-pads .mark.src", "none")
-region("pad_mark_ll", ".desk-pads .mark.ll", "none")
-region("pad_mark_fig", ".desk-pads .mark.fig", "none")
+# The mockup measures the gutter cell holding the glyph, the desks the glyph: colour and type compare.
+region("pad_mark_src", ".desk-pads .mark.src", "none", ("padding", "radius"))
+region("pad_mark_ll", ".desk-pads .mark.ll", "none", ("padding", "radius"))
+region("pad_mark_fig", ".desk-pads .mark.fig", "none", ("padding", "radius"))
 region("pad_lift", ".desk-pads .lift", "none")
-region("pad_lifted", ".desk-pads .lifted", "none")
+# The mockup pads the stub's block box, the desks the box around the stub.
+region("pad_lifted", ".desk-pads .lifted", "none", ("padding",))
 region("pad_info_pop", ".desk-pads .pinfo-pop", "none")
-region("pad_info_button", ".desk-pane-head .pinfo, .desk-pads .pinfo", "none")
+# The ⓘ ring: in a pad stack's title bar the button is the ring; a stack mounted alone has its ring inside its bar.
+region("pad_info_button", ".desk-pane-head .pinfo, .desk-pads .pinfo .ic", "none")
 region("pad_card", ".desk-pads .pcard", "size")
 # ── the context menu (RD5): one menu for passages, cues, highlights, notes, window headers and pad lines ──
-region("pad_menu", ".desk-menu:not(.submenu)", "size")
-region("pad_menu_row", ".desk-menu > .mi", "height")
+# Its height follows its rows (the spec's verbs per object kind): the width is compared.
+region("pad_menu", ".desk-menu:not(.submenu)", "width")
+region("pad_menu_row", ".desk-menu > .mi:not(.sel)", "height")
 region("pad_menu_head", ".desk-menu .mh", "none")
 region("auto:div.pro", ".desk-menu .pro", "width")
 region("auto:span.why", ".desk-menu .why", "none")
 region("arrange_panel", ".desk-arrange", "none")
-region("arrange_card", ".desk-arrange .card, .desk-arrange li", "none")
+region("arrange_card", ".desk-pads .desk-arrange .row:not(.sel)", "none")
 region("split_pane", ".desk-pads .split .pane", "none")
 region("sketch_bar", ".desk-pads .desk-sketch .bar", "height")
-region("sketch_tool", ".desk-pads .desk-sketch .bar button", "height")
+region("sketch_tool", ".desk-pads .desk-sketch .bar button:not(.on)", "height")
 region("sketch_canvas", ".desk-pads .desk-sketch canvas, .desk-pads .desk-sketch svg", "none")
 region("pass_mark_pad", ".desk-pmark.pad", "none")
 region("pad_flash", ".desk-pads .pb.flash", "none")
@@ -635,6 +642,9 @@ async def d_backlink(page: Page) -> None:
     if await back.count():
         await back.first.click()
         await wait(page, 600)
+    # The pointer leaves the § row, or its hover (dark row, white text) is what gets measured.
+    await page.mouse.move(5, 5)
+    await wait(page, 300)
 
 
 async def menu_settled(page: Page) -> None:
@@ -781,7 +791,7 @@ SHELL = ("topbar", "brand", "desk_tab_on", "desk_tab", "top_chip", "shelf", "she
          "footer_note")
 WINDOWS = ("window_focus", "window_focus_head", "window_focus_glyph", "window_focus_title", "window_focus_loc", "window_focus_close",
            "window_other", "window_other_head", "book_paper", "book_prose", "book_heading", "video_paper", "video_cue")
-OVERVIEW = ("ov_label", "ov_ring_sel", "ov_ring_rel", "ov_card", "ov_card_glyph", "ov_card_name", "ov_card_bar", "ov_link", "ov_link_label",
+OVERVIEW = ("ov_label", "ov_ring_sel", "ov_ring_rel", "ov_card", "ov_card_sel", "ov_card_glyph", "ov_card_name", "ov_card_bar", "ov_link", "ov_link_label",
             "ov_ghost", "hud", "comp_pill")
 COMPANION = ("comp_panel", "comp_grab", "comp_tabs", "comp_tab_on", "comp_tab", "comp_ctx", "comp_earlier", "comp_body", "comp_bub_you",
              "comp_bub_you_who", "comp_bub_ai", "comp_bub_ai_who", "comp_bub_ai_text", "comp_claim", "comp_chip", "comp_chip_quote", "comp_input",
@@ -889,6 +899,18 @@ def primary_family(stack: str) -> str:
     return re.sub(r"\s+Variable$", "", first)
 
 
+def same_numbers(a: Any, b: Any) -> bool:
+    """Two computed values that differ only past 0.05 px are the same value: the mockup works its world sizes
+    out from 1/0.34 to more digits than the desks write (38.233 px and 38.2353 px, 4.4115 px and 4.41 px)."""
+    if a == b:
+        return True
+    if not isinstance(a, str) or not isinstance(b, str):
+        return False
+    pattern = r"-?\d+(?:\.\d+)?"
+    na, nb = re.findall(pattern, a), re.findall(pattern, b)
+    return len(na) == len(nb) and re.sub(pattern, "#", a) == re.sub(pattern, "#", b) and all(abs(float(x) - float(y)) < 0.05 for x, y in zip(na, nb, strict=True))
+
+
 def px(value: str) -> float | None:
     match = re.fullmatch(r"(-?[\d.]+)px", value.strip())
     return float(match.group(1)) if match else None
@@ -901,6 +923,12 @@ def near(a: str, b: str) -> bool:
     return a == b
 
 
+def border_shown(facts: dict[str, Any], i: int, width: str) -> bool:
+    """A border drawn in a transparent colour is no border on screen (it only reserves a highlight's room)."""
+    colour = facts["border_color"][i]
+    return facts["border_style"][i] != "none" and px(width) != 0 and not (len(colour) == 9 and colour.endswith("00"))
+
+
 def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: bool = True) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     skip = REGIONS[name].skip
@@ -911,14 +939,14 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
         rows.append({"region": name, "kind": kind, "prop": prop, "mockup": m, "app": a})
 
     for key in COLOUR_KEYS:
-        if key in mock and mock.get(key) != app.get(key):
+        if key in mock and not same_numbers(mock.get(key), app.get(key)):
             add("colour", key, mock.get(key), app.get(key))
     # A transparent background is compared by what shows through it.
     if mock.get("background") != app.get("background") and mock.get("background_eff") != app.get("background_eff"):
         add("colour", "background_eff", mock.get("background_eff"), app.get("background_eff"))
     for i, edge in enumerate(("top", "right", "bottom", "left")):
         mw, aw = mock["border_width"][i], app["border_width"][i]
-        m_on, a_on = mock["border_style"][i] != "none" and px(mw) != 0, app["border_style"][i] != "none" and px(aw) != 0
+        m_on, a_on = border_shown(mock, i, mw), border_shown(app, i, aw)
         if m_on != a_on or (m_on and not near(mw, aw)):
             add("geometry", f"border_{edge}_width", f"{mw if m_on else '0px'} {mock['border_style'][i]}", f"{aw if a_on else '0px'} {app['border_style'][i]}")
         if m_on and a_on and mock["border_color"][i] != app["border_color"][i]:
@@ -926,7 +954,7 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
     if primary_family(mock["font_family"]) != primary_family(app["font_family"]):
         add("type", "font_family", mock["font_family"], app["font_family"])
     for key in TYPE_KEYS:
-        if mock.get(key) != app.get(key) and not (key in ("line_height", "letter_spacing") and near(str(mock.get(key)), str(app.get(key))) and key != "letter_spacing"):
+        if not same_numbers(mock.get(key), app.get(key)) and not (key == "line_height" and near(str(mock.get(key)), str(app.get(key)))):
             add("type", key, mock.get(key), app.get(key))
     for key in ("radius", "padding"):
         if any(not near(m, a) for m, a in zip(mock[key], app[key], strict=True)):
