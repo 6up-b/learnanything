@@ -873,3 +873,15 @@ describe("RD2 fix round: a card moved to another desk's first slot lands there (
     expect(attention?.slots[0].windows[0].windowId).toBe("fx_w_book");
   });
 });
+
+describe("RD2 fix round: opened beside is remembered (finding 7)", () => {
+  it("a window opened beside the focus keeps that window as its origin, on the server, and draws the relation", async () => {
+    const { server } = mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByRole("button", { name: "+ open beside" }));
+    fireEvent.click(screen.getByRole("button", { name: /⇄ compare/ }));
+    await flush();
+    const opened = server.state().desks[0].slots.flatMap((slot) => slot.windows).find((window) => window.content?.kind === "panel" && window.content.panel === "library");
+    expect(opened?.view?.openedBeside).toBe("fx_w_book");
+  });
+});

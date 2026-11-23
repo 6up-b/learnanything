@@ -250,3 +250,13 @@ describe("moving a window to another desk's slot (RD2 fix round, finding 6)", ()
     expect(step.ops.some((op) => op.op === "move_window")).toBe(false);
   });
 });
+
+describe("opened beside (RD2 fix round, finding 7)", () => {
+  it("a new window remembers the window it was opened beside, and a later view update keeps it", () => {
+    const ws = deskWith(2);
+    const step = openBeside(ws, "d1", book("z"), () => "z1", { view: { spanId: "s1" } });
+    expect(step.ws.windows.z1.view).toEqual({ spanId: "s1", openedBeside: "w1" });
+    const saved = setView(step.ws, "d1", "z1", { ...step.ws.windows.z1.view, spanId: "s2" });
+    expect(saved.ws.windows.z1.view).toEqual({ spanId: "s2", openedBeside: "w1" });
+  });
+});

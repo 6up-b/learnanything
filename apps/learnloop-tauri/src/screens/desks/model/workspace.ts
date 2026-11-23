@@ -450,7 +450,9 @@ export function openBeside(
     deskId,
     windowId,
     content,
-    view: options.view ?? {},
+    // The window it was opened beside: an explicit relation (the overview's links, gather), kept in the
+    // view so later view saves (which spread the view) carry it on.
+    view: { ...(options.view ?? {}), ...(focus ? { openedBeside: focus } : {}) },
     afterWindowId: focus ? lastOfSlot(desk, focus) : null,
   });
   step = push(step, { op: "set_focus", deskId, windowId });
