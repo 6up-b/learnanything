@@ -56,7 +56,9 @@ export interface PadsHost {
   api: PadsApi;
   /** The practice session a submission is recorded in (the shell's), or null. */
   practiceSessionId: string | null;
-  openPassage: (extractionId: string, spanId: string | null, t?: number) => void;
+  /** A passage beside the focus (or scrolled to where it is open); a source on no desk is reopened from the
+   * stored source id (or its reading), a video at the stored time. */
+  openPassage: (extractionId: string, spanId: string | null, t?: number, sourceId?: string | null) => void;
   openSearch: (query: string, insert?: (row: SearchRow) => void) => void;
   /** The companion, asking about `quote`; from a pad line, with its block and the passage it links to. */
   askAbout: (quote: string, context?: { padId: string; blockId: string | null; anchor: { extractionId: string; spanId: string } | null }) => void;

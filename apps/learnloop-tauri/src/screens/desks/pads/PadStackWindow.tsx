@@ -5,7 +5,7 @@
 // each write goes through the vault's store (applied at once, sent by `pad.apply`). LearnLoop speaks only
 // through gutter marks and their hover cards.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import type { PadBlockDto, PadProposalDto, PadStackEntryDto } from "../../../api/dto";
+import type { PadAnchorDto, PadBlockDto, PadProposalDto, PadStackEntryDto } from "../../../api/dto";
 import { MarkdownMath } from "../../../render/MarkdownMath";
 import { LiveMarkdownEditor } from "../../../render/LiveMarkdownEditor";
 import { FitMath } from "../fitMath";
@@ -60,13 +60,17 @@ export function tabMeta(state: PadState, today: string): string {
 }
 
 /** The words a quote block's back-link names: "§ <source> p.<page> ↩" or "▶ <video> <time> ↩". */
-export function backLink(block: PadBlockDto): { label: string; extractionId: string | null; spanId: string | null; t?: number } {
+export function backLink(block: PadBlockDto, anchors: PadAnchorDto[] = []): { label: string; extractionId: string | null; spanId: string | null; t?: number; sourceId: string | null } {
   const p = block.payload as Record<string, unknown>;
+  // The block's own link names its source (and a cue's time) even with no window of it open.
+  const link = anchors.find((anchor) => anchor.blockId === block.blockId);
+  const sourceId = typeof p.source_id === "string" ? p.source_id : link?.sourceId ?? null;
   const title = typeof p.source_title === "string" ? p.source_title : "the source";
   const extractionId = typeof p.extraction_id === "string" ? p.extraction_id : null;
   const spanId = typeof p.span_id === "string" ? p.span_id : null;
-  if (typeof p.t === "number") return { label: `▶ ${title} ${clock(p.t)} ↩`, extractionId, spanId, t: p.t };
-  return { label: `§ ${title}${typeof p.page === "number" ? ` p.${p.page}` : ""} ↩`, extractionId, spanId };
+  const t = typeof p.t === "number" ? p.t : typeof link?.t === "number" ? link.t : undefined;
+  if (t !== undefined) return { label: `▶ ${title} ${clock(t)} ↩`, extractionId, spanId, t, sourceId };
+  return { label: `§ ${title}${typeof p.page === "number" ? ` p.${p.page}` : ""} ↩`, extractionId, spanId, sourceId };
 }
 
 interface Card {
@@ -467,12 +471,12 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     switch (block.kind) {
       case "source_quote":
       case "source_piece": {
-        const link = backLink(block);
+        const link = backLink(block, state.anchors);
         gutter = mark("source", "§", "src");
         body = (
           <div className={`quote${block.kind === "source_piece" ? " piece" : ""}`}>
             <FitMath><MarkdownMath value={`“${block.bodyMd}”`} /></FitMath>
-            {link.extractionId ? <button type="button" className="back" onClick={() => host.openPassage(link.extractionId as string, link.spanId, link.t)}>{link.label}</button> : null}
+            {link.extractionId ? <button type="button" className="back" onClick={() => host.openPassage(link.extractionId as string, link.spanId, link.t, link.sourceId)}>{link.label}</button> : null}
           </div>
         );
         break;
@@ -692,7 +696,10 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             <>
               <div className="head">{backLink(cardBlock).label.replace(" ↩", "")} · the passage this quote came from</div>
               <FitMath><MarkdownMath value={cardBlock.bodyMd.slice(0, 320)} /></FitMath>
-              {backLink(cardBlock).extractionId ? <button type="button" onClick={() => host.openPassage(backLink(cardBlock).extractionId as string, backLink(cardBlock).spanId, backLink(cardBlock).t)}>open it beside ↩</button> : null}
+              {backLink(cardBlock).extractionId ? <button type="button" onClick={() => {
+                const link = backLink(cardBlock, store.pads[card.padId]?.anchors ?? []);
+                host.openPassage(link.extractionId as string, link.spanId, link.t, link.sourceId);
+              }}>open it beside ↩</button> : null}
             </>
           ) : card.kind === "tutor" ? (
             <>
@@ -713,9 +720,9 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
               <div className="acts">
                 <button type="button" onClick={() => {
                   labelProposal(cardProposal, "opened");
-                  const target = cardProposal.target as { content?: { extraction_id?: string; extractionId?: string }; target?: { span_id?: string } };
+                  const target = cardProposal.target as { content?: { extraction_id?: string; extractionId?: string; source_id?: string; sourceId?: string; t?: number }; target?: { span_id?: string; t?: number } };
                   const extractionId = target.content?.extraction_id ?? target.content?.extractionId;
-                  if (extractionId) host.openPassage(extractionId, target.target?.span_id ?? null);
+                  if (extractionId) host.openPassage(extractionId, target.target?.span_id ?? null, target.target?.t ?? target.content?.t, target.content?.source_id ?? target.content?.sourceId ?? null);
                   setCard(null);
                 }}>open beside</button>
                 <button type="button" onClick={() => { labelProposal(cardProposal, "not_this"); setCard(null); }}>not this</button>

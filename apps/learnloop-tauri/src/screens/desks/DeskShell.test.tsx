@@ -11,6 +11,7 @@ import { DeskShell, groundingFor, type CompanionTransport, type DeskTransport, t
 import { fromDeskState } from "./model/workspace";
 import { Poller } from "../../api/poller";
 import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
+import { usePadsHost } from "./pads/host";
 import { useBareAltClear } from "../reader/bareAlt";
 
 vi.mock("../../api/client", () => ({ api: {} }));
@@ -1805,5 +1806,41 @@ describe("RD4 review: the running pad and stack membership on the desks", () => 
     const added = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "add_to_stack");
     // fx_pad_deriving is already in the stack: only the other one is added.
     expect(added.map((op) => (op as { entry: { padId: string } }).entry.padId)).toEqual(["fx_pad_lifted_old"]);
+  });
+});
+
+describe("RD4 review: a pad's back-link reopens its source", () => {
+  function BackLinkPane({ input, target }: { input: PaneRenderInput; target: [string, string, number | undefined, string | undefined] }) {
+    const host = usePadsHost();
+    return (
+      <div data-testid={`pane-${input.window.windowId}`} data-state={input.lifecycle.state}>
+        <button type="button" onClick={() => host?.openPassage(...target)}>{`back from ${input.window.windowId}`}</button>
+      </div>
+    );
+  }
+
+  it("a quote's back-link to a source on no desk opens it beside, at the stored passage", async () => {
+    const server = new FixtureDeskServer();
+    mount(server, { renderPane: (input) => <BackLinkPane input={input} target={["fx_ext_closed", "fx_ext_closed_s4", undefined, "fx_src_closed"]} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByText("back from fx_w_book"));
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? [opened.content, opened.view] : null).toMatchObject([{ kind: "source", sourceId: "fx_src_closed", extractionId: "fx_ext_closed" }, { spanId: "fx_ext_closed_s4" }]);
+  });
+
+  it("a video piece's back-link with no source id reads it from the reading and opens the video at its time", async () => {
+    const server = new FixtureDeskServer();
+    const library = [...FIXTURE_LIBRARY, { ...FIXTURE_LIBRARY[0], sourceId: "fx_src_closed_video", title: "a closed video", kindNoun: "video", acquisitionKind: "youtube" }];
+    mount(server, {
+      transport: { ...transportFor(server, library as never), sourceOfExtraction: async () => "fx_src_closed_video" },
+      renderPane: (input) => <BackLinkPane input={input} target={["fx_ext_closed_video", "fx_ext_closed_video_c3", 72, undefined]} />,
+    });
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByText("back from fx_w_book"));
+    await flush();
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: "fx_src_closed_video", extractionId: "fx_ext_closed_video", t: 72 });
   });
 });

@@ -1855,7 +1855,10 @@ export function DeskShell({
   const deskTitle = useCallback((id: string | null) => (id ? deskById(wsRef.current, id)?.title ?? "an archived desk" : "no desk"), []);
 
   /** A claim (or a history anchor) opens its passage beside the focus, or scrolls to it where it is open. */
-  const openClaim = useCallback((citation: Pick<TutorCitationDto, "extractionId" | "spanId"> & { sourceId?: string | null }) => {
+  /** A passage named by its reading (a claim, a history anchor, a pad's back-link) opens beside the focus, or is
+   * scrolled to where it is open; with no window of its source open, the source is read from the reading (or
+   * the stored source id) and opened, a video at the stored time. */
+  const openClaim = useCallback((citation: Pick<TutorCitationDto, "extractionId" | "spanId"> & { sourceId?: string | null; t?: number }) => {
     let sourceId = citation.sourceId ?? null;
     let kind: "source" | "video" = "source";
     for (const window of Object.values(wsRef.current.windows)) {
@@ -1869,7 +1872,8 @@ export function DeskShell({
     const open = (found: string, known: "source" | "video") => {
       const card = library?.find((entry) => entry.sourceId === found);
       const shown = card && isVideoCard(card) ? "video" : known;
-      openContent({ kind: shown, sourceId: found, extractionId: citation.extractionId } as ContentRefDto, { spanId: citation.spanId });
+      const ref = { kind: shown, sourceId: found, extractionId: citation.extractionId, ...(shown === "video" && citation.t !== undefined ? { t: citation.t } : {}) } as ContentRefDto;
+      openContent(ref, { spanId: citation.spanId });
     };
     if (sourceId) {
       open(sourceId, kind);
@@ -1984,22 +1988,10 @@ export function DeskShell({
   }, [padsTransport, mintId, toastNow, refreshCarried]);
 
   /** A passage beside the focus (a quote's back-link, a hover card's "open it beside"), at its time for a video. */
-  const openPassage = useCallback((extractionId: string, spanId: string | null, t?: number) => {
-    let found: ContentRefDto | null = null;
-    for (const window of Object.values(wsRef.current.windows)) {
-      const content = window.content;
-      if (content && (content.kind === "source" || content.kind === "video") && content.extractionId === extractionId) {
-        found = content;
-        break;
-      }
-    }
-    if (!found) {
-      toastNow("that passage's source isn't on a desk · find it with /");
-      return;
-    }
-    const ref = found.kind === "video" && t !== undefined ? { ...found, t } : found;
-    openContent(ref, { spanId });
-  }, [openContent, toastNow]);
+  const openPassage = useCallback((extractionId: string, spanId: string | null, t?: number, sourceId?: string | null) => {
+    // Through the claims' path: a source on no desk is reopened at the stored passage, a video at its time.
+    openClaim({ extractionId, spanId: spanId ?? "", sourceId: sourceId ?? null, ...(t !== undefined ? { t } : {}) });
+  }, [openClaim]);
 
   /** The passage at the top of each open source window, and the cue at the top of each video (the pad menu's
    * source pieces). */
