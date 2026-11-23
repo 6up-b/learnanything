@@ -58,7 +58,8 @@ function mount(options: { server?: FixtureDeskServer; request?: { seq: number; e
   const lessonsTransport = { list: vi.fn(async () => ({ lessons: [FIXTURE_LESSON_SUMMARY] })) };
   // The desks keep one store per vault for the app's life: each test its own vault.
   const vaultKey = `vault-lessons-${Math.random()}`;
-  const ui = (request: { seq: number; entry: LessonEntry } | null) => (
+  const onConsumed = vi.fn();
+  const ui = (request: { seq: number; entry: LessonEntry; vault?: string } | null) => (
     <DeskShell
       vaultKey={vaultKey}
       onError={vi.fn()}
@@ -70,11 +71,11 @@ function mount(options: { server?: FixtureDeskServer; request?: { seq: number; e
       padsTransport={quietPads}
       lessonsTransport={lessonsTransport}
       reader={{ onTeachMe: appTeachMe }}
-      lessons={{ request }}
+      lessons={{ request, onConsumed }}
     />
   );
   const view = render(ui(options.request ?? null));
-  return { server, appTeachMe, rerender: (request: { seq: number; entry: LessonEntry } | null) => view.rerender(ui(request)) };
+  return { server, appTeachMe, onConsumed, vaultKey, rerender: (request: { seq: number; entry: LessonEntry; vault?: string } | null) => view.rerender(ui(request)) };
 }
 
 const sentOps = (server: FixtureDeskServer): DeskOpDto[] => server.batches.flatMap((batch) => batch.ops as DeskOpDto[]);
@@ -144,6 +145,19 @@ describe("lesson entries on the desks", () => {
     // The same ask again (a re-render) opens nothing more.
     rerender({ seq: 1, entry: { kind: "resume", lessonId: FIXTURE_LESSON_ID } });
     await flushDesks();
+    expect(sentOps(server).filter((op) => op.op === "add_to_stack")).toHaveLength(1);
+  });
+
+  it("a request is taken once and the app told so; one asked in another vault opens nothing here", async () => {
+    const { server, rerender, onConsumed, vaultKey } = mount();
+    await screen.findByRole("button", { name: "teach me from fx_ext_softmax" });
+    rerender({ seq: 1, entry: { kind: "resume", lessonId: FIXTURE_LESSON_ID }, vault: "another vault" });
+    await flushDesks();
+    expect(onConsumed).toHaveBeenCalledWith(1);
+    expect(sentOps(server).filter((op) => op.op === "add_to_stack")).toHaveLength(0);
+    rerender({ seq: 2, entry: { kind: "resume", lessonId: FIXTURE_LESSON_ID }, vault: vaultKey });
+    await flushDesks();
+    expect(onConsumed).toHaveBeenCalledWith(2);
     expect(sentOps(server).filter((op) => op.op === "add_to_stack")).toHaveLength(1);
   });
 

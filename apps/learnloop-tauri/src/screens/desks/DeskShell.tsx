@@ -500,7 +500,10 @@ export interface DeskShellProps {
   /** Teacher lessons as windows (spec §11.1), when lessons are on: what a lesson window hands back to the app, and
    *  a lesson the app asks to open while the desks are its current place (`seq` makes each ask one open). */
   lessons?: {
-    request?: { seq: number; entry: LessonEntry } | null;
+    /** A lesson the app asks for, in the vault it was asked in (another vault's is dropped, never opened here). */
+    request?: { seq: number; entry: LessonEntry; vault?: string } | null;
+    /** The request was taken (opened or dropped): the app forgets it, so a remount or a vault switch replays nothing. */
+    onConsumed?: (seq: number) => void;
     onQuickCheck?: (learningObjectIds: string[]) => void;
     onLookInLibrary?: (phrase: string) => void;
     /** RD9b's notebook frame for a notebook lesson. */
@@ -1841,8 +1844,10 @@ export function DeskShell({
   useEffect(() => {
     if (!lessonRequest || !ws || !deskId || lessonRequest.seq === lessonRequestSeq.current) return;
     lessonRequestSeq.current = lessonRequest.seq;
-    openLesson(lessonRequest.entry);
-  }, [lessonRequest, ws, deskId, openLesson]);
+    if (lessonRequest.vault === undefined || lessonRequest.vault === vaultKey) openLesson(lessonRequest.entry);
+    lessons?.onConsumed?.(lessonRequest.seq);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonRequest, ws, deskId, openLesson, vaultKey]);
 
   // The Reader's "Teach me this" (a source window's selection, a pad line) opens the lesson here, not as a screen.
   const reader = useMemo<ReaderPassThrough | undefined>(() => (readerProp?.onTeachMe
