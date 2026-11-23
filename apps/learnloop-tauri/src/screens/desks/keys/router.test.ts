@@ -132,11 +132,30 @@ describe("the resolved scope and precedence matrix", () => {
 
   it("names the stage of every chord whose feature is not built yet", () => {
     const later = DESK_BINDINGS.filter((binding) => binding.later).map((binding) => `${binding.keys}:${binding.later}`);
-    expect(later).toContain("alt+o:RD2");
+    // RD2 built the overview, gather and moving a card to another desk: none of them waits any more.
+    expect(later.filter((entry) => entry.endsWith(":RD2"))).toEqual([]);
     expect(later).toContain("c:RD3");
     expect(later).toContain("alt+n:RD4");
     const built = DESK_BINDINGS.filter((binding) => !binding.later).map((binding) => binding.keys);
-    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc"]));
+    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc", "alt+o", "o", "alt+g", "alt+shift+g", "alt+shift+j", "alt+shift+k", "b", "g (hold)", "↵"]));
+  });
+
+  it("the overview owns its navigation keys and passes the reading view's keys nowhere", () => {
+    const ov: ScopeState = { overview: true };
+    for (const [key, code, alt] of [["h", "KeyH", false], ["ArrowDown", "ArrowDown", false], ["l", "KeyL", true]] as const) {
+      const event = key.length === 1 ? { key, code, altKey: alt, ctrlKey: false, metaKey: false, shiftKey: false } : { key, code, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false };
+      expect(resolveKey(event, ov, { alt, ctrl: false })?.binding.action.kind, key).toBe("overviewMove");
+    }
+    expect(resolveKey(key({ key: "Enter", code: "Enter" }), ov, { alt: false, ctrl: false })?.binding.action).toEqual({ kind: "overviewOpen", focusMode: false });
+    expect(resolveKey(key({ key: "Enter", code: "Enter", altKey: true }), ov, { alt: true, ctrl: false })?.binding.action).toEqual({ kind: "overviewOpen", focusMode: true });
+    expect(resolveKey(key({ key: "Escape", code: "Escape" }), ov, { alt: false, ctrl: false })?.binding.action).toEqual({ kind: "leaveOverview" });
+    expect(resolveKey(key({ key: "b", code: "KeyB" }), ov, { alt: false, ctrl: false })?.binding.action).toEqual({ kind: "toggleRelations" });
+    // The reading view's swap and close are not the overview's.
+    expect(resolveKey(key({ key: "x", code: "KeyX" }), ov, { alt: false, ctrl: false })).toBeNull();
+    expect(resolveKey(key({ code: "KeyW", altKey: true }), ov, { alt: true, ctrl: false })).toBeNull();
+    // Outside the overview, h is the window's (a bare letter) and alt+h moves the focus.
+    expect(resolveKey(key({ key: "h", code: "KeyH" }), {}, { alt: false, ctrl: false })).toBeNull();
+    expect(resolveKey(key({ code: "KeyH", altKey: true }), {}, { alt: true, ctrl: false })?.binding.id).toBe("move.left");
   });
 });
 

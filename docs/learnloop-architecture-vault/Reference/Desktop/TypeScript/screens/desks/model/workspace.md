@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/model/workspace.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/model/workspace.ts) |
-| Source lines | 574 |
+| Source lines | 604 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/model/_area|TypeScript/screens/desks/model]] |
 | Refactor status | `ACTIVE` |
@@ -87,6 +87,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function renameDesk(ws: Workspace, deskId: string, title: string): Step` — function, line 557
 - `export function setView(ws: Workspace, deskId: string, windowId: string, view: Record<string, unknown>): Step` — function, line 561
 - `export function swapInView(ws: Workspace, deskId: string, otherSlot: number): Step` — function, line 568
+- `export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): Step` — function, line 578
+- `export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step` — function, line 591
 
 ## Internal implementation anchors
 
@@ -213,6 +215,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const desk = requireDesk(ws, deskId)` — const, line 569
 - `const id = focusedWindowId(ws, desk)` — const, line 570
 - `const index = slotIndexOf(desk, id)` — const, line 571
+- `let step = start(ws)` — let, line 579
+- `const desk = requireDesk(step.ws, deskId)` — const, line 581
+- `const at = slotIndexOf(desk, slot[0])` — const, line 582
+- `const desk = requireDesk(ws, deskId)` — const, line 592
+- `const index = slotIndexOf(desk, windowId)` — const, line 594
+- `const wasFocus = focusedWindowId(ws, desk) === windowId` — const, line 595
+- `let step = push(start(ws),` — let, line 596
+- `const after = requireDesk(step.ws, deskId)` — const, line 598
+- `const at = Math.min(index, after.slots.length - 1)` — const, line 599
+- `const next = at >= 0 ? after.slots[at][0] : null` — const, line 600
 
 ## Who imports or calls it
 
@@ -220,7 +232,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`; references `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `DeskWindow`, `EMPTY_WORKSPACE`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `fromDeskState`, `moveFocused`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`; references `DeskWindow`, `EMPTY_WORKSPACE`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `fromDeskState`, `moveFocused`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `DeskWindow`, `EMPTY_WORKSPACE`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `fromDeskState`, `moveFocused`, `moveToDesk`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`; references `DeskWindow`, `EMPTY_WORKSPACE`, `Step`, `Workspace`, `closeWindow`, `createDesk`, `deskById`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `fromDeskState`, `moveFocused`, `moveToDesk`, `moveWindowTo`, `openBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`
+- [[Reference/Desktop/TypeScript/screens/desks/overview/links|src/screens/desks/overview/links.ts]] — import-or-re-export: `Workspace`; references `Workspace`
 
 ## Dependencies
 
@@ -240,6 +253,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/overview/links.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/links.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/model/workspace.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/model/workspace.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_reader_rd1_model_parity.py](../../../../../../../../tests/test_reader_rd1_model_parity.py) — direct source contract: references the exact source path.
 

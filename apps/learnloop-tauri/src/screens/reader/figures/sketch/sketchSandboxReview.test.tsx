@@ -39,7 +39,7 @@ const SIGNED_ZERO = verified.find((item) => item.name === "signed zero")!;
 function sketchView(program: object, sketch: FigureSketchDto, overrides: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_review", extractionId: "ext_prob", spanIds: ["p3"], anchorSpanId: "p3", region: null, origin: "selection",
-    verification: "illustrative", kind: "illustrative", label: SKETCH_FRAME.badge, reason: null, unsupportedKind: null,
+    verification: "illustrative", shown: true, labelCode: "sketch", kind: "illustrative", label: SKETCH_FRAME.badge, reason: null, unsupportedKind: null,
     supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-31T00:00:00", specJson: JSON.stringify(program),
     demonstrates: (program as { demonstrates: string }).demonstrates, assumptions: [], predictions: [], propertyChecks: [],
     tier: "sketch", sketch, grounding: "anchor", ...overrides,

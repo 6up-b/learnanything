@@ -90,7 +90,7 @@ function deferred<T>() {
 function figure(): FigureViewDto {
   return {
     figureId: "fig_1", extractionId: view.extractionId, spanIds: ["span_spectral_worked"], anchorSpanId: "span_spectral_worked", region: null,
-    origin: "library", verification: "illustrative", kind: "illustrative",
+    origin: "library", verification: "illustrative", shown: true, labelCode: "illustrative", kind: "illustrative",
     label: "AI-built illustration of an interpretation · not checked against the book", reason: null,
     unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-23T00:00:00",
     specJson: JSON.stringify(corpus.figures.find((item) => item.id === "two_sided_exponential")!.spec),

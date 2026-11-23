@@ -29,7 +29,7 @@ from collections import deque
 from typing import Any
 
 from learnloop import provenance
-from learnloop.figure_admission import offers_enabled, rich_tiers_enabled
+from learnloop.figure_admission import figures_enabled, rich_tiers_enabled
 from learnloop.figures import power as P
 
 _LOG = logging.getLogger(__name__)
@@ -179,7 +179,7 @@ def notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool:
     try:
         vault, repository = getattr(ctx, "vault", None), getattr(ctx, "repository", None)
         if (vault is None or repository is None or not offer_ref or not runs_here(ctx)
-                or not offers_enabled(vault)):
+                or not figures_enabled(vault)):
             return False
         runtime = _runtime(ctx)
         key = (origin, str(offer_ref))

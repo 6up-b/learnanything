@@ -25,6 +25,7 @@
     "grounding": "none",
     "kind": "illustrative",
     "label": "AI-built illustration · not from your books",
+    "labelCode": "not_from_books",
     "origin": "ask",
     "passages": [],
     "predictions": [
@@ -74,6 +75,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -128,6 +130,7 @@
     "grounding": "none",
     "kind": "illustrative",
     "label": "AI-built illustration · not from your books",
+    "labelCode": "not_from_books",
     "origin": "ask",
     "passages": [],
     "predictions": [
@@ -177,6 +180,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -737,6 +741,7 @@
      "grounding": "anchor",
      "kind": null,
      "label": "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5)",
+     "labelCode": "failed",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -744,6 +749,7 @@
      "reason": "integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5",
      "region": null,
      "revisionNote": null,
+     "shown": false,
      "spanIds": [
       "p3"
      ],
@@ -773,6 +779,7 @@
     "grounding": "anchor",
     "kind": null,
     "label": "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5)",
+    "labelCode": "failed",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -780,6 +787,7 @@
     "reason": "integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5",
     "region": null,
     "revisionNote": null,
+    "shown": false,
     "spanIds": [
      "p3"
     ],
@@ -1222,6 +1230,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -1271,6 +1280,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -1786,6 +1796,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -1835,6 +1846,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -1885,6 +1897,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -1934,6 +1947,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -2437,6 +2451,7 @@
      "grounding": "anchor",
      "kind": null,
      "label": "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5)",
+     "labelCode": "failed",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -2444,6 +2459,7 @@
      "reason": "integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5",
      "region": null,
      "revisionNote": null,
+     "shown": false,
      "spanIds": [
       "p3"
      ],
@@ -2473,6 +2489,7 @@
     "grounding": "anchor",
     "kind": null,
     "label": "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5)",
+    "labelCode": "failed",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -2480,6 +2497,7 @@
     "reason": "integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5",
     "region": null,
     "revisionNote": null,
+    "shown": false,
     "spanIds": [
      "p3"
     ],
@@ -2914,6 +2932,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -2963,6 +2982,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -3014,6 +3034,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -3063,6 +3084,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -3701,6 +3723,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -3750,6 +3773,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -3801,6 +3825,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -3850,6 +3875,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -4488,6 +4514,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -4537,6 +4564,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -4588,6 +4616,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -4637,6 +4666,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -5272,6 +5302,7 @@
      "host": "lesson",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "label_code": "illustrative",
      "manim": null,
      "origin": "teacher",
      "passages": [
@@ -5292,6 +5323,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revision_note": null,
+     "shown": true,
      "sketch": null,
      "source_check": {
       "certification_version": 7,
@@ -5342,6 +5374,7 @@
      "host": "lesson",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "label_code": "illustrative",
      "manim": null,
      "origin": "teacher",
      "passages": [
@@ -5362,6 +5395,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revision_note": null,
+     "shown": true,
      "sketch": null,
      "source_check": {
       "certification_version": 7,
@@ -5927,6 +5961,7 @@
      "grounding": "anchor",
      "kind": null,
      "label": "couldn't build a reliable version of this (the figure model failed: RuntimeError)",
+     "labelCode": "failed",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -5934,6 +5969,7 @@
      "reason": "the figure model failed: RuntimeError",
      "region": null,
      "revisionNote": null,
+     "shown": false,
      "spanIds": [
       "p3"
      ],
@@ -5963,6 +5999,7 @@
     "grounding": "anchor",
     "kind": null,
     "label": "couldn't build a reliable version of this (the figure model failed: RuntimeError)",
+    "labelCode": "failed",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -5970,6 +6007,7 @@
     "reason": "the figure model failed: RuntimeError",
     "region": null,
     "revisionNote": null,
+    "shown": false,
     "spanIds": [
      "p3"
     ],
@@ -6374,6 +6412,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -6386,6 +6425,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -6436,6 +6476,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -6448,6 +6489,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -6947,6 +6989,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -7007,6 +7050,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -7621,6 +7665,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -7670,6 +7715,8 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
+     "sketch": null,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -7685,6 +7732,7 @@
      ],
      "specJson": "{\"annotations\":[{\"target\":\"density\",\"text\":\"the jump at 0 is p\\u00b7\\u03bb on the left, (1\\u2212p)\\u00b7\\u03bb on the right\"}],\"assumptions\":[{\"quote\":\"0 < p < 1 and \\\\lambda > 0\",\"span_id\":\"p2\",\"text\":\"\\u03bb > 0 and 0 < p < 1\"},{\"quote\":\"not in the book\",\"span_id\":\"p2\",\"text\":\"the book says this elsewhere\"}],\"definitions\":[{\"expr\":\"piecewise((x < 0, p*lam*exp(lam*x)), (1 - p)*lam*exp(-lam*x))\",\"name\":\"f\"}],\"demonstrates\":\"P(X \\u2264 0) is p however \\u03bb changes: \\u03bb squeezes both sides toward 0, p sets the split.\",\"invariants\":[{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"nonnegative\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"integrates_to_one\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"\",\"kind\":\"equals_source\",\"name\":\"f\"}],\"kind\":\"reconstructed\",\"panels\":[{\"kind\":\"function_plot\",\"markers\":[{\"label\":\"0\",\"x\":\"0\"}],\"series\":[{\"expr\":\"f\",\"label\":\"density\"}],\"shade\":[{\"from\":\"-40\",\"label\":\"P(X \\u2264 0)\",\"series\":\"density\",\"to\":\"0\"},{\"from\":\"0\",\"label\":\"P(X > 0)\",\"series\":\"density\",\"to\":\"40\"}],\"x\":{\"max\":40.0,\"min\":-40.0,\"var\":\"x\"}},{\"expr\":\"integral(f, x, -40, 0)\",\"format\":\"percent\",\"kind\":\"readout\",\"label\":\"P(X \\u2264 0)\"}],\"parameters\":[{\"animate\":false,\"default\":0.3,\"label\":\"p\",\"max\":0.95,\"min\":0.05,\"name\":\"p\",\"step\":0.05},{\"animate\":true,\"default\":1.0,\"label\":\"\\u03bb\",\"max\":4.0,\"min\":0.5,\"name\":\"lam\",\"step\":0.1}],\"predictions\":[{\"change\":{\"lam\":2.0},\"observe\":{\"expr\":\"integral(f, x, -40, 0)\",\"kind\":\"direction\"},\"prompt\":\"If \\u03bb doubles, what happens to P(X \\u2264 0)?\"},{\"change\":{},\"observe\":{\"expr\":\"p\",\"kind\":\"area\"},\"prompt\":\"Which shaded area is P(X < 0)?\"}],\"source_claims\":[{\"quote\":\"f_X(x) = p\\\\lambda e^{\\\\lambda x} for x < 0\",\"span_id\":\"p3\"}],\"spec_version\":\"ifs-v1\"}",
      "supersedesId": null,
+     "tier": "grammar",
      "unsupportedKind": null,
      "verification": "illustrative",
      "versions": 1
@@ -7720,6 +7768,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -7769,6 +7818,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -7816,6 +7866,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -7865,6 +7916,8 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
+    "sketch": null,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -7880,6 +7933,7 @@
     ],
     "specJson": "{\"annotations\":[{\"target\":\"density\",\"text\":\"the jump at 0 is p\\u00b7\\u03bb on the left, (1\\u2212p)\\u00b7\\u03bb on the right\"}],\"assumptions\":[{\"quote\":\"0 < p < 1 and \\\\lambda > 0\",\"span_id\":\"p2\",\"text\":\"\\u03bb > 0 and 0 < p < 1\"},{\"quote\":\"not in the book\",\"span_id\":\"p2\",\"text\":\"the book says this elsewhere\"}],\"definitions\":[{\"expr\":\"piecewise((x < 0, p*lam*exp(lam*x)), (1 - p)*lam*exp(-lam*x))\",\"name\":\"f\"}],\"demonstrates\":\"P(X \\u2264 0) is p however \\u03bb changes: \\u03bb squeezes both sides toward 0, p sets the split.\",\"invariants\":[{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"nonnegative\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"integrates_to_one\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"\",\"kind\":\"equals_source\",\"name\":\"f\"}],\"kind\":\"reconstructed\",\"panels\":[{\"kind\":\"function_plot\",\"markers\":[{\"label\":\"0\",\"x\":\"0\"}],\"series\":[{\"expr\":\"f\",\"label\":\"density\"}],\"shade\":[{\"from\":\"-40\",\"label\":\"P(X \\u2264 0)\",\"series\":\"density\",\"to\":\"0\"},{\"from\":\"0\",\"label\":\"P(X > 0)\",\"series\":\"density\",\"to\":\"40\"}],\"x\":{\"max\":40.0,\"min\":-40.0,\"var\":\"x\"}},{\"expr\":\"integral(f, x, -40, 0)\",\"format\":\"percent\",\"kind\":\"readout\",\"label\":\"P(X \\u2264 0)\"}],\"parameters\":[{\"animate\":false,\"default\":0.3,\"label\":\"p\",\"max\":0.95,\"min\":0.05,\"name\":\"p\",\"step\":0.05},{\"animate\":true,\"default\":1.0,\"label\":\"\\u03bb\",\"max\":4.0,\"min\":0.5,\"name\":\"lam\",\"step\":0.1}],\"predictions\":[{\"change\":{\"lam\":2.0},\"observe\":{\"expr\":\"integral(f, x, -40, 0)\",\"kind\":\"direction\"},\"prompt\":\"If \\u03bb doubles, what happens to P(X \\u2264 0)?\"},{\"change\":{},\"observe\":{\"expr\":\"p\",\"kind\":\"area\"},\"prompt\":\"Which shaded area is P(X < 0)?\"}],\"source_claims\":[{\"quote\":\"f_X(x) = p\\\\lambda e^{\\\\lambda x} for x < 0\",\"span_id\":\"p3\"}],\"spec_version\":\"ifs-v1\"}",
     "supersedesId": null,
+    "tier": "grammar",
     "unsupportedKind": null,
     "verification": "illustrative",
     "versions": 1
@@ -7983,7 +8037,8 @@
       "prefetch_decision_id": null,
       "reading_at_json": null,
       "tiers_allowed_json": [
-       "grammar"
+       "grammar",
+       "sketch"
       ]
      }
     ]
@@ -8408,6 +8463,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -8457,6 +8513,7 @@
      "reason": null,
      "region": null,
      "revisionNote": "show p = 0.7 instead",
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -8508,6 +8565,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -8557,6 +8615,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -8604,6 +8663,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -8653,6 +8713,7 @@
     "reason": null,
     "region": null,
     "revisionNote": "show p = 0.7 instead",
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -9593,6 +9654,7 @@
      "grounding": "anchor",
      "kind": null,
      "label": "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5)",
+     "labelCode": "failed",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -9600,6 +9662,7 @@
      "reason": "integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5",
      "region": null,
      "revisionNote": null,
+     "shown": false,
      "spanIds": [
       "p3"
      ],
@@ -9629,6 +9692,7 @@
     "grounding": "anchor",
     "kind": null,
     "label": "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5)",
+    "labelCode": "failed",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -9636,6 +9700,7 @@
     "reason": "integrates_to_one on 'f': integrates to 0.5, not 1 at p=0.05, lam=0.5",
     "region": null,
     "revisionNote": null,
+    "shown": false,
     "spanIds": [
      "p3"
     ],
@@ -10061,6 +10126,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-written simulation · sandboxed · not checked against the book",
+     "labelCode": "sketch",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -10090,6 +10156,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sketch": {
       "checks": [
        {
@@ -10342,6 +10409,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-written simulation · sandboxed · not checked against the book",
+    "labelCode": "sketch",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -10371,6 +10439,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sketch": {
      "checks": [
       {
@@ -11248,6 +11317,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-written simulation · sandboxed · not checked against the book",
+     "labelCode": "sketch",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -11277,6 +11347,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sketch": {
       "checks": [
        {
@@ -11530,6 +11601,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-written simulation · sandboxed · not checked against the book",
+    "labelCode": "sketch",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -11559,6 +11631,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sketch": {
      "checks": [
       {
@@ -12564,6 +12637,7 @@
      "grounding": "anchor",
      "kind": null,
      "label": "couldn't build a reliable version of this (claim 1 (equals) fails at walkers=100, t=0: envelope at x=0 is 0, the stated sqrt(x) + 1 is 1)",
+     "labelCode": "failed",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -12571,6 +12645,7 @@
      "reason": "claim 1 (equals) fails at walkers=100, t=0: envelope at x=0 is 0, the stated sqrt(x) + 1 is 1",
      "region": null,
      "revisionNote": null,
+     "shown": false,
      "sketch": null,
      "spanIds": [
       "p3"
@@ -12602,6 +12677,7 @@
     "grounding": "anchor",
     "kind": null,
     "label": "couldn't build a reliable version of this (claim 1 (equals) fails at walkers=100, t=0: envelope at x=0 is 0, the stated sqrt(x) + 1 is 1)",
+    "labelCode": "failed",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -12609,6 +12685,7 @@
     "reason": "claim 1 (equals) fails at walkers=100, t=0: envelope at x=0 is 0, the stated sqrt(x) + 1 is 1",
     "region": null,
     "revisionNote": null,
+    "shown": false,
     "sketch": null,
     "spanIds": [
      "p3"
@@ -13264,6 +13341,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -13313,6 +13391,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sketch": null,
      "sourceCheck": {
       "certificationVersion": 7,
@@ -13365,6 +13444,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -13414,6 +13494,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sketch": null,
     "sourceCheck": {
      "certificationVersion": 7,
@@ -13982,6 +14063,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -13991,6 +14073,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [],
@@ -14060,6 +14143,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -14069,6 +14153,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [],
@@ -14679,6 +14764,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "origin": "selection",
      "passages": [],
      "predictions": [
@@ -14728,6 +14814,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sketch": null,
      "sourceCheck": {
       "certificationVersion": 7,
@@ -14780,6 +14867,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -14829,6 +14917,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sketch": null,
     "sourceCheck": {
      "certificationVersion": 7,
@@ -15363,6 +15452,7 @@
      "grounding": "anchor",
      "kind": null,
      "label": "can't draw this yet — needs a 3-D surface · noted",
+     "labelCode": "unsupported",
      "origin": "selection",
      "passages": [],
      "predictions": [],
@@ -15370,6 +15460,7 @@
      "reason": "the figure language has no a 3-D surface",
      "region": null,
      "revisionNote": null,
+     "shown": false,
      "spanIds": [
       "p3"
      ],
@@ -15398,6 +15489,7 @@
     "grounding": "anchor",
     "kind": null,
     "label": "can't draw this yet — needs a 3-D surface · noted",
+    "labelCode": "unsupported",
     "origin": "selection",
     "passages": [],
     "predictions": [],
@@ -15405,6 +15497,7 @@
     "reason": "the figure language has no a 3-D surface",
     "region": null,
     "revisionNote": null,
+    "shown": false,
     "spanIds": [
      "p3"
     ],
@@ -16079,6 +16172,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "manim": null,
      "origin": "selection",
      "passages": [],
@@ -16129,6 +16223,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -16189,6 +16284,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "manim": null,
     "origin": "selection",
     "passages": [],
@@ -16239,6 +16335,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -17025,6 +17122,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-written simulation · sandboxed · not checked against the book",
+     "labelCode": "sketch",
      "manim": null,
      "origin": "selection",
      "passages": [],
@@ -17055,6 +17153,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sketch": {
       "checks": [
        {
@@ -17316,6 +17415,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-written simulation · sandboxed · not checked against the book",
+    "labelCode": "sketch",
     "manim": null,
     "origin": "selection",
     "passages": [],
@@ -17346,6 +17446,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sketch": {
      "checks": [
       {
@@ -19615,6 +19716,7 @@
      "grounding": "anchor",
      "kind": "reconstructed",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "manim": null,
      "origin": "selection",
      "passages": [],
@@ -19665,6 +19767,7 @@
      "reason": "the book check comes in a later version",
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -19718,6 +19821,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "manim": null,
     "origin": "selection",
     "passages": [],
@@ -19768,6 +19872,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [
@@ -20326,6 +20431,7 @@
      "grounding": "anchor",
      "kind": "illustrative",
      "label": "AI-built illustration of an interpretation · not checked against the book",
+     "labelCode": "illustrative",
      "manim": null,
      "origin": "selection",
      "passages": [],
@@ -20376,6 +20482,7 @@
      "reason": null,
      "region": null,
      "revisionNote": null,
+     "shown": true,
      "sourceCheck": {
       "certificationVersion": 7,
       "reasons": [
@@ -20437,6 +20544,7 @@
     "grounding": "anchor",
     "kind": "illustrative",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "manim": null,
     "origin": "selection",
     "passages": [],
@@ -20487,6 +20595,7 @@
     "reason": null,
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "sourceCheck": {
      "certificationVersion": 7,
      "reasons": [

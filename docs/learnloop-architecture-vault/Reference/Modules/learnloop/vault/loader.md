@@ -352,7 +352,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro1_self_report_helpers.py](../../../../../../tests/ro1_self_report_helpers.py) — direct import
 - [tests/ro2_history_protection_helpers.py](../../../../../../tests/ro2_history_protection_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../../tests/router_probe_ties_helpers.py) — direct import
-- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/serve_eligibility_helpers.py](../../../../../../tests/serve_eligibility_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../../tests/sim_probe_validation_helpers.py) — direct import
@@ -1487,13 +1486,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_reused`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
   - `test_a_block_the_judgment_did_not_offer_is_refused_before_any_call`
-  - `test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build`
-  - `test_a_selection_build_does_not_stop_for_the_offers_switch`
-  - `test_a_stored_answer_with_offers_is_shown_without_them_once_offers_are_off`
-  - `test_an_offered_build_stops_when_offers_are_switched_off_before_its_request`
-  - `test_offers_off_the_contract_has_none_and_the_press_is_refused`
+  - `test_a_stored_answer_with_offers_is_shown_without_them_once_figures_are_off`
+  - `test_an_offered_build_is_admitted_under_the_builds_key_and_stops_when_figures_go_off`
   - `test_pressing_a_library_offer_builds_through_rw5a_with_origin_library`
-  - `test_the_gate_key_of_an_offered_build_includes_the_offers_switch`
   - `test_the_tutor_buttons_are_make_explorable_on_this_books_equation_and_figure_blocks`
   - `test_the_tutor_context_asks_for_explorable_only_with_a_block_to_judge`
 - [tests/test_figure_predictions.py](../../../../../../tests/test_figure_predictions.py) — direct import
@@ -1504,7 +1499,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_allowing_where_manim_cannot_run_is_refused`
   - `test_the_standing_opt_in_is_written_once_with_its_date`
 - [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
-  - `test_a_goal_candidate_is_kept_only_with_figures_and_show_me_on`
+  - `test_a_goal_candidate_is_kept_only_with_figures_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
   - `test_at_the_tag_the_rows_say_v2_and_the_records_carry_ws_basis`
   - `test_switched_off_or_below_the_tag_the_rows_say_v1_and_the_records_are_as_before`
@@ -1570,7 +1565,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_a_missed_predictions_text_rechecks_the_retrieved_passages`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../tests/test_figures_show_me_codex_review.py) — direct import
-  - `test_f1_a_reuse_after_show_me_is_switched_off_is_refused`
+  - `test_f1_a_reuse_after_figures_are_switched_off_is_refused`
   - `test_f1_switching_off_during_grounding_stops_its_calls_and_the_author`
   - `test_f1_the_control_admits_every_grounding_call`
   - `test_f4_a_home_held_out_after_construction_withholds_the_figure`
@@ -1684,7 +1679,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exhausted_render_minutes_fire_no_request_and_the_next_budget_builds_it`
   - `test_the_highest_sampled_eu_of_a_capped_batch_goes_first`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
-  - `test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched`
+  - `test_a_fresh_figure_for_a_marked_row_is_reused_under_another_setting`
   - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
   - `test_a_marked_quick_figure_with_no_record_is_withheld`
   - `test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh`
@@ -2836,6 +2831,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
   - `test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_nothing`
+  - `test_a_vault_that_still_sets_a_retired_figure_switch_loads_and_the_switch_reads_nothing`
 - [tests/test_retired_config_keys_load.py](../../../../../../tests/test_retired_config_keys_load.py) — direct import
   - `test_an_old_config_setting_every_removed_key_loads_as_if_it_did_not`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
@@ -2974,11 +2970,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_certification_bump_rechecks_at_no_paid_cost`
   - `test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild`
-  - `test_a_kept_build_result_read_after_the_switch_turns_off_shows_no_label`
   - `test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing`
-  - `test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing`
   - `test_pressing_rebuild_calls_the_author_and_stores_a_new_version`
-  - `test_rebuild_is_not_offered_with_revisions_off`
   - `test_section_figures_leave_a_rejected_figure_out`
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
   - `test_a_block_that_is_not_ok_is_refused_with_its_reason`
@@ -2995,8 +2988,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_off_at_the_store_writes_nothing`
   - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`
   - `test_with_no_engine_a_book_equation_is_unreadable_and_the_sandbox_is_not_asked`
-- [tests/test_rw5c_switch_off.py](../../../../../../tests/test_rw5c_switch_off.py) — direct import
-  - `test_nothing_reads_the_ledger_while_the_switch_is_off`
 - [tests/test_rw7b_codex_review_fixes.py](../../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import
   - `test_f1_a_staged_unstarted_path_reading_is_ended_unread_and_the_predecessors_is_served`
   - `test_f1_switching_off_after_the_build_restores_the_predecessors_reading`

@@ -4,7 +4,7 @@ A note asks the figure author for a new version; it is verified like the
 first, supersedes it (``supersedes_id``, ``revision_note``), and the earlier
 one is kept. The Reader shows the newest shown version of each chain, so a
 failed revision leaves the earlier figure in place. The request counts
-against the figure caps; ``figures.revisions_enabled`` off refuses it.
+against the figure caps.
 """
 
 from __future__ import annotations
@@ -24,7 +24,6 @@ from tests.figure_fixtures import (
     flagship,
     half_density,
     rows,
-    set_config,
 )
 
 
@@ -73,18 +72,6 @@ def test_a_revision_counts_against_the_caps(tmp_path):
     first = build(ctx)["figure"]
     build(ctx, {"figureId": first["figureId"], "note": "x"}, rpc="reader.figure_revise")
     assert author.calls == 3  # two attempts for the revision, never a third
-
-
-def test_revisions_switch_off(tmp_path):
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    ctx = context(paths.root, author=AuthorFake([flagship(kind="illustrative")]))
-    first = build(ctx)["figure"]
-    set_config(paths, "figures", revisions_enabled=False)
-    ctx = context(paths.root, author=AuthorFake())
-    assert call(ctx, "reader.prompt_contract", {})["figures"]["revisions"] is False
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.figure_revise", {"figureId": first["figureId"], "note": "x"})
-    assert caught.value.code == "revisions_disabled"
 
 
 def test_revising_an_unknown_figure_is_refused(tmp_path):

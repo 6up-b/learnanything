@@ -111,7 +111,7 @@ it("gives every new panel a values table", () => {
 function viewOf(id: string): FigureViewDto {
   return {
     figureId: "fig_adv", extractionId: "ext_prob", spanIds: ["p3"], anchorSpanId: "p3", region: null, origin: "tutor",
-    verification: "illustrative", kind: "illustrative", label: "AI-built illustration of an interpretation · not checked against the book",
+    verification: "illustrative", shown: true, labelCode: "illustrative", kind: "illustrative", label: "AI-built illustration of an interpretation · not checked against the book",
     reason: null, unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-23T00:00:00",
     specJson: JSON.stringify(specOf(id)), demonstrates: "how gradient descent moves", assumptions: [], predictions: [], propertyChecks: ["values_finite"],
   } as unknown as FigureViewDto;

@@ -114,7 +114,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figure_prefetch as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import show_me_enabled
+from learnloop.figure_admission import figures_enabled
 from learnloop.figures import foreground as FG
 from learnloop.figures import power as P
 from learnloop.figures import prefetch_ledger as PL
@@ -796,7 +796,7 @@ def _touched_topics(env: PrefetchEnv) -> list[str]:
 def _gap_candidates(env: PrefetchEnv, *, call: bool, result: PassResult, open_keys: set[str]) -> list[Candidate]:
     from learnloop.figures.learner_state import open_gap_statements
 
-    if not show_me_enabled(env.vault):
+    if not figures_enabled(env.vault):
         return []  # a gap's figure has a goal: "show me" must be on
     found: list[Candidate] = []
     decided = _decided_refs(env.repository, "gap")
@@ -978,7 +978,7 @@ def _filtered(env: PrefetchEnv, found: Sequence[Candidate], *, open_keys: set[st
         if not candidate.span_ids:
             log.exclude(FR.FILTER_NO_SPANS, candidate)
             continue
-        if candidate.goal_text and not show_me_enabled(vault):
+        if candidate.goal_text and not figures_enabled(vault):
             log.exclude(FR.FILTER_SHOW_ME_OFF, candidate)
             continue
         if withheld_message(vault, env.repository, candidate.extraction_id, candidate.span_ids) is not None:

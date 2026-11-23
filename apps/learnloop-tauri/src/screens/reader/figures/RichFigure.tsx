@@ -64,13 +64,6 @@ export const RICH_PHASES: Readonly<Record<string, string>> = Object.freeze({
   rendering: "◐ rendering the video (manim)",
 });
 
-export function manimBadge(figure: FigureViewDto): string {
-  if (figure.verification === "unsupported") return RICH_FRAME.cantShow;
-  if (figure.verification === "failed") return FIGURE_FRAME.failed;
-  if (figure.grounding === "none") return RICH_FRAME.manimNotFromBooks;
-  return figure.manim?.checks.length ? RICH_FRAME.manim : RICH_FRAME.manimUnchecked;
-}
-
 /** One check line, written here from closed fields (the function and expression are identifiers and a formula). */
 export function manimCheckLine(check: FigureManimCheckDto): string {
   const settings = `at ${check.settings} tested setting${check.settings === 1 ? "" : "s"}`;

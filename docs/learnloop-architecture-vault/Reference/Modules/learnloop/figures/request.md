@@ -47,46 +47,46 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py) |
-| Source lines | 473 |
+| Source lines | 420 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FigureRefused(Exception)` ([source](../../../../../../src/learnloop/figures/request.py), line 75) — A request the Reader may not make (``code``: ``figures_disabled``, ``exam_material``, ``region_disabled``, ``revisions_disabled``, ``predictions_disabled``, ``offers_disabled`` and ``advanced_disabled`` (RW5b), ``not_found``, ``validation_error``, ``no_image_input``, ``region_un…
-  - `__init__(self, code: str, message: str) -> None` (line 83; internal)
-- `class FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 90)
-- `attempt_hosted(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 150) — RW5d P3: a request made on an attempt host (practice, feedback or the workbench: its verified host references name an item or attempt).
-- `lesson_hosted(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 157) — RW5d P4b: a lesson's visual (origin ``teacher``; its host is the lesson, so it has no reading position and no home: it shows in the lesson only).
-- `prediction_home(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/request.py), line 164) — The extraction a figure's prediction is recorded under: its home, or (RW5d P3, an attempt host's figure with no home) the first book it was grounded in; None for a homeless illustration (its predictions are kept with no extraction: Codex review F9).
-- `anchored(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 176) — A request with a passage (a selection or a region).
-- `show_me_input(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 182) — RW5d: a request whose goal or grounding the author is sent (a goal, or no passage).
-- `build_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/request.py), line 193) — What a build depends on, compared before every request it makes (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switch, the author route as configured, the day's cap and the price, and (RW5b) whether the advanced panels are on (the author's prompt depends on i…
-- `offer_build_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/request.py), line 212) — An offered build's key (origin ``library`` | ``tutor``): :func:`build_key` and ``figures.offers_enabled``, so switching offers off stops it.
-- `offered(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 219) — A build an offer started (a "not right?" version of an offered figure is a revision: ``figures.revisions_enabled`` governs it, not the offers).
-- `show_me_build_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/request.py), line 226) — A show-me build's key: :func:`build_key` and ``figures.show_me_enabled``.
-- `key_for(request: 'FigureRequest')` ([source](../../../../../../src/learnloop/figures/request.py), line 232)
-- `check_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 398) — Validate a request and refuse held-out material, on the request path, before any job or call (the handler's first step; the build repeats it).
+- `class FigureRefused(Exception)` ([source](../../../../../../src/learnloop/figures/request.py), line 74) — A request the Reader may not make (``code``: ``figures_disabled``, ``exam_material``, ``not_found``, ``validation_error``, ``no_image_input``, ``region_unreadable``) or a route that cannot be called (``capped``, ``unpriced``, ``unrouted``, ``unavailable``, ``models_off``).
+  - `__init__(self, code: str, message: str) -> None` (line 80; internal)
+- `class FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 87)
+- `attempt_hosted(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 147) — RW5d P3: a request made on an attempt host (practice, feedback or the workbench: its verified host references name an item or attempt).
+- `lesson_hosted(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 154) — RW5d P4b: a lesson's visual (origin ``teacher``; its host is the lesson, so it has no reading position and no home: it shows in the lesson only).
+- `prediction_home(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/request.py), line 161) — The extraction a figure's prediction is recorded under: its home, or (RW5d P3, an attempt host's figure with no home) the first book it was grounded in; None for a homeless illustration (its predictions are kept with no extraction: Codex review F9).
+- `anchored(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 173) — A request with a passage (a selection or a region).
+- `show_me_input(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 179) — RW5d: a request whose goal or grounding the author is sent (a goal, or no passage).
+- `build_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/request.py), line 190) — What a build depends on, compared before every request it makes (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switch, the author route as configured, the day's cap and the price, the rich tiers and whether this machine offers Manim, and (learner data-relax 2…
+- `offered(request: 'FigureRequest') -> bool` ([source](../../../../../../src/learnloop/figures/request.py), line 206) — A build an offer started (a "not right?" version of an offered figure is a revision, not an offer).
+- `key_for(request: 'FigureRequest')` ([source](../../../../../../src/learnloop/figures/request.py), line 213)
+- `check_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 356) — Validate a request and refuse held-out material, on the request path, before any job or call (the handler's first step; the build repeats it).
 
 ### Module constants
 
-- `ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 57)
-- `RESERVED_ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 58)
-- `SERVICE_ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 60)
-- `LESSON_TIERS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 64)
-- `OFFER_ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 66)
-- `GOAL_AUTHORS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 69)
-- `GOAL_CHARS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 70)
-- `GROUNDINGS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 71)
-- `NOTE_CHARS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 72)
-- `_PREFETCH_BUILD` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 268)
-- `PREFETCH_GOAL_AUTHORS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 270)
+- `ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 50)
+- `RESERVED_ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 51)
+- `SERVICE_ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 53)
+- `LESSON_TIERS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 57)
+- `ATTEMPT_HOST_TIERS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 63)
+- `OFFER_ORIGINS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 65)
+- `GOAL_AUTHORS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 68)
+- `GOAL_CHARS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 69)
+- `GROUNDINGS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 70)
+- `NOTE_CHARS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 71)
+- `_PREFETCH_BUILD` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 238)
+- `PREFETCH_GOAL_AUTHORS` ([src/learnloop/figures/request.py](../../../../../../src/learnloop/figures/request.py), line 240)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `ATTEMPT_HOST_TIERS`
 - `FigureRefused`
 - `FigureRequest`
 - `GOAL_AUTHORS`
@@ -105,24 +105,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `check_request`
 - `key_for`
 - `lesson_hosted`
-- `offer_build_key`
 - `offered`
 - `prediction_home`
-- `show_me_build_key`
 - `show_me_input`
 
 ## Internal implementation anchors
 
-- `_key_for(request: 'FigureRequest')` ([source](../../../../../../src/learnloop/figures/request.py), line 254)
-- `_validated_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 273)
-- `_validated_prefetch(vault: Any, request: FigureRequest) -> FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 362) — RW5d P5: a prefetch build's request, as the prefetch service made it: an anchor (a passage of a book), an optional goal by the prefetch judge or a lesson plan's teacher, never an attempt host, a region or a revision.
+- `_validated_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 243)
+- `_validated_prefetch(vault: Any, request: FigureRequest) -> FigureRequest` ([source](../../../../../../src/learnloop/figures/request.py), line 323) — RW5d P5: a prefetch build's request, as the prefetch service made it: an anchor (a passage of a book), an optional goal by the prefetch judge or a lesson plan's teacher, never an attempt host, a region or a revision.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `FigureRefused`, `FigureRequest`, `_PREFETCH_BUILD`, `anchored`, `attempt_hosted`, `check_request`, `key_for`, `lesson_hosted`, `show_me_input`; statically calls `FigureRefused`, `FigureRequest`, `anchored`, `attempt_hosted`, `check_request`, `key_for`, `lesson_hosted`, `show_me_input`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `FigureRefused`, `FigureRequest`, `LESSON_TIERS`, `_PREFETCH_BUILD`, `anchored`, `attempt_hosted`, `check_request`, `key_for`, `lesson_hosted`, `show_me_input`; statically calls `FigureRefused`, `FigureRequest`, `anchored`, `attempt_hosted`, `check_request`, `key_for`, `lesson_hosted`, `show_me_input`
 - [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `FigureRefused`, `FigureRequest`, `anchored`; statically calls `FigureRefused`, `anchored`
 - [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `FigureRefused`, `FigureRequest`; statically calls `FigureRefused`, `FigureRequest`
 - [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `FigureRefused`, `prediction_home`; statically calls `FigureRefused`, `prediction_home`
@@ -137,13 +134,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `figure`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `advanced_panels_enabled`, `author_learner_state_enabled`, `checked_labels_enabled`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `region_enabled`, `revisions_enabled`, `rich_tiers_enabled`, `show_me_enabled`, `sketch_enabled`, `teacher_visuals_enabled`; calls `advanced_panels_enabled`, `author_learner_state_enabled`, `checked_labels_enabled`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `region_enabled`, `revisions_enabled`, `rich_tiers_enabled`, `show_me_enabled`, `sketch_enabled`, `teacher_visuals_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `author_learner_state_enabled`, `figures_enabled`, `help_kind_enabled`, `rich_tiers_enabled`, `teacher_visuals_enabled`; calls `author_learner_state_enabled`, `figures_enabled`, `help_kind_enabled`, `rich_tiers_enabled`, `teacher_visuals_enabled`
 - [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] — imports `prefetch_switch`; calls `prefetch_switch`
-- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `ATTEMPT_HOST_REFS`, `keys_withheld`, `row_withheld`, `show_me_row`, `withheld_message`; calls `keys_withheld`, `row_withheld`, `show_me_row`, `withheld_message`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `ATTEMPT_HOST_REFS`, `keys_withheld`, `row_withheld`, `withheld_message`; calls `keys_withheld`, `row_withheld`, `withheld_message`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`; calls `manim_tier_ready`, `rich_tiers_switch`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `sketch_ready`; calls `sketch_ready`
-- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `_advanced_kinds`, `rich_row`, `sketch_row`; calls `_advanced_kinds`, `rich_row`, `sketch_row`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `rich_row`, `sketch_row`; calls `rich_row`, `sketch_row`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `plan_route`; calls `plan_route`
 
 ### Platform and third-party dependencies
@@ -166,7 +163,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/figure_rich_job_helpers.py](../../../../../../tests/figure_rich_job_helpers.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
-- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
   - `test_a_refused_or_failed_prebuild_is_a_stop_record`
@@ -174,11 +170,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_stored_label_like_sketch_is_presented_without_that_text`
   - `test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_reused`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
-  - `test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build`
-  - `test_a_selection_build_does_not_stop_for_the_offers_switch`
-  - `test_an_offered_build_stops_when_offers_are_switched_off_before_its_request`
-  - `test_offers_off_the_contract_has_none_and_the_press_is_refused`
-  - `test_the_gate_key_of_an_offered_build_includes_the_offers_switch`
+  - `test_an_offered_build_is_admitted_under_the_builds_key_and_stops_when_figures_go_off`
 - [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
   - `test_a_build_with_manim_on_the_menu_sends_v3_and_records_the_menu`
   - `test_the_reuse_key_names_the_menu_and_the_rich_versions`
@@ -214,7 +206,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_build_makes_no_request_after_its_configuration_changes`
   - `test_the_build_control_makes_every_request`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../tests/test_figures_show_me_codex_review.py) — direct import
-  - `test_f1_a_reuse_after_show_me_is_switched_off_is_refused`
+  - `test_f1_a_reuse_after_figures_are_switched_off_is_refused`
   - `test_f1_switching_off_during_grounding_stops_its_calls_and_the_author`
   - `test_f1_the_control_admits_every_grounding_call`
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
@@ -242,7 +234,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_off_at_the_store_writes_nothing`
   - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`
 - [tests/test_sketch_service.py](../../../../../../tests/test_sketch_service.py) — direct import
-  - `test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte`
+  - `test_without_the_engine_the_contract_prompt_and_key_are_rw5bs_byte_for_byte`
 
 ## Modification guidance
 

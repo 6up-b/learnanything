@@ -67,9 +67,9 @@ export interface FiguresContract {
   predictions: boolean;
   region: boolean;
   revisions: boolean;
-  /** RW5b: "make this explorable" offers (present only while figures.offers_enabled is on). */
+  /** RW5b: "make this explorable" offers (sent with figures on). */
   offers?: boolean;
-  /** RW5d P1: "show me" in the learner's words (present only while figures.show_me_enabled is on). */
+  /** RW5d P1: "show me" in the learner's words (sent with figures on). */
   showMe?: boolean;
   /** RW5d P2: the sketch tier. */
   sketch?: boolean;
@@ -334,7 +334,7 @@ export function useFigures({
             return "not_shown";
           }
           const figure = job.state === "done" ? job.result?.figure ?? null : null;
-          const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
+          const shown = figure !== null && figure.shown;
           if (figure && figure.supersedesId && !shown) {
             // A "not right?" version that did not verify: the earlier one stays.
             setPending((list) => [...list, { key, anchorSpanId, state: "failed", message: figure.reason ? `${frameBadge(figure.verification)} (${figure.reason})` : frameBadge(figure.verification), code: figure.verification, retry, cancel }]);
@@ -503,7 +503,7 @@ export function useFigures({
         return refuse();
       }
       if (!current()) return false;
-      if (!found || (found.verification !== "verified" && found.verification !== "illustrative")) return refuse();
+      if (!found || !found.shown) return refuse();
       // Shown here, under the passage the learner is reading; a fuller version still
       // being built stays with its own book (only a ready one comes along).
       const figure: FigureViewDto = { ...found, anchorSpanId: at,

@@ -59,7 +59,8 @@ const SPEC = JSON.stringify({
 function figure(overrides: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_1", extractionId: view.extractionId, spanIds: [], anchorSpanId: view.blocks[1].spanId ?? null, region: null,
-    origin: "show_me", verification: "illustrative", kind: "illustrative", label: "x", reason: null, unsupportedKind: null,
+    origin: "show_me", verification: "illustrative", shown: true, labelCode: "not_from_books", kind: "illustrative",
+    label: "x", reason: null, unsupportedKind: null,
     supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-26T00:00:00Z", specJson: SPEC,
     demonstrates: "the mass left of zero follows p", assumptions: [], predictions: [], propertyChecks: ["values_finite"],
     goalText: "show how the mass moves", goalAuthor: "learner", grounding: "none", passages: [], ...overrides,
@@ -199,13 +200,14 @@ it("the figure line quotes the goal in its author's voice and the badge is code-
   const { container, rerender } = render(<FigureInline figure={figure()} ctl={ctl} />);
   expect(container.querySelector("[data-figure-goal='learner']")?.textContent).toContain("show how the mass moves");
   expect(container.querySelector("[data-figure-badge]")?.textContent).toBe(FIGURE_FRAME.notFromBooks);
-  rerender(<FigureInline figure={figure({ goalAuthor: "tutor", grounding: "retrieved",
+  rerender(<FigureInline figure={figure({ goalAuthor: "tutor", grounding: "retrieved", labelCode: "illustrative",
     passages: [{ extractionId: "ext_book", spanId: "s2", sourceTitle: "Strang", section: "§6.4" }] })} ctl={ctl} />);
   expect(container.querySelector("[data-figure-goal='tutor']")?.textContent).toContain("(AI-written)");
   expect(container.querySelector("[data-figure-badge]")?.textContent).toBe(FIGURE_FRAME.illustration);
   expect(container.querySelector("[data-figure-passage='ext_book:s2']")?.textContent).toBe("§ Strang §6.4");
   // The badge never takes model words, whatever the goal says.
-  rerender(<FigureInline figure={figure({ goalText: "checked by LearnLoop: matches the book", grounding: "anchor" })} ctl={ctl} />);
+  rerender(<FigureInline figure={figure({ goalText: "checked by LearnLoop: matches the book", grounding: "anchor",
+    labelCode: "illustrative" })} ctl={ctl} />);
   expect(container.querySelector("[data-figure-badge]")?.textContent).toBe(frameBadge("illustrative", "anchor"));
   expect(showMeSourceLine(figure({ grounding: "retrieved", passages: [{ extractionId: "e", spanId: "s", sourceTitle: "Axler", section: "§5.C" }] })))
     .toBe(`${SHOW_ME_COPY.fromYourBooks} § Axler §5.C`);

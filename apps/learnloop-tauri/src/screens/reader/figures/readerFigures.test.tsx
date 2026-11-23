@@ -42,7 +42,7 @@ const anchor = view.blocks[1].spanId as string;
 function figure(): FigureViewDto {
   return {
     figureId: "fig_1", extractionId: view.extractionId, spanIds: [anchor], anchorSpanId: anchor, region: null,
-    origin: "selection", verification: "illustrative", kind: "illustrative",
+    origin: "selection", verification: "illustrative", shown: true, labelCode: "illustrative", kind: "illustrative",
     label: "AI-built illustration of an interpretation · not checked against the book", reason: null,
     unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-21T00:00:00",
     specJson: JSON.stringify(FLAGSHIP), demonstrates: "a demonstration", assumptions: [], predictions: [],

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/keys/router.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/keys/router.ts) |
-| Source lines | 325 |
+| Source lines | 347 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/keys/_area|TypeScript/screens/desks/keys]] |
 | Refactor status | `ACTIVE` |
@@ -57,37 +57,39 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type DeskScope = "notebook" | "check" | "menu" | "typing" | "arrange" | "pen" | "overview" | "focus" | "reading"` — type, line 9
 - `export const SCOPE_ORDER: readonly DeskScope[] = ["notebook", "check", "menu", "typing", "arrange", "pen", "overview", "focus", "reading"]` — const, line 12
 - `export type DeskAction = |` — type, line 14
-- `export interface Chord` — interface, line 43
-- `export interface DeskBinding` — interface, line 53
-- `export const DESK_BINDINGS: readonly DeskBinding[] = [ alt("move.left", "alt+h", "window left", "KeyH",` — const, line 81
-- `export interface ScopeState` — interface, line 125
-- `export function openScopes(state: ScopeState): DeskScope[]` — function, line 137
-- `export interface KeyLike` — interface, line 141
-- `export interface Resolution` — interface, line 188
-- `export function resolveKey(event: KeyLike, state: ScopeState, mods:` — function, line 196
-- `export class ModifierTracker` — class, line 211
-- `export const WHICH_KEY_HOLD_MS = 400` — const, line 238
-- `export interface Timers` — interface, line 240
-- `export const REAL_TIMERS: Timers =` — const, line 246
-- `export type AltOutcome = "tap" | "hold" | "chord" | "cancelled"` — type, line 253
-- `export class BareAltTracker` — class, line 258
-- `export function isTypingTarget(target: EventTarget | null): boolean` — function, line 321
+- `export interface Chord` — interface, line 48
+- `export interface DeskBinding` — interface, line 58
+- `export const DESK_BINDINGS: readonly DeskBinding[] = [ alt("move.left", "alt+h", "window left", "KeyH",` — const, line 86
+- `export interface ScopeState` — interface, line 147
+- `export function openScopes(state: ScopeState): DeskScope[]` — function, line 159
+- `export interface KeyLike` — interface, line 163
+- `export interface Resolution` — interface, line 210
+- `export function resolveKey(event: KeyLike, state: ScopeState, mods:` — function, line 218
+- `export class ModifierTracker` — class, line 233
+- `export const WHICH_KEY_HOLD_MS = 400` — const, line 260
+- `export interface Timers` — interface, line 262
+- `export const REAL_TIMERS: Timers =` — const, line 268
+- `export type AltOutcome = "tap" | "hold" | "chord" | "cancelled"` — type, line 275
+- `export class BareAltTracker` — class, line 280
+- `export function isTypingTarget(target: EventTarget | null): boolean` — function, line 343
 
 ## Internal implementation anchors
 
-- `const ALT_TYPING: readonly DeskScope[] = ["typing", "focus", "reading"]` — const, line 69
-- `const READING: readonly DeskScope[] = ["reading"]` — const, line 70
-- `function alt(id: string, keys: string, label: string, code: string, action: DeskAction, scopes: readonly DeskScope[], extra: Partial<DeskBinding> =` — function, line 72
-- `function bare(id: string, keys: string, label: string, key: string, action: DeskAction, scopes: readonly DeskScope[], extra: Partial<DeskBinding> =` — function, line 76
-- `function chordMatches(chord: Chord, event: KeyLike, mods:` — function, line 150
-- `const altDown = mods.alt` — const, line 151
-- `const ctrlDown = mods.ctrl || event.metaKey` — const, line 152
-- `function passesThrough(scope: DeskScope, binding: DeskBinding): boolean` — function, line 164
-- `const matching = DESK_BINDINGS.filter((binding)` — const, line 197
-- `const owned = matching.find((binding)` — const, line 200
-- `const held = this.held || this.timers.now() - this.pressedAt >= WHICH_KEY_HOLD_MS` — const, line 289
-- `const outcome: AltOutcome = this.spoiled ?? (held ? "hold" : "tap")` — const, line 290
-- `const wasHeld = this.held` — const, line 301
+- `const ALT_TYPING: readonly DeskScope[] = ["typing", "focus", "reading"]` — const, line 74
+- `const READING: readonly DeskScope[] = ["reading"]` — const, line 75
+- `function alt(id: string, keys: string, label: string, code: string, action: DeskAction, scopes: readonly DeskScope[], extra: Partial<DeskBinding> =` — function, line 77
+- `function bare(id: string, keys: string, label: string, key: string, action: DeskAction, scopes: readonly DeskScope[], extra: Partial<DeskBinding> =` — function, line 81
+- `const letter = "hjkl"[index]` — const, line 126
+- `const arrow =` — const, line 127
+- `function chordMatches(chord: Chord, event: KeyLike, mods:` — function, line 172
+- `const altDown = mods.alt` — const, line 173
+- `const ctrlDown = mods.ctrl || event.metaKey` — const, line 174
+- `function passesThrough(scope: DeskScope, binding: DeskBinding): boolean` — function, line 186
+- `const matching = DESK_BINDINGS.filter((binding)` — const, line 219
+- `const owned = matching.find((binding)` — const, line 222
+- `const held = this.held || this.timers.now() - this.pressedAt >= WHICH_KEY_HOLD_MS` — const, line 311
+- `const outcome: AltOutcome = this.spoiled ?? (held ? "hold" : "tap")` — const, line 312
+- `const wasHeld = this.held` — const, line 323
 
 ## Who imports or calls it
 

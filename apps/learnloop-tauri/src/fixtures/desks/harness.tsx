@@ -4,7 +4,7 @@
 // drives it in headless Chromium.
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { DeskShell } from "../../screens/desks/DeskShell";
+import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "./sources";
@@ -15,6 +15,7 @@ const errors: string[] = [];
 declare global {
   interface Window {
     __deskHarnessErrors?: string[];
+    __deskDebug?: DeskDebugHandle;
   }
 }
 window.__deskHarnessErrors = errors;
@@ -49,7 +50,14 @@ export function Harness({ search = window.location.search }: { search?: string }
   if (preview === "preview" || preview === "active") return <PreviewCard state={preview} />;
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex" }}>
-      <DeskShell vaultKey="desk-fixture" onError={(message) => errors.push(message)} onLeave={() => errors.push("left for the old Reader")} />
+      <DeskShell
+        vaultKey="desk-fixture"
+        onError={(message) => errors.push(message)}
+        onLeave={() => errors.push("left for the old Reader")}
+        onDebugHandle={(handle) => {
+          window.__deskDebug = handle;
+        }}
+      />
     </div>
   );
 }

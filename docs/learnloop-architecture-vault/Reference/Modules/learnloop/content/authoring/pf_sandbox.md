@@ -204,7 +204,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_plain_words.py](../../../../../../../tests/test_rw5c_plain_words.py) — direct import
 - [tests/test_rw5c_recheck.py](../../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_certification_bump_rechecks_at_no_paid_cost`
-  - `test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing`
   - `test_dry_run_writes_nothing_and_the_cli_reports_by_reason_key`
   - `test_rebuild_of_a_figure_with_no_difference_is_refused`
 - [tests/test_rw5c_source_check.py](../../../../../../../tests/test_rw5c_source_check.py) — direct import

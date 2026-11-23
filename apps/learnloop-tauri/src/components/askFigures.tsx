@@ -117,11 +117,6 @@ export interface PanelFigureLine {
   message: string | null;
 }
 
-/** Ruling R1: a figure as an attempt host shows it, never with its fuller (Manim) version. */
-function quickOnly(figure: FigureViewDto | null): FigureViewDto | null {
-  return figure && figure.fuller ? { ...figure, fuller: null } : figure;
-}
-
 /** What a figure did to the attempt, for the host (its help record and cold banner). */
 export interface PanelFigureEvent {
   /** A new hint-equivalent was counted (the figure was new to this attempt). */
@@ -166,9 +161,10 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
   const attemptKey = target ? `${target.submissionId ?? ""}|${target.workbenchSessionId ?? ""}` : "";
 
   const land = useCallback((key: string, result: FigureBuildResultDto | null, host: string) => {
-    const figure = quickOnly(result?.figure ?? null);
+    // Ruling R1: the server sends an attempt host's figure without its fuller (Manim) version.
+    const figure = result?.figure ?? null;
     const help = result?.help ?? null;
-    const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
+    const shown = figure !== null && figure.shown;
     updateHost(host, (state) => ({ ...state, lines: state.lines.map((line) => line.key !== key ? line : {
       ...line, figure, help,
       state: figure ? "landed" : "failed",

@@ -20,17 +20,16 @@ source_paths:
   - "src/learnloop_sidecar/handlers/reader_tutor.py"
   - "src/learnloop/tutor/tutor_qa.py"
   - "tests/learner_blindness_relax_helpers.py"
-  - "tests/reader_source_identity_guard_helpers.py"
   - "tests/test_compare_keep_switch_off.py"
   - "tests/test_figure_offers.py"
-  - "tests/test_figure_switch_predicates.py"
-  - "tests/test_figures_rpc.py"
-  - "tests/test_figures_rw5b_review.py"
   - "tests/test_figures_switch_off.py"
   - "tests/test_learner_blindness_relax.py"
   - "tests/test_reader_inquiry_kill_switch.py"
   - "tests/test_reader_intent.py"
   - "tests/test_reader_rw1c_review.py"
+  - "tests/test_reader_tutor_offers.py"
+  - "tests/test_reader_tutor_switch_off.py"
+  - "tests/test_retired_config_identities.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-tutor"
@@ -52,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `reader_tutor.retrieval_enabled` | `true` | boolean | modeled default or validator seed | Turns retrieval behavior on or off within reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2638`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/handlers/reader_tutor.py:41` |
-| `reader_tutor.offers_enabled` | `true` | boolean | modeled default or validator seed | Turns offers behavior on or off within reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2639`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/tutor/tutor_qa.py:336` |
+| `reader_tutor.offers_enabled` | `true` | boolean | modeled default or validator seed | Turns offers behavior on or off within reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2639`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/tutor/tutor_qa.py:334` |
 | `reader_tutor.learner_state_enabled` | `true` | boolean | modeled default or validator seed | Turns learner state behavior on or off within reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2649`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
@@ -63,17 +62,16 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/learner_blindness_relax_helpers.py`
-- `tests/reader_source_identity_guard_helpers.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_figure_offers.py`
-- `tests/test_figure_switch_predicates.py`
-- `tests/test_figures_rpc.py`
-- `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_switch_off.py`
 - `tests/test_learner_blindness_relax.py`
 - `tests/test_reader_inquiry_kill_switch.py`
 - `tests/test_reader_intent.py`
 - `tests/test_reader_rw1c_review.py`
+- `tests/test_reader_tutor_offers.py`
+- `tests/test_reader_tutor_switch_off.py`
+- `tests/test_retired_config_identities.py`
 
 ## Extension and modification guidance
 

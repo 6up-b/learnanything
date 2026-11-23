@@ -16,7 +16,6 @@ from tests.figure_fixtures import (
     context,
     flagship,
     rows,
-    set_config,
 )
 
 
@@ -63,13 +62,11 @@ def _requests(repository) -> list[dict[str, Any]]:
     return rows(repository, "figure_requests")
 
 
-def _tutor_ask(tmp_path, monkeypatch, *, figure_goal: str | None, show_me: bool = True):
+def _tutor_ask(tmp_path, monkeypatch, *, figure_goal: str | None):
     import learnloop_sidecar.handlers.reader as reader_handler
     from tests.reader_tutor_fakes import KeepContaining, LookupTutor, Ready
 
     paths, repository = _vault(tmp_path)
-    if not show_me:
-        set_config(paths, "figures", show_me_enabled=False)
     tutor = LookupTutor(answer_md="P(X <= 0) = p, whatever lambda is.", cite=lambda _c: [(EXTRACTION, "p6")])
     tutor.figure_goal = figure_goal
     author = AuthorFake([flagship(kind="illustrative")])

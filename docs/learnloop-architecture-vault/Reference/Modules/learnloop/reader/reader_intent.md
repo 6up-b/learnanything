@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py) |
-| Source lines | 834 |
+| Source lines | 833 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,24 +58,24 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_dict(self) -> dict[str, Any]` (line 139; public)
 - `class Availability` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 263) — What exists when the box opens: the switches and landed phases.
   - `from_config(cls, config: Any, *, model: bool=True, notes: bool=False) -> 'Availability'` (line 289; public)
-  - `allows(self, action: IntentAction) -> bool` (line 315; public)
-- `available_actions(available: Availability) -> list[IntentAction]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 333)
-- `question_set_version(available: Availability) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 340) — The routing's question-set version: RW5d's while show me is on (the figure option's text differs), else RW1b's, so every other routing hashes as before.
-- `palette(available: Availability) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 350) — The palette, grouped by intention; a group with nothing in it is absent.
-- `choice_question(actions: Sequence[IntentAction]) -> ChoiceQuestion` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 363)
-- `decider_state(text: str, quote: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 375)
-- `class Routing` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 384) — One routing: what the Reader runs, and why.
-  - `intention(self) -> str | None` (line 402; public)
-  - `as_dict(self) -> dict[str, Any]` (line 406; public)
-- `calls_today(repository: Any, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 436) — The route's Decider requests admitted since today's UTC midnight: its reserved allowance (a reservation is made before the request is sent, so failed and unfinished calls count; one given back unsent does not).
-- `speculation_limit(config: Any) -> int` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 478) — How many of the day's requests speculation may use (80% of the cap).
-- `speculation_room(config: Any, repository: Any, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 484) — Whether a speculative routing may be made now (switch on, under 80% of the day).
-- `input_hash(text: str, quote: str, options: Sequence[str], *, question_set: str=QUESTION_SET_VERSION) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 493)
-- `selection_key(extraction_id: str, span_ids: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 498)
-- `route(root: Any, config: Any, repository: Any, *, text: str, quote: str, extraction_id: str, span_ids: Sequence[str], available: Availability, speculative: bool=False, client_factory: Callable[[], Any] | None=None, clock: Clock | None=None, routing_id: str | None=None) -> Routing` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 528) — Route one intent-box text to a palette action (spec §4.2).
-- `record_fate(repository: Any, judgment_id: str, fate: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 669) — A speculative routing was used (Enter took it) or discarded (the text changed, the box closed): one superseding ``decider`` row with the fate in its rationale.
-- `record_correction(repository: Any, judgment_id: str, chosen: str | None, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 696) — The learner's "change": the action they picked instead (or ``cancelled``), a ``learner_card`` row superseding the routing's head.
-- `revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 727) — Undo the capture a routed action made, because the learner pressed "change" (spec §4.2: "change cancels it"; Codex review of RW1b, F4): the annotation is tombstoned (a delete intent, never a hard delete), the commitment a commit preset created with it is retired, and its synthes…
+  - `allows(self, action: IntentAction) -> bool` (line 314; public)
+- `available_actions(available: Availability) -> list[IntentAction]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 332)
+- `question_set_version(available: Availability) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 339) — The routing's question-set version: RW5d's while show me is on (the figure option's text differs), else RW1b's, so every other routing hashes as before.
+- `palette(available: Availability) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 349) — The palette, grouped by intention; a group with nothing in it is absent.
+- `choice_question(actions: Sequence[IntentAction]) -> ChoiceQuestion` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 362)
+- `decider_state(text: str, quote: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 374)
+- `class Routing` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 383) — One routing: what the Reader runs, and why.
+  - `intention(self) -> str | None` (line 401; public)
+  - `as_dict(self) -> dict[str, Any]` (line 405; public)
+- `calls_today(repository: Any, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 435) — The route's Decider requests admitted since today's UTC midnight: its reserved allowance (a reservation is made before the request is sent, so failed and unfinished calls count; one given back unsent does not).
+- `speculation_limit(config: Any) -> int` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 477) — How many of the day's requests speculation may use (80% of the cap).
+- `speculation_room(config: Any, repository: Any, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 483) — Whether a speculative routing may be made now (switch on, under 80% of the day).
+- `input_hash(text: str, quote: str, options: Sequence[str], *, question_set: str=QUESTION_SET_VERSION) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 492)
+- `selection_key(extraction_id: str, span_ids: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 497)
+- `route(root: Any, config: Any, repository: Any, *, text: str, quote: str, extraction_id: str, span_ids: Sequence[str], available: Availability, speculative: bool=False, client_factory: Callable[[], Any] | None=None, clock: Clock | None=None, routing_id: str | None=None) -> Routing` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 527) — Route one intent-box text to a palette action (spec §4.2).
+- `record_fate(repository: Any, judgment_id: str, fate: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 668) — A speculative routing was used (Enter took it) or discarded (the text changed, the box closed): one superseding ``decider`` row with the fate in its rationale.
+- `record_correction(repository: Any, judgment_id: str, chosen: str | None, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 695) — The learner's "change": the action they picked instead (or ``cancelled``), a ``learner_card`` row superseding the routing's head.
+- `revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 726) — Undo the capture a routed action made, because the learner pressed "change" (spec §4.2: "change cancels it"; Codex review of RW1b, F4): the annotation is tombstoned (a delete intent, never a hard delete), the commitment a commit preset created with it is retired, and its synthes…
 
 ### Module constants
 
@@ -101,11 +101,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `ACTIONS_BY_ID` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 251)
 - `DEFAULT_ACTION` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 253)
 - `ANCHOR_FREE_ACTIONS` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 256)
-- `SHOW_ME_LABEL` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 324)
-- `SHOW_ME_CLAUSE` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 325)
-- `REVERTIBLE_EFFECTS` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 720)
-- `REVERT_REASON` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 723)
-- `_TERMINAL_REQUESTS` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 724)
+- `SHOW_ME_LABEL` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 323)
+- `SHOW_ME_CLAUSE` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 324)
+- `REVERTIBLE_EFFECTS` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 719)
+- `REVERT_REASON` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 722)
+- `_TERMINAL_REQUESTS` ([src/learnloop/reader/reader_intent.py](../../../../../../src/learnloop/reader/reader_intent.py), line 723)
 
 ### Explicit exports
 
@@ -144,17 +144,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_ask(mode: str, label: str, describe: str) -> IntentAction` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 144)
 - `_preset(preset: str, group: str, label: str, describe: str, *, model: bool=True) -> IntentAction` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 148)
 - `_active(style: str, group: str, label: str, describe: str) -> IntentAction` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 152)
-- `_show_me(action: IntentAction) -> IntentAction` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 328)
-- `_day(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 418)
-- `_allowance_prefix(day: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 422)
-- `_used(connection: Any, day: str) -> int` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 426)
-- `_reserve(repository: Any, *, routing_id: str, limit: int, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 445) — Claim one request of the day's allowance, or None when ``limit`` is reached.
-- `_settle_reservation(repository: Any, key: str, *, routing_id: str, judgment_id: str | None, sent: bool, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 464) — A request sent keeps its reservation (``done``, naming its ledger row); one refused before sending (the spend gate) gives it back.
-- `_client(root: Any, config: Any) -> Any` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 502)
-- `_append(repository: Any, routing: Routing, *, verdict: str, model: str, rationale: Mapping[str, Any], right_id: str, left_id: str | None=None, judge: str='decider', supersedes_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 512)
-- `_row(repository: Any, judgment_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 630)
-- `_head(repository: Any, row: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 640) — The head of this routing's own chain: the root row, then each row that supersedes the one before (F3: never another routing's row, even one on the same words).
-- `_rationale(raw: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 661)
+- `_show_me(action: IntentAction) -> IntentAction` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 327)
+- `_day(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 417)
+- `_allowance_prefix(day: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 421)
+- `_used(connection: Any, day: str) -> int` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 425)
+- `_reserve(repository: Any, *, routing_id: str, limit: int, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 444) — Claim one request of the day's allowance, or None when ``limit`` is reached.
+- `_settle_reservation(repository: Any, key: str, *, routing_id: str, judgment_id: str | None, sent: bool, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 463) — A request sent keeps its reservation (``done``, naming its ledger row); one refused before sending (the spend gate) gives it back.
+- `_client(root: Any, config: Any) -> Any` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 501)
+- `_append(repository: Any, routing: Routing, *, verdict: str, model: str, rationale: Mapping[str, Any], right_id: str, left_id: str | None=None, judge: str='decider', supersedes_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 511)
+- `_row(repository: Any, judgment_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 629)
+- `_head(repository: Any, row: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 639) — The head of this routing's own chain: the root row, then each row that supersedes the one before (F3: never another routing's row, even one on the same words).
+- `_rationale(raw: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_intent.py), line 660)
 
 ## Who imports or calls it
 

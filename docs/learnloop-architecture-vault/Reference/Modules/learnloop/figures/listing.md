@@ -47,19 +47,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/listing.py](../../../../../../src/learnloop/figures/listing.py) |
-| Source lines | 515 |
+| Source lines | 494 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `prefetch_pending(vault: Any, repository: Repository, extraction_id: str, *, pass_running: bool=False) -> bool` ([source](../../../../../../src/learnloop/figures/listing.py), line 170) — RW5d P5 (Codex review F11): whether a prebuild for this source is coming now: the Reader then reads its figures again, paced, so a completed prebuild appears without a reopen.
-- `prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str | None, *, request_ids: Collection[str] | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/figures/listing.py), line 213) — RW5d P5 (Codex re-review F17): this source's speculative prebuild rich jobs waiting for the plan, newest per input, whose retry is admissible now: figures ahead of need on, this machine on mains, and the passage not held out.
-- `list_figures(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 265) — The figures of one source as the Reader shows them: per version chain, the newest shown version (else the newest failed or unsupported one), of the current spec version, and never one whose passage is held out now.
-- `section_figures(vault: Any, repository: Repository, extraction_id: str, section_of: Callable[[str], str | None]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 279) — RW5d P4a (spec §10.2): the kept figures of one reading by the section their anchor is in, for the correspondents read (figures follow the section).
-- `rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 348) — RW5d P2b (spec §6.8): the rich builds with no quick figure for this source that have not ended (pending, or waiting for the plan), each as the pending line under its passage; empty while the rich tiers are off.
-- `shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[dict[str, Any], Any]` ([source](../../../../../../src/learnloop/figures/listing.py), line 472) — A figure that may be shown now: shown verification, a current spec version, its passage not held out.
+- `prefetch_pending(vault: Any, repository: Repository, extraction_id: str, *, pass_running: bool=False) -> bool` ([source](../../../../../../src/learnloop/figures/listing.py), line 161) — RW5d P5 (Codex review F11): whether a prebuild for this source is coming now: the Reader then reads its figures again, paced, so a completed prebuild appears without a reopen.
+- `prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str | None, *, request_ids: Collection[str] | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/figures/listing.py), line 204) — RW5d P5 (Codex re-review F17): this source's speculative prebuild rich jobs waiting for the plan, newest per input, whose retry is admissible now: figures ahead of need on, this machine on mains, and the passage not held out.
+- `list_figures(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 256) — The figures of one source as the Reader shows them: per version chain, the newest shown version (else the newest failed or unsupported one), of the current spec version, and never one whose passage is held out now.
+- `section_figures(vault: Any, repository: Repository, extraction_id: str, section_of: Callable[[str], str | None]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 270) — RW5d P4a (spec §10.2): the kept figures of one reading by the section their anchor is in, for the correspondents read (figures follow the section).
+- `rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 330) — RW5d P2b (spec §6.8): the rich builds with no quick figure for this source that have not ended (pending, or waiting for the plan), each as the pending line under its passage; empty while the rich tiers are off.
+- `shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[dict[str, Any], Any]` ([source](../../../../../../src/learnloop/figures/listing.py), line 452) — A figure that may be shown now: shown verification, a current spec version, its passage not held out.
 
 ### Explicit exports
 
@@ -74,12 +74,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_root(rows_by_id: Mapping[str, Mapping[str, Any]], row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/listing.py), line 58)
-- `_listed(vault: Any, repository: Repository, extraction_id: str) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 67) — The rows :func:`list_figures` presents, with no presentation (RW5d P4a, Codex review F3): per version chain, the pick, the chain's length and its placements in this source.
-- `_prebuilt_within_budget(vault: Any, repository: Repository, extraction_id: str, picks: list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 115) — RW5d P5 (spec §6.9; Codex review F11): a prebuilt figure nobody pressed for takes its place in the Reader's cue budget (``[cues] density``, per section; cues off: none), the earliest built first; once pressed it is the learner's like any figure (never cut).
-- `_prebuilt_listed(vault: Any, repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/listing.py), line 156) — RW5d P5: a prebuilt figure lists while figures ahead of need are on, or once a pressed request took it (then it is the learner's like any figure).
-- `_rich_line(request: FigureRequest, job: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/listing.py), line 336)
-- `_failed_correction(payload: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/figures/listing.py), line 448) — Codex re-review F14: the failure a correction job stored (its request's row, ``failed``) while it is still the newest version of the figure it corrects: nothing supersedes it and no later correction of that figure was stored.
+- `_root(rows_by_id: Mapping[str, Mapping[str, Any]], row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/listing.py), line 52)
+- `_listed(vault: Any, repository: Repository, extraction_id: str) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 61) — The rows :func:`list_figures` presents, with no presentation (RW5d P4a, Codex review F3): per version chain, the pick, the chain's length and its placements in this source.
+- `_prebuilt_within_budget(vault: Any, repository: Repository, extraction_id: str, picks: list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]` ([source](../../../../../../src/learnloop/figures/listing.py), line 106) — RW5d P5 (spec §6.9; Codex review F11): a prebuilt figure nobody pressed for takes its place in the Reader's cue budget (``[cues] density``, per section; cues off: none), the earliest built first; once pressed it is the learner's like any figure (never cut).
+- `_prebuilt_listed(vault: Any, repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/listing.py), line 147) — RW5d P5: a prebuilt figure lists while figures ahead of need are on, or once a pressed request took it (then it is the learner's like any figure).
+- `_rich_line(request: FigureRequest, job: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/listing.py), line 318)
+- `_failed_correction(payload: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/figures/listing.py), line 428) — Codex re-review F14: the failure a correction job stored (its request's row, ``failed``) while it is still the newest version of the figure it corrects: nothing supersedes it and no later correction of that figure was stored.
 
 ## Who imports or calls it
 
@@ -100,18 +100,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `figure`, `figures_for_extraction`, `has_tables`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `rich_tiers_enabled`, `show_me_enabled`; calls `figures_enabled`, `rich_tiers_enabled`, `show_me_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `rich_tiers_enabled`; calls `figures_enabled`, `rich_tiers_enabled`
 - [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] — imports `power_state`, `prefetch_switch`; calls `power_state`, `prefetch_switch`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `module`; calls `capacity_left`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `_withheld`, `figure_homes`, `item_passages`, `rich_base_keys`, `row_withheld`, `show_me_row`; calls `_withheld`, `figure_homes`, `item_passages`, `rich_base_keys`, `row_withheld`, `show_me_row`
 - [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `FigureRefused`, `FigureRequest`; calls `FigureRefused`, `FigureRequest`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`; calls `job_state`, `rich_job_for_figure`, `rich_job_for_request`, `rich_jobs`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `module`; calls `parse_sketch`
-- [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] — imports `ENGINE_SHA256`
-- [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `module`
 - [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `ALL_SPEC_VERSIONS`, `RICH_SPEC_VERSIONS`, `SPEC_VERSIONS`, `module`; calls `parse_spec`
-- [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]] — imports `module`
-- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `_RECHECKED`, `_RECHECKED_GUARD`, `_anchor_span`, `_figure_request`, `_label`, `_prebuilt_pressed`, `_source_rejected_row`, `advanced_off_row`, `drawable_now`, `figure_view`, `rich_off_row`, `shown_row`, `sketch_off_row`, `sketch_rechecked`, `sketch_row`, `source_rejected`, `worded_row`; calls `_anchor_span`, `_figure_request`, `_label`, `_prebuilt_pressed`, `_source_rejected_row`, `advanced_off_row`, `drawable_now`, `figure_view`, `rich_off_row`, `shown_row`, `sketch_off_row`, `sketch_rechecked`, `sketch_row`, `source_rejected`, `worded_row`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `SKETCH_OFF_KIND`, `_anchor_span`, `_figure_request`, `_label`, `_prebuilt_pressed`, `_presented_row`, `available_row`, `drawable_now`, `figure_view`, `sketch_rechecked`, `sketch_row`, `source_rejected`; calls `_anchor_span`, `_figure_request`, `_label`, `_prebuilt_pressed`, `_presented_row`, `available_row`, `drawable_now`, `figure_view`, `sketch_rechecked`, `sketch_row`, `source_rejected`
 - [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `cue_density`, `cues_enabled`, `density_budget`; calls `cue_density`, `cues_enabled`, `density_budget`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `extraction_sections`; calls `extraction_sections`
 
@@ -185,8 +182,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild`
   - `test_section_figures_leave_a_rejected_figure_out`
-- [tests/test_rw5c_switch_off.py](../../../../../../tests/test_rw5c_switch_off.py) — direct import
-  - `test_nothing_reads_the_ledger_while_the_switch_is_off`
 
 ## Modification guidance
 

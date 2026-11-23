@@ -72,7 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `ledger_explorable(ledger: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 308) — Whether a ``library_contribution`` ledger row records the organizer's ``explorable: yes`` (rows of any other request record none: no).
 - `explorable_task(task: ListwiseTask) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 328)
 - `base_task(task: ListwiseTask) -> ListwiseTask` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 332)
-- `organizer_task(vault: LoadedVault) -> ListwiseTask` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 344) — RW4a's organizer request, or RW4e's while ``roles.on_demand_enabled`` is on; either with RW5b's ``explorable`` while ``figures.offers_enabled`` is on.
+- `organizer_task(vault: LoadedVault) -> ListwiseTask` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 344) — RW4a's organizer request, or RW4e's while ``roles.on_demand_enabled`` is on; either with RW5b's ``explorable`` while ``figures.enabled`` is on.
 - `offerable_kind(passage: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 354) — ``equation`` | ``figure`` for a block an offer may name (code decides), else None.
 - `shown_organizer(vault: LoadedVault, organizer: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 360) — The organizer's output as it may be shown now: with offers off, no note carries ``explorable`` (a stored one from while they were on included), so the output is RW4a's/RW4e's, key for key.
 - `anchor_learning_objects(vault: LoadedVault, repository: Repository, *, extraction_id: str | None, span_ids: Sequence[str], learning_object_ids: Sequence[str]=()) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/library_ask.py), line 412) — The question's LOs: given ones, else the anchor passage's provenance-linked LOs.
@@ -220,7 +220,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/library_asks|learnloop.db.stores.library_asks]] — imports `module`; calls `ask_row`, `insert_ask`, `notes_for_ledger_ids`, `update_ask`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `blocks_by_key`; calls `blocks_by_key`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `comparison_row`; calls `comparison_row`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `EXPLORABLE`, `explorable_yes`, `offer_kind`, `offers_enabled`; calls `explorable_yes`, `offer_kind`, `offers_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `EXPLORABLE`, `explorable_yes`, `figures_enabled`, `offer_kind`; calls `explorable_yes`, `figures_enabled`, `offer_kind`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `lo_certification`; calls `lo_certification`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `ListwiseTask`, `judge_listwise`, `listwise_caps`, `task_output_tokens`; calls `ListwiseTask`, `judge_listwise`, `listwise_caps`, `task_output_tokens`
@@ -257,10 +257,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_tutor_keep_checks_its_question_passage_before_any_write`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
   - `test_a_block_the_judgment_did_not_offer_is_refused_before_any_call`
-  - `test_a_stored_answer_with_offers_is_shown_without_them_once_offers_are_off`
+  - `test_a_stored_answer_with_offers_is_shown_without_them_once_figures_are_off`
   - `test_an_old_output_without_the_field_reads_as_no`
-  - `test_offers_off_the_contract_has_none_and_the_press_is_refused`
-  - `test_offers_off_the_organizer_is_its_own_version_and_shows_no_explorable`
+  - `test_figures_off_the_organizer_is_its_own_version_and_shows_no_explorable`
   - `test_pressing_a_library_offer_builds_through_rw5a_with_origin_library`
   - `test_the_organizer_judges_explorable_in_its_one_call_on_equation_and_figure_blocks`
   - `test_the_roles_request_composes_with_explorable`
