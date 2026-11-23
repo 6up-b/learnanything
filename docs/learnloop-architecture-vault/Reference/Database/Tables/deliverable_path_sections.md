@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/stores/deliverables.py"
   - "src/learnloop/intent/inline_checks.py"
   - "src/learnloop/source_retrieval/deliverable_path.py"
+  - "src/learnloop/source_retrieval/goal_lens_reads.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -100,6 +101,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/deliverables.py`
 - `src/learnloop/intent/inline_checks.py`
+- `src/learnloop/source_retrieval/goal_lens_reads.py`
 
 ### Direct SQL writers
 

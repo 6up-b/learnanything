@@ -2633,6 +2633,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chapters_are_judged_once_stored_suggested_and_accepting_stores`
   - `test_chapters_are_off_with_the_curriculum`
   - `test_follow_along_maps_the_playing_cue_to_the_books_correspondent_passage`
+- [tests/test_reader_rd6_fix_freshness.py](../../../../../../tests/test_reader_rd6_fix_freshness.py) — direct import
+  - `test_an_lo_tried_and_found_nowhere_is_settled_only_against_that_library`
+- [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
   - `test_the_empty_and_thin_states`

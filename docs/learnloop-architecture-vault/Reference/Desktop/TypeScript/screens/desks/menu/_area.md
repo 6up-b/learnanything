@@ -34,9 +34,10 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/menu/ContextMenu|ContextMenu.tsx]] | `ACTIVE` | Implements the `ContextMenu` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 3 |
-| [[Reference/Desktop/TypeScript/screens/desks/menu/KnowsPanel|KnowsPanel.tsx]] | `ACTIVE` | Implements the `KnowsPanel` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/menu/model|model.ts]] | `ACTIVE` | Provides `MenuObjectKind`, `MenuObject`, `objectInput`, `headerLine` and related exports within the desktop's TypeScript/screens/desks/menu ownership area. | 2 | 4 |
+| [[Reference/Desktop/TypeScript/screens/desks/menu/ContextMenu|ContextMenu.tsx]] | `ACTIVE` | Implements the `ContextMenu` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 5 |
+| [[Reference/Desktop/TypeScript/screens/desks/menu/ExerciseSheet|ExerciseSheet.tsx]] | `ACTIVE` | Implements the `ExerciseSheet` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/menu/KnowsPanel|KnowsPanel.tsx]] | `ACTIVE` | Implements the `KnowsPanel` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/menu/model|model.ts]] | `ACTIVE` | Provides `MenuObjectKind`, `MenuObject`, `captureNodes`, `objectInput` and related exports within the desktop's TypeScript/screens/desks/menu ownership area. | 2 | 4 |
 | [[Reference/Desktop/TypeScript/screens/desks/menu/verbs|verbs.ts]] | `ACTIVE` | Provides `MenuApi`, `MenuContext`, `promotedRef`, `runVerb` and related exports within the desktop's TypeScript/screens/desks/menu ownership area. | 3 | 1 |
 
 ## Modification guidance

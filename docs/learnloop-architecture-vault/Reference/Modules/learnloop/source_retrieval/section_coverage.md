@@ -274,7 +274,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `CoverageError`, `cover_source`, `enabled`; statically calls `cover_source`, `enabled`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `CoverageError`, `read_protection`; statically calls `read_protection`
 - [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `module`; statically calls `correspondents`
-- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `CoverageGuard`, `Library`, `_active`, `lo_hash`, `standing`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `CoverageGuard`, `Library`, `_active`, `library_scope`, `lo_hash`, `scope_signature`, `standing`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; statically calls `CoverageGuard`, `Library`, `correct`, `enabled`, `read_protection`
 - [[Reference/Modules/learnloop/source_retrieval/follow_along|learnloop.source_retrieval.follow_along]] — imports `module`; statically calls `correspondents`
 - [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `Library`, `_active`, `standing`
@@ -392,6 +392,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_hits_are_grouped_by_book_unchecked_and_write_nothing`
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — direct import
   - `test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there`
+- [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
 - [tests/test_reader_rd6a_goal_lens_core.py](../../../../../../tests/test_reader_rd6a_goal_lens_core.py) — direct import

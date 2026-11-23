@@ -37,7 +37,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/screens/desks/goal/GoalBand|GoalBand.tsx]] | `ACTIVE` | Implements the `GoalBand` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/goal/GoalLayer|GoalLayer.tsx]] | `ACTIVE` | Implements the `GoalLayer` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/goal/PathView|PathView.tsx]] | `ACTIVE` | Implements the `PathView` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/goal/controller|controller.ts]] | `ACTIVE` | Provides `GoalTransport`, `LIVE_GOAL_TRANSPORT`, `BAND_RECHECK_MS`, `primaryGoalId` and related exports within the desktop's TypeScript/screens/desks/goal ownership area. | 4 | 3 |
+| [[Reference/Desktop/TypeScript/screens/desks/goal/controller|controller.ts]] | `ACTIVE` | Provides `GoalTransport`, `LIVE_GOAL_TRANSPORT`, `BAND_RECHECK_MS`, `watchStateChanges` and related exports within the desktop's TypeScript/screens/desks/goal ownership area. | 6 | 3 |
 | [[Reference/Desktop/TypeScript/screens/desks/goal/marks|marks.tsx]] | `ACTIVE` | Implements the `marks` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/goal/model|model.ts]] | `ACTIVE` | Provides `LensLevel`, `LEVEL_LABEL`, `MarkKind`, `markKind` and related exports within the desktop's TypeScript/screens/desks/goal ownership area. | 1 | 5 |
 

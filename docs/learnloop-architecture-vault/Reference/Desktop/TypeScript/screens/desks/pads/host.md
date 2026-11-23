@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/host.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/host.ts) |
-| Source lines | 172 |
+| Source lines | 173 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -57,20 +57,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface PadsApi` — interface, line 26
 - `export interface SourcePiece` — interface, line 46
 - `export interface PadsHost` — interface, line 55
-- `export interface PadStackHandle` — interface, line 97
-- `export interface PendingFigure` — interface, line 119
-- `export class PendingFigures` — class, line 128
-- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 154
-- `export function usePadsHost(): PadsHost | null` — function, line 156
-- `export function localDay(date: Date = new Date()): string` — function, line 161
-- `export function dayHeading(day: string, today: string): string` — function, line 167
+- `export interface PadStackHandle` — interface, line 98
+- `export interface PendingFigure` — interface, line 120
+- `export class PendingFigures` — class, line 129
+- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 155
+- `export function usePadsHost(): PadsHost | null` — function, line 157
+- `export function localDay(date: Date = new Date()): string` — function, line 162
+- `export function dayHeading(day: string, today: string): string` — function, line 168
 
 ## Internal implementation anchors
 
-- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 148
-- `const pad = (n: number)` — const, line 162
-- `const date = new Date(`$` — const, line 168
-- `const label = date.toLocaleDateString("en-GB",` — const, line 170
+- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 149
+- `const pad = (n: number)` — const, line 163
+- `const date = new Date(`$` — const, line 169
+- `const label = date.toLocaleDateString("en-GB",` — const, line 171
 
 ## Who imports or calls it
 

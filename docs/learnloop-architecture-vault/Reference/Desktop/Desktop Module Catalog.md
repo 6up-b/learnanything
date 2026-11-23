@@ -19,7 +19,7 @@ tags:
 # Desktop Module Catalog
 
 > [!abstract] Exact coverage
-> One generated note exists for each of the **417 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **6 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
+> One generated note exists for each of the **418 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **6 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
 
 ^desktop-catalog-coverage
 
@@ -63,7 +63,7 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] | 6 | The goal lens on the desks: the goal band under the top bar, criticality marks with their why card, dimming, section callouts, a pad stack's goal line and the path view, all read from goal.band and goal.lens. |
 | [[Reference/Desktop/TypeScript/screens/desks/keys/_area|TypeScript/screens/desks/keys]] | 2 | The desks' key router (the scope and precedence matrix, the bare-Alt hold rule) and the one listener router for every window. |
 | [[Reference/Desktop/TypeScript/screens/desks/lesson/_area|TypeScript/screens/desks/lesson]] | 4 | Teacher lessons as windows and stack tabs: the lesson's paper with its modes (review, your additions), LessonView in its window frame, the additions pad, openings in flight, and the path view's Teacher lesson row, read from lesson.view and lesson.list. |
-| [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] | 4 | The context-aware right-click: one menu and one listener for passages, cues, highlights, margin notes, window headers and pad lines, its promoted rows (passage.promoted and the judged job on the poller, labelled per row), the verbs wired to their server entries, and What this knows. |
+| [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] | 5 | The context-aware right-click: one menu and one listener for passages, cues, highlights, margin notes, window headers and pad lines, its promoted rows (passage.promoted and the judged job on the poller, labelled per row), the verbs wired to their server entries, and What this knows. |
 | [[Reference/Desktop/TypeScript/screens/desks/model/_area|TypeScript/screens/desks/model]] | 1 | The client workspace model: desks, windows, slots and pairs, mirroring desk.apply op for op. |
 | [[Reference/Desktop/TypeScript/screens/desks/notebook/_area|TypeScript/screens/desks/notebook]] | 6 | A marimo notebook in a window: the frame served by the sidecar's sandboxed session, its honest states, the window lifecycle, the bridge's four messages checked by source, origin and shape, and a pad's marimo cells with their one live framed group. |
 | [[Reference/Desktop/TypeScript/screens/desks/overview/_area|TypeScript/screens/desks/overview]] | 5 | The desks' overview: the zoom engine (layout, camera, frame function, spring, wheel), its one frame writer, cards, curved links, gather and live miniatures. |
@@ -86,14 +86,14 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 
 | Refactor status | Modules | Positive evidence required |
 |---|---:|---|
-| `ACTIVE` | 423 | Current entry/build reachability, an explicit compiler inclusion, or (test support) an import from a vitest file. |
+| `ACTIVE` | 424 | Current entry/build reachability, an explicit compiler inclusion, or (test support) an import from a vitest file. |
 | `DORMANT` | 0 | An owned retained seam plus evidence that no primary workflow uses it. |
 | `COMPAT` | 0 | An explicitly frozen compatibility contract. |
 | `EVALUATION` | 0 | A simulation/audit surface that measures rather than serves the learner. |
 
-The audit proves **397 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **2 ambient declarations** are included by `tsconfig.json`, **16 test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **6 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
+The audit proves **398 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **2 ambient declarations** are included by `tsconfig.json`, **16 test-support files** are imported only by vitest files (they run under `npm test`, never in the app bundle), and **6 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
 
-The reachability set includes all **1 app fixture modules** through current Reader screens (the other 11 fixture modules are vitest support) and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 423 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
+The reachability set includes all **1 app fixture modules** through current Reader screens (the other 11 fixture modules are vitest support) and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 424 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
 
 > [!warning] Static graph limits
 > Import and symbol-reference edges are reproducible build evidence, not runtime tracing. The generator refuses an unclassified file instead of treating a missing caller as proof of dormancy; a new implicit entry requires an explicit audit rule.

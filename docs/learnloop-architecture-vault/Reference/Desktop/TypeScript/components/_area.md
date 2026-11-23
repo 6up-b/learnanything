@@ -47,7 +47,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/BookCard|BookCard.tsx]] | `ACTIVE` | Provides the reusable `BookCard` interaction surface used by one or more desktop workflows. | 4 | 2 |
 | [[Reference/Desktop/TypeScript/components/BookShelf|BookShelf.tsx]] | `ACTIVE` | Provides the reusable `BookShelf` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/CapturePhoto|CapturePhoto.tsx]] | `ACTIVE` | Provides the reusable `CapturePhoto` interaction surface used by one or more desktop workflows. | 4 | 2 |
-| [[Reference/Desktop/TypeScript/components/CardControls|CardControls.tsx]] | `ACTIVE` | Provides the reusable `CardControls` interaction surface used by one or more desktop workflows. | 4 | 4 |
+| [[Reference/Desktop/TypeScript/components/CardControls|CardControls.tsx]] | `ACTIVE` | Provides the reusable `CardControls` interaction surface used by one or more desktop workflows. | 4 | 5 |
 | [[Reference/Desktop/TypeScript/components/CausalAttribution|CausalAttribution.tsx]] | `ACTIVE` | Provides the reusable `CausalAttribution` interaction surface used by one or more desktop workflows. | 5 | 4 |
 | [[Reference/Desktop/TypeScript/components/ChatGPTPlanSettings|ChatGPTPlanSettings.tsx]] | `ACTIVE` | Provides the reusable `ChatGPTPlanSettings` interaction surface used by one or more desktop workflows. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/components/ClaimCheckFeedback|ClaimCheckFeedback.tsx]] | `ACTIVE` | Provides the reusable `ClaimCheckFeedback` interaction surface used by one or more desktop workflows. | 2 | 1 |
