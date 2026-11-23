@@ -110,7 +110,9 @@ describe("each verb calls its server entry", () => {
   it("Compare opens a compare window on the words; Teach me opens a lesson on the passage in the desk's stack", async () => {
     const { ctx } = context();
     await runVerb("compare", passage({ selection: "two ideas" }), ctx);
-    expect(ctx.openContent).toHaveBeenCalledWith({ kind: "compare", query: "two ideas" });
+    // Anchored on the passage, so asking in the window compares from it (not a plain library answer).
+    expect(ctx.openContent).toHaveBeenCalledWith({ kind: "compare", query: "two ideas" },
+      { view: { compareAnchor: { extractionId: "ext1", spanIds: ["s1"], sourceId: "src1", revisionId: "rev1" } } });
     await runVerb("teach_me", passage(), ctx);
     expect(ctx.teachMe).toHaveBeenCalledWith({ kind: "open", entry: "reader_selection", selection: { extractionId: "ext1", spanIds: ["s1"] } });
     // With no passage (a margin note's words alone), the lesson starts from the words.

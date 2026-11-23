@@ -237,6 +237,14 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
   return { reason: "ask from a passage: focus a book or a video, or select a passage, then press c" };
 }
 
+/** A Compare window's passage anchor, kept in its view by the menu's Compare (null when it was opened bare). */
+function compareAnchorOf(view: Record<string, unknown> | undefined): { extractionId: string; spanIds: string[]; sourceId: string; revisionId: string | null } | null {
+  const anchor = view?.compareAnchor as Record<string, unknown> | undefined;
+  if (!anchor || typeof anchor.extractionId !== "string" || typeof anchor.sourceId !== "string" || !Array.isArray(anchor.spanIds)) return null;
+  return { extractionId: anchor.extractionId, sourceId: anchor.sourceId, spanIds: anchor.spanIds.filter((id): id is string => typeof id === "string"),
+    revisionId: typeof anchor.revisionId === "string" ? anchor.revisionId : null };
+}
+
 /** The first passage showing at the top of a window (its reading place when none was reported yet). */
 function firstVisibleSpan(windowId: string | null): string | null {
   if (!windowId) return null;
@@ -3243,7 +3251,7 @@ export function DeskShell({
         return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
       }
       case "compare":
-        return <LibraryPanel query={content.query ?? null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
+        return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
       case "thread":
         return (
           <ThreadWindow

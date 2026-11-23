@@ -141,10 +141,19 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
         if (found.status === "unchecked") ctx.toast("found by search, not checked");
         return;
       }
-      case "compare":
-        // The Compare window, on the selection's words (it asks across the library when the learner confirms there).
-        ctx.openContent({ kind: "compare", query: words.slice(0, 200) });
+      case "compare": {
+        // The Compare window, on the selection's words and anchored on its passages: asking there runs the
+        // comparison from those passages (the selection's door), once the learner confirms the question.
+        if (!anchor) {
+          ctx.openContent({ kind: "compare", query: words.slice(0, 200) });
+          return;
+        }
+        const who = await ctx.api.readingIdentity(anchor.extractionId);
+        ctx.openContent({ kind: "compare", query: words.slice(0, 200) }, { view: { compareAnchor: {
+          extractionId: anchor.extractionId, spanIds: object.spanIds?.length ? object.spanIds : [anchor.spanId], sourceId: who.sourceId, revisionId: who.revisionId,
+        } } });
         return;
+      }
       case "show_me": {
         if (!anchor) return;
         // Where it lands is decided now: the running pad of this desk, even if another desk is shown when it is ready.
