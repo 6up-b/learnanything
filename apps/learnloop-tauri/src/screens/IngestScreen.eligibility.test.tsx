@@ -7,6 +7,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clear } from "../api/queryCache";
+import { SOURCE_KINDS } from "../api/sourceKinds";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(async () => null) }));
 vi.mock("../components/useSourceFileDrop", () => ({ useSourceFileDrop: () => false, pickSourceFiles: async () => [] }));
@@ -67,4 +68,13 @@ it("takes the classifier's image kind as it comes", async () => {
   await waitFor(() => expect(api.classifyIngestSource).toHaveBeenCalled(), { timeout: 2000 });
   await waitFor(() => expect(document.querySelector('[data-kind-chip="image"][data-active="true"]')).not.toBeNull());
   expect(document.querySelector('[data-kind-chip="web"][data-active="true"]')).toBeNull();
+});
+
+it("chips every kind the backend's table names, labelled from it", async () => {
+  api.getSettings = vi.fn(async () => settings("auto", ["native"]));
+  showScreen();
+  await screen.findByText(/auto \(vault default: auto\)/);
+  const chips = [...document.querySelectorAll("[data-kind-chip]")];
+  expect(chips.map((chip) => chip.getAttribute("data-kind-chip"))).toEqual(SOURCE_KINDS.map((kind) => kind.category));
+  chips.forEach((chip, index) => expect(chip.textContent?.endsWith(SOURCE_KINDS[index].label)).toBe(true));
 });

@@ -1,3 +1,4 @@
+import type { SourceCategory } from "./sourceKinds";
 export type IsoTimestamp = string;
 export type Ulid = string;
 
@@ -3351,13 +3352,16 @@ export type IngestJobPhase =
   | "failed"
   | "cancelled";
 
-// learnloop.ingest.resolution.SourceCategory.
-export type SourceCategory = "web" | "arxiv" | "pdf" | "youtube" | "textfile" | "audio" | "image";
+// learnloop.ingest.source_kinds.SourceCategory, generated from its table.
+export type { SourceCategory } from "./sourceKinds";
 
 export interface IngestSourceClassification {
   version: number;
   kind: SourceCategory;
   normalizedSource: string;
+  /** The kind's display row (``SOURCE_KINDS``). */
+  label: string;
+  noun: string;
 }
 
 // One row of role_authority's matrix (`get_source_roles`).

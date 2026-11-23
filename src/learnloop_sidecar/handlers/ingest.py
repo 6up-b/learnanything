@@ -4,6 +4,7 @@ from typing import Any, Literal, get_args
 
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
+from learnloop.ingest.source_kinds import source_kind
 from learnloop.content.pipeline.acquisition_preview import build_acquisition_preview
 from learnloop.content.pipeline.build_plan import build_build_plan
 from learnloop.content.sources.role_authority import authority_matrix, is_scope_only_role
@@ -170,7 +171,10 @@ def classify_ingest_source(_ctx: SidecarContext, params: ClassifyIngestSourceInp
         resolved = resolve_source(params.source)
     except UnsupportedSourceError as exc:
         raise SidecarError("unsupported_source", str(exc)) from exc
-    return versioned({"kind": resolved.category, "normalized_source": resolved.source})
+    kind = source_kind(resolved.category)
+    # The kind's display row, so the desktop names it as the table does instead of a copy of its own.
+    return versioned({"kind": resolved.category, "normalized_source": resolved.source, "label": kind.label,
+                      "noun": kind.noun})
 
 
 @method("get_source_roles")
