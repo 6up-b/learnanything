@@ -558,3 +558,40 @@ def test_sidecar_start_imports_neither_wasmtime_nor_the_engine():
              "print('wasmtime' in sys.modules, 'learnloop.figures.sketch_engine' in sys.modules)")
     out = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True, timeout=120)
     assert out.stdout.split() == ["False", "False"]
+
+
+def test_a_read_without_a_run_honours_only_a_failure_already_found(monkeypatch):
+    """The correspondents read presents a sketch through the view's chain with re-verification off: nothing runs,
+    nothing is written, and only a failure this process already found leaves it out. A passing verdict found
+    earlier leaves the stored row as it is (its fresh check lines wait for the opening read)."""
+
+    import learnloop.figures.sketch_verify as SV
+    from learnloop.figures.spec import SKETCH_VERSION
+
+    row = {"id": "fig_plain", "tier": "sketch", "spec_version": SKETCH_VERSION, "verification": "illustrative",
+           "spec_json": json.dumps(F.walk()), "verification_report": {}, "engine_sha256": "an-older-engine"}
+    runs: list[object] = []
+    real = SV.verify_sketch
+
+    def counting(compiled, **kwargs):
+        runs.append(compiled)
+        return real(compiled, **kwargs)
+
+    monkeypatch.setattr(SV, "verify_sketch", counting)
+    FV._RECHECKED.clear()
+    assert FV.sketch_rechecked(row, run=False) is row and runs == []
+    assert FV.sketch_rechecked(row)["verification"] == "illustrative" and len(runs) == 1
+    assert FV.sketch_rechecked(row, run=False) is row and len(runs) == 1
+
+    def failing(compiled, **kwargs):
+        report = real(compiled, **kwargs)
+        report.outcome, report.reason = "failed", "claim 1 fails"
+        return report
+
+    monkeypatch.setattr(SV, "verify_sketch", failing)
+    FV._RECHECKED.clear()
+    assert FV.sketch_rechecked(row, run=False) is row
+    assert FV.sketch_rechecked(row)["verification"] == "failed"
+    remembered = FV.sketch_rechecked(row, run=False)
+    assert remembered["verification"] == "failed" and remembered["spec_json"] is None
+    FV._RECHECKED.clear()

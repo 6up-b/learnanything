@@ -273,8 +273,10 @@ def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], 
     view = getattr(outcome, "view", None)
     if not view or not view.get("figure_id"):
         return {**base, "status": FAILED, "code": "no_figure", "reason": "no figure was built"}
+    from learnloop.db.stores.figures import SHOWN as SHOWN_VERIFICATIONS
+
     figure_id = str(view["figure_id"])
-    if view.get("verification") not in ("verified", "illustrative") or view.get("tier") == "manim":
+    if view.get("verification") not in SHOWN_VERIFICATIONS or view.get("tier") == "manim":
         return {**base, "status": FAILED, "figure_id": figure_id, "code": str(view.get("verification")),
                 "reason": str(view.get("reason") or view.get("label") or "")[:300]}
     return {**base, "status": SHOWN, "figure_id": figure_id}
@@ -329,6 +331,7 @@ def lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] |
     figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a
     lesson host is grammar and sketch only)."""
 
+    from learnloop.db.stores.figures import SHOWN as SHOWN_VERIFICATIONS
     from learnloop.figures import view as FV
     from learnloop.figures.protection import figure_withheld
 
@@ -338,7 +341,7 @@ def lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] |
     if row is None or FV.rich_row(row):
         return None
     view = FV.figure_view(vault, repository, row)
-    if view.get("verification") not in ("verified", "illustrative") or not view.get("spec_json"):
+    if view.get("verification") not in SHOWN_VERIFICATIONS or not view.get("spec_json"):
         return None
     view["predictions"] = []
     if "fuller" in view:

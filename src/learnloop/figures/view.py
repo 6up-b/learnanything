@@ -225,7 +225,8 @@ def _record_reverification(repository: Repository | None, row: Mapping[str, Any]
                         supersedes_id=verdicts[-1]["id"] if verdicts else None, created_at=utc_now_iso(None))
 
 
-def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = None) -> Mapping[str, Any]:
+def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = None, *,
+                     run: bool = True) -> Mapping[str, Any]:
     """Spec §8.5, engine upgrades: a shown sketch verified under another
     engine, or (Codex review F11, round 3) by another verifier version
     (:data:`.sketch_verify.VERIFIER_REPORT_VERSION`: a report made before a
@@ -236,7 +237,11 @@ def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = Non
     checked. Remembered per (figure, engine, verifier) in this process (a row
     is never rewritten); with a ``repository`` the verdict is appended to
     ``judgment_ledger`` first (Codex review F8,
-    :func:`_record_reverification`)."""
+    :func:`_record_reverification`).
+
+    With ``run`` False nothing runs and nothing is written: only a failure this process already found is
+    honoured (a read that must not touch the engine or the ledger, such as the correspondents read; opening
+    the figure re-verifies it)."""
 
     from learnloop.figures import sketch_verify as SV
     from learnloop.figures.sketch_engine import ENGINE_SHA256
@@ -248,6 +253,8 @@ def sketch_rechecked(row: Mapping[str, Any], repository: Repository | None = Non
     key = (str(row["id"]), ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION)
     with _RECHECKED_GUARD:
         cached = _RECHECKED.get(key)
+    if not run and (cached is None or cached["outcome"] == V.ILLUSTRATIVE):
+        return row
     if cached is None:
         try:
             compiled = K.parse_sketch(row["spec_json"])
@@ -307,11 +314,17 @@ def worded_row(row: Mapping[str, Any]) -> Mapping[str, Any]:
     return {**row, "spec_json": spec_json, "verification_report": {**report, "assumptions": kept}}
 
 
-def drawable_now(vault: Any, row: Mapping[str, Any]) -> bool:
-    """A stored figure that can be drawn as configured now (RW5b's panels and
-    RW5d P2's sketch tier both on when it needs them)."""
+def available_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The chain's first step after :func:`shown_row`: a tier or panel kind that is off, or that this machine
+    can't run, shown as "can't draw this yet" with its program withheld. The same object when it can be drawn."""
 
-    return advanced_off_row(vault, row) is row and sketch_off_row(vault, row) is row and rich_off_row(vault, row) is row
+    return rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, row)))
+
+
+def drawable_now(vault: Any, row: Mapping[str, Any]) -> bool:
+    """A stored figure that can be drawn as configured now (:func:`available_row` leaves it as it is)."""
+
+    return available_row(vault, row) is row
 
 
 def property_checks(report: Mapping[str, Any]) -> list[str]:
@@ -609,12 +622,14 @@ def _code_owned_labels(vault: Any, repository: Repository, row: Mapping[str, Any
     return E.rewrite_spec(row["spec_json"], compiled)[1]
 
 
-def _presented_row(vault: Any, repository: Repository, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A stored row as :func:`figure_view` presents it under the switches now."""
+def _presented_row(vault: Any, repository: Repository, row: Mapping[str, Any], *,
+                   reverify: bool = True) -> dict[str, Any]:
+    """A stored row as :func:`figure_view` presents it under the switches now. ``reverify`` False presents it
+    without running the sketch engine or writing a verdict (:func:`sketch_rechecked`'s ``run``)."""
 
-    row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(row))))
+    row = available_row(vault, shown_row(row))
     if sketch_ready(vault):
-        row = sketch_rechecked(row, repository)
+        row = sketch_rechecked(row, repository, run=reverify)
     # RW5c: a stated claim proved different is not shown (§6.6, Q4); the row
     # keeps steps 1-2's result, and this state comes from the ledger.
     row = _source_rejected_row(vault, repository, row)
@@ -754,6 +769,7 @@ __all__ = [
     "SKETCH_OFF_KIND",
     "SKETCH_UNCHECKED_LABEL",
     "advanced_off_row",
+    "available_row",
     "drawable_now",
     "figure_view",
     "fuller_state",

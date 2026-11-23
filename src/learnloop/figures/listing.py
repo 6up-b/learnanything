@@ -26,28 +26,22 @@ from learnloop.figure_admission import figures_enabled, rich_tiers_enabled, show
 from learnloop.figures import rich as RICH
 from learnloop.figures import sketch as K
 from learnloop.figures import spec as S
-from learnloop.figures import verify as V
 from learnloop.figures.protection import figure_homes, item_passages, rich_base_keys, row_withheld, show_me_row
 from learnloop.figures.request import FigureRefused, FigureRequest
 from learnloop.figures.spec import ALL_SPEC_VERSIONS, RICH_SPEC_VERSIONS, SPEC_VERSIONS
 from learnloop.figures.view import (
-    _RECHECKED,
-    _RECHECKED_GUARD,
+    SKETCH_OFF_KIND,
     _anchor_span,
     _figure_request,
     _label,
     _prebuilt_pressed,
-    _source_rejected_row,
-    advanced_off_row,
+    _presented_row,
+    available_row,
     drawable_now,
     figure_view,
-    rich_off_row,
-    shown_row,
-    sketch_off_row,
     sketch_rechecked,
     sketch_row,
     source_rejected,
-    worded_row,
 )
 
 
@@ -296,20 +290,11 @@ def section_figures(vault: Any, repository: Repository, extraction_id: str,
     seen: set[tuple[str, str]] = set()
     picks = sorted(_listed(vault, repository, extraction_id), key=lambda found: str(found[0]["created_at"]))
     for pick, _versions, homes in picks:
-        # Codex review F3: the list's own presentation, minus the sketch
-        # re-verification (it runs the engine and appends to judgment_ledger):
-        # that happens when the figure is opened, through its own book's
-        # listing. A verdict this process already reached is honoured.
-        row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(pick))))
-        if sketch_row(row) and row.get("verification") in store.SHOWN:
-            from learnloop.figures import sketch_verify as SV
-            from learnloop.figures.sketch_engine import ENGINE_SHA256
-
-            with _RECHECKED_GUARD:
-                cached = _RECHECKED.get((str(row["id"]), ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION))
-            if cached is not None and cached["outcome"] != V.ILLUSTRATIVE:
-                continue
-        row = worded_row(_source_rejected_row(vault, repository, row))
+        # The list's own presentation without the sketch re-verification (it
+        # runs the engine and appends to judgment_ledger, and this read writes
+        # nothing): that happens when the figure is opened, through its own
+        # book's listing. A failure this process already found is honoured.
+        row = _presented_row(vault, repository, pick, reverify=False)
         if row.get("verification") not in store.SHOWN:
             continue
         asked = _figure_request(repository, row)
@@ -482,11 +467,12 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
     if row["verification"] not in store.SHOWN or row["spec_version"] not in SPEC_VERSIONS or not row.get("spec_json"):
         # A rich figure (RW5d P2b) has no predictions and is shown through its view only.
         raise FigureRefused("not_found", "That figure is not shown.")
-    if advanced_off_row(vault, row) is not row:
-        raise FigureRefused("not_found", "That figure uses a panel kind that is switched off.")
-    if sketch_off_row(vault, row) is not row:
+    available = available_row(vault, row)
+    if available is not row and available.get("unsupported_kind") == SKETCH_OFF_KIND:
         raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch tier is switched off "
                                                "(figures.sketch_enabled).")
+    if available is not row:
+        raise FigureRefused("not_found", "That figure uses a panel kind that is switched off.")
     if sketch_row(row):
         # Codex review F9: the rechecked row is the one delivered and
         # predicted on (its dropped predictions are this engine's).
