@@ -2,6 +2,7 @@
  "auto_apply_ids": [
   "pl_ok"
  ],
+ "auto_apply_refusals": {},
  "conflict_candidates": [],
  "criterion_targets": [],
  "edge_diagnostics": [
