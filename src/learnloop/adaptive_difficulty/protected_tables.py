@@ -59,6 +59,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     # mvp-0.65 (migration 261): an attempt's application sequence, read with the attempt it names.
     ("attempt_application_order", PROTECTED),
     ("attempt_diagnoses", DENIED),
+    # mvp-0.66 (migration 263): the incumbent's grade-application input, read from every item's lifecycle.
+    ("attempt_lifecycle_inputs", DENIED),
     ("attention_block_events", PROTECTED),
     ("attention_blocks", NEUTRAL),
     ("blind_grade_records", DENIED),

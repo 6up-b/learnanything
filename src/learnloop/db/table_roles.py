@@ -111,6 +111,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # attempt, reserved inside apply_attempt's transaction or ranked by the
     # upgrade. Replay folds by it and never writes it.
     ("attempt_application_order", TableRole.RAW_LEDGER),
+    # mvp-0.66 (migration 263): the required facet set each attempt's grade
+    # application read, captured in the attempt's transaction or reconstructed
+    # once by the upgrade. Replay reads it and never writes it.
+    ("attempt_lifecycle_inputs", TableRole.RAW_LEDGER),
     ("attempt_completion_work", TableRole.WORKFLOW),
     # Carries immutable diagnosis/firewall receipts and recorded priming inputs
     # alongside the replay trace.  There is no external lossless source for the

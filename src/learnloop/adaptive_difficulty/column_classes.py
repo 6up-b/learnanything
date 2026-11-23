@@ -118,6 +118,9 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id attempt_id blind_grade_record_id agent_run_id diagnosis_prompt_version provider model mode "
         "history_mode status latency_seconds supersedes_id created_at",
         "proposal_json causal_view_json validation_report_json error"),
+    "attempt_lifecycle_inputs": (
+        "attempt_id learning_object_id required_facets_json basis policy_version recorded_at",
+        ""),
     "attention_block_events": (
         "id block_id event_ordinal kind created_at",
         "detail_json"),
