@@ -408,3 +408,23 @@ describe("RD5 fix round: a selection across passages", () => {
     selection.removeAllRanges();
   });
 });
+
+describe("RD5 fix round: a window header's menu", () => {
+  it("a reading's header asks about the passage in view; a window with no passage offers its moves only", async () => {
+    const { asked, transport } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(document.querySelector('[data-desk-window="fx_w_book"] .desk-pane-head') as HTMLElement);
+    await waitFor(() => expect(asked).toHaveLength(1));
+    expect(asked[0]).toMatchObject({ objectKind: "window", windowId: "fx_w_book", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1" });
+    fireEvent.keyDown(window, { key: "i" });
+    await waitFor(() => expect(transport.passageKnows).toHaveBeenCalledWith(expect.objectContaining({ objectKind: "window", spanId: "fx_w_book_s1" })));
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    // The pad stack's header: no passage, so no rows asked and no What this knows.
+    await waitFor(() => expect(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head')).toBeTruthy());
+    fireEvent.contextMenu(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head') as HTMLElement);
+    const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
+    expect(verbs).toEqual(["New desk from these", "Gather linked sources", "Share a slot with the next", "Own slot"]);
+    expect(asked).toHaveLength(1);
+  });
+});

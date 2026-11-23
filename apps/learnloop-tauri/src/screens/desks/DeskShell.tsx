@@ -99,7 +99,7 @@ import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
-import { captureNodes, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
+import { captureNodes, hasPassage, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
 import { promotedRef, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
@@ -2924,7 +2924,7 @@ export function DeskShell({
     const object = objectAt(target, (windowId) => wsRef.current.windows[windowId]?.content?.kind ?? null, (windowId) => {
       const content = wsRef.current.windows[windowId]?.content;
       return content && (content.kind === "source" || content.kind === "video") ? { sourceId: content.sourceId, extractionId: content.extractionId } : null;
-    }, { x: event.clientX, y: event.clientY });
+    }, { x: event.clientX, y: event.clientY }, firstVisibleSpan);
     if (!object) return;
     event.preventDefault();
     event.stopPropagation();
@@ -2956,7 +2956,7 @@ export function DeskShell({
     };
     const hovered = hoverTarget.current;
     if (hovered && stage?.contains(hovered)) {
-      const object = objectAt(hovered, kindOf, sourceOf, atOf(hovered));
+      const object = objectAt(hovered, kindOf, sourceOf, atOf(hovered), firstVisibleSpan);
       if (object) {
         openMenuOn(object);
         return true;
@@ -2967,7 +2967,7 @@ export function DeskShell({
     const host = stage.querySelector(`[${WINDOW_ATTRIBUTE}="${focusWindow}"]`);
     const first = spanId ? host?.querySelector(`[data-span-id="${spanId}"], [data-transcript-span="${spanId}"]`) : host?.querySelector(".desk-pane-head");
     if (!first) return false;
-    const object = objectAt(first, kindOf, sourceOf, atOf(first));
+    const object = objectAt(first, kindOf, sourceOf, atOf(first), firstVisibleSpan);
     if (!object) return false;
     openMenuOn(object);
     return true;
@@ -3757,7 +3757,7 @@ export function DeskShell({
             row.run?.();
           } }))}
           at={menu.at}
-          object={menu.extractionId || menu.windowId ? objectInput(menu, deskId) : null}
+          object={hasPassage(menu) ? objectInput(menu, deskId) : null}
           promoted={menuPromoted}
           onPromoted={(row, origin) => onPromotedRef.current(row, origin)}
           onRows={(rows) => {

@@ -13,7 +13,7 @@ import type {
   ReaderImportExerciseInput,
 } from "../../../api/dto";
 import type { LessonEntry } from "../../LessonView";
-import { captureNodes, objectInput, verbsFor, type MenuObject, type MenuRow, type VerbId } from "./model";
+import { captureNodes, hasPassage, objectInput, verbsFor, type MenuObject, type MenuRow, type VerbId } from "./model";
 
 /** The server entries the verbs call. */
 export interface MenuApi {
@@ -202,7 +202,8 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
 
 /** The menu's verb rows for a source object (a passage, cue, highlight, note or window), in their fixed order. */
 export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string): MenuRow[] {
-  return verbsFor(object.kind).map((verb) => ({
+  // What this knows reads a passage: a window with none in view (a panel, a thread) offers only its moves.
+  return verbsFor(object.kind).filter((verb) => verb.id !== "knows" || hasPassage(object)).map((verb) => ({
     id: verb.id,
     glyph: verb.glyph,
     label: verb.id === "append" ? `Append to “${appendTarget}”  ▸` : verb.label,

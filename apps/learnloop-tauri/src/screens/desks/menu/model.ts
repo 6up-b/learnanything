@@ -106,6 +106,11 @@ export function verbsFor(kind: MenuObjectKind): VerbSpec[] {
   return VERBS.filter((verb) => verb.kinds.includes(kind));
 }
 
+/** Whether the object names a passage the server can read (its promoted rows, What this knows). */
+export function hasPassage(object: MenuObject): boolean {
+  return object.kind === "pad_line" ? Boolean(object.blockId) : Boolean(object.extractionId && (object.spanId || object.t !== undefined));
+}
+
 /** One row of the menu as it shows. */
 export interface MenuRow {
   id: string;
@@ -159,14 +164,18 @@ export function placeSubmenu(row: { right: number; top: number }, width: number,
 
 /** The object under a right-click, or null when the click is on nothing the menu knows (the browser's own menu
  * then stays away too, but nothing opens). `kindOf` names a window's content kind. */
-export function objectAt(target: Element, kindOf: (windowId: string) => string | null, sourceOf: (windowId: string) => { sourceId: string; extractionId: string } | null, at: { x: number; y: number }, doc: Document = document): MenuObject | null {
+export function objectAt(target: Element, kindOf: (windowId: string) => string | null, sourceOf: (windowId: string) => { sourceId: string; extractionId: string } | null, at: { x: number; y: number }, inView: (windowId: string) => string | null = () => null, doc: Document = document): MenuObject | null {
   const host = target.closest(`[${WINDOW_ATTRIBUTE}]`);
   const windowId = host?.getAttribute(WINDOW_ATTRIBUTE) ?? null;
   const selection = selectionWithin(host, doc);
   // A window header: the window itself.
   const head = target.closest(".desk-pane-head");
   if (head && windowId) {
-    return { kind: "window", windowId, text: head.textContent?.replace(/\s+/g, " ").trim() ?? "", at, ...(sourceOf(windowId) ?? {}) };
+    // A reading's window is about the passage in view (its rows, What this knows); another window has no passage.
+    const source = sourceOf(windowId);
+    const spanId = source ? inView(windowId) : null;
+    return { kind: "window", windowId, text: head.textContent?.replace(/\s+/g, " ").trim() ?? "", at,
+      ...(source && spanId ? { ...source, spanId, spanIds: [spanId] } : {}) };
   }
   // A pad line (or the pad's body, for its inserts at the end).
   const pad = target.closest("[data-pad]");
