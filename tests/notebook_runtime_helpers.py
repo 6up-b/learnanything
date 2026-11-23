@@ -212,3 +212,21 @@ async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[
                 await wait_for(then_wanted)
     out["seen"] = sorted(seen)
     return out
+
+
+class RecordingRuntime:
+    """A notebook runtime that records what it is asked to open and answers as a starting session would."""
+
+    def __init__(self) -> None:
+        self.opens: list[dict[str, Any]] = []
+
+    def open(self, **kwargs: Any) -> dict[str, Any]:
+        self.opens.append(kwargs)
+        return {"session_id": "nbs_rec", "state": "starting", "frame_url": "http://127.0.0.1:1/s/x/",
+                "cell_runs": {"c_one": {"status": "idle", "ms": 1.0, "error": False}}}
+
+    def switch_vault(self, vault_key: Any) -> None:
+        pass
+
+    def close(self) -> None:
+        pass

@@ -118,8 +118,8 @@ html, body {{ background: {PAGE} !important; color: {INK}; }}
 }}
 /* LearnLoop's commit points (the SDK's commit gate renders these classes). */
 /* The one rule beyond variables: prose at the mockup's measured size and line (14.4 px on 24 px; marimo's own is
-   14.4 px on 25.2 px, and it has no variable for either). */
-.markdown p, .markdown li, .prose p, .prose li {{ font-size: {PROSE_SIZE_PX}px !important; line-height: {PROSE_LINE_PX}px !important; }}
+   14.4 px on 25.2 px, and it has no variable for either). marimo renders a Markdown paragraph as span.paragraph. */
+.markdown .paragraph, .markdown p, .markdown li, .prose .paragraph, .prose p, .prose li {{ font-size: {PROSE_SIZE_PX}px !important; line-height: {PROSE_LINE_PX}px !important; }}
 .ll-commit {{ background: {SURFACE}; border: 1px solid {RULE}; border-left: 3px solid {PURPLE}; border-radius: 4px;
   padding: 10px 12px; font-family: {prose}; color: {INK}; }}
 .ll-commit.ll-held {{ border-left-style: dashed; color: {INK_SOFT}; }}

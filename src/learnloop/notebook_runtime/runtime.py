@@ -140,11 +140,16 @@ class NotebookRuntime:
     # -- the request thread's calls -----------------------------------------------------------------------------
 
     def open(self, *, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
-             max_sessions: int) -> dict[str, Any]:
+             max_sessions: int, revision: str | None = None) -> dict[str, Any]:
+        """``revision`` names the notebook's identity when its bytes are not it: a pad's cells are one notebook
+        while the same cells stand in the same order, whatever their code (an edit reaches the running kernel
+        through ``run_cells``), so moving or reopening the pad keeps its kernel."""
+
         problems = self._requirements()
         if problems:
             raise RuntimeUnavailable("; ".join(problems))
-        return self._call(lambda: self._open(vault_key, owner, source, view, limits, idle_minutes, max_sessions))
+        return self._call(lambda: self._open(vault_key, owner, source, view, limits, idle_minutes, max_sessions,
+                                             revision))
 
     def status(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
         return self._call(lambda: self._status(vault_key, session_id))
@@ -219,8 +224,8 @@ class NotebookRuntime:
         return view
 
     async def _open(self, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
-                    max_sessions: int) -> dict[str, Any]:
-        revision = notebook_revision(source)
+                    max_sessions: int, revision: str | None = None) -> dict[str, Any]:
+        revision = revision or notebook_revision(source)
         for entry in list(self._entries.values()):
             if entry.session.vault_key != vault_key or entry.session.owner != owner:
                 continue
@@ -229,6 +234,8 @@ class NotebookRuntime:
                 if entry.session.state not in LIVE_STATES:
                     await self._make_room(max_sessions, keep=entry)
                     entry.session.limits = limits
+                    # The same notebook may have new code since it stopped (a pad's cells edited meanwhile).
+                    entry.session.layout.notebook.write_bytes(source)
                     asyncio.get_running_loop().create_task(entry.supervisor.start())
                     entry.session.state = STARTING
                 entry.session.touch()

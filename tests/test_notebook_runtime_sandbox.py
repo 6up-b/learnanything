@@ -126,3 +126,55 @@ def test_a_vault_switch_stops_the_other_vaults_server(runtime):
     assert runtime.status(vault_key="/v2", session_id=kept["session_id"])["state"] == "ready"
     runtime.close()
     assert not _group_alive(kept_group)
+
+
+# -- a pad's marimo cells ------------------------------------------------------------------------------------------
+
+PAD_CELLS = [("c_imp", "import marimo as mo\nimport os"), ("c_ctl", "x = mo.ui.slider(1, 20, value=3)\nx"),
+             ("c_sq", 'mo.md(f"square={x.value * x.value} pid={os.getpid()}")')]
+
+
+def _open_pad(runtime, owner, cells, revision):
+    from learnloop.notebook_runtime import adapter
+
+    view = runtime.open(vault_key="/v1", owner=owner, source=adapter.notebook_from_cells(cells).encode(), view="app",
+                        limits=LIMITS, idle_minutes=10, max_sessions=4, revision=revision)
+    return wait_state(runtime, "/v1", view["session_id"], "ready")
+
+
+def test_two_pads_cells_run_in_isolated_sessions(runtime):
+    a = _open_pad(runtime, "pad:a", PAD_CELLS, "shape")
+    b = _open_pad(runtime, "pad:b", PAD_CELLS, "shape")
+    assert a["session_id"] != b["session_id"] and a["frame_url"].split("/s/")[0] != b["frame_url"].split("/s/")[0]
+    asyncio.run(frame_round_trip(a["frame_url"], marimo_session="s_pa", wanted=["square=9"], set_value=("c_ctl", 7),
+                                 then_wanted=("square=49",)))
+    seen_b = asyncio.run(frame_round_trip(b["frame_url"], marimo_session="s_pb", wanted=["square=9"]))
+    assert "square=9" in seen_b["seen"]
+    by_owner = {session.owner: session for session in runtime.sessions()}
+    assert by_owner["pad:a"].process.pid != by_owner["pad:b"].process.pid
+    assert by_owner["pad:a"].layout.run_dir != by_owner["pad:b"].layout.run_dir
+    assert by_owner["pad:a"].ui_values and not by_owner["pad:b"].ui_values
+
+
+def test_moving_a_pad_keeps_its_kernel_and_an_edited_cell_runs_in_it(runtime):
+    first = _open_pad(runtime, "pad:a", PAD_CELLS, "shape")
+    asyncio.run(frame_round_trip(first["frame_url"], marimo_session="s_before", wanted=["square=9"],
+                                 set_value=("c_ctl", 5), then_wanted=("square=25",)))
+    session = runtime.sessions()[0]
+    pid = session.process.pid
+    # The pad moves to another desk (its frame goes, a new one comes) with one cell's code edited meanwhile.
+    edited = [PAD_CELLS[0], PAD_CELLS[1], ("c_sq", 'mo.md(f"cube={x.value ** 3} pid={os.getpid()}")')]
+    moved = _open_pad(runtime, "pad:a", edited, "shape")
+    assert moved["session_id"] == first["session_id"] and session.process.pid == pid
+
+    def edit_runs_in_the_live_kernel():
+        return runtime.run_cells(vault_key="/v1", session_id=moved["session_id"], cells=[edited[2]])
+
+    result = asyncio.run(frame_round_trip(moved["frame_url"], marimo_session="s_after", wanted=["square=25"],
+                                          during=edit_runs_in_the_live_kernel, then_wanted=("cube=125",)))
+    assert result["during"]["ran"] == ["c_sq"] and "cube=125" in result["seen"]
+    status = runtime.status(vault_key="/v1", session_id=moved["session_id"])
+    assert status["cell_runs"]["c_sq"]["status"] == "idle" and status["cell_runs"]["c_sq"]["ms"] is not None
+    # A new cell is a new shape: a new session, every cell run again from the pad's code.
+    grown = _open_pad(runtime, "pad:a", edited + [("c_more", "z = x.value + 1")], "shape-2")
+    assert grown["session_id"] != first["session_id"] and not _group_alive(pid)

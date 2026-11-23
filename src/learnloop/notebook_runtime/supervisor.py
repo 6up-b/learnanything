@@ -98,6 +98,9 @@ class Session:
     cell_ids: dict[str, str] = field(default_factory=dict)
     cell_codes: dict[str, str] = field(default_factory=dict)
     ui_values: dict[str, Any] = field(default_factory=dict)
+    #: Per cell name, what its last run said: ``{"status", "ms", "error"}`` (read from marimo's cell messages).
+    cell_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _run_started: dict[str, float] = field(default_factory=dict, repr=False)
     frames: int = 0
     last_activity: float = field(default_factory=time.monotonic)
     output_tail: bytearray = field(default_factory=bytearray, repr=False)
@@ -114,7 +117,27 @@ class Session:
         return {"session_id": self.session_id, "owner": self.owner, "state": self.state,
                 "stop_reason": self.stop_reason, "error": self.last_error, "restarts": self.restarts,
                 "frames_attached": self.frames, "cells": sorted(self.cell_ids),
+                "cell_runs": {name: dict(run) for name, run in sorted(self.cell_runs.items())},
                 "start_seconds": [round(value, 3) for value in self.start_seconds[-5:]]}
+
+
+def note_cell_progress(session: Session, cell_id: str, status: str | None, stamp: float | None, error: bool) -> None:
+    """A cell's run as marimo reports it: running starts its clock, idle stops it (``ms``), an error output marks it."""
+
+    names = {value: key for key, value in session.cell_ids.items()}
+    name = names.get(cell_id)
+    if name is None:
+        return
+    run = session.cell_runs.setdefault(name, {"status": None, "ms": None, "error": False})
+    if status is not None:
+        run["status"] = status
+        if status == "running" and stamp is not None:
+            session._run_started[name] = stamp
+            run["error"] = False
+        elif status == "idle" and stamp is not None and name in session._run_started:
+            run["ms"] = round(max(0.0, stamp - session._run_started.pop(name)) * 1000, 1)
+    if error:
+        run["error"] = True
 
 
 def notebook_revision(source: bytes) -> str:

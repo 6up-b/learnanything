@@ -17,7 +17,7 @@ from learnloop.notebook_runtime import runtime as R
 from learnloop.notebook_runtime import settings
 from learnloop.notebook_runtime.sandbox import Limits, RuntimeUnavailable
 from learnloop_sidecar.context import SidecarContext
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import ParamsModel, Verbatim, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
@@ -33,8 +33,9 @@ CELL_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,200}$"
 
 class NotebookOpenInput(ParamsModel):
     owner: str = Field(pattern=OWNER_PATTERN)
-    #: The notebook file, relative to the vault root; the session runs a snapshot of its bytes.
-    path: str = Field(min_length=1, max_length=1000)
+    #: The notebook file, relative to the vault root; the session runs a snapshot of its bytes. Left out for a
+    #: pad (``pad:<id>``): its notebook is generated from the pad's cells.
+    path: str | None = Field(default=None, min_length=1, max_length=1000)
     view: Literal["app", "edit"] = "app"
 
 
@@ -80,6 +81,40 @@ def _source(vault_root: Path, relative: str) -> bytes:
     return path.read_bytes()
 
 
+#: Where a pad's generated notebook is written: machine-local state under the vault (``.learnloop/``, which the
+#: loader and the vault watcher leave alone), a derived file regenerated from the pad's cells on every open. It is
+#: not a table, so no replayer: the pad's block versions are the only source, and deleting the file loses nothing.
+PAD_NOTEBOOKS = Path(".learnloop") / "notebooks" / "pads"
+
+
+def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes, str, dict[str, str]]:
+    """The pad's notebook (generated from its standing cells, in pad order) and its revision: the cells' names in
+    order, so an edit to a cell's code keeps the session (it reaches the kernel through ``notebook.run_cells``)
+    while an inserted, removed or moved cell makes a new one. Writes the derived copy under the vault."""
+
+    import hashlib
+    import os
+
+    from learnloop.notebook_runtime import adapter
+    from learnloop.pads.cells import pad_cells
+
+    cells = pad_cells(repository, pad_id)
+    if cells is None:
+        raise SidecarError("pad_not_found", f"No pad {pad_id!r}.")
+    if not cells:
+        raise SidecarError("notebook_no_cells", "This pad has no marimo cells yet.")
+    named = [(adapter.cell_name(cell["block_id"]), cell["code"]) for cell in cells]
+    source = adapter.notebook_from_cells(named).encode("utf-8")
+    revision = hashlib.sha256("\n".join(name for name, _code in named).encode()).hexdigest()
+    folder = vault_root / PAD_NOTEBOOKS
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / f"{adapter.cell_name(pad_id)[2:]}.py"
+    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+    temporary.write_bytes(source)
+    os.replace(temporary, target)
+    return source, revision, {cell["block_id"]: name for cell, (name, _code) in zip(cells, named, strict=True)}
+
+
 def _errors(exc: Exception) -> SidecarError:
     if isinstance(exc, RuntimeUnavailable):
         return SidecarError("notebook_runtime_unavailable", f"Notebooks can't run here: {exc}.")
@@ -101,9 +136,17 @@ def _errors(exc: Exception) -> SidecarError:
     raise exc
 
 
+#: Reply maps keyed by names the client compares as they are (cell names, block ids): never camelCased.
+_VERBATIM_KEYS = ("cell_runs", "pad_cells")
+
+
 def _call(work: Any) -> dict[str, Any]:
     try:
-        return versioned(work())
+        result = dict(work())
+        for key in _VERBATIM_KEYS:
+            if key in result:
+                result[key] = Verbatim(result[key])
+        return versioned(result)
     except SidecarError:
         raise
     except Exception as exc:  # noqa: BLE001 - mapped, or raised as it is
@@ -112,14 +155,27 @@ def _call(work: Any) -> dict[str, Any]:
 
 @method("notebook.open", NotebookOpenInput)
 def notebook_open_handler(ctx: SidecarContext, params: NotebookOpenInput) -> dict[str, Any]:
-    """Open (or return) the owner's session on the notebook at ``path``: ``{sessionId, state, frameUrl, ...}``."""
+    """Open (or return) the owner's session on the notebook at ``path``, or on a pad's cells (``pad:<id>`` with no
+    path): ``{sessionId, state, frameUrl, cellRuns, ...}``."""
 
-    vault, _repository = ctx.require_vault()
-    source = _source(vault.root, params.path)
+    vault, repository = ctx.require_vault()
+    revision = None
+    names: dict[str, str] | None = None
+    if params.path is not None:
+        source = _source(vault.root, params.path)
+    elif params.owner.startswith("pad:"):
+        source, revision, names = pad_notebook(Path(vault.root), repository, params.owner[len("pad:"):])
+    else:
+        raise SidecarError("notebook_path_invalid", "A lesson's notebook is named by its path.")
     config = vault.config.notebooks
-    return _call(lambda: _runtime(ctx).open(vault_key=_vault_key(ctx), owner=params.owner, source=source,
-                                            view=params.view, limits=Limits.from_config(config),
-                                            idle_minutes=config.idle_minutes, max_sessions=config.max_sessions))
+
+    def opened() -> dict[str, Any]:
+        view = _runtime(ctx).open(vault_key=_vault_key(ctx), owner=params.owner, source=source, view=params.view,
+                                  limits=Limits.from_config(config), idle_minutes=config.idle_minutes,
+                                  max_sessions=config.max_sessions, revision=revision)
+        return view if names is None else {**view, "pad_cells": names}
+
+    return _call(opened)
 
 
 @method("notebook.status", NotebookSessionInput)

@@ -26,7 +26,7 @@ import socket
 from typing import Any, Callable
 
 from learnloop.notebook_runtime import adapter, settings, theme
-from learnloop.notebook_runtime.supervisor import READY, Session
+from learnloop.notebook_runtime.supervisor import READY, Session, note_cell_progress
 
 LOG = logging.getLogger(__name__)
 
@@ -365,6 +365,9 @@ class FrameProxy:
                     cells = adapter.kernel_ready_cells(message)
                     if cells is not None:
                         session.cell_ids, session.cell_codes = cells
+                    progress = adapter.cell_progress(message)
+                    if progress is not None:
+                        note_cell_progress(session, *progress)
                     if adapter.is_reconnected_notice(message):
                         # A frame reconnects whenever its window moves or reloads; marimo's banner says so and
                         # offers a Restart the frame may not call (restarts are the sidecar's).

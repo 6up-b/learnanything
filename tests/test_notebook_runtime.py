@@ -398,7 +398,8 @@ def test_the_paper_theme_sets_variables_and_serves_its_faces_from_the_frames_ori
     assert ".ll-commit" in css and f"border-left: 3px solid {theme.PURPLE}" in css
     # Variables plus exactly one rule: prose at the mockup's measured size and line.
     rules = [line for line in css.splitlines() if "{" in line and not line.lstrip().startswith(("@font-face", ":root", ".prose, .markdown {", "html, body", ".ll-"))]
-    assert rules == [".markdown p, .markdown li, .prose p, .prose li { font-size: 14.4px !important; line-height: 24px !important; }"]
+    assert rules == [".markdown .paragraph, .markdown p, .markdown li, .prose .paragraph, .prose p, .prose li "
+                     "{ font-size: 14.4px !important; line-height: 24px !important; }"]
     package = tmp_path / "literata" / "files"
     package.mkdir(parents=True)
     (package / "literata-latin-wght-normal.woff2").write_bytes(b"wOF2")
@@ -549,3 +550,47 @@ def test_the_app_frames_notebooks_from_any_loopback_port():
                        / "tauri.conf.json").read_text(encoding="utf-8"))
     frame_src = next(part for part in conf["app"]["security"]["csp"].split("; ") if part.startswith("frame-src"))
     assert f"http://{settings.FRAME_HOST}:*" in frame_src.split()
+
+
+# -- a pad's cells: the session follows the cells' shape, not their code ------------------------------------------
+
+def test_a_named_revision_keeps_the_session_while_its_code_changes(runtime):
+    first = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 1", view="app", limits=LIMITS, idle_minutes=10,
+                         max_sessions=3, revision="shape-1")
+    _ready(runtime, "/v1", first["session_id"])
+    again = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 2", view="app", limits=LIMITS, idle_minutes=10,
+                         max_sessions=3, revision="shape-1")
+    assert again["session_id"] == first["session_id"]
+    reshaped = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 2\ny = 3", view="app", limits=LIMITS,
+                            idle_minutes=10, max_sessions=3, revision="shape-2")
+    assert reshaped["session_id"] != first["session_id"]
+
+
+def test_a_stopped_session_restarts_on_the_code_it_is_reopened_with(runtime):
+    view = runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 1", view="app", limits=LIMITS, idle_minutes=1,
+                        max_sessions=3, revision="shape-1")
+    _ready(runtime, "/v1", view["session_id"])
+    runtime.run_on_loop(lambda: runtime.sweep(now=runtime.sessions()[0].last_activity + 61))
+    runtime.open(vault_key="/v1", owner="pad:p", source=b"x = 7", view="app", limits=LIMITS, idle_minutes=1,
+                 max_sessions=3, revision="shape-1")
+    assert runtime.sessions()[0].layout.notebook.read_bytes() == b"x = 7"
+
+
+def test_a_cells_run_is_timed_from_marimos_messages():
+    from learnloop.notebook_runtime.supervisor import note_cell_progress
+
+    run = json.dumps({"op": "cell-op", "data": {"op": "cell-op", "cell_id": "Hbol", "status": "running", "timestamp": 10.0}})
+    done = json.dumps({"op": "cell-op", "data": {"op": "cell-op", "cell_id": "Hbol", "status": "idle", "timestamp": 10.25}})
+    failed = json.dumps({"op": "cell-op", "data": {"op": "cell-op", "cell_id": "Hbol", "output": {"mimetype": "application/vnd.marimo+error", "data": []}}})
+    assert adapter.cell_progress(run) == ("Hbol", "running", 10.0, False)
+    assert adapter.cell_progress(failed) == ("Hbol", None, None, True)
+    assert adapter.cell_progress('{"op": "kernel-ready"}') is None
+    held = session(Path("/tmp"))
+    held.cell_ids = {"c_a": "Hbol"}
+    for message in (run, done):
+        note_cell_progress(held, *adapter.cell_progress(message))
+    assert held.cell_runs == {"c_a": {"status": "idle", "ms": 250.0, "error": False}}
+    note_cell_progress(held, *adapter.cell_progress(failed))
+    assert held.cell_runs["c_a"]["error"] is True
+    note_cell_progress(held, "unknown", "idle", 1.0, False)
+    assert set(held.cell_runs) == {"c_a"}
