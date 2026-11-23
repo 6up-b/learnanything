@@ -218,9 +218,10 @@ def main() -> int:
     # fixtures/desks/lessons.ts (vitest-support).
     # RD8a: the eight screens/desks/pen modules (recognizer, input, geometry, host, live, PenLayer, inkCache, InkLine).
     # Reader workbench v2 RD10 (video and carried polish): screens/desks/video/ model.ts, desk.ts, ChaptersPanel.tsx,
-    # VideoWindow.tsx, FollowChip.tsx and followLens.ts, and screens/desks/carried/related.ts (entry-reachable).
-    if len(ts_sources) != 406:
-        errors.append(f"source inventory drift: expected 406 TypeScript/TSX files, found {len(ts_sources)}")
+    # VideoWindow.tsx, FollowChip.tsx and followLens.ts, and screens/desks/carried/related.ts (entry-reachable);
+    # fixtures/desks/video.ts (vitest-support).
+    if len(ts_sources) != 407:
+        errors.append(f"source inventory drift: expected 407 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -332,8 +333,8 @@ def main() -> int:
         "bundled worker entry": 2,
         "compiler-implicit": 2,
         # RD1: fixtures/desks (sources, workspace, fakeCore, harness). RD4b: fixtures/desks/pads.ts. RD6b: fixtures/desks/goal.ts.
-        # RD9a: fixtures/desks/lessons.ts.
-        "vitest-support": 15,
+        # RD9a: fixtures/desks/lessons.ts. RD10: fixtures/desks/video.ts.
+        "vitest-support": 16,
         "native-entry-reachable": 6,
     }
     if dict(activation_counts) != expected_activation_counts:
@@ -343,7 +344,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 412}:
+    if dict(status_counts) != {"ACTIVE": 413}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

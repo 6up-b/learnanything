@@ -253,13 +253,15 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const firstFolded = fold ? transcriptCues.find((cue) => fold.spans.has(cue.block.spanId ?? ""))?.block.spanId ?? null : null;
 
   const activeCue = useMemo(() => cueAt(transcriptCues, currentTime), [transcriptCues, currentTime]);
-  // The desks hear the clock (follow-along, the timestamp key): each time the time or the playing state changes.
+  // The desks hear the clock (follow-along, the timestamp key): each time the time or the playing state changes, once
+  // the player has said where it is (before that, the 0:00 the panel starts at is no one's time).
   const [playingNow, setPlayingNow] = useState(false);
+  const [heard, setHeard] = useState(false);
   const onClockRef = useRef(video?.onClock);
   onClockRef.current = video?.onClock;
   useEffect(() => {
-    onClockRef.current?.({ t: currentTime, playing: playingNow, spanId: activeCue?.block.spanId ?? null, duration });
-  }, [currentTime, playingNow, activeCue, duration]);
+    if (heard) onClockRef.current?.({ t: currentTime, playing: playingNow, spanId: activeCue?.block.spanId ?? null, duration });
+  }, [heard, currentTime, playingNow, activeCue, duration]);
 
   const post = useCallback((func: string, args: unknown[] = []) => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), YT_ORIGIN);
@@ -304,6 +306,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
         }
         if (typeof data.info.currentTime === "number" && acceptPlayerTime(data.info.currentTime)) {
           setCurrentTime(data.info.currentTime);
+          setHeard(true);
         }
       }
     };

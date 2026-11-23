@@ -221,7 +221,14 @@ describe("the watch panel's video extras", () => {
     const tick = document.querySelector("[data-chapter-tick='30']") as HTMLElement;
     expect(tick.style.left).toBe("25%");
     expect(screen.getByTestId("side").closest(".watch-side")).toBeTruthy();
-    expect(clocks[0]).toEqual({ t: 0, playing: false, spanId: "c1", duration: 120 });
+    // Nothing before the player says where it is; then its time, whether it plays and the cue there.
+    expect(clocks).toEqual([]);
+    const frame = screen.getByTitle("watch v") as HTMLIFrameElement;
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", { origin: "https://www.youtube-nocookie.com", source: frame.contentWindow,
+        data: JSON.stringify({ event: "infoDelivery", info: { currentTime: 40, playerState: 1 } }) }));
+    });
+    expect(clocks[clocks.length - 1]).toEqual({ t: 40, playing: true, spanId: "c2", duration: 120 });
   });
 });
 

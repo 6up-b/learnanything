@@ -28,3 +28,5 @@
 /* An accepted chapter's tick on the scrub track, and its range on the shelf row's minimap. */
 .desk-shell .vtrack .ch { position: absolute; top: 0; height: 12px; border-left: 1px dashed #8f80c9; }
 .desk-shell .desk-src .bar .chr { position: absolute; top: 50%; height: 5px; transform: translateY(-50%); background: rgba(143, 128, 201, .45); border-radius: 1px; }
+/* The player's cell takes the window's light text, as the reference's player does (its track's marks inherit it). */
+.desk-pane[data-window-kind="video"] .watch-player { color: var(--desk-t); }

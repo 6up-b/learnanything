@@ -1345,6 +1345,91 @@ async def run_lesson(page: Page, base: str, results: Results, shots: Path | None
     await shot(page, shots, "lesson-opened")
 
 
+VIDEO = "[data-desk-window='fx_w_video']"
+BOOK = "[data-desk-window='fx_w_book']"
+
+
+async def chip_text(page: Page, window: str) -> str | None:
+    return await page.evaluate(f"() => document.querySelector(\"{window} .desk-pane-head .fchip\")?.textContent ?? null")
+
+
+async def run_video(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Video and carried polish (RD10, spec §7.4, §7.5, §7.9, §10.12) on the fixture with coverage (`?video=1`): the
+    following chip, the followed passage and the scroll, `u`, the suggested chapters and their ticks, `alt+;`, and a
+    carried question beside a related passage."""
+    await page.goto(f"{base}/desk-harness.html?video=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await page.wait_for_selector(f"{BOOK} .desk-pane-head .fchip", timeout=8000)
+    await settle(page, 1500)
+    await shot(page, shots, "video-follow")
+    # The stub player says 1:15, paused: the temperature section; the book marks its passage, nothing scrolls.
+    chip = await chip_text(page, BOOK)
+    results.check("a book beside the video shows the following chip (the section, the time, the passage)",
+                  chip == "following ▶ 0:54–1:18 1:15 · 3 Temperature", chip)
+    marked = await page.evaluate(f"() => [...document.querySelectorAll(\"{BOOK} [data-span-id].followed\")].map((p) => [p.dataset.spanId, getComputedStyle(p).backgroundColor])")
+    results.check("the followed passage is marked in cyan", marked == [["fx_ext_softmax_s3_1", "rgb(226, 243, 245)"]], marked)
+    style = await page.evaluate(f"() => {{ const c = document.querySelector(\"{BOOK} .fchip\"); const s = getComputedStyle(c); return [s.fontFamily.split(',')[0], s.fontSize, s.color, s.borderTopColor]; }}")
+    results.check("the chip is JetBrains Mono 10.5 px in the reference's cyan on its border", "JetBrains Mono" in style[0] and style[1:] == ["10.5px", "rgb(106, 208, 224)", "rgb(46, 93, 106)"], style)
+    asked = [call["input"] for call in await calls(page, "reader_follow_along")]
+    results.check("follow-along asks once per section per book, never for a hand map",
+                  len([a for a in asked if a["bookExtractionId"] == "fx_ext_softmax"]) == 1 and all(set(a) == {"extractionId", "t", "bookExtractionId"} for a in asked), asked)
+    # Playing on into the next section: the book scrolls there.
+    frame = next(frame for frame in page.frames if "fxSoftmax01" in frame.url)
+    await frame.evaluate("() => parent.postMessage(JSON.stringify({ event: 'infoDelivery', info: { currentTime: 100, playerState: 1 } }), '*')")
+    await settle(page, 1500)
+    chip = await chip_text(page, BOOK)
+    seen = await page.evaluate(f"""() => {{ const p = document.querySelector("{BOOK} [data-span-id='fx_ext_softmax_s4_1']"); const body = document.querySelector("{BOOK} [data-desk-pane-body]");
+      if (!p || !body) return null; const r = p.getBoundingClientRect(), b = body.getBoundingClientRect(); return {{ followed: p.classList.contains('followed'), inView: r.top >= b.top && r.top < b.bottom }}; }}""")
+    results.check("playing into the next section, the book follows: a new chip, the new passage marked and scrolled into view",
+                  chip == "following ▶ 1:18–1:42 1:40 · 4 Cross-entropy" and bool(seen) and seen["followed"] and seen["inView"], [chip, seen])
+    await shot(page, shots, "video-follow-played")
+    # u on the book: unlinked, the mark gone; u again follows.
+    await page.click(f"{BOOK} .desk-pane-head .t")
+    await page.keyboard.press("u")
+    await settle(page, 300)
+    unlinked = await chip_text(page, BOOK)
+    marks = await page.evaluate(f"() => document.querySelectorAll(\"{BOOK} [data-span-id].followed\").length")
+    results.check("u unlinks the book: the chip says how to follow again, and nothing is marked", unlinked == "unlinked · u to follow ▶ 1:18–1:42" and marks == 0, [unlinked, marks])
+    await page.keyboard.press("u")
+    await settle(page, 300)
+    results.check("u again follows", (await chip_text(page, BOOK) or "").startswith("following ▶"), await chip_text(page, BOOK))
+
+    # The suggested chapters under the player: three, the second accepted (its tick on the track, its range on the minimap).
+    await page.click(f"{VIDEO} .desk-pane-head .t")
+    await settle(page, 900)
+    rows = await page.evaluate(f"() => [...document.querySelectorAll(\"{VIDEO} .desk-chapters .chap\")].map((r) => [r.querySelector('.tr').textContent, r.querySelector('.ti').textContent, r.classList.contains('accepted')])")
+    results.check("the video shows its suggested chapters (time range, title), the accepted one marked",
+                  rows == [["0:00–0:24", "weights from scores", False], ["0:24–0:54", "a shift changes nothing", True], ["0:54–1:18", "temperature", False]], rows)
+    ticks = await page.evaluate(f"() => [...document.querySelectorAll(\"{VIDEO} .vtrack .ch\")].map((t) => t.dataset.chapterTick)")
+    ranges = await page.evaluate("() => document.querySelectorAll(\"[data-shelf-window='fx_w_video'] .bar .chr\").length")
+    results.check("an accepted chapter draws its tick on the scrub track and its range on the shelf row's minimap", ticks == ["24"] and ranges == 1, [ticks, ranges])
+    await shot(page, shots, "video-chapters")
+    await page.click(f"{VIDEO} [data-chapter='fx_ch_v3'] .btn >> text=accept")
+    await settle(page, 600)
+    ticks = await page.evaluate(f"() => [...document.querySelectorAll(\"{VIDEO} .vtrack .ch\")].map((t) => t.dataset.chapterTick)")
+    results.check("accepting a chapter draws its tick", ticks == ["24", "54"], ticks)
+    await page.click(f"{VIDEO} [data-chapter='fx_ch_v1'] .btn >> text=not this")
+    await settle(page, 600)
+    left = await page.evaluate(f"() => document.querySelectorAll(\"{VIDEO} .desk-chapters .chap\").length")
+    decided = [call["input"] for call in await calls(page, "chapters_decide")]
+    results.check("not this dismisses a chapter (logged as its decision)", left == 2 and decided[-1] == {"chapterId": "fx_ch_v1", "decision": "dismiss"}, [left, decided])
+
+    # alt+; with the video focused: "▶ <video> at m:ss" into the desk's running pad, a quote anchored to the cue.
+    await page.keyboard.press("Alt+Semicolon")
+    await settle(page, 2500)
+    ops = await page.evaluate("() => window.__deskHarness.server.padBatches.filter((b) => b.padId === 'fx_pad_running').flatMap((b) => b.ops)")
+    stamp = next((op for op in ops if op.get("op") == "insert_block" and op.get("kind") == "source_quote"), None)
+    linked = next((op for op in ops if op.get("op") == "link_anchor" and stamp and op.get("blockId") == stamp.get("blockId")), None)
+    results.check("alt+; stamps the focused video's time into the current desk's running pad, anchored to the cue",
+                  bool(stamp) and stamp["bodyMd"] == "▶ Softmax by hand (synthetic captions) at 1:40" and stamp["payload"].get("t") == 100
+                  and bool(linked) and linked["extractionId"] == "fx_ext_video", [stamp, linked])
+
+    # A carried question comes back beside a related passage: its book section's judged correspondent in the video.
+    corr = [call["input"] for call in await calls(page, "reader_correspondents")]
+    results.check("a carried question's related passages are read from judged correspondents (no search)",
+                  any(c.get("extractionId") == "fx_ext_softmax" and c.get("sectionId") == "s1" and c.get("searchFallback") is False for c in corr), corr)
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -1366,7 +1451,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
-    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, latex, goal, lesson, preview); all by default")
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, latex, goal, lesson, video, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -1382,7 +1467,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "latex", "goal", "lesson", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "latex", "goal", "lesson", "video", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
@@ -1405,6 +1490,8 @@ async def main() -> int:
                         await run_goal(page, base, results, args.shots)
                     elif runner == "lesson":
                         await run_lesson(page, base, results, args.shots)
+                    elif runner == "video":
+                        await run_video(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints
