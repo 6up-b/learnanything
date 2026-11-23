@@ -17,10 +17,15 @@ Each case is staged through the code path that made the real one, on a synthetic
    (``waits_n``, ``wait_basis``) and the pass's seed, and places the first measured latency between them.
 
 Every assertion reads the ``why --json`` output, never the tables.
+
+Refactor rule L6: each pure core returns its record with its result, and one case per rule code it can return is
+staged here: the objective's choice (E2), the grade application's grade and hold (I1's core, L6a) and the due queue's
+slate (``rank_due``, L6a). The codes are enumerated from the code, so a new one fails until a case stages it.
 """
 
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
@@ -35,13 +40,17 @@ from tests.te3b_offers_helpers import offerable  # noqa: F401 - the fixture
 from tests.why_cases_helpers import (
     CASE1_PREFETCH_WAIT_S,
     CASE1_WAIT_S,
+    GRADE_RULE_CASES,
     RULE_CASES,
+    SLATE_RULE_CASES,
     of_kind,
     stage_case_1,
     stage_case_2,
     stage_case_3,
     stage_case_4,
+    stage_grade_case,
     stage_rule_case,
+    stage_slate_case,
     why,
 )
 
@@ -221,3 +230,70 @@ def test_the_objective_choice_names_its_rule_code(tmp_path, draw, request, prefe
         # The support's other options lost the draw, each with its probability under the mix.
         assert block["alternatives"] and all(alt["lost_by"] for alt in block["alternatives"])
         assert any(alt["lost_by"] == "not_drawn" and alt["p"] is not None for alt in block["alternatives"])
+
+
+# -- the grade application's records: one case per rule code its core returns (refactor rule L6) ---------------------
+
+
+@pytest.mark.parametrize(("code", "kind"), GRADE_RULE_CASES, ids=[code for code, _kind in GRADE_RULE_CASES])
+def test_the_grade_application_names_its_rule_code(tmp_path, code, kind):
+    root, attempt_id = stage_grade_case(tmp_path, code)
+    payload = why(root, f"attempt:{attempt_id}")
+    [grade] = of_kind(payload, "grade")
+    assert grade["trace_id"] == "TRACE_GRADE_RULE" and grade["detail"] == {"table": "practice_attempts",
+                                                                           "id": attempt_id}
+    held = of_kind(payload, "grade_held")
+    if kind == "grade":
+        assert (grade["status"], grade["rule"], grade["chosen"]) == ("chosen", code, code) and held == []
+    else:
+        [hold] = held
+        assert (hold["status"], hold["rule"], hold["parent_id"]) == ("deferred", code, grade["record_id"])
+        assert grade["inputs"]["held"] is True and hold["inputs"]["unverified_criteria"] == ["result", "setup"]
+
+
+# -- the due queue's slate record: one case per rule code ``rank_due`` returns (refactor rule L6) -------------------
+
+
+@pytest.mark.parametrize("code", SLATE_RULE_CASES)
+def test_the_slate_names_its_rule_code(tmp_path, code):
+    root, served = stage_slate_case(tmp_path, code)
+    [slate] = of_kind(why(root, "TRACE_SLATE_RULE"), "slate")
+    assert (slate["status"], slate["rule"]) == ("chosen", code)
+    assert slate["chosen"] == (served[0] if served else None)
+    assert slate["detail"]["table"] == "scheduler_slates"
+
+
+def _returned_codes(module, function: str) -> set[str]:
+    """The values of the module constants ``function`` returns, read from its source: a branch that returns a new
+    code shows up here before any case stages it."""
+
+    def names(value: ast.expr | None) -> set[str]:
+        if isinstance(value, ast.IfExp):
+            return names(value.body) | names(value.orelse)
+        assert isinstance(value, ast.Name), (function, ast.dump(value) if value else None)
+        return {value.id}
+
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    [node] = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == function]
+    return {getattr(module, name) for sub in ast.walk(node) if isinstance(sub, ast.Return) for name in names(sub.value)}
+
+
+def test_the_staged_cases_are_every_rule_code_the_two_cores_return():
+    """The codes come from the code: ``head_rule`` is the slate record's ``rule``; ``verdict_class`` is the grade
+    record's; the hold's is ``held_record``'s, of which the core reaches only the review hold (the unrecorded
+    contract's code is replay's, and replay writes no record)."""
+
+    from learnloop.attempts import grade_records
+    from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED, GRADE_HELD_FOR_REVIEW
+    from learnloop.scheduling import slate_record
+
+    assert _returned_codes(slate_record, "head_rule") == set(SLATE_RULE_CASES)
+    assert _returned_codes(grade_records, "verdict_class") == {code for code, kind in GRADE_RULE_CASES if kind == "grade"}
+    tree = ast.parse(Path(grade_records.__file__).read_text(encoding="utf-8"))
+    [decision] = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "grade_decision"]
+    [call] = [node for node in ast.walk(decision) if isinstance(node, ast.Call)
+              and isinstance(node.func, ast.Name) and node.func.id == "held_record"]
+    assert "contract_unrecorded" not in {keyword.arg for keyword in call.keywords}
+    assert {code for code, kind in GRADE_RULE_CASES if kind == "grade_held"} == {GRADE_HELD_FOR_REVIEW}
+    assert grade_records.held_record(attempt_id="a", parent_id=None, manual_review_reason=None,
+                                     contract_unrecorded=True).rule == GRADE_CONTRACT_UNRECORDED

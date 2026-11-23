@@ -180,3 +180,113 @@ def stage_rule_case(tmp_path, draw, prefer: str) -> Path:
                            session_id=env.session_id)
     assert decided(), f"no boundary served {prefer}"
     return env.vault.root
+
+
+# -- the grade application's records: one case per rule code its core returns (refactor rule L6) ---------------------
+
+#: ``(rule, kind)``: the grade's verdict classes and the hold's code, each staged by :func:`stage_grade_case`.
+GRADE_RULE_CASES = (("full_credit", "grade"), ("partial_credit", "grade"), ("no_credit", "grade"),
+                    ("dont_know", "grade"), ("stuck", "grade"), ("grade_held_for_review", "grade_held"))
+GRADE_ITEM = "pi_svd_compute_001"
+
+
+def stage_grade_case(tmp_path: Path, rule: str) -> tuple[Path, str]:
+    """One live answer on a split vault's ``pi_svd_compute_001`` (``setup`` 2 + ``result`` 2) through the attempt
+    step, under ``TRACE_GRADE_RULE``, graded so its core returns ``rule``. Returns the vault root and the attempt id."""
+
+    from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
+    from learnloop.clock import FrozenClock
+
+    from tests.split_live_helpers import split_vault
+
+    points, draft, apply = {
+        "full_credit": ({"setup": 2, "result": 2}, {}, {}),
+        "partial_credit": ({"setup": 2, "result": 1}, {}, {}),
+        "no_credit": ({"setup": 0, "result": 0}, {}, {}),
+        "dont_know": ({"setup": 0, "result": 0}, {"attempt_type": "dont_know", "learner_answer_md": ""}, {}),
+        "stuck": ({"setup": 1, "result": 0}, {"declared_stuck": True}, {}),
+        # Held only while nothing is assessed (``outcome_contract.grade_is_held``): both criteria unverified.
+        "grade_held_for_review": ({"setup": 0, "result": 0}, {}, {
+            "grading_source": "ai", "grade_held_for_review": True, "unverified_criterion_ids": ("setup", "result")}),
+    }[rule]
+    paths, vault, repository = split_vault(tmp_path)
+    attempt_id = f"att_rule_{rule}"
+    with provenance.trace_scope("TRACE_GRADE_RULE"):
+        apply_attempt(vault, repository, ApplyAttemptInput(
+            draft=AttemptDraft(**{"practice_item_id": GRADE_ITEM, "learner_answer_md": "U Sigma V^T from A^T A",
+                                  "attempt_type": "independent_attempt", **draft}),
+            attempt_id=attempt_id,
+            grade=ResolvedGrade(rubric_score=float(sum(points.values())), criterion_points=points, evidence_rows=[],
+                                error_attributions=[], grader_confidence=1.0, confidence=3,
+                                manual_review_reason=None, feedback_md="graded"),
+            **apply,
+        ), clock=FrozenClock(datetime(2026, 6, 1, 12, 0, tzinfo=UTC)))
+    return paths.root, attempt_id
+
+
+# -- the due queue's slate record: one case per rule code ``rank_due`` returns (refactor rule L6) -------------------
+
+SLATE_RULE_CASES = ("empty_slate", "presentation_pin", "pending_followup", "check_once", "seeded_exploration",
+                    "greedy_order", "composition_order")
+
+
+def stage_slate_case(tmp_path: Path, rule: str) -> tuple[Path, list[str]]:
+    """One serving build with a session, under ``TRACE_SLATE_RULE``, on a vault where ``rule`` puts the head first.
+
+    ``presentation_pin`` and ``check_once`` are the due-queue golden's vault (``tests/due_queue_helpers.py``): its
+    session committed a probe an hour ago, so that session's next build pins it; another session's build serves the
+    due "Check once" first. The rest are the placement vault (``tests/helpers.py``): new material ranked greedily; a
+    due cold retry inserted first; a tutor promotion the requested-items floor pulls to the front; every candidate a
+    near-tie at an exploration rate of one, with no goal quota to reorder the draw; and the basic vault with its one
+    learning object paused, which leaves nothing to serve. Returns the root and the served queue's ids."""
+
+    from datetime import timedelta
+
+    from learnloop.clock import FrozenClock
+    from learnloop.db.repositories import Repository
+    from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
+    from learnloop.substrate.state_sync import sync_vault_state
+    from learnloop.vault.loader import load_vault
+
+    from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault, create_placement_vault
+
+    clock, session = FrozenClock(NOW + timedelta(minutes=5)), "sess_slate_rule"
+    if rule in ("presentation_pin", "check_once"):
+        from tests.due_queue_helpers import CLOCK, SESSION, build_rich_vault
+
+        vault, repository = build_rich_vault(tmp_path / "vault")
+        clock, session = CLOCK, SESSION if rule == "presentation_pin" else session
+    else:
+        make = create_basic_vault if rule == "empty_slate" else create_placement_vault
+        paths = make(tmp_path / "vault")
+        if rule == "seeded_exploration":
+            append_config_toml(paths.root, "[scheduler]\nselection_exploration_rate = 1.0\n"
+                               "selection_exploration_reward_window = 10.0\ngoal_quota_floor_min = 0.0\n"
+                               "goal_quota_floor_max = 0.0\n")
+        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+        sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+        if rule == "empty_slate":
+            from learnloop.intent.control import Scope, apply_choice
+
+            apply_choice(vault, repository, Scope("learning_object", "lo_svd_definition"), "pause",
+                         clock=FrozenClock(NOW))
+            vault = load_vault(paths.root)
+        elif rule == "pending_followup":
+            repository.create_followup_task(
+                kind="cold_retry", case_kind="misconception", case_ref="mc_slate_rule",
+                learning_object_id="lo_eigen_basics", selected_item_id="pi_eig_easy",
+                not_before=(NOW - timedelta(hours=6)).isoformat().replace("+00:00", "Z"),
+                expires_at=(NOW + timedelta(days=5)).isoformat().replace("+00:00", "Z"),
+                clock=FrozenClock(NOW - timedelta(days=2)),
+            )
+        elif rule == "composition_order":
+            event_id = repository.insert_question_event({
+                "context": "practice", "practice_item_id": "pi_svd_define_001", "session_id": "sess_request",
+                "question_md": "Chase this?", "answer_md": "A guiding question.", "question_type": "mechanism",
+                "facets": ["recall"], "hint_equivalent": True, "answer_status": "answered", "created_at": NOW_ISO,
+            })
+            repository.insert_question_promotion(question_event_id=event_id, intent="practice", route="auto_apply",
+                                                 created_practice_item_id="pi_diag_easy", clock=FrozenClock(NOW))
+    with provenance.trace_scope("TRACE_SLATE_RULE"):
+        queue = serve_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))
+    return Path(vault.root), [item.practice_item_id for item in queue]
