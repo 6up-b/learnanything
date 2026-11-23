@@ -311,3 +311,79 @@ touched the frontend, the desks or their dependencies.
 | `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
 | `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / Contracts: 52 kept, 0 broken. / collected 33251: landing 33185 + arc_close 66 |
 | `desktop_validate.py` | no count drift; only the regeneration errors (missing notes for the new files, stale notes for the changed ones, the reproducibility diff) |
+
+## 10. Fix round: the adversarial review's twelve findings
+
+The review found one blocker and eleven majors. All twelve were defects; each is fixed with a fail-first test, and
+each has a ledger row (RD1-3 to RD1-14, finding 1 to finding 12 in order). The fix round builds on RD2 (the overview),
+so the windows' markup, the zoom plan and the controller changed with finding 2.
+
+| # | Finding | Fail-first test (failed before, passes after) | Fix |
+|---|---|---|---|
+| 1 (RD1-3) | Empty compare poisons the save queue | `DeskShell.test.tsx` "compare with nothing typed opens the library pane…" (got `{ kind: 'compare', query: undefined }`); `outbox.test.ts` "a request refused for good is rejected, never retried…" | Empty compare opens the library pane. The outbox classes `validation_error` and `stale_sidecar_schema` as permanent: the batch is dropped once and the later batches move up one number (the server consumed none for a refused request); the store says "that change couldn't be saved, and was undone" and reconciles. Any other error is a transport failure and is retried |
+| 2 (RD1-4) | Pairing and focus mode remount the Reader | `DeskShell.test.tsx` "a draft survives pairing, unpairing and focus mode, and its window mounts once" (a different input element after pairing); the harness's "pairing and unpairing remount neither window" (no marks left against the old shell) | One element per window, keyed by the window id and rendered in id order (reordering slots moves no element, so no iframe reloads); a pair is two windows placed at their panes (square where they meet, the divider between). The focus-mode measure wrapper is always there and only restyled; a focused pane's partner stays mounted, hidden. The zoom plan moves one item per window (a pair's card split top and bottom) and the rings per slot |
+| 3 (RD1-5) | A conflict deletes unrelated intent | `outbox.test.ts` "a conflict keeps the batches queued after it, for the store to rebase" | The new desk store (`store.ts`) keeps the queued batches as intent. On a conflict or a rejection it waits for any batch on its way, reads `desk.state`, re-applies every queued op on it through the model (`restampOp` stamps the versions it now expects), requeues what applies from the server's head and counts what does not; the shell says "the desk changed elsewhere · N changes couldn't be kept". New commits made while the state is on its way are rebased too, and no flush runs while reconciling. `store.test.ts` covers the rebase, the report and the commit during the read |
+| 4 (RD1-6) | Hidden windows keep real DOM input | `DeskShell.test.tsx` "switching desks moves the focus out of the old desk's input…", "moving the activation… takes the focus with it"; the harness's "a field on a desk left behind takes no typing" (`zz` arrived in the hidden field against the old shell) | A paused window's content carries `inert` (no focus, typing, tab stop, clicks or iframe focus); a visible inactive window stays clickable. When the active window changes, focus held in a window that is no longer active (an iframe included) moves to the new active window (`tabIndex=-1`); focus in the shell's own chrome stays where it is |
+| 5 (RD1-7) | Unmount leaves an old writer alive | `DeskShell.test.tsx` "leaving the desks before a change is sent and coming back keeps one numbering" (seqs 1, 2 from one client), "a reading place still waiting to be saved survives leaving the desks"; `store.test.ts` "a second load reads the server's state again…" | One store per vault and transport (`deskStoreFor`), outside the shell, owning the outbox and the flush timer. The shell's own timers (the entering fade) end with it; a pending view save is handed to the store at unmount; a load after coming back rereads the server and rebases what is queued; a load that lands after unmount changes nothing |
+| 6 (RD1-8) | Hidden and preview windows start work and poll | `pausedProducers.test.tsx` "an offscreen source starts no cue discovery until it is on screen" (called once while offscreen), "a library job is not read while its window is hidden…" (43 reads while hidden, against at most 4); `ReadingPathCard.test.tsx` "a hidden panel does not read the path while it is judged…" | `useWhenLive()` (in `lifecycle.tsx`): a wait that resolves at once while the window is live, else when it next is. Every job reader and timed re-read awaits it before each request, so a job in flight keeps its id and is read on after; interval loops stop while paused. Inventory below |
+| 7 (RD1-9) | A hidden Reader's menu stays over the new desk | `SourceWindow.lifecycle.test.tsx` "a tag menu portaled over the desks closes when its window stops being the active one" | The tag menu and the note picker close when the window's state is not active, and render only while it is; back on its desk the menu does not reappear |
+| 8 (RD1-10) | The Reader's scopes are bypassed | `DeskShell.test.tsx` "an intent box open over a selection takes the typed key: x reaches it and swaps nothing", "an open menu in focus mode takes esc…"; `scopeClaims.test.tsx` (the intent box claims typing while armed; an open Wrap up claims the menu scope) | `useScopeClaim(scope, open)` through the window scope; the shell keeps each window's claims, and the router resolves the active window's typing, menu and check claims before the desk's reading and focus bindings. Claimed: the intent box (typing, while armed over a selection or open), the tag menu and note picker, the ask find box and Wrap up (menu). No hosted Reader surface owns non-text keys as a check card today (the quick checks answer in text fields, already the typing scope); the check claim is there for RD4's check card |
+| 9 (RD1-11) | An Alt chord can clear the capture | `DeskShell.test.tsx` "an Alt chord the shell takes never reaches the Reader as a bare-Alt tap; a real tap still clears" | The shell's Alt tracker sees every key while Alt is down, so it is the authority: an Alt release goes on to a window only for a confirmed tap; a hold (which-key) or a chord keeps it |
+| 10 (RD1-12) | The rail inherits the source's input ownership | `SourceWindow.lifecycle.test.tsx` "the rail in a panel window lives in that panel's window scope…" (read `w1`, the source) | The rail host carries the panel window's lifecycle, hub and claims; the portaled rail is wrapped in that window scope, so Wrap up's esc, the rail's listeners and its pausing go by the panel |
+| 11 (RD1-13) | Undo after a rejected close duplicates a window | `workspace.test.ts` "refuses to reopen a window that is open, even with a stale closed entry for it"; `DeskShell.test.tsx` "an undo offer for a close the server refused goes away"; `store.test.ts` "undo after a rejected close" | The model refuses `reopen_window` for an open window (`window_open`, as RD0) and `undoClose` offers nothing then; reconciling keeps a closed entry only for a window not open on the server; the shelf's undo offer names its window and holds only while that window is closed. `opParity.json` gains a batch: reopening an open window, then closing and reopening one, then reopening it twice (TS and Python agree) |
+| 12 (RD1-14) | Unshown recaps recorded as shown | `SourceWindow.recap.test.tsx`: a preview, an active window with no rail panel, a hidden rail panel (each recorded `recap_shown` once) | The card counts as shown only where the rail is rendered and its window is not paused: on a desk, a rail host whose panel is active or visible; outside the desks, the Reader itself |
+
+### The producer and timer inventory (finding 6)
+
+Every `setTimeout`, `setInterval` and sleep loop in the hosted Reader (the Reader's screens, its hooks, the PDF pane,
+figures, and the workbench hosted in its working posture), with what each does while its window is paused.
+
+| Where | What | Paused |
+|---|---|---|
+| `useCueDiscovery` | discovery started per open; its job reads; the plan re-read while targets are pending | waits (`useWhenLive`): no start, no read; the same job read on |
+| `useLibraryAsk` | each stage's job loop (ask, notes, compare, tutor, scope) | waits before each read; the same job |
+| `useLibraryExercises` | candidate and fallback job loops | waits before each read; the same job |
+| `figures/useFigures` | figure job loop, recheck job loop, the rich-figure re-read | waits before each read; the same job |
+| `guidePlan` `useGuideDiagnosisRefresh` | plan re-read while diagnoses are pending | waits |
+| `useReaderRecap` | recap and Wrap up narrative re-reads | waits |
+| `ReadingPathCard` | re-read while judging; refresh after progress | waits (a refresh asked while paused runs once back) |
+| `DeliverableSliceCard` | re-read while pending; refresh | waits |
+| `useReaderRequests` | request status poll | waits |
+| `useActiveReading` | active question status read | waits |
+| `ReaderNotes` `usePathNotes` | path-notes linking re-read | waits |
+| `workbench/useWorkbenchHelp`, `workbench/RouteExample` | help and example job loops | waits before each read; the same job |
+| `PreparingView` | library readiness check (interval) | stops; restarts on return |
+| `workbench/useWorkbenchSession` | import-binding refresh (interval) | stops; restarts on return |
+| `workbench/Workbench` | "saved · n min ago" clock (interval) | stops; catches up at once on return |
+| `figures/FigureInline` | a parameter's play animation (interval) | stops where it is |
+| `useReaderInquiry` check poll, `useReadingProgress` authoring poll, `ReaderScreen` exercise import poll | job polls | already skipped while paused (RD1) |
+| `useReaderVisit`, `useReadingProgress` scroll and playback, `useCueImpressions` | reading activity and impressions | already gated to active or visible (RD1) |
+| `useIntentBox` show timer, speculation timer, routing settle | after a selection or typing in the box | not gated: only the active window has a selection or the box's focus, and the settle is bounded by the contract's few seconds |
+| `useReadingProgress` progress save debounce and seen-count report | writes what the learner read | not gated: they carry what an active or visible window already recorded; pausing them could lose it |
+| `workbench/useWorkbenchSession` edit debounce and save retry | saves the learner's steps | not gated, for the same reason |
+| `useReaderCues` focus retry, `useReaderInquiry` and `AskRail` find-box focus, `ReaderScreen` undo-removed, focus and jump timers, `PdfReaderPane` find debounce, pending-target settle and font wait | one-shot UI timers after a learner action | not gated: each fires once, within a second, after something done in the active window |
+
+### Other changes and judgment calls
+
+- **Outside the desks nothing changes.** `useWhenLive` never waits, `useScopeClaim` claims nothing, and the rail and
+  overlays behave as before when the Reader is not windowed (the Reader's own suites pass unchanged).
+- **The store is in memory**, as the outbox was (the accepted memory-only limitation). It lives as long as the page,
+  one per vault and transport; the app's transport is a module constant, so leaving and re-entering the desks finds it.
+- **A refused request consumes no number.** The server checks params before it takes a sequence, so the batches after
+  a rejected one are renumbered from its number; a conflict's reply does consume its number, and the rebased batches
+  start after the server's head for this client.
+- **The undo offer** keeps the window id it offers; the offer disappears as soon as reconciling shows the window open.
+- **Pairs look as before** within a few pixels: each pane is its own box with square inner corners and the 6 px divider
+  between; the old shared box and its `.desk-pane + .desk-pane` border are gone.
+
+### Harness
+
+Two checks added (51 in all): "a field on a desk left behind takes no typing; the focus follows the active window"
+(a field put into the active window's body, alt+j, two letters typed) and "pairing and unpairing remount neither
+window" (a mark put into each window's content before alt+, survives alt+, and alt+.). "The server's slots equal the
+screen's" now reads each window's slot and pane from its own element. Run against the RD2 shell (with this round's
+Reader and controller), both new checks failed: the field read `zz` with the focus still in the old window and nothing
+inert, and no mark survived. The other failures of that mixed build came from pairing the old shell with the new rail
+host and controller, not from the old shell alone.
+
+### Commands and results
