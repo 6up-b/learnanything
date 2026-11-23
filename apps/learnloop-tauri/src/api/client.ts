@@ -6,6 +6,8 @@ import { noteSessionMovedError } from "../app/sessionMoved";
 import { isWaitingForOk, waitForAiOk } from "../app/aiOk";
 import type {
   ChecksDueDto,
+  CompanionAskInput,
+  CompanionAskJobDto,
   CompanionHistoryDto,
   DeskApplyDto,
   DeskApplyInput,
@@ -16,6 +18,9 @@ import type {
   PadViewDto,
   PassageUnionDto,
   PassageUnionInput,
+  SearchEverythingDto,
+  SearchEverythingInput,
+  SearchJobDto,
   NoteSearchDto,
   NoteLinkDto,
   HiddenNoteDto,
@@ -1595,6 +1600,14 @@ export const api = {
     call<CompanionHistoryDto>("companion_history", { input }),
   checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>
     call<ChecksDueDto>("checks_due_for", { input }),
+  // Reader workbench v2 RD3 (spec §3.4; desktop only, no component calls them yet): the companion's ask answers at
+  // once with a polled job (the model call runs off the sidecar's serial loop); search answers its word groups at
+  // once and searches by meaning through a polled job. Polls answer at once and never wait.
+  companionAsk: (input: CompanionAskInput) => call<CompanionAskJobDto>("companion_ask", { input }),
+  companionAskJob: (input: { requestId: string }) => call<CompanionAskJobDto>("companion_ask_job", { input }),
+  companionAskCancel: (input: { requestId: string }) => call<CompanionAskJobDto>("companion_ask_cancel", { input }),
+  searchEverything: (input: SearchEverythingInput) => call<SearchEverythingDto>("search_everything", { input }),
+  searchJob: (input: { jobId: string }) => call<SearchJobDto>("search_job", { input }),
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),

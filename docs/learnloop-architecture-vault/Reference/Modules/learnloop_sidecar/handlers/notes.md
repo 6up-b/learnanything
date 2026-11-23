@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/notes.py](../../../../../../src/learnloop_sidecar/handlers/notes.py) |
-| Source lines | 410 |
+| Source lines | 441 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -68,15 +68,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `notes_passages(ctx: SidecarContext, params: PassagesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 290) — Compare's *your take* band: the notes linked to the compared passages.
 - `class SearchInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 302)
 - `notes_search(ctx: SidecarContext, params: SearchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 311) — *link one of your notes*: the vault's own notes for the passage (or the learner's words), by exact words or (embeddings on) by meaning.
-- `class NoteRef(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 325)
-- `class LinkInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 330)
-- `notes_link(ctx: SidecarContext, params: LinkInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 337) — The learner links a note to a passage by hand (theirs: kept, never re-judged).
-- `class DecideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 351)
-- `notes_decide(ctx: SidecarContext, params: DecideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 358) — One tap: hide a note link (hidden across re-judgments), or keep it after all.
-- `class HiddenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 372)
-- `notes_hidden(ctx: SidecarContext, params: HiddenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 377) — The note links the learner hid, newest first (Settings; *show again* is ``notes.decide`` ``keep``).
-- `class GapsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 385)
-- `notes_set_gaps(ctx: SidecarContext, params: GapsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 390) — Curriculum C5's opt-in from Settings (owner Q9: off by default): writes ``notes.gaps_enabled``.
+- `notes_search_state(vault: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 325) — Whether the workbench's search may search the vault's notes, by words and by meaning, and why not.
+- `search_vault_notes(ctx: SidecarContext, vault: Any, repository: Any, *, query: str, mode: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 343) — The vault's notes holding ``query`` (``words``) or nearest it (``meaning``), as ``notes.search`` finds them, for the workbench's search in context.
+- `class NoteRef(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 356)
+- `class LinkInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 361)
+- `notes_link(ctx: SidecarContext, params: LinkInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 368) — The learner links a note to a passage by hand (theirs: kept, never re-judged).
+- `class DecideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 382)
+- `notes_decide(ctx: SidecarContext, params: DecideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 389) — One tap: hide a note link (hidden across re-judgments), or keep it after all.
+- `class HiddenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 403)
+- `notes_hidden(ctx: SidecarContext, params: HiddenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 408) — The note links the learner hid, newest first (Settings; *show again* is ``notes.decide`` ``keep``).
+- `class GapsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 416)
+- `notes_set_gaps(ctx: SidecarContext, params: GapsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 421) — Curriculum C5's opt-in from Settings (owner Q9: off by default): writes ``notes.gaps_enabled``.
 
 ### Module constants
 
@@ -103,6 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_work(ctx: SidecarContext) -> _Work` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 148)
 - `_spawn(ctx: SidecarContext, name: str, run: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 159)
 - `_link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, targets: list[NL.Target], *, retry: bool) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 167) — Start the deliverable's note linking in the background: once a local day per path (its topics and their passages), again after a run that waited for its model, once ``NL.WAITING_RETRY_SECONDS`` have passed since it stopped (Codex re-review F14: the reads polling a waiting run ne…
+- `_meaning_reason(vault: Any) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/notes.py), line 337)
 
 ## Who imports or calls it
 
@@ -111,6 +114,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `prompt_contract_fields`; statically calls `prompt_contract_fields`
+- [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `notes_search_state`, `search_vault_notes`; statically calls `notes_search_state`, `search_vault_notes`
 
 ## Dependencies
 
@@ -126,6 +130,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; calls `enabled`
 - [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] — imports `MAX_TAKE_CHARS`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; calls `available`, `decide`, `enabled`, `for_goal`, `for_passages`, `hidden`, `link_by_hand`, `link_goal`, `marks`, `notes_settings`, `path_targets`, `search`, `take_text`
+- [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `module`; calls `meaning_unavailable`
 - [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] — imports `background_jobs`; calls `background_jobs`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
@@ -147,7 +152,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]], [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

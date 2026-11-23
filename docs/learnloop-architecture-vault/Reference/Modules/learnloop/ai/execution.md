@@ -252,6 +252,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `content_key`, `record_model_calls`; statically calls `content_key`, `record_model_calls`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] — imports `record_model_calls`; statically calls `record_model_calls`
 - [[Reference/Modules/learnloop_sidecar/handlers/reading_paths|learnloop_sidecar.handlers.reading_paths]] — imports `record_model_calls`; statically calls `record_model_calls`
+- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `active_request_gate`, `gate_model_requests`, `observe_model_output`, `record_model_calls`; statically calls `active_request_gate`, `gate_model_requests`, `observe_model_output`, `record_model_calls`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `record_model_calls`; statically calls `record_model_calls`
 
 ## Dependencies
@@ -274,7 +275,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 130 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 131 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -284,6 +285,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ad23_fakes.py](../../../../../../tests/ad23_fakes.py) — direct import
 - [tests/ad_fakes.py](../../../../../../tests/ad_fakes.py) — direct import
 - [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/companion_rd3a_helpers.py](../../../../../../tests/companion_rd3a_helpers.py) — direct import
 - [tests/contamination_report_helpers.py](../../../../../../tests/contamination_report_helpers.py) — direct import
 - [tests/decider_fakes.py](../../../../../../tests/decider_fakes.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import

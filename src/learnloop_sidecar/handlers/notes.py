@@ -322,6 +322,37 @@ def notes_search(ctx: SidecarContext, params: SearchInput) -> dict[str, Any]:
         raise _error(exc) from exc
 
 
+def notes_search_state(vault: Any) -> dict[str, Any]:
+    """Whether the workbench's search may search the vault's notes, by words and by meaning, and why not."""
+
+    settings = NL.notes_settings(vault)
+    if settings is None:
+        return {"on": False, "meaning": False, "reason": "your notes are switched off (notes.enabled = false)"}
+    if not settings.meaning:
+        return {"on": True, "meaning": False,
+                "reason": f"searching your notes by meaning needs this vault's embeddings ({_meaning_reason(vault)})"}
+    return {"on": True, "meaning": True, "reason": None}
+
+
+def _meaning_reason(vault: Any) -> str:
+    from learnloop.source_retrieval import vault_notes as VN
+
+    return VN.meaning_unavailable(vault) or "switched off"
+
+
+def search_vault_notes(ctx: SidecarContext, vault: Any, repository: Any, *, query: str, mode: str) -> list[dict[str, Any]]:
+    """The vault's notes holding ``query`` (``words``) or nearest it (``meaning``), as ``notes.search``
+    finds them, for the workbench's search in context. The caller checks :func:`notes_search_state`
+    first; a refusal raises the notes' sidecar error."""
+
+    try:
+        found = NL.search(vault, repository, query=query, mode=mode,
+                          embedder=getattr(ctx, "note_embedding_client", None))
+    except NL.NotesError as exc:
+        raise _error(exc) from exc
+    return list(found.get("hits") or [])
+
+
 class NoteRef(ParamsModel):
     #: ``annotation:<id>`` | ``capture:<id>`` (a ``notes.search`` hit's ``note_key``).
     note_key: str

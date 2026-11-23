@@ -30,7 +30,7 @@ BACKFILL = "backfill"
 #: Where an exchange asked before desks happened, by its own context.
 SURFACE_BY_CONTEXT = {"reader": "reader", "practice": "practice", "feedback": "feedback", "library": "library"}
 WHERE = {"reader": "in the Reader", "practice": "while practising", "feedback": "on feedback", "library": "in your library",
-         "lesson": "in a lesson", "desk": "on a desk"}
+         "lesson": "in a lesson", "desk": "on a desk", "notebook": "in a notebook"}
 _SENTENCE = re.compile(r"(.+?[.!?])(\s|$)", re.S)
 
 
@@ -38,7 +38,7 @@ def record_exchange_context(repository: Any, *, question_event_id: str, surface:
                             window_spec: Mapping[str, Any] | None = None, pad_block_ids: list[str] | None = None,
                             goal_id: str | None = None, clock: Clock | None = None) -> bool:
     """Record where one exchange was asked (origin ``live``); a second record of it is ignored.
-    The companion's ask, when it is built, calls this as it records the exchange."""
+    The companion's ask calls this once its exchange is recorded."""
 
     with repository.connection() as connection:
         return spans_store.insert_exchange_context(connection, {

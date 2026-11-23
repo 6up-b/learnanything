@@ -1371,6 +1371,13 @@ sidecar_passthrough!(pad_apply, "pad.apply");
 sidecar_passthrough!(passage_union_range, "passage.union_range");
 sidecar_passthrough!(companion_history, "companion.history");
 sidecar_passthrough!(checks_due_for, "checks.due_for");
+// Reader workbench v2: the companion's ask as a polled job, and search in context (desktop only; no component
+// calls them yet).
+sidecar_passthrough!(companion_ask, "companion.ask");
+sidecar_passthrough!(companion_ask_job, "companion.ask_job");
+sidecar_passthrough!(companion_ask_cancel, "companion.ask_cancel");
+sidecar_passthrough!(search_everything, "search.everything");
+sidecar_passthrough!(search_job, "search.job");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");

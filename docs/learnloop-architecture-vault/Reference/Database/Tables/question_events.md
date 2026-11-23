@@ -131,6 +131,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/companion/history.py`
+- `src/learnloop/companion/search.py`
 - `src/learnloop/db/stores/questions.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`

@@ -23,6 +23,7 @@ authority; the handler enforces it rather than trusting the caller.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import Field, model_validator
@@ -136,8 +137,29 @@ def _reader_answer_mode(vault: Any, requested: str | None) -> str:
     return RD.READER_ANSWER_MODE_DEFAULT
 
 
-@method("reader.ask", ReaderAskInput)
-def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
+@dataclass(frozen=True)
+class ReaderAskCall:
+    """One Reader Ask, gated and with its context built. ``reader.ask`` runs the three steps on the request;
+    ``companion.ask`` runs the model call and the reply on a job thread, off the serial loop (one core)."""
+
+    vault: Any
+    repository: Any
+    params: ReaderAskInput
+    provider_name: str
+    client: Any
+    restricted: Any
+    binding: Any
+    lookup: Any
+    tools_allowed: bool
+    learner_state: Any
+    destination: Any
+    #: The request came from the phone: read on the request, since the context's origin is the request's.
+    phone: bool
+
+
+def prepare_reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> ReaderAskCall:
+    """Gate one Reader Ask and build its context, before any model call (refusals raise here)."""
+
     vault, repository = _require_reader(ctx)
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=params.extraction_id,
@@ -182,11 +204,22 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     learner_state = RTU.learner_state(vault, repository, params, restricted)
     # K6-4: the phone's predicate covers the whole request, not only the selection.
     destination = PR.destination_material(ctx, vault, repository)
+    return ReaderAskCall(vault=vault, repository=repository, params=params, provider_name=provider_name,
+                         client=client, restricted=restricted, binding=binding, lookup=lookup,
+                         tools_allowed=tools_allowed, learner_state=learner_state, destination=destination,
+                         phone=ctx.request_origin is not None)
+
+
+def generate_reader_answer(call: ReaderAskCall) -> dict[str, Any]:
+    """The model call and the exchange it records (``reader_dialogue.ask``), its failures as sidecar errors."""
+
+    vault, params, lookup, binding = call.vault, call.params, call.lookup, call.binding
+    restricted, learner_state, destination = call.restricted, call.learner_state, call.destination
     try:
-        result = RD.ask(
+        return RD.ask(
             vault,
-            repository,
-            client,
+            call.repository,
+            call.client,
             extraction_id=params.extraction_id,
             span_id=params.span_id,
             question_md=params.question,
@@ -203,7 +236,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             learning_object_suggester=suggested_learning_objects,
             # Canonical sources S4: typed tool requests (the Reader spec renders them).
             # None during a cold administration: every tool is refused then (G2).
-            tool_request_handler=_reader_tool_handler(vault) if tools_allowed else None,
+            tool_request_handler=_reader_tool_handler(vault) if call.tools_allowed else None,
             **({"reader_tutor": lookup} if lookup is not None else {}),
             **({"reader_binding": binding} if binding is not None else {}),
             # Stored with the question, so nothing rebuilt from it reads wider.
@@ -222,10 +255,20 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     except (CodexUnavailable, TimeoutError) as exc:
         raise SidecarError(
             "provider_unavailable",
-            f"{provider_label(provider_name)} is unavailable for reader Ask.",
+            f"{provider_label(call.provider_name)} is unavailable for reader Ask.",
             retryable=True,
         ) from exc
-    if ctx.request_origin is not None and not _phone_ask_history(
+
+
+def reader_ask_reply(ctx: SidecarContext, call: ReaderAskCall, result: dict[str, Any]) -> dict[str, Any]:
+    """The Ask's reply (before ``versioned``) for the exchange ``generate_reader_answer`` recorded."""
+
+    vault, repository, params, tools_allowed, restricted = (call.vault, call.repository, call.params,
+                                                            call.tools_allowed, call.restricted)
+    from learnloop_sidecar import phone_reader as PR
+    from learnloop_sidecar.handlers import reader_tutor as RTU
+
+    if call.phone and not _phone_ask_history(
             vault, repository, params.extraction_id, [{"event_id": str(result["reader_answer_event_id"])}]):
         # Mobile v2 V4 landing (ruling R1): the answer as the Ask stored it (its citations, excerpt and what the
         # tutor retrieved, which the model chose) is judged as its history will judge it, before anything of it
@@ -292,7 +335,13 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         from learnloop_sidecar.prefetch_runtime import notify_offer
 
         notify_offer(ctx, "tutor", result["event_id"])
-    return versioned(response)
+    return response
+
+
+@method("reader.ask", ReaderAskInput)
+def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
+    call = prepare_reader_ask(ctx, params)
+    return versioned(reader_ask_reply(ctx, call, generate_reader_answer(call)))
 
 
 def _reader_tool_handler(vault: Any) -> Any:
