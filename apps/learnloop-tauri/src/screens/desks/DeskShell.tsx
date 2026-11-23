@@ -2337,7 +2337,7 @@ export function DeskShell({
     passagePromotedCancel: (input) => menuTransport.passagePromotedCancel(input),
     label: (rowId, label) => void menuTransport.proposalLabel({ labelId: mintId("lbl"), proposalKind: "promoted_row", proposalId: rowId, label }).catch(() => undefined),
   }), [menuTransport, mintId]);
-  const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto) => void>(() => undefined);
+  const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
   const padsHost = useMemo<PadsHost>(() => ({
     store,
@@ -2379,7 +2379,7 @@ export function DeskShell({
     menu: {
       promoted: menuPromoted,
       poller,
-      onPromoted: (row) => onPromotedRef.current(row),
+      onPromoted: (row, origin) => onPromotedRef.current(row, origin),
       knows: (object) => setKnows(object),
     },
     ...(reader?.onTeachMe ? { teachMe: (extractionId: string, spanIds: string[]) => reader.onTeachMe?.({ extractionId, spanIds }) } : {}),
@@ -2789,20 +2789,9 @@ export function DeskShell({
     else toastNow(`appended to “${pad.pad.title || "running"}”`);
   }, [appendTargetOf, commit, menuTransport, mintId, rememberAppendTarget, store, titleOf, toastNow]);
 
+  // The rows the open source menu shows (Open beside takes its correspondent from them): told by that menu only
+  // while it is open on its object, so a closed menu's late answer never lands here.
   const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([]);
-  // The source menu's promoted calls keep the rows they gave (Open beside takes its correspondent from them). One
-  // object across renders: a new one would restart the menu's request and cancel its judged job.
-  const sourceMenuPromoted = useMemo<PromotedApi>(() => ({
-    ...menuPromoted,
-    passagePromoted: (input) => menuPromoted.passagePromoted(input).then((found) => {
-      menuPromotedRows.current = found.rows;
-      return found;
-    }),
-    passagePromotedJob: (input) => menuPromoted.passagePromotedJob(input).then((job) => {
-      if (job.done && job.status === "done") menuPromotedRows.current = job.rows;
-      return job;
-    }),
-  }), [menuPromoted]);
   const menuContext = useMemo<MenuContext>(() => ({
     deskId,
     api: menuTransport,
@@ -2873,16 +2862,55 @@ export function DeskShell({
     return () => setNotebookMenuOpener(null);
   }, [lessonDesk, commit, timers]);
 
-  /** A promoted row's action: open its place, What this knows, the carried list, the passage of a note. */
-  onPromotedRef.current = (row) => {
+  /** A pad line in view: its stack window takes the focus (opened beside when no stack shows the pad) and the line
+   * flashes (the ✎ marks' way back to a pad). */
+  const openPadBlock = (padId: string, blockId: string | null) => {
+    const id = deskIdRef.current;
+    if (!id) return;
+    const stackWindow = Object.values(wsRef.current.windows).find((window) => window.deskId === id && (window.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === padId));
+    if (stackWindow) {
+      commit(setFocus(wsRef.current, id, stackWindow.windowId));
+      padHandles.current.get(stackWindow.windowId)?.showPad(padId);
+    } else {
+      openContent({ kind: "pad", padId });
+    }
+    if (blockId) timers.set(() => window.dispatchEvent(new CustomEvent("learnloop:pad-flash", { detail: { blockId } })), 0);
+  };
+
+  /** A promoted row's action, for the object its menu was opened on (a source object or a pad line): open its place
+   * (a pad at its line), What this knows of that object, the carried list, a margin note's or a figure's passage
+   * (the Reader shows the passage's notes and figures there). False when the row names nothing that can open. */
+  onPromotedRef.current = (row, origin) => {
     const place = promotedRef(row);
     if (place) {
-      openContent(place.ref, { spanId: place.spanId });
-      return;
+      if (place.ref.kind === "pad") openPadBlock(place.ref.padId, row.action.target?.blockId ?? null);
+      else openContent(place.ref, { spanId: place.spanId });
+      return true;
     }
-    if (row.action.verb === "knows" && menu) setKnows(objectInput(menu, deskIdRef.current));
-    else if (row.action.verb === "carried") setCarriedOpen(true);
-    else if (row.action.verb === "figure") toastNow("the figure opens in the tutor when figures come to the desks");
+    switch (row.action.verb) {
+      case "knows":
+        if (!origin) return false;
+        setKnows(origin);
+        return true;
+      case "carried":
+        setCarriedOpen(true);
+        return true;
+      case "annotation":
+      case "figure": {
+        // The row's own passage when it names one, else the passage the menu was opened on.
+        const named = row.action as { extractionId?: string; target?: { spanId?: string } };
+        const extractionId = named.extractionId ?? origin?.extractionId;
+        const spanId = named.target?.spanId ?? origin?.spanId;
+        if (!extractionId || !spanId) {
+          toastNow("couldn't find the passage this belongs to");
+          return false;
+        }
+        openPassage(extractionId, spanId);
+        return true;
+      }
+      default:
+        return false;
+    }
   };
 
   /** The one right-click listener (spec §4.4: the menu opens once): on a passage, a cue, a highlight or note, a
@@ -3727,8 +3755,11 @@ export function DeskShell({
           } }))}
           at={menu.at}
           object={menu.extractionId || menu.windowId ? objectInput(menu, deskId) : null}
-          promoted={sourceMenuPromoted}
-          onPromoted={(row) => onPromotedRef.current(row)}
+          promoted={menuPromoted}
+          onPromoted={(row, origin) => onPromotedRef.current(row, origin)}
+          onRows={(rows) => {
+            menuPromotedRows.current = rows;
+          }}
           poller={poller}
           owner={menu.windowId}
           append={menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight" ? {

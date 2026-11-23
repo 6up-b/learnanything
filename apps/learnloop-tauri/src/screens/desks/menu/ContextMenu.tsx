@@ -32,8 +32,11 @@ export interface ContextMenuProps {
   /** The object as the server reads it, for its promoted rows (none for an object with no passage). */
   object?: MenuObjectInput | null;
   promoted?: PromotedApi | null;
-  /** What runs a promoted row's action (open, What this knows, the carried question…). */
-  onPromoted?: (row: PromotedRowDto) => void;
+  /** What runs a promoted row's action (open, What this knows, the carried question…); false when it could not. */
+  onPromoted?: (row: PromotedRowDto, origin: MenuObjectInput | null) => boolean | void;
+  /** The rows this menu shows now, for the verbs that read them (Open beside): told only while the menu is open on
+   * its object, so a late answer for a closed menu never reaches another. */
+  onRows?: (rows: PromotedRowDto[]) => void;
   poller?: Poller;
   /** The window the menu is about: the job's poll waits while it is paused. */
   owner?: string | null;
@@ -52,7 +55,7 @@ const PAGE_LISTEN = (target: "window", type: string, handler: (event: Event) => 
   return () => window.removeEventListener(type, handler, capture);
 };
 
-export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
+export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, onRows, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
   const [cheap, setCheap] = useState<PromotedRowDto[]>([]);
   const [judgedPending, setJudgedPending] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -70,6 +73,8 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   // cancel the judged job) while the menu stays open on the same object.
   const promotedNow = useRef(promoted);
   promotedNow.current = promoted;
+  const onRowsNow = useRef(onRows);
+  onRowsNow.current = onRows;
   const hasPromoted = promoted !== null;
   useEffect(() => {
     const promoted = promotedNow.current;
@@ -79,8 +84,13 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     let finished = false;
     let stop: (() => void) | null = null;
     void promoted.passagePromoted(object).then((found) => {
-      if (!live) return;
+      if (!live) {
+        // Closed before the first answer came: its judged job is cancelled now (nothing else knows its id).
+        if (found.pendingJob) void promoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+        return;
+      }
       setCheap(found.rows);
+      onRowsNow.current?.(found.rows);
       if (found.pendingJob && poller) {
         jobId = found.pendingJob.jobId;
         setJudgedPending(true);
@@ -93,7 +103,10 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
             if (job.done) {
               finished = true;
               setJudgedPending(false);
-              if (job.status === "done") setCheap(job.rows);
+              if (job.status === "done") {
+                setCheap(job.rows);
+                onRowsNow.current?.(job.rows);
+              }
             }
             return { done: job.done };
           },
@@ -115,9 +128,9 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   const promotedRows: MenuRow[] = shownPromoted(cheap, dismissed).map((row) => ({
     id: `promoted:${row.rowId}`, glyph: row.glyph, label: row.label, note: promotedReason(row), section: "promoted", promoted: row,
     run: () => {
-      promoted?.label(row.rowId, "opened");
       onClose();
-      onPromoted?.(row);
+      // Labelled opened only when its action ran (a row that could not open stays unlabelled).
+      if (onPromoted?.(row, object) !== false) promoted?.label(row.rowId, "opened");
     },
   }));
   const all = [...promotedRows, ...rows];

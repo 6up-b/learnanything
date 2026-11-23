@@ -80,7 +80,8 @@ export interface PadsHost {
   menu?: {
     promoted: PromotedApi;
     poller: Poller;
-    onPromoted: (row: PromotedRowDto) => void;
+    /** A promoted row's action, run for the object its menu was opened on; false when it could not run. */
+    onPromoted: (row: PromotedRowDto, origin: MenuObjectInput | null) => boolean;
     knows: (object: MenuObjectInput) => void;
   };
   /** A pad joins a stack window by its own desk op (add_to_stack), never through the window's view. */

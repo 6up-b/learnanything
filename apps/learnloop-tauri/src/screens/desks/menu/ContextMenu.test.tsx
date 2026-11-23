@@ -81,6 +81,56 @@ describe("the context menu", () => {
     expect(cancelled).toEqual([]);
   });
 
+  it("a menu closed before its first answer cancels the judged job that answer names", async () => {
+    let answer: (found: PassagePromotedDto) => void = () => undefined;
+    const { api, cancelled } = promotedApi(promoted([]));
+    api.passagePromoted = vi.fn(() => new Promise<PassagePromotedDto>((resolve) => { answer = resolve; }));
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const view = render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller} onClose={() => undefined} />);
+    view.unmount();
+    await act(async () => {
+      answer(promoted([row("r1")], { jobId: "late1" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(cancelled).toEqual(["late1"]));
+  });
+
+  it("tells its rows only while it is open: the cheap ones, then the judged ones; a late answer is never told", async () => {
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const told: string[][] = [];
+    const { api } = promotedApi(promoted([row("r1")], { jobId: "j5" }), [
+      { status: "done", done: true, rows: [row("r1"), row("r2")], error: null } as unknown as PromotedJobDto,
+    ]);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller}
+      onRows={(rows) => told.push(rows.map((each) => each.rowId))} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    await act(async () => {
+      await poller.tick();
+    });
+    await screen.findByText("row r2");
+    expect(told).toEqual([["r1"], ["r1", "r2"]]);
+
+    let answer: (found: PassagePromotedDto) => void = () => undefined;
+    const late = promotedApi(promoted([]));
+    late.api.passagePromoted = vi.fn(() => new Promise<PassagePromotedDto>((resolve) => { answer = resolve; }));
+    const lateTold: string[][] = [];
+    const view = render(<ContextMenu header="h2" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "t" }} promoted={late.api}
+      onRows={(rows) => lateTold.push(rows.map((each) => each.rowId))} onClose={() => undefined} />);
+    view.unmount();
+    await act(async () => {
+      answer(promoted([row("old")]));
+      await Promise.resolve();
+    });
+    expect(lateTold).toEqual([]);
+  });
+
+  it("a promoted row whose action could not run is not labelled opened", async () => {
+    const { api, labels } = promotedApi(promoted([row("r1")]));
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onPromoted={() => false} onClose={() => undefined} />);
+    fireEvent.click(await screen.findByText("row r1"));
+    expect(labels).toEqual([]);
+  });
+
   it("labels a promoted row opened, dismissed or not this by its row id; a dismissed row leaves the menu", async () => {
     const onPromoted = vi.fn();
     const onClose = vi.fn();
@@ -106,7 +156,7 @@ describe("the context menu", () => {
     fireEvent.click(await screen.findByText("row r1"));
     expect(labels).toEqual([["r1", "opened"]]);
     expect(onClose).toHaveBeenCalled();
-    expect(onPromoted).toHaveBeenCalledWith(expect.objectContaining({ rowId: "r1" }));
+    expect(onPromoted).toHaveBeenCalledWith(expect.objectContaining({ rowId: "r1" }), { objectKind: "passage", extractionId: "e", spanId: "s" });
   });
 
   it("moves with j/k and the arrows, runs with enter or a verb's letter, skips the disabled row, closes on escape and outside", () => {

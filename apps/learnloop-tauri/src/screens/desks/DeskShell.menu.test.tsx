@@ -318,3 +318,66 @@ describe("the shelf's running pad and the pad stack's title bar, as the mockup h
     expect(within(menu).getByText("marimo cell")).toBeTruthy();
   });
 });
+
+describe("RD5 fix round: the menu's rows and actions", () => {
+  const corr = (rowId: string, source: { sourceId: string; extractionId: string }): PromotedRowDto => ({
+    rowId, kind: "correspondent", glyph: "§", label: `elsewhere ${rowId}`, reason: "treats it too", learnerAt: null, checked: true, judgeRank: 1, basis: "judged", extra: {},
+    action: { verb: "open", ref: { kind: "source", sourceId: source.sourceId, extractionId: source.extractionId }, target: {} },
+  } as unknown as PromotedRowDto);
+
+  it("a closed menu's late answer never reaches the next menu: Open beside opens the open menu's correspondent", async () => {
+    const { transport, server } = mount();
+    let answerA: (found: PassagePromotedDto) => void = () => undefined;
+    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation((input: MenuObjectInput) => (input.spanId?.endsWith("_s1")
+      ? new Promise<PassagePromotedDto>((resolve) => { answerA = resolve; })
+      : Promise.resolve({ version: 1, objectKey: "b", rows: [corr("rb", FIXTURE_SOURCES.paper)], cap: 4, pendingJob: null, paid: false } as unknown as PassagePromotedDto)));
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.contextMenu(passage("fx_w_book_s2"));
+    await screen.findByText("elsewhere rb");
+    await act(async () => {
+      answerA({ version: 1, objectKey: "a", rows: [corr("ra", FIXTURE_SOURCES.video2)], cap: 4, pendingJob: null, paid: false } as unknown as PassagePromotedDto);
+      await Promise.resolve();
+    });
+    fireEvent.keyDown(window, { key: "b" });
+    await flush();
+    const desk = server.state().desks.find((each) => each.deskId === "fx_desk_softmax");
+    expect(desk?.focusWindowId).toBe("fx_w_paper");
+    expect(desk?.slots.flatMap((slot) => slot.windows).some((window) => window.content?.kind === "video" && (window.content as { sourceId: string }).sourceId === FIXTURE_SOURCES.video2.sourceId)).toBe(false);
+  });
+
+  it("a pad row opens its pad at its line (the line flashes), a note's row opens its passage, and a pad line's gap row opens What this knows of that line", async () => {
+    const { transport } = mount({ stacks: true });
+    const flashed: string[] = [];
+    const onFlash = (event: Event) => flashed.push((event as CustomEvent<{ blockId: string }>).detail.blockId);
+    window.addEventListener("learnloop:pad-flash", onFlash);
+    const rowOf = (rowId: string, label: string, action: Record<string, unknown>): PromotedRowDto => ({ rowId, kind: "your_words", glyph: "›", label, reason: "r", action, learnerAt: null, checked: null, judgeRank: 0, basis: "union", extra: {} } as unknown as PromotedRowDto);
+    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(async (input: MenuObjectInput) => ({ version: 1, objectKey: "k", cap: 4, pendingJob: null, paid: false,
+      rows: input.objectKind === "pad_line"
+        ? [rowOf("rg", "a gap row", { verb: "knows", gapId: "g1" })]
+        : [rowOf("rp", "your pad line", { verb: "open", ref: { kind: "pad", padId: "fx_pad_running" }, target: { blockId: "fx_b_r2" } }), rowOf("rn", "your margin note", { verb: "annotation", annotationId: "a1" })] }) as unknown as PassagePromotedDto);
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    fireEvent.click(await screen.findByText("your pad line"));
+    await flush();
+    expect(flashed).toEqual(["fx_b_r2"]);
+    expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    fireEvent.click(await screen.findByText("your margin note"));
+    await flush();
+    expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_book");
+    // A pad line's own menu: its gap row opens What this knows of the line (the source menu is not open).
+    await waitFor(() => expect(document.querySelector('[data-desk-window="fx_w_pads"] [data-block="fx_b_r1"]')).toBeTruthy());
+    // A right-click's press focuses the window first (the pad menu belongs to the active window).
+    const line = document.querySelector('[data-desk-window="fx_w_pads"] [data-block="fx_b_r1"]') as HTMLElement;
+    fireEvent.mouseDown(line, { button: 2 });
+    await flush();
+    fireEvent.contextMenu(line);
+    await flush();
+    fireEvent.click(await screen.findByText("a gap row"));
+    await waitFor(() => expect(transport.passageKnows).toHaveBeenCalledWith(expect.objectContaining({ objectKind: "pad_line", blockId: "fx_b_r1" })));
+    expect(screen.getByRole("dialog", { name: "what this knows" })).toBeTruthy();
+    window.removeEventListener("learnloop:pad-flash", onFlash);
+  });
+});
