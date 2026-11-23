@@ -596,6 +596,21 @@ export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): 
   return step;
 }
 
+/** A window to another desk's slot `toIndex` (a drop on a card's place, alt+shift+j/k). The transfer op
+ * places a window after another one or at the end, so a move to slot 0 of a desk that has slots is the
+ * transfer and then a move to slot 0 at the destination's next version. */
+export function moveToDeskAt(ws: Workspace, deskId: string, windowId: string, toDeskId: string, toIndex: number): Step {
+  const to = requireDesk(ws, toDeskId);
+  const at = Math.max(0, Math.min(toIndex, to.slots.length));
+  const afterSlot = to.slots[at - 1];
+  let step = moveToDesk(ws, deskId, windowId, toDeskId, afterSlot ? afterSlot[afterSlot.length - 1] : null);
+  if (at === 0 && to.slots.length > 0 && step.ops.length > 0) {
+    const landed = requireDesk(step.ws, toDeskId);
+    if (slotIndexOf(landed, windowId) !== 0) step = push(step, { op: "move_window", deskId: toDeskId, windowId, toSlot: 0 });
+  }
+  return step;
+}
+
 /** A window to another desk, after `afterWindowId` there (or at the end), keeping its focus on the old
  * desk's neighbour. Its pair partner, if any, stays. */
 export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step {

@@ -14,8 +14,10 @@ import {
   focusedWindowId,
   fromDeskState,
   moveFocused,
+  moveToDeskAt,
   moveWindowTo,
   openBeside,
+  setView,
   pairFocused,
   rangeCovers,
   setFocus,
@@ -221,5 +223,30 @@ describe("reopening (fix round, finding 11)", () => {
     const stale: Workspace = { ...ws, closed: { d1: [{ window: ws.windows.w2, slot: 0 }] } };
     expect(() => applyDeskOp(stale, { op: "reopen_window", deskId: "d1", windowId: "w2", slot: 0, expectedVersion: 5 })).toThrow(/already open/);
     expect(undoClose(stale, "d1").ops).toEqual([]);
+  });
+});
+
+describe("moving a window to another desk's slot (RD2 fix round, finding 6)", () => {
+  function twoDesks(): Workspace {
+    let ws = deskWith(3);
+    ws = createDesk(ws, "d2", "second").ws;
+    ws = openBeside(ws, "d2", book("x"), () => "x1").ws;
+    ws = openBeside(ws, "d2", book("y"), () => "y1").ws;
+    return ws;
+  }
+
+  it("to slot 0 lands at slot 0: a transfer, then a move at the destination's next version", () => {
+    const ws = twoDesks();
+    const toVersion = deskById(ws, "d2")!.version;
+    const step = moveToDeskAt(ws, "d1", "w1", "d2", 0);
+    expect(ids(step.ws, "d2")).toEqual([["w1"], ["x1"], ["y1"]]);
+    const move = step.ops.find((op) => op.op === "move_window");
+    expect(move).toMatchObject({ deskId: "d2", windowId: "w1", toSlot: 0, expectedVersion: toVersion + 1 });
+  });
+
+  it("to a later slot lands there with the transfer alone", () => {
+    const step = moveToDeskAt(twoDesks(), "d1", "w1", "d2", 1);
+    expect(ids(step.ws, "d2")).toEqual([["x1"], ["w1"], ["y1"]]);
+    expect(step.ops.some((op) => op.op === "move_window")).toBe(false);
   });
 });

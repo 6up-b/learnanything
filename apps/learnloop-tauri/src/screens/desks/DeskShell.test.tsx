@@ -856,3 +856,20 @@ describe("RD2 fix round: the wheel through the real router (findings 9, 10, 11)"
     expect(cleared).toEqual([]);
   });
 });
+
+describe("RD2 fix round: a card moved to another desk's first slot lands there (finding 6)", () => {
+  it("alt+shift+j on the first card puts it first on the desk below, on the server too", async () => {
+    const { server } = mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyDown(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "J", code: "KeyJ", altKey: true, shiftKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    await flush();
+    const attention = server.state().desks.find((desk) => desk.deskId === "fx_desk_attention");
+    expect(attention?.slots[0].windows[0].windowId).toBe("fx_w_book");
+  });
+});

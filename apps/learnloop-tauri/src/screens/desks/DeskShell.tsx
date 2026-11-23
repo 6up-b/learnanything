@@ -20,6 +20,7 @@ import {
   focusedWindowId,
   moveFocused,
   moveToDesk,
+  moveToDeskAt,
   moveWindowTo,
   openBeside,
   pairFocused,
@@ -846,8 +847,7 @@ export function DeskShell({
         const from = current.desks[row];
         if (!to || !from) return true;
         const index = slotIndexOf(from, sel.windowId);
-        const afterSlot = to.slots[Math.min(index, to.slots.length) - 1];
-        commit(moveToDesk(current, sel.deskId, sel.windowId, to.deskId, afterSlot ? afterSlot[afterSlot.length - 1] : null));
+        commit(moveToDeskAt(current, sel.deskId, sel.windowId, to.deskId, index));
         setSelection({ deskId: to.deskId, windowId: sel.windowId });
         return true;
       }
@@ -1244,8 +1244,7 @@ export function DeskShell({
       const from = slotIndexOf(to, d.windowId);
       commit(moveWindowTo(current, d.deskId, d.windowId, Math.min(drop.slot > from ? drop.slot - 1 : drop.slot, to.slots.length - 1)));
     } else {
-      const afterSlot = to.slots[drop.slot - 1];
-      commit(moveToDesk(current, d.deskId, d.windowId, to.deskId, afterSlot ? afterSlot[afterSlot.length - 1] : null));
+      commit(moveToDeskAt(current, d.deskId, d.windowId, to.deskId, drop.slot));
       setSelection({ deskId: to.deskId, windowId: d.windowId });
     }
   }, [controller, toggleOverview, commit]);
