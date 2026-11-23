@@ -199,3 +199,40 @@ export function truncate(text: string | null, limit: number): string | null {
   if (text === null || text.length <= limit) return text;
   return `${text.slice(0, limit - 1).trimEnd()}…`;
 }
+
+/** A shelf row through the lens (§12.3: shelf rows carry the bar at their right edge, a line on what the source is
+ *  for, and the path's ranges on the minimap). */
+export interface ShelfGoal {
+  mark: MarkKind | null;
+  line: string;
+  ranges: Array<[number, number]>;
+}
+
+export function shelfGoal(index: LensIndex | null): ShelfGoal | null {
+  if (!index) return null;
+  const sections = index.sections;
+  if (!sections.length || sections.every((section) => section.mapping === "unmapped")) {
+    return { mark: null, line: "not mapped for this goal yet", ranges: [] };
+  }
+  const total = sections.reduce((sum, section) => sum + section.spanIds.length, 0) || 1;
+  const ranges: Array<[number, number]> = [];
+  let at = 0;
+  for (const section of sections) {
+    const from = at / total;
+    at += section.spanIds.length;
+    if (section.mapping === "mapped" && (section.level === "core" || section.level === "supporting")) {
+      const last = ranges[ranges.length - 1];
+      if (last && Math.abs(last[1] - from) < 1e-9) last[1] = at / total;
+      else ranges.push([from, at / total]);
+    }
+  }
+  const primaries = new Set(sections.filter((section) => section.reasonKey === "primary" && section.determiningLoId).map((section) => section.determiningLoId));
+  if (primaries.size) return { mark: "core", line: `primary for ${primaries.size} of your LO${primaries.size === 1 ? "" : "s"}`, ranges };
+  if (sections.some((section) => section.reasonKey === "prerequisite")) return { mark: "sup", line: "background your goal builds on", ranges };
+  if (sections.some((section) => section.reasonKey === "alternate")) return { mark: "sup", line: "another way", ranges };
+  if (sections.some((section) => section.level === "supporting" || section.level === "core")) return { mark: "sup", line: "supporting your goal", ranges };
+  if (sections.some((section) => section.level === "later")) return { mark: "later", line: "needed only deeper", ranges };
+  if (sections.some((section) => section.level === "already_shown")) return { mark: "shown", line: "already shown", ranges };
+  if (sections.some((section) => section.level === "partial")) return { mark: "partial", line: "partly mapped for this goal", ranges };
+  return { mark: "skip", line: "not needed for your goal", ranges };
+}

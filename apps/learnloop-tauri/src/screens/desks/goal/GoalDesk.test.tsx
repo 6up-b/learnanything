@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FixtureDeskServer } from "../../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../../fixtures/desks/sources";
 import { FixtureGoal } from "../../../fixtures/desks/goal";
-import { DeskShell, type DeskTransport, type PaneRenderInput } from "../DeskShell";
+import { DeskShell, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "../DeskShell";
 import type { GoalTransport } from "./controller";
 
 vi.mock("../../../api/client", () => ({ api: {} }));
@@ -44,6 +44,11 @@ function goalTransport(goal = new FixtureGoal(), overrides: Partial<GoalTranspor
 let mintCount = 0;
 const mint = (prefix: string) => `${prefix}_${++mintCount}`;
 
+// The companion's calls answer nothing yet (its history empty).
+const quietCompanion = {
+  companionHistory: async () => ({ version: 1, days: [], cursor: null }),
+} as unknown as CompanionTransport;
+
 function mount(goal: GoalTransport, server = new FixtureDeskServer()) {
   const onError = vi.fn();
   render(
@@ -55,6 +60,7 @@ function mount(goal: GoalTransport, server = new FixtureDeskServer()) {
       initialViewport={{ width: 1600, height: 960 }}
       mintId={mint}
       goalTransport={goal}
+      companion={quietCompanion}
     />,
   );
   return { server, onError };
@@ -157,6 +163,16 @@ describe("the goal band on the desks", () => {
     await settle();
     await waitFor(() => expect(screen.getByRole("region", { name: "your goal" })).toBeTruthy());
     await waitFor(() => expect(server.state().desks.find((desk) => desk.deskId === "fx_desk_softmax")?.goalId).toBe("fx_goal_softmax"));
+  });
+
+  it("the companion keeps the lens's goal in view, the default goal included", async () => {
+    const { transport } = goalTransport();
+    mount(transport);
+    await waitFor(() => expect(screen.getByRole("region", { name: "your goal" })).toBeTruthy());
+    act(() => { fireEvent.keyDown(window, { key: "C", code: "KeyC", shiftKey: true }); });
+    await settle();
+    const line = await screen.findByText("◎ goal in context");
+    expect(line.className).toBe("goal gctx");
   });
 
   it("with no goal transport wired (the sidecar not reachable) shows no lens and reports nothing", async () => {

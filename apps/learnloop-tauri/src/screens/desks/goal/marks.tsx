@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { GoalBandDto } from "../../../api/dto";
 import type { ReaderLens } from "../../ReaderScreen";
+import type { WatchLens } from "../../reader/YouTubeWatchPanel";
 import type { WhyState } from "./controller";
 import { calloutFor, goalShort, isDimmed, markKind, whyLevelLine, type LensIndex } from "./model";
 
@@ -34,21 +35,14 @@ export function readerLens({ index, dimOn, windowId, handlers, paper = false, op
   openSpan?: string | null;
 }): ReaderLens | null {
   if (!index) return null;
-  return {
-    className: (spanId) => {
-      const section = index.bySpan.get(spanId);
-      if (!section) return undefined;
-      const kind = markKind(section.level);
-      return [kind ? `g-${kind}` : "g-none", isDimmed(section, dimOn) ? "gl-dim" : ""].filter(Boolean).join(" ");
-    },
-    mark: (spanId) => {
-      const section = index.bySpan.get(spanId);
-      const kind = section ? markKind(section.level) : null;
-      if (!section || !kind) return null;
-      const why = (event: ReactMouseEvent<HTMLElement>): WhyState => ({ section, spanId, extractionId: index.extractionId, windowId, rect: rectOf(event) });
-      return (
+  const markFor = (spanId: string, extra = "") => {
+    const section = index.bySpan.get(spanId);
+    const kind = section ? markKind(section.level) : null;
+    if (!section || !kind) return null;
+    const why = (event: ReactMouseEvent<HTMLElement>): WhyState => ({ section, spanId, extractionId: index.extractionId, windowId, rect: rectOf(event) });
+    return (
         <i
-          className={`gm gl-${kind}${paper ? " gl-paper" : ""}${openSpan === spanId ? " on" : ""}`}
+          className={`gm gl-${kind}${paper ? " gl-paper" : ""}${extra}${openSpan === spanId ? " on" : ""}`}
           data-gm={`${index.extractionId}:${spanId}`}
           aria-label={section.level.replace("_", " ")}
           role="button"
@@ -57,8 +51,19 @@ export function readerLens({ index, dimOn, windowId, handlers, paper = false, op
           onMouseLeave={() => handlers.hover(null)}
           onClick={(event) => { event.stopPropagation(); handlers.tap(why(event)); }}
         />
-      );
-    },
+    );
+  };
+  const classFor = (spanId: string, keep: boolean) => {
+    const section = index.bySpan.get(spanId);
+    if (!section) return undefined;
+    const kind = markKind(section.level);
+    // The learner's own highlight and the passage being read keep full colour (§12.3).
+    return [kind ? `g-${kind}` : "g-none", isDimmed(section, dimOn) && !keep ? "gl-dim" : ""].filter(Boolean).join(" ");
+  };
+  return {
+    className: (spanId, state) => classFor(spanId, Boolean(state?.annotated || state?.active)),
+    mark: (spanId) => markFor(spanId),
+    watch: watchLens(index, classFor, markFor),
     before: (spanId) => {
       const section = index.starts.get(spanId);
       const callout = section ? calloutFor(section) : null;
@@ -74,6 +79,49 @@ export function readerLens({ index, dimOn, windowId, handlers, paper = false, op
         <div className="callout gcall" data-gcall={section.sectionId}>
           <span className="lab">◎ {callout.label}</span>
           {callout.body}
+        </div>
+      );
+    },
+  };
+}
+
+function clock(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
+
+/** The lens over a video's transcript (§12.3 point 5, §12.4): each passage group by its first cue's section, the
+ *  mark in the text column, the path's ranges as segments on the track, and a head saying where the video sits. */
+function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) => string | undefined,
+                   markFor: (spanId: string, extra?: string) => ReturnType<NonNullable<ReaderLens["mark"]>>): WatchLens {
+  const onPath = index.sections.filter((section) => section.mapping === "mapped" && (section.level === "core" || section.level === "supporting"));
+  return {
+    className: (spanIds) => {
+      const classes = spanIds.length ? classFor(spanIds[0], false) : undefined;
+      return classes ? `tp ${classes}` : undefined;
+    },
+    mark: (spanIds) => (spanIds.length ? markFor(spanIds[0], " gl-tx") : null),
+    segments: onPath.map((section) => section.spanIds),
+    head: (timeOf) => {
+      const first = onPath[0];
+      if (first) {
+        const range = timeOf(first.spanIds);
+        const lo = first.learningObjects.find((entry) => entry.learningObjectId === first.determiningLoId);
+        const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for"
+          : first.reasonKey === "prerequisite" ? "background for" : "supporting";
+        return (
+          <div className="gtcall" data-goal-head="">
+            <span className="gg">◎</span> <b>on your path{range ? ` · ${clock(range.start)}–${clock(range.end)}` : ""}</b>
+            {first.held ? ` · ${first.reasonMd}` : ` · ${role}${lo?.title ? ` \u201c${lo.title}\u201d` : ""}: ${first.reasonMd.replace(/\.?\s*$/, "")}.`}
+            {index.sections.some((section) => section.level === "skippable") ? " The rest is not needed for your goal." : ""}
+          </div>
+        );
+      }
+      const skippable = index.sections.find((section) => section.level === "skippable" || section.level === "later");
+      if (!skippable) return null;
+      return (
+        <div className="gtcall off" data-goal-head="">
+          <span className="gg">◎</span> <b>not needed for your goal</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.
         </div>
       );
     },

@@ -2565,6 +2565,8 @@ export function DeskShell({
         state: id === focusId ? "focus" as const : visibility[index]?.inView ? "in view" as const : null,
         progress: typeof status[id]?.progress === "number" ? status[id].progress as number : null,
         where: status[id]?.where ?? null,
+        goal: goalDesk.rowGoal(window?.content && (window.content.kind === "source" || window.content.kind === "video") ? window.content.extractionId : null,
+          (window?.stack ?? []).flatMap((entry) => (entry.kind === "pad" ? [entry.padId] : []))),
       };
     }))
     : [];
@@ -2906,7 +2908,7 @@ export function DeskShell({
             timers={timers}
             context={{
               following: focusWindow ? { glyph: KIND_GLYPH[focusWindow.kind] ?? "§", title: titleOf(focusWindow) } : null,
-              goalInContext: Boolean(desk?.goalId),
+              goalInContext: goalDesk.hasBand,
             }}
             threadTitle={threadTitle(thread)}
             thread={thread}

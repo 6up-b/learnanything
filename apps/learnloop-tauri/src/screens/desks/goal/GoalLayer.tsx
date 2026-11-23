@@ -12,7 +12,7 @@ import type { Timers } from "../keys/router";
 import { useGoalLens, type GoalTransport, type WhyState } from "./controller";
 import { GoalBand, GoalTopChip, type HereView } from "./GoalBand";
 import { readerLens, WhyCard, WHY_HIDE_MS, WHY_OPEN_MS, type MarkHandlers } from "./marks";
-import { hereLine, markKind, type LensIndex } from "./model";
+import { hereLine, markKind, shelfGoal, type LensIndex, type ShelfGoal } from "./model";
 import { PathView, type NotNeeded } from "./PathView";
 
 function readFlag(key: string | null): boolean {
@@ -60,6 +60,8 @@ export interface GoalDesk {
   /** "◎ for your goal · …" over a pad stack, from its pads' anchors. */
   padLine: (padIds: readonly string[]) => ReactNode;
   overlays: ReactNode;
+  /** A shelf row through the lens: a reading's, or a pad stack's from its pads' anchors (null: no lens). */
+  rowGoal: (extractionId: string | null, padIds: readonly string[]) => ShelfGoal | null;
   pathOpen: boolean;
   togglePath: () => boolean;
 }
@@ -256,5 +258,23 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
       ) : null}
     </>
   );
-  return { band: bandNode, topChip, hasBand, lensFor, padLine, overlays, pathOpen: goal.pathOpen, togglePath };
+  const rowGoal = useCallback((extractionId: string | null, padIds: readonly string[]): ShelfGoal | null => {
+    if (!band || band.status === "not_a_deliverable") return null;
+    if (extractionId) return shelfGoal(indexFor(extractionId));
+    if (!padIds.length) return null;
+    const wanted = new Set(padIds);
+    const rank = ["core", "supporting", "later", "already_shown", "partial", "skippable", "unmapped"];
+    let best: ReturnType<LensIndex["bySpan"]["get"]> = undefined;
+    for (const anchor of padAnchors) {
+      if (!wanted.has(anchor.padId)) continue;
+      const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId);
+      if (section && (!best || rank.indexOf(section.level) < rank.indexOf(best.level))) best = section;
+    }
+    if (!best) return null;
+    const lo = best.learningObjects.find((entry) => entry.learningObjectId === best!.determiningLoId);
+    const mark = markKind(best.level);
+    return { mark: mark === "core" ? "sup" : mark, line: best.held ? "your pads, for your goal" : lo?.title ? `your pads on \u201c${lo.title}\u201d` : "your pads, not tied to your goal", ranges: [] };
+  }, [band, indexFor, padAnchors]);
+
+  return { band: bandNode, topChip, hasBand, lensFor, padLine, overlays, rowGoal, pathOpen: goal.pathOpen, togglePath };
 }

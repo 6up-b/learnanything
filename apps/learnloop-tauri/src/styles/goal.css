@@ -188,3 +188,39 @@
   .desk-shell .gb-depth button { padding: 1px 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .desk-shell .gwhy { transition: opacity .1s; transform: none; } }
+
+/* ── transcripts: the bar sits in the text column, 8 px left of the words (10 px for the dotted line) ── */
+.desk-shell .gm.gl-tx { left: -8px; top: 4px; bottom: 4px; }
+.desk-shell .gm.gl-tx.gl-skip, .desk-shell .gm.gl-tx.gl-later, .desk-shell .gm.gl-tx.gl-shown { left: -10px; }
+.desk-shell .tp.gl-dim .tx [data-transcript-span] { color: var(--desk-gdim) !important; }
+/* the learner's own highlight keeps full colour inside a dimmed passage */
+.desk-shell .tp.gl-dim .tx [data-transcript-span].gl-keep { color: var(--desk-ink) !important; }
+.desk-shell .gtcall { font: 11.5px/1.55 var(--desk-mono); color: #3f3566; background: #f1eef9; border-left: 2px solid var(--desk-gl); padding: 7px 10px; margin: 0 0 14px 10px; border-radius: 0 2px 2px 0; }
+.desk-shell .gtcall b { font-weight: 600; color: #3a2f68; }
+.desk-shell .gtcall .gg { color: var(--desk-gl); }
+.desk-shell .gtcall.off { color: #6d6880; background: #f1f0f3; border-left: 1px dotted var(--desk-gl-skip); }
+.desk-shell .gtcall.off b { color: #5a5670; }
+/* the video's track: the path's ranges as segments, the play head in cyan */
+.desk-shell .vtrack { position: relative; height: 12px; margin-top: 6px; }
+.desk-shell .vtrack .ln { position: absolute; left: 0; right: 0; top: 5px; height: 2px; background: #3a3a40; }
+.desk-shell .vtrack .pl { position: absolute; top: 2px; width: 2px; height: 8px; background: var(--desk-cyan); }
+.desk-shell .vtrack .gseg { position: absolute; top: 3px; height: 6px; background: rgba(169, 159, 208, .45); border-radius: 1px; }
+
+/* ── the shelf: the same bar at each row's right edge (its left edge is the focus bar), a line on what it is for,
+   and the path's ranges on the minimap ── */
+.desk-shell .desk-src { position: relative; }
+.desk-shell .desk-src > .gm.sh { left: auto; right: 2px; top: 8px; bottom: 8px; cursor: default; }
+.desk-shell .desk-src.g-core > .gm.sh { background: #a99fd0; }
+.desk-shell .desk-src.g-sup > .gm.sh { background: rgba(169, 159, 208, .38); }
+.desk-shell .desk-src.g-skip > .gm.sh, .desk-shell .desk-src.g-later > .gm.sh, .desk-shell .desk-src.g-shown > .gm.sh { width: 0; border-left: 1px dotted #6e6790; }
+.desk-shell .desk-src.g-partial > .gm.sh { bottom: auto; height: 5px; background: #6e6790; }
+.desk-shell .desk-src.g-skip .n, .desk-shell .desk-src.g-later .n { color: var(--desk-t3); }
+.desk-shell .desk-src .gwl { font: 10px var(--desk-mono); color: #9d94c6; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-shell .desk-src.g-skip > .gwl, .desk-shell .desk-src.g-later > .gwl { color: var(--desk-t3); }
+.desk-shell .desk-src .bar .gr { position: absolute; top: 50%; height: 5px; transform: translateY(-50%); background: rgba(169, 159, 208, .32); border-radius: 1px; }
+
+/* ── the companion keeps the goal in view ── */
+.desk-companion .ctx .goal.gctx { color: #a99fd0; margin-left: 10px; font-size: 10.5px; white-space: nowrap; }
+/* with the goal line, the context stays one line (the reference's): what it follows gives way first */
+.desk-companion .ctx:has(> .gctx) { white-space: nowrap; overflow: hidden; }
+.desk-companion .ctx:has(> .gctx) > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

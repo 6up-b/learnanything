@@ -89,11 +89,44 @@ describe("marks, dimming and callouts on a reading", () => {
 
   it("classes each passage by its section's level and dims skippable and later text", () => {
     const lens = readerLens({ index, dimOn: true, windowId: "w", handlers })!;
-    expect(lens.className!(`${BOOK}_s1_2`)).toBe("g-core");
-    expect(lens.className!(`${BOOK}_s6_2`)).toBe("g-skip gl-dim");
-    expect(readerLens({ index, dimOn: false, windowId: "w", handlers })!.className!(`${BOOK}_s6_2`)).toBe("g-skip");
-    expect(lens.className!("not-a-passage")).toBeUndefined();
+    const plain = { annotated: false, active: false };
+    expect(lens.className!(`${BOOK}_s1_2`, plain)).toBe("g-core");
+    expect(lens.className!(`${BOOK}_s6_2`, plain)).toBe("g-skip gl-dim");
+    expect(readerLens({ index, dimOn: false, windowId: "w", handlers })!.className!(`${BOOK}_s6_2`, plain)).toBe("g-skip");
+    expect(lens.className!("not-a-passage", plain)).toBeUndefined();
     expect(readerLens({ index: null, dimOn: true, windowId: "w", handlers })).toBeNull();
+  });
+
+  it("keeps the learner's own highlight and the passage being read at full colour while dimming", () => {
+    const lens = readerLens({ index, dimOn: true, windowId: "w", handlers })!;
+    expect(lens.className!(`${BOOK}_s6_2`, { annotated: true, active: false })).toBe("g-skip");
+    expect(lens.className!(`${BOOK}_s6_2`, { annotated: false, active: true })).toBe("g-skip");
+  });
+
+  it("lays the same lens over a transcript: classes and a mark per passage group, the path's segments, a head", () => {
+    const video = indexLens(goal.lens(FIXTURE_SOURCES.video.extractionId));
+    const watch = readerLens({ index: video, dimOn: true, windowId: "v", handlers })!.watch!;
+    const ext = FIXTURE_SOURCES.video.extractionId;
+    expect(watch.className!([`${ext}_c5`, `${ext}_c6`])).toBe("tp g-sup");
+    expect(watch.className!([`${ext}_c1`])).toBe("tp g-skip gl-dim");
+    expect(watch.className!([`${ext}_c27`])).toBe("tp g-skip gl-dim");
+    expect(watch.segments!.map((spans) => [spans[0], spans[spans.length - 1]])).toEqual([
+      [`${ext}_c4`, `${ext}_c11`], [`${ext}_c12`, `${ext}_c15`], [`${ext}_c16`, `${ext}_c25`]]);
+    render(<div>{watch.head!((spans) => (spans[0] === `${ext}_c4` ? { start: 18, end: 66 } : null))}{watch.mark!([`${ext}_c5`])}</div>);
+    expect(document.querySelector("[data-goal-head]")!.textContent).toBe(
+      "◎ on your path · 0:18–1:06 · another way for “Turn scores into softmax weights”: the same recipe spoken: exponentiate, then divide by the sum. The rest is not needed for your goal.");
+    expect(document.querySelector(".gm")!.className).toBe("gm gl-sup gl-tx");
+  });
+
+  it("a video with nothing on the path says it is not needed, and to read it anyway", () => {
+    const lens = { ...goal.lens(FIXTURE_SOURCES.video.extractionId) };
+    lens.levels = lens.levels.filter((section) => section.level === "skippable");
+    const watch = readerLens({ index: indexLens(lens), dimOn: true, windowId: "v", handlers })!.watch!;
+    expect(watch.segments).toEqual([]);
+    render(<div>{watch.head!(() => null)}</div>);
+    const head = document.querySelector("[data-goal-head]")!;
+    expect(head.className).toBe("gtcall off");
+    expect(head.textContent).toBe("◎ not needed for your goal · the setup, before any score: no LO your goal needs. Read it anyway, if you like.");
   });
 
   it("puts a mark in each passage's gutter that opens its why, and a callout at a section on the path", () => {

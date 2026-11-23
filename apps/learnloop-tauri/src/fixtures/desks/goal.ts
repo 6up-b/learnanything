@@ -14,6 +14,7 @@ import { FIXTURE_SOURCES, FIXTURE_VIEWS } from "./sources";
 export const FIXTURE_GOAL_ID = "fx_goal_softmax";
 const BOOK = FIXTURE_SOURCES.book;
 const PAPER = FIXTURE_SOURCES.paper;
+const VIDEO = FIXTURE_SOURCES.video;
 const DEPTHS: Array<{ id: ReadingPathDepth; label: string; means: string }> = [
   { id: "get_the_idea", label: "get the idea", means: "definitions, examples, visualizations" },
   { id: "learn_to_use_it", label: "learn to use it", means: "explanations, worked examples, practice" },
@@ -50,6 +51,15 @@ const PAPER_SECTIONS: Array<[string, string | null, string, string, Place]> = [
   ["p1", "lo_fx_attend", "introduces", "The definition you'll implement, as one line of matrices.", "primary"],
   ["p2", "lo_fx_temp", "mentions", "Why the square root: a temperature set by the dimension.", "alternate"],
   ["p3", null, "", "Coverage judged it not about the topics of your goal.", "not_about"],
+];
+
+/** The synthetic transcript's passages (cue numbers, inclusive): [section, from, to, LO, treatment, reason, place]. */
+const VIDEO_SECTIONS: Array<[string, number, number, string | null, string, string, Place]> = [
+  ["v0", 1, 3, null, "", "the setup, before any score: no LO your goal needs", "out_of_scope"],
+  ["v1", 4, 11, "lo_fx_softmax", "develops", "the same recipe spoken: exponentiate, then divide by the sum", "alternate"],
+  ["v2", 12, 15, "lo_fx_temp", "mentions", "the temperature knob, turned by hand", "alternate"],
+  ["v3", 16, 25, "lo_fx_grad", "develops", "the gradient checked with a small nudge", "alternate"],
+  ["v4", 26, 30, null, "", "safe computation and a goodbye: not in this goal's scope", "out_of_scope"],
 ];
 
 export class FixtureGoal {
@@ -139,9 +149,12 @@ export class FixtureGoal {
     };
   }
 
-  private level(extractionId: string, section: string, lo: string | null, treatment: string, reason: string, place: Place): GoalLensSectionDto {
+  private level(extractionId: string, section: string, lo: string | null, treatment: string, reason: string, place: Place,
+                cues?: [number, number], cueTitle?: string): GoalLensSectionDto {
     const view = Object.values(FIXTURE_VIEWS).find((each) => each.extractionId === extractionId)!;
-    const spanIds = view.blocks.filter((block) => block.spanId?.startsWith(`${extractionId}_${section}_`)).map((block) => block.spanId as string);
+    const spanIds = cues
+      ? Array.from({ length: cues[1] - cues[0] + 1 }, (_, i) => `${extractionId}_c${cues[0] + i}`)
+      : view.blocks.filter((block) => block.spanId?.startsWith(`${extractionId}_${section}_`)).map((block) => block.spanId as string);
     const ref = `${extractionId}/${extractionId}_${section}`;
     const choice = (this.choices.get(ref) ?? null) as "read_anyway" | null;
     const fixtureLo = lo ? LOS.find((each) => each.id === lo)! : null;
@@ -171,7 +184,8 @@ export class FixtureGoal {
     const role = kind === "needed" ? "a goal LO" : kind === "later" ? "needed at a deeper depth" : "a prerequisite";
     const where = place === "primary" ? "its primary section" : place === "alternate" ? "another way" : "not on your path here";
     return {
-      sectionId: `${extractionId}_${section}`, title: String(heading?.markdown ?? "").replace(/^#+\s*/, ""), startSpanId: `${extractionId}_${section}_h`,
+      sectionId: `${extractionId}_${section}`, title: cueTitle ?? String(heading?.markdown ?? "").replace(/^#+\s*/, ""),
+      startSpanId: cues ? spanIds[0] : `${extractionId}_${section}_h`,
       spanIds, level, mapping: "mapped", reasonKey, reasonMd, knownLevel: null,
       loIds: lo ? [lo] : [],
       learningObjects: fixtureLo ? [{ learningObjectId: fixtureLo.id, title: fixtureLo.title, kind: kind!, level: level as never, reasonKey,
@@ -184,7 +198,9 @@ export class FixtureGoal {
 
   lens(extractionId: string): GoalLensDto {
     const table = extractionId === BOOK.extractionId ? BOOK_SECTIONS : extractionId === PAPER.extractionId ? PAPER_SECTIONS : [];
-    const levels = table.map(([section, lo, treatment, reason, place]) => this.level(extractionId, section, lo, treatment, reason, place));
+    const levels = extractionId === VIDEO.extractionId
+      ? VIDEO_SECTIONS.map(([section, from, to, lo, treatment, reason, place]) => this.level(extractionId, section, lo, treatment, reason, place, [from, to], `cues ${from}–${to}`))
+      : table.map(([section, lo, treatment, reason, place]) => this.level(extractionId, section, lo, treatment, reason, place));
     return { version: 1, goalId: FIXTURE_GOAL_ID, extractionId, status: "ready", message: null, depth: this.depth,
       depthLabel: DEPTHS.find((d) => d.id === this.depth)?.label, mapping: levels.length ? "mapped" : "unmapped", levels };
   }
