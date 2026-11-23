@@ -958,13 +958,16 @@ READER_RD3A_RPCS = (
     "companion.ask",
     "companion.ask_job",
     "companion.ask_cancel",
+    "search.everything",
+    "search.job",
 )
 
 
 def test_the_pinned_rd3a_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.companion_ask import COMPANION_ASK_RPCS
+    from learnloop_sidecar.handlers.search import SEARCH_RPCS
 
-    assert set(READER_RD3A_RPCS) == set(COMPANION_ASK_RPCS)
+    assert set(READER_RD3A_RPCS) == set(COMPANION_ASK_RPCS + SEARCH_RPCS)
 
 
 @pytest.mark.parametrize(
