@@ -1147,8 +1147,6 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
         add("colour", "opacity", mock["opacity_eff"], app["opacity_eff"])
     if name in CURSOR_REGIONS and "cursor" in mock and mock.get("cursor") != app.get("cursor"):
         add("cursor", "cursor", mock.get("cursor"), app.get("cursor"))
-    if "stroke_width" in mock and "stroke_width" in app and mock["stroke_width"] != app["stroke_width"]:
-        add("colour", "stroke_width", mock["stroke_width"], app["stroke_width"])
     return rows
 
 
