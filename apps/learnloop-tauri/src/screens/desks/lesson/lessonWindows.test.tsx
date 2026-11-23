@@ -199,6 +199,8 @@ describe("opening a lesson into a stack", () => {
     await waitFor(() => expect(api.lessonTurn).toHaveBeenCalledTimes(1));
     expect(api.lessonTurn.mock.calls[0][0]).toMatchObject({ action: "open", entry: "reader_selection", selection: { extractionId: "fx_ext_softmax", spanIds: ["fx_ext_softmax_s1_3"] } });
     expect(screen.getByTestId("lesson-wait")).toBeTruthy();
+    // While its turn is in flight there is nothing to let go.
+    expect(screen.queryByRole("button", { name: "let it go" })).toBeNull();
     const view: LessonViewDto = { ...FIXTURE_LESSON_VIEW, lessonId: "les_new", closed: false, closeReason: null, feed: FIXTURE_LESSON_VIEW.feed.slice(0, 1) };
     await act(async () => {
       answer(view);

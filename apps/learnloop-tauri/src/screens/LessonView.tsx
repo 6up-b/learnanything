@@ -118,6 +118,8 @@ export interface LessonViewProps {
   /** A window's "Start a fresh lesson" (ruling R1) opens the new lesson beside this one; without it a window, which
    *  replays this lesson, offers none. */
   onStartFresh?: (learningObjectIds: string[]) => void;
+  /** Whether a step is in flight (a window's opening tab offers to let a failed opening go only once it is not). */
+  onBusy?: (busy: boolean) => void;
 }
 
 export function LessonView({
@@ -130,6 +132,7 @@ export function LessonView({
   frame = "screen",
   onView,
   onStartFresh,
+  onBusy,
 }: LessonViewProps) {
   const windowed = frame === "window";
   // The window's lifecycle (outside the desks: never paused, listeners straight on the window, as before).
@@ -146,6 +149,11 @@ export function LessonView({
     onViewRef.current?.(next);
   }, []);
   const [busy, setBusy] = useState(false);
+  const onBusyRef = useRef(onBusy);
+  onBusyRef.current = onBusy;
+  useEffect(() => {
+    onBusyRef.current?.(busy);
+  }, [busy]);
   // Which wait `busy` is, so the waiting line says the true one (the goal lookup is not the teacher writing).
   const [busyFor, setBusyFor] = useState<"turn" | "goal">("turn");
   const [unavailable, setUnavailable] = useState<string | null>(null);

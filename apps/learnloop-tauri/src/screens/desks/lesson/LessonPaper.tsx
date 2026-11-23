@@ -27,6 +27,9 @@ export interface LessonPaperProps {
 export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAdditions }: LessonPaperProps) {
   const [mode, setMode] = useState<LessonMode>("lesson");
   const [view, setView] = useState<LessonViewDto | null>(null);
+  // An opening's step: not started (a paused window), in flight, or over (failed outright when there is no view).
+  const [step, setStep] = useState<"waiting" | "busy" | "over">("waiting");
+  const onBusy = useCallback((busy: boolean) => setStep((now) => (busy ? "busy" : now === "busy" ? "over" : now)), []);
   const { desk } = host;
   const onView = useCallback((next: LessonViewDto) => {
     setView(next);
@@ -41,7 +44,7 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
       <div className="lhead">
         <span className="lg">◇</span>
         <span className="lt">Teacher lesson <span className="faint">· yours to keep, like your other pads</span></span>
-        {!shownId && !view ? (
+        {!shownId && !view && step === "over" ? (
           // An opening that failed outright has no lesson to show: the learner lets its tab go.
           <button type="button" className="lclose" onClick={() => desk.dropOpening(itemKey)}>let it go</button>
         ) : null}
@@ -62,6 +65,7 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
             entry={entry}
             frame="window"
             onView={onView}
+            onBusy={onBusy}
             onError={host.onError}
             {...(host.onQuickCheck ? { onQuickCheck: host.onQuickCheck } : {})}
             {...(host.onLookInLibrary ? { onLookInLibrary: host.onLookInLibrary } : {})}

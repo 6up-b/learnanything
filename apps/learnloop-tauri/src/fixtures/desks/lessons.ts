@@ -16,7 +16,7 @@ export const FIXTURE_LESSON_VIEW: LessonViewDto = {
   closed: true,
   closeReason: "goal_reached",
   feed: [
-    { kind: "message", text: "Each score becomes a weight: $p_k = e^{h_k} / \\sum_j e^{h_j}$. Taking the log turns the division into a subtraction:\n\n$$\\ln p_k = h_k - \\ln \\sum_{j=1}^{n} e^{h_j} = h_k - \\operatorname{LSE}(h_1, h_2, \\ldots, h_n)$$\n\nSo the loss for the right class $y$ is the gap between the log-sum-exp and its score.", choices: [] },
+    { kind: "message", text: "Each score becomes a weight: $p_k = e^{h_k} / \\sum_j e^{h_j}$. Taking the log turns the division into a subtraction:\n\n$$\n\\ln p_k = h_k - \\ln \\sum_{j=1}^{n} e^{h_j} = h_k - \\operatorname{LSE}(h_1, h_2, \\ldots, h_n)\n$$\n\nSo the loss for the right class $y$ is the gap between the log-sum-exp and its score.", choices: [] },
     { kind: "check", checkRef: "fx_chk1", node: "n1", question: "If every score goes up by 3, what happens to the loss?", form: "free", choices: [], unanchored: false },
     { kind: "learner", text: "nothing: the log-sum-exp goes up by 3 as well, so the gap stays the same", checkRef: "fx_chk1" },
     { kind: "check_result", checkRef: "fx_chk1", result: "correct", graderFeedback: "Right: a shared shift cancels in $h_y - \\operatorname{LSE}(h)$.", unanchored: false, answerLabel: null },

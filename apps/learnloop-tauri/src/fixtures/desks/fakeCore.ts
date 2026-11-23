@@ -7,6 +7,7 @@ import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from ".
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
+import { FIXTURE_LESSON_ID, FixtureLessons, fixtureAdditionsPad } from "./lessons";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -15,6 +16,9 @@ export interface HarnessCall {
   input: Record<string, unknown>;
   at: number;
 }
+
+/** The harness's `?lesson=1` page: a finished Teacher lesson in the softmax desk's stack (RD9a), with its additions. */
+const LESSON_PAGE = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lesson") === "1";
 
 /** The harness's workspace: the fixture's, with every desk's running pad in a stack (as the desks ensure it), so a
  * first visit to a desk changes no layout under the overview's transitions. */
@@ -27,18 +31,24 @@ function harnessDeskState(): DeskStateDto {
     desk.slots.push({ slot: desk.slots.length, windows: [{ windowId: `fx_w_pads_${desk.deskId}`, pane: 0, kind: "pad_stack", active: true, view: {}, stack: [{ kind: "pad", padId }] }] as never });
     state.runningPadIds.push(padId);
   }
+  if (LESSON_PAGE) {
+    const stack = state.desks.find((desk) => desk.deskId === "fx_desk_softmax")?.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_pads");
+    stack?.stack?.push({ kind: "lesson", lessonId: FIXTURE_LESSON_ID });
+  }
   return state;
 }
 
 function harnessPads(): PadViewDto[] {
   const at = "2026-11-23T09:00:00Z";
   const empty = (padId: string, deskId: string): PadViewDto => ({ version: 1, pad: { padId, kind: "running", title: "running", kept: false, homeDeskId: deskId, workbenchSessionId: null, lessonId: null, version: 1, createdAt: at, updatedAt: at }, blocks: [], anchors: [] });
-  return [...fixturePads(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop")];
+  return [...fixturePads(), empty("fx_pad_running_attention", "fx_desk_attention"), empty("fx_pad_running_backprop", "fx_desk_backprop"),
+    ...(LESSON_PAGE ? [fixtureAdditionsPad()] : [])];
 }
 
 const server = new FixtureDeskServer(harnessDeskState(), harnessPads());
 const companion = new FixtureCompanion();
 const goal = new FixtureGoal();
+const lessons = new FixtureLessons();
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -70,10 +80,10 @@ const calls: HarnessCall[] = [];
 
 declare global {
   interface Window {
-    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal };
+    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons };
   }
 }
-window.__deskHarness = { calls, server, companion, goal };
+window.__deskHarness = { calls, server, companion, goal, lessons };
 
 function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
@@ -218,6 +228,15 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "curriculum_set_scope":
     case "curriculum_scope_decide":
       return { status: "ready", created: null, scope: null };
+    // Teacher lessons (RD9a): a finished lesson replayed by lesson.view; an opening makes a new one after a wait.
+    case "lesson_turn":
+      return lessons.turn(input as never);
+    case "lesson_view":
+      return lessons.view(input as { lessonId: string });
+    case "lesson_list":
+      return lessons.list(input as { lessonIds?: string[] });
+    case "lesson_activity":
+      return { recorded: 0, enabled: false };
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }
