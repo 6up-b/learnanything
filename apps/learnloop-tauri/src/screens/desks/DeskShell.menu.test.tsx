@@ -23,10 +23,12 @@ const paneMenus: string[] = [];
 function PassagePane({ input }: { input: PaneRenderInput }) {
   const id = input.window.windowId;
   // The lesson openings shown in this window (a stack's tabs in flight), read as a stack window would.
-  const lessons = usePadsHost()?.lessons?.desk;
+  const host = usePadsHost();
+  const lessons = host?.lessons?.desk;
   useSyncExternalStore(lessons?.subscribe ?? (() => () => undefined), lessons?.getVersion ?? (() => 0));
   return (
     <div data-testid={`pane-${id}`} data-kind={input.window.content?.kind ?? input.window.kind} data-openings={lessons?.openingsFor(id).length ?? 0} onContextMenu={() => paneMenus.push(id)}>
+      {host?.teachMe ? <button type="button" data-testid={`teach-${id}`} onClick={() => host.teachMe?.(FIXTURE_SOURCES.book.extractionId, [`${id}_s1`])}>teach</button> : null}
       <p data-span-id={`${id}_s1`}>{`the first passage of ${id}`}</p>
       <p data-span-id={`${id}_s2`}>{`the second passage of ${id}`}</p>
     </div>
@@ -426,5 +428,14 @@ describe("RD5 fix round: a window header's menu", () => {
     const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
     expect(verbs).toEqual(["New desk from these", "Gather linked sources", "Share a slot with the next", "Own slot"]);
     expect(asked).toHaveLength(1);
+  });
+});
+
+describe("RD5 fix round: a pad line's Teach me", () => {
+  it("opens a lesson tab in the desk's stack, as the source menu's does, with no app-level lesson hook needed", async () => {
+    mount();
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.click(screen.getByTestId("teach-fx_w_book"));
+    await waitFor(() => expect(screen.getByTestId("pane-fx_w_pads").getAttribute("data-openings")).toBe("1"));
   });
 });

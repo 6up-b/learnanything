@@ -2382,7 +2382,8 @@ export function DeskShell({
       onPromoted: (row, origin) => onPromotedRef.current(row, origin),
       knows: (object) => setKnows(object),
     },
-    ...(reader?.onTeachMe ? { teachMe: (extractionId: string, spanIds: string[]) => reader.onTeachMe?.({ extractionId, spanIds }) } : {}),
+    // A pad line's Teach me opens a lesson tab in the desk's stack, as the source menu's does (one path).
+    teachMe: (extractionId: string, spanIds: string[]) => openLesson({ kind: "open", entry: "reader_selection", selection: { extractionId, spanIds } }),
     toast: toastNow,
     setView: (windowId, view) => {
       const window = wsRef.current.windows[windowId];
@@ -2399,7 +2400,7 @@ export function DeskShell({
     },
     carry: carryQuestion,
     lessons: lessonsHost,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost]);
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson]);
   // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
   const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId) }), [penApi, poller, store]);
   const penHost = useMemo<PenHost>(() => ({

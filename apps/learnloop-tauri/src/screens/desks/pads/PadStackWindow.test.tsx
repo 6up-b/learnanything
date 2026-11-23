@@ -284,6 +284,21 @@ describe("a pad stack window", () => {
     expect(blocks[at + 1]).toMatchObject({ kind: "cell", provenance: "learner", bodyMd: "" });
   });
 
+  it("Teach me on a line linked to two readings teaches the first reading's passages only (never its spans under another reading)", async () => {
+    const { store, host, flush } = mount();
+    const teachMe = vi.fn();
+    host.teachMe = teachMe;
+    await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
+    store.commitPad("fx_pad_running", [
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_attention", spanId: "fx_ext_attention_s1_1", eventId: "lnk_other", expectedAnchorHead: null, annotationId: null },
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_4", eventId: "lnk_same", expectedAnchorHead: null, annotationId: null },
+    ]);
+    await flush();
+    fireEvent.contextMenu(block("fx_b_r2"));
+    fireEvent.click(screen.getByText("Teach me this"));
+    expect(teachMe).toHaveBeenCalledWith("fx_ext_softmax", ["fx_ext_softmax_s1_3", "fx_ext_softmax_s1_4"]);
+  });
+
   it("a notebook frame's right-click opens the pad menu labelled for its owner, the frame's text only ever quoted", async () => {
     const { store, flush } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());

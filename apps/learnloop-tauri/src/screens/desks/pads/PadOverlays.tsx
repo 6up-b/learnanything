@@ -116,7 +116,9 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
     }) }] : []),
     ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),
     { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, anchor: anchors[0] ?? null })) },
-    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId, anchors.map((each) => each.spanId))) }] : []),
+    // A lesson is on one reading: the line's passages in its first linked reading (span ids repeat across books).
+    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId,
+      anchors.filter((each) => each.extractionId === anchors[0].extractionId).map((each) => each.spanId))) }] : []),
     ...(block && isLearnersWords(block) ? [{ key: "s", glyph: "✓", label: "Submit this block as…", run: close(onSubmit) }] : []),
   ] : [];
   const insertRows: Row[] = [
