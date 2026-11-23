@@ -10575,12 +10575,14 @@ export interface FollowAlongDto {
   status: "following" | "no_passage" | "no_section" | "withheld";
   /** The playing cue's transcript section, with the bounds its answer holds for (from its start, or the video's for
    *  the first, to the next section's start; null for the last): asked again once the time leaves them. */
-  section: { sectionId: string; title: string; t0: number; t1: number | null } | null;
-  /** The accepted chapter the time falls in. */
-  chapter: { chapterId: string; title: string; t0: number; t1: number } | null;
+  section: { sectionId: string; title: string; t0: number; t1: number | null; held?: boolean } | null;
+  /** The accepted chapter the time falls in (its title neutral, `held`, while a check is due on what it covers). */
+  chapter: { chapterId: string; title: string; t0: number; t1: number; learningObjectIds?: string[]; held?: boolean } | null;
   /** Per LO of the section, the book's correspondent sections from judged coverage. */
-  learningObjects: Array<{ learningObjectId: string; title: string | null;
-    sections: Array<{ sectionId: string; title: string | null; jumpSpanId: string | null }> }>;
+  learningObjects: Array<{ learningObjectId: string; title: string | null; held?: boolean;
+    sections: Array<{ sectionId: string; title: string | null; jumpSpanId: string | null; held?: boolean }> }>;
+  /** When the next check not due yet falls due (UTC): the answer is asked again then. */
+  nextCheckDue?: string | null;
 }
 
 /** Reader workbench RD10 (spec §7.9): a video chapter, suggested or decided. */
@@ -10591,7 +10593,9 @@ export interface VideoChapterDto {
   t1: number;
   title: string;
   learningObjectIds: string[];
-  learningObjects?: Array<{ learningObjectId: string; title: string }>;
+  learningObjects?: Array<{ learningObjectId: string; title: string; held?: boolean }>;
+  /** Its title is neutral while a check is due on what it covers. */
+  held?: boolean;
   state: "suggested" | "accepted" | "dismissed";
   suggestedAt: string;
   decidedAt: string | null;

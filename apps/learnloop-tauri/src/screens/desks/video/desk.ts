@@ -12,7 +12,7 @@ import { chapterRanges, chapterWords, choosePassage, type FollowChipState, type 
 
 export interface VideoTransport {
   followAlong(input: { extractionId: string; t: number; bookExtractionId: string }): Promise<FollowAlongDto>;
-  chaptersList(input: { extractionId: string }): Promise<{ extractionId: string; chapters: VideoChapterDto[] }>;
+  chaptersList(input: { extractionId: string }): Promise<{ extractionId: string; chapters: VideoChapterDto[]; nextCheckDue?: string | null }>;
   chaptersSuggest(input: { extractionId: string }): Promise<ChaptersJobDto>;
   chaptersJob(input: { jobId: string }): Promise<ChaptersJobDto>;
   chaptersCancel(input: { jobId: string }): Promise<ChaptersJobDto>;
@@ -53,6 +53,12 @@ interface Followed {
 }
 
 const NO_PRIMARY = () => null;
+
+/** An answer read before a check fell due may name what that check covers: it is not shown, and is asked again. */
+export function pastCheck(result: { nextCheckDue?: string | null } | null | undefined, now = Date.now()): boolean {
+  const due = result?.nextCheckDue ? Date.parse(result.nextCheckDue) : NaN;
+  return !Number.isNaN(due) && now >= due;
+}
 
 export class VideoDesk {
   private clocks = new Map<string, VideoClock & { extractionId: string }>();
@@ -127,7 +133,8 @@ export class VideoDesk {
       const known = this.followed.get(book.windowId);
       const section = known?.result.section;
       const inside = section ? clock.t >= section.t0 && (section.t1 === null || clock.t < section.t1) : known?.result.t !== -1;
-      const fresh = known && known.videoExtractionId === driver.extractionId && (inside || Math.floor(known.askedT) === Math.floor(clock.t));
+      const fresh = known && known.videoExtractionId === driver.extractionId && !pastCheck(known.result)
+        && (inside || Math.floor(known.askedT) === Math.floor(clock.t));
       if (fresh) continue;
       this.ask(book.windowId, book.extractionId, driver.extractionId, clock.t);
     }
@@ -171,7 +178,9 @@ export class VideoDesk {
     const driver = this.driver();
     if (!driver || !this.layout.books.some((book) => book.windowId === bookWindowId)) return null;
     const known = this.followed.get(bookWindowId);
-    const result = known && known.videoExtractionId === driver.extractionId ? known.result : null;
+    const answered = known && known.videoExtractionId === driver.extractionId ? known.result : null;
+    // An answer from before a check fell due shows nothing of itself, linked or not, until it is asked again.
+    const result = answered && !pastCheck(answered) ? answered : null;
     const chapter = chapterWords(result);
     if (this.unlinked.has(bookWindowId)) return { kind: "unlinked", chapter };
     if (!result) return { kind: "waiting", t: this.clocks.get(driver.windowId)?.t ?? 0 };

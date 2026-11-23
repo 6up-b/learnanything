@@ -33,14 +33,22 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters }
     onChaptersRef.current(next);
   }, []);
 
+  // Read again when the next check falls due: from then the titles of what it covers are neutral.
+  const [readAgain, setReadAgain] = useState(0);
   useEffect(() => {
     let live = true;
+    let timer: number | undefined;
     void whenLive().then(() => transport.chaptersList({ extractionId })).then(
-      (out) => { if (live) show(out.chapters); },
+      (out) => {
+        if (!live) return;
+        show(out.chapters);
+        const due = out.nextCheckDue ? Date.parse(out.nextCheckDue) : NaN;
+        if (!Number.isNaN(due)) timer = window.setTimeout(() => setReadAgain((value) => value + 1), Math.min(Math.max(0, due - Date.now()) + 1, 2 ** 31 - 1));
+      },
       () => { if (live) setChapters([]); },
     );
-    return () => { live = false; };
-  }, [extractionId, transport, whenLive, show]);
+    return () => { live = false; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [extractionId, transport, whenLive, show, readAgain]);
 
   const settle = useCallback((out: ChaptersJobDto) => {
     if (!out.done) return false;
