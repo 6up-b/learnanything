@@ -1798,7 +1798,37 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "prompt",
         {"strokes_hash": lambda: ink_strokes_hash_pin(), "prompt": lambda: ink_prompt_pin(),
          "schema": _schema("learnloop.pads.ink_transcribe:InkTranscriptionV1")}),
+    IdentitySite(
+        "RD10", "the video chapters judge's prompt, its result schema and a chapter's id",
+        ("src/learnloop/source_retrieval/video_chapters.py::build_prompt",
+         "src/learnloop/source_retrieval/video_chapters.py::chapter_id"),
+        "the listwise judge's request identity (its ledger ids and paid checkpoint, keyed by the exact prompt and schema), "
+        "which answers the same video's judgment again with no call; video_chapters.chapter_id, which keeps a decided "
+        "chapter's row when the same chapter is suggested again",
+        "a video already judged is judged again (paid), and a chapter the learner decided comes back undecided",
+        {"prompt": lambda: video_chapters_prompt_pin(), "chapter_id": lambda: video_chapter_id_pin(),
+         "schema": _schema("learnloop.source_retrieval.video_chapters:VideoChaptersOutputV1")}),
 )
+
+
+def video_chapters_prompt_pin() -> str:
+    from types import SimpleNamespace
+
+    from learnloop.source_retrieval import video_chapters as VC
+
+    reading = SimpleNamespace(source_title="A video", texts={"c1": "First words.", "c2": "Eigenvalues next."})
+    library = SimpleNamespace(reading=lambda _extraction_id: reading)
+    vault = SimpleNamespace(config=SimpleNamespace(curriculum=SimpleNamespace(max_prompt_tokens=4000)),
+                            learning_objects={"lo_pin": SimpleNamespace(title="Eigenvalues")})
+    sections = [VC.TranscriptSection("u1", "0:00–0:10", 0.0, 10.0, ("c1",)),
+                VC.TranscriptSection("u2", "0:10–0:20", 10.0, 20.0, ("c2",))]
+    return VC.build_prompt(vault, library, "ext_pin", sections, ["lo_pin"]).text
+
+
+def video_chapter_id_pin() -> str:
+    from learnloop.source_retrieval.video_chapters import chapter_id
+
+    return chapter_id("ext_pin", 10.0, 20.0, "eigenvalues")
 
 
 def ink_strokes_hash_pin() -> str:

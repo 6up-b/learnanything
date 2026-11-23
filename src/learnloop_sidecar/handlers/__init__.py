@@ -76,6 +76,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     teach_back,
     tutor_qa,
     vault,
+    video,
     why,
     workbench,
     workbench_help,
