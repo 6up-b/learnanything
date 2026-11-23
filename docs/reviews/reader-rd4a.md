@@ -252,6 +252,6 @@ tests passed there.
 | The 71 files that import pads, desks, the union read or the teach-back, or use their builders, plus identity pins, structure ratchets, the four row-recording goldens, CLI snapshot, effective defaults, public tip guards, RD0 fences, sqlite copies, kill switches (`affected_tests.py` asked for the full suite: the handler change reaches the sidecar), two chunks, `-m "not arc_close"` | 1977 passed, 1 xfailed; 1 failed, 505 passed (the stage-name ratchet: the new test file renamed for what it tests, then 20 passed) |
 | `ruff check` / `lint-imports --no-cache` | All checks passed! / Contracts: 52 kept, 0 broken. |
 | `npm run typecheck` / `cargo check --offline` | exit 0 / Finished |
-| The four vault validators after `generate_all.py` | in the landing note below |
+| `generate_all.py`, then the four vault validators | `uncommitted_inputs` 0; `validate_vault` passed (2429 notes, every link resolved); `module_validate` PASS (1419/1419); `desktop_validate` passed (378/378 TypeScript/TSX + 6/6 Rust, reproducible); `db_validate_reference` `errors` []. The regenerated notes are their own commit |
 
 No identity pin, golden or structure number moved.
