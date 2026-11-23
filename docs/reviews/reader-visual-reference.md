@@ -295,3 +295,16 @@ changed back with them (net unchanged). No snapshot or style assertion encoded t
 failed (every display-math check included: pads at three widths, the hover card, the companion's answer, after a
 resize); no new TypeScript file, so `desktop_validate.py`'s three counts are unchanged (its reproducibility check
 lists the generated notes the landing regenerates).
+
+### Round 2 (the two rows that needed markup; on top of the goal lens's watch panel)
+
+| Row | Outcome |
+|---|---|
+| VR-3, the transcript | Fixed (`040b025bb8`): the video window as the mockup's §7.4 layout. The player sits on the window's dark (12 px down, 16 px in) with the goal lens's track under it in the same cell; the panel's controls line follows on dark; the transcript is a paper sheet with the mockup's margins and shadow that fills the rest of the window and scrolls inside itself (following the video moves that scroller). `YouTubeWatchPanel.tsx` gains class names only, on the goal lens's markup; the desks lay it out with `order` and `display: contents`, so no element moves and the player never remounts (the harness's two-player, hidden-desk and remount checks pass) |
+| VR-45 | Fixed (`3dc89dc187`): below 1400 px the opened strip covers the rail from the window's edge with its own ☰ and "strip" on top; the closed rail shows ☰ over a vertical "strip". The shell owns the open state; the key router gains a `strip` scope (below arrange, above pen) whose esc closes it and which passes every other key on. Fail-first tests in `DeskShell.test.tsx` (esc and pointer); `router.test.ts` gains the strip case, and its scope-order expectation now lists `strip` |
+| Inter | Removed (`8024da8119`): no other screen named it. The package, the shell's import, its `LICENSES.txt` entry and the harness's font check (now four fonts) went; §4.2 says so |
+
+After round 2 the comparison (RD1 to RD4, both viewports) has RD1 19, RD2 21, RD3 5, RD4 20 grouped rows, every one
+excused or listed above (VR-12, VR-29, VR-43, VR-44, the fixture's differences). The `video_paper` rows and the open
+strip's place are gone. Tests: vitest 367 files, 4099 passed; typecheck clean; the desk harness 120 passed, 0 failed
+(the goal lens's checks included).

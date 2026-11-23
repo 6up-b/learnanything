@@ -121,7 +121,6 @@ import "../../styles/goal.css";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
-import "@fontsource-variable/inter";
 import "@fontsource-variable/literata";
 import "@fontsource-variable/literata/wght-italic.css";
 import "@fontsource-variable/source-serif-4";
@@ -1201,6 +1200,9 @@ export function DeskShell({
       case "leaveOverview":
         toggleOverview(null);
         return true;
+      case "closeStrip":
+        setStripOpen(false);
+        return true;
       case "toggleRelations":
         setShowRelations((on) => !on);
         return true;
@@ -1369,6 +1371,7 @@ export function DeskShell({
         check: has("check"),
         focus: focusModeRef.current,
         overview: overviewRef.current,
+        strip: stripOpenRef.current,
       }, modifiers.read(event));
       if (!resolution || resolution.binding.later) return false;
       if (!runRef.current(resolution.binding.action)) return false;
@@ -1777,6 +1780,10 @@ export function DeskShell({
   chipRef.current = chip;
   const searchOpenRef = useRef(false);
   searchOpenRef.current = search !== null;
+  // The laptop's strip, open over the rail: the shelf shows it, the key router closes it with esc.
+  const [stripOpen, setStripOpen] = useState(false);
+  const stripOpenRef = useRef(false);
+  stripOpenRef.current = stripOpen && viewportWidth < DESK_SIZES.shelfFoldBelow;
   // The goal lens's path view: `p` toggles it, and while it is open its keys are its own (a menu scope).
   const goalPathRef = useRef<{ open: boolean; toggle: () => boolean }>({ open: false, toggle: () => false });
   const anchoredAt = useRef(0);
@@ -2980,6 +2987,8 @@ export function DeskShell({
         <Shelf
           rows={shelfRows}
           folded={viewportWidth < DESK_SIZES.shelfFoldBelow}
+          open={stripOpen}
+          onOpenChange={setStripOpen}
           undo={undoShown ? { title: undoShown.title, onUndo: () => { commit(undoClose(wsRef.current, undoShown.deskId)); setUndo(null); } } : null}
           onFocus={(id) => {
             if (!deskId) return;

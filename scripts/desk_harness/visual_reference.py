@@ -202,7 +202,8 @@ region("book_paper", ".desk-window [data-window-kind='source'] .ll-scroll:has(> 
 # The first passage is the one being read (amber); the plain style is the next one's.
 region("book_prose", ".desk-window [data-window-kind='source'] [data-span-id] @1", "none")
 region("book_heading", ".desk-window [data-window-kind='source'] h2", "none")
-region("video_paper", ".desk-window [data-window-kind='video'] > .desk-pane-body", "none")
+# The transcript's paper sheet; the mockup pads the sheet, the desks the scroller inside it (under its header row).
+region("video_paper", ".desk-window [data-window-kind='video'] .watch-transcript", "none", ("padding",))
 region("video_cue", ".desk-window [data-window-kind='video'] [data-transcript-span]", "none")
 region("focus_badge", "~.desk-zoom-badge", "yh")
 # ── the overview (RD2) ──
