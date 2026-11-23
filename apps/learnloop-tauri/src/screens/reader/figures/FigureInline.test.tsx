@@ -26,7 +26,7 @@ const CONTRACT: FiguresContract = { predictions: true, region: true, revisions: 
 function figureView(overrides: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_1", extractionId: "ext_prob", spanIds: ["p3"], anchorSpanId: "p3", region: null, origin: "selection",
-    verification: "verified", kind: "reconstructed", label: "AI-built · matches the book's equation (checked)",
+    verification: "verified", shown: true, labelCode: "illustrative", kind: "reconstructed", label: "AI-built · matches the book's equation (checked)",
     reason: null, unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1,
     createdAt: "2026-10-21T00:00:00", specJson: JSON.stringify(FLAGSHIP),
     demonstrates: FLAGSHIP.demonstrates, assumptions: [{ text: "λ > 0 and 0 < p < 1", spanId: "p2", quote: "0 < p < 1" }],
@@ -255,10 +255,10 @@ it("asks for a better version with the learner's note (not right?)", async () =>
 
 it("shows a failed build with try again, and an unsupported one as noted", async () => {
   api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [
-    figureView({ verification: "failed", kind: null, specJson: null, predictions: [],
+    figureView({ verification: "failed", shown: false, labelCode: "failed", kind: null, specJson: null, predictions: [],
       label: "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1)" }),
-    figureView({ figureId: "fig_u", spanIds: ["p5"], anchorSpanId: "p5", verification: "unsupported", kind: null,
-      specJson: null, predictions: [], unsupportedKind: "a 3-D surface", label: "can't draw this yet — needs a 3-D surface · noted" }),
+    figureView({ figureId: "fig_u", spanIds: ["p5"], anchorSpanId: "p5", verification: "unsupported", shown: false,
+      labelCode: "unsupported", kind: null, specJson: null, predictions: [], unsupportedKind: "a 3-D surface", label: "can't draw this yet — needs a 3-D surface · noted" }),
   ] });
   api.readerFigureRequest.mockResolvedValue({ jobId: "ljob_2", kind: "figure_build", askId: null, state: "pending", result: null });
   render(<Harness spans={["p3", "p5"]} />);
@@ -320,9 +320,11 @@ it("never lets model text into the badge slot: the frame is code-owned (final ro
   api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [
     figureView({ verification: "illustrative", label: claim, reason: claim, specJson: JSON.stringify(spec),
       demonstrates: claim, propertyChecks: ["values_finite", "integrates_to_one", claim] }),
-    figureView({ figureId: "fig_f", spanIds: ["p5"], anchorSpanId: "p5", verification: "failed", kind: null,
+    figureView({ figureId: "fig_f", spanIds: ["p5"], anchorSpanId: "p5", verification: "failed", shown: false,
+      labelCode: "failed", kind: null,
       specJson: null, predictions: [], label: claim, reason: claim }),
-    figureView({ figureId: "fig_u", spanIds: ["p6"], anchorSpanId: "p6", verification: "unsupported", kind: null,
+    figureView({ figureId: "fig_u", spanIds: ["p6"], anchorSpanId: "p6", verification: "unsupported", shown: false,
+      labelCode: "unsupported", kind: null,
       specJson: null, predictions: [], label: claim, unsupportedKind: claim }),
   ] });
   render(<Harness spans={["p3", "p5", "p6"]} />);

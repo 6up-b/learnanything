@@ -2296,31 +2296,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # nothing in scoring, scheduling, projection or serving reads them (W1).
     _ConfigRule(_exact(
         "figures.enabled",
-        "figures.predictions_enabled",
-        "figures.region_enabled",
-        "figures.revisions_enabled",
     ), "structural", "operational",
-        "kill switches for explorable figures / their predictions / region selection / \"not right?\" "
-        "versions; on-off availability of content and formative records, no measurement, scheduling or "
-        "serving authority."),
-    # Reader workbench RW5b: the advanced panels (heat maps, vector fields,
-    # trajectories, iterated maps) and figures offered by the organizer and
-    # the tutor in the calls they already make. Kill switches over content.
-    _ConfigRule(_exact(
-        "figures.advanced_panels_enabled",
-        "figures.offers_enabled",
-    ), "structural", "operational",
-        "kill switches for RW5b's figure panels / \"make this explorable\" offers on organizer and tutor "
-        "citations; on-off availability of content, no measurement, scheduling or serving authority."),
-    # Reader RW5d P1: "show me" (the learner's words, with or without a
-    # passage; the tutor's optional figure goal). A kill switch over content.
-    # Reader RW5d P2: the sketch tier (sealed, verified simulations). A kill
-    # switch over content.
-    _ConfigRule(_exact(
-        "figures.sketch_enabled",
-    ), "structural", "operational",
-        "kill switch for RW5d's sketch tier (a sealed, verified simulation when the figure grammar can't express "
-        "an idea); on-off availability of content, no measurement, scheduling or serving authority."),
+        "kill switch for explorable figures (with their predictions, regions, \"not right?\" versions, panels, "
+        "offers, \"show me\", the sketch tier and the source check); on-off availability of content and "
+        "formative records, no measurement, scheduling or serving authority."),
     # Reader RW5d P2b: the rich tiers (a narrated Manim figure; JS behind its
     # build flag). A kill switch over content, and the learner's standing
     # opt-in for running AI-written animation code in the sandbox (a
@@ -2348,18 +2327,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for sending the figure author the learner's state on the passage's topics (status in words, "
         "open statements, two recent answers, protected work never); on-off availability of context for help "
         "content, no measurement, scheduling or serving authority."),
-    # Reader RW5c P1: the kill switch over "matches the book's equation (checked)".
-    _ConfigRule(_exact(
-        "figures.checked_labels_enabled",
-    ), "structural", "operational",
-        "kill switch for RW5c's code-only source check and code-owned labels on a checked figure; on-off "
-        "availability of a content label, no measurement, scheduling or serving authority (never evidence)."),
-    _ConfigRule(_exact(
-        "figures.show_me_enabled",
-    ), "structural", "operational",
-        "kill switch for RW5d's \"show me\" (figure goals in the learner's words, grounding in their books, "
-        "the tutor's figure_goal button); on-off availability of content, no measurement, scheduling or "
-        "serving authority."),
     # Reader RW5d P5 (spec §10b.4, §15): figures ahead of need. A kill switch and two
     # `keep` caps (guardrails that cut the queue in EU order, never admit a candidate).
     _ConfigRule(_exact(

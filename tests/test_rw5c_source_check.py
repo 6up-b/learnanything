@@ -491,7 +491,7 @@ class _GatedAuthor(AuthorFake):
 
 
 class _FlipAfterCheck:
-    """The fake sandbox's ``differs``, then the switch off before the second attempt."""
+    """The fake sandbox's ``differs``, then figures switched off before the second attempt."""
 
     def __init__(self, paths: Any) -> None:
         self.paths = paths
@@ -499,7 +499,7 @@ class _FlipAfterCheck:
 
     def __call__(self, _harness: str, payload: dict[str, Any], **_kwargs: Any) -> pf_sandbox.SandboxResult:
         self.calls += 1
-        set_config(self.paths, "figures", checked_labels_enabled=False)
+        set_config(self.paths, "figures", enabled=False)
         definition = payload["definitions"][0]
         pair = definition["pairs"][0]
         return pf_sandbox.SandboxResult(True, output={"sympy_version": "fake", "results": [
@@ -530,7 +530,7 @@ def test_the_switch_off_at_the_store_writes_nothing(tmp_path, monkeypatch):
     paths, repository = build_check_vault(tmp_path / "vault", BLOCKS)
 
     def flip_and_answer(_payload: dict[str, Any], _sandbox: Any) -> pf_sandbox.SandboxResult:
-        set_config(paths, "figures", checked_labels_enabled=False)
+        set_config(paths, "figures", enabled=False)
         return pf_sandbox.SandboxResult(True, output={"sympy_version": "fake", "results": []})
 
     monkeypatch.setattr(SC, "_run_sandbox", flip_and_answer)
@@ -551,10 +551,9 @@ def test_build_key_holds_the_switch_and_the_reuse_key_does_not(tmp_path):
     context_ = FGR.SourceContext(passage=[{"span_id": "s1", "type": "Text", "text": "x"}])
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
     hashed = FB.request_hash(request, context_, None)
-    set_config(paths, "figures", checked_labels_enabled=False)
+    set_config(paths, "figures", enabled=False)
     off = load_vault(paths.root)
-    assert FQ.build_key(off) != on and on[-1] is True and FQ.build_key(off)[-1] is False
-    assert FQ.offer_build_key(off) != FQ.offer_build_key(vault)
+    assert FQ.build_key(off) != on and on[1] is True and FQ.build_key(off)[1] is False
     assert FB.request_hash(request, context_, None) == hashed
 
 

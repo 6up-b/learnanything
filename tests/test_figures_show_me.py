@@ -44,7 +44,6 @@ from tests.figure_fixtures import (
     call,
     flagship,
     rows,
-    set_config,
 )
 from tests.figures_show_me_helpers import (
     FindFake,
@@ -60,27 +59,6 @@ from tests.figures_show_me_helpers import (
 # ---------------------------------------------------------------------------
 # G-SM1: the switch and the minimum request
 # ---------------------------------------------------------------------------
-
-def test_a_goal_alone_is_refused_while_show_me_is_off(tmp_path):
-    paths, repository = _vault(tmp_path)
-    set_config(paths, "figures", show_me_enabled=False)
-    author, find = AuthorFake(), FindFake()
-    ctx = _ctx(paths, author=author, find=find)
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "figure.request", {"goalText": GOAL, "readingAt": READING_AT})
-    assert caught.value.code == "show_me_disabled"
-    # A joint request too: the words are what is switched off.
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "figure.request", {"goalText": GOAL, "origin": "show_me",
-                                     "anchor": {"extractionId": EXTRACTION, "spanIds": ["p3"]}})
-    assert caught.value.code == "show_me_disabled"
-    assert author.calls == 0 and find.calls == [] and _requests(repository) == []
-    # Off, the contract has no show_me and an anchor-only request is RW5a's.
-    assert "showMe" not in call(ctx, "reader.prompt_contract", {})["figures"]
-    built = build(ctx, {"anchor": {"extractionId": EXTRACTION, "spanIds": ["p3"]}, "origin": "selection"},
-                  rpc="figure.request")
-    assert built["figure"]["verification"] == "illustrative" and "goalText" not in built["figure"]
-
 
 def test_neither_goal_nor_anchor_is_refused_and_show_me_needs_words(tmp_path):
     paths, repository = _vault(tmp_path)
@@ -352,23 +330,6 @@ def test_not_right_on_a_show_me_figure_keeps_its_goal_home_and_grounding(tmp_pat
     assert revised["goalText"] == GOAL and revised["grounding"] == "retrieved"
 
 
-def test_show_me_off_lists_no_show_me_figure_and_the_view_is_rw5bs(tmp_path):
-    paths, repository = _vault(tmp_path)
-    ctx = _ctx(paths, author=AuthorFake([flagship(kind="illustrative"), flagship(kind="illustrative")]),
-               find=FindFake([("ext_book", "s2")]))
-    goal_figure = show_me(ctx)["figure"]
-    anchored = build(ctx)["figure"]
-    set_config(paths, "figures", show_me_enabled=False)
-    ctx = _ctx(paths, author=AuthorFake())
-    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
-    assert [item["figureId"] for item in listed] == [anchored["figureId"]]
-    assert not {"goalText", "goalAuthor", "grounding", "passages"} & set(listed[0])
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.figure_predict", {"figureId": goal_figure["figureId"], "predictionIndex": 0,
-                                            "answer": "rises"})
-    assert caught.value.code == "show_me_disabled"
-
-
 def test_the_build_job_belongs_to_figure_request_for_t1s_offer(tmp_path):
     """Redesign D: the offer is the grant, keyed by the origin RPC method. A
     figure.request job's units carry ``figure.request`` (the press), so a
@@ -423,16 +384,10 @@ def test_the_tutors_goal_is_a_button_and_its_press_builds_from_the_cited_passage
     assert json.loads(request["host_ref_json"]) == {"question_event_id": answer["eventId"]}
 
 
-def test_no_goal_no_button_and_show_me_off_is_rw5bs_tutor(tmp_path, monkeypatch):
+def test_no_goal_no_button(tmp_path, monkeypatch):
     *_, tutor, _author, _find, answer = _tutor_ask(tmp_path, monkeypatch, figure_goal=None)
     assert not [b for b in (answer.get("tutorOffers") or {}).get("buttons") or [] if b["kind"] == "show_me"]
     assert "figureGoal" not in (answer.get("tutor") or {})
-    tutor_off = _tutor_ask(tmp_path / "off", monkeypatch, figure_goal="vary p", show_me=False)
-    tutor, answer = tutor_off[3], tutor_off[6]
-    # RW5b's model and prompt: no figure goal asked for, none read, no button.
-    assert "ShowMe" not in tutor.result_models[-1] and "figure_goal" not in tutor.prompts[-1]
-    assert "figureGoal" not in (answer.get("tutor") or {})
-    assert not [b for b in (answer.get("tutorOffers") or {}).get("buttons") or [] if b["kind"] == "show_me"]
 
 
 def test_the_show_me_tutor_prompt_is_rw5bs_plus_the_goal_clause():
@@ -467,12 +422,7 @@ def test_the_intent_boxs_figure_action_is_show_me_while_on():
     assert RI.question_set_version(on) == RI.SHOW_ME_QUESTION_SET_VERSION + RI.COMPARE_QUESTION_SET_SUFFIX
     config.reader_compare.scope_enabled = False
     assert RI.question_set_version(RI.Availability.from_config(config)) == RI.SHOW_ME_QUESTION_SET_VERSION
-    config.figures.show_me_enabled = False
-    off = RI.Availability.from_config(config)
-    actions = {action.id: action for action in RI.available_actions(off)}
-    assert actions["make_explorable"] == RI.ACTIONS_BY_ID["make_explorable"]
-    assert RI.question_set_version(off) == RI.QUESTION_SET_VERSION
-    # Routings hash as before while show me is off.
+    # A routing with no question set named hashes under the base set.
     assert RI.input_hash("x", "q", ["a"]) == RI.input_hash("x", "q", ["a"], question_set=RI.QUESTION_SET_VERSION)
 
 

@@ -9,9 +9,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { FigureViewDto } from "../../../../api/dto";
 import parity from "./sketchParityCorpus.json";
-import { FiguresUnder } from "../FigureInline";
+import { figureBadge, FiguresUnder } from "../FigureInline";
 import { useFigures, type FiguresContract } from "../useFigures";
-import { SKETCH_COPY, SKETCH_FRAME, TABLE_PAGE, predictionTarget, sketchBadge, sketchCheckLines } from "./SketchFigure";
+import { SKETCH_COPY, SKETCH_FRAME, TABLE_PAGE, predictionTarget, sketchCheckLines } from "./SketchFigure";
 import { FIGURE_COPY } from "../FigureInline";
 import { formatValue } from "../FigurePanels";
 import { hostRunner, SketchRunnerContext, WATCHDOG_MS, type SketchRunner, type SketchRunnerFactory } from "./sketchRunner";
@@ -58,7 +58,7 @@ const SKETCH = {
 function sketchView(program: object, overrides: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_s", extractionId: "ext_prob", spanIds: ["p3"], anchorSpanId: "p3", region: null, origin: "selection",
-    verification: "illustrative", kind: "illustrative", label: SKETCH_FRAME.badge, reason: null, unsupportedKind: null,
+    verification: "illustrative", shown: true, labelCode: "sketch", kind: "illustrative", label: SKETCH_FRAME.badge, reason: null, unsupportedKind: null,
     supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-31T00:00:00", specJson: JSON.stringify(program),
     demonstrates: (program as { demonstrates: string }).demonstrates, assumptions: [], predictions: [], propertyChecks: [],
     tier: "sketch", sketch: SKETCH, grounding: "anchor", ...overrides,
@@ -120,9 +120,10 @@ afterEach(() => {
 });
 
 it("words the badge and the check lines from closed fields only", () => {
-  expect(sketchBadge({ grounding: "anchor", sketch: SKETCH })).toBe("AI-written simulation · sandboxed · not checked against the book");
-  expect(sketchBadge({ grounding: "anchor", sketch: { ...SKETCH, checks: [] } })).toBe(SKETCH_FRAME.unchecked);
-  expect(sketchBadge({ grounding: "none", sketch: SKETCH })).toBe(SKETCH_FRAME.notFromBooks);
+  expect(figureBadge({ labelCode: "sketch", sketch: SKETCH })).toBe("AI-written simulation · sandboxed · not checked against the book");
+  expect(figureBadge({ labelCode: "sketch_unchecked", sketch: { ...SKETCH, checks: [] } })).toBe(SKETCH_FRAME.unchecked);
+  expect(figureBadge({ labelCode: "sketch", sketch: SKETCH }, true)).toBe(SKETCH_FRAME.unchecked);
+  expect(figureBadge({ labelCode: "sketch_not_from_books", sketch: SKETCH })).toBe(SKETCH_FRAME.notFromBooks);
   expect(sketchCheckLines(SKETCH)).toEqual([
     "the drawn ‘envelope’ is sqrt(x) (AI-stated) at 27 tested settings",
     "the value ‘msd’ agrees with t (AI-stated) within sampling error at 27 tested settings",

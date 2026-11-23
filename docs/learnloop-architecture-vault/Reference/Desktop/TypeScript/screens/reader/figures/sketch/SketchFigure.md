@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.tsx](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.tsx) |
-| Source lines | 601 |
+| Source lines | 595 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] |
 | Refactor status | `ACTIVE` |
@@ -57,121 +57,120 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const SKETCH_FRAME =` — const, line 45
 - `export const SKETCH_COPY =` — const, line 53
 - `export function checksStand(sketch: FigureSketchDto | null | undefined, withdrawn = false): boolean` — function, line 76
-- `export function sketchBadge(figure: Pick<FigureViewDto, "grounding" | "sketch">, withdrawn = false): string` — function, line 81
-- `export const ATTRIBUTE_WORDS: Record<string, string> =` — const, line 89
-- `export function sketchCheckLines(sketch: FigureSketchDto | null | undefined): string[]` — function, line 92
-- `export const TABLE_PAGE = 50` — const, line 132
-- `export function predictionTarget(program: SketchProgram, prediction: Pick<FigurePredictionDto, "index" | "targetStep">): number` — function, line 194
-- `export function SketchFigure(` — function, line 208
+- `export const ATTRIBUTE_WORDS: Record<string, string> =` — const, line 83
+- `export function sketchCheckLines(sketch: FigureSketchDto | null | undefined): string[]` — function, line 86
+- `export const TABLE_PAGE = 50` — const, line 126
+- `export function predictionTarget(program: SketchProgram, prediction: Pick<FigurePredictionDto, "index" | "targetStep">): number` — function, line 188
+- `export function SketchFigure(` — function, line 202
 
 ## Internal implementation anchors
 
-- `const quote = (name: string)` — const, line 86
-- `const lines = sketch.checks.map((check)` — const, line 94
-- `const parts: string[] = []` — const, line 95
-- `const plural = parts.length > 1 || check.elements.length > 1 || (check.partial ?? []).some((entry)` — const, line 98
-- `const subject = parts.length ? parts.join(" and ") : `the value $` — const, line 99
-- `const settings = `at $` — const, line 100
-- `const unnamed = sketch.unnamedElements` — const, line 106
-- `const named = sketch.notCovered.map(quote).join(", ")` — const, line 108
-- `const others = unnamed ? `$` — const, line 109
-- `function defaultsOf(program: SketchProgram): Params` — function, line 115
-- `function clampStep(parameter: SketchParameter, raw: number): number` — function, line 120
-- `const clamped = Math.min(parameter.max, Math.max(parameter.min, raw))` — const, line 122
-- `const steps = Math.round((clamped - parameter.min) / parameter.step)` — const, line 123
-- `function settingsText(params: Params): string` — function, line 127
-- `const num = (value: unknown)` — const, line 134
-- `function ProbeEntries(` — function, line 138
-- `const entries = Array.isArray(value) ? value : []` — const, line 141
-- `const pages = Math.max(1, Math.ceil(entries.length / TABLE_PAGE))` — const, line 142
-- `const current = Math.min(page, pages - 1)` — const, line 143
-- `const first = current * TABLE_PAGE` — const, line 144
-- `const shown = entries.slice(first, first + TABLE_PAGE)` — const, line 145
-- `const range = entries.length ? `$` — const, line 146
-- `const cell =` — const, line 147
-- `const PLAY_MS = 60` — const, line 183
-- `function freshSeed(): number` — function, line 186
-- `const cryptoObject = (globalThis as` — const, line 187
-- `const total = clockSteps(program)` — const, line 196
-- `const change = program.predictions?.[prediction.index]?.change ??` — const, line 197
-- `type RunState = |` — type, line 202
-- `const factory = useContext(SketchRunnerContext)` — const, line 209
-- `const reduced = useMemo(prefersReducedMotion, [])` — const, line 223
-- `const runner = useRef<SketchRunner | null>(null)` — const, line 224
-- `const loaded = useRef<Promise<unknown> | null>(null)` — const, line 225
-- `const busy = useRef(false)` — const, line 226
-- `const timer = useRef<ReturnType<typeof setInterval> | null>(null)` — const, line 227
-- `const queue = useRef<Promise<unknown>>(Promise.resolve())` — const, line 232
-- `const runId = useRef(0)` — const, line 233
-- `const at = useRef<` — const, line 234
-- `const target = useRef<number | null>(null)` — const, line 237
-- `const pendingTarget = useRef<number | null>(null)` — const, line 238
-- `const total = clockSteps(program)` — const, line 239
-- `const names = useMemo(()` — const, line 240
-- `const schedule = useMemo(()` — const, line 242
-- `const withdrawn = useChecksWithdrawn(figure.figureId)` — const, line 243
-- `const verifiedSeed = figure.sketch?.seed ?? 1` — const, line 244
-- `const tested = figure.sketch?.tested` — const, line 245
-- `const enqueue = useCallback(<T,>(operation: ()` — const, line 247
-- `const next = queue.current.then(operation, operation)` — const, line 248
-- `const stopPlay = useCallback(()` — const, line 253
-- `const fail = useCallback((caught: unknown, params: Params)` — const, line 260
-- `const message = caught instanceof Error ? caught.message : String(caught)` — const, line 266
-- `const errorKind = caught instanceof SketchRunError ? caught.kind : "error"` — const, line 267
-- `const created = withWatchdog(factory(), undefined, ()` — const, line 274
-- `const audit = useCallback((params: Params, seed: number, index: number, digest: string)` — const, line 289
-- `const entry = tested.find((item)` — const, line 291
-- `const position = entry ? entry.steps.indexOf(index) : -1` — const, line 292
-- `const readChecked = useCallback(async (active: SketchRunner, params: Params, index: number, seed: number)` — const, line 298
-- `const result = await active.read(params, index)` — const, line 299
-- `const sceneIssues = sceneProblems(result.scene, names)` — const, line 301
-- `const probeIssues = probeProblems(result.probes, program.probes)` — const, line 303
-- `const commit = useCallback((id: number, read:` — const, line 308
-- `const advanceRun = useCallback(async (id: number, active: SketchRunner, end: number, reads: number)` — const, line 319
-- `let reached = from` — let, line 323
-- `let done = 0` — let, line 324
-- `let last:` — let, line 325
-- `const next = Math.min(end, schedule.find((step)` — const, line 327
-- `const advance = useCallback(async ()` — const, line 340
-- `const active = runner.current` — const, line 341
-- `const id = runId.current` — const, line 343
-- `const end = Math.min(total, target.current ?? total)` — const, line 347
-- `const advanceRef = useRef(advance)` — const, line 361
-- `const playTo = useCallback((end: number)` — const, line 364
-- `const active = runner.current` — const, line 375
-- `const ready = loaded.current` — const, line 376
-- `const id = runId.current` — const, line 379
-- `const runParams = params` — const, line 380
-- `const goal = pendingTarget.current` — const, line 381
-- `const read = await readChecked(active, runParams, 0, seed)` — const, line 390
-- `const play = ()` — const, line 404
-- `const setParam = (name: string, raw: number)` — const, line 418
-- `const parameter = program.parameters.find((item)` — const, line 419
-- `const onHandle = (id: string, x: number, y: number)` — const, line 425
-- `const handle = scene?.elements.find((element)` — const, line 426
-- `const applyPrediction = (prediction: FigurePredictionDto)` — const, line 437
-- `const change = program.predictions?.[prediction.index]?.change ??` — const, line 438
-- `const next = defaultsOf(program)` — const, line 443
-- `const parameter = program.parameters.find((item)` — const, line 445
-- `const exact = Number(value) + 0` — const, line 446
-- `const resume = ()` — const, line 453
-- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 458
-- `const target = event.target as HTMLElement` — const, line 459
-- `const openPrediction = ctl.contract?.predictions && !skipped && !figure.predictions.some((prediction)` — const, line 467
-- `const answeredPrediction = figure.predictions.find((prediction)` — const, line 469
-- `const locked = openPrediction !== null` — const, line 470
-- `const stands = checksStand(figure.sketch, withdrawn)` — const, line 471
-- `const checkLines = stands ? sketchCheckLines(figure.sketch) : []` — const, line 472
-- `const withdrawnShown = !stands && Boolean(figure.sketch?.checks?.length)` — const, line 473
-- `const prefill = state.kind === "error" ? `$` — const, line 474
-- `const value = params[parameter.name] ?? parameter.default` — const, line 500
+- `const quote = (name: string)` — const, line 80
+- `const lines = sketch.checks.map((check)` — const, line 88
+- `const parts: string[] = []` — const, line 89
+- `const plural = parts.length > 1 || check.elements.length > 1 || (check.partial ?? []).some((entry)` — const, line 92
+- `const subject = parts.length ? parts.join(" and ") : `the value $` — const, line 93
+- `const settings = `at $` — const, line 94
+- `const unnamed = sketch.unnamedElements` — const, line 100
+- `const named = sketch.notCovered.map(quote).join(", ")` — const, line 102
+- `const others = unnamed ? `$` — const, line 103
+- `function defaultsOf(program: SketchProgram): Params` — function, line 109
+- `function clampStep(parameter: SketchParameter, raw: number): number` — function, line 114
+- `const clamped = Math.min(parameter.max, Math.max(parameter.min, raw))` — const, line 116
+- `const steps = Math.round((clamped - parameter.min) / parameter.step)` — const, line 117
+- `function settingsText(params: Params): string` — function, line 121
+- `const num = (value: unknown)` — const, line 128
+- `function ProbeEntries(` — function, line 132
+- `const entries = Array.isArray(value) ? value : []` — const, line 135
+- `const pages = Math.max(1, Math.ceil(entries.length / TABLE_PAGE))` — const, line 136
+- `const current = Math.min(page, pages - 1)` — const, line 137
+- `const first = current * TABLE_PAGE` — const, line 138
+- `const shown = entries.slice(first, first + TABLE_PAGE)` — const, line 139
+- `const range = entries.length ? `$` — const, line 140
+- `const cell =` — const, line 141
+- `const PLAY_MS = 60` — const, line 177
+- `function freshSeed(): number` — function, line 180
+- `const cryptoObject = (globalThis as` — const, line 181
+- `const total = clockSteps(program)` — const, line 190
+- `const change = program.predictions?.[prediction.index]?.change ??` — const, line 191
+- `type RunState = |` — type, line 196
+- `const factory = useContext(SketchRunnerContext)` — const, line 203
+- `const reduced = useMemo(prefersReducedMotion, [])` — const, line 217
+- `const runner = useRef<SketchRunner | null>(null)` — const, line 218
+- `const loaded = useRef<Promise<unknown> | null>(null)` — const, line 219
+- `const busy = useRef(false)` — const, line 220
+- `const timer = useRef<ReturnType<typeof setInterval> | null>(null)` — const, line 221
+- `const queue = useRef<Promise<unknown>>(Promise.resolve())` — const, line 226
+- `const runId = useRef(0)` — const, line 227
+- `const at = useRef<` — const, line 228
+- `const target = useRef<number | null>(null)` — const, line 231
+- `const pendingTarget = useRef<number | null>(null)` — const, line 232
+- `const total = clockSteps(program)` — const, line 233
+- `const names = useMemo(()` — const, line 234
+- `const schedule = useMemo(()` — const, line 236
+- `const withdrawn = useChecksWithdrawn(figure.figureId)` — const, line 237
+- `const verifiedSeed = figure.sketch?.seed ?? 1` — const, line 238
+- `const tested = figure.sketch?.tested` — const, line 239
+- `const enqueue = useCallback(<T,>(operation: ()` — const, line 241
+- `const next = queue.current.then(operation, operation)` — const, line 242
+- `const stopPlay = useCallback(()` — const, line 247
+- `const fail = useCallback((caught: unknown, params: Params)` — const, line 254
+- `const message = caught instanceof Error ? caught.message : String(caught)` — const, line 260
+- `const errorKind = caught instanceof SketchRunError ? caught.kind : "error"` — const, line 261
+- `const created = withWatchdog(factory(), undefined, ()` — const, line 268
+- `const audit = useCallback((params: Params, seed: number, index: number, digest: string)` — const, line 283
+- `const entry = tested.find((item)` — const, line 285
+- `const position = entry ? entry.steps.indexOf(index) : -1` — const, line 286
+- `const readChecked = useCallback(async (active: SketchRunner, params: Params, index: number, seed: number)` — const, line 292
+- `const result = await active.read(params, index)` — const, line 293
+- `const sceneIssues = sceneProblems(result.scene, names)` — const, line 295
+- `const probeIssues = probeProblems(result.probes, program.probes)` — const, line 297
+- `const commit = useCallback((id: number, read:` — const, line 302
+- `const advanceRun = useCallback(async (id: number, active: SketchRunner, end: number, reads: number)` — const, line 313
+- `let reached = from` — let, line 317
+- `let done = 0` — let, line 318
+- `let last:` — let, line 319
+- `const next = Math.min(end, schedule.find((step)` — const, line 321
+- `const advance = useCallback(async ()` — const, line 334
+- `const active = runner.current` — const, line 335
+- `const id = runId.current` — const, line 337
+- `const end = Math.min(total, target.current ?? total)` — const, line 341
+- `const advanceRef = useRef(advance)` — const, line 355
+- `const playTo = useCallback((end: number)` — const, line 358
+- `const active = runner.current` — const, line 369
+- `const ready = loaded.current` — const, line 370
+- `const id = runId.current` — const, line 373
+- `const runParams = params` — const, line 374
+- `const goal = pendingTarget.current` — const, line 375
+- `const read = await readChecked(active, runParams, 0, seed)` — const, line 384
+- `const play = ()` — const, line 398
+- `const setParam = (name: string, raw: number)` — const, line 412
+- `const parameter = program.parameters.find((item)` — const, line 413
+- `const onHandle = (id: string, x: number, y: number)` — const, line 419
+- `const handle = scene?.elements.find((element)` — const, line 420
+- `const applyPrediction = (prediction: FigurePredictionDto)` — const, line 431
+- `const change = program.predictions?.[prediction.index]?.change ??` — const, line 432
+- `const next = defaultsOf(program)` — const, line 437
+- `const parameter = program.parameters.find((item)` — const, line 439
+- `const exact = Number(value) + 0` — const, line 440
+- `const resume = ()` — const, line 447
+- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 452
+- `const target = event.target as HTMLElement` — const, line 453
+- `const openPrediction = ctl.contract?.predictions && !skipped && !figure.predictions.some((prediction)` — const, line 461
+- `const answeredPrediction = figure.predictions.find((prediction)` — const, line 463
+- `const locked = openPrediction !== null` — const, line 464
+- `const stands = checksStand(figure.sketch, withdrawn)` — const, line 465
+- `const checkLines = stands ? sketchCheckLines(figure.sketch) : []` — const, line 466
+- `const withdrawnShown = !stands && Boolean(figure.sketch?.checks?.length)` — const, line 467
+- `const prefill = state.kind === "error" ? `$` — const, line 468
+- `const value = params[parameter.name] ?? parameter.default` — const, line 494
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `SKETCH_FRAME`, `SketchFigure`, `checksStand`, `sketchBadge`; references `SKETCH_FRAME`, `SketchFigure`, `checksStand`, `sketchBadge`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `SKETCH_FRAME`, `SketchFigure`, `checksStand`; references `SKETCH_FRAME`, `SketchFigure`, `checksStand`
 
 ## Dependencies
 

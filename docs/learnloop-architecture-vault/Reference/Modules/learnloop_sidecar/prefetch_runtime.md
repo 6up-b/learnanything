@@ -101,7 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `offers_enabled`, `rich_tiers_enabled`; calls `offers_enabled`, `rich_tiers_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `rich_tiers_enabled`; calls `figures_enabled`, `rich_tiers_enabled`
 - [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] — imports `module`; calls `prefetch_switch`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Trigger`, `module`; calls `PrefetchEnv`, `Trigger`, `enabled`, `run_trigger`
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `current_trace`, `trace_scope`
@@ -128,7 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_each_queued_figure_trigger_runs_under_the_trace_that_queued_it`
 - [tests/test_figure_switch_predicates.py](../../../../../tests/test_figure_switch_predicates.py) — direct import
-  - `test_where_a_pass_runs_the_predicates_read_what_the_raw_settings_read`
+  - `test_a_pass_and_the_offer_trigger_run_only_with_figures_ahead_of_need_on`
 - [tests/test_figures_prefetch.py](../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_reading_progress_queues_the_section_trigger_on_the_desktop_only`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import

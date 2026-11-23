@@ -34,7 +34,7 @@ import pytest
 
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
 from learnloop_sidecar.errors import SidecarError
-from tests.figure_fixtures import AuthorFake, flagship, set_config
+from tests.figure_fixtures import AuthorFake, flagship, set_config, sketch_engine_absent
 from tests.hint_fakes import EXPECTED, ITEM, WORK, ChooserFake, WriterFake, assists, hint_vault, prefer, reveals
 from tests.figures_help_helpers import (
     CONFIG,
@@ -238,6 +238,7 @@ def test_take_step_availability_follows_the_hint_ladders_take_step(tmp_path):
     from learnloop.vault.loader import load_vault
     from learnloop_sidecar.handlers.figures import take_step_available
 
+    sketch_engine_absent()
     paths = hint_vault(tmp_path, config=CONFIG)
     # Not a check at all: no take step (an open attempt needs none).
     assert take_step_available(load_vault(paths.root), Repository.attach(paths.sqlite_path), ITEM) is False
@@ -258,7 +259,8 @@ def test_explore_figure_is_offered_only_with_a_qualifying_figure_and_its_propens
     from learnloop.hints import service as HS
     from learnloop.vault.loader import load_vault
 
-    paths = hint_vault(tmp_path, config='[figures]\nsketch_enabled = false\n')
+    sketch_engine_absent()
+    paths = hint_vault(tmp_path)
     vault, repository = load_vault(paths.root), Repository.attach(paths.sqlite_path)
     chooser = ChooserFake(prefer("explore_figure@L2", 0.9))
     result = HS.request_hint(vault, repository, _request(), writer_client=WriterFake(),
@@ -280,7 +282,8 @@ def test_without_a_qualifying_figure_the_option_is_absent_and_named(tmp_path):
     from learnloop.hints import service as HS
     from learnloop.vault.loader import load_vault
 
-    paths = hint_vault(tmp_path, config='[figures]\nsketch_enabled = false\n')
+    sketch_engine_absent()
+    paths = hint_vault(tmp_path)
     vault, repository = load_vault(paths.root), Repository.attach(paths.sqlite_path)
     HS.request_hint(vault, repository, _request(), writer_client=WriterFake(),
                     chooser_client_factory=lambda: ChooserFake(prefer("next_step@L3", 0.9)), seed="e",
@@ -298,7 +301,8 @@ def test_with_no_provider_every_request_is_as_before(tmp_path):
     from learnloop.hints import service as HS
     from learnloop.vault.loader import load_vault
 
-    paths = hint_vault(tmp_path, config='[figures]\nsketch_enabled = false\n')
+    sketch_engine_absent()
+    paths = hint_vault(tmp_path)
     vault, repository = load_vault(paths.root), Repository.attach(paths.sqlite_path)
     result = HS.request_hint(vault, repository, _request(), writer_client=WriterFake(),
                              chooser_client_factory=lambda: ChooserFake(prefer("next_step@L3", 0.9)), seed="e")
@@ -313,6 +317,7 @@ def test_the_sidecar_never_offers_a_figure_cold_or_switched_off(tmp_path, monkey
     from learnloop_sidecar.handlers import figures as FHandler
     from learnloop_sidecar.handlers import hints as HHandler
 
+    sketch_engine_absent()
     paths = hint_vault(tmp_path, config=CONFIG)
     vault, repository = load_vault(paths.root), Repository.attach(paths.sqlite_path)
     item = vault.practice_items[ITEM]

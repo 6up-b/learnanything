@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
-| Source lines | 10833 |
+| Source lines | 10842 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
@@ -827,115 +827,116 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type FigureVerification = "verified" | "illustrative" | "failed" | "unsupported"` — type, line 9672
 - `export interface FigurePredictionResultDto` — interface, line 9675
 - `export interface FigurePredictionDto` — interface, line 9690
-- `export interface FigureViewDto` — interface, line 9701
-- `export interface FigureElementDto` — interface, line 9753
-- `export interface FigureSourceCheckDto` — interface, line 9770
-- `export interface FigureManimCheckDto` — interface, line 9782
-- `export interface FigureManimDto` — interface, line 9795
-- `export type FigureRichState = "pending" | "ready" | "failed" | "waiting_for_plan" | "cancelled"` — type, line 9809
-- `export interface FigureFullerDto` — interface, line 9811
-- `export interface FigureRichPendingDto` — interface, line 9827
-- `export interface FigureSketchCheckDto` — interface, line 9840
-- `export interface FigureSketchDto` — interface, line 9854
-- `export type FigureGrounding = "anchor" | "retrieved" | "none"` — type, line 9870
-- `export interface FigurePassageDto` — interface, line 9872
-- `export interface FigureHostRef` — interface, line 9884
-- `export interface FigureRequestV1Input` — interface, line 9896
-- `export interface FigureHelpDto` — interface, line 9910
-- `export interface FigureTakeStepDto` — interface, line 9923
-- `export interface FigureBuildResultDto` — interface, line 9930
-- `export interface FiguresDto` — interface, line 9941
-- `export interface LibraryJobDto<T>` — interface, line 9953
-- `export interface LibraryTutorDto` — interface, line 9963
-- `export type HintStatus = "ready" | "withheld" | "unavailable" | "disabled" | "refused" | "cancelled"` — type, line 9985
-- `export type HintRequestKind = "more" | "feedback" | "book_way" | "smaller_step"` — type, line 9986
-- `export type HintShortcut = "not_where_stuck" | "too_big" | "learner_route" | "notation"` — type, line 9987
-- `export type HelpStyle = "let_me_struggle" | "balanced" | "guide_me"` — type, line 9988
-- `export interface HintLabelsDto` — interface, line 9990
-- `export interface HintPickDto` — interface, line 9997
-- `export interface HintDiscriminatingDto` — interface, line 10004
-- `export interface HintResultDto` — interface, line 10012
-- `export interface HintJobDto` — interface, line 10037
-- `export interface HintCancelDto` — interface, line 10044
-- `export interface HintDiscriminateAnswerDto` — interface, line 10052
-- `export interface HintRequestInput` — interface, line 10062
-- `export interface ReaderDoseOfferDto` — interface, line 10079
-- `export type ReaderDoseOfferEvent = "delivered" | "not_delivered" | "taken" | "dismissed"` — type, line 10103
-- `export interface AdaptiveReadinessDto` — interface, line 10106
-- `export interface AdaptiveWhyItemDto` — interface, line 10121
-- `export type CheckVerdict = "valid" | "questionable" | "unchecked"` — type, line 10133
-- `export type CheckMethod = "checked" | "checked_numerically" | "model"` — type, line 10134
-- `export interface CheckStepVerdictDto` — interface, line 10136
-- `export interface CheckViewDto` — interface, line 10159
-- `export interface WorkbenchStepLabelsDto` — interface, line 10173
-- `export interface LadderRungDto` — interface, line 10181
-- `export interface HelpSuggestionDto` — interface, line 10189
-- `export interface WorkbenchHelpResultDto` — interface, line 10204
-- `export interface WorkbenchHelpJobDto` — interface, line 10247
-- `export interface WorkbenchHintViewDto` — interface, line 10255
-- `export interface HintClaimDto` — interface, line 10279
-- `export interface WorkbenchHelpStateDto` — interface, line 10289
-- `export interface PassageTarget` — interface, line 10305
-- `export interface WorkbenchPassageDrawDto` — interface, line 10311
-- `export interface WorkbenchExampleViewDto extends WorkbenchPassageDrawDto` — interface, line 10319
-- `export interface WorkbenchAnotherPassageDto` — interface, line 10334
-- `export interface WorkbenchCompareOfferDto` — interface, line 10340
-- `export interface WorkbenchCompareLinesDto` — interface, line 10348
-- `export interface WorkbenchComparisonDto` — interface, line 10357
-- `export interface WorkbenchCompareMethodsDto` — interface, line 10365
-- `export interface WorkbenchCompareJobResultDto` — interface, line 10372
-- `export interface WorkbenchRequestHelpInput` — interface, line 10380
-- `export interface LessonTurnInput` — interface, line 10397
-- `export interface LessonSuggestionEntryDto` — interface, line 10431
-- `export interface LessonSuggestionDto` — interface, line 10441
-- `export interface LessonSuggestionResponseDto` — interface, line 10455
-- `export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable"` — type, line 10465
-- `export type LessonFeedEntryDto = |` — type, line 10467
-- `export interface LessonViewDto` — interface, line 10484
-- `export interface LessonProbeDto` — interface, line 10511
-- `export interface LessonGoalDto` — interface, line 10520
-- `export interface OpenLessonDto` — interface, line 10531
-- `export interface LessonActivityIntervalDto` — interface, line 10540
-- `export interface RouterDecisionDto` — interface, line 10552
-- `export interface FollowupDto` — interface, line 10566
-- `export type HypothesisMark = "my_gap" | "partly" | "not_it"` — type, line 10580
-- `export interface HypothesisMarksDto` — interface, line 10582
-- `export interface FollowupNextDto` — interface, line 10594
-- `export type ContentRefDto = |` — type, line 10606
-- `export type PadStackEntryDto = Extract<ContentRefDto,` — type, line 10617
-- `export type CompanionDock = "br" | "bl" | "right" | "cb"` — type, line 10618
-- `export type DeskWindowKind = ContentRefDto["kind"] | "pad_stack"` — type, line 10619
-- `export interface DeskWindowDto` — interface, line 10621
-- `export interface DeskDto` — interface, line 10636
-- `export interface DeskStateDto` — interface, line 10649
-- `export type DeskOpDto = DeskOpBase & ( |` — type, line 10658
-- `export type WriteOpResultDto = |` — type, line 10682
-- `export interface DeskApplyInput` — interface, line 10687
-- `export interface DeskApplyDto` — interface, line 10688
-- `export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions"` — type, line 10695
-- `export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch" | "cell" | "ink" | "lifted" | "check_cell"` — type, line 10696
-- `export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction"` — type, line 10698
-- `export interface PadDto` — interface, line 10700
-- `export interface PadBlockDto` — interface, line 10713
-- `export interface PadAnchorDto` — interface, line 10726
-- `export interface PadViewDto` — interface, line 10736
-- `export interface PadListDto` — interface, line 10737
-- `export type PadOpDto = |` — type, line 10739
-- `export interface PadApplyInput` — interface, line 10759
-- `export interface PadApplyDto` — interface, line 10760
-- `export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored"` — type, line 10768
-- `export type SpanAlias = "exact" | "needs_reanchor"` — type, line 10770
-- `export interface PassageUnionSpanDto` — interface, line 10772
-- `export interface PassageUnionDto` — interface, line 10794
-- `export type PassageUnionInput = |` — type, line 10802
-- `export interface CompanionExchangeDto` — interface, line 10806
-- `export interface CompanionHistoryDto` — interface, line 10822
-- `export interface ChecksDueDto` — interface, line 10828
+- `export type FigureLabelCode = | "illustrative" | "not_from_books" | "sketch" | "sketch_unchecked" | "sketch_not_from_books" | "manim" | "manim_unchecked" | "manim_not_from_books" | "rich_off" | "engine_changed" | "unsupported" | "failed"` — type, line 9702
+- `export interface FigureViewDto` — interface, line 9706
+- `export interface FigureElementDto` — interface, line 9762
+- `export interface FigureSourceCheckDto` — interface, line 9779
+- `export interface FigureManimCheckDto` — interface, line 9791
+- `export interface FigureManimDto` — interface, line 9804
+- `export type FigureRichState = "pending" | "ready" | "failed" | "waiting_for_plan" | "cancelled"` — type, line 9818
+- `export interface FigureFullerDto` — interface, line 9820
+- `export interface FigureRichPendingDto` — interface, line 9836
+- `export interface FigureSketchCheckDto` — interface, line 9849
+- `export interface FigureSketchDto` — interface, line 9863
+- `export type FigureGrounding = "anchor" | "retrieved" | "none"` — type, line 9879
+- `export interface FigurePassageDto` — interface, line 9881
+- `export interface FigureHostRef` — interface, line 9893
+- `export interface FigureRequestV1Input` — interface, line 9905
+- `export interface FigureHelpDto` — interface, line 9919
+- `export interface FigureTakeStepDto` — interface, line 9932
+- `export interface FigureBuildResultDto` — interface, line 9939
+- `export interface FiguresDto` — interface, line 9950
+- `export interface LibraryJobDto<T>` — interface, line 9962
+- `export interface LibraryTutorDto` — interface, line 9972
+- `export type HintStatus = "ready" | "withheld" | "unavailable" | "disabled" | "refused" | "cancelled"` — type, line 9994
+- `export type HintRequestKind = "more" | "feedback" | "book_way" | "smaller_step"` — type, line 9995
+- `export type HintShortcut = "not_where_stuck" | "too_big" | "learner_route" | "notation"` — type, line 9996
+- `export type HelpStyle = "let_me_struggle" | "balanced" | "guide_me"` — type, line 9997
+- `export interface HintLabelsDto` — interface, line 9999
+- `export interface HintPickDto` — interface, line 10006
+- `export interface HintDiscriminatingDto` — interface, line 10013
+- `export interface HintResultDto` — interface, line 10021
+- `export interface HintJobDto` — interface, line 10046
+- `export interface HintCancelDto` — interface, line 10053
+- `export interface HintDiscriminateAnswerDto` — interface, line 10061
+- `export interface HintRequestInput` — interface, line 10071
+- `export interface ReaderDoseOfferDto` — interface, line 10088
+- `export type ReaderDoseOfferEvent = "delivered" | "not_delivered" | "taken" | "dismissed"` — type, line 10112
+- `export interface AdaptiveReadinessDto` — interface, line 10115
+- `export interface AdaptiveWhyItemDto` — interface, line 10130
+- `export type CheckVerdict = "valid" | "questionable" | "unchecked"` — type, line 10142
+- `export type CheckMethod = "checked" | "checked_numerically" | "model"` — type, line 10143
+- `export interface CheckStepVerdictDto` — interface, line 10145
+- `export interface CheckViewDto` — interface, line 10168
+- `export interface WorkbenchStepLabelsDto` — interface, line 10182
+- `export interface LadderRungDto` — interface, line 10190
+- `export interface HelpSuggestionDto` — interface, line 10198
+- `export interface WorkbenchHelpResultDto` — interface, line 10213
+- `export interface WorkbenchHelpJobDto` — interface, line 10256
+- `export interface WorkbenchHintViewDto` — interface, line 10264
+- `export interface HintClaimDto` — interface, line 10288
+- `export interface WorkbenchHelpStateDto` — interface, line 10298
+- `export interface PassageTarget` — interface, line 10314
+- `export interface WorkbenchPassageDrawDto` — interface, line 10320
+- `export interface WorkbenchExampleViewDto extends WorkbenchPassageDrawDto` — interface, line 10328
+- `export interface WorkbenchAnotherPassageDto` — interface, line 10343
+- `export interface WorkbenchCompareOfferDto` — interface, line 10349
+- `export interface WorkbenchCompareLinesDto` — interface, line 10357
+- `export interface WorkbenchComparisonDto` — interface, line 10366
+- `export interface WorkbenchCompareMethodsDto` — interface, line 10374
+- `export interface WorkbenchCompareJobResultDto` — interface, line 10381
+- `export interface WorkbenchRequestHelpInput` — interface, line 10389
+- `export interface LessonTurnInput` — interface, line 10406
+- `export interface LessonSuggestionEntryDto` — interface, line 10440
+- `export interface LessonSuggestionDto` — interface, line 10450
+- `export interface LessonSuggestionResponseDto` — interface, line 10464
+- `export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable"` — type, line 10474
+- `export type LessonFeedEntryDto = |` — type, line 10476
+- `export interface LessonViewDto` — interface, line 10493
+- `export interface LessonProbeDto` — interface, line 10520
+- `export interface LessonGoalDto` — interface, line 10529
+- `export interface OpenLessonDto` — interface, line 10540
+- `export interface LessonActivityIntervalDto` — interface, line 10549
+- `export interface RouterDecisionDto` — interface, line 10561
+- `export interface FollowupDto` — interface, line 10575
+- `export type HypothesisMark = "my_gap" | "partly" | "not_it"` — type, line 10589
+- `export interface HypothesisMarksDto` — interface, line 10591
+- `export interface FollowupNextDto` — interface, line 10603
+- `export type ContentRefDto = |` — type, line 10615
+- `export type PadStackEntryDto = Extract<ContentRefDto,` — type, line 10626
+- `export type CompanionDock = "br" | "bl" | "right" | "cb"` — type, line 10627
+- `export type DeskWindowKind = ContentRefDto["kind"] | "pad_stack"` — type, line 10628
+- `export interface DeskWindowDto` — interface, line 10630
+- `export interface DeskDto` — interface, line 10645
+- `export interface DeskStateDto` — interface, line 10658
+- `export type DeskOpDto = DeskOpBase & ( |` — type, line 10667
+- `export type WriteOpResultDto = |` — type, line 10691
+- `export interface DeskApplyInput` — interface, line 10696
+- `export interface DeskApplyDto` — interface, line 10697
+- `export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions"` — type, line 10704
+- `export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch" | "cell" | "ink" | "lifted" | "check_cell"` — type, line 10705
+- `export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction"` — type, line 10707
+- `export interface PadDto` — interface, line 10709
+- `export interface PadBlockDto` — interface, line 10722
+- `export interface PadAnchorDto` — interface, line 10735
+- `export interface PadViewDto` — interface, line 10745
+- `export interface PadListDto` — interface, line 10746
+- `export type PadOpDto = |` — type, line 10748
+- `export interface PadApplyInput` — interface, line 10768
+- `export interface PadApplyDto` — interface, line 10769
+- `export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored"` — type, line 10777
+- `export type SpanAlias = "exact" | "needs_reanchor"` — type, line 10779
+- `export interface PassageUnionSpanDto` — interface, line 10781
+- `export interface PassageUnionDto` — interface, line 10803
+- `export type PassageUnionInput = |` — type, line 10811
+- `export interface CompanionExchangeDto` — interface, line 10815
+- `export interface CompanionHistoryDto` — interface, line 10831
+- `export interface ChecksDueDto` — interface, line 10837
 
 ## Internal implementation anchors
 
 - `interface KnowledgeFacetPointBase` — interface, line 546
-- `type DeskOpBase =` — type, line 10657
+- `type DeskOpBase =` — type, line 10666
 
 ## Who imports or calls it
 

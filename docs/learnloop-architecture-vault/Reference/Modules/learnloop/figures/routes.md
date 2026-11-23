@@ -207,11 +207,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_f1_a_spec_saying_it_matches_the_book_gets_the_repair_call`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
-  - `test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build`
-  - `test_a_selection_build_does_not_stop_for_the_offers_switch`
-  - `test_an_offered_build_stops_when_offers_are_switched_off_before_its_request`
   - `test_the_author_prompt_is_rw5a_byte_for_byte_while_the_panels_are_off`
-  - `test_with_the_panels_off_the_author_may_not_emit_them_and_stored_ones_are_cant_draw`
   - `test_with_the_panels_on_the_author_is_told_of_them_and_a_field_is_shown`
 - [tests/test_figure_region.py](../../../../../../tests/test_figure_region.py) — direct import
   - `test_an_image_request_is_refused_by_a_transport_that_cannot_read_images`
@@ -236,9 +232,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_lesson_figure_never_spawns_a_rich_job`
 - [tests/test_sketch_service.py](../../../../../../tests/test_sketch_service.py) — direct import
   - `test_a_sketch_answer_is_verified_stored_and_shown_with_its_check_lines`
-  - `test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte`
   - `test_the_tier_judgment_has_a_receipt_with_its_reason`
   - `test_with_the_tier_on_a_spec_answer_is_still_a_grammar_figure_with_a_receipt`
+  - `test_without_the_engine_the_contract_prompt_and_key_are_rw5bs_byte_for_byte`
 
 ## Modification guidance
 

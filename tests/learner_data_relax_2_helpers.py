@@ -11,6 +11,7 @@ from tests.figure_fixtures import (
     rows,
     seed_probability_book,
     set_config,
+    sketch_engine_absent,
     upsert_source_set,
 )
 from tests.mcp_world import LO, _attempt, build_world
@@ -55,7 +56,8 @@ def _history_world(tmp_path, *, switch: bool | None = None, rich: bool = False):
 
     world = build_world(tmp_path / "w")
     paths, repository = world.paths, world.repository
-    values = {"sketch_enabled": False, "rich_tiers_enabled": rich}
+    sketch_engine_absent()
+    values = {"rich_tiers_enabled": rich}
     if rich:
         values["manim_opt_in"] = "standing"
     if switch is not None:

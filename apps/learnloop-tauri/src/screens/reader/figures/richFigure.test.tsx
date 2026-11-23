@@ -32,7 +32,8 @@ const CONTRACT: FiguresContract = { predictions: true, region: true, revisions: 
 function manimView(overrides: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_rich", extractionId: "ext_prob", spanIds: ["p3"], anchorSpanId: "p3", region: null,
-    origin: "selection", verification: "illustrative", kind: "illustrative", label: RICH_FRAME.manim, reason: null,
+    origin: "selection", verification: "illustrative", shown: true, labelCode: "manim", kind: "illustrative", label: RICH_FRAME.manim,
+    reason: null,
     unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-11-01T00:00:00",
     specJson: null, demonstrates: "why the trajectory spirals", assumptions: [], predictions: [], tier: "manim",
     fuller: null, manim: {
@@ -48,7 +49,7 @@ function manimView(overrides: Partial<FigureViewDto> = {}): FigureViewDto {
 function quickView(fuller: FigureFullerDto | null): FigureViewDto {
   return {
     figureId: "fig_quick", extractionId: "ext_prob", spanIds: ["p3"], anchorSpanId: "p3", region: null,
-    origin: "selection", verification: "illustrative", kind: "illustrative",
+    origin: "selection", verification: "illustrative", shown: true, labelCode: "illustrative", kind: "illustrative",
     label: "AI-built illustration of an interpretation · not checked against the book", reason: null,
     unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-11-01T00:00:00",
     specJson: JSON.stringify(FLAGSHIP), demonstrates: FLAGSHIP.demonstrates, assumptions: [], predictions: [],
@@ -185,7 +186,8 @@ it("asks the Manim opt-in once, inline, after a press (allow · not now)", async
 
 it("switched off (no rich contract) a stored animation shows as can't show this kind here", async () => {
   api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [{
-    ...manimView({ verification: "unsupported", label: RICH_FRAME.cantShow, unsupportedKind: "an animation" }),
+    ...manimView({ verification: "unsupported", shown: false, labelCode: "rich_off", label: RICH_FRAME.cantShow,
+      unsupportedKind: "an animation" }),
     tier: undefined, manim: undefined, fuller: undefined }] });
   render(<Harness contract={{ predictions: true, region: true, revisions: true }} />);
   expect(await screen.findByText(RICH_FRAME.cantShow)).toBeTruthy();

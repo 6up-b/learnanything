@@ -77,12 +77,6 @@ export function checksStand(sketch: FigureSketchDto | null | undefined, withdraw
   return !withdrawn && Boolean(sketch?.checks?.length) && Array.isArray(sketch?.tested) && sketch!.tested!.length > 0;
 }
 
-/** The badge slot for a sketch, from closed values only. */
-export function sketchBadge(figure: Pick<FigureViewDto, "grounding" | "sketch">, withdrawn = false): string {
-  if (figure.grounding === "none") return SKETCH_FRAME.notFromBooks;
-  return checksStand(figure.sketch, withdrawn) ? SKETCH_FRAME.badge : SKETCH_FRAME.unchecked;
-}
-
 const quote = (name: string) => `‘${name}’`;
 
 /** What a check speaks for when it covers one attribute of a drawn element (Codex review F3). */

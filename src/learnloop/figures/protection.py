@@ -78,7 +78,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import daily_plans as plan_store
 from learnloop.db.stores import figures as store
-from learnloop.figure_admission import figure_home_keys, show_me_enabled
+from learnloop.figure_admission import figure_home_keys, figures_enabled
 from learnloop.figures import routes as R
 
 _LOG = logging.getLogger(__name__)
@@ -302,7 +302,7 @@ def figure_homes(repository: Repository, row: Mapping[str, Any]) -> list[tuple[s
 
 
 def show_me_row(row: Mapping[str, Any]) -> bool:
-    """A figure built from a goal or with no anchor (RW5d): absent while ``figures.show_me_enabled`` is off."""
+    """A figure built from a goal or with no anchor (RW5d): absent while ``figures.enabled`` is off."""
 
     return row.get("goal_text") is not None or (row.get("grounding") or "anchor") != "anchor"
 
@@ -310,13 +310,13 @@ def show_me_row(row: Mapping[str, Any]) -> bool:
 def figure_withheld(vault: Any, repository: Repository, figure_id: str) -> bool:
     """Whether a stored figure may not go out now (its row is gone, or any
     span it was built from is held out, or (RW5d) it is a show-me figure
-    while show me is off). Fails closed."""
+    while figures are off). Fails closed."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = store.figure(connection, figure_id) if store.has_tables(connection) else None
     if row is None:
         return True
-    if show_me_row(row) and not show_me_enabled(vault):
+    if show_me_row(row) and not figures_enabled(vault):
         return True
     return row_withheld(vault, repository, row) is not None
 

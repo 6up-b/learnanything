@@ -47,113 +47,113 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py) |
-| Source lines | 1255 |
+| Source lines | 1254 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SpecError(ValueError)` ([source](../../../../../../src/learnloop/figures/spec.py), line 114) — A spec outside the schema, the caps or the grammar; ``problems`` lists why.
-  - `__init__(self, problems: Sequence[str]) -> None` (line 117; internal)
-- `class SourceClaim(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 131)
-- `class Region(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 136)
-- `class Assumption(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 141)
-- `class Parameter(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 147)
-- `class Definition(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 157)
-- `class Axis(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 162)
-- `class Series(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 168)
-- `class Marker(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 173)
-- `class Shade(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 178)
-- `class FunctionPlot(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 186)
-- `class Highlight(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 194)
-- `class PmfBars(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 200)
-- `class LinearMap2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 207)
-- `class Readout(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 214)
-- `class GridAxis(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 221) — A heat map's or vector field's axis: ``cells`` intervals, ``cells + 1`` samples.
-- `class Heatmap2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 230)
-- `class FieldHeatmap(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 240) — The heat map under a vector field's arrows (its axes are the field's).
-- `class VectorField2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 249)
-- `class Trajectory2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 259)
-- `class Iterate2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 275)
-- `class Invariant(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 294)
-- `class Observe(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 309)
-- `class Prediction(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 314)
-- `class Annotation(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 320)
-- `class InteractiveFigureSpecV1(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 325)
-  - `dump(self) -> dict[str, Any]` (line 339; public)
-  - `canonical_json(self) -> str` (line 342; public)
-- `class CompiledPanel` ([source](../../../../../../src/learnloop/figures/spec.py), line 351)
-- `class CompiledFigure` ([source](../../../../../../src/learnloop/figures/spec.py), line 358)
-  - `defaults(self) -> dict[str, float]` (line 368; public)
-  - `shade_labels(self) -> list[str]` (line 371; public)
-- `expanded_free(node: G.Node, definitions: Mapping[str, G.Node], bound: frozenset[str]=frozenset(), _seen: tuple[str, ...]=()) -> set[str]` ([source](../../../../../../src/learnloop/figures/spec.py), line 375) — The variables and parameters ``node`` needs, definitions expanded where they are used (a bound variable reaches a definition's body).
-- `advanced_expressions(panel: Any) -> list[str]` ([source](../../../../../../src/learnloop/figures/spec.py), line 699) — Every expression of a RW5b panel.
-- `expression_work(node: G.Node, definitions: Mapping[str, G.Node], parameters: Sequence[Parameter], ranges: Mapping[str, tuple[float, float]], _seen: tuple[str, ...]=()) -> int` ([source](../../../../../../src/learnloop/figures/spec.py), line 754) — How many nodes one evaluation of ``node`` visits at most, definitions expanded and a sum's body counted once per term (figureSpec.ts's expressionWork).
-- `advanced_kinds(spec: InteractiveFigureSpecV1 | Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/figures/spec.py), line 772) — The RW5b panel kinds a spec (or its JSON mapping) uses, in order.
-- `parse_spec(raw: str | Mapping[str, Any], *, advanced: bool=True) -> CompiledFigure` ([source](../../../../../../src/learnloop/figures/spec.py), line 780) — A spec from its JSON (or mapping), validated and compiled, or :class:`SpecError`.
-- `parse_salvaging_predictions(raw: Any, parse: Callable[[Any], Any], model: type[BaseModel], error: type[Exception]) -> tuple[Any, list[str]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 833) — An author's answer parsed by ``parse``, keeping the figure when only an optional prediction is bad.
-- `parse_author_spec(raw: Any, *, advanced: bool=True) -> tuple[CompiledFigure, list[str]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 879) — :func:`parse_spec` for an author's answer (:func:`parse_salvaging_predictions`).
-- `plot_xs(axis: Axis) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 899)
-- `bar_ks(axis: Axis) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 903) — The bars' k values: counted from the support's start, at most :data:`MAX_BARS` of them (fix round 2; validation refuses more).
-- `shade_value(compiled: CompiledFigure, panel: CompiledPanel, shade_index: int, env: Mapping[str, float]) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 911) — A shaded area's clipped bounds and its value (the linked readout).
-- `highlight_value(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 934)
-- `derived_bounds(compiled: CompiledFigure, panel_index: int, kind: str, index: int, env: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 953) — The bounds a derived label states (RW5c §7.2, Codex review F2): the ones the evaluator used, whatever the author's bound expressions say.
-- `evaluate_panel(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 991)
-- `grid_points(axis: Any, cells: int) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1042) — ``cells + 1`` samples from ``axis.min`` to ``axis.max``.
-- `escape_box(axis: Any) -> tuple[float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1071) — The window a path may stay in: the axis range padded by :data:`ESCAPE_MARGIN` of its span.
-- `evaluate_figure(compiled: CompiledFigure, params: Mapping[str, float] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1174) — Every panel's data at ``params`` (defaults for the rest).
-- `observed(compiled: CompiledFigure, index: int, params: Mapping[str, float] | None=None) -> float` ([source](../../../../../../src/learnloop/figures/spec.py), line 1184)
-- `prediction_outcome(compiled: CompiledFigure, index: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1191) — What a prediction observes and its right answer, decided by code.
+- `class SpecError(ValueError)` ([source](../../../../../../src/learnloop/figures/spec.py), line 113) — A spec outside the schema, the caps or the grammar; ``problems`` lists why.
+  - `__init__(self, problems: Sequence[str]) -> None` (line 116; internal)
+- `class SourceClaim(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 130)
+- `class Region(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 135)
+- `class Assumption(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 140)
+- `class Parameter(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 146)
+- `class Definition(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 156)
+- `class Axis(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 161)
+- `class Series(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 167)
+- `class Marker(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 172)
+- `class Shade(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 177)
+- `class FunctionPlot(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 185)
+- `class Highlight(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 193)
+- `class PmfBars(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 199)
+- `class LinearMap2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 206)
+- `class Readout(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 213)
+- `class GridAxis(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 220) — A heat map's or vector field's axis: ``cells`` intervals, ``cells + 1`` samples.
+- `class Heatmap2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 229)
+- `class FieldHeatmap(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 239) — The heat map under a vector field's arrows (its axes are the field's).
+- `class VectorField2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 248)
+- `class Trajectory2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 258)
+- `class Iterate2D(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 274)
+- `class Invariant(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 293)
+- `class Observe(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 308)
+- `class Prediction(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 313)
+- `class Annotation(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 319)
+- `class InteractiveFigureSpecV1(_Strict)` ([source](../../../../../../src/learnloop/figures/spec.py), line 324)
+  - `dump(self) -> dict[str, Any]` (line 338; public)
+  - `canonical_json(self) -> str` (line 341; public)
+- `class CompiledPanel` ([source](../../../../../../src/learnloop/figures/spec.py), line 350)
+- `class CompiledFigure` ([source](../../../../../../src/learnloop/figures/spec.py), line 357)
+  - `defaults(self) -> dict[str, float]` (line 367; public)
+  - `shade_labels(self) -> list[str]` (line 370; public)
+- `expanded_free(node: G.Node, definitions: Mapping[str, G.Node], bound: frozenset[str]=frozenset(), _seen: tuple[str, ...]=()) -> set[str]` ([source](../../../../../../src/learnloop/figures/spec.py), line 374) — The variables and parameters ``node`` needs, definitions expanded where they are used (a bound variable reaches a definition's body).
+- `advanced_expressions(panel: Any) -> list[str]` ([source](../../../../../../src/learnloop/figures/spec.py), line 698) — Every expression of a RW5b panel.
+- `expression_work(node: G.Node, definitions: Mapping[str, G.Node], parameters: Sequence[Parameter], ranges: Mapping[str, tuple[float, float]], _seen: tuple[str, ...]=()) -> int` ([source](../../../../../../src/learnloop/figures/spec.py), line 753) — How many nodes one evaluation of ``node`` visits at most, definitions expanded and a sum's body counted once per term (figureSpec.ts's expressionWork).
+- `advanced_kinds(spec: InteractiveFigureSpecV1 | Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/figures/spec.py), line 771) — The RW5b panel kinds a spec (or its JSON mapping) uses, in order.
+- `parse_spec(raw: str | Mapping[str, Any], *, advanced: bool=True) -> CompiledFigure` ([source](../../../../../../src/learnloop/figures/spec.py), line 779) — A spec from its JSON (or mapping), validated and compiled, or :class:`SpecError`.
+- `parse_salvaging_predictions(raw: Any, parse: Callable[[Any], Any], model: type[BaseModel], error: type[Exception]) -> tuple[Any, list[str]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 832) — An author's answer parsed by ``parse``, keeping the figure when only an optional prediction is bad.
+- `parse_author_spec(raw: Any, *, advanced: bool=True) -> tuple[CompiledFigure, list[str]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 878) — :func:`parse_spec` for an author's answer (:func:`parse_salvaging_predictions`).
+- `plot_xs(axis: Axis) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 898)
+- `bar_ks(axis: Axis) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 902) — The bars' k values: counted from the support's start, at most :data:`MAX_BARS` of them (fix round 2; validation refuses more).
+- `shade_value(compiled: CompiledFigure, panel: CompiledPanel, shade_index: int, env: Mapping[str, float]) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 910) — A shaded area's clipped bounds and its value (the linked readout).
+- `highlight_value(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 933)
+- `derived_bounds(compiled: CompiledFigure, panel_index: int, kind: str, index: int, env: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 952) — The bounds a derived label states (RW5c §7.2, Codex review F2): the ones the evaluator used, whatever the author's bound expressions say.
+- `evaluate_panel(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 990)
+- `grid_points(axis: Any, cells: int) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1041) — ``cells + 1`` samples from ``axis.min`` to ``axis.max``.
+- `escape_box(axis: Any) -> tuple[float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1070) — The window a path may stay in: the axis range padded by :data:`ESCAPE_MARGIN` of its span.
+- `evaluate_figure(compiled: CompiledFigure, params: Mapping[str, float] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1173) — Every panel's data at ``params`` (defaults for the rest).
+- `observed(compiled: CompiledFigure, index: int, params: Mapping[str, float] | None=None) -> float` ([source](../../../../../../src/learnloop/figures/spec.py), line 1183)
+- `prediction_outcome(compiled: CompiledFigure, index: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1190) — What a prediction observes and its right answer, decided by code.
 
 ### Module constants
 
-- `SPEC_VERSION` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 49)
-- `SKETCH_VERSION` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 53)
-- `MANIM_FIG_VERSION` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 54)
-- `SPEC_VERSIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 56)
-- `RICH_SPEC_VERSIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 59)
-- `ALL_SPEC_VERSIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 60)
-- `SAMPLES` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 62)
-- `MAX_PARAMETERS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 63)
-- `MAX_DEFINITIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 64)
-- `MAX_PANELS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 65)
-- `MAX_SERIES` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 66)
-- `MAX_SHADES` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 67)
-- `MAX_MARKERS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 68)
-- `MAX_INVARIANTS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 69)
-- `MAX_PREDICTIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 70)
-- `MAX_ANNOTATIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 71)
-- `MAX_ASSUMPTIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 72)
-- `MAX_CLAIMS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 73)
-- `MAX_BARS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 74)
-- `MAX_TEXT` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 75)
-- `MAX_LABEL` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 76)
-- `MAX_QUOTE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 77)
-- `MAX_STEPS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 78)
-- `MAX_DOMAIN_SPAN` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 81)
-- `ADVANCED_KINDS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 83)
-- `MAX_HEATMAP_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 86)
-- `DEFAULT_HEATMAP_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 87)
-- `MAX_FIELD_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 88)
-- `DEFAULT_FIELD_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 89)
-- `MAX_TRAJECTORY_STEPS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 90)
-- `DEFAULT_TRAJECTORY_STEPS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 91)
-- `MAX_ITERATIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 92)
-- `DEFAULT_ITERATIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 93)
-- `MAX_CONTOURS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 94)
-- `MAX_PANEL_WORK` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 98)
-- `ESCAPE_MARGIN` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 102)
-- `STOP_LEFT` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 104)
-- `STOP_NOT_FINITE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 105)
-- `STOP_OUTSIDE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 106)
-- `DIRECTIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 108)
-- `DIRECTION_LABELS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 109)
-- `SAME_TOLERANCE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 111)
-- `INVARIANT_KINDS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 289)
-- `RANGED_INVARIANTS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 291)
-- `ADVANCED_MODELS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 696)
-- `_PREDICTION_PROBLEM` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 812)
+- `SPEC_VERSION` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 48)
+- `SKETCH_VERSION` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 52)
+- `MANIM_FIG_VERSION` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 53)
+- `SPEC_VERSIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 55)
+- `RICH_SPEC_VERSIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 58)
+- `ALL_SPEC_VERSIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 59)
+- `SAMPLES` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 61)
+- `MAX_PARAMETERS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 62)
+- `MAX_DEFINITIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 63)
+- `MAX_PANELS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 64)
+- `MAX_SERIES` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 65)
+- `MAX_SHADES` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 66)
+- `MAX_MARKERS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 67)
+- `MAX_INVARIANTS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 68)
+- `MAX_PREDICTIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 69)
+- `MAX_ANNOTATIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 70)
+- `MAX_ASSUMPTIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 71)
+- `MAX_CLAIMS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 72)
+- `MAX_BARS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 73)
+- `MAX_TEXT` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 74)
+- `MAX_LABEL` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 75)
+- `MAX_QUOTE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 76)
+- `MAX_STEPS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 77)
+- `MAX_DOMAIN_SPAN` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 80)
+- `ADVANCED_KINDS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 82)
+- `MAX_HEATMAP_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 85)
+- `DEFAULT_HEATMAP_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 86)
+- `MAX_FIELD_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 87)
+- `DEFAULT_FIELD_CELLS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 88)
+- `MAX_TRAJECTORY_STEPS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 89)
+- `DEFAULT_TRAJECTORY_STEPS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 90)
+- `MAX_ITERATIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 91)
+- `DEFAULT_ITERATIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 92)
+- `MAX_CONTOURS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 93)
+- `MAX_PANEL_WORK` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 97)
+- `ESCAPE_MARGIN` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 101)
+- `STOP_LEFT` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 103)
+- `STOP_NOT_FINITE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 104)
+- `STOP_OUTSIDE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 105)
+- `DIRECTIONS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 107)
+- `DIRECTION_LABELS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 108)
+- `SAME_TOLERANCE` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 110)
+- `INVARIANT_KINDS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 288)
+- `RANGED_INVARIANTS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 290)
+- `ADVANCED_MODELS` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 695)
+- `_PREDICTION_PROBLEM` ([src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py), line 811)
 
 ### Explicit exports
 
@@ -192,21 +192,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Strict(BaseModel)` ([source](../../../../../../src/learnloop/figures/spec.py), line 122)
-- `class _Compiler` ([source](../../../../../../src/learnloop/figures/spec.py), line 402)
-- `_cells(panel: Any, axis: GridAxis) -> int` ([source](../../../../../../src/learnloop/figures/spec.py), line 712)
-- `_overlay_cells(overlay: FieldHeatmap) -> int` ([source](../../../../../../src/learnloop/figures/spec.py), line 718)
-- `_bound_range(node: G.Node, parameters: Sequence[Parameter], ranges: Mapping[str, tuple[float, float]]) -> tuple[float, float] | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 722) — The values a sum's bound can take, when the compiler can tell: a number (or its negation), a parameter (its min..max) or a grid axis.
-- `_sum_terms(node: G.Node, parameters: Sequence[Parameter], ranges: Mapping[str, tuple[float, float]]) -> int | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 740) — The most terms a sum can have (its bounds' widest reach), or None when its bounds are not countable.
-- `_flat_change(prediction: Any) -> Any` ([source](../../../../../../src/learnloop/figures/spec.py), line 815) — ``{"param": "lam", "value": 1}``, the author's misreading, as ``{"lam": 1}``.
-- `_prediction_note(prediction: Any, problem: str) -> str` ([source](../../../../../../src/learnloop/figures/spec.py), line 828)
-- `_num(value: float) -> float | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 889) — A shown value: None when not finite, never -0 (fix round 3).
-- `_value(node: G.Node | None, env: Mapping[str, float], definitions: Mapping[str, G.Node]) -> float` ([source](../../../../../../src/learnloop/figures/spec.py), line 895)
-- `_sum_integers(low: float, high: float) -> list[int] | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 983) — The integers :func:`grammar.exact_sum` runs over: its own rule and slack.
-- `_grid_values(node: G.Node | None, xs: Sequence[float], ys: Sequence[float], xv: str, yv: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> list[list[float | None]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1048) — Rows by y, columns by x.
-- `_heatmap_data(node: G.Node | None, contours: Sequence[G.Node | None], xs: list[float], ys: list[float], xv: str, yv: str, label: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1064)
-- `_path(model: Any, nodes: Mapping[str, Any], env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1078) — A trajectory (fixed-step RK4) or an iterated map, cut where it leaves its padded window or stops being finite (``stopped``).
-- `_evaluate_advanced(panel: CompiledPanel, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1151)
+- `class _Strict(BaseModel)` ([source](../../../../../../src/learnloop/figures/spec.py), line 121)
+- `class _Compiler` ([source](../../../../../../src/learnloop/figures/spec.py), line 401)
+- `_cells(panel: Any, axis: GridAxis) -> int` ([source](../../../../../../src/learnloop/figures/spec.py), line 711)
+- `_overlay_cells(overlay: FieldHeatmap) -> int` ([source](../../../../../../src/learnloop/figures/spec.py), line 717)
+- `_bound_range(node: G.Node, parameters: Sequence[Parameter], ranges: Mapping[str, tuple[float, float]]) -> tuple[float, float] | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 721) — The values a sum's bound can take, when the compiler can tell: a number (or its negation), a parameter (its min..max) or a grid axis.
+- `_sum_terms(node: G.Node, parameters: Sequence[Parameter], ranges: Mapping[str, tuple[float, float]]) -> int | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 739) — The most terms a sum can have (its bounds' widest reach), or None when its bounds are not countable.
+- `_flat_change(prediction: Any) -> Any` ([source](../../../../../../src/learnloop/figures/spec.py), line 814) — ``{"param": "lam", "value": 1}``, the author's misreading, as ``{"lam": 1}``.
+- `_prediction_note(prediction: Any, problem: str) -> str` ([source](../../../../../../src/learnloop/figures/spec.py), line 827)
+- `_num(value: float) -> float | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 888) — A shown value: None when not finite, never -0 (fix round 3).
+- `_value(node: G.Node | None, env: Mapping[str, float], definitions: Mapping[str, G.Node]) -> float` ([source](../../../../../../src/learnloop/figures/spec.py), line 894)
+- `_sum_integers(low: float, high: float) -> list[int] | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 982) — The integers :func:`grammar.exact_sum` runs over: its own rule and slack.
+- `_grid_values(node: G.Node | None, xs: Sequence[float], ys: Sequence[float], xv: str, yv: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> list[list[float | None]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1047) — Rows by y, columns by x.
+- `_heatmap_data(node: G.Node | None, contours: Sequence[G.Node | None], xs: list[float], ys: list[float], xv: str, yv: str, label: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1063)
+- `_path(model: Any, nodes: Mapping[str, Any], env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1077) — A trajectory (fixed-step RK4) or an iterated map, cut where it leaves its padded window or stops being finite (``stopped``).
+- `_evaluate_advanced(panel: CompiledPanel, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1150)
 
 ## Who imports or calls it
 
@@ -337,6 +337,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_sketch_tier_is_never_checked`
   - `test_a_withheld_span_is_never_read`
   - `test_with_its_invariant_the_half_density_is_still_refused_at_step_two`
+- [tests/test_sketch_service.py](../../../../../../tests/test_sketch_service.py) — direct import
+  - `test_a_read_without_a_run_honours_only_a_failure_already_found`
 
 ## Modification guidance
 

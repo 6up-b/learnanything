@@ -305,6 +305,10 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["teacher"]["probes"] = True
     shaped["router"]["lesson_suggestions"].update(enabled=True, in_objective=True)
     shaped["data_capture"]["serving"] = True
+    # The figure content switches retired since (K10.16), at their defaults.
+    shaped["figures"].update({name: True for name in (
+        "predictions_enabled", "region_enabled", "revisions_enabled", "advanced_panels_enabled", "offers_enabled",
+        "show_me_enabled", "sketch_enabled", "checked_labels_enabled")})
     return shaped
 
 
@@ -533,6 +537,56 @@ def test_a_config_setting_todays_removed_switches_keeps_every_identity(tmp_path,
     for section, digest in expected.items():
         if section != "config":
             assert _sha256(dump[section]) == digest, section
+
+
+#: The figure content switches the owner retired (K10.16), each away from its default.
+FIGURE_SWITCHES_TOML = """\
+[figures]
+predictions_enabled = false
+region_enabled = false
+revisions_enabled = false
+advanced_panels_enabled = false
+offers_enabled = false
+show_me_enabled = false
+sketch_enabled = false
+checked_labels_enabled = false
+"""
+
+#: Recorded at ``04f574ae62`` (the eight switches all present) from a ``git archive`` extract on the same inputs:
+#: ``content_key`` of the whole identity dump and the sha256 of the ``figures`` section's identity dump.
+FIGURE_SWITCHES_BASE_IDENTITIES = {
+    "default": {"config": "cedf79e768aeaf8bf79a4444aadaab8eb8e4b5352354c65da48e2a3664a8d02f",
+                "figures": "7e326eacc45b16603d69068515f10a931fe62a8119ff8f78ea7f2558af1a6cf0"},
+    "switched": {"config": "c54d6c37717b503efc9f0a5a9151d59d342b0bb042b6ecda874ed4a0f66d726f",
+                 "figures": "5fdec944355bbcc5311a96206e6516d4ff54372e5c1246ff9ceb20d0c3eb3fb8"},
+}
+
+
+@pytest.mark.parametrize("case", ["default", "switched"])
+def test_a_config_setting_the_retired_figure_switches_keeps_every_identity(tmp_path, case):
+    from learnloop.config.retired import identity_dump
+
+    path = tmp_path / "switches.toml"
+    path.write_text(FIGURE_SWITCHES_TOML, encoding="utf-8")
+    config = LearnLoopConfig() if case == "default" else load_config(path, load_environment=False)
+    dump = identity_dump(config)
+    assert content_key(dump) == FIGURE_SWITCHES_BASE_IDENTITIES[case]["config"]
+    assert _sha256(dump["figures"]) == FIGURE_SWITCHES_BASE_IDENTITIES[case]["figures"]
+
+
+def test_a_vault_that_still_sets_a_retired_figure_switch_loads_and_the_switch_reads_nothing(tmp_path):
+    from learnloop.config.retired import RETIRED_FIELDS, identity_dump
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    append_config_toml(paths.root, FIGURE_SWITCHES_TOML)
+    config = load_vault(paths.root).config
+    retired = [field for field in RETIRED_FIELDS if field.removed_by == "K10.16"]
+    assert len(retired) == 8
+    for field in retired:
+        assert field.path[0] not in type(config.figures).model_fields, field
+        assert identity_dump(config)["figures"][field.path[0]] is False, field
 
 
 def test_every_removed_switch_is_in_the_switches_config_away_from_its_default():

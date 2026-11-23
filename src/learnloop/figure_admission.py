@@ -6,11 +6,12 @@ package: evidence-side code may use it without importing ``learnloop.figures``
 (the ``evidence-never-reads-figures`` contract).
 
 * :func:`figures_enabled` is the ONE switch predicate (``figures.enabled``),
-  with ONE default: off when a config has no ``figures`` section. RW5b's
-  :func:`advanced_panels_enabled` and :func:`offers_enabled` sit under it, and
-  :func:`offerable` is the one rule for which cited blocks an offer may name
-  (the library organizer and the tutor use it without importing the figure
-  package).
+  with ONE default: off when a config has no ``figures`` section. Offers,
+  "show me", predictions, regions, revisions, the advanced panels, the sketch
+  tier and the source check have no switch of their own: they are on wherever
+  figures are. :func:`offerable` is the one rule for which cited blocks an
+  offer may name (the library organizer and the tutor use it without importing
+  the figure package).
 * :class:`FiguresGate` is a :class:`~learnloop.ai.execution.RequestGate`. It
   records a key of the configuration when a unit of work starts (a build:
   the vault, the switch, the author route, the day's cap and the price; a
@@ -44,82 +45,10 @@ def figures_enabled(vault: Any) -> bool:
     return bool(getattr(getattr(config, "figures", None), "enabled", False))
 
 
-def advanced_panels_enabled(vault: Any) -> bool:
-    """RW5b: ``figures.advanced_panels_enabled`` under ``figures.enabled``
-    (heat maps, vector fields, trajectories and iterated maps)."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "advanced_panels_enabled", False))
-
-
-def offers_enabled(vault: Any) -> bool:
-    """RW5b: ``figures.offers_enabled`` under ``figures.enabled``: the library
-    organizer and the Reader tutor judge ``explorable`` on a cited equation or
-    figure block in the call they already make. Off, neither asks nor shows."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "offers_enabled", False))
-
-
 #: Reader RW5d P1: at most this many passages ground a figure goal (retrieved,
 #: or a tutor answer's cited ones). keep: prompt size (more passages dilute
 #: the author's context; spec_reader_show_me_figures_v1 §8.3, §15).
 GROUNDING_PASSAGES = 3
-
-
-def show_me_enabled(vault: Any) -> bool:
-    """Reader RW5d P1: ``figures.show_me_enabled`` under ``figures.enabled``:
-    "show me" takes the learner's words (and the Reader tutor may write an
-    optional figure goal). The one predicate the figure service and the
-    tutor read (this module stays a leaf: the tutor never imports the figure
-    service)."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "show_me_enabled", False))
-
-
-def sketch_enabled(vault: Any) -> bool:
-    """Reader RW5d P2: ``figures.sketch_enabled`` under ``figures.enabled``:
-    the sketch tier (a sealed, verified simulation when the grammar can't
-    express the idea). The switch only; whether this machine can run the
-    engine is :func:`learnloop.figures.sketch_engine.engine_ready`."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "sketch_enabled", False))
-
-
-def checked_labels_enabled(vault: Any) -> bool:
-    """Reader RW5c: ``figures.checked_labels_enabled`` under ``figures.enabled``:
-    code reads the book's equation and compares a figure's definition with it,
-    and a checked element carries code-owned labels. Off: no check runs, nothing
-    reads ``figure_source_checks`` and every view is RW5a/RW5d's."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "checked_labels_enabled", False))
-
-
-def predictions_enabled(vault: Any) -> bool:
-    """``figures.predictions_enabled`` under ``figures.enabled``: a figure asks
-    the learner to predict before it moves, and the answer is recorded."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "predictions_enabled", False))
-
-
-def region_enabled(vault: Any) -> bool:
-    """``figures.region_enabled`` under ``figures.enabled``: a box drawn over a
-    figure block asks for a figure of that region (only its crop is sent)."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "region_enabled", False))
-
-
-def revisions_enabled(vault: Any) -> bool:
-    """``figures.revisions_enabled`` under ``figures.enabled``: "not right?"
-    asks for a new version of a figure with the learner's note."""
-
-    config = getattr(vault, "config", vault)
-    return figures_enabled(config) and bool(getattr(config.figures, "revisions_enabled", False))
 
 
 def figure_home_keys(connection: Any, figure_id: str) -> list[tuple[str, str]] | None:
@@ -324,15 +253,15 @@ def author_learner_state_enabled(vault: Any) -> bool:
 
 
 def help_kind_enabled(vault: Any) -> bool:
-    """Reader RW5d P3: ``figures.help_kind_enabled`` under ``figures.enabled``
-    and ``figures.show_me_enabled``: figures inside an open attempt (the Ask
+    """Reader RW5d P3: ``figures.help_kind_enabled`` under ``figures.enabled``:
+    figures inside an open attempt (the Ask
     panel's *show me* on practice, feedback and the workbench, the cold take
     step, the chooser's ``explore_figure``, ``figure`` in the help outcomes).
     Off: none of these, and every hint, fold and outcome is the
     predecessor's byte for byte."""
 
     config = getattr(vault, "config", vault)
-    return show_me_enabled(config) and bool(getattr(config.figures, "help_kind_enabled", False))
+    return figures_enabled(config) and bool(getattr(config.figures, "help_kind_enabled", False))
 
 
 def teacher_visuals_enabled(vault: Any) -> bool:
@@ -490,7 +419,6 @@ __all__ = [
     "FIGURE_GOAL_OFFERED",
     "TUTOR_EXPLORABLE_TASK",
     "TUTOR_FIGURE_GOAL_TASK",
-    "advanced_panels_enabled",
     "author_learner_state_enabled",
     "help_kind_enabled",
     "explorable_yes",
@@ -501,10 +429,6 @@ __all__ = [
     "offer_kind",
     "offerable",
     "offerable_blocks",
-    "offers_enabled",
-    "predictions_enabled",
-    "region_enabled",
-    "revisions_enabled",
     "rich_tiers_enabled",
     "teacher_visuals_enabled",
     "text_key",

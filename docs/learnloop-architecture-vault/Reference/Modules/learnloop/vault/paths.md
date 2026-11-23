@@ -242,7 +242,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/reading_request_sweep_helpers.py](../../../../../../tests/reading_request_sweep_helpers.py) — direct import
 - [tests/ro1_availability_reads_helpers.py](../../../../../../tests/ro1_availability_reads_helpers.py) — direct import
-- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/section_question_parts_helpers.py](../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../../tests/sim_probe_validation_helpers.py) — direct import

@@ -17,7 +17,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
-from learnloop.figure_admission import predictions_enabled
+from learnloop.figure_admission import figures_enabled
 from learnloop.figures import sketch as K
 from learnloop.figures import spec as S
 from learnloop.figures.listing import shown_figure
@@ -41,8 +41,8 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
     (RW5d P3, Codex review F7): the open attempt's figure row it is made
     under (the caller derives it), kept on the row for the diagnoser."""
 
-    if not predictions_enabled(vault):
-        raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
+    if not figures_enabled(vault):
+        raise FigureRefused("figures_disabled", "Explorable figures are switched off (figures.enabled).")
     row, compiled = shown_figure(vault, repository, figure_id)
     # RW5d P3 (Codex review F9): an attempt host's illustration with nothing
     # from the learner's books keeps its predictions with no home (NULL),
@@ -110,8 +110,8 @@ def record_explanation(vault: Any, repository: Repository, prediction_id: str, t
     still queued, else as a later text of its own, the earlier reading kept
     (Codex review F5)."""
 
-    if not predictions_enabled(vault):
-        raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
+    if not figures_enabled(vault):
+        raise FigureRefused("figures_disabled", "Explorable figures are switched off (figures.enabled).")
     text = " ".join(str(text or "").split())[:EXPLANATION_CHARS]
     if not text:
         raise FigureRefused("validation_error", "Write a line, or leave it empty.")

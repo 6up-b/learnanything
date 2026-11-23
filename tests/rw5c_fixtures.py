@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.vault.writer import upsert_source_set
-from tests.figure_fixtures import seed_probability_book
+from tests.figure_fixtures import seed_probability_book, sketch_engine_absent
 from tests.source_service_fakes import build_textbook_vault, set_config
 from tests.source_inventory_helpers import _persist
 
@@ -18,18 +17,6 @@ FLAGSHIP_EXPR = "piecewise((x < 0, p*lambda*exp(lambda*x)), (1 - p)*lambda*exp(-
 HALF_EXPR = "piecewise((x < 0, 0.5*p*lambda*exp(lambda*x)), (1 - p)*lambda*exp(-lambda*x))"
 PARAMETERS = [{"name": "p", "label": "mixing weight", "min": 0.125, "max": 0.875, "step": 0.125, "default": 0.5},
               {"name": "lambda", "label": "rate", "min": 0.5, "max": 2.0, "step": 0.25, "default": 1.0}]
-
-
-def set_switch(paths: Any, enabled: bool) -> None:
-    """``figures.checked_labels_enabled`` set again and again (``set_config`` appends once per key)."""
-
-    config = paths.root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    value = "true" if enabled else "false"
-    if "checked_labels_enabled" in text:
-        config.write_text(re.sub(r"checked_labels_enabled = \w+", f"checked_labels_enabled = {value}", text), encoding="utf-8")
-    else:
-        set_config(paths, "figures", checked_labels_enabled=enabled)
 
 
 def seed_math_book(repository: Any, blocks: list[tuple[str, str, str]], *, extraction: str = EXTRACTION,
@@ -60,7 +47,8 @@ def seed_math_book(repository: Any, blocks: list[tuple[str, str, str]], *, extra
 def build_check_vault(root: Path, blocks: list[tuple[str, str, str]], *, extra_members: tuple[dict[str, str], ...] = (),
                       **seed: Any) -> tuple[Any, Any]:
     paths, repository, _spans = build_textbook_vault(root)
-    set_config(paths, "figures", sketch_enabled=False, rich_tiers_enabled=False)
+    set_config(paths, "figures", rich_tiers_enabled=False)
+    sketch_engine_absent()
     seed_probability_book(repository)
     seed_math_book(repository, blocks, **seed)
     upsert_source_set(paths.root, {
@@ -100,4 +88,4 @@ def plot(expr: str, *, name: str = "f", parameters: list[dict[str, Any]] | None 
 
 
 __all__ = ["EXTRACTION", "FLAGSHIP_EXPR", "FLAGSHIP_TEX", "HALF_EXPR", "PARAMETERS", "build_check_vault", "plot",
-           "seed_math_book", "set_switch"]
+           "seed_math_book"]

@@ -316,24 +316,22 @@ def _record_figure_goal(repository: Repository, event_id: str, goal: Mapping[str
 
 
 def tutor_show_me_enabled(vault: LoadedVault) -> bool:
-    """RW5d P1: the Reader tutor may write an optional ``figure_goal`` only
-    while RW5b's tutor offers are on and ``figures.show_me_enabled``; off,
-    its prompt and output are RW5b's (G-SM7)."""
+    """RW5d P1: the Reader tutor may write an optional ``figure_goal`` whenever
+    it judges ``explorable`` (:func:`tutor_explorable_enabled`); off, its prompt
+    and output are RW1c's (G-SM7)."""
 
-    from learnloop.figure_admission import show_me_enabled
-
-    return tutor_explorable_enabled(vault) and show_me_enabled(vault)
+    return tutor_explorable_enabled(vault)
 
 
 def tutor_explorable_enabled(vault: LoadedVault) -> bool:
     """RW5b: the Reader tutor judges ``explorable`` on cited equation and
-    figure blocks only while figure offers are on and RW1c's offers (the
-    buttons under an answer, where "make this explorable" shows) are on."""
+    figure blocks only while figures are on and RW1c's offers (the buttons
+    under an answer, where "make this explorable" shows) are on."""
 
-    from learnloop.figure_admission import offers_enabled
+    from learnloop.figure_admission import figures_enabled
 
     section = getattr(vault.config, "reader_tutor", None)
-    return offers_enabled(vault) and bool(getattr(section, "offers_enabled", False))
+    return figures_enabled(vault) and bool(getattr(section, "offers_enabled", False))
 
 
 def reader_span_key(extraction_id: str, span_id: str) -> str:
