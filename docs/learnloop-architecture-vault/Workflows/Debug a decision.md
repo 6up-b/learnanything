@@ -40,7 +40,9 @@ uv run learnloop why 01J9RECORD000000000000000 --json --vault "$VAULT"  # a reco
 uv run learnloop why attempt:att_example --json --vault "$VAULT"      # an attempt's grade, diagnosis, follow-up, evidence
 uv run learnloop why block:01J9BLOCK0000000000000000 --json --vault "$VAULT"   # a plan block's decision
 uv run learnloop why offer:01J9DECISION000000000000 --json --vault "$VAULT"    # a lesson offer, and its withdrawal
-uv run learnloop why figure:fig_example --json --vault "$VAULT"       # a figure's author attempts
+uv run learnloop why figure:fig_example --json --vault "$VAULT"       # a figure's author attempts, request and withholding
+uv run learnloop why --kind figure_request --json --vault "$VAULT"   # the latest figure request: why Show me did (not) work
+uv run learnloop why job:job_example --json --vault "$VAULT"          # a video job's attempts and why it stopped
 uv run learnloop why item:pi_example --json --vault "$VAULT"          # an item: scheduler explanation, slates, exclusion
 uv run learnloop why --kind figure_prebuild --first-build --json --vault "$VAULT"
 ```
@@ -92,6 +94,10 @@ A field found only by ordering rows in time is listed in that answer's `inferred
 **Why pre-builds started.** `why --kind figure_prebuild --first-build --json` gives `first_build.last_skip` (`no_measured_latency`), `first_build.first_build` (`sampled_eu_positive`), `changed` (`waits_n: [0, 1]`, `wait_basis: ["none", "author_call"]`), `first_measurement` and `measurement_between: true`.
 
 **What a pre-build's wait was made of.** From mvp-0.58 (the figure wait estimate, `prefetch_decision_v2`) a `figure_prebuild` record's inputs carry `wait_estimate_by_tier`: per quick tier, the pressed builds' author calls (`pressed_n`, `pressed_min`), the prior from the other measured calls, the pre-builder's own (`prior_n`, `prior_min`, `prior_strength`: one measurement), and `posterior_min`, the W the draw read (`wait_min`). `blocked_basis` says what the pause cost counted: `refused` foreground failures inside a pause window, the pre-builder's own failures left out (`background_left_out`), the foreground calls behind the latency (`latency_calls`) and the `pauses`. A record under `prefetch_decision_v1` (the switch `figures.prefetch.pressed_waits` off, or a vault below the tag) has neither: its W read every author call alike.
+
+**Why Show me didn't work.** `why --kind figure_request --json` gives the latest request's `figure_request` record: `status = refused` with its `rule` (`exam_material`, `cold_check`, `unpriced`, ...), or `reused` with `inputs.matched`, and `inputs.tiers_allowed` with `inputs.tiers_absent` (`{"manim": "no_opt_in", "sketch": "no_engine"}`: why no video was on the menu). A request stopped by the figure gate names `gate_rule` and, for a hold, `held` (`cancelled`, `power`, `plan`, `learner_state`, ...); the gate's own `figure_admission` record has the same subject. A figure that disappeared from the list has a `figure_withheld` record (`pick_withheld`, `spec_unparsable`, `withheld_at_delivery`).
+
+**Why a video failed.** `why job:job_example --json` lists one `figure_rich_author` record per attempt (`claim_failed`, then `render_failed`, then `render_repaired`) and, when the job stored nothing, its `figure_rich_stop` (`capped`, `unpriced`, `waiting_for_plan` as `deferred`). The stop record survives a requeue, which rewrites the job's error.
 
 **A practice item's stored row is malformed.** `why item:pi_example --json` still answers: `source = "unavailable"` with `explanation_error` naming the exception class, where it was raised and the bad rows (`{"table": "followup_tasks", "id": "...", "column": "context_json"}`), never their content.
 
