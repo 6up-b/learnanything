@@ -293,3 +293,21 @@ three counts moved (above) and `desktop_generate.py` describes the five new area
 - The landing gate, the whole Python suite and `npm run frontend:build` (not run here, per the brief); the vault's
   generated references (the landing regenerates them; `desktop_validate.py` reports only the missing and stale notes
   of the new and changed files).
+
+## 9. After the orchestrator's first read: fonts, the impression gate, and main merged
+
+The orchestrator accepted judgment calls 1–6 and asked for three changes. **Fonts** now ship (deviation 7, rewritten:
+Fontsource variable packages, SIL OFL 1.1, named in `LICENSES.txt`). **The margin-mark impression gate** now has a
+fail-first test (§3's table). **Main** (`f7becdf2ea`: mvp-0.67, migration 265) merged without conflict. Nothing on main
+touched the frontend, the desks or their dependencies.
+
+| Command (after the merge) | Result |
+|---|---|
+| `npm run typecheck` | exit 0 |
+| `npm run frontend:build` | built; largest output file 1.86 MB (the main bundle), fonts about 1.5 MB of WOFF2 in all |
+| vitest over app, desks, fixtures, api, ReaderScreen, reader, PdfReaderPane | 192 files, 2096 tests passed |
+| the harness (before the merge, with the fonts; nothing it builds changed in the merge) | 30 passed, 0 failed |
+| `tests/test_reader_rd1_model_parity.py`, `test_identity_pins.py`, `test_structure_ratchets.py`, `test_public_tip_guards.py` | 375 passed |
+| `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
+| `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / Contracts: 52 kept, 0 broken. / collected 33251: landing 33185 + arc_close 66 |
+| `desktop_validate.py` | no count drift; only the regeneration errors (missing notes for the new files, stale notes for the changed ones, the reproducibility diff) |
