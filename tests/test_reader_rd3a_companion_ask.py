@@ -21,12 +21,17 @@ from pydantic import ValidationError
 from learnloop.db.connection import connect
 from learnloop.substrate.passage_spans import rebuild_question_event_spans
 from learnloop_sidecar.errors import SidecarError
-from tests.companion_rd3a_helpers import WAIT, HeldTutor, ask_params, seed_desk, seed_pad, wait_job
-from tests.reader_tutor_fakes import reader_ctx
+from tests.companion_rd3a_helpers import WAIT, HeldTutor, ask_params, seed_desk, seed_pad, wait_job, workbench_contexts
 from tests.reading_path_fixtures import call
 
 COMPANION_ASK_RPCS = ("companion.ask", "companion.ask_job", "companion.ask_cancel")
 
+
+
+@pytest.fixture
+def workbench(tmp_path, monkeypatch):
+    with workbench_contexts(tmp_path, monkeypatch) as make:
+        yield make
 
 def _rows(repository: Any, sql: str, params: tuple[Any, ...] = ()) -> list[tuple[Any, ...]]:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -63,7 +68,8 @@ class _Lines:
 
     def __init__(self, stream: Any) -> None:
         self.lines: queue.Queue[str] = queue.Queue()
-        threading.Thread(target=self._pump, args=(stream,), daemon=True).start()
+        self.pump = threading.Thread(target=self._pump, args=(stream,), daemon=True)
+        self.pump.start()
 
     def _pump(self, stream: Any) -> None:
         for line in stream:
@@ -102,14 +108,17 @@ def _serial_loop() -> Iterator[tuple[Callable[[int, str, dict[str, Any]], None],
             writer.close()
             loop.join(WAIT)
         assert not loop.is_alive()
+    # The loop's stdout is closed: the pump reads its end and returns.
+    replies.pump.join(WAIT)
+    assert not replies.pump.is_alive()
 
 
-def test_a_second_rpc_is_served_while_a_generation_is_held(tmp_path, monkeypatch):
+def test_a_second_rpc_is_served_while_a_generation_is_held(workbench, monkeypatch):
     """The mutex proof: the real serial loop (``server.serve``) answers ``companion.ask`` with its job, then
     serves ``desk.state`` and a poll, all while the tutor's model request is held inside ``complete``."""
 
     tutor = HeldTutor()
-    paths, _ctx, _repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    paths, _ctx, _repository, _spans = workbench(tutor)
     with _serial_loop() as (send, replies):
         try:
             send(1, "initialize", {"vaultPath": str(paths.root)})
@@ -140,9 +149,9 @@ def test_a_second_rpc_is_served_while_a_generation_is_held(tmp_path, monkeypatch
         assert polled["citations"] == polled["answer"]["citations"] and polled["questionEventId"]
 
 
-def test_the_job_answers_with_the_reader_asks_reply_and_reader_ask_still_answers(tmp_path, monkeypatch):
+def test_the_job_answers_with_the_reader_asks_reply_and_reader_ask_still_answers(workbench, monkeypatch):
     tutor = HeldTutor(hold=False)
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, repository, _spans = workbench(tutor)
     started = call(ctx, "companion.ask", ask_params("req_core"))
     assert started["requestId"] == "req_core" and started["version"] == 1
     done = wait_job(ctx, "req_core")
@@ -155,9 +164,9 @@ def test_the_job_answers_with_the_reader_asks_reply_and_reader_ask_still_answers
     assert _question_count(repository) == 2 and len(tutor.prompts) == 2
 
 
-def test_a_repeated_request_id_answers_the_same_job_and_asks_once(tmp_path, monkeypatch):
+def test_a_repeated_request_id_answers_the_same_job_and_asks_once(workbench, monkeypatch):
     tutor = HeldTutor()
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, repository, _spans = workbench(tutor)
     first = call(ctx, "companion.ask", ask_params("req_once"))
     assert tutor.entered.wait(WAIT)
     again = call(ctx, "companion.ask", ask_params("req_once"))
@@ -171,11 +180,11 @@ def test_a_repeated_request_id_answers_the_same_job_and_asks_once(tmp_path, monk
     assert after == done and len(tutor.prompts) == 1 and _question_count(repository) == 1
 
 
-def test_a_finished_job_dropped_from_memory_is_answered_as_expired_never_asked_again(tmp_path, monkeypatch):
+def test_a_finished_job_dropped_from_memory_is_answered_as_expired_never_asked_again(workbench):
     from learnloop_sidecar import polled_jobs as PJ
 
     tutor = HeldTutor(hold=False)
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, repository, _spans = workbench(tutor)
     ctx.companion_ask_jobs = PJ.PolledJobs(kept=1)
     call(ctx, "companion.ask", ask_params("req_a"))
     first = wait_job(ctx, "req_a")
@@ -189,9 +198,9 @@ def test_a_finished_job_dropped_from_memory_is_answered_as_expired_never_asked_a
     assert len(tutor.prompts) == 2 and _question_count(repository) == 2
 
 
-def test_a_failed_generation_is_reported_and_an_unknown_job_is_said_to_be_gone(tmp_path, monkeypatch):
+def test_a_failed_generation_is_reported_and_an_unknown_job_is_said_to_be_gone(workbench, monkeypatch):
     tutor = HeldTutor(hold=False, fail=TimeoutError("offline"))
-    _paths, ctx, _repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, _repository, _spans = workbench(tutor)
     call(ctx, "companion.ask", ask_params("req_fail"))
     failed = wait_job(ctx, "req_fail")
     assert (failed["status"], failed["done"], failed["answer"], failed["partialMd"]) == ("failed", True, None, "")
@@ -223,9 +232,9 @@ def _hold_before_the_tutor(monkeypatch) -> tuple[threading.Event, threading.Even
     return reached, release
 
 
-def test_a_job_cancelled_before_its_request_is_sent_sends_nothing(tmp_path, monkeypatch):
+def test_a_job_cancelled_before_its_request_is_sent_sends_nothing(workbench, monkeypatch):
     tutor = HeldTutor(hold=False)
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, repository, _spans = workbench(tutor)
     reached, release = _hold_before_the_tutor(monkeypatch)
     call(ctx, "companion.ask", ask_params("req_cancel"))
     assert reached.wait(WAIT)
@@ -239,9 +248,9 @@ def test_a_job_cancelled_before_its_request_is_sent_sends_nothing(tmp_path, monk
     assert _rows(repository, "SELECT answer_status FROM question_events") in ([], [("failed",)])
 
 
-def test_a_job_cancelled_after_its_request_was_sent_keeps_the_exchange(tmp_path, monkeypatch):
+def test_a_job_cancelled_after_its_request_was_sent_keeps_the_exchange(workbench, monkeypatch):
     tutor = HeldTutor()
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, repository, _spans = workbench(tutor)
     seed_desk(ctx)
     call(ctx, "companion.ask", ask_params("req_late", surface="desk", deskId="d1"))
     assert tutor.entered.wait(WAIT)
@@ -256,9 +265,9 @@ def test_a_job_cancelled_after_its_request_was_sent_keeps_the_exchange(tmp_path,
     assert call(ctx, "companion.ask_cancel", {"requestId": "req_late"}) == final
 
 
-def test_closing_the_context_interrupts_a_job_honestly(tmp_path, monkeypatch):
+def test_closing_the_context_interrupts_a_job_honestly(workbench, monkeypatch):
     tutor = HeldTutor(hold=False)
-    _paths, ctx, _repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, _repository, _spans = workbench(tutor)
     reached, release = _hold_before_the_tutor(monkeypatch)
     call(ctx, "companion.ask", ask_params("req_closed"))
     assert reached.wait(WAIT)
@@ -269,9 +278,9 @@ def test_closing_the_context_interrupts_a_job_honestly(tmp_path, monkeypatch):
     assert tutor.prompts == []
 
 
-def test_the_exchange_context_is_recorded_and_its_passages_equal_a_rebuild(tmp_path, monkeypatch):
+def test_the_exchange_context_is_recorded_and_its_passages_equal_a_rebuild(workbench, monkeypatch):
     tutor = HeldTutor(hold=False)
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, repository, _spans = workbench(tutor)
     seed_desk(ctx)
     seed_pad(ctx, blocks={"b1": "why does swapping flip the sign?"}, desk_id="d1", seq=3)
     call(ctx, "companion.ask", ask_params("req_ctx", surface="desk", deskId="d1", padBlockIds=["b1"]))
@@ -297,9 +306,9 @@ def test_the_exchange_context_is_recorded_and_its_passages_equal_a_rebuild(tmp_p
     assert _rows(repository, spans_sql) == live
 
 
-def test_refusals_come_back_on_the_request_and_start_no_job(tmp_path, monkeypatch):
+def test_refusals_come_back_on_the_request_and_start_no_job(workbench, monkeypatch):
     tutor = HeldTutor(hold=False)
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    _paths, ctx, repository, _spans = workbench(tutor)
     seed_desk(ctx)
     seed_pad(ctx, blocks={"b1": "kept"}, seq=3)
     call(ctx, "pad.apply", {"clientId": "c", "seq": 4, "padId": "p1", "ops": [

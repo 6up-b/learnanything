@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any
 
-from tests.reader_tutor_fakes import ROOT_QUESTION, LookupTutor
+from tests.reader_tutor_fakes import ROOT_QUESTION, LookupTutor, reader_ctx
 from tests.reading_path_fixtures import call
 
 #: How long a test waits on a job or a held fake before it fails (never reached when the code is right).
@@ -44,6 +46,43 @@ class HeldTutor(LookupTutor):
             if self.fail is not None:
                 raise self.fail
             return super().complete(request)
+
+
+def close_and_wait(ctx: Any) -> None:
+    """End a context as the sidecar does (``SidecarContext.close``: every owner told to stop and joined, bounded),
+    then wait for every polled job's thread and every background job, so nothing a test started outlives it.
+    A thread still alive after the bound fails the test, naming it."""
+
+    ctx.close()
+    deadline = time.monotonic() + WAIT
+    threads = [*ctx.background_jobs.running]
+    for name in ("companion_ask_jobs", "search_jobs"):
+        registry = getattr(ctx, name, None)
+        if registry is not None:
+            threads += [job.thread for job in list(registry._jobs.values()) if job.thread is not None]
+    for thread in threads:
+        thread.join(max(0.0, deadline - time.monotonic()))
+    alive = [thread.name for thread in threads if thread.is_alive()]
+    assert not alive, f"threads still running after the context closed: {alive}"
+
+
+@contextmanager
+def workbench_contexts(tmp_path: Any, monkeypatch: Any) -> Iterator[Callable[..., tuple[Any, Any, Any, Any]]]:
+    """Makes ``reader_ctx`` contexts (the library vault with the tutor fake); each is closed and waited for at the
+    end (a test file's ``workbench`` fixture wraps this, so every job a test starts ends inside that test)."""
+
+    made: list[tuple[Any, LookupTutor]] = []
+
+    def make(tutor: LookupTutor, **kwargs: Any) -> tuple[Any, Any, Any, Any]:
+        paths, ctx, repository, spans = reader_ctx(tmp_path, monkeypatch, tutor, **kwargs)
+        made.append((ctx, tutor))
+        return paths, ctx, repository, spans
+
+    yield make
+    for ctx, tutor in made:
+        if isinstance(tutor, HeldTutor):
+            tutor.release.set()  # a test that failed while holding never leaves its job waiting
+        close_and_wait(ctx)
 
 
 def ask_params(request_id: str = "req_1", question: str = ROOT_QUESTION, **extra: Any) -> dict[str, Any]:

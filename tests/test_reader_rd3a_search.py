@@ -12,25 +12,30 @@ from pydantic import ValidationError
 
 from learnloop.db.repositories import Repository
 from learnloop_sidecar.errors import SidecarError
-from tests.companion_rd3a_helpers import WAIT, HeldTutor, ask_params, seed_desk, seed_pad, wait_job
+from tests.companion_rd3a_helpers import WAIT, HeldTutor, ask_params, seed_desk, seed_pad, wait_job, workbench_contexts
 from tests.desk_helpers import seed_gap, seed_reading
-from tests.reader_tutor_fakes import reader_ctx
 from tests.reading_path_fixtures import call
 
 SEARCH_RPCS = ("search.everything", "search.job")
 GROUPS = ["sources", "passages", "notes", "pads", "threads", "exchanges"]
 
 
+
+@pytest.fixture
+def workbench(tmp_path, monkeypatch):
+    with workbench_contexts(tmp_path, monkeypatch) as make:
+        yield make
+
 def _groups(reply: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {entry["group"]: entry for entry in reply["groups"]}
 
 
 @pytest.fixture
-def searchable(tmp_path, monkeypatch):
+def searchable(workbench, monkeypatch):
     """The library vault with one answered Reader exchange, a desk on the text, a pad and a gap reading."""
 
     tutor = HeldTutor(hold=False, answer_md="Swapping two rows flips the sign of the determinant.")
-    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    paths, ctx, repository, _spans = workbench(tutor)
     seed_desk(ctx)
     call(ctx, "companion.ask", ask_params("req_seed", surface="desk", deskId="d1"))
     exchange = wait_job(ctx, "req_seed")
