@@ -10,7 +10,7 @@ from typing import Any
 
 _DESK_FIELDS = frozenset({"title", "position", "focus_window_id", "goal_id", "companion_dock", "companion_shown",
                           "archived_at"})
-_WINDOW_FIELDS = frozenset({"desk_id", "slot", "pane", "active", "view_json", "closed_at"})
+_WINDOW_FIELDS = frozenset({"desk_id", "slot", "pane", "active", "view_json", "spec_json", "closed_at"})
 
 
 def _rows(connection: sqlite3.Connection, sql: str, params: Iterable[Any] = ()) -> list[dict[str, Any]]:

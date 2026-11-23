@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from learnloop.desks.workspace import desk_state
-from learnloop.pads.blocks import pad_view
+from learnloop.pads.blocks import pad_list, pad_view
 from tests.desk_helpers import Batches, seed_reading, source_ref
 from tests.reader_rd4_helpers import PAD, create_pad, edit, head_of, insert, pad_jobs, pad_vault, settle
 
@@ -80,3 +80,73 @@ def test_the_server_places_a_block_between_two_keys_as_the_client_does(a, b):
 
     key = key_between(a, b)
     assert (a is None or a < key) and (b is None or key < b) and not key.endswith("0")
+
+
+# -- findings 7 and 8: stack membership as its own op; the running pad ensured in one place ----------------------
+
+
+def _desk_with_stack(tmp_path):
+    paths, repository, device_a = pad_vault(tmp_path)
+    device_b = Batches(repository, client_id="client_b")
+    create_pad(device_a)
+    device_a.desk({"op": "create_desk", "desk_id": "d1", "title": "maps", "position": "a0"},
+                  {"op": "open_window", "desk_id": "d1", "window_id": "w_stack", "expected_version": 1,
+                   "stack": [{"kind": "pad", "pad_id": PAD}], "view": {"active_pad": PAD}})
+    return paths, repository, device_a, device_b
+
+
+def _stack(repository, window_id="w_stack", desk_id="d1"):
+    desk = next(d for d in desk_state(repository)["desks"] if d["desk_id"] == desk_id)
+    window = next(w for slot in desk["slots"] for w in slot["windows"] if w["window_id"] == window_id)
+    return [entry["pad_id"] for entry in window["stack"]], window["view"]
+
+
+def test_a_pad_added_to_a_stack_survives_another_devices_desk_change_and_its_view_write(tmp_path):
+    """Device B changes the desk (a whole-view write) while device A creates a pad and adds it to the stack against
+    an older desk version: the addition still lands, and B's view stays (review finding 7)."""
+
+    paths, repository, device_a, device_b = _desk_with_stack(tmp_path)
+    device_b.desk({"op": "set_view", "desk_id": "d1", "window_id": "w_stack", "expected_version": 2,
+                   "view": {"active_pad": PAD, "split": [0.5, 0.5]}})
+    create_pad(device_a, "pad_2", kind="named")
+    reply = device_a.desk({"op": "add_to_stack", "desk_id": "d1", "window_id": "w_stack", "expected_version": 2,
+                           "entry": {"kind": "pad", "pad_id": "pad_2"}})
+    assert reply["results"][0]["status"] == "ok" and reply["results"][0]["changed"] is True
+    again = device_b.desk({"op": "add_to_stack", "desk_id": "d1", "window_id": "w_stack",
+                           "entry": {"kind": "pad", "pad_id": "pad_2"}})
+    assert again["results"][0]["changed"] is False  # a union: never a duplicate tab
+    stack, view = _stack(repository)
+    assert stack == [PAD, "pad_2"] and view == {"active_pad": PAD, "split": [0.5, 0.5]}
+    # A whole-view write never drops a tab: membership lives apart from the view.
+    device_b.desk({"op": "set_view", "desk_id": "d1", "window_id": "w_stack", "expected_version": 5, "view": {}})
+    assert _stack(repository)[0] == [PAD, "pad_2"]
+    removed = device_a.desk({"op": "remove_from_stack", "desk_id": "d1", "window_id": "w_stack",
+                             "entry": {"kind": "pad", "pad_id": "pad_2"}})
+    assert removed["results"][0]["changed"] is True and _stack(repository)[0] == [PAD]
+    last = device_a.desk({"op": "remove_from_stack", "desk_id": "d1", "window_id": "w_stack",
+                          "entry": {"kind": "pad", "pad_id": PAD}})
+    assert last["results"][0] == {"status": "refused", "code": "last_in_stack",
+                                  "message": "A stack holds at least one pad: close the window instead."}
+    missing = device_a.desk({"op": "add_to_stack", "desk_id": "d1", "window_id": "w_stack",
+                             "entry": {"kind": "pad", "pad_id": "pad_nope"}})
+    assert missing["results"][0]["code"] == "pad_not_found"
+
+
+def test_the_running_pad_is_ensured_once_with_its_stack_on_a_new_desk_and_an_old_one(tmp_path):
+    paths, repository, device_a, device_b = _desk_with_stack(tmp_path)
+    device_a.desk({"op": "create_desk", "desk_id": "d2", "title": "fresh", "position": "a1"})
+    fresh = device_a.desk({"op": "ensure_running_pad", "desk_id": "d2", "pad_id": "run_d2", "window_id": "w_run",
+                           "title": "Running"})
+    assert fresh["results"][0] == {"status": "ok", "pad_id": "run_d2", "window_id": "w_run", "created_pad": True,
+                                   "created_window": True, "added_to_stack": False}
+    assert _stack(repository, "w_run", "d2")[0] == ["run_d2"]
+    assert "run_d2" in desk_state(repository)["running_pad_ids"]
+    # Again, from the other device with its own ids: the same pad and window, nothing created.
+    again = device_b.desk({"op": "ensure_running_pad", "desk_id": "d2", "pad_id": "run_other", "window_id": "w_other"})
+    assert again["results"][0] == {"status": "ok", "pad_id": "run_d2", "window_id": "w_run", "created_pad": False,
+                                   "created_window": False, "added_to_stack": False}
+    # An existing desk with a stack but no running pad: the running pad joins that stack.
+    old = device_a.desk({"op": "ensure_running_pad", "desk_id": "d1", "pad_id": "run_d1", "window_id": "w_unused"})
+    assert old["results"][0]["added_to_stack"] is True and old["results"][0]["window_id"] == "w_stack"
+    assert _stack(repository)[0] == [PAD, "run_d1"]
+    assert "run_d1" in {pad["pad_id"] for pad in pad_list(repository, desk_id="d1")["pads"]}
