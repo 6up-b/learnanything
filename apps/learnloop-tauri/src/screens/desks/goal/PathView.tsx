@@ -3,7 +3,7 @@
 // margin legend; right, one row per LO in path order with its primary section, another way ("use this one
 // instead", stored), its cold check, the exercise worth trying, and at the end what isn't needed ("read it
 // anyway", stored). Clicks open beside on the goal's desk. Everything shown is goal.band's and goal.lens's.
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { DeliverableSectionDto, GoalBandDto, GoalBandLoDto, GoalLensSectionDto, ReadingPathDepth } from "../../../api/dto";
 import { formatDay, goalLabel } from "./model";
 
@@ -30,7 +30,30 @@ function paceLine(band: GoalBandDto): string {
   return `Due ${formatDay(band.goal.dueAt)}: about ${pace.neededPerDay} attempts a day needed; you've averaged ${pace.attemptsPerDay}.`;
 }
 
-export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUseInstead, onReadAnyway, onAddPhrase, lessonRow }: {
+/** "change: type what's missing or not needed": a press opens a line for the learner's words, which go to the goal as
+ *  a correction of its scope (curriculum.set_scope); without a way to send them, the line is not offered. */
+function ScopeCorrection({ onCorrect }: { onCorrect?: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  if (!onCorrect) return null;
+  if (!open) {
+    return <> · <button type="button" className="faint gp-change" data-gp-change="" onClick={() => setOpen(true)}>change: type what's missing or not needed</button></>;
+  }
+  return (
+    <> · <input
+      className="gp-change-in" data-gp-change="" autoFocus value={text} aria-label="what's missing or not needed"
+      placeholder="what's missing, or not needed"
+      onChange={(event) => setText(event.target.value)}
+      onKeyDown={(event) => {
+        // Its keys are the learner's words: the path's own p and esc do not close the path from here.
+        event.stopPropagation();
+        if (event.key === "Escape") { setOpen(false); setText(""); }
+        if (event.key === "Enter" && text.trim()) { onCorrect(text.trim()); setOpen(false); setText(""); }
+      }} /></>
+  );
+}
+
+export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUseInstead, onReadAnyway, onAddPhrase, onCorrect, lessonRow }: {
   band: GoalBandDto;
   here: string | null;
   notNeeded: NotNeeded[];
@@ -40,6 +63,8 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
   onUseInstead: (learningObjectId: string, section: DeliverableSectionDto) => void;
   onReadAnyway: (extractionId: string, sectionId: string, on: boolean) => void;
   onAddPhrase: (phrase: string) => void;
+  /** The learner's correction of the goal's scope, in their words (absent: no change line). */
+  onCorrect?: (text: string) => void;
   /** The Teacher lesson on an LO, if one exists (opens its window): the desks' lesson windows render it. */
   lessonRow?: (learningObjectId: string) => ReactNode;
 }) {
@@ -63,7 +88,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
       <div className="gp-l">
         <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">your words, {formatDay(band.goal.setAt)}</span></div>
         <h3>“{band.goal.sentence}”</h3>
-        <div className="gp-scope">resolved to <b>{needed} learning object{needed === 1 ? "" : "s"}</b>, plus {prerequisites} prerequisite{prerequisites === 1 ? "" : "s"} you haven't shown yet · <span className="faint">change: type what's missing or not needed</span></div>
+        <div className="gp-scope">resolved to <b>{needed} learning object{needed === 1 ? "" : "s"}</b>, plus {prerequisites} prerequisite{prerequisites === 1 ? "" : "s"} you haven't shown yet<ScopeCorrection onCorrect={onCorrect} /></div>
         {(band.unmatched ?? []).map((phrase) => (
           <div key={phrase.phrase} className="gp-unm">
             “<i>{phrase.phrase}</i>” isn't in your library yet{phrase.proposedTitle ? <> → {phrase.proposedTitle}</> : null}

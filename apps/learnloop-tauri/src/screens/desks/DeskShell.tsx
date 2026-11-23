@@ -2547,11 +2547,21 @@ export function DeskShell({
     return out;
   }, [unionLinks]);
   // -- the goal lens (spec §12): the band, each reading's marks, the path view ----------------------------
-  // A pad stack's goal line reads its own pads' anchors (loaded pads), whatever is on screen.
-  const goalPadAnchors = useMemo(() => Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, extractionId: anchor.extractionId, spanId: anchor.spanId }))),
+  // A pad stack's goal line reads its own pads' anchors (loaded pads), whatever is on screen; a pad no unpaused
+  // window shows asks the lens for nothing (paused, as a paused reading).
+  const goalPadAnchors = useMemo(() => {
+    const live = new Set<string>();
+    for (const window of Object.values(ws?.windows ?? {})) {
+      if (isPaused(lifecycles[window.windowId]?.state ?? "hidden")) continue;
+      if (window.content?.kind === "pad") live.add(window.content.padId);
+      for (const entry of window.stack ?? []) if (entry.kind === "pad") live.add(entry.padId);
+    }
+    return Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, extractionId: anchor.extractionId,
+      spanId: anchor.spanId, paused: !live.has(pad.pad.padId) })));
+  },
     // store.pads changes identity on every pad change (padVersionNow re-renders this shell).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store.pads, padVersionNow]);
+    [store.pads, padVersionNow, ws, lifecycles]);
   const goalReadings = useMemo<GoalReading[]>(() => {
     if (!ws) return [];
     const out: GoalReading[] = [];

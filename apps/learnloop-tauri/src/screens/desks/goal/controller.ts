@@ -30,7 +30,7 @@ export interface GoalTransport {
   setDepth: (input: { goalId: string; depth: ReadingPathDepth }) => Promise<unknown>;
   override: (input: { goalId: string; learningObjectId: string; choice: DeliverablePathChoice; sectionRef?: string }) => Promise<unknown>;
   /** "map it": the goal's own sentence as its first scope input (curriculum.set_scope; a pressed action). */
-  setScope: (input: { goalId: string; kind: "text"; text: string }) => Promise<unknown>;
+  setScope: (input: { goalId: string; kind: "text" | "correction"; text: string }) => Promise<unknown>;
   /** "add it" on a phrase not in the library (curriculum.scope_decide: the learner's yes creates the LO). */
   scopeDecide: (input: { goalId: string; phrase: string; decision: "create" | "decline" }) => Promise<unknown>;
 }
@@ -120,6 +120,8 @@ export interface GoalLensState {
   override: (learningObjectId: string, choice: DeliverablePathChoice, sectionRef?: string) => void;
   mapIt: () => void;
   addPhrase: (phrase: string) => void;
+  /** The learner's words on what the goal's scope is missing or does not need (curriculum.set_scope, a correction). */
+  correctScope: (text: string) => void;
   refresh: () => void;
 }
 
@@ -294,5 +296,11 @@ export function useGoalLens({ transport, deskGoalId, off = false, readings, time
       .then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't add it."));
   }, [goalId, transport, refresh, report]);
 
-  return { goalId, goals, band, indexFor, dimOn, toggleDim, pathOpen, setPathOpen, why: whyNow, showWhy, setDepth, readAnyway, override, mapIt, addPhrase, refresh };
+  const correctScope = useCallback((text: string) => {
+    if (!goalId) return;
+    transport.setScope({ goalId, kind: "correction", text })
+      .then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't change the goal's scope."));
+  }, [goalId, transport, refresh, report]);
+
+  return { goalId, goals, band, indexFor, dimOn, toggleDim, pathOpen, setPathOpen, why: whyNow, showWhy, setDepth, readAnyway, override, mapIt, addPhrase, correctScope, refresh };
 }
