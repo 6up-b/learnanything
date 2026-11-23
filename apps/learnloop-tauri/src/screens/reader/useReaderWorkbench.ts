@@ -60,6 +60,7 @@ import {
 import type { ReaderWorkbenchExercise } from "./exerciseCandidates";
 import type { ReturnStack } from "./returnStack";
 import { passageKeys } from "./readerShared";
+import { useListenerHub } from "../desks/lifecycle";
 
 /** A margin cue's "check me", picked by the shell (D40): the item and the
  *  serve its answer is to. */
@@ -278,12 +279,12 @@ export function useReaderWorkbench(input: {
       .catch(() => undefined);
   }, [enabled, initialAttemptId, extractionId, admits, ticket]);
 
+  const hub = useListenerHub();
   useEffect(() => {
     if (!enabled) return undefined;
     const onResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [enabled]);
+    return hub.listen("window", "resize", onResize);
+  }, [enabled, hub]);
 
   const setWidth = useCallback((next: number) => {
     const clamped = clampSplitWidth(next, window.innerWidth);

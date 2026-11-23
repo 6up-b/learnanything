@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.ingest.detect import detect_source_kind
 from learnloop.ingest.models import UnsupportedSourceError
+from learnloop.ingest.resolution import resolve_source
+
+
+def detect_source_kind(source: str) -> str:
+    return resolve_source(source).category
 
 
 @pytest.mark.parametrize(

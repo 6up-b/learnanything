@@ -450,6 +450,8 @@ describe("a video seek (verify N1)", () => {
   async function player(info: Record<string, unknown>) {
     window.dispatchEvent(new MessageEvent("message", {
       origin: "https://www.youtube-nocookie.com",
+      // The player's own frame sends its messages (each panel takes only its frame's).
+      source: document.querySelector("iframe")?.contentWindow ?? null,
       data: JSON.stringify({ event: "infoDelivery", info })
     }));
     await settle(100);

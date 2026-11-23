@@ -148,6 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_desk_and_pad_batches_share_one_sequence_per_client`
   - `test_running_pads_show_on_their_desk_and_the_library_lists_pads`
   - `test_windows_open_beside_pair_at_most_two_and_unpair`
+- [tests/test_reader_rd1_model_parity.py](../../../../../../tests/test_reader_rd1_model_parity.py) — direct import
+  - `test_the_sidecar_gives_the_scripts_results_and_final_state`
 
 ## Modification guidance
 

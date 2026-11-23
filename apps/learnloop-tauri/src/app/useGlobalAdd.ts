@@ -5,9 +5,14 @@
 import { useEffect, useRef } from "react";
 import { isTypingTarget } from "./keyboard";
 import { ADD_FILES_CHORD, matchesChord } from "./keymap";
+import { SOURCE_FILE_EXTENSIONS } from "../api/sourceKinds";
 
 const ARXIV_ID = /^(arxiv:)?\d{4}\.\d{4,5}(v\d+)?$/i;
-const LOCAL_FILE = /^(~|\/|[A-Za-z]:\\).+\.(pdf|md|markdown|txt|html?|vtt|srt|mp3|wav|m4a|flac|ogg|oga|opus|aac)$/i;
+// A path ending in a suffix the classifier reads as some kind (its generated table).
+const LOCAL_FILE = new RegExp(
+  `^(~|\\/|[A-Za-z]:\\\\).+(${SOURCE_FILE_EXTENSIONS.map((extension) => extension.replace(".", "\\.")).join("|")})$`,
+  "i"
+);
 
 /** Whether pasted text names something Add can open (a link, an arXiv id or a file path). */
 export function looksLikeSource(text: string): boolean {

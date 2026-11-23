@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { SOURCE_FILE_EXTENSIONS } from "../api/sourceKinds";
 
-const SOURCE_EXTENSIONS = [
-  ".pdf", ".png", ".jpg", ".jpeg", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt",
-  ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac"
-];
+// Exactly the suffixes the classifier reads as some kind (its generated table).
+const SOURCE_EXTENSIONS = SOURCE_FILE_EXTENSIONS;
 
 type Subscriber = {
   enabled: boolean;

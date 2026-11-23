@@ -54,73 +54,74 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface CueCheckMeRequest` — interface, line 57
-- `export interface CueRequestOrigin extends SourceIdentity` — interface, line 69
-- `export type CueSurface = "text" | "pdf" | "watch" | "none"` — type, line 74
-- `export interface ReaderCuesInput` — interface, line 76
-- `export interface ReaderCues` — interface, line 130
-- `export function useReaderCues(input: ReaderCuesInput): ReaderCues` — function, line 190
+- `export interface CueCheckMeRequest` — interface, line 58
+- `export interface CueRequestOrigin extends SourceIdentity` — interface, line 70
+- `export type CueSurface = "text" | "pdf" | "watch" | "none"` — type, line 75
+- `export interface ReaderCuesInput` — interface, line 77
+- `export interface ReaderCues` — interface, line 131
+- `export function useReaderCues(input: ReaderCuesInput): ReaderCues` — function, line 191
 
 ## Internal implementation anchors
 
 - `type CuePlacement, type CueSuppression, type PdfPageLayout, } from "./cues"` — type, line 49
-- `interface PlacedIds` — interface, line 166
-- `const NO_PLACEMENT: PlacedIds =` — const, line 174
-- `const FOCUS_RETRIES = 10` — const, line 175
-- `function sameHeldOut(a: PlacedIds, b: PlacedIds): boolean` — function, line 177
-- `const left = [...(a.heldOutPlaced ?? []), ...(a.heldOutSuppressed ?? []).map((entry)` — const, line 178
-- `const right = [...(b.heldOutPlaced ?? []), ...(b.heldOutSuppressed ?? []).map((entry)` — const, line 179
-- `function samePlacement(a: PlacedIds, b: PlacedIds): boolean` — function, line 183
-- `const spanAttribute = input.spanAttribute ?? "data-span-id"` — const, line 196
-- `const working = input.working ?? false` — const, line 198
-- `const cues = render && !offline && guidePlan?.cues && guidePlan.extractionId === render.extractionId ? guidePlan.cues : null` — const, line 199
-- `const loggedRef = useRef<Set<string>>(new Set())` — const, line 208
-- `const marksKey = [...(cues?.marks ?? []), ...(cues?.discovery?.heldOut ?? []).map((cue)` — const, line 209
-- `const extractionId = render?.extractionId ?? null` — const, line 215
-- `const visitRef = useRef(0)` — const, line 216
-- `const sameVisit = useCallback((visit: number)` — const, line 223
-- `const onResize = ()` — const, line 235
-- `const heldOut = cues?.discovery?.heldOut` — const, line 243
-- `const body = bodyRef.current` — const, line 248
-- `let viewportHeight = body?.clientHeight ?? 0` — let, line 249
-- `let positionOf: (spanId: string)` — let, line 250
-- `const element = body.querySelector(`[$` — const, line 253
-- `const tops = pdfPageTops(pdfLayout)` — const, line 259
-- `const block = (pdfBlocks ?? []).find((entry)` — const, line 261
-- `const scroller = body.querySelector("[data-transcript-scroller]")` — const, line 265
-- `const element = body.querySelector(`[data-transcript-span="$` — const, line 268
-- `const next = placeCueMarks(` — const, line 272
-- `const ids: PlacedIds =` — const, line 282
-- `const placement = useMemo<CuePlacement>(()` — const, line 297
-- `const byId = new Map((cues?.marks ?? []).map((cue)` — const, line 298
-- `const heldById = new Map((cues?.discovery?.heldOut ?? []).map((cue)` — const, line 299
-- `const cue = byId.get(cueId)` — const, line 303
-- `const cue = heldById.get(cueId)` — const, line 309
-- `const discovery = cues?.discovery ?? null` — const, line 317
-- `const funnelVisit = useCallback(()` — const, line 322
-- `const impressions = useCueImpressions(` — const, line 323
-- `const cuesRef = useRef(cues)` — const, line 330
-- `const noteSeen = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 332
-- `const current = cuesRef.current` — const, line 333
-- `const shownBySpan = useMemo(()` — const, line 347
-- `const markOn = useCallback((spanId: string)` — const, line 348
-- `const shownRef = useRef<ReaderCueDto[]>([])` — const, line 356
-- `const focusMark = useCallback((cue: ReaderCueDto)` — const, line 358
-- `const find = ()` — const, line 359
-- `const present = find()` — const, line 366
-- `let tries = 0` — let, line 372
-- `const retry = ()` — const, line 373
-- `const element = find()` — const, line 375
-- `const onKey = (event: KeyboardEvent)` — const, line 383
-- `const target = event.target` — const, line 388
-- `const shown = shownRef.current` — const, line 390
-- `const direction = event.key === "ArrowDown" ? 1 : -1` — const, line 392
-- `const focused = (document.activeElement as HTMLElement | null)?.dataset?.cueMark ?? null` — const, line 393
-- `let from = focused ? shown.findIndex((cue)` — let, line 394
-- `const here = spanOrder.get(readingSpan ?? "") ?? -1` — const, line 396
-- `const order = shown.map((cue)` — const, line 397
-- `const at = direction === 1 ? order.findIndex((index)` — const, line 398
-- `const next = stepMark(shown.length, from, direction)` — const, line 401
+- `interface PlacedIds` — interface, line 167
+- `const NO_PLACEMENT: PlacedIds =` — const, line 175
+- `const FOCUS_RETRIES = 10` — const, line 176
+- `function sameHeldOut(a: PlacedIds, b: PlacedIds): boolean` — function, line 178
+- `const left = [...(a.heldOutPlaced ?? []), ...(a.heldOutSuppressed ?? []).map((entry)` — const, line 179
+- `const right = [...(b.heldOutPlaced ?? []), ...(b.heldOutSuppressed ?? []).map((entry)` — const, line 180
+- `function samePlacement(a: PlacedIds, b: PlacedIds): boolean` — function, line 184
+- `const spanAttribute = input.spanAttribute ?? "data-span-id"` — const, line 197
+- `const working = input.working ?? false` — const, line 199
+- `const cues = render && !offline && guidePlan?.cues && guidePlan.extractionId === render.extractionId ? guidePlan.cues : null` — const, line 200
+- `const loggedRef = useRef<Set<string>>(new Set())` — const, line 209
+- `const marksKey = [...(cues?.marks ?? []), ...(cues?.discovery?.heldOut ?? []).map((cue)` — const, line 210
+- `const extractionId = render?.extractionId ?? null` — const, line 216
+- `const visitRef = useRef(0)` — const, line 217
+- `const sameVisit = useCallback((visit: number)` — const, line 224
+- `const hub = useListenerHub()` — const, line 235
+- `const onResize = ()` — const, line 237
+- `const heldOut = cues?.discovery?.heldOut` — const, line 244
+- `const body = bodyRef.current` — const, line 249
+- `let viewportHeight = body?.clientHeight ?? 0` — let, line 250
+- `let positionOf: (spanId: string)` — let, line 251
+- `const element = body.querySelector(`[$` — const, line 254
+- `const tops = pdfPageTops(pdfLayout)` — const, line 260
+- `const block = (pdfBlocks ?? []).find((entry)` — const, line 262
+- `const scroller = body.querySelector("[data-transcript-scroller]")` — const, line 266
+- `const element = body.querySelector(`[data-transcript-span="$` — const, line 269
+- `const next = placeCueMarks(` — const, line 273
+- `const ids: PlacedIds =` — const, line 283
+- `const placement = useMemo<CuePlacement>(()` — const, line 298
+- `const byId = new Map((cues?.marks ?? []).map((cue)` — const, line 299
+- `const heldById = new Map((cues?.discovery?.heldOut ?? []).map((cue)` — const, line 300
+- `const cue = byId.get(cueId)` — const, line 304
+- `const cue = heldById.get(cueId)` — const, line 310
+- `const discovery = cues?.discovery ?? null` — const, line 318
+- `const funnelVisit = useCallback(()` — const, line 323
+- `const impressions = useCueImpressions(` — const, line 324
+- `const cuesRef = useRef(cues)` — const, line 331
+- `const noteSeen = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 333
+- `const current = cuesRef.current` — const, line 334
+- `const shownBySpan = useMemo(()` — const, line 348
+- `const markOn = useCallback((spanId: string)` — const, line 349
+- `const shownRef = useRef<ReaderCueDto[]>([])` — const, line 357
+- `const focusMark = useCallback((cue: ReaderCueDto)` — const, line 359
+- `const find = ()` — const, line 360
+- `const present = find()` — const, line 367
+- `let tries = 0` — let, line 373
+- `const retry = ()` — const, line 374
+- `const element = find()` — const, line 376
+- `const onKey = (event: KeyboardEvent)` — const, line 384
+- `const target = event.target` — const, line 389
+- `const shown = shownRef.current` — const, line 391
+- `const direction = event.key === "ArrowDown" ? 1 : -1` — const, line 393
+- `const focused = (document.activeElement as HTMLElement | null)?.dataset?.cueMark ?? null` — const, line 394
+- `let from = focused ? shown.findIndex((cue)` — let, line 395
+- `const here = spanOrder.get(readingSpan ?? "") ?? -1` — const, line 397
+- `const order = shown.map((cue)` — const, line 398
+- `const at = direction === 1 ? order.findIndex((index)` — const, line 399
+- `const next = stepMark(shown.length, from, direction)` — const, line 402
 - `const tap = useCallback(async (cue: ReaderCueDto, action: "opened" | "check_me" | "not_relevant" | "not_relevant_undone", text?: string)` — const, line 410
 - `const planId = impressions.planFor(cue) ?? cuesRef.current.discovery.planId` — const, line 416
 - `const setPreferences = useCallback(async (change:` — const, line 423
@@ -167,6 +168,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CueDensity`, `ReaderCueDto`, `ReaderCuesDto`, `ReaderGuidePlanDto`, `ReaderPdfBlockDto`, `ReaderRenderViewDto`, `SourceIdentity`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`
 - [[Reference/Desktop/TypeScript/screens/reader/MarginMark|src/screens/reader/MarginMark.tsx]] — import-or-re-export; imports `CueCheckPhase`, `CueReceipt`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `logReaderAction`
 - [[Reference/Desktop/TypeScript/screens/reader/cues|src/screens/reader/cues.ts]] — import-or-re-export; imports `CUE_COPY`, `CuePlacement`, `CueSuppression`, `PdfPageLayout`, `pdfPageTops`, `pdfPassageTop`, `placeCueMarks`, `stepDown`, `stepMark`

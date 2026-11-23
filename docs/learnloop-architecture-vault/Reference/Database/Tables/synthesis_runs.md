@@ -18,11 +18,11 @@ source_paths:
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/cli/data.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/stores/content.py"
   - "src/learnloop/ops/graph_nomination_report.py"
   - "src/learnloop/substrate/dataset.py"
-  - "src/learnloop/substrate/model_usage.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `tests/daily_plan_reading_helpers.py`
 - `tests/plan_follows_path_helpers.py`
 - `tests/test_graph_nomination_ingest.py`
+- `tests/test_ingest_decision_records.py`
 - `tests/test_migrations.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_rerun_proposals.py`
@@ -149,7 +150,6 @@ Indexes and uniqueness:
 - `tests/test_outer_cache_keys.py`
 - `tests/test_secondary_attach.py`
 - `tests/test_synthesis_criterion_dependencies.py`
-- `tests/test_synthesis_runs_repo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

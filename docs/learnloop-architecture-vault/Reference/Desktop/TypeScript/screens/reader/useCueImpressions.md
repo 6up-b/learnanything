@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useCueImpressions.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useCueImpressions.ts) |
-| Source lines | 348 |
+| Source lines | 353 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,79 +54,82 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const IMPRESSION_FLUSH_MS = 800` — const, line 33
-- `export const IMPRESSION_RETRY_MS = 4_000` — const, line 35
-- `export const CUE_REFLOW_SETTLE_MS = 150` — const, line 40
-- `export function passageThresholds(passageHeight: number, areaHeight: number): number[]` — function, line 53
-- `export interface CueImpressionsInput` — interface, line 60
-- `export interface CueImpressions` — interface, line 74
-- `export function passageInView(seen: IntersectionObserverEntry): boolean` — function, line 101
-- `export function useCueImpressions(input: CueImpressionsInput): CueImpressions` — function, line 111
+- `export const IMPRESSION_FLUSH_MS = 800` — const, line 34
+- `export const IMPRESSION_RETRY_MS = 4_000` — const, line 36
+- `export const CUE_REFLOW_SETTLE_MS = 150` — const, line 41
+- `export function passageThresholds(passageHeight: number, areaHeight: number): number[]` — function, line 54
+- `export interface CueImpressionsInput` — interface, line 61
+- `export interface CueImpressions` — interface, line 75
+- `export function passageInView(seen: IntersectionObserverEntry): boolean` — function, line 102
+- `export function useCueImpressions(input: CueImpressionsInput): CueImpressions` — function, line 112
 
 ## Internal implementation anchors
 
-- `const SEEN_THRESHOLD = 0.5` — const, line 37
-- `const THRESHOLDS = [0, 0.25, 0.5, 0.75, 1]` — const, line 38
-- `const SEEN_SLACK_PX = 1` — const, line 42
-- `const needed = Math.min(1, (SEEN_THRESHOLD * areaHeight) / passageHeight)` — const, line 55
-- `interface Queued` — interface, line 89
-- `const visible = seen.intersectionRect?.height ?? 0` — const, line 104
-- `const area = seen.rootBounds?.height ?? 0` — const, line 105
-- `const discoveredCue = (cue: ReaderCueDto)` — const, line 109
-- `const textAttribute = input.spanAttribute ?? "data-span-id"` — const, line 113
-- `const discovery = cues?.discovery ?? null` — const, line 114
-- `const localVisitRef = useRef<` — const, line 115
-- `const sentRef = useRef<Set<string>>(new Set())` — const, line 116
-- `const firstPlanRef = useRef<Map<string, string>>(new Map())` — const, line 118
-- `const queueRef = useRef<Queued[]>([])` — const, line 119
-- `const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 120
-- `const visitSourceRef = useRef<string | null>(extractionId)` — const, line 127
-- `const currentVisit = useCallback((): string | null` — const, line 138
-- `const flushRef = useRef<()` — const, line 147
-- `const flush = useCallback(()` — const, line 148
-- `const items = queueRef.current` — const, line 150
-- `const batches = new Map<string, Queued[]>()` — const, line 152
-- `const key = `$` — const, line 154
-- `const retry = batch.filter((item)` — const, line 163
-- `const queue = useCallback((key: string, entry: ReaderCueImpressionInput, seenOn?: string | null)` — const, line 173
-- `const visit = currentVisit()` — const, line 174
-- `const seenKey = `$` — const, line 181
-- `const planId = firstPlanRef.current.get(seenKey) ?? seenOn ?? discovery.planId` — const, line 182
-- `const once = `$` — const, line 184
-- `const servedPlanId = discovery?.planId ?? null` — const, line 200
-- `const rememberSeen = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 205
-- `const visit = currentVisit()` — const, line 206
-- `const plan = planId ?? servedPlanId` — const, line 207
-- `const seenKey = `$` — const, line 209
-- `const planFor = useCallback((cue: ReaderCueDto): string | null` — const, line 212
-- `const visit = currentVisit()` — const, line 213
-- `const first = visit && extractionId ? firstPlanRef.current.get(`$` — const, line 214
-- `const noteShown = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 221
-- `const noteFewer = useCallback((cue: ReaderCueDto)` — const, line 228
-- `type Pending =` — type, line 236
-- `const pending: Pending[] = []` — const, line 237
-- `const pendingKey = pending.map((` — const, line 246
-- `const pendingRef = useRef(pending)` — const, line 247
-- `const body = bodyRef.current` — const, line 251
-- `const items = pendingRef.current` — const, line 252
-- `const attribute = surface === "watch" ? "data-transcript-span" : textAttribute` — const, line 254
-- `const bySpan = new Map<Element, Pending[]>()` — const, line 255
-- `const element = body.querySelector(`[$` — const, line 257
-- `const elements = [...bySpan.keys()]` — const, line 262
-- `const counted = new Set<Element>()` — const, line 265
-- `const thresholdsOf = (element: Element)` — const, line 267
-- `const queueForPlan = queue` — const, line 272
-- `const generation = observerGeneration()` — const, line 276
-- `let keyOf = new Map<Element, string>()` — let, line 277
-- `const build = ()` — const, line 280
-- `const byThresholds = new Map<string,` — const, line 283
-- `const thresholds = thresholdsOf(element)` — const, line 286
-- `const key = thresholds.join(",")` — const, line 287
-- `const group = byThresholds.get(key) ??` — const, line 289
-- `let settle: ReturnType<typeof setTimeout> | null = null` — let, line 312
-- `const recheck = ()` — const, line 313
-- `const scheduleRecheck = ()` — const, line 322
-- `const resizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleRecheck)` — const, line 326
+- `const SEEN_THRESHOLD = 0.5` — const, line 38
+- `const THRESHOLDS = [0, 0.25, 0.5, 0.75, 1]` — const, line 39
+- `const SEEN_SLACK_PX = 1` — const, line 43
+- `const needed = Math.min(1, (SEEN_THRESHOLD * areaHeight) / passageHeight)` — const, line 56
+- `interface Queued` — interface, line 90
+- `const visible = seen.intersectionRect?.height ?? 0` — const, line 105
+- `const area = seen.rootBounds?.height ?? 0` — const, line 106
+- `const discoveredCue = (cue: ReaderCueDto)` — const, line 110
+- `const textAttribute = input.spanAttribute ?? "data-span-id"` — const, line 114
+- `const discovery = cues?.discovery ?? null` — const, line 115
+- `const localVisitRef = useRef<` — const, line 116
+- `const sentRef = useRef<Set<string>>(new Set())` — const, line 117
+- `const firstPlanRef = useRef<Map<string, string>>(new Map())` — const, line 119
+- `const queueRef = useRef<Queued[]>([])` — const, line 120
+- `const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 121
+- `const visitSourceRef = useRef<string | null>(extractionId)` — const, line 128
+- `const currentVisit = useCallback((): string | null` — const, line 139
+- `const flushRef = useRef<()` — const, line 148
+- `const flush = useCallback(()` — const, line 149
+- `const items = queueRef.current` — const, line 151
+- `const batches = new Map<string, Queued[]>()` — const, line 153
+- `const key = `$` — const, line 155
+- `const retry = batch.filter((item)` — const, line 164
+- `const queue = useCallback((key: string, entry: ReaderCueImpressionInput, seenOn?: string | null)` — const, line 174
+- `const visit = currentVisit()` — const, line 175
+- `const seenKey = `$` — const, line 182
+- `const planId = firstPlanRef.current.get(seenKey) ?? seenOn ?? discovery.planId` — const, line 183
+- `const once = `$` — const, line 185
+- `const servedPlanId = discovery?.planId ?? null` — const, line 201
+- `const rememberSeen = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 206
+- `const visit = currentVisit()` — const, line 207
+- `const plan = planId ?? servedPlanId` — const, line 208
+- `const seenKey = `$` — const, line 210
+- `const planFor = useCallback((cue: ReaderCueDto): string | null` — const, line 213
+- `const visit = currentVisit()` — const, line 214
+- `const first = visit && extractionId ? firstPlanRef.current.get(`$` — const, line 215
+- `const noteShown = useCallback((cue: ReaderCueDto, planId?: string | null)` — const, line 222
+- `const noteFewer = useCallback((cue: ReaderCueDto)` — const, line 229
+- `type Pending =` — type, line 237
+- `const pending: Pending[] = []` — const, line 238
+- `const pendingKey = pending.map((` — const, line 247
+- `const pendingRef = useRef(pending)` — const, line 248
+- `const hub = useListenerHub()` — const, line 250
+- `const activityAllowed = useReadingActivityAllowed()` — const, line 253
+- `const body = bodyRef.current` — const, line 256
+- `const items = pendingRef.current` — const, line 257
+- `const attribute = surface === "watch" ? "data-transcript-span" : textAttribute` — const, line 259
+- `const bySpan = new Map<Element, Pending[]>()` — const, line 260
+- `const element = body.querySelector(`[$` — const, line 262
+- `const elements = [...bySpan.keys()]` — const, line 267
+- `const counted = new Set<Element>()` — const, line 270
+- `const thresholdsOf = (element: Element)` — const, line 272
+- `const queueForPlan = queue` — const, line 277
+- `const generation = observerGeneration()` — const, line 281
+- `let keyOf = new Map<Element, string>()` — let, line 282
+- `const build = ()` — const, line 285
+- `const byThresholds = new Map<string,` — const, line 288
+- `const thresholds = thresholdsOf(element)` — const, line 291
+- `const key = thresholds.join(",")` — const, line 292
+- `const group = byThresholds.get(key) ??` — const, line 294
+- `let settle: ReturnType<typeof setTimeout> | null = null` — let, line 317
+- `const recheck = ()` — const, line 318
+- `const scheduleRecheck = ()` — const, line 327
+- `const resizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleRecheck)` — const, line 331
+- `const offResize = hub.listen("window", "resize", scheduleRecheck)` — const, line 336
 
 ## Who imports or calls it
 
@@ -141,6 +144,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderCueDto`, `ReaderCueImpressionInput`, `ReaderCuesDto`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`, `useReadingActivityAllowed`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `newActivityId`
 - [[Reference/Desktop/TypeScript/screens/reader/cues|src/screens/reader/cues.ts]] — import-or-re-export; imports `CuePlacement`
 - [[Reference/Desktop/TypeScript/screens/reader/observerGeneration|src/screens/reader/observerGeneration.ts]] — import-or-re-export; imports `observerGeneration`

@@ -576,6 +576,8 @@ it("watching a video is reading: playback still earns the section's quick check"
   for (const seconds of [2, 12, 22, 32, 42]) {
     window.dispatchEvent(new MessageEvent("message", {
       origin: "https://www.youtube-nocookie.com",
+      // The player's own frame sends its messages (each panel takes only its frame's).
+      source: document.querySelector("iframe")?.contentWindow ?? null,
       data: JSON.stringify({ event: "infoDelivery", info: { currentTime: seconds } })
     }));
     await settle(100);
@@ -733,6 +735,8 @@ function videoFixture() {
 function player(info: Record<string, unknown>) {
   window.dispatchEvent(new MessageEvent("message", {
     origin: "https://www.youtube-nocookie.com",
+    // The player's own frame sends its messages (each panel takes only its frame's).
+    source: document.querySelector("iframe")?.contentWindow ?? null,
     data: JSON.stringify({ event: "infoDelivery", info })
   }));
 }

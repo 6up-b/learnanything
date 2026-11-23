@@ -75,8 +75,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `UnsupportedSourceError`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `UnsupportedSourceError`
 - [[Reference/Modules/learnloop/ingest/__init__|learnloop.ingest]] — imports `FetchedSource`, `IngestDependencyMissing`, `IngestError`, `IngestResult`, `SourceFetchError`, `UnsupportedSourceError`
-- [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] — imports `FetchedSource`, `IngestDependencyMissing`, `SourceFetchError`, `UnsupportedSourceError`; statically calls `FetchedSource`, `IngestDependencyMissing`, `SourceFetchError`, `UnsupportedSourceError`
 - [[Reference/Modules/learnloop/ingest/resolution|learnloop.ingest.resolution]] — imports `UnsupportedSourceError`; statically calls `UnsupportedSourceError`
+- [[Reference/Modules/learnloop/ingest/youtube|learnloop.ingest.youtube]] — imports `SourceFetchError`, `UnsupportedSourceError`; statically calls `SourceFetchError`, `UnsupportedSourceError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `UnsupportedSourceError`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `UnsupportedSourceError`
 
@@ -97,7 +97,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/ingest/__init__|learnloop.ingest]], [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/ingest/__init__|learnloop.ingest]], [[Reference/Modules/learnloop/ingest/resolution|learnloop.ingest.resolution]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -106,10 +106,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_detect.py](../../../../../../tests/test_ingest_detect.py) — direct import
   - `test_detect_rejects_unknown_sources`
   - `test_unclassifiable_error_mentions_audio`
-- [tests/test_ingest_fetchers.py](../../../../../../tests/test_ingest_fetchers.py) — direct import
-  - `test_fetch_textfile_missing_file_raises`
-  - `test_legacy_fetch_source_rejects_audio`
-  - `test_optional_dependency_missing_is_actionable`
+- [tests/test_ingest_youtube.py](../../../../../../tests/test_ingest_youtube.py) — direct import
   - `test_youtube_video_id_rejects_bad_url`
 
 ## Modification guidance

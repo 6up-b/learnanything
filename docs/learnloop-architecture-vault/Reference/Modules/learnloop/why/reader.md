@@ -129,6 +129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_codes_only_withholds_text_fields_and_their_keys_whatever_the_spelling`
+- [tests/test_ingest_decision_records.py](../../../../../../tests/test_ingest_decision_records.py) — direct import
+  - `test_an_automatic_build_records_scope_inventory_rows_and_apply_under_its_planners_trace`
 - [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — direct import
   - `test_codes_only_keeps_ids_numbers_codes_and_times_and_names_what_it_drops`
   - `test_why_get_returns_ids_numbers_and_codes_and_never_a_payload`

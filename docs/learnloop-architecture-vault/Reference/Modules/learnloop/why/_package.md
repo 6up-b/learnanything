@@ -47,7 +47,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/why/__init__|learnloop.why]] | [[Reference/Modules/learnloop/why/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/why/outcomes_now|learnloop.why.outcomes_now]] | [[Reference/Modules/learnloop/why/outcomes_now#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
-| [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] | [[Reference/Modules/learnloop/why/reader#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
+| [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] | [[Reference/Modules/learnloop/why/reader#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] | [[Reference/Modules/learnloop/why/reconstructed#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 
 ## Cross-package dependencies

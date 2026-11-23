@@ -185,6 +185,25 @@ def role_authority(
     )
 
 
+def authority_matrix() -> list[dict[str, object]]:
+    """Every known role with what it may do, in the spec's order: the vocabulary a role picker offers.
+
+    ``assessment_only`` is the citation rule's set (an exam citation only ever aligns assessment);
+    ``semantic_contract`` False is what "never defines concepts" means, and holds for more roles than that set."""
+
+    return [
+        {
+            "role": role,
+            "semantic_contract": semantic,
+            "assessment_alignment": assessment,
+            "assessment_only": role in ASSESSMENT_ONLY_ROLES,
+            "scope_only": role in SCOPE_ONLY_ROLES,
+            "default_inventory_profile": default_inventory_profile(role),
+        }
+        for role, (semantic, assessment) in _MATRIX.items()
+    ]
+
+
 def default_inventory_profile(role: str | None) -> str:
     """The inventory profile a confirmed role implies (§4.2/§7).
 

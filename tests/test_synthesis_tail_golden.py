@@ -328,12 +328,16 @@ def _record_sent(root: Path, repo: Any, client: _Recorder, run: Any) -> dict[str
 def seeded_ids(monkeypatch):
     """Reproducible ids for the whole case: a held clock and seeded randomness for the process's ULID stream."""
 
-    from learnloop import ids
+    from learnloop import ids, provenance
 
     monkeypatch.setattr(ids, "_wall_clock_ms", lambda: _ULID_MS)
     monkeypatch.setattr(ids, "secrets", SimpleNamespace(randbits=random.Random(20261113).getrandbits))
     monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
     monkeypatch.setattr(ids, "_last_randomness", 0)
+    # Decision records and traces draw from a stream of their own, with its own randomness: seeded apart.
+    records = ids.UlidStream()
+    records._random = random.Random(20261114)
+    monkeypatch.setattr(provenance, "_RECORD_IDS", records)
 
 
 def _check(name: str, record: dict[str, Any]) -> None:

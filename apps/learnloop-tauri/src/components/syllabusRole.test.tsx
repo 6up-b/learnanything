@@ -14,15 +14,25 @@ const api = vi.hoisted(() => ({
   listSourceSets: vi.fn(),
   loadVault: vi.fn(),
   getSourceSet: vi.fn(),
-  upsertSourceSet: vi.fn()
+  upsertSourceSet: vi.fn(),
+  getSourceRoles: vi.fn()
 }));
 vi.mock("../api/client", () => ({ api }));
+
+// The sidecar's role vocabulary (`get_source_roles`), which the panel reads.
+const SOURCE_ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set",
+  "exam", "notes", "syllabus"].map((role) => ({
+  role, semanticContract: ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"].includes(role),
+  assessmentAlignment: true, assessmentOnly: role === "exam", scopeOnly: role === "syllabus",
+  defaultInventoryProfile: "semantic"
+}));
 
 beforeEach(() => {
   clear();
   for (const fn of Object.values(api)) fn.mockReset();
   api.listSourceSets.mockResolvedValue({ version: 1, sourceSets: [] });
   api.loadVault.mockResolvedValue({ vault: { subjects: ["la"] } });
+  api.getSourceRoles.mockResolvedValue({ version: 1, roles: SOURCE_ROLES });
 });
 
 afterEach(() => cleanup());

@@ -19,7 +19,7 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1331 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **671 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **74 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1331 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **703 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **74 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
@@ -116,7 +116,7 @@ tags:
 
 ## Desktop client modules
 
-The Tauri desktop application has **671 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
+The Tauri desktop application has **703 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
 
 > [!tip] Choose the catalog by source tree
 > Use this catalog for Python under `src/`; use [[Desktop Module Catalog]] for TypeScript, TSX, and Rust under `apps/learnloop-tauri/`. Both link back to the same concepts and end-to-end workflows.
@@ -168,6 +168,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 2012 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 2015 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

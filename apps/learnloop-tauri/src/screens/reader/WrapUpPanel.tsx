@@ -13,6 +13,7 @@ import { Quoted, RecapLink } from "./RecapCard";
 import { RECAP_COPY, observationLine } from "./recapCopy";
 import { MeaningLabel } from "./voices";
 import { screenLeavesKey } from "../../app/keymap";
+import { useListenerHub } from "../desks/lifecycle";
 
 export interface WrapUpPanelProps {
   wrapUp: ReaderWrapUpDto;
@@ -46,14 +47,14 @@ function reinforceLine(line: ReaderWrapUpReinforceLineDto): string {
 
 export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone, followups }: WrapUpPanelProps) {
   const [kept, setKept] = useState<Set<string>>(new Set());
+  const hub = useListenerHub();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event, { scopes: ["wrap-up", "screen"] })) return;
       if (event.key === "Escape") onClose();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    return hub.listen("window", "keydown", onKey);
+  }, [onClose, hub]);
 
   const actionsFor = (line: ReaderWrapUpInquiryLineDto) =>
     line.actions.filter((action) => !(where === "destination" && action.where === "reader"));

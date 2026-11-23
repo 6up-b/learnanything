@@ -58,7 +58,9 @@ from learnloop.content.synthesis.source_set_synthesis import (
     _result_tokens,
     _synthesis_pass_key,
     finish_synthesis_run,
+    gate_refusal,
     open_synthesis_run,
+    record_auto_apply,
 )
 from learnloop.content.synthesis.synthesis_gates import (
     ASSESSMENT_ONLY_ROLES,
@@ -495,6 +497,7 @@ def _append(
         run, APPEND,
         apply=lambda outcome: _apply_routine_items(
             root, repository, vault, outcome, auto_apply=auto_apply, apply_gate=apply_gate, clock=clock,
+            synthesis_run_id=run.synthesis_run_id,
         ),
     )
     return AppendResult(
@@ -516,6 +519,7 @@ def _apply_routine_items(
     auto_apply: bool,
     apply_gate: Callable[[], bool] | None,
     clock: Clock | None,
+    synthesis_run_id: str | None = None,
 ) -> dict[str, Any]:
     """The append's apply step: which of the proposal's items wait for review, and §10.3's lane, where routine
     span/assessment attachments apply under the vault lock; everything else stays a pending review proposal.
@@ -529,20 +533,27 @@ def _apply_routine_items(
         row_by_client = {r["client_item_id"]: r["id"] for r in rows}
         auto_ids = [row_by_client[c] for c in auto_apply_ids if c in row_by_client]
         review_ids = [r["id"] for r in rows if r["id"] not in set(auto_ids)]
+        items = rows
     else:
         # The earlier proposal's items: only those still waiting apply or wait.
-        waiting = {item["client_item_id"]: item["id"] for item in repository.proposal_items(outcome.proposal_id)
-                   if item["decision"] == "pending"}
+        items = [item for item in repository.proposal_items(outcome.proposal_id) if item["decision"] == "pending"]
+        waiting = {item["client_item_id"]: item["id"] for item in items}
         auto_ids = [waiting[c] for c in auto_apply_ids if c in waiting]
         review_ids = [item_id for item_id in waiting.values() if item_id not in set(auto_ids)]
     added: dict[str, Any] = {"review_item_ids": review_ids}
+    refusals = outcome.normalized.auto_apply_refusals
     if not (auto_apply and auto_ids and (apply_gate is None or apply_gate())):
+        refused = _lane_refusal(auto_apply, auto_ids, apply_gate)
+        record_auto_apply(repository, outcome, synthesis_run_id, mode="append", applied=[], rule=refused,
+                          waiting=_waiting_reasons(items, set(), refusals, lane_refusal=refused))
         return added
 
     from learnloop.content.proposals.patches import apply_accepted_items
 
     snapshot = _snapshot(repository, vault)
     apply_accepted_items(root, outcome.proposal_id, item_ids=auto_ids, clock=clock)
+    record_auto_apply(repository, outcome, synthesis_run_id, mode="append", applied=auto_ids, rule="applied",
+                      waiting=_waiting_reasons(items, set(auto_ids), refusals, lane_refusal=None))
     added["auto_applied_item_ids"] = auto_ids
     vault_after = load_vault(root)
     added["study_map_diff"] = _diff_from_snapshot(repository, vault_after, snapshot, outcome.proposal_id)
@@ -554,6 +565,35 @@ def _apply_routine_items(
         p.as_dict() for p in near_duplicate_facet_review(vault_after, nominator=GraphNominator.for_review(vault_after))
     ]
     return added
+
+def _lane_refusal(auto_apply: bool, auto_ids: Sequence[str], apply_gate: Callable[[], bool] | None) -> str:
+    """Why §10.3's lane applied nothing this run: not asked, nothing routine, or the gate's own refusal."""
+
+    if not auto_apply:
+        return "apply_not_requested"
+    if not auto_ids:
+        return "nothing_routine"
+    return gate_refusal(apply_gate)
+
+
+def _waiting_reasons(items: Sequence[Mapping[str, Any]], applied: set[str], refusals: Mapping[str, str], *,
+                     lane_refusal: str | None) -> list[tuple[str, str]]:
+    """Each item left for review and why: its §10.3 condition, an item kind the lane never applies, or (for an item
+    the lane would have applied) why the lane applied nothing."""
+
+    waiting: list[tuple[str, str]] = []
+    for item in items:
+        if item["id"] in applied:
+            continue
+        client = item.get("client_item_id")
+        if client in refusals:
+            waiting.append((item["id"], refusals[client]))
+        elif item.get("item_type") != "provenance_link":
+            waiting.append((item["id"], f"review_only:{item.get('item_type')}"))
+        else:
+            waiting.append((item["id"], lane_refusal or "not_routine"))
+    return waiting
+
 
 # --- normalization ----------------------------------------------------------
 
@@ -572,11 +612,12 @@ class _AppendState:
     gate_items: list[GateItem]
     dropped_diagnostics: list[dict[str, Any]] = field(default_factory=list)
     auto_apply_ids: list[str] = field(default_factory=list)
+    auto_apply_refusals: dict[str, str] = field(default_factory=dict)
 
 
 def _provenance_links(st: _AppendState) -> None:
     """Provenance links: dropped with a review record when their span does not resolve or is exam material aimed
-    at a facet; those that pass ``_auto_applies`` join ``auto_apply_ids``."""
+    at a facet; those ``_auto_apply_refusal`` finds nothing against join ``auto_apply_ids``."""
 
     for link in getattr(st.reconciliation, "provenance_links", []) or []:
         obj = _dump(link)
@@ -647,8 +688,11 @@ def _provenance_links(st: _AppendState) -> None:
                 reconciliation_intent=obj.get("reconciliation_intent"),
             )
         )
-        if _auto_applies(payload, gate_refs, st.vault, current_hash, target_type):
+        refusal = _auto_apply_refusal(payload, gate_refs, current_hash, target_type)
+        if refusal is None:
             st.auto_apply_ids.append(client)
+        else:
+            st.auto_apply_refusals[client] = refusal
 
 
 def _notation_mappings(st: _AppendState) -> None:
@@ -805,6 +849,7 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
         non_conflict_dispositions=set(getattr(reconciliation, "non_conflict_dispositions", []) or []),
         edge_diagnostics=[*normalized.edge_diagnostics, *st.dropped_diagnostics],
         auto_apply_ids=st.auto_apply_ids,
+        auto_apply_refusals=dict(st.auto_apply_refusals),
     )
 
 @dataclass(frozen=True)
@@ -1112,8 +1157,9 @@ def _target_type(target_type: str) -> str:
     return target_type if target_type in valid else None
 
 
-def _auto_applies(payload, gate_refs, vault, current_hash, target_type) -> bool:
-    """§10.3 auto-apply predicate for a provenance_link.
+def _auto_apply_refusal(payload, gate_refs, current_hash, target_type) -> str | None:
+    """§10.3 auto-apply predicate for a provenance_link: ``None`` when it applies,
+    else the condition that failed (the run's auto-apply record names it).
 
     span_attach/alternate: target hash still matches, every cited span resolves in
     scope, relation not already present, nothing removed/replaced.
@@ -1122,24 +1168,26 @@ def _auto_applies(payload, gate_refs, vault, current_hash, target_type) -> bool:
 
     relation = payload["relation"]
     if relation not in _AUTO_APPLY_RELATIONS:
-        return False
+        return "relation_not_routine"
     if not payload.get("locator") or not payload.get("target_entity_id"):
-        return False
+        return "no_locator_or_target"
     if relation == "assessment_alignment":
-        return target_type in {"task_blueprint", "learning_object", "practice_item"}
+        if target_type in {"task_blueprint", "learning_object", "practice_item"}:
+            return None
+        return "assessment_alignment_target"
     # expected target hash must still match the live entity (nothing changed).
     expected = payload.get("expected_target_hash")
     if expected is not None and current_hash is not None and expected != current_hash:
-        return False
+        return "target_changed"
     if current_hash is None:  # target does not exist -> cannot auto-attach
-        return False
+        return "target_missing"
     # every cited span must have resolved (gate_refs carry validated ids).
     if not gate_refs or any(not r.span_id for r in gate_refs):
-        return False
+        return "span_unresolved"
     # Relation-not-already-present + nothing-removed are guaranteed structurally:
     # the entity_source_links insert is INSERT OR IGNORE on the UNIQUE relation key,
     # and the handler only ever inserts a row (never rewrites the target YAML).
-    return True
+    return None
 
 
 def _span_yaml(span, inputs) -> dict[str, Any]:

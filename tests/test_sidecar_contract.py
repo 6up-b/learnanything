@@ -2015,8 +2015,11 @@ def test_sidecar_ingest_source_classification_and_empty_job_list(tmp_path):
         "version": 1,
         "kind": "arxiv",
         "normalizedSource": "https://arxiv.org/abs/2401.12345v2",
+        "label": "arXiv paper",
+        "noun": "paper",
     }
     assert responses[2]["result"]["kind"] == "textfile"
+    assert responses[2]["result"]["label"] == "local file"
     assert responses[3]["result"] == {"version": 1, "jobs": []}
 
 
