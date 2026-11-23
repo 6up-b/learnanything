@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from math import log
-from typing import Any, Iterable, Mapping
+from typing import Any, Collection, Iterable, Mapping
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
@@ -173,6 +173,8 @@ def contract_frontier(
     vault: LoadedVault,
     learning_object_id: str,
     repository: Repository | None = None,
+    *,
+    required: Collection[str] | None = None,
 ) -> tuple[set[tuple[str, str]], bool]:
     """The ``(facet, capability)`` cells this LO's contract actually requires.
 
@@ -198,6 +200,9 @@ def contract_frontier(
     would be a worse defect than a slightly wide one.  Per-recipe routing belongs
     with the certification substitution rule (§5.3), which owns "for SOME
     blueprint".
+
+    ``required``: the item-derived facets the legacy fallback reads, when the caller already read them (a grade
+    application reads them once, for its coverage and breadth alike); otherwise :func:`required_facets` now.
     """
 
     from learnloop.goals.goal_certification import required_capabilities_for_facet
@@ -209,7 +214,7 @@ def contract_frontier(
     authored_any = False
     legacy_any = False
     for facet in learning_object_facet_union(learning_object) or sorted(
-        required_facets(vault, learning_object_id, repository)
+        required_facets(vault, learning_object_id, repository) if required is None else required
     ):
         canonical = vault.canonical_facet_id(str(facet))
         capabilities, from_legacy_default = required_capabilities_for_facet(
@@ -237,8 +242,18 @@ class LoCoverageReads:
     open_uncertainties: dict[str, FacetUncertaintyState]
 
 
-def read_lo_coverage(vault: LoadedVault, repository: Repository, learning_object_id: str) -> LoCoverageReads:
-    required = required_facets(vault, learning_object_id, repository)
+def read_lo_coverage(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    required: set[str] | None = None,
+) -> LoCoverageReads:
+    """``required``: the learning object's required facets, when the caller already read them; otherwise
+    :func:`required_facets` now."""
+
+    if required is None:
+        required = required_facets(vault, learning_object_id, repository)
     open_uncertainties = {
         state.facet_id: state
         for state in facet_uncertainty_states_for_lo(
@@ -362,8 +377,17 @@ class BreadthReads:
     recall_states: list[Any] | None = None
 
 
-def read_breadth(vault: LoadedVault, repository: Repository, learning_object_id: str) -> BreadthReads:
-    frontier, authored = contract_frontier(vault, learning_object_id, repository)
+def read_breadth(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    required: set[str] | None = None,
+) -> BreadthReads:
+    """``required``: the learning object's required facets, when the caller already read them (the item-derived
+    branch and the frontier's legacy fallback read it); otherwise :func:`required_facets` now."""
+
+    frontier, authored = contract_frontier(vault, learning_object_id, repository, required=required)
     if frontier and authored:
         return BreadthReads(
             frontier=frontier,
@@ -373,7 +397,8 @@ def read_breadth(vault: LoadedVault, repository: Repository, learning_object_id:
                 for facet in sorted({facet for facet, _capability in frontier})
             },
         )
-    required = required_facets(vault, learning_object_id, repository)
+    if required is None:
+        required = required_facets(vault, learning_object_id, repository)
     if not required:
         return BreadthReads(frontier=frontier, authored=authored, required=required)
     return BreadthReads(

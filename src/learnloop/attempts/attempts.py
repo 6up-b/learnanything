@@ -69,6 +69,7 @@ from learnloop.learner.facet_diagnostics import (
     lo_relative_coverage_from,
     read_breadth,
     read_lo_coverage,
+    required_facets,
 )
 from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
@@ -4214,8 +4215,11 @@ def _compute_resolved_grade_application(
         )
     interpretation_variance = _interpretation_variance(vault, repository, inputs, clock=clock)
     recorded_mass = lesson_check_mass(repository, attempt_id, draft.attempt_type)
-    lo_coverage = read_lo_coverage(vault, repository, learning_object.id)
-    breadth = read_breadth(vault, repository, learning_object.id)
+    # The learning object's required facets, read once: its relative coverage and the item-derived breadth
+    # denominator must count the same set.
+    required = required_facets(vault, learning_object.id, repository)
+    lo_coverage = read_lo_coverage(vault, repository, learning_object.id, required=required)
+    breadth = read_breadth(vault, repository, learning_object.id, required=required)
     fsrs_weights = resolve_fsrs_weights(repository)
     reference_status = _attempt_reference_status(repository, item, draft, replay=replay)
     # One error event per attribution the grade keeps: canonicalization and the firewall map each attribution to
