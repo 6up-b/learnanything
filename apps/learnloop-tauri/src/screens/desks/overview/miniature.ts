@@ -15,6 +15,8 @@ export function cloneForMiniature(source: HTMLElement): { node: HTMLElement; res
   walk(source, []);
   const node = source.cloneNode(true) as HTMLElement;
   node.removeAttribute("id");
+  // A clone marked as a window would take its clicks for that window (the listener router reads the mark).
+  node.removeAttribute("data-desk-window");
   for (const element of Array.from(node.querySelectorAll("[id]"))) element.removeAttribute("id");
   for (const element of Array.from(node.querySelectorAll("[data-desk-window]"))) element.removeAttribute("data-desk-window");
   for (const frame of Array.from(node.querySelectorAll("iframe, video, audio, canvas, object, embed"))) {

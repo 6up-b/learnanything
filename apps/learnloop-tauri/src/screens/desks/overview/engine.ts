@@ -96,12 +96,14 @@ export function onStage(rect: Rect, camera: Camera): Rect {
  * (48 px; 74 px from the top so the desk label above the row shows). */
 export function followSelection(from: Camera, selected: Rect, stage: Stage): Camera {
   const r = onStage(selected, from);
+  // Whole pixels keep the cards crisp; each shift rounds away from zero so the margin always holds.
+  const away = (delta: number) => (delta > 0 ? Math.ceil(delta) : Math.floor(delta));
   let { x, y } = from;
-  if (r.x < OVERVIEW.edge) x += OVERVIEW.edge - r.x;
-  else if (r.x + r.w > stage.width - OVERVIEW.edge) x -= r.x + r.w - (stage.width - OVERVIEW.edge);
-  if (r.y < OVERVIEW.edgeTop) y += OVERVIEW.edgeTop - r.y;
-  else if (r.y + r.h > stage.height - OVERVIEW.edge) y -= r.y + r.h - (stage.height - OVERVIEW.edge);
-  return { x: Math.round(x), y: Math.round(y), s: from.s };
+  if (r.x < OVERVIEW.edge) x += away(OVERVIEW.edge - r.x);
+  else if (r.x + r.w > stage.width - OVERVIEW.edge) x -= away(r.x + r.w - (stage.width - OVERVIEW.edge));
+  if (r.y < OVERVIEW.edgeTop) y += away(OVERVIEW.edgeTop - r.y);
+  else if (r.y + r.h > stage.height - OVERVIEW.edge) y -= away(r.y + r.h - (stage.height - OVERVIEW.edge));
+  return { x, y, s: from.s };
 }
 
 /** The overview's camera on entering: the mockup's starting pan, moved to keep the selection in view. */

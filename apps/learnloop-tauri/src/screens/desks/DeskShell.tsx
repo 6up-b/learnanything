@@ -1147,7 +1147,7 @@ export function DeskShell({
     if (!overview) return;
     const handle = timers.set(() => {
       for (const [windowId, host] of miniHosts.current) {
-        const body = document.querySelector(`[data-desk-window="${CSS.escape(windowId)}"]`) as HTMLElement | null;
+        const body = [...document.querySelectorAll<HTMLElement>("[data-desk-window]")].find((pane) => pane.getAttribute("data-desk-window") === windowId) ?? null;
         if (!body) continue;
         if (miniatures.needs(windowId)) {
           const { node, restoreScroll } = cloneForMiniature(body);
