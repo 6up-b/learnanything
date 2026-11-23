@@ -627,7 +627,7 @@ def _run_lesson_weight(
 def _run_question_event_spans(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
-    from learnloop.passage_spans.projection import rebuild_question_event_spans
+    from learnloop.substrate.passage_spans import rebuild_question_event_spans
 
     # Whole-vault: an exchange's passages never depend on the requested LO subset.
     report = rebuild_question_event_spans(context.vault, context.repository)
@@ -638,7 +638,7 @@ def _run_question_event_spans(
 def _run_learner_text_gap_spans(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
-    from learnloop.passage_spans.projection import rebuild_learner_text_gap_spans
+    from learnloop.substrate.passage_spans import rebuild_learner_text_gap_spans
 
     report = rebuild_learner_text_gap_spans(context.vault, context.repository)
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=report["written"],

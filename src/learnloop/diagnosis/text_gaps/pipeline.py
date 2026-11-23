@@ -74,7 +74,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
-from learnloop.passage_spans.projection import write_through_gap
+from learnloop.substrate.passage_spans import write_through_gap
 from learnloop.decider_judgments import enabled as decider_enabled
 from learnloop.diagnosis.text_gaps import actions
 from learnloop.diagnosis.text_gaps.candidates import belief_candidates, prerequisite_candidates

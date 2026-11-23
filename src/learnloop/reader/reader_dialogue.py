@@ -57,8 +57,7 @@ from learnloop.substrate.activities import (
     resolve_legacy_item,
 )
 from learnloop.attempts.salience_firewall import salience_payload
-from learnloop.passage_spans.exchange_places import exchange_places
-from learnloop.passage_spans.projection import write_through_question_events
+from learnloop.substrate.passage_spans import exchange_places, write_through_question_events
 from learnloop.reader.span_view import SpanViewError, build_span_view
 from learnloop.vault.models import LoadedVault
 

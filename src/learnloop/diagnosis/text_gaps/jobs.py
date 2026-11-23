@@ -32,7 +32,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
-from learnloop.passage_spans.projection import write_through_gap
+from learnloop.substrate.passage_spans import write_through_gap
 from learnloop.db.stores import provenance as decision_store
 from learnloop.diagnosis.text_gaps.contract import (
     NOTE_SOURCE_KINDS,

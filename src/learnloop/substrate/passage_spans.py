@@ -12,6 +12,10 @@ Each source has its own recipe, and none invents locality. A row records its anc
   says what content relates to a learning object, not where the learner wrote, so it never places a
   row on a passage.
 
+A leaf below the packages that write through it (the Reader's Ask, the tutor, the gap pipeline): it
+imports only the stores (``pyproject.toml``'s passage-spans contract), so no package cycle can run
+through it.
+
 Rows name the reading they were made on; aliases across re-reads are applied when the union is read
 (``learnloop.passage_union.union``), so a re-read never rewrites them.
 
@@ -29,9 +33,55 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from learnloop.db.stores import span_projections as store
-from learnloop.passage_spans.exchange_places import CITED, SELECTION, exchange_places
 
 LOG = logging.getLogger(__name__)
+
+# -- where a Reader Ask was --------------------------------------------------------------------------
+# Read from its durable ``reader_answer_submitted`` payload by two readers: ``reader_dialogue.ask_provenance``
+# (every passage an exchange names, for the protection filter) and the exchange recipe below (the
+# selection and the citations, each with its role). Pure: it reads one payload and touches no store.
+#: The roles a place can have: the learner's anchor and selection, a citation of the answer, and a
+#: passage the tutor was given (a neighbour, a retrieved or explorable passage, the excerpt).
+SELECTION = "selection"
+CITED = "cited"
+GIVEN = "given"
+
+
+def located(value: Any, extraction_id: str) -> tuple[str, str] | None:
+    """The ``(reading, span)`` a citation-like value names, or None."""
+
+    if not isinstance(value, dict):
+        return None
+    span = value.get("span_id")
+    reading = value.get("extraction_id") or extraction_id
+    locator = str(value.get("locator") or value.get("href") or "")
+    if not span and locator.startswith("span:") and "/" in locator:
+        reading, span = locator[len("span:"):].split("/", 1)
+    return (str(reading), str(span)) if span else None
+
+
+def exchange_places(payload: Mapping[str, Any], *, subject_id: str, extraction_id: str) -> list[tuple[str, str, str]]:
+    """Every ``(reading, span, role)`` one exchange names, in the order ``ask_provenance`` lists them."""
+
+    prefix = f"span:{extraction_id}/"
+    manifest = payload.get("manifest") or {}
+    selection = manifest.get("selection") or {}
+    tutor = payload.get("tutor") if isinstance(payload.get("tutor"), dict) else {}
+    anchor = payload.get("span_id") or (subject_id[len(prefix):] if subject_id.startswith(prefix) else None)
+    places = [(extraction_id, str(span), SELECTION) for span in [anchor, *(selection.get("span_ids") or [])] if span]
+    for value in payload.get("citations") or []:
+        place = located(value, extraction_id)
+        if place is not None:
+            places.append((*place, CITED))
+    for value in [tutor.get("excerpt"), *(tutor.get("explorable") or []), *(manifest.get("source_spans") or [])]:
+        place = located(value, extraction_id)
+        if place is not None:
+            places.append((*place, GIVEN))
+    for key in (tutor.get("retrieval") or {}).get("span_keys") or []:
+        reading, _, span = str(key).partition(":")  # as ``reader_tutor.shown_span_keys`` reads them
+        if reading and span:
+            places.append((reading, span, GIVEN))
+    return places
 
 EXACT_SELECTION = "exact_selection"
 CITATION = "citation"
@@ -316,6 +366,7 @@ def write_through_gap(connection: Any, vault: Any, gap_id: str | None) -> None:
 
 
 __all__ = [
+    "CITED", "GIVEN", "SELECTION", "exchange_places", "located",
     "CITATION", "EXACT_SELECTION", "LEARNER_TEXT_GAP_SPANS", "QUESTION_EVENT_SPANS", "SOURCE_CONTEXT", "UNANCHORED",
     "gap_rows", "project_gap", "project_question_event", "question_event_rows", "rebuild_learner_text_gap_spans",
     "rebuild_question_event_spans", "write_through_gap", "write_through_question_events",

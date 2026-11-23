@@ -94,7 +94,7 @@ from learnloop.config.schema import TutorQAConfig
 from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.passage_spans.projection import write_through_question_events
+from learnloop.substrate.passage_spans import write_through_question_events
 from learnloop.ai.runs import finish_agent_run
 from learnloop.ai.spend import is_subscription_transport
 from learnloop.tutor.context_delivery import (

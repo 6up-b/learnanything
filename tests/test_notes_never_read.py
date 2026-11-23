@@ -51,7 +51,7 @@ ALLOWED = {
     "src/learnloop/adaptive_difficulty/column_classes.py": "AD's guard: every column classified",
     "src/learnloop/teacher/notes.py": "curriculum C4: the lesson's notes headers and read_note (the teacher's one door)",
     "src/learnloop_sidecar/handlers/passage_union.py": "Reader workbench v2: the union read's linked notes (C2's marks)",
-    "src/learnloop/passage_spans/projection.py": ("Reader workbench v2: a linked note's gap placed on the passage the "
+    "src/learnloop/substrate/passage_spans.py": ("Reader workbench v2: a linked note's gap placed on the passage the "
                                                   "learner linked it to (a derived display row, never an input)"),
 }
 #: Teacher TE1 + curriculum C4 (spec §8.2, §10.4): the teacher reads note text through read_note, and the

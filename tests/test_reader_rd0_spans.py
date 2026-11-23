@@ -6,7 +6,7 @@ from __future__ import annotations
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import span_projections as store
-from learnloop.passage_spans.projection import (
+from learnloop.substrate.passage_spans import (
     project_gap,
     project_question_event,
     rebuild_learner_text_gap_spans,
