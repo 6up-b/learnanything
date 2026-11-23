@@ -107,8 +107,12 @@ class MenuObjectInput(ParamsModel):
 
 
 def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[str, list[tuple[str, str]], str,
-                                                                                    list[str]]:
-    """The object's key, its passages, the words to search by, and the sources it sits in."""
+                                                                                    list[str], bool]:
+    """The object's key, its passages, the words to search by, the sources it sits in, and whether any of its
+    passages is exam or held-out material. A protected passage's words are never searched by (nor sent to a judge):
+    the words are empty then, for a pad line too (its words follow the passages they were written about)."""
+
+    from learnloop.passage_union.elsewhere import withheld_places
 
     from learnloop.content.sources.span_aliases import reading_source
     from learnloop.db.stores import pad_reads
@@ -146,7 +150,8 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
                            annotation_id=params.annotation_id, window_id=params.window_id)
     sources = sorted({source for extraction_id, _span in places
                       if (source := reading_source(repository, extraction_id)) is not None})
-    return key, places, text, sources
+    withheld = bool(withheld_places(vault, repository, places))
+    return key, places, "" if withheld else text, sources, withheld
 
 
 def _union_entries(vault: Any, repository: Any, places: list[tuple[str, str]]) -> list[tuple[str, str, dict]]:
@@ -176,7 +181,7 @@ def passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[
     from learnloop.source_retrieval.corpus import block_roles
 
     vault, repository = ctx.require_vault()
-    key, places, _text, sources = _menu_places(vault, repository, params)
+    key, places, _text, sources, _withheld = _menu_places(vault, repository, params)
     with repository.connection() as connection:
         # A passage's effective role ("exercise", "solution", ...): Make it practice imports an exercise and authors
         # a question otherwise (§9.1).
@@ -190,7 +195,9 @@ def passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[
 @method("passage.promoted", MenuObjectInput)
 def passage_promoted_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[str, Any]:
     """The menu's promoted rows at once (the cheap ones, ranked, at most four) and the job finding the judged ones:
-    ``{object_key, rows, cap, pending_job: {job_id} | null, paid: {searched_by_meaning, verified, reason}}``."""
+    ``{object_key, rows, cap, withheld, pending_job: {job_id} | null, paid: {searched_by_meaning, verified,
+    reason}}``. ``withheld``: a passage of the object is exam or held-out material, so nothing is searched for it
+    and no passage elsewhere is promoted from it."""
 
     from learnloop.ai import model_use
     from learnloop.ids import new_ulid
@@ -199,15 +206,16 @@ def passage_promoted_handler(ctx: SidecarContext, params: MenuObjectInput) -> di
     from learnloop_sidecar import polled_jobs as PJ
 
     vault, repository = ctx.require_vault()
-    key, places, text, sources = _menu_places(vault, repository, params)
+    key, places, text, sources, withheld = _menu_places(vault, repository, params)
     with repository.connection() as connection:
-        linked = E.by_passage_links(repository, connection, places)
+        linked = E.by_passage_links(vault, repository, connection, places)
     cheap = P.cheap_rows(key, _union_entries(vault, repository, places), linked)
     rows = P.rank(cheap, dismissed=_dismissed(repository, cheap))
-    retrieval = bool(getattr(vault.config.source_retrieval, "enabled", False))
+    retrieval = bool(getattr(vault.config.source_retrieval, "enabled", False)) and not withheld
     waiting = model_use.waiting(vault.root)
     paid = {"searched_by_meaning": retrieval and not waiting, "verified": retrieval and not waiting,
             "reason": None if retrieval and not waiting else (
+                "exam or held-out material: nothing is searched for it" if withheld else
                 "waiting for your OK to use AI" if waiting else "source retrieval is off")}
 
     def work(job: PJ.PolledJob) -> dict[str, Any]:
@@ -224,7 +232,7 @@ def passage_promoted_handler(ctx: SidecarContext, params: MenuObjectInput) -> di
     job = PJ.registry(ctx, _PROMOTED_REGISTRY).start(
         ctx, kind=PROMOTED_KIND, job_id=f"prom_{new_ulid()}", work=work,
         supersede_key=f"menu:{params.desk_id or ''}")
-    return versioned({"object_key": key, "rows": [row.wire() for row in rows], "cap": P.CAP,
+    return versioned({"object_key": key, "rows": [row.wire() for row in rows], "cap": P.CAP, "withheld": withheld,
                       "pending_job": {"job_id": job.job_id}, "paid": paid})
 
 
