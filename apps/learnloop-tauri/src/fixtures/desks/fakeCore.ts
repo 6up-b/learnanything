@@ -197,9 +197,35 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return companion.search(input as { query: string });
     case "search_job":
       return companion.searchJob(String(input.jobId));
+    case "notebook_open":
+    case "notebook_status":
+      return notebookSession(command, input);
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }
+}
+
+/** The notebook fixture (`?notebook=1`): a real sandboxed session the harness script started (its frame URL in
+ * `window.__notebookHarness`), or a forced state (`?nbstate=`) for the frame's honest states. */
+declare global {
+  interface Window {
+    __notebookHarness?: { frameUrl: string; sessionId: string };
+  }
+}
+
+function notebookSession(command: string, input: Record<string, unknown>) {
+  const forced = new URLSearchParams(window.location.search).get("nbstate");
+  const real = window.__notebookHarness;
+  if (forced === "unavailable" || (!real && !forced)) {
+    throw { code: "notebook_runtime_unavailable", message: "Notebooks can't run here: bubblewrap (bwrap) is not installed; notebooks run only inside it.", retryable: false };
+  }
+  const state = forced && forced !== "ready" ? forced : "ready";
+  return {
+    version: 1, sessionId: real?.sessionId ?? "nbs_fixture", owner: (input.owner as string) ?? "lesson:fx", state,
+    stopReason: state === "stopped" ? "idle" : null, error: state === "failed" ? "the notebook server stopped 4 times; it was not started again" : null,
+    restarts: state === "restarting" ? 1 : 0, framesAttached: 0, cells: [], startSeconds: [0.4],
+    frameUrl: real?.frameUrl ?? "http://127.0.0.1:9/s/none/", memoryBytes: null, command,
+  };
 }
 
 export async function invoke<T>(command: string, args: InvokeArgs = {}): Promise<T> {

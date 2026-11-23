@@ -868,12 +868,17 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "notebook", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")
     parser.add_argument("--dump", default=None, metavar="STATE")
     args = parser.parse_args()
+    if args.stage == "notebook":
+        # The notebook frame runs a real sandboxed session; its own harness compares the lesson state's frame.
+        import subprocess
+
+        return subprocess.call([sys.executable, str(Path(__file__).with_name("notebook.py")), "--ref", str(args.ref)])
     if not DIST.exists():
         print("build the harness page first: npx vite build --config vite.desks.config.mjs", file=sys.stderr)
         return 2

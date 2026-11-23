@@ -102,6 +102,8 @@ import { keyAfter } from "./pads/model";
 import { PadsHostContext, PendingFigures, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
+import { NotebookBridgeContext, type NotebookBridgeHost } from "./notebook/NotebookFrame";
+import type { BridgeMessage } from "./notebook/bridge";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
@@ -1753,6 +1755,30 @@ export function DeskShell({
   const companionKeyRef = useRef(companionKey);
   companionKeyRef.current = companionKey;
 
+  /** A notebook frame's bridge (spec §11.3): `c` summons the companion at the frame's selection with its text as
+   * the chip (untrusted notebook text, quoted), `shift` docks it, and escape dissolves an anchored companion. The
+   * frame has already checked the message's source, origin and shape, and placed its geometry on the page. */
+  const notebookMessage = (message: BridgeMessage) => {
+    if (message.ll === "escape") {
+      if (companionStateRef.current.mode === "anchored") stepCompanion({ kind: "c", anchor: null, stage: stageNow.current });
+      return;
+    }
+    if (message.ll !== "companion") return;
+    if (message.shift) {
+      stepCompanion({ kind: "dock" });
+      return;
+    }
+    const box = stageRef.current?.getBoundingClientRect();
+    const anchor = message.rect && box ? { x: message.rect.x - box.left, y: message.rect.y - box.top, w: message.rect.width, h: message.rect.height } : null;
+    if (message.text && companionStateRef.current.mode === "hidden") {
+      setChip({ quote: clipQuote(message.text, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
+    }
+    stepCompanion({ kind: "c", anchor, stage: stageNow.current });
+  };
+  const notebookMessageRef = useRef(notebookMessage);
+  notebookMessageRef.current = notebookMessage;
+  const notebookBridge = useMemo<NotebookBridgeHost>(() => ({ onMessage: (message) => notebookMessageRef.current(message) }), []);
+
   // The dock and whether it shows come from the desk the desks open on; after that the companion is
   // app-wide and stays where it is when the learner switches desks (a docked companion never moves).
   const companionInit = useRef(false);
@@ -2518,6 +2544,7 @@ export function DeskShell({
 
   return (
     <PadsHostContext.Provider value={padsHost}>
+      <NotebookBridgeContext.Provider value={notebookBridge}>
     <div className={`desk-shell${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
         <span className="desk-brand">◇ LearnLoop</span>
@@ -2955,6 +2982,7 @@ export function DeskShell({
         />
       ) : null}
     </div>
+      </NotebookBridgeContext.Provider>
     </PadsHostContext.Provider>
   );
 }

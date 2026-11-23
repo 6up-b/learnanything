@@ -1,0 +1,50 @@
+/* A notebook in a window (spec §11.2): the frame on the window's paper with even margins (the mockup's lesson
+   body: 10 px above, 12 px at each side and below), a 1 px paper rule round the frame, and the status line in the
+   workbench's interface face. */
+.ll-nb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px 12px 12px;
+  background: var(--desk-pad-paper, #fdfdfc);
+}
+.ll-nb-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 1px solid var(--desk-rule, #dcd7cc);
+  box-sizing: border-box;
+  background: var(--desk-paper, #f7f5f0);
+  display: block;
+}
+.ll-nb-frame[data-paused] { pointer-events: none; }
+.ll-nb-status {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 2px 8px;
+  font: 11.5px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink2, #55524c);
+}
+.ll-nb-status button {
+  font: inherit;
+  color: var(--desk-ll-ink, #5b4a9a);
+  background: none;
+  border: 1px solid var(--desk-rule, #dcd7cc);
+  border-radius: 4px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.ll-nb[data-notebook-state="failed"] .ll-nb-status,
+.ll-nb[data-notebook-state="unavailable"] .ll-nb-status { color: var(--desk-ink, #1f1e1c); }
+.ll-nb-placeholder {
+  align-items: center;
+  justify-content: center;
+  font: 12px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink2, #55524c);
+}
+.ll-nb-placeholder .glyph { color: var(--desk-ll-ink, #5b4a9a); }

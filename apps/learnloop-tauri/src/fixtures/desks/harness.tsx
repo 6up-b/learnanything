@@ -14,6 +14,8 @@ import { REAL_TIMERS } from "../../screens/desks/keys/router";
 import { fixtureMathPad } from "./pads";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "./sources";
 import { FixtureDeskServer } from "./workspace";
+import { NotebookBridgeContext, NotebookFrame, type NotebookBridgeHost } from "../../screens/desks/notebook/NotebookFrame";
+import type { BridgeMessage } from "../../screens/desks/notebook/bridge";
 import "../../styles/app.css";
 import "../../styles/palettes.css";
 
@@ -91,11 +93,53 @@ function LatexFixture() {
   );
 }
 
+declare global {
+  interface Window {
+    __notebookMessages?: BridgeMessage[];
+    __notebookPause?: (paused: boolean) => void;
+  }
+}
+
+/** The notebook fixture (`?notebook=1`, spec §11.2): a lesson's notebook frame where the mockup's Teacher lesson
+ * state (`#tabs=distance,pad=3`, 1440 × 900) draws it, a pad window's paper round it, and a bridge host that
+ * records every message it is handed (the frame has already refused the rest). `?nbstate=` forces a state;
+ * `?nbpreview=1` shows the window as an overview card; `window.__notebookPause(true)` moves it offscreen. */
+function NotebookFixture({ search }: { search: string }) {
+  const params = new URLSearchParams(search);
+  const [paused, setPaused] = React.useState(false);
+  React.useEffect(() => {
+    window.__notebookPause = setPaused;
+  }, []);
+  const state: WindowState = params.get("nbpreview") === "1" ? "preview" : paused ? "offscreen" : "active";
+  const host = React.useMemo<NotebookBridgeHost>(() => {
+    const messages: BridgeMessage[] = [];
+    window.__notebookMessages = messages;
+    return { onMessage: (message) => messages.push(message) };
+  }, []);
+  return (
+    <div className="desk-shell" data-notebook-fixture="" style={{ position: "fixed", inset: 0, background: "#0a0a0b" }}>
+      <div data-desk-window="" style={{ position: "absolute", left: 838, top: 46, width: 558, height: 820, background: "#1a1a1c", border: "1px solid #6b5534", boxSizing: "border-box" }}>
+        <div className="desk-pane-head" style={{ height: 32, boxSizing: "border-box" }}>
+          <span>›</span><span>Scratchpads</span>
+        </div>
+        <div data-notebook-paper="" style={{ position: "absolute", left: 7, top: 125, width: 542, height: 647, background: "#fdfdfc", border: "1px solid #2a2825", boxSizing: "border-box" }}>
+          <NotebookBridgeContext.Provider value={host}>
+            <WindowScope lifecycle={{ windowId: "fx_w_lesson", state }} hub={DIRECT_HUB}>
+              <NotebookFrame owner="lesson:fx_lesson" path="notebooks/lesson.py" title="A slope you can see" style={{ position: "absolute", left: 0, top: 105, right: 0, bottom: 0, height: "auto" }} />
+            </WindowScope>
+          </NotebookBridgeContext.Provider>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Harness({ search = window.location.search }: { search?: string }) {
   const params = new URLSearchParams(search);
   const preview = params.get("preview");
   if (preview === "preview" || preview === "active") return <PreviewCard state={preview} />;
   if (params.get("latex") === "1") return <LatexFixture />;
+  if (params.get("notebook") === "1") return <NotebookFixture search={search} />;
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex" }}>
       <DeskShell
