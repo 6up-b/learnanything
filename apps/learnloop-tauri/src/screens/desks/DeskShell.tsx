@@ -226,6 +226,10 @@ function pendingFiguresFor(store: object): PendingFigures {
   return figures;
 }
 
+function errorText(error: unknown): string {
+  return error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error);
+}
+
 /** A position key after a pad's last block. */
 function keyAfterLast(blocks: Array<{ blockId: string; positionKey: string }>): string {
   return keyAfter(blocks as never, blocks[blocks.length - 1]?.blockId ?? null);
@@ -1929,11 +1933,14 @@ export function DeskShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws === null]);
 
-  const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }) => {
-    void padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }).then(() => {
+  /** Carry a question; settles when the sidecar has it (rejecting, with its reason, when it does not). */
+  const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
+    const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
+    void carried.then(() => {
       toastNow("carried · it comes back beside a related passage");
       refreshCarried();
-    }, (error: unknown) => toastNow(`couldn't carry it · ${error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error)}`));
+    }, (error: unknown) => toastNow(`couldn't carry it · ${errorText(error)}`));
+    return carried.then(() => undefined);
   }, [padsTransport, mintId, toastNow, refreshCarried]);
 
   /** A passage beside the focus (a quote's back-link, a hover card's "open it beside"), at its time for a video. */
@@ -2091,12 +2098,14 @@ export function DeskShell({
   }, [deskPadIds, mintId, runningPadOf, store]);
 
   /** Keep or leave a pad from the drain: the pad is read first when no window has (its stack paused). */
-  const drainWrite = useCallback((padId: string, op: "keep" | "unkeep", version: number) => {
-    void store.loadPad(padId).then(() => {
-      const refused = store.commitPad(padId, [{ op, expectedVersion: store.pads[padId]?.pad.version ?? version }]);
-      if (refused) toastNow(`couldn't ${op === "keep" ? "keep" : "leave"} it · ${refused.message}`);
-    });
-  }, [store, toastNow]);
+  /** Keep or leave a pad from the drain; settles once the server has it (rejecting with why when it does not). */
+  const drainWrite = useCallback(async (padId: string, op: "keep" | "unkeep", version: number): Promise<void> => {
+    await store.loadPad(padId);
+    if (!store.pads[padId]) throw new Error(store.padFailure(padId) ?? "the pad could not be read");
+    const refused = store.commitPad(padId, [{ op, expectedVersion: store.pads[padId]?.pad.version ?? version }]);
+    if (refused) throw refused;
+    if ((await store.settled()) !== "saved") throw new Error("it could not be saved just now");
+  }, [store]);
 
   const padLinks = useMemo<PadLink[]>(() => Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, blockId: anchor.blockId, extractionId: anchor.extractionId, spanId: anchor.spanId }))),
     // store.pads changes identity on every pad change (the pad version re-renders this shell).

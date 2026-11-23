@@ -1696,6 +1696,25 @@ describe("RD4b: pads in the desks", () => {
     expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c1", event: "let_go", expectedVersion: 3 });
   });
 
+  it("the drain says carried or kept only once it is saved; a failed carry keeps its controls and says why", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    fakes.transport.carriedCarry = async () => {
+      throw { code: "sidecar_unavailable", message: "LearnLoop is not running" };
+    };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyQ", "Q", { shiftKey: true });
+    const drain = await screen.findByRole("dialog", { name: "closing softmax and cross-entropy" });
+    press("1", "Digit1");
+    press("c", "KeyC");
+    await flush();
+    await flush();
+    expect(drain.textContent).not.toContain("carried");
+    expect(drain.textContent).toContain("LearnLoop is not running");
+    expect(drain.querySelector("[data-drain-pad] .acts")).not.toBeNull();
+  });
+
   it("an answer proposes a diff into the desk's running pad; accept writes it as the tutor's words", async () => {
     const server = new FixtureDeskServer();
     const fakes = padsTransport(server);

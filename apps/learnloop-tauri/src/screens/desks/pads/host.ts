@@ -69,7 +69,7 @@ export interface PadsHost {
   /** A window's keys reach its stack through this handle. */
   register: (windowId: string, handle: PadStackHandle | null) => void;
   /** Carry a question (shared with the shelf). */
-  carry: (text: string, origin: { kind: CarryInput["originKind"]; ref?: string | null; anchor?: CarryInput["anchor"] }) => void;
+  carry: (text: string, origin: { kind: CarryInput["originKind"]; ref?: string | null; anchor?: CarryInput["anchor"] }) => Promise<void> | void;
 }
 
 /** What the desks' keys ask of a pad stack. */

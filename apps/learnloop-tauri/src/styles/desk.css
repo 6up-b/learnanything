@@ -567,3 +567,4 @@
 .desk-shell .desk-math .katex-display.desk-math-scroll::-webkit-scrollbar-thumb { background: #9a968e; border-radius: 3px; }
 .desk-companion .history .older { display: block; margin: 8px 0 4px; padding: 0; background: none; border: 0; color: #f0c890; font: 11px var(--desk-mono); cursor: pointer; }
 .desk-companion .history .older:disabled { color: var(--desk-t3); cursor: default; }
+.desk-drain .note.err { color: #e8a0a0; }
