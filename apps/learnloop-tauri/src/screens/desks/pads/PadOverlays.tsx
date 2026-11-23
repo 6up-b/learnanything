@@ -204,7 +204,7 @@ function messageOf(error: unknown): string {
 }
 
 export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
-  pads: Array<{ padId: string; title: string }>;
+  pads: Array<{ padId: string; title: string; line?: string }>;
   split: { pads: string[] } | null;
   onCancel: () => void;
   onConfirm: (shown: string[]) => void;
@@ -261,6 +261,7 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
     return hub.listen("window", "keydown", onKey, true);
   }, [again, hub, index, onCancel, onConfirm, order, shown]);
   const titles = new Map(pads.map((pad) => [pad.padId, pad.title]));
+  const lines = new Map(pads.map((pad) => [pad.padId, pad.line ?? ""]));
   if (!again) {
     return (
       <div className="desk-arrange" role="dialog" aria-label="arrange pads">
@@ -283,7 +284,8 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
             return next;
           });
         }}>
-          {shown.has(padId) ? "●" : "○"} {titles.get(padId)}
+          <span className="dot">{shown.has(padId) ? "●" : "○"}</span>
+          <span className="txt"><span className="t">{titles.get(padId)}</span>{lines.get(padId) ? <span className="ln">{lines.get(padId)}</span> : null}</span>
         </button>
       ))}
       <div className="foot">↑↓ choose · k above · j below · space show · = equal · ↵ confirm · esc cancel</div>

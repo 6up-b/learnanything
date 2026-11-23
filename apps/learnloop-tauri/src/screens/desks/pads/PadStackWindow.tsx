@@ -713,7 +713,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       ) : null}
       {arranging ? (
         <ArrangeOverlay
-          pads={padIds.map((padId) => ({ padId, title: store.pads[padId]?.pad.title || "a pad" }))}
+          pads={padIds.map((padId) => ({ padId, title: store.pads[padId]?.pad.title || "a pad", line: plainLine(store.pads[padId]?.blocks.find((block) => block.bodyMd)?.bodyMd ?? "") }))}
           split={split}
           onCancel={() => setArranging(false)}
           onConfirm={(shown) => {

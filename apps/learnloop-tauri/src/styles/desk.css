@@ -528,6 +528,14 @@
 .desk-sheet .acts, .desk-drain .acts { display: flex; gap: 12px; padding: 6px 8px; }
 .desk-sheet .acts button, .desk-drain .acts button { color: #f0c890; }
 .desk-arrange .foot { padding: 6px 8px 2px; color: var(--desk-t3); font-size: 10px; }
+/* Over its own pad window, as cards: the title and the pad's first line. */
+.desk-pads .desk-arrange { position: absolute; left: 8px; right: 8px; top: 22px; transform: none; max-width: none; min-width: 0; }
+.desk-pads .desk-arrange .head { color: var(--desk-amber); letter-spacing: .06em; }
+.desk-pads .desk-arrange .row { margin: 4px 0; padding: 7px 10px; border: 1px solid #2e2e2e; border-radius: 3px; align-items: baseline; }
+.desk-pads .desk-arrange .row.sel { border-color: var(--desk-amber); background: #1d1a15; }
+.desk-pads .desk-arrange .dot { color: var(--desk-amber); flex: none; }
+.desk-pads .desk-arrange .txt { display: flex; flex-direction: column; min-width: 0; }
+.desk-pads .desk-arrange .txt .ln { color: var(--desk-t3); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .desk-drain .sub { padding: 0 8px 6px; color: var(--desk-t3); font-size: 10.5px; }
 .desk-drain .pad { padding: 6px 8px; border-top: 1px solid #2a2a2a; }
 .desk-drain .pad .title { color: var(--desk-t); }
