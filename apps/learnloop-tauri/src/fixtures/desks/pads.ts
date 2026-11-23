@@ -47,3 +47,41 @@ export function fixturePads(): PadViewDto[] {
     { version: 1, pad: { padId: FIXTURE_PAD_IDS.deriving, kind: "named", title: "deriving ∂L/∂z", kept: true, homeDeskId: "fx_desk_softmax", workbenchSessionId: null, lessonId: null, version: 2, createdAt: T, updatedAt: T }, blocks: derivingBlocks, anchors: [] },
   ];
 }
+
+/** The display-math fixture (spec §13.4 rule 5): tall and wide equations in every kind of pad block, for the
+ * real-webview test that no equation is clipped. Project-authored math, as display blocks ($$ on lines of
+ * their own, the form the editor, the tutor and the Reader's display brackets all come to). */
+const TEX = {
+  fractionOfSums: "\\frac{\\sum_{i=1}^{n} \\sum_{j=1}^{m} a_{ij}\\, e^{z_{ij}}}{\\sum_{k=1}^{K} \\frac{e^{z_k}}{1 + \\sum_{l} e^{z_l}}}",
+  aligned: "\\begin{aligned} \\frac{\\partial L}{\\partial z_k} &= \\frac{\\partial}{\\partial z_k}\\Bigl(-z_y + \\log \\sum_{j} e^{z_j}\\Bigr) \\\\ &= -[k = y] + \\frac{e^{z_k}}{\\sum_{j} e^{z_j}} \\\\ &= p_k - [k = y] \\end{aligned}",
+  matrix: "J = \\begin{pmatrix} p_1(1 - p_1) & -p_1 p_2 & \\cdots & -p_1 p_K \\\\ -p_2 p_1 & p_2(1 - p_2) & \\cdots & -p_2 p_K \\\\ \\vdots & \\vdots & \\ddots & \\vdots \\\\ -p_K p_1 & -p_K p_2 & \\cdots & p_K(1 - p_K) \\end{pmatrix}",
+  tallParens: "\\left( \\frac{\\displaystyle \\sum_{j=1}^{K} e^{z_j / T}}{\\displaystyle \\prod_{k=1}^{K} \\left( 1 + \\frac{1}{e^{z_k}} \\right)} \\right)^{\\frac{1}{2}}",
+  // Fits a wide column, is scaled in a middle one, and scrolls in a narrow one.
+  wide: "p_k = \\frac{e^{z_k / T}}{e^{z_1 / T} + e^{z_2 / T} + e^{z_3 / T} + e^{z_4 / T} + e^{z_5 / T}} \\quad\\text{and}\\quad \\log p_k = \\frac{z_k}{T} - \\log \\sum_{j} e^{z_j / T}",
+} as const;
+
+const display = (tex: string) => `\n\n$$\n${tex}\n$$\n\n`;
+
+export const FIXTURE_MATH = {
+  fractionOfSums: display(TEX.fractionOfSums),
+  aligned: display(TEX.aligned),
+  matrix: display(TEX.matrix),
+  tallParens: display(TEX.tallParens),
+  wide: display(TEX.wide),
+} as const;
+
+export function fixtureMathPad(): PadViewDto {
+  const m = FIXTURE_MATH;
+  const at = (n: number) => String.fromCharCode(97 + n);
+  const blocks: PadBlockDto[] = [
+    block({ blockId: "fx_m_text1", kind: "text", provenance: "learner", positionKey: at(0), day: "2026-11-23", bodyMd: `a fraction of sums:${m.fractionOfSums}` }),
+    block({ blockId: "fx_m_text2", kind: "text", provenance: "learner", positionKey: at(1), day: "2026-11-23", bodyMd: m.aligned.trim() }),
+    block({ blockId: "fx_m_quote", kind: "source_quote", provenance: "source", positionKey: at(2), day: "2026-11-23", bodyMd: `the Jacobian:${m.matrix}it is symmetric.`,
+      payload: { source_title: "Softmax, a short book", page: 2, extraction_id: book.extractionId, span_id: `${book.extractionId}_s2_1` } }),
+    block({ blockId: "fx_m_tutor", kind: "tutor_quote", provenance: "tutor", positionKey: at(3), day: "2026-11-23", bodyMd: `with a temperature:${m.tallParens}`, payload: { asked_on: "2026-11-23" } }),
+    block({ blockId: "fx_m_check", kind: "check_cell", provenance: "tutor", positionKey: at(4), day: "2026-11-23", bodyMd: m.aligned.trim(),
+      payload: { practice_item_id: "fx_item_check", prompt_md: `derive it:${m.fractionOfSums}` } }),
+    block({ blockId: "fx_m_wide", kind: "text", provenance: "learner", positionKey: at(5), day: "2026-11-23", bodyMd: m.wide.trim() }),
+  ];
+  return { version: 1, pad: { padId: "fx_pad_math", kind: "running", title: "math", kept: false, homeDeskId: "fx_desk_softmax", workbenchSessionId: null, lessonId: null, version: 1, createdAt: T2, updatedAt: T2 }, blocks, anchors: [] };
+}

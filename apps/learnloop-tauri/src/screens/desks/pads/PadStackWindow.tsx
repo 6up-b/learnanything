@@ -621,7 +621,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
 
   return (
     <div className="desk-pads" data-pad-stack={windowId}>
-      <button type="button" className="pinfo" aria-label="where your words go" aria-expanded={info} onClick={() => setInfo((now) => !now)}>ⓘ yours</button>
+      <div className="pbar"><button type="button" className="pinfo" aria-label="where your words go" aria-expanded={info} onClick={() => setInfo((now) => !now)}>ⓘ yours</button></div>
       {info ? (
         <div className="pinfo-pop" role="dialog" aria-label="where your words go">
           <b>where your words go.</b> LearnLoop reads your scratchpads to understand what you're working on and where you're stuck. Nothing here is graded. Only blocks you submit (marked <span className="submitted">submitted</span>) count as an attempt or a teach-back. Sketches are kept, not read for grading.

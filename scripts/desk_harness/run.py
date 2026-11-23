@@ -26,6 +26,13 @@ opacities, visibility and the selection's edge, inserting no element and touchin
 previews logging nothing; the laptop rail. It records the zoom's frame times as information (the owner
 deferred the frame budget). Pillow compares the screenshots (`--with pillow`).
 
+The pads' run (RD4) adds the RD4 deep links' equivalents (the running pad, the sticky tabs' merge and
+fillets, the § row's hover fade, the submitted tag, ⓘ, the editor writing through pad.apply, the pad menu,
+lift out, a sketch block's tools, arrange and split, a passage's ✎ link, the carried ◌, the drain) and display
+math in the companion's answer. The display-math run (`?latex=1`, spec §13.4 rule 5) renders tall and wide
+equations in every pad block kind at three widths and in a hover card, and measures each equation's ink
+against its nearest clipping ancestor below the window's scroller, before and after a resize.
+
 Exit status: 0 when every check passes, 1 otherwise. Screenshots go to --shots when given.
 """
 
@@ -786,6 +793,232 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
     results.check("no error reached the shell's error line (companion run)", errors == [], errors)
 
 
+# The display-math measurement (spec §13.4 rule 5): each equation's ink (the union of the client rects of
+# KaTeX's .vlist and .mord spans) against the visible rect of its nearest clipping ancestor below the window's
+# own scroller, with at least 3 px of room above and 5 px below; a wide equation is fitted (scale >= 0.75) or
+# sits in a horizontal scroller whose bar is visible and which keeps the full height.
+MATH_SCROLLERS = ".pscroller, .pscroll, .desk-companion .body, .desk-thread, [data-desk-window]"
+MEASURE_MATH = """([scope, scrollers]) => {
+  const out = [];
+  for (const display of document.querySelectorAll(scope + ' .katex-display')) {
+    const rects = [...display.querySelectorAll('.vlist, .mord')].flatMap((e) => [...e.getClientRects()]).filter((r) => r.width > 0 && r.height > 0);
+    if (!rects.length) continue;
+    const ink = { top: Math.min(...rects.map((r) => r.top)), bottom: Math.max(...rects.map((r) => r.bottom)), left: Math.min(...rects.map((r) => r.left)), right: Math.max(...rects.map((r) => r.right)) };
+    let clip = null;
+    for (let el = display; el && el !== document.body; el = el.parentElement) {
+      if (el !== display && el.matches(scrollers)) break;
+      const cs = getComputedStyle(el);
+      if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') { clip = el; break; }
+    }
+    const katex = display.querySelector(':scope > .katex');
+    const scale = katex ? parseFloat(getComputedStyle(katex).fontSize) / parseFloat(getComputedStyle(display).fontSize) / 1.21 : 1;
+    const own = display.getBoundingClientRect();
+    const row = { where: display.closest('[data-block], .pcard, .desk-companion, [data-latex-column]')?.getAttribute('data-block') || display.closest('.pcard, .desk-companion') ?.className.split(' ')[0] || '', scale: Math.round(scale * 1000) / 1000, ink, clip: null, scroller: false, bar: 0, ok: true, why: '' };
+    if (clip) {
+      const box = clip.getBoundingClientRect();
+      const visible = { top: box.top + clip.clientTop, bottom: box.top + clip.clientTop + clip.clientHeight, left: box.left + clip.clientLeft, right: box.left + clip.clientLeft + clip.clientWidth };
+      row.clip = { cls: clip.className, ...visible };
+      const scrollsX = ['auto', 'scroll'].includes(getComputedStyle(clip).overflowX) && clip.scrollWidth > clip.clientWidth + 0.5;
+      row.scroller = scrollsX;
+      row.bar = clip.offsetHeight - clip.clientHeight - clip.clientTop * 2;
+      if (ink.top < visible.top + 3) { row.ok = false; row.why += 'top '; }
+      if (ink.bottom > visible.bottom - 5) { row.ok = false; row.why += 'bottom '; }
+      if (!scrollsX && (ink.left < visible.left - 0.5 || ink.right > visible.right + 0.5)) { row.ok = false; row.why += 'sides '; }
+      if (scrollsX && row.bar <= 0) { row.ok = false; row.why += 'no visible bar '; }
+    }
+    // Fitted or scrolled: never squeezed under 0.75, never wider than its own column unless it scrolls.
+    if (scale < 0.75 - 0.005) { row.ok = false; row.why += 'scale '; }
+    if (!row.scroller && ink.right > own.right + 1) { row.ok = false; row.why += 'overflows its column '; }
+    out.push(row);
+  }
+  return out;
+}"""
+
+
+async def measure_math(page: Page, scope: str) -> list[dict[str, Any]]:
+    return await page.evaluate(MEASURE_MATH, [scope, MATH_SCROLLERS])
+
+
+async def run_latex(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Display math in every container is never clipped (spec §13.4; an owner rule)."""
+    await page.goto(f"{base}/desk-harness.html?latex=1")
+    await page.wait_for_selector("[data-latex-column] .katex-display")
+    await page.evaluate("document.fonts.ready")
+    await settle(page, 900)
+    for width in (640, 430, 300):
+        column = f'[data-latex-column="{width}"]'
+        rows = []
+        for block in ("fx_m_text1", "fx_m_text2", "fx_m_quote", "fx_m_tutor", "fx_m_check", "fx_m_wide"):
+            await page.locator(f'{column} [data-block="{block}"]').scroll_into_view_if_needed()
+            rows += [row for row in await measure_math(page, f'{column} [data-block="{block}"]')]
+        bad = [row for row in rows if not row["ok"]]
+        results.check(f"every display equation in a {width} px pad has room above and below and is fitted or scrolls (§13.4)", len(rows) >= 7 and not bad, bad[:2] or len(rows))
+        if width == 640:
+            results.check("in the wide pad the wide equation fits or is scaled, not scrolled", any(r["where"] == "fx_m_wide" and not r["scroller"] for r in rows), [r for r in rows if r["where"] == "fx_m_wide"])
+        if width == 300:
+            results.check("in the narrow pad the wide equation scrolls, with a visible bar and its full height", any(r["where"] == "fx_m_wide" and r["scroller"] and r["bar"] > 0 and r["ok"] for r in rows), [r for r in rows if r["where"] == "fx_m_wide"])
+        await shot(page, shots, f"latex-{width}")
+    # A hover card holding display math (the tutor's words).
+    column = '[data-latex-column="430"]'
+    await page.locator(f'{column} [data-block="fx_m_tutor"]').scroll_into_view_if_needed()
+    await page.locator(f'{column} [data-block="fx_m_tutor"] [data-mark="tutor"]').hover()
+    await page.wait_for_selector(f"{column} [data-pad-card] .katex-display", timeout=3000)
+    rows = await measure_math(page, f"{column} [data-pad-card]")
+    results.check("display math in a pad's hover card is never clipped (§13.4)", rows and all(row["ok"] for row in rows), rows[:2])
+    await shot(page, shots, "latex-card")
+    # Re-measured on resize: narrowing the page changes no equation into a clipped one.
+    await page.set_viewport_size({"width": 1100, "height": 900})
+    await settle(page, 600)
+    rows = await measure_math(page, "[data-latex-column]")
+    results.check("after a resize every equation is measured again and none is clipped", rows and all(row["ok"] for row in rows), [row for row in rows if not row["ok"]][:2])
+    await page.set_viewport_size(VIEWPORT)
+
+
+async def run_pads(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """The pads (spec §10; the RD4 deep links' equivalents) and display math in the companion's bubbles."""
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    # Bring the pad stack into view (it is the desk's last window).
+    for _ in range(6):
+        await page.keyboard.press("Alt+l")
+        await page.wait_for_timeout(250)
+    await page.wait_for_selector(".desk-pads [data-block]")
+    await settle(page, 900)
+    scroller = page.locator(".desk-pads .pscroller")
+
+    # #s11=run: the running pad's dated headings, the last one today, and the jot line.
+    days = await page.locator(".desk-pads .paper.k-running .day").all_inner_texts()
+    jot = await page.locator(".desk-pads .paper.k-running .pb.jot").inner_text()
+    results.check("the running pad has dated headings, the newest marked today, and the jot line (#s11=run)", len(days) >= 2 and days[-1].endswith("· TODAY") and "jot · it lands here by default" in jot, [days, jot])
+    await shot(page, shots, "pads-run")
+
+    # #tabs=distance,pad=2,padf=0.4: tabs merge into the paper with fillets as the next pad nears.
+    geo = await page.evaluate("""() => { const s = document.querySelector('.desk-pads .pscroller'); const p = document.querySelectorAll('.desk-pads .paper')[1]; return { top: p.offsetTop, h: s.clientHeight }; }""")
+    await scroller.evaluate("(s, y) => { s.scrollTop = y; }", max(0, geo["top"] - geo["h"] * 0.6))
+    await settle(page, 500)
+    merges = await page.evaluate("() => [...document.querySelectorAll('.desk-pads .ptab')].map((t) => [Number(t.dataset.merge), getComputedStyle(t).getPropertyValue('--fillet').trim(), parseFloat(t.style.marginLeft)])")
+    results.check("the sticky tabs carry a merge amount, fillets at that opacity, and margins by distance (#tabs=distance,pad=2,padf=0.4)", len(merges) == 2 and all(0 <= m[0] <= 1 for m in merges) and all(m[1] != "" for m in merges), merges)
+    await shot(page, shots, "pads-tabs-distance")
+    await scroller.evaluate("(s) => { s.scrollTop = 0; }")
+    await settle(page, 400)
+
+    # The § row hover: the row darkens and its text fades to the paper's white (transitioned, both ways).
+    row = page.locator('.desk-pads [data-block="fx_b_r2"]')
+    before = await row.evaluate("(r) => [getComputedStyle(r).backgroundColor, getComputedStyle(r.querySelector('.bx p, .bx .quote') || r).color]")
+    await row.hover()
+    await page.wait_for_timeout(400)
+    during = await row.evaluate("(r) => [getComputedStyle(r).backgroundColor, getComputedStyle(r.querySelector('.bx p, .bx .quote') || r).color, getComputedStyle(r.querySelector('.bx .quote') || r).transitionProperty]")
+    await page.mouse.move(5, 5)
+    await page.wait_for_timeout(400)
+    after = await row.evaluate("(r) => [getComputedStyle(r).backgroundColor, getComputedStyle(r.querySelector('.bx p, .bx .quote') || r).color]")
+    results.check("a § row darkens on hover and its text fades to the paper's white, and back (§10.3)", during[0] == "rgb(42, 40, 37)" and during[1] == "rgb(253, 253, 252)" and before == after and before != during[:2] and "color" in during[2], [before, during, after])
+
+    # #s12=submitted: the green tag on a submitted block; a quote says it is kept, not read.
+    tag = await page.locator('.desk-pads [data-block="fx_b_r4"] .submitted').inner_text()
+    quote_emits = await page.locator('.desk-pads [data-block="fx_b_r2"]').get_attribute("data-emits")
+    results.check("a submitted block shows its tag; a quote is marked as not read as your words (#s12=submitted)", tag == "submitted · teach-back" and quote_emits == "no", [tag, quote_emits])
+
+    # #s12=info: the ⓘ popover says where the words go.
+    await page.locator(".desk-pads .pinfo").click()
+    info = await page.locator(".desk-pads .pinfo-pop").inner_text()
+    results.check("ⓘ says where your words go and that only submitted blocks count (#s12=info)", "where your words go" in info and "Only blocks you submit" in info, info[:80])
+    await shot(page, shots, "pads-info")
+    await page.locator(".desk-pads .pinfo").click()
+
+    # The editor: the jot line opens a block; typing and ↵ keep it; the write goes out by pad.apply.
+    await page.locator(".desk-pads .paper.k-running .pb.jot").click()
+    await page.wait_for_selector("[data-pad-editor] textarea")
+    hint = await page.locator("[data-pad-editor] .hintline").inner_text()
+    await page.keyboard.type("a harness line with $x^2$")
+    await page.keyboard.press("Enter")
+    await page.wait_for_timeout(200)
+    await page.keyboard.press("Escape")
+    await settle(page, 900)
+    applied = await calls(page, "pad_apply")
+    sent = [op for call in applied for op in call["input"].get("ops", [])]
+    results.check("the editor's hint, and a line written and kept goes out through pad.apply (insert, then edit)", hint == "markdown · $math$ · ↵ new line · esc puts it back" and [op["op"] for op in sent][:2] == ["insert_block", "edit_block"] and any(op.get("bodyMd") == "a harness line with $x^2$" for op in sent), [hint, [op["op"] for op in sent]])
+
+    # #s11=menu: right-click a line of yours.
+    await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
+    menu = await page.locator(".desk-padmenu").inner_text()
+    results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE, marimo arriving with notebooks (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "marimo cell · arrives with notebooks" in menu, menu[:160])
+    await shot(page, shots, "pads-menu")
+    await page.keyboard.press("Escape")
+
+    # #s11=lift: lift out leaves a stub and adds the block's own pad to the stack.
+    await page.locator('.desk-pads [data-block="fx_b_r7"]').hover()
+    await page.locator('.desk-pads [data-block="fx_b_r7"] .lift').click()
+    await settle(page, 600)
+    stub = await page.locator('.desk-pads [data-block="fx_b_r7"] .lifted').inner_text()
+    tabs = await page.locator(".desk-pads .ptab").count()
+    results.check("lift out leaves '→ lifted to …' and a third pad in the stack (#s11=lift)", stub.startswith("→ lifted to") and tabs == 3, [stub[:60], tabs])
+    await shot(page, shots, "pads-lift")
+
+    # #s11=sketchqk: alt+d adds a sketch block with every tool.
+    await page.keyboard.press("Alt+d")
+    await settle(page, 500)
+    tools = await page.locator(".desk-pads .desk-sketch").last.locator(".bar button").all_inner_texts()
+    results.check("alt+d adds a sketch block with every tool (#s11=sketchqk)", [t.split(" ")[-1] for t in tools] == ["pen", "line", "arrow", "box", "text", "eraser"], tools)
+
+    # #s11=arrange and #s11=split: alt+a, choose two, ↵ shows them one above the other.
+    await page.keyboard.press("Alt+a")
+    arrange = await page.locator(".desk-arrange").inner_text()
+    await page.keyboard.press("Enter")
+    await settle(page, 500)
+    panes = await page.locator(".desk-pads .split .pane").count()
+    results.check("alt+a arranges pads above and below each other, and ↵ splits them (#s11=arrange, #s11=split)", "ARRANGE · pads above and below each other" in arrange and panes == 2, [arrange[:60], panes])
+    await shot(page, shots, "pads-split")
+    await page.keyboard.press("Alt+a")
+    await page.keyboard.press("Enter")
+    await settle(page, 400)
+
+    # #markback / #backlink: the ✎ beside the passage a block links to scrolls the pad to it and flashes it.
+    # Marks show beside windows in view only: bring the pads next to the book (alt+[ moves the window left).
+    for _ in range(5):
+        await page.keyboard.press("Alt+BracketLeft")
+        await page.wait_for_timeout(250)
+    await settle(page, 1500)
+    marks = page.locator(".desk-pmark.pad")
+    back_ok = False
+    if await marks.count():
+        await marks.first.click()
+        await page.wait_for_timeout(250)
+        back_ok = await page.locator('.desk-pads [data-block="fx_b_r2"].flash').count() == 1
+    results.check("a passage's ✎ mark goes to its pad block and flashes it (#markback, #backlink)", back_ok, await marks.count())
+
+    # The carried question's quiet ◌ beside its passage, logged as surfaced once.
+    surfaced = [call for call in await calls(page, "carried_mark") if call["input"].get("event") == "surfaced"]
+    results.check("a carried question shows as a quiet ◌ beside its passage and is logged as surfaced once", await page.locator(".desk-pmark.carried").count() >= 1 and len(surfaced) == 1, len(surfaced))
+
+    # The drain: alt+shift+q.
+    await page.keyboard.press("Alt+Shift+Q")
+    drain = await page.locator(".desk-drain").inner_text()
+    results.check("alt+shift+q opens the drain, “Closing <desk>”, with each pad's lines before any question", drain.startswith("Closing “softmax and cross-entropy”") and "keep" in drain and "leave" in drain, drain[:120])
+    await shot(page, shots, "pads-drain")
+    await page.keyboard.press("Escape")
+
+    # Display math in the companion's bubbles (§13.4): ask about a passage, with a question naming math (the
+    # book, beside the pads now, takes the focus first).
+    await page.keyboard.press("Alt+l")
+    await settle(page, 500)
+    await select_passage(page, "largest score")
+    await page.keyboard.press("c")
+    await settle(page, 400)
+    box = page.locator(".desk-companion .input")
+    await box.fill("show me the math", timeout=5000)
+    await box.press("Enter")
+    await page.wait_for_selector(".desk-companion .katex-display", timeout=8000)
+    await page.evaluate("document.fonts.ready")
+    await settle(page, 700)
+    rows = []
+    for index in range(await page.locator(".desk-companion .katex-display").count()):
+        await page.locator(".desk-companion .katex-display").nth(index).scroll_into_view_if_needed()
+        rows += await measure_math(page, ".desk-companion")
+    results.check("display math in the companion's answer is never clipped and is fitted or scrolls (§13.4)", rows and all(row["ok"] for row in rows), [row for row in rows if not row["ok"]][:2] or len(rows))
+    await shot(page, shots, "companion-math")
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -807,6 +1040,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, pads, latex, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -819,8 +1053,13 @@ async def main() -> int:
     try:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(headless=True)
-            for runner in ("desks", "overview", "companion", "preview"):
-                context = await browser.new_context(viewport=VIEWPORT)
+            # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
+            # app's webview draws them (a wide equation's scroller must show its bar).
+            with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
+            runners = ("desks", "overview", "companion", "pads", "latex", "preview")
+            chosen = [name for name in args.only.split(",") if name] or list(runners)
+            for runner in (name for name in runners if name in chosen):
+                context = await (with_bars if runner in ("pads", "latex") else browser).new_context(viewport=VIEWPORT)
                 await context.route(lambda url: not url.startswith(base), route_outside)
                 page = await context.new_page()
                 try:
@@ -830,12 +1069,17 @@ async def main() -> int:
                         await run_overview(page, base, results, args.shots)
                     elif runner == "companion":
                         await run_companion(page, base, results, args.shots)
+                    elif runner == "pads":
+                        await run_pads(page, base, results, args.shots)
+                    elif runner == "latex":
+                        await run_latex(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints
                     results.check(f"the {runner} run reached its end", False, str(error).splitlines()[0])
                 await context.close()
             await browser.close()
+            await with_bars.close()
     finally:
         server.shutdown()
     asked = sorted({url.split("/")[2] for url in OUTSIDE})

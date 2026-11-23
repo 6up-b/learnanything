@@ -420,8 +420,10 @@
   font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer;
 }
 .desk-pads { position: relative; display: flex; flex-direction: column; min-height: 0; height: 100%; background: #1a1a1c; font: 12px var(--desk-mono); }
-.desk-pads .pinfo { position: absolute; right: 10px; top: -27px; z-index: 5; color: var(--desk-t3); font-size: 11px; }
-.desk-pads .pinfo-pop { position: absolute; right: 8px; top: 4px; z-index: 40; width: 300px; padding: 10px 12px; background: #181818; border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 14px 40px rgba(0, 0, 0, .6); color: var(--desk-t2); font-size: 11px; line-height: 1.6; }
+.desk-pads .pbar { flex: none; display: flex; justify-content: flex-end; padding: 2px 12px 3px; }
+.desk-pads .pinfo { color: var(--desk-t3); font-size: 11px; }
+.desk-pads .pinfo:hover { color: var(--desk-t2); }
+.desk-pads .pinfo-pop { position: absolute; right: 8px; top: 22px; z-index: 40; width: 300px; padding: 10px 12px; background: #181818; border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 14px 40px rgba(0, 0, 0, .6); color: var(--desk-t2); font-size: 11px; line-height: 1.6; }
 .desk-pads .pinfo-pop b { color: var(--desk-t); font-weight: 500; }
 .desk-pads .pinfo-pop .none { margin-top: 6px; color: var(--desk-t3); }
 .desk-pads .pscroller { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 0 8px; }
@@ -548,6 +550,10 @@
 .desk-math .katex-display { margin: .3em 0; padding: .45em 0 .55em; overflow: visible; text-align: left; }
 .desk-math .katex-display > .katex { text-align: left; white-space: nowrap; }
 /* Below the fitting floor: a horizontal scroller whose bar shows and whose height is the equation's own. */
-.desk-shell .desk-math .katex-display.desk-math-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: calc(.55em + 8px); scrollbar-width: thin; scrollbar-color: #9a968e transparent; }
+/* The bar is drawn by ::-webkit-scrollbar (always shown, and given room, in WebKitGTK and Chromium); a standard
+   scrollbar-width here would switch those styles off and let an overlay bar hide itself. */
+/* Its box clips vertically (a scroller must), so it keeps more room than the visible case: KaTeX's boxes reach
+   past the glyphs, and the bar takes the bottom. */
+.desk-shell .desk-math .katex-display.desk-math-scroll { overflow-x: auto; overflow-y: hidden; padding-top: calc(.45em + 4px); padding-bottom: calc(.55em + 10px); }
 .desk-shell .desk-math .katex-display.desk-math-scroll::-webkit-scrollbar { height: 6px; }
 .desk-shell .desk-math .katex-display.desk-math-scroll::-webkit-scrollbar-thumb { background: #9a968e; border-radius: 3px; }

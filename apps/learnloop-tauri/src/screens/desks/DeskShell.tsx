@@ -2577,7 +2577,8 @@ export function DeskShell({
               This desk is empty. <button type="button" onClick={() => setOpener(true)}>open a source beside</button>
             </div>
           ) : null}
-          {!overview ? (
+          {/* Marks follow their passages by left/top: none while a zoom's frames run (they write transforms only). */}
+          {!overview && !zooming ? (
             <PassageMarks
               stage={stageRef.current}
               windows={(desk?.slots.flat() ?? []).flatMap((id) => {
