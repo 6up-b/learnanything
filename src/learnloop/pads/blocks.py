@@ -14,6 +14,7 @@ evidence: the explicit exits are ``pads.emission`` (committed words to learner-t
 """
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any, Literal, Union
 
 from pydantic import Field
@@ -182,6 +183,30 @@ class PadNotFound(LookupError):
     pass
 
 
+class _Places:
+    """Where a link points, enough to open it with no window of that source open (review finding 13): the source
+    the reading belongs to (a ``ContentRef``'s ``source_id``), and on a transcript the cue's start (``t``, a video
+    reference's time). Each reading is looked up once."""
+
+    _CUE = re.compile(r"^t=([0-9.]+)-([0-9.]+)$")
+
+    def __init__(self, repository: Any) -> None:
+        self.repository = repository
+        self.sources: dict[str, str | None] = {}
+        self.cues: dict[str, dict[str, float]] = {}
+
+    def where(self, extraction_id: str, span_id: str) -> dict[str, Any]:
+        from learnloop.content.sources.span_aliases import reading_source
+
+        if extraction_id not in self.sources:
+            self.sources[extraction_id] = reading_source(self.repository, extraction_id)
+            ir = self.repository.load_document_ir(extraction_id)
+            self.cues[extraction_id] = {
+                block.span_id: float(match.group(1)) for block in getattr(ir, "blocks", ()) or ()
+                if (match := self._CUE.match(str(getattr(block, "extractor_block_id", "") or "")))}
+        return {"source_id": self.sources[extraction_id], "t": self.cues[extraction_id].get(span_id)}
+
+
 def _inherited_anchors(connection: Any, heads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Links a lifted block carries from the block it was lifted out of, where a lift made before links moved with
     the words left them on the stub: shown on the lifted block, read-only (``inherited_from_block_id`` names the
@@ -221,13 +246,15 @@ def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
                 tag["attempt_id"] = repository.find_attempt_id_by_evidence_agent_run(
                     practice_item_id=tag["practice_item_id"], agent_run_id=tag["teach_back_id"],
                     attempt_type="teach_back")
+    places = _Places(repository)
     return {
         "pad": _pad_out(row),
         "blocks": [{**_block_out(head, created.get(head["block_id"])),
                     "submissions": submitted.get(str(head["block_id"]), [])} for head in heads],
         "anchors": [{"event_id": a["event_id"], "block_id": a["block_id"], "extraction_id": a["extraction_id"],
                      "span_id": a["span_id"], "anchor": a["anchor"], "annotation_id": a["annotation_id"],
-                     "created_at": a["created_at"], "inherited_from_block_id": a["inherited_from_block_id"]}
+                     "created_at": a["created_at"], "inherited_from_block_id": a["inherited_from_block_id"],
+                     **places.where(a["extraction_id"], a["span_id"])}
                     for a in anchors],
     }
 

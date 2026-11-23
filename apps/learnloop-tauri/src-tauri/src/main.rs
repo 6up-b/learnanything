@@ -634,6 +634,7 @@ fn main() {
                 pad_list,
                 pad_apply,
                 passage_union_range,
+                passage_content,
                 companion_history,
                 checks_due_for,
                 companion_ask,

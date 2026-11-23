@@ -8,8 +8,8 @@ import pytest
 
 from learnloop.desks.workspace import desk_state
 from learnloop.pads.blocks import pad_list, pad_view
-from tests.desk_helpers import Batches, seed_reading, source_ref
-from tests.reader_rd4_helpers import PAD, create_pad, edit, head_of, insert, pad_jobs, pad_vault, settle
+from tests.desk_helpers import Batches, seed_reading
+from tests.reader_rd4_helpers import PAD, create_pad, edit, insert, pad_jobs, pad_vault, settle
 
 
 # -- finding 3: a stale edit keeps both ------------------------------------------------------------------------
@@ -150,3 +150,58 @@ def test_the_running_pad_is_ensured_once_with_its_stack_on_a_new_desk_and_an_old
     assert old["results"][0]["added_to_stack"] is True and old["results"][0]["window_id"] == "w_stack"
     assert _stack(repository)[0] == [PAD, "run_d1"]
     assert "run_d1" in {pad["pad_id"] for pad in pad_list(repository, desk_id="d1")["pads"]}
+
+
+# -- findings 12 and 13: a passage's canonical content; reopening a closed source at a stored link ---------------
+
+
+def test_a_passages_canonical_content_comes_with_its_title_location_and_time_apart(tmp_path, monkeypatch):
+    from learnloop.passage_union import content as content_module
+    from learnloop.passage_union.content import passage_content
+    from tests.reader_rd4_helpers import vault
+
+    paths, repository, _batches = pad_vault(tmp_path)
+    long_text = "The kernel of a linear map is every vector it sends to zero. " * 4
+    seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id="ext_book",
+                 spans=["s1", "s2", "s3"], texts={"s1": long_text, "s2": "Images.", "s3": "Ranks."})
+    seed_reading(repository, source_id="src_talk", revision_id="rev_talk", extraction_id="ext_talk",
+                 spans=["c1", "c2"], texts={"c1": "Say the kernel is trivial.", "c2": "Then it is injective."},
+                 timed=True)
+    got = passage_content(vault(paths), repository, extraction_id="ext_book", from_span_id="s1", to_span_id="s2")
+    assert (got["source_id"], got["title"], got["withheld"]) == ("src_book", "file:///src_book.pdf", False)
+    # The source's own words, unclipped, never a search row's label; location and time apart from them.
+    assert [(row["span_id"], row["text"], row["t0"]) for row in got["spans"]] == [
+        ("s1", long_text, None), ("s2", "Images.", None)]
+    assert got["spans"][0]["section_label"] == "Section ext_book_u1"
+    timed = passage_content(vault(paths), repository, extraction_id="ext_talk", t0=12, t1=15)
+    assert [(row["span_id"], row["text"], row["t0"], row["t1"]) for row in timed["spans"]] == [
+        ("c2", "Then it is injective.", 10.0, 20.0)]
+    # Exam or held-out material is withheld: nothing protected is copied into a pad.
+    monkeypatch.setattr(content_module, "exam_withheld", lambda _vault, _repository, keys: {keys[0]})
+    held = passage_content(vault(paths), repository, extraction_id="ext_book", from_span_id="s1", to_span_id="s2")
+    assert held["withheld"] is True and [row["text"] for row in held["spans"]] == [None, "Images."]
+
+
+def test_a_pads_links_name_their_source_and_time_so_a_closed_source_can_be_reopened(tmp_path):
+    paths, repository, batches = pad_vault(tmp_path)
+    seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id="ext_book",
+                 spans=["s1"], texts={"s1": "Kernels."})
+    seed_reading(repository, source_id="src_talk", revision_id="rev_talk", extraction_id="ext_talk",
+                 spans=["c1", "c2"], timed=True)
+    create_pad(batches)
+    batches.pad(PAD, insert("q1", "Kernels.", kind="source_quote", provenance="source"),
+                insert("q2", "the cue", kind="source_quote", provenance="source", position="a1"),
+                {"op": "link_anchor", "block_id": "q1", "extraction_id": "ext_book", "span_id": "s1",
+                 "expected_anchor_head": None},
+                {"op": "link_anchor", "block_id": "q2", "extraction_id": "ext_talk", "span_id": "c2",
+                 "expected_anchor_head": None})
+    anchors = {a["block_id"]: a for a in pad_view(repository, PAD)["anchors"]}
+    assert (anchors["q1"]["source_id"], anchors["q1"]["t"]) == ("src_book", None)
+    assert (anchors["q2"]["source_id"], anchors["q2"]["t"]) == ("src_talk", 10.0)
+    # Which is all a source (or video) window needs to open with no window of that source on the desk.
+    batches.desk({"op": "create_desk", "desk_id": "d1", "title": "t", "position": "a0"},
+                 {"op": "open_window", "desk_id": "d1", "window_id": "w_talk", "expected_version": 1,
+                  "content": {"kind": "video", "source_id": anchors["q2"]["source_id"], "extraction_id": "ext_talk",
+                              "t": anchors["q2"]["t"]}, "view": {"t": anchors["q2"]["t"]}})
+    assert [w["content"]["kind"] for d in desk_state(repository)["desks"] for slot in d["slots"]
+            for w in slot["windows"]] == ["video"]
