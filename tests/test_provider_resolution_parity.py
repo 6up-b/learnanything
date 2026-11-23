@@ -28,8 +28,8 @@ RESOLUTION_SITES = (
     ("learnloop_sidecar.handlers.ai_providers", "ready_grading_provider"),
     ("learnloop.tui.screens.feedback", "_grading_provider"),
     ("learnloop.ops.startup", "run_startup_maintenance"),
-    ("learnloop.content.pipeline.jobs", "default_run_legacy_ingest"),
-    ("learnloop.content.pipeline.jobs", "default_inventory_client"),
+    ("learnloop.content.pipeline.import_jobs", "default_run_legacy_ingest"),
+    ("learnloop.content.synthesis.jobs", "default_inventory_client"),
 )
 
 
@@ -229,8 +229,9 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
     from learnloop.attempts import clarification
     from learnloop.attempts.regrade import DeferredRegradeResult
     from learnloop.cli import runtime as cli_runtime
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline import import_jobs
     from learnloop.content.pipeline import source_ingestion
+    from learnloop.content.synthesis import jobs as synthesis_jobs
     from learnloop.ops import startup
     from learnloop.tui.screens import feedback
     from learnloop.vault import loader
@@ -322,8 +323,8 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
     )
     startup.run_startup_maintenance(vault, SimpleNamespace())
     if expected["canonical_ingest"][0] == MANUAL_PROVIDER:
-        with pytest.raises(jobs.IngestRunnerError):
-            jobs.default_run_legacy_ingest(
+        with pytest.raises(import_jobs.IngestRunnerError):
+            import_jobs.default_run_legacy_ingest(
                 vault_root=tmp_path,
                 source="source.md",
                 subject_id="subject",
@@ -331,10 +332,10 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
                 progress=None,
                 clock=None,
             )
-        with pytest.raises(jobs.IngestRunnerError):
-            jobs.default_inventory_client(SimpleNamespace(vault_root=tmp_path))
+        with pytest.raises(import_jobs.IngestRunnerError):
+            synthesis_jobs.default_inventory_client(SimpleNamespace(vault_root=tmp_path))
     else:
-        jobs.default_run_legacy_ingest(
+        import_jobs.default_run_legacy_ingest(
             vault_root=tmp_path,
             source="source.md",
             subject_id="subject",
@@ -342,7 +343,7 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
             progress=None,
             clock=None,
         )
-        jobs.default_inventory_client(SimpleNamespace(vault_root=tmp_path))
+        synthesis_jobs.default_inventory_client(SimpleNamespace(vault_root=tmp_path))
 
     assert observed == [
         ("grading", expected["grading"]),

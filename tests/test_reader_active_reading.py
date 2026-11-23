@@ -168,8 +168,8 @@ def test_show_me_reveals_without_an_answer_and_self_check_needs_the_reveal(tmp_p
 
 
 def test_the_job_refuses_held_out_material_before_any_call(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs as jobs_module
-    from learnloop.content.pipeline.jobs import handle_reader_quick_check
+    from learnloop.content.authoring import jobs as jobs_module
+    from learnloop.content.authoring.jobs import handle_reader_quick_check
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     vault, repo = _setup(tmp_path)
@@ -193,7 +193,7 @@ def _job_ctx(repo, vault, client, *, style="next_step", spans=("s1",)):
 
 
 def test_the_job_writes_the_question_once(tmp_path):
-    from learnloop.content.pipeline.jobs import handle_reader_quick_check
+    from learnloop.content.authoring.jobs import handle_reader_quick_check
 
     vault, repo = _setup(tmp_path)
     client = ActiveClient()

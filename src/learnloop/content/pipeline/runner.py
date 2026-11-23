@@ -253,20 +253,20 @@ class RunnerServices:
     )
 
     def fetch_bytes(self, source: str, category: str, ctx: "JobContext") -> FetchedBytes:
-        return (self.fetch or _job_defaults().default_fetch)(source, category, ctx)
+        return (self.fetch or _import_jobs().default_fetch)(source, category, ctx)
 
     def extract_ir(self, fetched: FetchedBytes, category: str, ctx: "JobContext") -> Any:
-        return (self.extract or _job_defaults().default_extract)(fetched, category, ctx)
+        return (self.extract or _import_jobs().default_extract)(fetched, category, ctx)
 
     def extraction_identity(
         self, fetched: FetchedBytes, category: str, ctx: "JobContext"
     ) -> Mapping[str, Any]:
-        return (self.describe_extraction or _job_defaults().default_extraction_identity)(
+        return (self.describe_extraction or _import_jobs().default_extraction_identity)(
             fetched, category, ctx
         )
 
     def legacy_ingest(self, **kwargs: Any) -> Any:
-        return (self.run_legacy_ingest or _job_defaults().default_run_legacy_ingest)(
+        return (self.run_legacy_ingest or _import_jobs().default_run_legacy_ingest)(
             **kwargs
         )
 
@@ -276,7 +276,7 @@ class RunnerServices:
         if self.inventory_identity_factory is not None:
             return self.inventory_identity_factory(ctx)
         if self.inventory_client_factory is None:
-            return _job_defaults().default_inventory_identity(ctx)
+            return _synthesis_jobs().default_inventory_identity(ctx)
         return self._inventory_identity_cache
 
     def inventory_client(
@@ -285,19 +285,19 @@ class RunnerServices:
         client = (
             self.inventory_client_factory(ctx)
             if self.inventory_client_factory is not None
-            else _job_defaults().default_inventory_client(
+            else _synthesis_jobs().default_inventory_client(
                 ctx,
-                codex_timeout_seconds=_job_defaults().INGEST_CODEX_TIMEOUT_SECONDS,
+                codex_timeout_seconds=_synthesis_jobs().INGEST_CODEX_TIMEOUT_SECONDS,
             )
         )
-        self._inventory_identity_cache = _job_defaults().inventory_client_identity(client)
+        self._inventory_identity_cache = _synthesis_jobs().inventory_client_identity(client)
         if bind_interruptible:
             ctx.bind_interruptible(client)
         return client
 
     def synthesis_client(self, ctx: "JobContext") -> Any:
         client = (
-            self.synthesis_client_factory or _job_defaults().default_synthesis_client
+            self.synthesis_client_factory or _synthesis_jobs().default_synthesis_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -307,13 +307,13 @@ class RunnerServices:
         # vaults, routed elsewhere): the task method is getattr-discovered on
         # the client, exactly like unit inventory.
         return (
-            self.quick_check_client_factory or _job_defaults().default_inventory_client
+            self.quick_check_client_factory or _synthesis_jobs().default_inventory_client
         )(ctx)
 
     def rung_variant_client(self, ctx: "JobContext") -> Any:
         client = (
             self.rung_variant_client_factory
-            or _job_defaults().default_rung_variant_client
+            or _authoring_jobs().default_rung_variant_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -321,7 +321,7 @@ class RunnerServices:
     def promotion_analysis_client(self, ctx: "JobContext") -> Any:
         client = (
             self.promotion_analysis_client_factory
-            or _job_defaults().default_promotion_analysis_client
+            or _authoring_jobs().default_promotion_analysis_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -329,7 +329,7 @@ class RunnerServices:
     def promotion_authoring_client(self, ctx: "JobContext") -> Any:
         client = (
             self.promotion_authoring_client_factory
-            or _job_defaults().default_promotion_authoring_client
+            or _authoring_jobs().default_promotion_authoring_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
@@ -340,20 +340,20 @@ class RunnerServices:
         # client, like reader quick checks.
         client = (
             self.exercise_import_client_factory
-            or _job_defaults().default_inventory_client
+            or _synthesis_jobs().default_inventory_client
         )(ctx)
         ctx.bind_interruptible(client)
         return client
 
     def animation_client(self, ctx: "JobContext") -> Any:
-        return (self.animation_client_factory or _job_defaults().default_animation_client)(
+        return (self.animation_client_factory or _authoring_jobs().default_animation_client)(
             ctx
         )
 
     def video_client(self, ctx: "JobContext") -> Any:
         """The text-to-video client for [animation] renderer = "video_model"."""
 
-        return (self.video_client_factory or _job_defaults().default_video_client)(ctx)
+        return (self.video_client_factory or _authoring_jobs().default_video_client)(ctx)
 
     def authoring_route(self, ctx: "JobContext") -> Any:
         """The question-writing route an automatic build would use (no model call)."""
@@ -370,10 +370,29 @@ def _job_defaults() -> Any:
 
     ``jobs`` imports the runner contracts to host handlers and the durable worker
     facade. Keeping this dependency lazy lets queue-only callers import and test
-    the runner without initializing acquisition or provider code.
+    the runner without initializing acquisition or provider code. The same holds
+    for the job modules below, whose defaults the services fall back on.
     """
 
     from learnloop.content.pipeline import jobs
+
+    return jobs
+
+
+def _import_jobs() -> Any:
+    from learnloop.content.pipeline import import_jobs
+
+    return import_jobs
+
+
+def _synthesis_jobs() -> Any:
+    from learnloop.content.synthesis import jobs
+
+    return jobs
+
+
+def _authoring_jobs() -> Any:
+    from learnloop.content.authoring import jobs
 
     return jobs
 

@@ -116,7 +116,7 @@ def test_a_truncated_subscription_check_is_retried_at_double_without_a_request_b
 
 
 def test_the_vaults_route_effort_reaches_the_check(tmp_path):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
 
     vault, repo = _guide_setup(tmp_path)
     append_config_toml(vault.root, """

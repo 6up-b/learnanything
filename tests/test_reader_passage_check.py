@@ -72,7 +72,7 @@ def test_a_transport_that_cannot_isolate_the_passage_is_refused_before_any_reque
 
 
 def test_the_job_fails_closed_with_a_named_reason_when_isolation_is_unavailable(tmp_path):
-    from learnloop.content.pipeline.jobs import handle_reader_quick_check
+    from learnloop.content.authoring.jobs import handle_reader_quick_check
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     vault, repo = _guide_setup(tmp_path)
@@ -176,7 +176,7 @@ def test_codex_on_the_subscription_runs_without_a_price_and_is_estimated_only(tm
     ({"price_per_million": 1.0, "max_checks_per_day": 0}, "capped"),
 ])
 def test_the_job_reports_a_refusal_as_its_error_code_and_sends_nothing(tmp_path, monkeypatch, over, reason):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     vault, repo = _guide_setup(tmp_path)
@@ -189,7 +189,7 @@ def test_the_job_reports_a_refusal_as_its_error_code_and_sends_nothing(tmp_path,
 
 
 def test_the_vaults_spend_settings_reach_the_check(tmp_path):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from tests.helpers import append_config_toml
 
     vault, repo = _guide_setup(tmp_path)
@@ -422,7 +422,7 @@ def test_a_claim_left_by_a_crashed_job_is_taken_over_by_the_next_job_at_once(tmp
 
 
 def test_a_check_held_by_a_live_job_waits_for_it_and_returns_its_question(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs as pipeline_jobs
+    from learnloop.content.authoring import jobs as authoring_jobs
     from learnloop.db.stores.judgment_claims import claim_work
 
     vault, repo = _guide_setup(tmp_path)
@@ -439,15 +439,15 @@ def test_a_check_held_by_a_live_job_waits_for_it_and_returns_its_question(tmp_pa
         if not landed:
             landed["row"] = _author(repo, RecordingClient(), root, owner="job_live")
 
-    monkeypatch.setattr(pipeline_jobs, "_pause_while_inquiry_held", holder_lands)
+    monkeypatch.setattr(authoring_jobs, "_pause_while_inquiry_held", holder_lands)
     waiter = RecordingClient()
-    result = pipeline_jobs.handle_reader_quick_check(_job_ctx(repo, vault, waiter, root, job_id="ijob_waiter"))
+    result = authoring_jobs.handle_reader_quick_check(_job_ctx(repo, vault, waiter, root, job_id="ijob_waiter"))
     assert result["question_id"] == landed["row"]["id"]
     assert waiter.requests == []
 
 
 def test_a_check_held_past_the_wait_fails_retryably_and_never_completes_without_a_question(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs as pipeline_jobs
+    from learnloop.content.authoring import jobs as authoring_jobs
     from learnloop.content.pipeline.runner import IngestRunnerError
     from learnloop.db.stores.judgment_claims import claim_work
 
@@ -459,13 +459,13 @@ def test_a_check_held_past_the_wait_fails_retryably_and_never_completes_without_
                    input_hash="x", owner="job_live", now="2026-05-19T12:00:00Z",
                    lease_seconds=RQC.INQUIRY_CLAIM_LEASE_SECONDS)
     pauses: list = []
-    monkeypatch.setattr(pipeline_jobs, "INQUIRY_HELD_MAX_POLLS", 3)
-    monkeypatch.setattr(pipeline_jobs, "_pause_while_inquiry_held", lambda ctx, seconds: pauses.append(seconds))
+    monkeypatch.setattr(authoring_jobs, "INQUIRY_HELD_MAX_POLLS", 3)
+    monkeypatch.setattr(authoring_jobs, "_pause_while_inquiry_held", lambda ctx, seconds: pauses.append(seconds))
     waiter = RecordingClient()
     with pytest.raises(IngestRunnerError) as raised:
-        pipeline_jobs.handle_reader_quick_check(_job_ctx(repo, vault, waiter, root, job_id="ijob_waiter"))
+        authoring_jobs.handle_reader_quick_check(_job_ctx(repo, vault, waiter, root, job_id="ijob_waiter"))
     assert raised.value.code == "held" and raised.value.retryable is True
-    assert pauses == [pipeline_jobs.INQUIRY_HELD_POLL_SECONDS] * 3
+    assert pauses == [authoring_jobs.INQUIRY_HELD_POLL_SECONDS] * 3
     assert waiter.requests == [] and _inquiry_rows(repo) == []
 
 
@@ -476,7 +476,7 @@ def test_a_check_held_past_the_wait_fails_retryably_and_never_completes_without_
 def test_a_spend_refusal_says_whether_the_price_is_missing_or_the_check_is_over_its_cap(
     tmp_path, monkeypatch, over, refusal,
 ):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     vault, repo = _guide_setup(tmp_path)

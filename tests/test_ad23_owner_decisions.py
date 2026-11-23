@@ -99,6 +99,7 @@ def test_a_cancelled_commission_stays_cancelled_when_models_come_back_on(tmp_pat
     from learnloop.adaptive_difficulty.generation import schedule_commission_generation
     from learnloop.adaptive_difficulty.spend import MODELS_ENV
     from learnloop.content.pipeline import jobs as J
+    from learnloop.content.synthesis import jobs as synthesis_jobs
 
     paths, commission = _commissioned(tmp_path)
     generator = _generator()
@@ -108,7 +109,7 @@ def test_a_cancelled_commission_stays_cancelled_when_models_come_back_on(tmp_pat
         resolved.append(os.environ.get(MODELS_ENV, ""))
         return generator
 
-    monkeypatch.setattr(J, "default_synthesis_client", default_client)
+    monkeypatch.setattr(synthesis_jobs, "default_synthesis_client", default_client)
     repository = Repository(paths.sqlite_path)
     jobs = J.DurableIngestJobs()
     jobs.bind(repository, paths.root, background=False)
@@ -257,9 +258,10 @@ def test_a_commission_waiting_on_models_stays_open_and_a_cancelled_one_expires(t
     from learnloop.adaptive_difficulty.generation import schedule_commission_generation
     from learnloop.adaptive_difficulty.spend import MODELS_ENV
     from learnloop.content.pipeline import jobs as J
+    from learnloop.content.synthesis import jobs as synthesis_jobs
 
     paths, commission = _commissioned(tmp_path)
-    monkeypatch.setattr(J, "default_synthesis_client", lambda _ctx: _generator())
+    monkeypatch.setattr(synthesis_jobs, "default_synthesis_client", lambda _ctx: _generator())
     repository = Repository(paths.sqlite_path)
     jobs = J.DurableIngestJobs()
     jobs.bind(repository, paths.root, background=False)

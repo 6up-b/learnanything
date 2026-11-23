@@ -258,7 +258,7 @@ def test_reconnect_refuses_unknown_answers(tmp_path):
 
 
 def test_quick_check_job_authors_the_inquiry_row(tmp_path):
-    from learnloop.content.pipeline.jobs import handle_reader_quick_check
+    from learnloop.content.authoring.jobs import handle_reader_quick_check
 
     vault, repo = _setup(tmp_path)
     root = _ask(vault, repo, "Root", selection_span_ids=["s1", "s2"], selection_quote_md="A^T = A")

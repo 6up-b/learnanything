@@ -8,7 +8,7 @@ from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _pe
 
 def test_keyboard_interrupt_during_parallel_inventory_releases_waiting_workers(tmp_path, monkeypatch):
     import threading
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.synthesis import jobs
     from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
     repo = Repository(tmp_path / "state.sqlite")
     _register_revision(repo)
@@ -62,7 +62,7 @@ def test_keyboard_interrupt_during_parallel_inventory_releases_waiting_workers(t
 
 def test_parallel_inventory_notices_cancellation_without_polling_the_database_constantly(tmp_path, monkeypatch):
     import threading
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.synthesis import jobs
     from learnloop.content.pipeline.runner import IngestRunner, JobContext, JobSpec, RunnerServices
     repo = Repository(tmp_path / "state.sqlite")
     _register_revision(repo)

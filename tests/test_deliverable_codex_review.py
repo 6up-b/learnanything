@@ -264,7 +264,7 @@ def test_f6_a_lifted_coverage_admission_refusal_starts_the_coverage_again(tmp_pa
 
 
 def test_f7_a_running_job_does_not_swallow_a_new_extraction(tmp_path, monkeypatch):
-    from learnloop.content.pipeline.jobs import queue_coverage_on_extract
+    from learnloop.source_retrieval.jobs import queue_coverage_on_extract
 
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     cover_all(paths, repository, "lo_eigen")

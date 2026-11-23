@@ -25,7 +25,7 @@ def _queue_ctx(repository):
 
 
 def test_an_extraction_queues_the_job_only_while_both_switches_are_on(tmp_path):
-    from learnloop.content.pipeline.jobs import queue_coverage_on_extract
+    from learnloop.source_retrieval.jobs import queue_coverage_on_extract
 
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     ctx, queued = _queue_ctx(repository)
@@ -44,7 +44,7 @@ def test_an_extraction_queues_the_job_only_while_both_switches_are_on(tmp_path):
 
 
 def test_one_live_job_at_a_time(tmp_path, monkeypatch):
-    from learnloop.content.pipeline.jobs import queue_coverage_on_extract
+    from learnloop.source_retrieval.jobs import queue_coverage_on_extract
 
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     cover_all(paths, repository, "lo_eigen")

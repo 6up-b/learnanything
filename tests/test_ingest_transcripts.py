@@ -14,10 +14,7 @@ from learnloop.ingest.transcripts import (
     parse_transcript,
 )
 from learnloop.content.pipeline.runner import FetchedBytes
-from learnloop.content.pipeline.jobs import (
-    default_extract,
-    default_extraction_identity,
-)
+from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
 
 VTT = """WEBVTT
 

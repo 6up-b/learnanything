@@ -673,7 +673,7 @@ def test_a_book_carrying_the_retired_keep_local_choice_is_read_like_any_other(mo
     import sqlite3
 
     from learnloop.content.pipeline.add_source import AddSourceOptions, add_source, source_status_line
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
     from learnloop.vault.loader import load_vault
     from tests.ux_phase1_support import fresh_library, grant_consent, repository, set_config
 
@@ -713,7 +713,7 @@ def test_a_book_carrying_the_retired_keep_local_choice_is_read_like_any_other(mo
 
 
 def test_identity_hashes_the_choice_not_endpoints_prices_or_timeouts(monkeypatch, tmp_path):
-    from learnloop.content.pipeline.jobs import default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extraction_identity
     from learnloop.content.pipeline.runner import FetchedBytes
     from tests.ux_phase1_support import fresh_library, grant_consent, set_config
 
@@ -733,7 +733,7 @@ def test_identity_hashes_the_choice_not_endpoints_prices_or_timeouts(monkeypatch
 
 
 def test_an_image_import_needs_glm_and_reads_with_it(monkeypatch, tmp_path):
-    from learnloop.content.pipeline.jobs import default_extract, default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from learnloop.content.pipeline.runner import FetchedBytes, IngestRunnerError
     from learnloop.ingest.resolution import resolve_source
     from tests.ux_phase1_support import fresh_library, grant_consent, set_config
@@ -844,7 +844,7 @@ def test_the_legacy_path_uploads_only_with_the_ok_and_caches_by_backend(monkeypa
 
 def test_remote_documents_download_raw_so_nothing_is_read_before_the_ok(monkeypatch, tmp_path):
     from learnloop.content.pipeline import source_ingestion
-    from learnloop.content.pipeline.jobs import default_fetch
+    from learnloop.content.pipeline.import_jobs import default_fetch
     from tests.ux_phase1_support import CLOCK
 
     raw = pdf()
@@ -906,7 +906,7 @@ def test_r2_f1_a_local_repair_never_goes_to_a_glm_server_on_another_computer(mon
     was about is retired, and the same guard now serves a repair the learner
     OK'd as local (third review F10)."""
 
-    from learnloop.content.pipeline.jobs import default_extract, default_extraction_identity
+    from learnloop.content.pipeline.import_jobs import default_extract, default_extraction_identity
     from tests.ux_phase1_support import fresh_library, set_config
 
     monkeypatch.setattr(extractors, "marker_available", lambda: False)
@@ -1127,7 +1127,7 @@ def test_r2_f4_cancelling_stops_the_windows_not_yet_sent(monkeypatch, tmp_path):
     on this computer part-way through) is retired with the per-book choice."""
 
     from learnloop.ai.spend import SpendCancelled
-    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.import_jobs import default_extract
     from tests.ux_phase1_support import fresh_library, grant_consent
 
     monkeypatch.setenv("ZAI_API_KEY", KEY)

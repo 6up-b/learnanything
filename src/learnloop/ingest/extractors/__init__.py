@@ -81,7 +81,7 @@ class NativeEngineNotLocalError(ValueError):
     """``engine = "native"`` reached the local extractor registry.
 
     Native PDF ingestion is a chat-provider path owned by the durable pipeline
-    (``learnloop.content.pipeline.jobs``); the registry must never quietly
+    (``learnloop.content.pipeline.import_jobs``); the registry must never quietly
     substitute marker or pypdf for it."""
 
 

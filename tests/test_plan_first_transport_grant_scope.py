@@ -246,7 +246,7 @@ def test_startup_recovery_of_import_key_checks_never_uses_the_grant(tmp_path, mo
 def test_the_reader_imports_background_key_check_never_uses_the_grant(tmp_path, monkeypatch, fake_openai):
     import learnloop.content.authoring.source_exercise_import as SEI
     from learnloop.clock import SystemClock
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import RunnerServices
     from learnloop.db.repositories import Repository
 

@@ -641,7 +641,7 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | N
     if pages is None:
         path = stored_original_path(vault.root, str(revision.get("asset_hash") or ""))
         if path is not None:
-            from learnloop.content.pipeline.jobs import _pdf_page_count
+            from learnloop.content.pipeline.import_jobs import _pdf_page_count
 
             pages = _pdf_page_count(path.read_bytes())
     settings = vault.config.ingest.pdf.glm_ocr.model_dump()

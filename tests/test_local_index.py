@@ -294,7 +294,7 @@ def test_the_local_space_is_off_until_enabled_and_set_up(tmp_path, data_root):
 
 def test_extraction_queues_the_index_jobs_only_while_their_switches_are_on(tmp_path):
     from learnloop.config.loader import load_config
-    from learnloop.content.pipeline.jobs import queue_contextual_indexes
+    from learnloop.source_retrieval.jobs import queue_contextual_indexes
 
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     queued: list[tuple[str, list]] = []
@@ -462,7 +462,7 @@ def test_an_index_obligation_that_cannot_be_queued_fails_the_extraction_retryabl
     """Codex review F4: never swallowed (the source_vectors survival rule)."""
 
     from learnloop.config.loader import load_config
-    from learnloop.content.pipeline.jobs import queue_contextual_indexes
+    from learnloop.source_retrieval.jobs import queue_contextual_indexes
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     paths, repository = _local_vault(tmp_path)

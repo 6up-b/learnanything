@@ -1870,7 +1870,7 @@ def after_auto_build(ctx) -> None:
         return
     from learnloop.content.pipeline.runner import JobCancelled, JobSpec
 
-    from learnloop.content.pipeline.jobs import start_waiting_sections
+    from learnloop.content.authoring.jobs import start_waiting_sections
 
     start_waiting_sections(ctx, str(auto["source_id"]))
     try:
