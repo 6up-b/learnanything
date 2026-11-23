@@ -21,7 +21,7 @@ geometry, no inherited custom property changed during animation, no insertion du
 | The wheel router and background-only ctrl+drag (§5.5, D14 on its default) | `DeskShell.tsx` (one capture wheel listener on the shelf and stage; stage pointer handlers) |
 | The HUD | `.desk-hud` (bottom centre), written by the wheel and the drag |
 | The laptop rail | RD1's rail (44 px, ☰ overlay at 260 px), now checked in the harness at 1280×800 |
-| Reduced motion | the zoom becomes a .25 s crossfade (`desk-fadeswap`); `reducedMotion` prop for tests, else the system setting |
+| Reduced motion | the zoom becomes a .25 s crossfade (`desk-fadeswap`) on every way in and out (keys, the button, the wheel, ctrl+drag; fixed in the fix round, §9); `reducedMotion` prop for tests, else the system setting |
 | Previews log nothing | in the overview every window's lifecycle state is `preview` (paused, no visit, no progress); miniatures are inert clones with no listeners |
 
 ### How the zoom works
@@ -87,7 +87,7 @@ property.
 | alt + vertical scroll, ctrl + scroll, pinch | reading and overview | zoom: touch chases (420 px is the whole zoom), pinch `p += dy/108`, a notch runs the whole eased zoom (a notch the other way turns it round); at an end the stream is latched for 150 ms |
 | ctrl + drag on the stage background | reading | scrub the zoom (320 px is the whole zoom); inside a window's content ctrl+drag stays the box selection |
 
-`b` in the reading view stays RD5's promoted action (not built). The overview passes no reading-view key.
+`b` in the reading view stays RD5's promoted action (not built). The overview passes no reading-view key, and no window owns input while it shows (the first version left the reading focus owning input: fixed in the fix round, §9).
 
 ## 4. Tests
 
@@ -210,3 +210,71 @@ No identity pin, golden, effective default or CLI snapshot moved. Ledger: RD2-1 
 - Any frame budget (deferred); the trace is headless and information only.
 - The overview against a real sidecar and a large workspace (the fixture has 3 desks and 9 windows).
 - The landing gate and the whole suite.
+
+## 9. Fix round: the adversarial review's fifteen findings
+
+The review (ten major, five minor) was written against RD2 as landed, before RD1's fix round. Each finding was checked
+against main with RD1's fix round first. Two were partly cured there (finding 1's portaled menus and menu scope;
+finding 13's lost picture after a transfer, by one element per window), and one was cured only in part by it (finding
+11: the shell's tracker became the authority, but the wheel did not spoil it). Everything still open is fixed here,
+each with a fail-first test, and each finding has a ledger row (RD2-2 to RD2-16, finding 1 to finding 15 in order).
+
+| # | Finding | Fail-first test (failed before, passes after) | Fix or ruling |
+|---|---|---|---|
+| 1 (RD2-2) | Preview Readers still receive input | `DeskShell.test.tsx` "no window hears keys while the overview shows" (the preview heard ctrl+z) | The router's active window is none while the overview shows, and input never goes to a paused window. The portaled menus and the menu scope were RD1's fix round (its findings 7 and 8; their tests pass on main) |
+| 2 (RD2-3) | An old exit callback dismantles a newer zoom | "an exit's late cleanup never dismantles the zoom that started after it" (`zooming` went off two frames into the new zoom) | One transition generation, taken by every zoom and crossfade; the exit's two-frame cleanup checks it |
+| 3 (RD2-4) | Resize breaks frozen geometry | "a resize during a zoom… settles the zoom first" | A new stage size settles a running zoom before it is applied. Ruling on the rest of the claimed freeze: the other layout changes during a zoom come from keys and presses, which already settle it first, or from a store reconcile, which is rare and lands at rest on the next commit; a full content freeze was not built |
+| 4 (RD2-5) | Keyboard panning leaves a second camera animator | "after keyboard navigation in the overview, the world's CSS transition is off once a zoom starts"; the harness's "navigated" identity check | `pan-ease` only while no zoom runs, `.desk-shell.zooming .desk-world { transition: none }`, and a leave takes an easing camera where it shows (from the computed transform) before planning |
+| 5 (RD2-6) | A wheel during a spring can reverse the zoom | `controller.test.ts` "the gesture's target starts from where the spring has carried p" (the target read 0 at p = .52) | While the spring runs, `target` is p, so a wheel taking over continues from there |
+| 6 (RD2-7) | A drop before another desk's first card appends | "alt+shift+j on the first card puts it first on the desk below, on the server too" (it landed after `fx_w_video2`) | `moveToDeskAt`: the transfer, then for slot 0 a `move_window` to slot 0 at the destination's next version (no RPC change). The drop and alt+shift+j/k use it; `opParity.json` gains the batch; `workspace.test.ts` covers slot 0 and a later slot |
+| 7 (RD2-8) | "Opened beside" is never recorded | `workspace.test.ts` "a new window remembers the window it was opened beside…"; `DeskShell.test.tsx` "…keeps that window as its origin, on the server" | `openBeside` writes `openedBeside` (the focused window) into the new window's view; both view writers spread the view, so later saves keep it |
+| 8 (RD2-9) | Two exits cannot meet commit identity | the harness's new identity checks: "unvisited" 16.43 %, "focus" 29.74 %, "navigated" 44.76 % changed before the fix | Before a leave is planned the destination is laid out as the commit shows it: the desk's content mounted (paused, inert) if never opened, so it is live through the zoom; the selection on the target (the receding classes then agree with the plan); for alt+↵ the shell takes focus mode's full-screen geometry, the stage is re-measured, the window gets its full-screen layout (measure column, document zoom, `focused-full`), and the plan's destination for it is the whole stage. A zoom cancelled back to the overview drops that state |
+| 9 (RD2-10) | Pinch classification unreachable | "a touchpad pinch (ctrl+wheel with no Ctrl key held) is classed as a pinch" (the HUD said ctrl + scroll); a control: "with Ctrl held… is ctrl + scroll" | The router passes the tracked keys only (`modifiers.read()`); `classifyWheel` combines the event's flags itself |
+| 10 (RD2-11) | Reduced motion only covers the toggle | "reduced motion: an alt-wheel zoom crossfades…", "…a ctrl+drag on the background crossfades" (both zoomed) | The crossfade moved into `beginEnter`/`beginLeave`, the shared entry: under reduced motion they swap the view and return false, so no caller starts a zoom |
+| 11 (RD2-12) | Alt-scroll can clear the capture | "an alt-wheel gesture is no bare-Alt tap: the capture stays" (cleared, with RD1's fix round in place) | A wheel with Alt spoils the shell's tracker (which also hides which-key); the release then reaches no window |
+| 12 (RD2-13) | Selection neither repaired nor kept visible | "with the first desk empty, the overview still selects a card…" (no selection, keys stuck); "a card moved down with alt+shift+j stays in view" (its bottom at 566 px of 420) | The selection is reconciled with each workspace change in the overview (the reading focus's card, else the first card); after alt+[ ] or alt+shift+j/k the camera follows the card to its new rect |
+| 13 (RD2-14) | Miniatures stale or disappearing | "a picture is rebuilt after the window's content changed, though its status did not"; "no picture is put in while a zoom runs" (both failed); "a card moved between two opened desks keeps its picture" passes on main (RD1's fix round) | A MutationObserver over the world marks a window's picture stale on any change inside its content (the pictures sit outside the content, so building one marks nothing). Builds run only while the overview is committed and no zoom runs, and a host that lost its picture gets it back |
+| 14 (RD2-15) | Cancelled pointer gestures retain drag state | "a card drag that is cancelled puts the card back…", "a cancelled ctrl+drag scrub settles the zoom…", "the window losing focus cancels a card drag; an element blurring… does not" | `pointercancel`, a capture lost mid-gesture and the window's own blur put the card back and settle a scrub. The first version cancelled on any blur, so a click on a card while a shelf button lost focus did nothing: the harness's "four ways back" (click) caught it, and the blur test fails on both the old code and that version |
+| 15 (RD2-16) | Ctrl-drag on a sliver cannot scrub | "ctrl+drag starting on a sliver scrubs the zoom, and the sliver's click is not taken as well" | A sliver counts as background for ctrl+drag; a click that ends a scrub that moved is swallowed, so the sliver does not also navigate |
+
+### The harness
+
+Three identity checks added (54 checks in all), each a leave driven through the debug handle (whose `beginZoom` now
+takes a target and focus mode) with screenshots at the last frame and after the commit, compared as before:
+
+| Exit | Before the fix | After |
+|---|---|---|
+| to a desk never opened (backprop) | 16.43 % changed | 0.0078 % |
+| into focus mode (alt+↵ on the book) | 29.74 % | 0.0000 % |
+| after keyboard navigation (j, l, then leave) | 44.76 % | 0.0090 % |
+
+Entering and the plain leave stay at 0.0069 % and 0.0090 %. The "before" column was measured with this round's other
+fixes in place (findings 1 to 7 and 9 to 15): the navigated exit failed through the receding classes, which named the
+navigated selection while the plan named the target.
+
+### Judgment calls
+
+- **Focus-mode exits lay out full-screen at the zoom's start.** The overview re-lays out for the larger stage when the
+  zoom begins, so the one discontinuity is at the start, not at the commit.
+- **An exit to a never-opened desk mounts its content when the zoom begins.** That content loads while the zoom runs
+  (the harness waits for it before its last frame).
+- **The selection follows the camera only after a move.** It does not follow on every layout change, which would
+  undo the learner's own pan.
+- **A content freeze during a zoom was not built** (finding 3's ruling above).
+
+### Commands and results
+
+Run in the worktree through the scratch wrapper, each in its own memory-capped scope, one test command at a time.
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` | exit 0 |
+| `npx vitest run --maxWorkers=2` (the whole suite) | 351 files, 3905 tests passed |
+| `npm run frontend:build` | built; largest output file 1.86 MB (the main bundle) |
+| the harness | 54 passed, 0 failed (identity: entering 0.0069 %, leaving 0.0090 %, unvisited 0.0078 %, focus 0.0000 %, navigated 0.0090 %) |
+| `tests/test_reader_rd1_model_parity.py`, `test_identity_pins.py`, `test_structure_ratchets.py`, `test_public_tip_guards.py` | 375 passed (no pin moved, no ratchet rose) |
+| `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
+| `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / Contracts: 52 kept, 0 broken. / collected 33279: landing 33213 + arc_close 66 |
+| `desktop_validate.py` | no count drift (no new source file); only the reproducibility diff for the five changed files' stale notes, which the landing regenerates |
+
+No migration, no tag and no RPC change.
