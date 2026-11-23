@@ -221,3 +221,13 @@ Structure golden, each line raised by hand in the commit that needed it; every o
   wheel, so the worktree has pypdfium2 4.30.0. No test this step touches imports it.
 - **The owner copies' shadow and cost.** Agents do not open owner vaults.
 - **P-draw.** Its harness was not rerun.
+
+## Owner copies (run by the orchestrator)
+
+The same comparison as I2a's §13, on backup-API copies of the owner's three vaults upgraded to `mvp-0.65`: main at
+`544a6d529a` against this step's tip, at one frozen clock, for `read_due_queue` without and with a session and
+`build_due_queue` with a session. All nine builds returned the same queue and trace hash and the same SELECT count
+on both sides (vault A 185, 241, 276; B 68, 102, 186; C 73, 75, 103). A second base read gave the same hash. Nothing
+was written to standard error, so neither the frozen intent view nor a value context reached the repository. The
+live vaults were unchanged, and the copies were deleted.
+
