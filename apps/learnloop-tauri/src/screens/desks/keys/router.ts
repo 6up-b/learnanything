@@ -105,7 +105,7 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   alt("pads.arrange", "alt+a", "arrange pads", "KeyA", { kind: "arrangePads" }, READING, { group: "pads" }),
   alt("pads.sketch", "alt+d", "sketch block", "KeyD", { kind: "sketchBlock" }, READING, { group: "pads" }),
   { id: "pads.drain", keys: "alt+shift+q", label: "close the desk's day (the drain)", chord: { code: "KeyQ", alt: true, shift: true }, action: { kind: "drain" }, scopes: READING, group: "pads" },
-  alt("pads.timestamp", "alt+;", "insert ▶ timestamp", "Semicolon", { kind: "timestamp" }, READING, { later: "RD10", group: "pads" }),
+  alt("pads.timestamp", "alt+;", "insert ▶ timestamp", "Semicolon", { kind: "timestamp" }, READING, { group: "pads" }),
   alt("pen.toggle", "alt+p", "pen mode", "KeyP", { kind: "pen" }, ["pen", "reading"]),
   alt("companion.typing", "alt+c", "the companion, while typing", "KeyC", { kind: "companion", atDock: false }, ["typing"]),
   bare("media.play", "space", "play or pause", " ", { kind: "playPause" }, READING, { group: "media" }),
@@ -121,7 +121,7 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   bare("reading.path", "p", "your path", "p", { kind: "path" }, READING),
   bare("reading.note", "n", "a margin note on the hovered passage", "n", { kind: "marginNote" }, READING, { later: "RD5" }),
   bare("reading.promoted", "b", "the first promoted action", "b", { kind: "promoted" }, READING, { later: "RD5" }),
-  bare("reading.follow", "u", "follow along", "u", { kind: "follow" }, READING, { later: "RD10" }),
+  bare("reading.follow", "u", "follow along", "u", { kind: "follow" }, READING),
   bare("reading.overview", "o", "overview", "o", { kind: "overview" }, ["overview", "reading"]),
   bare("reading.swap", "x", "swap the two windows in view", "x", { kind: "swap" }, READING),
   // The overview (spec §6.2): h/j/k/l, the arrows or alt+h/j/k/l move the selection; ↵ opens it, alt+↵ in

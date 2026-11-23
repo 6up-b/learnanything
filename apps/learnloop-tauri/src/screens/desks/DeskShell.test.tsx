@@ -252,9 +252,9 @@ describe("the key router", () => {
     });
     expect(screen.getByRole("dialog", { name: "alt keys" })).toBeTruthy();
     expect(screen.getByText("window left")).toBeTruthy();
-    // Built now (the pads), so on the panel; a chord whose feature is not built yet is not.
+    // Built now (the pads, and RD10's timestamp), so on the panel.
     expect(screen.getByText("new pad")).toBeTruthy();
-    expect(screen.queryByText("insert ▶ timestamp")).toBeNull();
+    expect(screen.getByText("insert ▶ timestamp")).toBeTruthy();
     act(() => {
       fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
     });

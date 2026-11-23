@@ -8,6 +8,7 @@ import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
 import { FIXTURE_LESSON_ID, FixtureLessons, fixtureAdditionsPad } from "./lessons";
+import { FixtureVideo } from "./video";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -59,6 +60,8 @@ const server = new FixtureDeskServer(harnessDeskState(), harnessPads());
 const companion = new FixtureCompanion();
 const goal = new FixtureGoal();
 const lessons = new FixtureLessons();
+// `?video=1`: the video's chapters already suggested, the second accepted (RD10), as the reference shows them.
+const videoFixture = new FixtureVideo(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("video") === "1");
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -90,10 +93,10 @@ const calls: HarnessCall[] = [];
 
 declare global {
   interface Window {
-    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons };
+    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons; video: FixtureVideo };
   }
 }
-window.__deskHarness = { calls, server, companion, goal, lessons };
+window.__deskHarness = { calls, server, companion, goal, lessons, video: videoFixture };
 
 function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
@@ -221,7 +224,10 @@ function answer(command: string, input: Record<string, unknown>): unknown {
           bySpan.set(anchor.spanId, [...(bySpan.get(anchor.spanId) ?? []), { blockId: anchor.blockId, padId: pad.pad.padId, kind: block?.kind ?? "text", provenance: block?.provenance ?? "learner", eventId: anchor.eventId, annotationId: anchor.annotationId, alias: "exact" }]);
         }
       }
-      return { version: 1, extractionId, sections: [], spans: [...bySpan.entries()].map(([spanId, padBlocks]) => ({ spanId, sectionId: null, annotations: [], padBlocks, exchanges: [], adjustments: [] })) };
+      // A one-passage read names its passage's section (a carried question's, RD10), as the book's span ids say it.
+      if (input.fromSpanId && input.fromSpanId === input.toSpanId && !bySpan.has(String(input.fromSpanId))) bySpan.set(String(input.fromSpanId), []);
+      const sectionOf = (spanId: string) => /_(s\d+)_\d+$/.exec(spanId)?.[1] ?? null;
+      return { version: 1, extractionId, sections: [], spans: [...bySpan.entries()].map(([spanId, padBlocks]) => ({ spanId, sectionId: sectionOf(spanId), annotations: [], padBlocks, exchanges: [], adjustments: [] })) };
     }
     case "passage_content": {
       // A passage of the fixture's books as the source has it (the render's block for the span).
@@ -326,6 +332,21 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return lessons.list(input as { lessonIds?: string[] });
     case "lesson_activity":
       return { recorded: 0, enabled: false };
+    // Follow-along and the suggested chapters (RD10).
+    case "reader_follow_along":
+      return videoFixture.follow(input as never);
+    case "chapters_list":
+      return videoFixture.list(input as never);
+    case "chapters_suggest":
+      return videoFixture.suggest(input as never);
+    case "chapters_job":
+      return videoFixture.job(input as never);
+    case "chapters_cancel":
+      return videoFixture.cancel(input as never);
+    case "chapters_decide":
+      return videoFixture.decide(input as never);
+    case "reader_correspondents":
+      return videoFixture.correspondents(input as never);
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }

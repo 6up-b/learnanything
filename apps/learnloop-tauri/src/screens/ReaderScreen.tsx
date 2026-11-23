@@ -71,7 +71,7 @@ import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
 import { useReaderInquiry } from "./reader/useReaderInquiry";
-import { YouTubeWatchPanel, type WatchLens, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
+import { YouTubeWatchPanel, type VideoExtras, type WatchLens, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
 import { CUE_COPY, type PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
@@ -288,6 +288,8 @@ export interface ReaderWindowing {
   /** The goal lens over this reading (the desks' RD6): what to draw before a passage, in its gutter, and
    *  the classes it takes. Absent, passages render as they always have. */
   lens?: ReaderLens | null;
+  /** The desks' video window (RD10): chapter ticks, the suggested chapters under the player, the player's clock. */
+  video?: VideoExtras | null;
   /** Pen mode's way onto this source (RD8a): the text surface, the open reading's identity and the selection
    * model for a range the pen marked (null while no text reading is shown). */
   onPenSurface?: (surface: PenSurface | null) => void;
@@ -3998,6 +4000,7 @@ export function ReaderScreen({
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
               marks={cueMarksFor("watch")}
               lens={windowed?.lens?.watch ?? null}
+              video={windowed?.video ?? null}
               {...(activeCtl.folded.size ? { fold: { spans: activeCtl.folded, line: <NextStepFoldLine ctl={activeCtl} /> } } : {})}
             />
           ) : watchLoading ? (

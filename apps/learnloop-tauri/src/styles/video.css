@@ -1,0 +1,32 @@
+/* Video and carried polish (spec §7.4, §7.5, §7.9; RD10): the follow-along chip and the followed passage, the
+   suggested chapters under a video's player, the accepted chapters' ticks and minimap ranges. Values are the
+   reference's (the follow_* and chap_* regions); interface text is JetBrains Mono. */
+
+/* The book window's chip: "following ▶ <chapter> <time> · <passage>", or unlinked. */
+.desk-pane-head .chip.fchip {
+  flex: 0 1 auto; min-width: 0; font: 10.5px var(--desk-mono); color: var(--desk-cyan); background: transparent;
+  border: 1px solid #2e5d6a; border-radius: 2px; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.desk-pane-head .chip.fchip.off { color: var(--desk-t3); border-color: var(--desk-line2); }
+/* The passage the playing cue's LO maps to, in the book (the mockup's .p.followed). */
+.desk-pane [data-span-id].followed { background: var(--wash-cyan); box-shadow: 0 0 0 4px var(--wash-cyan); }
+
+/* The suggested chapters, under the player's line. */
+.desk-pane[data-window-kind="video"] .watch-side { order: 1; margin: 4px 16px 12px; }
+.desk-chapters.vside { padding: 10px 12px; background: #222226; border-radius: 6px; font: 11.5px/1.5 var(--desk-mono); color: var(--desk-t2); }
+.desk-chapters .hd { font: 9.5px var(--desk-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--desk-t3); margin-bottom: 4px; }
+.desk-chapters .chap { display: grid; grid-template-columns: 82px 1fr auto; gap: 8px; align-items: baseline; padding: 3px 0; }
+.desk-chapters .chap .tr { font: 10.5px var(--desk-mono); color: var(--desk-cyan); }
+.desk-chapters .chap .ti { color: var(--desk-t); }
+.desk-chapters .chap .lo { color: var(--desk-ll); font-size: 10.5px; }
+.desk-chapters .chap .acts { display: flex; gap: 4px; }
+.desk-chapters .chap .btn { font: 10.5px var(--desk-mono); padding: 1px 7px; border: 0; border-radius: 2px; background: #ececec; color: #222222; cursor: pointer; }
+.desk-chapters .chap .kept { font: 10.5px var(--desk-mono); color: var(--desk-t3); }
+.desk-chapters .cline { font: 10.5px var(--desk-mono); color: var(--desk-t3); padding-top: 3px; }
+.desk-chapters .cline .lnk { font: inherit; color: var(--desk-cyan); background: none; border: 0; padding: 0; cursor: pointer; }
+
+/* An accepted chapter's tick on the scrub track, and its range on the shelf row's minimap. */
+.desk-shell .vtrack .ch { position: absolute; top: 0; height: 12px; border-left: 1px dashed #8f80c9; }
+.desk-shell .desk-src .bar .chr { position: absolute; top: 50%; height: 5px; transform: translateY(-50%); background: rgba(143, 128, 201, .45); border-radius: 1px; }
+/* The player's cell takes the window's light text, as the reference's player does (its track's marks inherit it). */
+.desk-pane[data-window-kind="video"] .watch-player { color: var(--desk-t); }

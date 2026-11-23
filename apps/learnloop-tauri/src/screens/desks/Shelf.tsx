@@ -17,6 +17,8 @@ export interface ShelfRow {
   /** The goal lens on this row (RD6): its mark at the right edge, a line on what it is for, and the path's ranges
    *  on its minimap (fractions of the source). */
   goal?: { mark: "core" | "sup" | "skip" | "later" | "shown" | "partial" | null; line: string; ranges: Array<[number, number]> } | null;
+  /** A video's accepted chapters (RD10) as ranges on its minimap (fractions of its length). */
+  chapters?: Array<{ start: number; end: number }>;
 }
 
 /** Drag farther than this before a press becomes a reorder (spec §5.2). */
@@ -183,11 +185,14 @@ function ShelfBody({
               {row.state ? <span>· {row.state}</span> : null}
             </div>
             <div className="n">{row.title}</div>
-            {row.progress !== null || row.goal?.ranges.length ? (
+            {row.progress !== null || row.goal?.ranges.length || row.chapters?.length ? (
               <div className="bar" aria-label={row.progress !== null ? `${Math.round(row.progress * 100)}% through` : "on your path"}>
                 <span className="ln" />
                 {(row.goal?.ranges ?? []).map(([from, to]) => (
                   <span key={`${from}-${to}`} className="gr" style={{ left: `${(from * 100).toFixed(1)}%`, width: `${((to - from) * 100).toFixed(1)}%` }} />
+                ))}
+                {(row.chapters ?? []).map((range) => (
+                  <span key={`ch-${range.start}`} className="chr" data-chapter-range="" style={{ left: `${(range.start * 100).toFixed(1)}%`, width: `${((range.end - range.start) * 100).toFixed(1)}%` }} />
                 ))}
                 {row.progress !== null ? <span className="rd" style={{ width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }} /> : null}
               </div>

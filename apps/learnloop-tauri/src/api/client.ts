@@ -388,6 +388,9 @@ import type {
   LessonViewDto,
   OpenLessonDto,
   LessonSummaryDto,
+  FollowAlongDto,
+  VideoChapterDto,
+  ChaptersJobDto,
   LessonSuggestionDto,
   LessonSuggestionResponseDto
 } from "./dto";
@@ -1705,6 +1708,16 @@ export const api = {
   // Reader workbench RD9a: the lessons a lesson window's tab and the path view name (no model call).
   lessonList: (input: { lessonIds?: string[]; learningObjectIds?: string[] }) =>
     call<{ lessons: LessonSummaryDto[] }>("lesson_list", { input }),
+  // Reader workbench RD10: follow-along (no model call) and suggested video chapters (a polled judged job).
+  readerFollowAlong: (input: { extractionId: string; t: number; bookExtractionId: string }) =>
+    call<FollowAlongDto>("reader_follow_along", { input }),
+  chaptersList: (input: { extractionId: string }) =>
+    call<{ extractionId: string; chapters: VideoChapterDto[] }>("chapters_list", { input }),
+  chaptersSuggest: (input: { extractionId: string }) => call<ChaptersJobDto>("chapters_suggest", { input }),
+  chaptersJob: (input: { jobId: string }) => call<ChaptersJobDto>("chapters_job", { input }),
+  chaptersCancel: (input: { jobId: string }) => call<ChaptersJobDto>("chapters_cancel", { input }),
+  chaptersDecide: (input: { chapterId: string; decision: "accept" | "dismiss" }) =>
+    call<{ chapter: VideoChapterDto }>("chapters_decide", { input }),
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),

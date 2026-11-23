@@ -20,7 +20,7 @@ Build the harness page first (apps/learnloop-tauri: `npx vite build --config vit
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \\
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd4
 
-`--stage` is rd1, rd2, rd3, rd4, rd5, rd6, rd8, rd9, notebook or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
+`--stage` is rd1, rd2, rd3, rd4, rd5, rd6, rd8, rd9, rd10, notebook or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
 Exit status 0 when the run completed (differences are findings, not failures), 2 when the reference is
 missing. `--dump NAME` prints the harness's element tree in that state (for mapping new regions).
 """
@@ -75,6 +75,18 @@ REGIONS: dict[str, Region] = {}
 def region(name: str, harness: str, geom: str = "none", skip: tuple[str, ...] = ()) -> None:
     REGIONS[name] = Region(harness, geom, skip)
 
+
+# ── video and carried polish (RD10; the harness's ?video=1 page): the follow chip, suggested chapters, ticks ──
+region("follow_chip", "[data-desk-window] .desk-pane-head .chip.fchip", "height")
+region("follow_passage", ".desk-pane [data-span-id].followed", "none")
+region("chap_panel", ".desk-chapters.vside", "height")
+region("chap_head", ".desk-chapters .hd", "height")
+region("chap_row", ".desk-chapters .chap", "height")
+region("chap_range", ".desk-chapters .chap .tr", "size")
+region("chap_title", ".desk-chapters .chap .ti", "height")
+region("chap_lo", ".desk-chapters .chap .lo", "none")
+region("chap_accept", ".desk-chapters .chap .acts .btn", "size")
+region("chap_tick", ".vtrack .ch", "size")
 
 # ── Teacher lesson windows (RD9a; the harness's ?lesson=1 page): the lesson pad's head, modes and frame ──
 region("lesson_body", ".desk-pads .paper.k-lesson", "width")
@@ -658,6 +670,20 @@ async def d_lesson_tab(page: Page) -> None:
     await wait(page, 700)
 
 
+async def d_follow(page: Page) -> None:
+    """The book focused beside the video (the reference's plain view): the stub player's time drives the chip."""
+    await page.wait_for_selector("[data-desk-window='fx_w_book'] .desk-pane-head .fchip", timeout=8000)
+    await wait(page, 900)
+
+
+async def d_chapters(page: Page) -> None:
+    """The video focused, its suggested chapters under the player (the reference's #goal=video)."""
+    await page.wait_for_selector(".goalband")
+    await keys(page, "Alt+l")
+    await page.wait_for_selector("[data-desk-window='fx_w_video'] .desk-chapters .chap", timeout=8000)
+    await wait(page, 1200)
+
+
 async def d_lift(page: Page) -> None:
     await pads_beside_book(page)
     await page.locator('.desk-pads [data-block="fx_b_r7"]').hover()
@@ -833,6 +859,8 @@ async def d_goal_nodim(page: Page) -> None:
     await page.click("[data-gdim]")
     await page.mouse.move(700, 600)
     await wait(page, 500)
+
+
 # ── pen and ink (RD8a): pen mode on, then one synthetic pen stroke (pointer events with pointerType "pen", pressure
 # and tilt) drawn on the book's text with the mockup's own stroke shapes (st_16.js: strokeUnder, strokeStrike,
 # strokeBracket, strokeLasso, strokeScribble), through the same input and recognizer a real pen goes through.
@@ -900,9 +928,10 @@ class State:
     variant: str = "arxiv_v2"
     init_storage: tuple[tuple[str, str], ...] = ()
     note: str = ""
+    geometry: bool = True  # False where the mockup's state is not a resting layout (its self-tests run on)
     # The harness page's query, with its "?" (the goal lens is `?goal=1`; the ink pad's fixture `?inkpad=1`).
     query: str = ""
-    geometry: bool = True  # False where the mockup's state is not a resting layout (its self-tests run on)
+    reference: str = ""  # the reference deep link when it is not the state's name (two stages comparing one capture)
 
 
 SHELL = ("topbar", "brand", "desk_tab_on", "desk_tab", "top_chip", "shelf", "shelf_head", "shelf_switch", "shelf_row_focus",
@@ -929,6 +958,9 @@ PADS = ("pad_window_head", "pad_tab_open", "pad_tab", "pad_tab_title", "pad_tab_
         "pad_mark_ll", "pad_mark_fig")
 
 MENU = ("pad_menu", "pad_menu_row", "pad_menu_head", "auto:div.pro", "auto:span.why")
+FOLLOW = ("follow_chip", "follow_passage")
+CHAPTERS = ("chap_panel", "chap_head", "chap_row", "chap_range", "chap_title", "chap_lo", "chap_accept", "chap_tick")
+
 LESSON = ("lesson_body", "lesson_head", "lesson_head_glyph", "lesson_head_faint", "lesson_mode_on", "lesson_mode", "lesson_mode_line",
           "lesson_frame", "pad_window_head", "pad_tab_open", "pad_tab_title", "pad_tab_meta")
 
@@ -1002,6 +1034,16 @@ STATES: list[State] = [
     # check (RD7's); only the companion's line is compared here.
     State("goal=check", "rd6", d_goal_companion, ("goal_comp_ctx", "comp_ctx"), variant="arxiv_v2_goal", query="?goal=1",
           note="only the companion's context line; the check itself is RD7's"),
+    # The Teacher lesson's tab open in the stack (RD9a). The reference was captured with the notebook served: its
+    # frame holds the notebook, ours the lesson itself (RD9b brings the notebook), so the frame is compared as a box.
+    State("tabs=distance,pad=3", "rd9", d_lesson_tab, LESSON, query="?lesson=1",
+          note="the frame's content is the notebook in the reference and the lesson itself here (RD9b)"),
+    # Follow-along's chip on the book (RD10), against the reference's plain view, and the suggested chapters under the
+    # focused video with an accepted chapter's tick, against its #goal=video.
+    State("follow", "rd10", d_follow, FOLLOW, reference="plain", query="?video=1",
+          note="the reference's chip is a search hit's; ours names the judged correspondent"),
+    State("chapters", "rd10", d_chapters, CHAPTERS + FOLLOW, variant="arxiv_v2_goal", reference="goal=video", query="?goal=1&video=1",
+          note="the reference ticks its suggestions; the desks tick only accepted chapters (spec §7.9)"),
     State("pen=underline", "rd8", d_pen("underline"), PEN + ("pen_stroke_under", "pen_mark_hl")),
     State("pen=bracket", "rd8", d_pen("bracket"), PEN + ("pen_stroke_bracket", "pen_mark_para")),
     State("pen=note", "rd8", d_pen("note"), PEN + ("pen_stroke_note", "pen_note", "pen_note_who", "pen_note_text", "pen_note_label")),
@@ -1009,10 +1051,6 @@ STATES: list[State] = [
     State("pen=strike", "rd8", d_pen("strike"), PEN + ("pen_stroke_strike",)),
     State("pen=pad", "rd8", d_pen_pad, ("pen_chip_top", "pen_hint", "ink_pad_paper", "ink_bar", "ink_bar_button", "ink_prov", "ink_read",
                                          "ink_read_label", "ink_read_tex", "ink_hint", "pad_window_head", "pad_tab_open"), query="?inkpad=1"),
-    # The Teacher lesson's tab open in the stack (RD9a). The reference was captured with the notebook served: its
-    # frame holds the notebook, ours the lesson itself (RD9b brings the notebook), so the frame is compared as a box.
-    State("tabs=distance,pad=3", "rd9", d_lesson_tab, LESSON, query="?lesson=1",
-          note="the frame's content is the notebook in the reference and the lesson itself here (RD9b)"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}
@@ -1175,7 +1213,7 @@ async def open_harness(browser: Any, base: str, viewport: dict[str, int], state:
 
 
 async def compare_state(browser: Any, base: str, ref: Path, out: Path, state: State, viewport: str) -> dict[str, Any]:
-    stem = file_stem(state.variant, state.name, viewport)
+    stem = file_stem(state.variant, state.reference or state.name, viewport)
     ref_json = ref / f"{stem}.json"
     if not ref_json.exists():
         return {"state": state.name, "viewport": viewport, "status": "no reference capture", "file": ref_json.name}
@@ -1275,7 +1313,7 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "rd9", "notebook", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "rd9", "rd10", "notebook", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")

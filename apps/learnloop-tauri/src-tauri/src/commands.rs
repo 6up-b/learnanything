@@ -1425,6 +1425,14 @@ sidecar_passthrough!(lesson_goal, "lesson.goal");
 sidecar_passthrough!(lesson_open_lessons, "lesson.open_lessons");
 // Reader workbench RD9a: the lessons a lesson window's tab and the path view name (no model call; desktop only).
 sidecar_passthrough!(lesson_list, "lesson.list");
+// Reader workbench v2 RD10: follow-along and suggested video chapters (the chapters judge as a polled job; desktop
+// only).
+sidecar_passthrough!(reader_follow_along, "reader.follow_along");
+sidecar_passthrough!(chapters_list, "chapters.list");
+sidecar_passthrough!(chapters_suggest, "chapters.suggest");
+sidecar_passthrough!(chapters_job, "chapters.job");
+sidecar_passthrough!(chapters_cancel, "chapters.cancel");
+sidecar_passthrough!(chapters_decide, "chapters.decide");
 // Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
 sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
 sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");
