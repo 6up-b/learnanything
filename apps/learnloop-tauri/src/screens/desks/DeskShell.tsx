@@ -2251,10 +2251,14 @@ export function DeskShell({
     if (ops.length) commit({ ws: next, ops });
   }, [ws, commit]);
 
+  // The questions a successful mark closed this session (fruitful, let it go): taken out of both lists at once, and
+  // never restored by a refresh read before the mark or one that failed part-way.
+  const closedCarried = useRef(new Set<string>());
+  const openOnly = useCallback((list: CarriedQuestionDto[]) => list.filter((question) => !closedCarried.current.has(question.carriedId)), []);
   const refreshCarried = useCallback(() => {
     // Through a promise, so a call that throws (a sidecar without carried questions) is a quiet failure too.
-    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit, more: Boolean(out.cursor) }), () => undefined);
-  }, [padsTransport]);
+    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: openOnly(out.carried), limit: out.shelfLimit, more: Boolean(out.cursor) }), () => undefined);
+  }, [padsTransport, openOnly]);
   useEffect(() => {
     if (ws) refreshCarried();
     // Read once when the desks open; carrying refreshes it.
@@ -2266,9 +2270,17 @@ export function DeskShell({
   useEffect(() => {
     let live = true;
     void allCarried((cursor) => Promise.resolve().then(() => padsTransport.carriedList({ which: "open", ...(cursor ? { cursor } : {}) })))
-      .then((all) => { if (live) setCarriedAll(all); }, () => undefined);
+      .then((all) => { if (live) setCarriedAll(openOnly(all)); }, () => undefined);
     return () => { live = false; };
-  }, [carried, padsTransport]);
+  }, [carried, padsTransport, openOnly]);
+  const markedCarried = useCallback((carriedId: string, event: string) => {
+    if (event === "fruitful" || event === "let_go") {
+      closedCarried.current.add(carriedId);
+      setCarried((now) => ({ ...now, list: openOnly(now.list) }));
+      setCarriedAll((now) => (now ? openOnly(now) : now));
+    }
+    refreshCarried();
+  }, [openOnly, refreshCarried]);
   // And beside the related passages of the other open readings (spec §10.12).
   const carriedRelated = useMemo(() => new CarriedRelated({
     passageUnionRange: (input) => padsTransport.passageUnionRange(input),
@@ -3614,7 +3626,7 @@ export function DeskShell({
               }}
               onSurfaced={onCarriedSurfaced}
               onMarkCarried={(question, event) => {
-                void padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then(refreshCarried, () => undefined);
+                void padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then(() => markedCarried(question.carriedId, event), () => undefined);
               }}
             />
           ) : null}
@@ -3776,7 +3788,7 @@ export function DeskShell({
         <CarriedList
           load={(cursor) => padsTransport.carriedList({ which: "open", ...(cursor ? { cursor } : {}) })}
           mark={(question, event) => padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then((out) => {
-            refreshCarried();
+            markedCarried(question.carriedId, event);
             return out;
           })}
           onClose={() => setCarriedOpen(false)}

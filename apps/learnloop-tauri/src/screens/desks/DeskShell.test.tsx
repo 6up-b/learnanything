@@ -1733,6 +1733,28 @@ describe("RD4b: pads in the desks", () => {
     expect(list.querySelector('[data-carried-row="c2"]')).toBeNull();
   });
 
+  it("a question let go leaves the shelf at once, even when the refresh after it fails", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const question = (n: number) => ({ carriedId: `c${n}`, text: `question ${n}?`, originKind: "typed", originRef: null, anchor: null, deskId: null, since: "2026-11-20T10:00:00Z", state: "carried", carried: true, version: n, updatedAt: "2026-11-20T10:00:00Z" });
+    let failing = false;
+    fakes.transport.carriedList = (async () => {
+      if (failing) throw new Error("the sidecar is busy");
+      return { carried: [1, 2, 3, 4].map(question), shelfLimit: 3, cursor: null };
+    }) as never;
+    fakes.transport.carriedMark = async () => { failing = true; return {}; };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: /all carried questions/ }));
+    const list = await screen.findByRole("dialog", { name: "carried questions" });
+    fireEvent.click(within(list.querySelector('[data-carried-row="c2"]') as HTMLElement).getByRole("button", { name: "let it go" }));
+    await flush();
+    const shelf = document.querySelector("[data-shelf-carried]") as HTMLElement;
+    expect(shelf.textContent).not.toContain("question 2?");
+    expect(shelf.textContent).toContain("question 1?");
+  });
+
   it("a passage's ✎ marks come from the passage union (no pad loaded), an alias that needs re-anchoring marked as such", async () => {
     const server = new FixtureDeskServer();
     const fakes = padsTransport(server);

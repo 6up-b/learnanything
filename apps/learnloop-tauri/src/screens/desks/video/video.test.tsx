@@ -331,3 +331,26 @@ describe("chapter decisions", () => {
     await waitFor(() => expect(within(screen.getByTestId("two")).getByText("✓ accepted")).toBeTruthy());
   });
 });
+
+describe("a follow answer that comes back late", () => {
+  it("is dropped when its book went offscreen or another video drives now", async () => {
+    const replies: Array<(value: FollowAlongDto) => void> = [];
+    const transport = { followAlong: vi.fn(() => new Promise<FollowAlongDto>((resolve) => replies.push(resolve))) } as unknown as VideoTransport;
+    const followed: string[] = [];
+    const desk = new VideoDesk(transport, (_windowId, spanId) => followed.push(spanId));
+    desk.setLayout(LAYOUT);
+    desk.clock("w_vid", "ext_vid", { t: 25, playing: true, spanId: "c3", duration: 60 });
+    await flush();
+    desk.setLayout({ ...LAYOUT, books: [{ windowId: "w_book", extractionId: "ext_book", paused: true }] });
+    await act(async () => { replies[0](follow()); });
+    expect(followed).toEqual([]);
+    expect(desk.followedSpan("w_book")).toBeNull();
+    // Another video drives by the time it answers.
+    desk.setLayout({ videos: [...LAYOUT.videos, { windowId: "w_vid2", extractionId: "ext_vid2", title: "Other" }], books: LAYOUT.books });
+    await flush();
+    desk.clock("w_vid2", "ext_vid2", { t: 3, playing: true, spanId: "d1", duration: 60 });
+    const pending = replies.length;
+    await act(async () => { replies[pending - 2]?.(follow()); });
+    expect(followed).toEqual([]);
+  });
+});

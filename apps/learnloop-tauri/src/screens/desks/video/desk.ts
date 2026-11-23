@@ -155,6 +155,13 @@ export class VideoDesk {
     void Promise.resolve().then(() => this.transport.followAlong({ extractionId: videoExtractionId, t, bookExtractionId })).then(
       (result) => {
         this.asking.delete(bookWindowId);
+        // Asked for a book and a video as they were: a book gone, paused or showing another reading, or another video
+        // driving now, drops the answer (the refresh asks again where that is still wanted).
+        const book = this.layout.books.find((each) => each.windowId === bookWindowId);
+        if (!book || book.paused || book.extractionId !== bookExtractionId || this.driver()?.extractionId !== videoExtractionId) {
+          this.refresh();
+          return;
+        }
         const before = this.followed.get(bookWindowId)?.passage ?? null;
         const passage = choosePassage(result, bookExtractionId, this.primaryFor);
         this.followed.set(bookWindowId, { videoExtractionId, askedT: t, result, passage });
