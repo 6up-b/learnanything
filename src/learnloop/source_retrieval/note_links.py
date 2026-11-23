@@ -1212,7 +1212,13 @@ def search(vault: Any, repository: Repository, *, query: str | None = None, extr
         basis = f"meaning:{found.status}"
     else:
         hits = VN.words_search(corpus, asked, limit=VN.SEARCH_LIMIT)
-    return {"query": asked, "mode": mode, "basis": basis, "hits": [hit.view() for hit in hits]}
+    out = {"query": asked, "mode": mode, "basis": basis, "hits": [hit.view() for hit in hits]}
+    if mode == "meaning":
+        # How far the meaning search could go, and why not further (a query not embedded, notes not yet
+        # embedded), so a caller never reads an unavailable search as "nothing found".
+        out["meaning"] = {"status": found.status, "reason": found.reason, "covered": found.covered,
+                          "total": found.total}
+    return out
 
 
 def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], extraction_id: str, span_id: str,
