@@ -115,7 +115,11 @@ def prepare(repository: Any, *, submission_id: str, block_id: str, version_id: s
         if existing is not None:
             if existing["request_hash"] != digest:
                 raise SubmissionRefused("submission_reused", "That submission id was used for another submission.")
-            return Prepared(**base, pad_id=str(existing["pad_id"]), text="", existing=existing)
+            # The words this submission froze: a reserved teach-back whose hand-off never happened hands them over
+            # on the retry, whatever the block says now.
+            frozen = reads.version(connection, str(existing["version_id"])) or {}
+            return Prepared(**base, pad_id=str(existing["pad_id"]), text=str(frozen.get("body_md") or "").strip(),
+                            existing=existing)
         version = reads.version(connection, version_id)
         if version is None or version["block_id"] != block_id:
             raise SubmissionRefused("version_not_found", "No such version of that block.")

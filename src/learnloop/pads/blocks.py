@@ -180,6 +180,13 @@ def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
         created = reads.first_versions(connection, [head["block_id"] for head in heads])
         anchors = reads.standing_anchors_for_blocks(connection, [head["block_id"] for head in heads])
         submitted = submission_tags(connection, heads)
+    for tags in submitted.values():
+        for tag in tags:
+            if tag["as"] == "teach_back" and tag["attempt_id"] is None and tag["teach_back_id"]:
+                # A teach-back's attempt comes when its conversation finishes, carrying the conversation's id.
+                tag["attempt_id"] = repository.find_attempt_id_by_evidence_agent_run(
+                    practice_item_id=tag["practice_item_id"], agent_run_id=tag["teach_back_id"],
+                    attempt_type="teach_back")
     return {
         "pad": _pad_out(row),
         "blocks": [{**_block_out(head, created.get(head["block_id"])),
