@@ -135,6 +135,24 @@ region("goal_path_primary_why", ".gp-prim .gp-why", "none")
 region("goal_path_alt", ".gp-alt", "width")
 region("goal_path_skip", ".gp-s", "width")
 region("goal_path_skip_head", ".skipg .gp-gh", "none")
+# The row's own box, colours and type are the shelf's (RD1; its interface face is VR-1): only the goal's additions here.
+region("goal_shelf_row", ".desk-shelf .desk-src.g-core", "none", skip=("padding", "radius", "box_shadow", "background", "background_eff", "font"))
+region("goal_shelf_mark_core", ".desk-shelf .desk-src.g-core > .gm.sh", "width", skip=MARK_SKIP)
+region("goal_shelf_mark_sup", ".desk-shelf .desk-src.g-sup > .gm.sh", "width", skip=MARK_SKIP)
+region("goal_shelf_mark_skip", ".desk-shelf .desk-src.g-skip > .gm.sh", "width", skip=MARK_SKIP)
+region("goal_shelf_line", ".desk-shelf .desk-src.g-core > .gwl", "height")
+region("goal_shelf_line_skip", ".desk-shelf .desk-src.g-skip > .gwl", "height")
+region("goal_shelf_range", ".desk-shelf .desk-src .bar .gr", "height", skip=MARK_SKIP)
+region("goal_transcript_mark", "[data-window-kind='video'] .tp.g-sup .tx > .gm.gl-tx", "width", skip=MARK_SKIP)
+# Dimmed cue text: its colour (the cues' own type and box are the video window's, VR-5).
+region("goal_transcript_dimmed", "[data-window-kind='video'] .tp.gl-dim .tx [data-transcript-span]", "none",
+       skip=("font", "padding", "radius", "background", "background_eff", "box_shadow", "border_bottom_width", "border_bottom_color"))
+region("goal_transcript_head", "[data-window-kind='video'] .gtcall:not(.off)", "none")
+region("goal_transcript_head_off", "[data-window-kind='video'] .gtcall.off", "none")
+region("goal_track", "[data-window-kind='video'] .vtrack", "height", skip=MARK_SKIP)
+region("goal_track_line", "[data-window-kind='video'] .vtrack .ln", "height", skip=MARK_SKIP)
+region("goal_track_seg", "[data-window-kind='video'] .vtrack .gseg", "height", skip=MARK_SKIP)
+region("goal_comp_ctx", ".desk-companion .ctx .gctx", "none")
 region("goal_pad_line", ".gfor", "none")
 region("goal_paper_mark", "[data-window-kind='source'] .gm.gl-paper", "width", skip=MARK_SKIP)
 region("goal_paper_callout", ".gpcall", "none")
@@ -696,6 +714,19 @@ async def d_goal_pads(page: Page) -> None:
     await pads_in_view(page)
 
 
+async def d_goal_video(page: Page) -> None:
+    """The video window focused, its transcript's head in view (the reference's #goal=video)."""
+    await goal_ready(page)
+    await keys(page, "Alt+l")
+    await wait(page, 1200)
+
+
+async def d_goal_companion(page: Page) -> None:
+    await goal_ready(page)
+    await keys(page, "Shift+C")
+    await wait(page, 900)
+
+
 async def d_goal_nodim(page: Page) -> None:
     await goal_ready(page)
     await page.click("[data-gdim]")
@@ -743,6 +774,10 @@ GOAL_BAND = ("goal_band", "goal_band_lab", "goal_band_sentence", "goal_band_coun
              "goal_band_dot_pre", "goal_band_dot_unmatched", "goal_band_depth_on", "goal_band_depth", "goal_band_here_lab", "goal_band_here",
              "goal_band_next_lab", "goal_band_next", "goal_band_dim", "goal_band_path")
 GOAL_MARKS = ("goal_mark_core", "goal_mark_sup", "goal_mark_skip", "goal_text_dimmed")
+GOAL_SHELF = ("goal_shelf_row", "goal_shelf_mark_core", "goal_shelf_mark_sup", "goal_shelf_mark_skip", "goal_shelf_line", "goal_shelf_line_skip",
+              "goal_shelf_range")
+GOAL_VIDEO = ("goal_transcript_mark", "goal_transcript_dimmed", "goal_transcript_head", "goal_transcript_head_off", "goal_track",
+              "goal_track_line", "goal_track_seg")
 GOAL_WHY = ("goal_why", "goal_why_head", "goal_why_body", "goal_why_for", "goal_why_coverage", "goal_mark_on", "goal_mark_later")
 GOAL_PATH = ("goal_path", "goal_path_left", "goal_path_h3", "goal_path_scope", "goal_path_unmatched", "goal_path_depth_on", "goal_path_depth",
              "goal_path_ready", "goal_path_key", "goal_path_head", "goal_path_lo", "goal_path_lo_title", "goal_path_tag_core", "goal_path_tag_pre",
@@ -788,7 +823,7 @@ STATES: list[State] = [
     State("s11=menu", "rd4", d_padmenu, ("pad_menu", "pad_menu_row", "pad_menu_head")),
     State("s11=arrange", "rd4", d_arrange, ("arrange_panel", "arrange_card", "pad_window_head")),
     State("s11=split", "rd4", d_split, PADS + ("split_pane",)),
-    State("goal=frame", "rd6", d_goal_frame, GOAL_BAND + GOAL_MARKS + ("goal_callout", "goal_callout_lab"), variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=frame", "rd6", d_goal_frame, GOAL_BAND + GOAL_MARKS + GOAL_SHELF + ("goal_callout", "goal_callout_lab"), variant="arxiv_v2_goal", query="?goal=1"),
     State("goal=why", "rd6", d_goal_why, GOAL_BAND + GOAL_MARKS + GOAL_WHY, variant="arxiv_v2_goal", query="?goal=1"),
     State("goal=whysup", "rd6", d_goal_whysup, GOAL_BAND + GOAL_MARKS + GOAL_WHY, variant="arxiv_v2_goal", query="?goal=1"),
     State("goal=whyskip", "rd6", d_goal_whyskip, GOAL_BAND + GOAL_MARKS + GOAL_WHY, variant="arxiv_v2_goal", query="?goal=1"),
@@ -796,7 +831,12 @@ STATES: list[State] = [
     State("goal=path", "rd6", d_goal_path, GOAL_BAND + GOAL_PATH, variant="arxiv_v2_goal", query="?goal=1"),
     State("goal=paper", "rd6", d_goal_paper, GOAL_BAND + ("goal_paper_mark", "goal_paper_callout"), variant="arxiv_v2_goal", query="?goal=1"),
     State("goal=pads", "rd6", d_goal_pads, GOAL_BAND + ("goal_pad_line",), variant="arxiv_v2_goal", query="?goal=1"),
-    State("goal=frame,nodim", "rd6", d_goal_nodim, GOAL_BAND + GOAL_MARKS, variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=frame,nodim", "rd6", d_goal_nodim, GOAL_BAND + GOAL_MARKS + GOAL_SHELF, variant="arxiv_v2_goal", query="?goal=1"),
+    State("goal=video", "rd6", d_goal_video, GOAL_BAND + GOAL_SHELF + GOAL_VIDEO, variant="arxiv_v2_goal", query="?goal=1"),
+    # The companion's context line keeping the goal in view: the reference shows it with the companion open at its
+    # check (RD7's); only the companion's line is compared here.
+    State("goal=check", "rd6", d_goal_companion, ("goal_comp_ctx", "comp_ctx"), variant="arxiv_v2_goal", query="?goal=1",
+          note="only the companion's context line; the check itself is RD7's"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}

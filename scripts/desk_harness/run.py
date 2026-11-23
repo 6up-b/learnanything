@@ -1154,6 +1154,29 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     here = await page.evaluate("() => document.querySelector('[data-goal-here]').textContent")
     results.check("#goal=frame: you are reading maps the focused window's passage through the lens", "Turn scores into softmax weights" in here, here)
 
+    shelf = await page.evaluate("""() => { const row = document.querySelector("[data-shelf-window='fx_w_book']"); if (!row) return null;
+      const mark = row.querySelector('.gm.sh'); return { cls: row.className, bg: mark ? getComputedStyle(mark).backgroundColor : null,
+        line: row.querySelector('.gwl')?.textContent ?? null, ranges: row.querySelectorAll('.bar .gr').length }; }""")
+    results.check("#goal=frame: the book's shelf row carries the bar at its right edge, what it is for, and the path's ranges",
+                  bool(shelf) and shelf["bg"] == "rgb(169, 159, 208)" and shelf["line"] == "◎ primary for 2 of your LOs" and shelf["ranges"] >= 1, shelf)
+    video = await page.evaluate("""() => { const w = document.querySelector("[data-desk-window='fx_w_video']"); if (!w) return null;
+      const group = w.querySelector('.tp.g-sup'); const mark = group?.querySelector('.tx > .gm.gl-tx'); const tx = group?.querySelector('.tx');
+      const dim = w.querySelector('.tp.gl-dim [data-transcript-span]');
+      return { mark: mark ? { bg: getComputedStyle(mark).backgroundColor, gap: Math.round((tx.getBoundingClientRect().left - mark.getBoundingClientRect().right) * 10) / 10 } : null,
+        head: w.querySelector('[data-goal-head]')?.textContent ?? null, segments: w.querySelectorAll('[data-goal-track] .gseg').length,
+        segColour: w.querySelector('[data-goal-track] .gseg') ? getComputedStyle(w.querySelector('[data-goal-track] .gseg')).backgroundColor : null,
+        dimmed: dim ? getComputedStyle(dim).color : null }; }""")
+    results.check("#goal=video: transcript passages carry the marks, the head says where the video sits, the track draws the path's ranges",
+                  bool(video) and bool(video["mark"]) and video["mark"]["bg"] == "rgba(91, 74, 154, 0.34)" and video["mark"]["gap"] == 5
+                  and (video["head"] or "").startswith("◎ on your path") and video["segments"] == 3
+                  and video["segColour"] == "rgba(169, 159, 208, 0.45)" and video["dimmed"] == "rgb(142, 137, 127)", video)
+    await page.keyboard.press("Shift+C")
+    await settle(page, 700)
+    context = await page.evaluate("() => { const g = document.querySelector('.desk-companion .ctx .gctx'); return g ? { text: g.textContent, colour: getComputedStyle(g).color } : null; }")
+    results.check("the companion keeps the goal in view", bool(context) and context["text"] == "◎ goal in context" and context["colour"] == "rgb(169, 159, 208)", context)
+    await page.keyboard.press("Shift+C")
+    await settle(page, 500)
+
     why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-core")
     await shot(page, shots, "goal-why")
     results.check("#goal=why: the why on a core passage: the level, For <goal>: the reason, the coverage line",
