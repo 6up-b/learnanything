@@ -36,6 +36,7 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
     if (!lessonId) desk.opened(itemKey, next.lessonId);
     else desk.noteView(lessonId, next);
   }, [desk, itemKey, lessonId]);
+  const shareOpening = useCallback((send: () => Promise<LessonViewDto>) => desk.shareOpening(itemKey, send), [desk, itemKey]);
   const closed = Boolean(view?.closed ?? (lessonId ? desk.summary(lessonId)?.closed : false));
   const shownId = lessonId ?? view?.lessonId ?? null;
   const notebook = view && shownId && lessonMedium(view) === "notebook" && host.notebookFrame ? host.notebookFrame(shownId, view) : null;
@@ -66,6 +67,7 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
             frame="window"
             onView={onView}
             onBusy={onBusy}
+            {...(lessonId ? {} : { shareOpening })}
             onError={host.onError}
             {...(host.onQuickCheck ? { onQuickCheck: host.onQuickCheck } : {})}
             {...(host.onLookInLibrary ? { onLookInLibrary: host.onLookInLibrary } : {})}

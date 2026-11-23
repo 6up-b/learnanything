@@ -36,6 +36,9 @@ export class LessonDesk {
   private aliases = new Map<string, Opening>();
   private reveals = new Map<string, string>();
   private additions = new Map<string, string>();
+  /** Each opening's turn, owned here and not by the view that sent it: a window closed and brought back (undo)
+   * joins the same turn, so a lesson is opened once and its identity settled once, even while no view shows it. */
+  private openingTurns = new Map<string, Promise<LessonViewDto>>();
   private all: LessonSummaryDto[] | null = null;
   private allAsked = false;
   private listeners = new Set<() => void>();
@@ -161,6 +164,22 @@ export class LessonDesk {
     if (this.reveals.get(opening.windowId) === key) this.reveals.set(opening.windowId, lessonKey(lessonId));
     this.onOpened(opening, lessonId);
     this.emit();
+  }
+
+  /** The opening's turn: sent once (``send``), then shared by every view of the opening; its answer settles the
+   * opening's lesson whether or not a view is mounted then. A failed send can be sent again. */
+  shareOpening(key: string, send: () => Promise<LessonViewDto>): Promise<LessonViewDto> {
+    const known = this.openingTurns.get(key);
+    if (known) return known;
+    const turn = send().then((view) => {
+      this.opened(key, view.lessonId);
+      return view;
+    }, (error: unknown) => {
+      this.openingTurns.delete(key);
+      throw error;
+    });
+    this.openingTurns.set(key, turn);
+    return turn;
   }
 
   /** An opening the learner gave up on (its window closed, or the opening failed before saving anything). */

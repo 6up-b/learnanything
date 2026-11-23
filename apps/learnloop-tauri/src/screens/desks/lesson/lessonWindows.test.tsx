@@ -15,6 +15,7 @@ import { DeskStore } from "../store";
 import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost } from "../pads/host";
 import { PadStackWindow } from "../pads/PadStackWindow";
 import { LessonDesk, type LessonsHost, type Opening } from "./host";
+import { LessonPaper } from "./LessonPaper";
 import { PathLessonRow } from "./PathLessonRow";
 
 const api = vi.hoisted(() => ({
@@ -271,6 +272,31 @@ describe("your additions under a lesson", () => {
     expect(screen.getByText("your additions under this lesson")).toBeTruthy();
     expect(document.querySelector(`[data-block="fx_b_add1"]`)?.getAttribute("data-emits")).toBe("yes");
     void FIXTURE_ADDITIONS_PAD_ID;
+  });
+});
+
+describe("an opening closed and brought back", () => {
+  it("joins the turn already sent: the lesson is opened once, and its identity settled while no view shows it", async () => {
+    let answer: (view: LessonViewDto) => void = () => undefined;
+    api.lessonTurn.mockImplementation(() => new Promise<LessonViewDto>((resolve) => { answer = resolve; }));
+    const opened: string[] = [];
+    const desk = new LessonDesk({ list: async () => ({ lessons: [] }) }, (_opening, lessonId) => opened.push(lessonId));
+    const key = desk.open("w", { kind: "open", entry: "learning_object", learningObjectIds: ["lo_fx_softmax"] });
+    const host = { desk, onError: vi.fn(), openLesson: vi.fn() } as LessonsHost;
+    const paper = () => (
+      <WindowScope lifecycle={{ windowId: "w", state: "active" }} hub={DIRECT_HUB}>
+        <LessonPaper host={host} itemKey={key} lessonId={null} entry={desk.entryFor(key)!} additions={null} hasAdditions={false} />
+      </WindowScope>
+    );
+    const first = render(paper());
+    await waitFor(() => expect(api.lessonTurn).toHaveBeenCalledTimes(1));
+    first.unmount(); // the window closed
+    await act(async () => { answer({ ...FIXTURE_LESSON_VIEW, lessonId: "les_once", closed: false, closeReason: null, feed: FIXTURE_LESSON_VIEW.feed.slice(0, 1) }); });
+    expect(opened).toEqual(["les_once"]);
+    render(paper()); // undo brings it back
+    await act(async () => { await Promise.resolve(); });
+    expect(api.lessonTurn).toHaveBeenCalledTimes(1);
+    expect(opened).toEqual(["les_once"]);
   });
 });
 

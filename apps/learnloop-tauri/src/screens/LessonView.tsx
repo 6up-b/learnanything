@@ -120,6 +120,9 @@ export interface LessonViewProps {
   onStartFresh?: (learningObjectIds: string[]) => void;
   /** Whether a step is in flight (a window's opening tab offers to let a failed opening go only once it is not). */
   onBusy?: (busy: boolean) => void;
+  /** A window's opening turn goes through its host, which sends it once and shares it with any later view of the same
+   *  opening (a window closed and brought back). Without it, the turn is sent here. */
+  shareOpening?: (send: () => Promise<LessonViewDto>) => Promise<LessonViewDto>;
 }
 
 export function LessonView({
@@ -133,6 +136,7 @@ export function LessonView({
   onView,
   onStartFresh,
   onBusy,
+  shareOpening,
 }: LessonViewProps) {
   const windowed = frame === "window";
   // The window's lifecycle (outside the desks: never paused, listeners straight on the window, as before).
@@ -190,7 +194,7 @@ export function LessonView({
     // TE2-log: the intervals so far reach the sidecar before the step (a close's receipt counts them).
     activity.current?.flush();
     try {
-      const next = await api.lessonTurn(input);
+      const next = input.action === "open" && shareOpening ? await shareOpening(() => api.lessonTurn(input)) : await api.lessonTurn(input);
       setView(next);
       return next;
     } catch (error) {
@@ -232,7 +236,7 @@ export function LessonView({
     } finally {
       setBusy(false);
     }
-  }, [onError, onOpenFailed]);
+  }, [onError, onOpenFailed, shareOpening]);
 
   /** Send what the learner wrote, keeping it on screen while the teacher writes. A step that failed outright puts it
    *  back in its box (unless something new was typed there); one kept for Try again stays shown. */
