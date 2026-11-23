@@ -961,6 +961,30 @@ describe("RD2 fix round: cancelled pointer gestures (findings 14, 15)", () => {
     expect(card.style.transform).toBe("");
   });
 
+  it("the window losing focus cancels a card drag; an element blurring as the press moves the focus does not", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    const stage = document.querySelector("[data-desk-stage]") as HTMLElement;
+    const card = document.querySelector('[data-desk-slot-window="fx_w_video"]') as HTMLElement;
+    act(() => {
+      fireEvent.pointerDown(card, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(stage, { clientX: 160, clientY: 140, pointerId: 1 });
+      fireEvent.blur(window);
+    });
+    expect(card.style.transform).toBe("");
+    // A click on a card while a shelf button loses the focus still opens the card.
+    const shelfButton = screen.getByRole("button", { name: "attention" });
+    act(() => shelfButton.focus());
+    act(() => {
+      fireEvent.pointerDown(card, { clientX: 100, clientY: 100, pointerId: 2 });
+      fireEvent.blur(shelfButton);
+      fireEvent.pointerUp(stage, { clientX: 100, clientY: 100, pointerId: 2 });
+    });
+    expect(overviewOn()).toBe(false);
+    expect(state("fx_w_video")).toBe("active");
+  });
+
   it("a cancelled ctrl+drag scrub settles the zoom instead of leaving it mid-way", async () => {
     const frames = new ManualFrames();
     mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });

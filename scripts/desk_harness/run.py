@@ -402,6 +402,40 @@ async def run_overview(page: Page, base: str, results: Results, shots: Path | No
         (shots / "identity-out-last.png").write_bytes(last_frame)
         (shots / "identity-out-committed.png").write_bytes(committed)
 
+    # The other exits meet the same invariant: to a desk never opened (its content is prepared before the
+    # zoom), into focus mode (alt+↵: the full-screen rect is the zoom's destination), and after keyboard
+    # navigation in the overview (its camera ease must not run under the zoom).
+    async def identity_exit(name: str, to: str, focus_after: bool, before: str | None = None) -> float:
+        await page.evaluate("() => { window.__deskDebug.beginZoom(); window.__deskDebug.setZoomProgress(1); window.__deskDebug.finishZoom(1); }")
+        await settle(page, 600)
+        if before:
+            for key in before.split():
+                await page.keyboard.press(key)
+            await page.wait_for_timeout(60)
+        began = await page.evaluate(f"() => window.__deskDebug.beginZoom({to}, {'true' if focus_after else 'false'})")
+        await page.evaluate("() => window.__deskDebug.setZoomProgress(0)")
+        await page.wait_for_timeout(900)
+        last = await page.screenshot()
+        await page.evaluate("() => window.__deskDebug.finishZoom(0)")
+        await page.wait_for_timeout(300)
+        committed = await page.screenshot()
+        share = changed_share(last, committed, box)
+        results.check(f"{name}: the last frame equals the committed view (changed {share:.4%} ≤ {MAX_CHANGED_SHARE:.1%})", bool(began) and share <= MAX_CHANGED_SHARE, share)
+        if shots is not None:
+            (shots / f"identity-{name.split()[0]}-last.png").write_bytes(last)
+            (shots / f"identity-{name.split()[0]}-committed.png").write_bytes(committed)
+        await page.keyboard.press("Escape") if focus_after else None
+        await settle(page, 600)
+        return share
+
+    await identity_exit("unvisited: leaving to a desk never opened", "{ deskId: 'fx_desk_backprop', windowId: 'fx_w_book_range' }", False)
+    await page.get_by_role("button", name="softmax and cross-entropy", exact=True).click()
+    await settle(page, 900)
+    await identity_exit("focus: leaving into focus mode (alt+↵)", "{ deskId: 'fx_desk_softmax', windowId: 'fx_w_book' }", True)
+    await identity_exit("navigated: leaving after keyboard navigation in the overview", "null", False, before="j l")
+    await page.get_by_role("button", name="softmax and cross-entropy", exact=True).click()
+    await settle(page, 900)
+
     # A zoom's frames: transforms and opacities only, no element inserted, no custom property touched.
     await page.evaluate("""() => {
       window.__zoomMutations = { styles: new Set(), props: new Set(), added: 0, custom: 0 };

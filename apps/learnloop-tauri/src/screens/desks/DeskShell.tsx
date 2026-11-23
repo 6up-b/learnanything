@@ -135,7 +135,8 @@ const MOVED_NOTICE_MS = 6_000;
 
 /** What the visual harness may drive directly: the zoom's progress, for the commit-identity check. */
 export interface DeskDebugHandle {
-  beginZoom(): boolean;
+  /** From the overview: toward `to` (else where it was entered from), in focus mode when `focusAfter`. */
+  beginZoom(to?: { deskId: string; windowId: string | null } | null, focusAfter?: boolean): boolean;
   setZoomProgress(p: number): void;
   finishZoom(goal: 0 | 1): void;
   zoomFrameTimes(): number[];
@@ -299,7 +300,9 @@ export function DeskShell({
   const [zooming, setZooming] = useState(false);
   // While a zoom leaves the overview: the desk it lands on and its camera, so the soft crop and the
   // slivers it will show are already there on its last frame (the commit then changes nothing).
-  const [leaveTarget, setLeaveTarget] = useState<{ deskId: string; cams: Record<string, number> } | null>(null);
+  // While a zoom leaves the overview: the desk it lands on, its camera, and the window it opens in focus
+  // mode (alt+↵), whose full-screen geometry is laid out before the zoom so its last frame is the commit.
+  const [leaveTarget, setLeaveTarget] = useState<{ deskId: string; cams: Record<string, number>; focusWindowId?: string | null } | null>(null);
   const [showRelations, setShowRelations] = useState(true);
   const [gatherPreview, setGatherPreview] = useState(false);
   const [panEase, setPanEase] = useState(false);
@@ -572,7 +575,7 @@ export function DeskShell({
     return !slot.includes(selected) && !slot.some((id) => related.some((relation) => relation.windowId === id));
   }, []);
 
-  const planZoom = useCallback((base: 0 | 1, readingDeskId: string, cams: Record<string, number>, selected: string | null, B: Camera): ZoomPlan | null => {
+  const planZoom = useCallback((base: 0 | 1, readingDeskId: string, cams: Record<string, number>, selected: string | null, B: Camera, fullWindowId: string | null = null): ZoomPlan | null => {
     const current = wsRef.current;
     const layout = ovLayoutRef.current;
     const st = stageNow.current;
@@ -591,7 +594,8 @@ export function DeskShell({
       const focus = selected !== null && slot.includes(selected);
       const isRelated = showRelationsRef.current && slot.some((id) => related.some((relation) => relation.windowId === id));
       slot.forEach((id, pane) => {
-        const pa = readingPanes[pane];
+        // A window opened in focus mode lands on the whole stage.
+        const pa = id === fullWindowId && each.deskId === readingDeskId ? { x: 0, y: 0, w: st.width, h: st.height } : readingPanes[pane];
         const pb = cardPanes[pane];
         items.push({ key: id, a: pa, b: pb, base: base === 0 ? pa : pb, live, recede, focus: focus && id === selected });
       });
@@ -687,15 +691,31 @@ export function DeskShell({
     const current = wsRef.current;
     const each = deskById(current, deskIdTo);
     if (!each) return false;
+    const fullWindowId = focusAfter && windowTo ? windowTo : null;
+    // Before planning, the destination is laid out as the commit will show it, so the zoom's last frame is
+    // the commit: its desk's content mounted (paused) if it was never opened, the selection on the window
+    // it opens, and for focus mode the full-screen shell and the window's full-screen layout.
+    flushSync(() => {
+      setVisited((seen) => (seen.has(deskIdTo) ? seen : new Set([...seen, deskIdTo])));
+      if (windowTo) setSelection({ deskId: deskIdTo, windowId: windowTo });
+      setLeaveTarget({ deskId: deskIdTo, cams: camXRef.current, focusWindowId: fullWindowId });
+    });
+    const node = stageRef.current;
+    if (node && node.clientWidth > 0 && node.clientHeight > 0 && (node.clientWidth !== stageNow.current.width || node.clientHeight !== stageNow.current.height)) {
+      flushSync(() => setStage({ width: node.clientWidth, height: node.clientHeight }));
+    }
     const cams = { ...camXRef.current };
     const index = windowTo ? slotIndexOf(each, windowTo) : -1;
     cams[deskIdTo] = ensureVisible(cams[deskIdTo] ?? 0, index >= 0 ? index : focusedSlot(current, each), each.slots.length, stageNow.current);
-    const plan = planZoom(1, deskIdTo, cams, windowTo, ovCamRef.current);
-    if (!plan) return false;
+    const plan = planZoom(1, deskIdTo, cams, windowTo, ovCamRef.current, fullWindowId);
+    if (!plan) {
+      flushSync(() => setLeaveTarget(null));
+      return false;
+    }
     pendingLeave.current = { deskId: deskIdTo, windowId: windowTo, cams, focusMode: focusAfter };
     flushSync(() => {
       setZooming(true);
-      setLeaveTarget({ deskId: deskIdTo, cams });
+      setLeaveTarget({ deskId: deskIdTo, cams, focusWindowId: fullWindowId });
     });
     controller.begin(plan, zoomTargets());
     return true;
@@ -987,7 +1007,8 @@ export function DeskShell({
     intercept: (type, phase, event) => {
       if (phase !== "capture") return false;
       if (type === "blur") {
-        cancelDragRef.current();
+        // The window itself losing focus (not an element blurring as a press moves the focus).
+        if (!(event.target instanceof Node)) cancelDragRef.current();
         modifiers.blur();
         altTracker.cancel();
         altTracker.reset();
@@ -1357,7 +1378,7 @@ export function DeskShell({
   // The harness's handle on the zoom (the commit-identity check drives p itself).
   useEffect(() => {
     onDebugHandle?.({
-      beginZoom: () => (overviewRef.current ? beginLeave(null) : beginEnter()),
+      beginZoom: (to, focusAfter) => (overviewRef.current ? beginLeave(to ?? null, focusAfter ?? false) : beginEnter()),
       setZoomProgress: (p) => controller.setProgress(p),
       finishZoom: (goal) => onEndRef.current(goal, controller.plan?.base ?? (goal === 1 ? 0 : 1)),
       zoomFrameTimes: () => [...controller.frameTimes],
@@ -1680,7 +1701,7 @@ export function DeskShell({
     : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"]];
 
   return (
-    <div className={`desk-shell${focusMode ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
+    <div className={`desk-shell${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
         <span className="desk-brand">◇ LearnLoop</span>
         <nav className="desk-tabs" aria-label="desks">
@@ -1777,7 +1798,7 @@ export function DeskShell({
               const id = window.windowId;
               const onCurrent = each.deskId === deskId;
               const opened = visited.has(each.deskId) || onCurrent;
-              const full = !overview && onCurrent && focusMode && id === focusId;
+              const full = (!overview && onCurrent && focusMode && id === focusId) || (leaveTarget?.focusWindowId === id && leaveTarget.deskId === each.deskId);
               const hiddenInFocus = !overview && onCurrent && focusMode && !full;
               const reading = full ? { x: 0, y: 0, w: stage.width, h: stage.height } : place.reading;
               const card = place.card;
