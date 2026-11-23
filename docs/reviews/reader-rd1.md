@@ -387,3 +387,18 @@ inert, and no mark survived. The other failures of that mixed build came from pa
 host and controller, not from the old shell alone.
 
 ### Commands and results
+
+Run in the worktree through the scratch wrapper, each in its own memory-capped scope, one test command at a time.
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` | exit 0 |
+| `npx vitest run --maxWorkers=2` (the whole suite) | 351 files, 3881 tests passed |
+| `npm run frontend:build` | built; largest output file 1.86 MB (the main bundle) |
+| the harness (`vite.desks.config.mjs` build, then `scripts/desk_harness/run.py`) | 51 passed, 0 failed; the commit-identity checks changed 0.0069% entering and 0.0090% leaving (≤ 0.1%) |
+| `tests/test_reader_rd1_model_parity.py`, `test_identity_pins.py`, `test_structure_ratchets.py`, `test_public_tip_guards.py` | 375 passed (no pin moved, no ratchet rose) |
+| `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
+| `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / Contracts: 52 kept, 0 broken. / collected 33284: landing 33218 + arc_close 66 |
+| `desktop_validate.py` | the counts moved for the one new source file (`store.ts`: 359 files, 344 entry-reachable, 365 ACTIVE); only the regeneration errors remain (missing notes for `store.ts` and RD2's overview files, stale notes for the changed files, the reproducibility diff) |
+
+No migration, no tag and no RPC change.
