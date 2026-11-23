@@ -162,6 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ai_ok_world.py](../../../../../../tests/ai_ok_world.py) — direct import
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
 - [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
   - `test_a_fallback_provider_is_held_to_the_same_ok`
   - `test_an_unchecked_model_call_in_any_rpc_answers_waiting_for_ok`

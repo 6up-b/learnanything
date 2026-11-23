@@ -225,3 +225,73 @@ def test_an_object_names_what_it_needs():
         with pytest.raises(ValidationError):
             model.model_validate(params)
     model.model_validate({"objectKind": "cue", "extractionId": BOOK, "t": 3})
+
+
+def test_a_menu_whose_vault_was_switched_away_from_delivers_nothing(menu, tmp_path, monkeypatch):
+    """A switch interrupts the menu's job; work that finishes after it (a judge's request already sent) is not
+    delivered when the learner comes back: the job reads as interrupted, with no rows."""
+
+    import threading
+
+    from learnloop.passage_union import elsewhere as E
+    from learnloop_sidecar import polled_jobs as PJ
+
+    reached, release = threading.Event(), threading.Event()
+
+    def held(*_args, **_kwargs):
+        reached.set()
+        release.wait(10)
+        return []
+
+    monkeypatch.setattr(E, "by_correspondents", held)
+    other = create_basic_vault(tmp_path / "vault_b")
+    reply = call(menu.ctx, "passage.promoted", {"objectKind": "passage", "extractionId": BOOK, "spanId": "s_exchange"})
+    assert reply["rows"]
+    job_id = reply["pendingJob"]["jobId"]
+    job = PJ.registry(menu.ctx, "promoted_jobs").get(PJ.vault_key(menu.ctx), job_id)
+    assert reached.wait(10)
+    menu.ctx.load(other.root)
+    release.set()
+    assert job.done.wait(10)
+    menu.ctx.load(menu.paths.root)
+    final = call(menu.ctx, "passage.promoted_job", {"jobId": job_id})
+    assert (final["status"], final["done"], final["rows"]) == ("failed", True, [])
+    assert final["error"]["code"] == "interrupted"
+
+
+def test_a_retried_menu_request_answers_with_its_job_and_runs_once(menu, monkeypatch):
+    from learnloop.passage_union import elsewhere as E
+    from learnloop_sidecar.errors import SidecarError
+
+    ran = []
+    monkeypatch.setattr(E, "by_correspondents", lambda *_args, **_kwargs: ran.append(1) or [])
+    params = {"objectKind": "passage", "extractionId": BOOK, "spanId": "s_exchange", "requestId": "menu_req_1"}
+    first = call(menu.ctx, "passage.promoted", params)
+    _job(menu.ctx, first["pendingJob"]["jobId"])
+    again = call(menu.ctx, "passage.promoted", params)
+    assert again["pendingJob"] == first["pendingJob"] and again["rows"] == first["rows"]
+    assert _job(menu.ctx, again["pendingJob"]["jobId"])["status"] == "done" and ran == [1]
+    with pytest.raises(SidecarError) as reused:
+        call(menu.ctx, "passage.promoted", {**params, "spanId": "s_pad"})
+    assert reused.value.code == "request_reused"
+
+
+def test_what_this_knows_carries_the_notes_linked_beside_the_passage(menu, monkeypatch):
+    from learnloop_sidecar.handlers import passage_union as H
+
+    monkeypatch.setattr(H.NL, "enabled", lambda _vault: True)
+    monkeypatch.setattr(H.NL, "marks", lambda _vault, _repository, extraction_id: [
+        {"span_id": "s_nothing", "notes": [{"note_title": "my take"}]}] if extraction_id == BOOK else [])
+    knows = call(menu.ctx, "passage.knows", {"objectKind": "passage", "extractionId": BOOK, "spanId": "s_nothing"})
+    [place] = knows["places"]
+    union = call(menu.ctx, "passage.union_range", {"extractionId": BOOK, "fromSpanId": "s_nothing",
+                                                    "toSpanId": "s_nothing"})
+    assert place["knows"]["notes"] == union["spans"][0]["notes"] == [{"noteTitle": "my take"}]
+
+
+def test_a_row_reached_from_two_passages_ranks_by_its_latest_act():
+    older = {"pad_blocks": [{"pad_id": "p", "block_id": "b", "created_at": "2026-05-01T00:00:00Z"}]}
+    newer = {"pad_blocks": [{"pad_id": "p", "block_id": "b", "created_at": "2026-05-09T00:00:00Z"}]}
+    for places in ([("e", "a", older), ("e", "b", newer)], [("e", "b", newer), ("e", "a", older)]):
+        [row] = P.cheap_rows("pad_line:x", places)
+        assert row.learner_at == "2026-05-09T00:00:00Z"

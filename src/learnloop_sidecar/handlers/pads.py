@@ -286,9 +286,9 @@ class PadProposalsInput(ParamsModel):
 def pad_proposals_handler(ctx: SidecarContext, params: PadProposalsInput) -> dict[str, Any]:
     """The pad's gutter proposals: one per standing block's current words at most, with its labels."""
 
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     try:
-        out = proposal_core.pad_proposals(repository, params.pad_id)
+        out = proposal_core.pad_proposals(repository, params.pad_id, vault=vault)
     except proposal_core.ProposalRefused as exc:
         raise SidecarError(exc.code, exc.message) from exc
     for row in out["proposals"]:

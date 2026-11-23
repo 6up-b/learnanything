@@ -397,6 +397,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_fallback_is_learner_initiated_and_switched_off_by_default`
   - `test_the_learner_pick_is_owed_durably_across_a_restart_and_acknowledged_only_after_delivery`
   - `test_with_the_sources_service_absent_the_view_is_absent`
+- [tests/test_menu_promoted_rows.py](../../../../../tests/test_menu_promoted_rows.py) — direct import
+  - `test_a_retried_menu_request_answers_with_its_job_and_runs_once`
 - [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_a_desktop_start_over_a_phone_session_asks_and_replace_is_its_answer`
   - `test_writes_from_the_device_that_lost_it_are_session_moved`

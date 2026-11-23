@@ -119,6 +119,7 @@ None found by exact static reference scan.
 - `tests/desk_helpers.py`
 - `tests/reader_rw3b_migration_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_menu_protected_material.py`
 - `tests/test_reader_cues_cli_report.py`
 - `tests/test_reader_rd0_reads.py`
 - `tests/test_reader_rd4_carried_and_proposals.py`

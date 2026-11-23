@@ -56,15 +56,21 @@ def _findings(vault: Any, repository: Any, connection: Any, head: dict[str, Any]
 
     from learnloop.passage_union import elsewhere as E
 
+    if vault is None:
+        # Whether a passage is protected is the vault's to say: without it, nothing is proposed.
+        return []
     places = sorted(_block_places(connection, head))
-    found = E.by_passage_links(repository, connection, places)
-    if found or vault is None:
+    found = E.by_passage_links(vault, repository, connection, places)
+    if found:
         return found
     if places:
         found = [finding for finding in E.by_correspondents(vault, repository, places, search_fallback=False)
                  if finding.checked]
         if found:
             return found
+    if E.withheld_places(vault, repository, places):
+        # A block about exam or held-out material: its words are not searched by.
+        return []
     sources = sorted({source for extraction_id, _span in places
                       if (source := reading_source(repository, extraction_id)) is not None})
     return E.by_search(vault, repository, str(head["body_md"] or ""), exclude_sources=sources, exclude_places=places,
@@ -109,19 +115,44 @@ def _out(row: dict[str, Any], labels: list[dict[str, Any]], current: bool) -> di
             "shown": current and not any(label["label"] in ("not_this", "dismiss") for label in labels)}
 
 
-def pad_proposals(repository: Any, pad_id: str) -> dict[str, Any]:
+def _protected(vault: Any, repository: Any, rows: list[dict[str, Any]],
+               origins: dict[str, set[tuple[str, str]]]) -> set[str]:
+    """The proposals that name exam or held-out material now: their target, or a passage their block is about
+    (``origins``, by words version; marked after the proposal was made, or since its words were lifted)."""
+
+    from learnloop.passage_union.elsewhere import withheld_places
+
+    def target(row: dict[str, Any]) -> tuple[str, str]:
+        spec = row.get("target_spec") or {}
+        return (str((spec.get("content") or {}).get("extraction_id") or ""),
+                str((spec.get("target") or {}).get("span_id") or ""))
+
+    def about(row: dict[str, Any]) -> set[tuple[str, str]]:
+        return origins.get(str(row["block_version_id"]), set())
+
+    withheld = withheld_places(vault, repository, {target(row) for row in rows} | {
+        place for row in rows for place in about(row)})
+    return {str(row["proposal_id"]) for row in rows if target(row) in withheld or about(row) & withheld}
+
+
+def pad_proposals(repository: Any, pad_id: str, *, vault: Any) -> dict[str, Any]:
     """``pad.proposals``: each standing block's proposal for its current words, with its labels (``shown`` false
-    once dismissed or marked "not this")."""
+    once dismissed or marked "not this"). A proposal that names exam or held-out material now (by the one predicate,
+    read at each call) is left out whole: its target, reason and quote never reach the gutter."""
 
     with repository.connection() as connection:
         if reads.pad(connection, pad_id) is None:
             raise ProposalRefused("pad_not_found", f"No pad {pad_id!r}.")
         current: dict[str, str] = {}
+        origins: dict[str, set[tuple[str, str]]] = {}
         for head in reads.heads(connection, pad_id):
             words = words_version(lineage(connection, str(head["block_id"]))) if emittable(head) else None
             if words is not None:
                 current[str(words["version_id"])] = str(head["block_id"])
+                origins[str(words["version_id"])] = _block_places(connection, head)
         rows = reads.proposals_for_versions(connection, current)
+        hidden = _protected(vault, repository, rows, origins)
+        rows = [row for row in rows if str(row["proposal_id"]) not in hidden]
         labels = reads.labels_for(connection, PAD_PROPOSAL, [row["proposal_id"] for row in rows])
     by_proposal: dict[str, list[dict[str, Any]]] = {}
     for label in labels:

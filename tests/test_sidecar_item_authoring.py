@@ -126,3 +126,28 @@ def test_retire_rpc_updates_cached_vault_without_global_reload(
     assert out[4]["error"]["data"]["code"] == "item_retired"
     assert out[5]["error"]["data"]["code"] == "item_retired"
     assert repository.fetch_session_checkpoint(session_id) is None
+
+
+def test_a_retried_authoring_request_saves_one_item(tmp_path: Path) -> None:
+    """A double click or a retry after a lost reply sends the same idempotency key: one item, the same id back."""
+
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    lo_id = next(iter(load_vault(root).learning_objects))
+    card = {"learningObjectId": lo_id, "prompt": "Why is the kernel a subspace?",
+            "expectedAnswer": "It is closed under addition and scaling."}
+    before = set(load_vault(root).practice_items)
+
+    out = _rpc(root, [
+        ("author_practice_item", {**card, "clientIdempotencyKey": "pad_sheet_1"}),
+        ("author_practice_item", {**card, "clientIdempotencyKey": "pad_sheet_1"}),
+        ("author_practice_item", {**card, "clientIdempotencyKey": "pad_sheet_2"}),
+    ])
+
+    first, again, other = (out[i]["result"]["practiceItemId"] for i in (1, 2, 3))
+    assert first == again != other
+    assert set(load_vault(root).practice_items) - before == {first, other}
+    with Repository(paths.sqlite_path).connection() as connection:
+        events = connection.execute(
+            "SELECT COUNT(*) FROM interaction_events WHERE kind = 'learner_item_authored'").fetchone()[0]
+    assert events == 2

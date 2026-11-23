@@ -78,7 +78,7 @@ def test_a_pad_block_with_no_passage_link_gets_a_correspondent_then_a_search_pro
     written = propose_for_blocks(repository, ["n1", "t1"], vault=vault(paths))
     assert {(row["block_id"], row["found_by"], row["reason_md"]) for row in written} == {
         ("n1", "correspondent", "Book B treats kernels here"), ("t1", "search", E.UNCHECKED)}
-    shown = {row["block_id"]: row for row in pad_proposals(repository, PAD)["proposals"]}
+    shown = {row["block_id"]: row for row in pad_proposals(repository, PAD, vault=vault(paths))["proposals"]}
     assert shown["t1"]["target"] == {"content": {"kind": "source", "source_id": "src_c", "extraction_id": "ext_c",
                                                  "view": "render"}, "target": {"span_id": "c1"}}
     # Without the vault (the call RD4 made) only passage links are looked at, as before.

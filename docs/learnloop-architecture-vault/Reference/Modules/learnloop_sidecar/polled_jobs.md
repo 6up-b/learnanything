@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/polled_jobs.py](../../../../../src/learnloop_sidecar/polled_jobs.py) |
-| Source lines | 419 |
+| Source lines | 424 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -62,23 +62,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `live(self) -> bool` (line 116; public) — False once the context closed or switched vaults after this job started: its completion then touches nothing of the context (no worker woken, no prefetch queued).
   - `note(self, **values: Any) -> None` (line 122; public)
   - `state(self) -> dict[str, Any]` (line 126; public) — A consistent reading of the job: ``status`` as a poll reports it, and what it holds.
-- `class Receipt` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 149) — What a registry keeps of a request id apart from its result: enough to answer a repeat of it.
-- `as_job_error(exc: BaseException, *, cancelled: bool) -> SidecarError` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 186) — A job's failure as the poll reports it.
-- `class PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 235) — One kind of polled job in one sidecar context: running and recently finished jobs, by vault and id.
-  - `__init__(self, *, kept: int=MAX_KEPT_JOBS, running: int=MAX_RUNNING, remember_ids: bool=True, remembered: int=MAX_REMEMBERED_IDS, receipts: int=MAX_RECEIPTS) -> None` (line 242; internal)
-  - `get(self, vault: str, job_id: str) -> PolledJob | None` (line 252; public)
-  - `receipt(self, vault: str, job_id: str) -> Receipt | None` (line 256; public) — The record of an id this registry admitted in ``vault`` whose result is no longer kept.
-  - `known(self, vault: str, job_id: str) -> PolledJob | Receipt | None` (line 264; public)
-  - `kept_count(self) -> int` (line 267; public)
-  - `cancel(self, vault: str, job_id: str) -> PolledJob | None` (line 271; public) — Cancel a job that has not finished (a finished job keeps its outcome).
-  - `interrupt(self, vault: str) -> None` (line 281; public) — Interrupt every unfinished job of ``vault`` (its vault was switched away from).
-  - `supersede(self, vault: str, key: str) -> None` (line 291; public) — Cancel every unfinished job of ``vault`` with this supersede key (a newer request replaces them).
-  - `_running_now(self) -> int` (line 302; internal) — Under ``self._lock``: jobs whose thread has not ended (a cancelled one still holds its thread).
-  - `_drop_finished(self) -> None` (line 308; internal) — Under ``self._lock``: drop the oldest finished results beyond the bound; their records stay.
-  - `_finished(self) -> None` (line 327; internal)
-  - `start(self, ctx: Any, *, kind: str, job_id: str, work: Callable[[PolledJob], Any], request_key: Any=None, foreground_kind: str | None=None, supersede_key: str | None=None, attachments: dict[str, Any] | None=None) -> PolledJob` (line 331; public) — Start ``work(job)`` on a thread the context owns; its return value is the job's result.
-- `registry(ctx: Any, name: str, **kwargs: Any) -> PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 390) — ``ctx``'s registry of one kind of polled job (made on first use with ``kwargs``).
-- `interrupt_vault(ctx: Any, vault_root: Any) -> None` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 405) — A vault switch: every unfinished polled job of ``vault_root`` sends no further request, ends ``interrupted`` and wakes nothing of the context.
+- `class Receipt` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 153) — What a registry keeps of a request id apart from its result: enough to answer a repeat of it.
+- `as_job_error(exc: BaseException, *, cancelled: bool) -> SidecarError` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 190) — A job's failure as the poll reports it.
+- `class PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 239) — One kind of polled job in one sidecar context: running and recently finished jobs, by vault and id.
+  - `__init__(self, *, kept: int=MAX_KEPT_JOBS, running: int=MAX_RUNNING, remember_ids: bool=True, remembered: int=MAX_REMEMBERED_IDS, receipts: int=MAX_RECEIPTS) -> None` (line 246; internal)
+  - `get(self, vault: str, job_id: str) -> PolledJob | None` (line 256; public)
+  - `receipt(self, vault: str, job_id: str) -> Receipt | None` (line 260; public) — The record of an id this registry admitted in ``vault`` whose result is no longer kept.
+  - `known(self, vault: str, job_id: str) -> PolledJob | Receipt | None` (line 268; public)
+  - `kept_count(self) -> int` (line 271; public)
+  - `cancel(self, vault: str, job_id: str) -> PolledJob | None` (line 275; public) — Cancel a job that has not finished (a finished job keeps its outcome).
+  - `interrupt(self, vault: str) -> None` (line 285; public) — Interrupt every unfinished job of ``vault`` (its vault was switched away from).
+  - `supersede(self, vault: str, key: str) -> None` (line 295; public) — Cancel every unfinished job of ``vault`` with this supersede key (a newer request replaces them).
+  - `_running_now(self) -> int` (line 306; internal) — Under ``self._lock``: jobs whose thread has not ended (a cancelled one still holds its thread).
+  - `_drop_finished(self) -> None` (line 312; internal) — Under ``self._lock``: drop the oldest finished results beyond the bound; their records stay.
+  - `_finished(self) -> None` (line 331; internal)
+  - `start(self, ctx: Any, *, kind: str, job_id: str, work: Callable[[PolledJob], Any], request_key: Any=None, foreground_kind: str | None=None, supersede_key: str | None=None, attachments: dict[str, Any] | None=None) -> PolledJob` (line 335; public) — Start ``work(job)`` on a thread the context owns; its return value is the job's result.
+- `registry(ctx: Any, name: str, **kwargs: Any) -> PolledJobs` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 395) — ``ctx``'s registry of one kind of polled job (made on first use with ``kwargs``).
+- `interrupt_vault(ctx: Any, vault_root: Any) -> None` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 410) — A vault switch: every unfinished polled job of ``vault_root`` sends no further request, ends ``interrupted`` and wakes nothing of the context.
 
 ### Module constants
 
@@ -122,8 +122,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _CancelGate` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 161) — Refuses a cancelled job's physical model requests before they are sent and counts the ones it admits; an outer gate (the context's closing gate) is admitted first and settled on a refusal, so nothing it reserved is kept for a request never sent.
-- `_job_scope(job: PolledJob, repository: Any, owner_id: str, foreground_kind: str | None) -> Iterator[None]` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 212)
+- `class _CancelGate` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 165) — Refuses a cancelled job's physical model requests before they are sent and counts the ones it admits; an outer gate (the context's closing gate) is admitted first and settled on a refusal, so nothing it reserved is kept for a request never sent.
+- `_job_scope(job: PolledJob, repository: Any, owner_id: str, foreground_kind: str | None) -> Iterator[None]` ([source](../../../../../src/learnloop_sidecar/polled_jobs.py), line 216)
 
 ## Who imports or calls it
 
@@ -171,6 +171,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/companion_rd3a_helpers.py](../../../../../tests/companion_rd3a_helpers.py) — direct import
+- [tests/test_menu_promoted_rows.py](../../../../../tests/test_menu_promoted_rows.py) — direct import
+  - `test_a_menu_whose_vault_was_switched_away_from_delivers_nothing`
 - [tests/test_reader_rd3_fix_backend.py](../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
   - `test_a_full_record_of_ids_refuses_a_new_id_rather_than_forget_one`
   - `test_a_request_id_is_remembered_after_its_result_is_dropped`
