@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.tsx) |
-| Source lines | 74 |
+| Source lines | 83 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |
@@ -54,16 +54,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">` — type, line 10
-- `export interface SourceStatus` — interface, line 12
-- `export function SourceWindow(` — function, line 19
+- `export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">` — type, line 11
+- `export interface SourceStatus` — interface, line 13
+- `export function SourceWindow(` — function, line 20
 
 ## Internal implementation anchors
 
-- `const onTitle = useCallback((title: string)` — const, line 43
-- `const onReaderStatus = useCallback( (status:` — const, line 44
-- `const windowing = useMemo<ReaderWindowing>( ()` — const, line 48
-- `const initialSource = useMemo( ()` — const, line 53
+- `const onTitle = useCallback((title: string)` — const, line 47
+- `const onReaderStatus = useCallback( (status:` — const, line 48
+- `const windowing = useMemo<ReaderWindowing>( ()` — const, line 54
+- `const initialSource = useMemo( ()` — const, line 59
 
 ## Who imports or calls it
 
@@ -78,7 +78,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `SourceLibraryCard`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `ReaderScreen`, `ReaderWindowing`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `PenSurface`, `ReaderLens`, `ReaderScreen`, `ReaderWindowing`
+- [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export; imports `PenLayer`
 
 ### Assets, platform, and third-party dependencies
 

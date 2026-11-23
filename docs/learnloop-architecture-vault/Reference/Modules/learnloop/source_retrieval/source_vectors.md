@@ -96,9 +96,9 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `coverage_line`, `source_coverage`; statically calls `coverage_line`, `source_coverage`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `LIVE_JOB_STATUSES`, `SOURCE_VECTORS_JOB`, `auto_backfill_reason`, `backfill_owed`, `backfill_source_vectors`, `target_extraction`; statically calls `auto_backfill_reason`, `backfill_owed`, `backfill_source_vectors`, `target_extraction`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/runner|learnloop.experiments.contextual_embeddings.runner]] — imports `source_coverage`; statically calls `source_coverage`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `backfill_source_vectors`, `source_block_records`, `source_coverage`, `target_extraction`; statically calls `backfill_source_vectors`, `source_block_records`, `source_coverage`, `target_extraction`
+- [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]] — imports `LIVE_JOB_STATUSES`, `SOURCE_VECTORS_JOB`, `auto_backfill_reason`, `backfill_owed`, `backfill_source_vectors`, `target_extraction`; statically calls `auto_backfill_reason`, `backfill_owed`, `backfill_source_vectors`, `target_extraction`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `BATCH_SIZE`, `backfill_caps`; statically calls `backfill_caps`
 
 ## Dependencies
@@ -137,7 +137,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/experiments/contextual_embeddings/runner|learnloop.experiments.contextual_embeddings.runner]], [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/experiments/contextual_embeddings/runner|learnloop.experiments.contextual_embeddings.runner]], [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]], [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

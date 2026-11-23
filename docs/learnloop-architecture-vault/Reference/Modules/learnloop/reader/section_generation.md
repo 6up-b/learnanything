@@ -95,7 +95,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `claim_section_topics`, `section_generation_candidates`, `section_topic_requests`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `module`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `module`; statically calls `claim_section_topics`, `section_generation_candidates`, `section_topic_requests`
 - [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `TOPIC_MANAGED`, `TopicEnqueue`, `claim_section_topics`, `section_generation_candidates`, `section_topic_requests`; statically calls `claim_section_topics`, `section_generation_candidates`, `section_topic_requests`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `DEFERRED_TO_PRIMARY`, `TOPIC_MANAGED`, `WAITING_FOR_BUILD`
 - [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]] — imports `OWED`, `module`; statically calls `start_section_questions`
@@ -121,7 +122,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]], [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]], [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

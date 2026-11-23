@@ -181,8 +181,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] — imports `suspended`; statically calls `suspended`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] — imports `entry`; statically calls `entry`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `GuardDenied`, `entry`, `is_denial`; statically calls `GuardDenied`, `entry`, `is_denial`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `ad_operation`, `is_denial`; statically calls `ad_operation`, `is_denial`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `is_denial`; statically calls `is_denial`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ad_operation`, `is_denial`; statically calls `ad_operation`, `is_denial`
 - [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `ad_operation`, `is_denial`, `take_denials`; statically calls `ad_operation`, `is_denial`, `take_denials`
 - [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] — imports `is_denial`, `optional_operation`; statically calls `is_denial`, `optional_operation`
 

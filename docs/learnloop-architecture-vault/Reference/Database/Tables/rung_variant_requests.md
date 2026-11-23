@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/content.py"
   - "src/learnloop/db/stores/ingest_queue.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/pipeline/runner.py"
-  - "src/learnloop/daily_plan/engine.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -116,6 +116,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/replay_reading.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`

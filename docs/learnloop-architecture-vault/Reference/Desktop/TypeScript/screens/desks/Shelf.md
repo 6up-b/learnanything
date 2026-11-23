@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/Shelf.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/Shelf.tsx) |
-| Source lines | 244 |
+| Source lines | 276 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -55,30 +55,31 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface ShelfRow` — interface, line 7
-- `export function Shelf(` — function, line 22
-- `export function CarriedList(` — function, line 189
+- `export function Shelf(` — function, line 25
+- `export function CarriedList(` — function, line 221
 
 ## Internal implementation anchors
 
-- `const DRAG_THRESHOLD_PX = 5` — const, line 20
-- `const body = ( <> <ShelfBody rows=` — const, line 55
-- `function ShelfBody(` — function, line 89
-- `const press = useRef<` — const, line 102
-- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 103
-- `const slotAt = (clientY: number): number` — const, line 106
-- `const list = listRef.current` — const, line 107
-- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 109
-- `let target = 0` — let, line 110
-- `const box = item.getBoundingClientRect()` — const, line 112
-- `const onPointerDown = (row: ShelfRow)` — const, line 118
-- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 121
-- `const current = press.current` — const, line 122
-- `const onPointerUp = (row: ShelfRow)` — const, line 130
-- `const current = press.current` — const, line 131
-- `const to = slotAt(event.clientY)` — const, line 135
-- `const read = (at?: string)` — const, line 198
-- `const base = at ? now ?? [] : []` — const, line 202
-- `const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go")` — const, line 214
+- `const DRAG_THRESHOLD_PX = 5` — const, line 23
+- `const setOpen = (next: boolean)` — const, line 60
+- `const body = ( <> <ShelfBody rows=` — const, line 68
+- `function ShelfBody(` — function, line 104
+- `const press = useRef<` — const, line 119
+- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 120
+- `const slotAt = (clientY: number): number` — const, line 123
+- `const list = listRef.current` — const, line 124
+- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 126
+- `let target = 0` — let, line 127
+- `const box = item.getBoundingClientRect()` — const, line 129
+- `const onPointerDown = (row: ShelfRow)` — const, line 135
+- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 138
+- `const current = press.current` — const, line 139
+- `const onPointerUp = (row: ShelfRow)` — const, line 147
+- `const current = press.current` — const, line 148
+- `const to = slotAt(event.clientY)` — const, line 152
+- `const read = (at?: string)` — const, line 230
+- `const base = at ? now ?? [] : []` — const, line 234
+- `const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go")` — const, line 246
 
 ## Who imports or calls it
 
@@ -105,7 +106,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/desks/goal/shelf.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/shelf.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

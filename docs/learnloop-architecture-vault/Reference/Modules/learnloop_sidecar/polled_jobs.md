@@ -132,6 +132,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `interrupt_vault`; statically calls `interrupt_vault`
 - [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] — imports `module`; statically calls `registry`, `vault_key`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `module`; statically calls `registry`, `vault_key`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `registry`, `vault_key`
 - [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `module`; statically calls `as_job_error`, `registry`, `vault_key`
 
 ## Dependencies
@@ -161,7 +163,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]], [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]], [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]], [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]], [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -175,6 +177,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_running_asks_are_bounded`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_a_finished_job_dropped_from_memory_is_answered_as_expired_never_asked_again`
+- [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
+  - `test_a_cancel_before_the_request_is_sent_sends_nothing`
 
 ## Modification guidance
 

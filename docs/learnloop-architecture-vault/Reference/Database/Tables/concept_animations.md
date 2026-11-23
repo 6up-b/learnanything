@@ -18,7 +18,7 @@ source_paths:
   - "migrations/114_concept_animations.sql"
   - "src/learnloop/db/stores/content.py"
   - "src/learnloop/content/authoring/concept_animation.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop_sidecar/handlers/animation.py"
 tags:
   - "learnloop/database/table"
@@ -112,7 +112,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/concept_animation.py`
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop_sidecar/handlers/animation.py`
 
 > [!note] Static-reference boundary

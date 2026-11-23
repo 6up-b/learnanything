@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/workspace.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/workspace.ts) |
-| Source lines | 177 |
+| Source lines | 186 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -70,14 +70,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const keeps = op.op === "edit_block" && op.keepBoth !== undefined && (!before || before.headVersionId !== op.expectedHead)` — const, line 104
 - `const head = Object.values(this.pads).flatMap((pad)` — const, line 107
 - `const kept = this.pads[input.padId].blocks.find((block)` — const, line 111
-- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 129
-- `const results: WriteOpResultDto[] = []` — const, line 132
-- `const touched = new Set<string>()` — const, line 133
-- `const conflict = this.stale(op)` — const, line 135
-- `const runningBefore = new Set(this.ws.runningPadIds ?? [])` — const, line 141
-- `const now = new Date().toISOString()` — const, line 145
-- `const desk = deskById(this.ws, op.deskId)` — const, line 168
-- `const to = deskById(this.ws, op.toDeskId)` — const, line 172
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 130
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 138
+- `const results: WriteOpResultDto[] = []` — const, line 141
+- `const touched = new Set<string>()` — const, line 142
+- `const conflict = this.stale(op)` — const, line 144
+- `const runningBefore = new Set(this.ws.runningPadIds ?? [])` — const, line 150
+- `const now = new Date().toISOString()` — const, line 154
+- `const desk = deskById(this.ws, op.deskId)` — const, line 177
+- `const to = deskById(this.ws, op.toDeskId)` — const, line 181
 
 ## Who imports or calls it
 
@@ -110,10 +111,13 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/store.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/store.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/pen/penMode.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/penMode.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/overview/links.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/links.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/goal/GoalDesk.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/GoalDesk.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/fixtures/desks/opParity.test.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/opParity.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/DeskShell.menu.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.menu.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

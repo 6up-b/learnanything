@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/model/workspace.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/model/workspace.ts) |
-| Source lines | 722 |
+| Source lines | 729 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/model/_area|TypeScript/screens/desks/model]] |
 | Refactor status | `ACTIVE` |
@@ -92,11 +92,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function renameDesk(ws: Workspace, deskId: string, title: string): Step` — function, line 646
 - `export function setCompanionDock(ws: Workspace, deskId: string, dock: Desk["companion"]["dock"]): Step` — function, line 651
 - `export function setCompanionShown(ws: Workspace, deskId: string, shown: boolean): Step` — function, line 658
-- `export function setView(ws: Workspace, deskId: string, windowId: string, view: Record<string, unknown>): Step` — function, line 664
-- `export function swapInView(ws: Workspace, deskId: string, otherSlot: number): Step` — function, line 671
-- `export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): Step` — function, line 681
-- `export function moveToDeskAt(ws: Workspace, deskId: string, windowId: string, toDeskId: string, toIndex: number): Step` — function, line 695
-- `export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step` — function, line 709
+- `export function setGoal(ws: Workspace, deskId: string, goalId: string | null): Step` — function, line 665
+- `export function setView(ws: Workspace, deskId: string, windowId: string, view: Record<string, unknown>): Step` — function, line 671
+- `export function swapInView(ws: Workspace, deskId: string, otherSlot: number): Step` — function, line 678
+- `export function reorderSlots(ws: Workspace, deskId: string, order: string[][]): Step` — function, line 688
+- `export function moveToDeskAt(ws: Workspace, deskId: string, windowId: string, toDeskId: string, toIndex: number): Step` — function, line 702
+- `export function moveToDesk(ws: Workspace, deskId: string, windowId: string, toDeskId: string, afterWindowId: string | null): Step` — function, line 716
 
 ## Internal implementation anchors
 
@@ -245,25 +246,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const last = ws.desks[ws.desks.length - 1]?.position ?? ""` — const, line 638
 - `const desk = requireDesk(ws, deskId)` — const, line 652
 - `const desk = requireDesk(ws, deskId)` — const, line 659
-- `const desk = requireDesk(ws, deskId)` — const, line 665
+- `const desk = requireDesk(ws, deskId)` — const, line 666
 - `const desk = requireDesk(ws, deskId)` — const, line 672
-- `const id = focusedWindowId(ws, desk)` — const, line 673
-- `const index = slotIndexOf(desk, id)` — const, line 674
-- `let step = start(ws)` — let, line 682
-- `const desk = requireDesk(step.ws, deskId)` — const, line 684
-- `const at = slotIndexOf(desk, slot[0])` — const, line 685
-- `const to = requireDesk(ws, toDeskId)` — const, line 696
-- `const at = Math.max(0, Math.min(toIndex, to.slots.length))` — const, line 697
-- `const afterSlot = to.slots[at - 1]` — const, line 698
-- `let step = moveToDesk(ws, deskId, windowId, toDeskId, afterSlot ? afterSlot[afterSlot.length - 1] : null)` — let, line 699
-- `const landed = requireDesk(step.ws, toDeskId)` — const, line 701
-- `const desk = requireDesk(ws, deskId)` — const, line 710
-- `const index = slotIndexOf(desk, windowId)` — const, line 712
-- `const wasFocus = focusedWindowId(ws, desk) === windowId` — const, line 713
-- `let step = push(start(ws),` — let, line 714
-- `const after = requireDesk(step.ws, deskId)` — const, line 716
-- `const at = Math.min(index, after.slots.length - 1)` — const, line 717
-- `const next = at >= 0 ? after.slots[at][0] : null` — const, line 718
+- `const desk = requireDesk(ws, deskId)` — const, line 679
+- `const id = focusedWindowId(ws, desk)` — const, line 680
+- `const index = slotIndexOf(desk, id)` — const, line 681
+- `let step = start(ws)` — let, line 689
+- `const desk = requireDesk(step.ws, deskId)` — const, line 691
+- `const at = slotIndexOf(desk, slot[0])` — const, line 692
+- `const to = requireDesk(ws, toDeskId)` — const, line 703
+- `const at = Math.max(0, Math.min(toIndex, to.slots.length))` — const, line 704
+- `const afterSlot = to.slots[at - 1]` — const, line 705
+- `let step = moveToDesk(ws, deskId, windowId, toDeskId, afterSlot ? afterSlot[afterSlot.length - 1] : null)` — let, line 706
+- `const landed = requireDesk(step.ws, toDeskId)` — const, line 708
+- `const desk = requireDesk(ws, deskId)` — const, line 717
+- `const index = slotIndexOf(desk, windowId)` — const, line 719
+- `const wasFocus = focusedWindowId(ws, desk) === windowId` — const, line 720
+- `let step = push(start(ws),` — let, line 721
+- `const after = requireDesk(step.ws, deskId)` — const, line 723
+- `const at = Math.min(index, after.slots.length - 1)` — const, line 724
+- `const next = at >= 0 ? after.slots[at][0] : null` — const, line 725
 
 ## Who imports or calls it
 
@@ -271,7 +273,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`; references `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `DeskWindow`, `Step`, `Workspace`, `addToStack`, `closeWindow`, `createDesk`, `deskById`, `ensureRunningPad`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `hasRunningPad`, `moveFocused`, `moveToDesk`, `moveToDeskAt`, `moveWindowTo`, `openBeside`, `openStackBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setCompanionDock`, `setCompanionShown`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`; references `DeskWindow`, `Step`, `Workspace`, `addToStack`, `closeWindow`, `createDesk`, `deskById`, `ensureRunningPad`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `hasRunningPad`, `moveFocused`, `moveToDesk`, `moveToDeskAt`, `moveWindowTo`, `openBeside`, `openStackBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setCompanionDock`, `setCompanionShown`, `setFocus`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `DeskWindow`, `Step`, `Workspace`, `addToStack`, `closeWindow`, `createDesk`, `deskById`, `ensureRunningPad`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `hasRunningPad`, `moveFocused`, `moveToDesk`, `moveToDeskAt`, `moveWindowTo`, `openBeside`, `openStackBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setCompanionDock`, `setCompanionShown`, `setFocus`, `setGoal`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`; references `DeskWindow`, `Step`, `Workspace`, `addToStack`, `closeWindow`, `createDesk`, `deskById`, `ensureRunningPad`, `focusAlong`, `focusPane`, `focusedSlot`, `focusedWindowId`, `hasRunningPad`, `moveFocused`, `moveToDesk`, `moveToDeskAt`, `moveWindowTo`, `openBeside`, `openStackBeside`, `pairFocused`, `renameDesk`, `reorderSlots`, `setCompanionDock`, `setCompanionShown`, `setFocus`, `setGoal`, `setView`, `slotIndexOf`, `swapInView`, `undoClose`, `unpairFocused`
 - [[Reference/Desktop/TypeScript/screens/desks/overview/links|src/screens/desks/overview/links.ts]] — import-or-re-export: `Workspace`; references `Workspace`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `EMPTY_WORKSPACE`, `OpRefusal`, `Step`, `Workspace`, `fromDeskState`, `restampOp`; references `EMPTY_WORKSPACE`, `OpRefusal`, `Step`, `Workspace`, `fromDeskState`, `restampOp`
 

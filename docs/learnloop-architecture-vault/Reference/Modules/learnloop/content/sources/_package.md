@@ -91,12 +91,12 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 27 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 28 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 23 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 22 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 9 static module edges
-- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 6 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 13 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 10 static module edges
+- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 5 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 5 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 5 static module edges
@@ -134,21 +134,21 @@ flowchart LR
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop["learnloop"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
+    n_learnloop["learnloop"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
-    n_learnloop_sidecar_handlers -->|27| center
+    n_learnloop_sidecar_handlers -->|28| center
     n_learnloop_source_retrieval -->|23| center
     center -->|1| n_learnloop_source_retrieval
     n_learnloop_reader -->|22| center
-    n_learnloop_content_pipeline -->|15| center
-    n_learnloop_content_synthesis -->|9| center
+    n_learnloop_content_pipeline -->|13| center
+    n_learnloop_content_synthesis -->|10| center
     center -->|2| n_learnloop_content_synthesis
     center -->|10| n_learnloop_ingest
     center -->|8| n_learnloop_db
+    n_learnloop_content_authoring -->|7| center
     n_learnloop -->|2| center
     center -->|4| n_learnloop
-    n_learnloop_content_authoring -->|6| center
     n_learnloop_adaptive_difficulty -->|5| center
 ```
 

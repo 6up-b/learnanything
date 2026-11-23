@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/companion/search.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/import_jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,7 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/companion/search.py`
 - `src/learnloop/content/pipeline/acquisition_preview.py`
 - `src/learnloop/content/pipeline/add_source.py`
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/import_jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`

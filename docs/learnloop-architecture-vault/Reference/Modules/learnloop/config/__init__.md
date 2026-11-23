@@ -90,9 +90,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `CODEX_PROVIDER_NAMES`
 - [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] — imports `LearnLoopConfig`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `AudioIngestConfig`, `IngestBudgetsConfig`; statically calls `AudioIngestConfig`, `IngestBudgetsConfig`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `AudioIngestConfig`; statically calls `AudioIngestConfig`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `PdfIngestConfig`
 - [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]] — imports `PdfIngestConfig`; statically calls `PdfIngestConfig`
+- [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `IngestBudgetsConfig`; statically calls `IngestBudgetsConfig`
 - [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/diagnosis/predictive_eig|learnloop.diagnosis.predictive_eig]] — imports `ProbeIRTConfig`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `ProbeIRTConfig`; statically calls `ProbeIRTConfig`
@@ -161,7 +162,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 66 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] and 67 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

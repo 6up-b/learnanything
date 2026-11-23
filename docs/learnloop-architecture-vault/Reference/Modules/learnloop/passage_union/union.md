@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/passage_union/union.py](../../../../../../src/learnloop/passage_union/union.py) |
-| Source lines | 276 |
+| Source lines | 278 |
 | Owning package | [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,6 +56,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `class UnionError(ValueError)` ([source](../../../../../../src/learnloop/passage_union/union.py), line 37)
   - `__init__(self, code: str, message: str) -> None` (line 38; internal)
+- `span_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None, t1: float | None) -> list[str]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 62)
 - `union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None, notes_by_span: Mapping[str, list[dict[str, Any]]] | None=None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 93) — ``notes_by_span``: the notes linked beside each passage of this reading, handed in by the caller (the sidecar, which reaches the notes' code; nothing in learnloop below it does).
 
 ### Module constants
@@ -67,6 +68,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 `__all__` declares:
 
 - `UnionError`
+- `span_range`
 - `union_range`
 
 ## Internal implementation anchors
@@ -74,7 +76,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_json_list(value: Any) -> list[Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 43)
 - `_rows(connection: Any, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 51)
 - `_in(values: Iterable[str]) -> tuple[str, list[str]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 57)
-- `_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None, t1: float | None) -> list[str]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 62)
 - `class _Placer` ([source](../../../../../../src/learnloop/passage_union/union.py), line 70) — Places a (reading, span) of any reading of the book on this reading's range.
 - `_empty(span_id: str, section_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 87)
 
@@ -83,8 +84,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `UnionError`, `_range`; statically calls `UnionError`, `_range`
-- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `UnionError`, `union_range`; statically calls `union_range`
+- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `UnionError`, `span_range`; statically calls `UnionError`, `span_range`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `UnionError`, `span_range`, `union_range`; statically calls `span_range`, `union_range`
 
 ## Dependencies
 

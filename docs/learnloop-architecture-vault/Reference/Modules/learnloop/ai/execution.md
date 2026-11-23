@@ -138,6 +138,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/cli/field_classification|learnloop.cli.field_classification]] — imports `generation_limit`; statically calls `generation_limit`
 - [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] — imports `call_labels`, `observe_model_calls`; statically calls `call_labels`, `observe_model_calls`
 - [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `observe_model_calls`; statically calls `observe_model_calls`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `ModelCheckpoint`, `model_settings`; statically calls `ModelCheckpoint`, `model_settings`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `content_key`, `model_settings`; statically calls `content_key`, `model_settings`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `content_key`, `generation_limit`, `observe_model_calls`, `record_model_calls`, `requested_reasoning_effort`, `single_request`; statically calls `content_key`, `generation_limit`, `observe_model_calls`, `record_model_calls`, `requested_reasoning_effort`, `single_request`
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `content_key`; statically calls `content_key`
@@ -145,12 +146,12 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ModelCheckpoint`, `model_settings`, `observe_model_calls`; statically calls `ModelCheckpoint`, `model_settings`, `observe_model_calls`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `background_model_work`, `observe_model_output`, `record_model_calls`; statically calls `background_model_work`, `observe_model_output`, `record_model_calls`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `ModelCheckpoint`, `request_key`; statically calls `ModelCheckpoint`, `request_key`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `ModelCheckpoint`, `checkpointed`, `model_settings`; statically calls `ModelCheckpoint`, `checkpointed`, `model_settings`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `observe_model_calls`; statically calls `observe_model_calls`
+- [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `observe_model_calls`; statically calls `observe_model_calls`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `ModelCheckpoint`, `checkpointed`, `content_key`, `declared_budgets`, `generation_limit`, `model_settings`, `request_key`; statically calls `ModelCheckpoint`, `checkpointed`, `content_key`, `declared_budgets`, `generation_limit`, `model_settings`, `request_key`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `ModelCheckpoint`, `generation_limit`, `model_settings`, `request_key`; statically calls `ModelCheckpoint`, `generation_limit`, `model_settings`, `request_key`
 - [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `ModelCheckpoint`, `checkpointed`, `model_settings`; statically calls `checkpointed`, `model_settings`
@@ -211,6 +212,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/ops/pf_verify|learnloop.ops.pf_verify]] — imports `content_key`; statically calls `content_key`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `call_labels`; statically calls `call_labels`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `content_key`; statically calls `content_key`
@@ -276,7 +278,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 132 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 134 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -301,6 +303,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/local_embeddings_fakes.py](../../../../../../tests/local_embeddings_fakes.py) — direct import

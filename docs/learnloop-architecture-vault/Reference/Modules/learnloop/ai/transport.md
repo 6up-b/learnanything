@@ -146,7 +146,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `execute_structured_operation`, `render_structured_prompt`; statically calls `execute_structured_operation`, `render_structured_prompt`
 - [[Reference/Modules/learnloop/content/pipeline/ai_contracts|learnloop.content.pipeline.ai_contracts]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `INTERRUPT`, `MEDIA_TRANSCRIPTION`, `interrupt_callback`; statically calls `interrupt_callback`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `MEDIA_TRANSCRIPTION`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `interrupt_callback`; statically calls `interrupt_callback`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `execute_structured_operation`; statically calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
@@ -154,6 +154,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `execute_structured_operation`, `render_structured_prompt`; statically calls `execute_structured_operation`, `render_structured_prompt`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `execute_structured_operation`; statically calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
+- [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `INTERRUPT`, `interrupt_callback`; statically calls `interrupt_callback`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `StructuredTransport`, `execute_structured_operation`; statically calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `StructuredTransport`, `execute_structured_operation`; statically calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `StructuredTransport`, `execute_structured_operation`; statically calls `execute_structured_operation`
@@ -202,6 +203,8 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ops/contamination/report|learnloop.ops.contamination.report]] — imports `BOUNDED_STRUCTURED_COMPLETION`
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `execute_structured_operation`, `render_structured_prompt`; statically calls `execute_structured_operation`, `render_structured_prompt`
 - [[Reference/Modules/learnloop/ops/pf_calls|learnloop.ops.pf_calls]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `ISOLATED_TURN`, `execute_structured_operation`; statically calls `execute_structured_operation`
+- [[Reference/Modules/learnloop/pads/ink_render|learnloop.pads.ink_render]] — imports `MAX_IMAGE_BYTES`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `IMAGE_INPUT`, `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `STRUCTURED_COMPLETION`, `execute_structured_operation`; statically calls `execute_structured_operation`
@@ -261,7 +264,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 108 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 111 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -278,6 +281,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
+- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
 - [tests/reader_active_reading_helpers.py](../../../../../../tests/reader_active_reading_helpers.py) — direct import
@@ -381,6 +385,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
+- [tests/test_reader_rd8a_render.py](../../../../../../tests/test_reader_rd8a_render.py) — direct import
+  - `test_nothing_is_drawn_past_the_canvas_limit_or_sent_past_the_image_limit`
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
+  - `test_a_model_that_cannot_read_images_is_refused_before_anything_is_sent`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
 - [tests/test_reading_hardening_review_fixes.py](../../../../../../tests/test_reading_hardening_review_fixes.py) — direct import

@@ -196,7 +196,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `CONSENT_MESSAGE`, `estimate`, `selected_backend`; statically calls `estimate`, `selected_backend`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `selected_backend`; statically calls `selected_backend`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `estimate`, `is_image_document`, `selected_backend`; statically calls `estimate`, `is_image_document`, `selected_backend`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `estimate`, `is_image_document`, `selected_backend`; statically calls `estimate`, `is_image_document`, `selected_backend`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `selected_backend`; statically calls `selected_backend`
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `LOCAL_URL`, `estimate`, `is_loopback_url`; statically calls `estimate`, `is_loopback_url`
 - [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]] — imports `CONSENT_MESSAGE`, `GlmOcrConsentRequired`, `GlmOcrExtractionError`, `UNAVAILABLE_MESSAGE`, `selected_backend`; statically calls `selected_backend`
 - [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] — imports `EXTRACTOR_NAME`, `GlmOcrConsentRequired`, `GlmOcrDocumentExtractor`, `GlmOcrExtractionError`, `UNAVAILABLE_MESSAGE`, `is_image_document`, `selected_backend`; statically calls `GlmOcrDocumentExtractor`, `is_image_document`, `selected_backend`
@@ -228,7 +229,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -48,21 +48,21 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py) |
-| Source lines | 359 |
+| Source lines | 365 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `recipient(config: LearnLoopConfig, provider_name: str) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 289)
-- `judge_route_disclosures(config: LearnLoopConfig) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 314) — One entry per judgment route: who receives learner text, what and when.
-- `decider_destination(config: LearnLoopConfig, task: str) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 340) — ``(the key it needs, where it goes)`` for a Decider route, in the connection sheet's plain words.
+- `recipient(config: LearnLoopConfig, provider_name: str) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 295)
+- `judge_route_disclosures(config: LearnLoopConfig) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 320) — One entry per judgment route: who receives learner text, what and when.
+- `decider_destination(config: LearnLoopConfig, task: str) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 346) — ``(the key it needs, where it goes)`` for a Decider route, in the connection sheet's plain words.
 
 ### Module constants
 
 - `JUDGE_ROUTES` ([src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py), line 18)
-- `_WHEN` ([src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py), line 49)
+- `_WHEN` ([src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py), line 50)
 
 ### Explicit exports
 
@@ -75,7 +75,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_host(url: str | None) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 284)
+- `_host(url: str | None) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 290)
 
 ## Who imports or calls it
 

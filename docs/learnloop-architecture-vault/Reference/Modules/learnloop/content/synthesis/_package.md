@@ -15,6 +15,7 @@ source_paths:
   - "src/learnloop/content/synthesis/facet_doctor.py"
   - "src/learnloop/content/synthesis/facet_mint_gate.py"
   - "src/learnloop/content/synthesis/graph_nomination.py"
+  - "src/learnloop/content/synthesis/jobs.py"
   - "src/learnloop/content/synthesis/normalize.py"
   - "src/learnloop/content/synthesis/proposal_match.py"
   - "src/learnloop/content/synthesis/source_append.py"
@@ -74,6 +75,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/synthesis/facet_doctor|learnloop.content.synthesis.facet_doctor]] | [[Reference/Modules/learnloop/content/synthesis/facet_doctor#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] | [[Reference/Modules/learnloop/content/synthesis/graph_nomination#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
+| [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] | [[Reference/Modules/learnloop/content/synthesis/jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]] | [[Reference/Modules/learnloop/content/synthesis/normalize#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/content/synthesis/proposal_match|learnloop.content.synthesis.proposal_match]] | [[Reference/Modules/learnloop/content/synthesis/proposal_match#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] | [[Reference/Modules/learnloop/content/synthesis/source_append#^module-purpose|purpose]] | `ACTIVE` | 5 | 21 |
@@ -91,32 +93,33 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 27 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 19 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 12 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 28 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 22 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 15 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 13 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 9 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 9 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 4 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 3 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 12 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 9 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 6 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 5 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
+- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
-- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -130,23 +133,24 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop["learnloop"]
     n_learnloop_content_facet_identity["learnloop.content.facet_identity"]
-    n_learnloop_cli["learnloop.cli"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_cli["learnloop.cli"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_ingest["learnloop.ingest"]
-    center -->|27| n_learnloop_vault
-    center -->|19| n_learnloop_ai
+    center -->|28| n_learnloop_vault
+    center -->|22| n_learnloop_ai
     n_learnloop -->|1| center
-    center -->|14| n_learnloop
+    center -->|15| n_learnloop
     n_learnloop_content_facet_identity -->|6| center
     center -->|9| n_learnloop_content_facet_identity
+    center -->|13| n_learnloop_db
     n_learnloop_cli -->|12| center
-    center -->|12| n_learnloop_db
     n_learnloop_content_sources -->|2| center
-    center -->|9| n_learnloop_content_sources
-    n_learnloop_content_pipeline -->|9| center
+    center -->|10| n_learnloop_content_sources
+    n_learnloop_content_pipeline -->|5| center
+    center -->|4| n_learnloop_content_pipeline
     n_learnloop_sidecar_handlers -->|9| center
     center -->|4| n_learnloop_ingest
 ```

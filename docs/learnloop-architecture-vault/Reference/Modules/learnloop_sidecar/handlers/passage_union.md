@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py) |
-| Source lines | 278 |
+| Source lines | 280 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -66,8 +66,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 172) — What this knows (§9.1 ``i``), as one read: the object's passages, each with everything the union read ties to it (each row with its anchor quality and alias).
 - `passage_promoted_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 191) — The menu's promoted rows at once (the cheap ones, ranked, at most four) and the job finding the judged ones: ``{object_key, rows, cap, pending_job: {job_id} | null, paid: {searched_by_meaning, verified, reason}}``.
 - `class PromotedJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 231)
-- `passage_promoted_job_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 261) — The judged rows' job at once (never a wait): when done, every row ranked again, cheap and judged, at most four.
-- `passage_promoted_cancel_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 270) — Cancel the judged rows' job (the menu closed): its next paid request is refused; a finished job keeps its outcome.
+- `passage_promoted_job_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 263) — The judged rows' job at once (never a wait): when done, every row ranked again, cheap and judged, at most four.
+- `passage_promoted_cancel_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 272) — Cancel the judged rows' job (the menu closed): its next paid request is refused; a finished job keeps its outcome.
 
 ### Module constants
 
@@ -110,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `module`; calls `registry`
+- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `module`; calls `registry`, `vault_key`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies

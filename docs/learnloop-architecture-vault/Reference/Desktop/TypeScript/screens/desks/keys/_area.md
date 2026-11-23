@@ -34,8 +34,8 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/keys/listeners|listeners.ts]] | `ACTIVE` | Provides `RouterHooks`, `WINDOW_ATTRIBUTE`, `windowOfTarget`, `DeskListenerRouter` within the desktop's TypeScript/screens/desks/keys ownership area. | 1 | 3 |
-| [[Reference/Desktop/TypeScript/screens/desks/keys/router|router.ts]] | `ACTIVE` | Provides `DeskScope`, `SCOPE_ORDER`, `DeskAction`, `Chord` and related exports within the desktop's TypeScript/screens/desks/keys ownership area. | 0 | 6 |
+| [[Reference/Desktop/TypeScript/screens/desks/keys/listeners|listeners.ts]] | `ACTIVE` | Provides `RouterHooks`, `WINDOW_ATTRIBUTE`, `windowOfTarget`, `DeskListenerRouter` within the desktop's TypeScript/screens/desks/keys ownership area. | 1 | 5 |
+| [[Reference/Desktop/TypeScript/screens/desks/keys/router|router.ts]] | `ACTIVE` | Provides `DeskScope`, `SCOPE_ORDER`, `DeskAction`, `Chord` and related exports within the desktop's TypeScript/screens/desks/keys ownership area. | 0 | 8 |
 
 ## Modification guidance
 

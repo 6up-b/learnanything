@@ -20,7 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/content.py"
   - "src/learnloop/content/authoring/item_authoring.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/diagnosis/probe_remint.py"
@@ -89,7 +89,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/item_authoring.py`
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/diagnosis/probe_remint.py`

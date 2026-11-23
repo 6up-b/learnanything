@@ -15,6 +15,7 @@ source_paths:
   - "src/learnloop/figures/grammar.py"
   - "src/learnloop/figures/grounding.py"
   - "src/learnloop/figures/help.py"
+  - "src/learnloop/figures/jobs.py"
   - "src/learnloop/figures/katex_tree.py"
   - "src/learnloop/figures/labels.py"
   - "src/learnloop/figures/learner_state.py"
@@ -84,6 +85,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/grammar|learnloop.figures.grammar]] | [[Reference/Modules/learnloop/figures/grammar#^module-purpose|purpose]] | `ACTIVE` | 8 | 12 |
 | [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] | [[Reference/Modules/learnloop/figures/grounding#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] | [[Reference/Modules/learnloop/figures/help#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]] | [[Reference/Modules/learnloop/figures/jobs#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]] | [[Reference/Modules/learnloop/figures/katex_tree#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]] | [[Reference/Modules/learnloop/figures/labels#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] | [[Reference/Modules/learnloop/figures/learner_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
@@ -112,9 +114,9 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 33 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 34 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 23 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 21 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 22 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 7 static module edges
@@ -122,10 +124,12 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 3 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 1 static module edge
 
 ### Packages that import this package
 
@@ -133,7 +137,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 4 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 4 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -152,9 +155,9 @@ flowchart LR
     n_learnloop_teacher["learnloop.teacher"]
     n_learnloop_practice_index["learnloop.practice_index"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
-    center -->|33| n_learnloop
+    center -->|34| n_learnloop
     center -->|23| n_learnloop_db
-    center -->|21| n_learnloop_db_stores
+    center -->|22| n_learnloop_db_stores
     center -->|17| n_learnloop_ai
     n_learnloop_sidecar_handlers -->|16| center
     center -->|11| n_learnloop_source_retrieval

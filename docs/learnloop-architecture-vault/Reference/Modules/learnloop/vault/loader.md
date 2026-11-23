@@ -137,12 +137,14 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
@@ -150,6 +152,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/content/proposals/create_ids|learnloop.content.proposals.create_ids]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `load_vault`; statically calls `load_vault`
@@ -168,6 +171,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `init_vault`, `load_vault`; statically calls `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `load_vault`; statically calls `load_vault`
@@ -184,6 +188,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
+- [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `settled_load_vault`; statically calls `settled_load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `load_vault`; statically calls `load_vault`
@@ -233,7 +238,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 94 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 99 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1944,6 +1949,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_generic_rotation_claims_never_take_pf_generation_jobs`
   - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_job_types.py](../../../../../../tests/test_job_types.py) — direct import
+  - `test_a_rows_routes_are_the_routes_its_default_clients_resolve`
+  - `test_the_legacy_lane_resolves_its_rows_route`
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
   - `test_a_reserved_probe_passage_never_reaches_the_verification_model`

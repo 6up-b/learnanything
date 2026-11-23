@@ -160,7 +160,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `StudyMapError`, `create_study_map`, `derive_candidate_repairs`, `plan_study_map_embedding`, `revalidate_synthesis_candidate`; statically calls `create_study_map`, `derive_candidate_repairs`, `plan_study_map_embedding`, `revalidate_synthesis_candidate`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `StudyMapError`, `create_study_map`, `revalidate_synthesis_candidate`; statically calls `create_study_map`, `revalidate_synthesis_candidate`
+- [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `StudyMapError`, `create_study_map`, `revalidate_synthesis_candidate`; statically calls `create_study_map`, `revalidate_synthesis_candidate`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `RunScope`, `StudyMapError`, `SynthesisCall`, `SynthesisMode`, `SynthesisOutcome`, `_collect_inputs`, `_count_items`, `_result_tokens`, `_synthesis_pass_key`, `finish_synthesis_run`, `gate_refusal`, `open_synthesis_run`, `record_auto_apply`; statically calls `RunScope`, `StudyMapError`, `SynthesisCall`, `SynthesisMode`, `_collect_inputs`, `_count_items`, `_result_tokens`, `_synthesis_pass_key`, `finish_synthesis_run`, `gate_refusal`, `open_synthesis_run`, `record_auto_apply`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `StudyMapError`, `create_study_map`; statically calls `create_study_map`
 
@@ -222,7 +222,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

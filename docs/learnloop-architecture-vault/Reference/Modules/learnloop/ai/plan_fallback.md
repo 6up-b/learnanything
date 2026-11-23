@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py) |
-| Source lines | 900 |
+| Source lines | 901 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -56,49 +56,49 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ## Public API
 
 - `offer_profile(config: LearnLoopConfig) -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 57) — The OpenRouter profile LearnLoop may offer, or ``None`` (no profile, wrong type, no key).
-- `priced_by(*settings: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 116) — Resolve routes in this block for a feature held to its own price (re-review F2).
-- `offer_blocker(config: LearnLoopConfig, task: str) -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 142) — Why OpenRouter could not do ``task`` if the learner chose it, or ``None`` (review F2).
-- `offer_sentence() -> str` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 165)
-- `class OfferCollector` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 176)
-  - `hint(self) -> dict[str, Any] | None` (line 199; public) — The typed hint for the adapter, or ``None`` when nothing was offered.
-- `quiet() -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 233) — Make no offer and honour no grant for routes resolved in this block; units made here have no origin.
-- `offers_suppressed() -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 256) — True inside :func:`quiet` (either kind): routes resolved here make no offer.
-- `collecting(origin: str | None=None, stamp: tuple[str, tuple[int, int]] | None=None) -> Iterator[OfferCollector]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 267) — Collect the offers made while the block runs (one RPC, or one unit's work), as action ``origin``.
-- `relay_hint(hint: dict[str, Any] | None, restore: Any=None) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 313) — Offer again, in the current request, what a unit (a job, a batch) offered.
-- `relay_job_offer(job: Any) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 332) — Relay a finished job's offer on the first read that finds it, then forget it (review F8).
-- `take_offer(collector: OfferCollector, current_vault: Any) -> tuple[dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 345) — What one response may show: (the hint, its vault key), or (None, None).
-- `start_collecting() -> OfferCollector` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 375) — Collect for the rest of this context (one CLI process).
-- `current_hint() -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 383) — The hint of this context's collector (the CLI's JSON), without its unit list.
-- `note_unavailable(task: str, profile: str, *, signed_out: bool=False) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 393)
-- `note_plan_route(task: str, profile: str) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 400)
-- `note_plan_failure(*, signed_out: bool=False) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 406) — A plan request failed for availability; called by the plan client.
-- `class GrantToken` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 478) — A unit's grant: the action it belongs to, in the epoch it was given (:func:`unit_token`).
-  - `live(self, key: str) -> bool` (line 487; public)
-- `class Offer` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 496) — One "Use OpenRouter instead" the dispatch showed: answering it grants ``origin``.
-- `request(vault_root: Any, origin: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 526) — Serve one request of action ``origin`` on this thread (the sidecar's dispatch, per RPC).
-- `unit_origin() -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 541) — The action a unit of work created now belongs to: the request's, outside any job and any probe.
-- `unit_token(vault_root: Any) -> GrantToken | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 549) — The token a unit created now carries (or the time-boxed check runs under).
-- `note_unit(kind: str, unit_id: str) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 575) — Record a unit created in this request, so its offer lists it (answering tokens it).
-- `job_grant(token: GrantToken | None, origin: str | None=None, *, keep_collector: bool=False) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 584) — Run a unit's work on this thread under its token (``None``: none), as action ``origin``.
-- `unit_stamp(vault_root: Any) -> tuple[str, tuple[int, int]] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 604) — The vault and epoch a unit is created in (taken at its creation; round 5, Medium 1).
-- `unit(token: GrantToken | None, origin: str | None, stamp: tuple[str, tuple[int, int]] | None) -> Iterator[OfferCollector]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 615) — A unit's work (a sidecar job, a batch's job): :func:`job_grant`, and its own collector.
-- `status_as(origin: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 635) — A status read of what action ``origin`` would use: no offer, and its grant counts (in a request).
-- `remember_batch_grant(batch_id: str, token: GrantToken | None, origin: str | None=None, vault_root: Any=None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 647) — Keep a new batch's token, origin and creation stamp.
-- `batch_grant(batch_id: str | None) -> GrantToken | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 661)
-- `batch_origin(batch_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 666)
-- `keep_batch_offer(batch_id: str, hint: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 671) — A batch's run met the unavailable plan: keep its offer for the next read that shows the batch.
-- `batch_stamp(batch_id: str, vault_root: Any) -> tuple[str, tuple[int, int]] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 679) — The vault and epoch the batch was created in (in memory), else now (a batch from before a restart).
-- `relay_batch_offer(batch_id: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 687) — Relay (once) the offer a batch kept, on a read that shows that batch.
-- `relay_batch_offers(batch_ids: Iterable[str | None]) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 708) — Relay the first pending offer among the batches a response shows (one offer per response).
-- `command_grant(*, host: bool=False) -> Iterator[bool]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 717) — The CLI's ``LEARNLOOP_AI_FALLBACK=openrouter``: the command's own grant, for this command only.
-- `mint_offer(vault_root: Any, hint: dict[str, Any], origin: str, units: Iterable[tuple[str, str]]=()) -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 744) — Record the offer one response shows; its id is what "Use OpenRouter instead" answers.
-- `answer_offer(vault_root: Any, offer_id: str | None) -> Offer | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 759) — The learner chose "Use OpenRouter instead" on offer ``offer_id``: grant its action, token its units.
-- `grant_origin(vault_root: Any, origin: str, tasks: Iterable[str]=()) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 778) — Grant action ``origin`` on this vault for the session (``answer_offer``'s effect; tests use it).
-- `revoke(vault_root: Any | None=None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 785) — Stop using OpenRouter: for one vault, or (``None``) for every vault.
-- `revoke_all() -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 809)
-- `granted_origins(vault_root: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 813)
-- `granted_tasks(vault_root: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 818) — The tasks the answered offers named (display: Settings' "Stop using OpenRouter").
-- `is_granted(task: str, vault_root: Any) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 825) — Whether OpenRouter may serve ``task`` here (redesign D).
+- `priced_by(*settings: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 117) — Resolve routes in this block for a feature held to its own price (re-review F2).
+- `offer_blocker(config: LearnLoopConfig, task: str) -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 143) — Why OpenRouter could not do ``task`` if the learner chose it, or ``None`` (review F2).
+- `offer_sentence() -> str` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 166)
+- `class OfferCollector` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 177)
+  - `hint(self) -> dict[str, Any] | None` (line 200; public) — The typed hint for the adapter, or ``None`` when nothing was offered.
+- `quiet() -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 234) — Make no offer and honour no grant for routes resolved in this block; units made here have no origin.
+- `offers_suppressed() -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 257) — True inside :func:`quiet` (either kind): routes resolved here make no offer.
+- `collecting(origin: str | None=None, stamp: tuple[str, tuple[int, int]] | None=None) -> Iterator[OfferCollector]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 268) — Collect the offers made while the block runs (one RPC, or one unit's work), as action ``origin``.
+- `relay_hint(hint: dict[str, Any] | None, restore: Any=None) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 314) — Offer again, in the current request, what a unit (a job, a batch) offered.
+- `relay_job_offer(job: Any) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 333) — Relay a finished job's offer on the first read that finds it, then forget it (review F8).
+- `take_offer(collector: OfferCollector, current_vault: Any) -> tuple[dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 346) — What one response may show: (the hint, its vault key), or (None, None).
+- `start_collecting() -> OfferCollector` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 376) — Collect for the rest of this context (one CLI process).
+- `current_hint() -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 384) — The hint of this context's collector (the CLI's JSON), without its unit list.
+- `note_unavailable(task: str, profile: str, *, signed_out: bool=False) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 394)
+- `note_plan_route(task: str, profile: str) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 401)
+- `note_plan_failure(*, signed_out: bool=False) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 407) — A plan request failed for availability; called by the plan client.
+- `class GrantToken` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 479) — A unit's grant: the action it belongs to, in the epoch it was given (:func:`unit_token`).
+  - `live(self, key: str) -> bool` (line 488; public)
+- `class Offer` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 497) — One "Use OpenRouter instead" the dispatch showed: answering it grants ``origin``.
+- `request(vault_root: Any, origin: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 527) — Serve one request of action ``origin`` on this thread (the sidecar's dispatch, per RPC).
+- `unit_origin() -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 542) — The action a unit of work created now belongs to: the request's, outside any job and any probe.
+- `unit_token(vault_root: Any) -> GrantToken | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 550) — The token a unit created now carries (or the time-boxed check runs under).
+- `note_unit(kind: str, unit_id: str) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 576) — Record a unit created in this request, so its offer lists it (answering tokens it).
+- `job_grant(token: GrantToken | None, origin: str | None=None, *, keep_collector: bool=False) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 585) — Run a unit's work on this thread under its token (``None``: none), as action ``origin``.
+- `unit_stamp(vault_root: Any) -> tuple[str, tuple[int, int]] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 605) — The vault and epoch a unit is created in (taken at its creation; round 5, Medium 1).
+- `unit(token: GrantToken | None, origin: str | None, stamp: tuple[str, tuple[int, int]] | None) -> Iterator[OfferCollector]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 616) — A unit's work (a sidecar job, a batch's job): :func:`job_grant`, and its own collector.
+- `status_as(origin: str) -> Iterator[None]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 636) — A status read of what action ``origin`` would use: no offer, and its grant counts (in a request).
+- `remember_batch_grant(batch_id: str, token: GrantToken | None, origin: str | None=None, vault_root: Any=None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 648) — Keep a new batch's token, origin and creation stamp.
+- `batch_grant(batch_id: str | None) -> GrantToken | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 662)
+- `batch_origin(batch_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 667)
+- `keep_batch_offer(batch_id: str, hint: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 672) — A batch's run met the unavailable plan: keep its offer for the next read that shows the batch.
+- `batch_stamp(batch_id: str, vault_root: Any) -> tuple[str, tuple[int, int]] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 680) — The vault and epoch the batch was created in (in memory), else now (a batch from before a restart).
+- `relay_batch_offer(batch_id: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 688) — Relay (once) the offer a batch kept, on a read that shows that batch.
+- `relay_batch_offers(batch_ids: Iterable[str | None]) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 709) — Relay the first pending offer among the batches a response shows (one offer per response).
+- `command_grant(*, host: bool=False) -> Iterator[bool]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 718) — The CLI's ``LEARNLOOP_AI_FALLBACK=openrouter``: the command's own grant, for this command only.
+- `mint_offer(vault_root: Any, hint: dict[str, Any], origin: str, units: Iterable[tuple[str, str]]=()) -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 745) — Record the offer one response shows; its id is what "Use OpenRouter instead" answers.
+- `answer_offer(vault_root: Any, offer_id: str | None) -> Offer | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 760) — The learner chose "Use OpenRouter instead" on offer ``offer_id``: grant its action, token its units.
+- `grant_origin(vault_root: Any, origin: str, tasks: Iterable[str]=()) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 779) — Grant action ``origin`` on this vault for the session (``answer_offer``'s effect; tests use it).
+- `revoke(vault_root: Any | None=None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 786) — Stop using OpenRouter: for one vault, or (``None``) for every vault.
+- `revoke_all() -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 810)
+- `granted_origins(vault_root: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 814)
+- `granted_tasks(vault_root: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 819) — The tasks the answered offers named (display: Settings' "Stop using OpenRouter").
+- `is_granted(task: str, vault_root: Any) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 826) — Whether OpenRouter may serve ``task`` here (redesign D).
 
 ### Module constants
 
@@ -107,25 +107,25 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `_OPENROUTER_TYPE` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 53)
 - `_DEFAULT_KEY_ENV` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 54)
 - `METERED_PRICE_SETTINGS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 73)
-- `PLAN_ONLY_TASKS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 108)
-- `_FEATURE_PRICES` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 112)
-- `_COLLECTOR` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 225)
-- `_QUIET` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 227)
-- `_NO_OFFERS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 229)
-- `_GRANTS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 436)
-- `_EPOCH` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 438)
-- `_GLOBAL` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 439)
-- `_SEQ` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 440)
-- `_OFFERS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 442)
-- `_BATCH_GRANTS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 444)
-- `_BATCH_ORIGIN` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 445)
-- `_BATCH_OFFERS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 446)
-- `_BATCH_STAMP` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 447)
-- `_GRANTS_LOCK` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 448)
-- `_COMMAND_GRANT` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 450)
-- `_REQUEST` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 452)
-- `_JOB` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 454)
-- `_STATUS_AS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 457)
+- `PLAN_ONLY_TASKS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 109)
+- `_FEATURE_PRICES` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 113)
+- `_COLLECTOR` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 226)
+- `_QUIET` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 228)
+- `_NO_OFFERS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 230)
+- `_GRANTS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 437)
+- `_EPOCH` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 439)
+- `_GLOBAL` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 440)
+- `_SEQ` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 441)
+- `_OFFERS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 443)
+- `_BATCH_GRANTS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 445)
+- `_BATCH_ORIGIN` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 446)
+- `_BATCH_OFFERS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 447)
+- `_BATCH_STAMP` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 448)
+- `_GRANTS_LOCK` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 449)
+- `_COMMAND_GRANT` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 451)
+- `_REQUEST` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 453)
+- `_JOB` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 455)
+- `_STATUS_AS` ([src/learnloop/ai/plan_fallback.py](../../../../../../src/learnloop/ai/plan_fallback.py), line 458)
 
 ### Explicit exports
 
@@ -180,17 +180,17 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_setting(config: LearnLoopConfig, dotted: str) -> Any` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 135)
-- `_collector() -> OfferCollector | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 252)
-- `_merge_into(collector: OfferCollector, hint: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 292)
-- `_relay_into(collector: OfferCollector, hint: dict[str, Any] | None, restore: Any=None) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 306)
-- `_vault_key(vault_root: Any) -> str` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 460)
-- `_here() -> int` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 464)
-- `_epoch(key: str) -> tuple[int, int]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 468)
-- `_next() -> int` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 472)
-- `_request_origin() -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 507)
-- `_job_here() -> tuple[str | None, 'GrantToken | None'] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 514)
-- `_in_job() -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 521)
+- `_setting(config: LearnLoopConfig, dotted: str) -> Any` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 136)
+- `_collector() -> OfferCollector | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 253)
+- `_merge_into(collector: OfferCollector, hint: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 293)
+- `_relay_into(collector: OfferCollector, hint: dict[str, Any] | None, restore: Any=None) -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 307)
+- `_vault_key(vault_root: Any) -> str` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 461)
+- `_here() -> int` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 465)
+- `_epoch(key: str) -> tuple[int, int]` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 469)
+- `_next() -> int` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 473)
+- `_request_origin() -> str | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 508)
+- `_job_here() -> tuple[str | None, 'GrantToken | None'] | None` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 515)
+- `_in_job() -> bool` ([source](../../../../../../src/learnloop/ai/plan_fallback.py), line 522)
 
 ## Who imports or calls it
 
@@ -202,9 +202,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `module`; statically calls `is_granted`, `note_plan_route`, `note_unavailable`, `offer_blocker`, `offer_profile`, `offer_sentence`, `offers_suppressed`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `collecting`, `command_grant`; statically calls `collecting`, `command_grant`
 - [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] — imports `current_hint`; statically calls `current_hint`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `module`; statically calls `priced_by`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `module`; statically calls `job_grant`, `priced_by`, `unit_origin`, `unit_token`
-- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `module`; statically calls `offer_profile`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `priced_by`, `quiet`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `module`; statically calls `offer_profile`, `quiet`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `module`; statically calls `batch_grant`, `batch_origin`, `batch_stamp`, `keep_batch_offer`, `note_unit`, `remember_batch_grant`, `unit`, `unit_origin`, `unit_token`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `module`; statically calls `quiet`
 - [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `quiet`
@@ -222,6 +222,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `module`; statically calls `offer_profile`, `status_as`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `module`; statically calls `note_unit`, `relay_job_offer`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `module`; statically calls `relay_batch_offer`, `relay_batch_offers`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `module`; statically calls `relay_job_offer`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `module`; statically calls `note_unit`, `relay_job_offer`, `unit`, `unit_origin`, `unit_stamp`, `unit_token`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `module`; statically calls `quiet`
 - [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `relay_job_offer`
@@ -254,7 +255,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] and 33 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] and 34 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

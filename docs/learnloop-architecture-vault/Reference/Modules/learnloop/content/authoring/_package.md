@@ -15,6 +15,7 @@ source_paths:
   - "src/learnloop/content/authoring/draft_validation.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/authoring/laddered_stems.py"
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/authoring/persona_realism.py"
@@ -71,6 +72,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/authoring/draft_validation|learnloop.content.authoring.draft_validation]] | [[Reference/Modules/learnloop/content/authoring/draft_validation#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] | [[Reference/Modules/learnloop/content/authoring/exercise_authoring#^module-purpose|purpose]] | `ACTIVE` | 2 | 14 |
 | [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] | [[Reference/Modules/learnloop/content/authoring/item_authoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
+| [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] | [[Reference/Modules/learnloop/content/authoring/jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 19 |
 | [[Reference/Modules/learnloop/content/authoring/laddered_stems|learnloop.content.authoring.laddered_stems]] | [[Reference/Modules/learnloop/content/authoring/laddered_stems#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/content/authoring/persona_gate|learnloop.content.authoring.persona_gate]] | [[Reference/Modules/learnloop/content/authoring/persona_gate#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/content/authoring/persona_realism|learnloop.content.authoring.persona_realism]] | [[Reference/Modules/learnloop/content/authoring/persona_realism#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
@@ -85,42 +87,43 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 30 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 20 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 31 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 24 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 17 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 12 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 10 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 9 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 9 static module edges
-- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 6 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
+- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 8 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 7 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 7 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 6 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 4 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 4 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 4 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 3 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 2 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 2 static module edges
+- [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 1 static module edge
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 1 static module edge
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 1 static module edge
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
-- [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 11 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 10 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 7 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 5 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 4 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 4 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 3 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 3 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 3 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 2 static module edges
@@ -146,25 +149,25 @@ flowchart LR
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_learner["learnloop.learner"]
     n_learnloop_substrate["learnloop.substrate"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_proposals["learnloop.content.proposals"]
-    center -->|30| n_learnloop_vault
-    center -->|20| n_learnloop_ai
-    center -->|14| n_learnloop
+    n_learnloop_learner["learnloop.learner"]
+    center -->|31| n_learnloop_vault
+    center -->|24| n_learnloop_ai
+    center -->|17| n_learnloop
     n_learnloop_ops -->|10| center
     center -->|3| n_learnloop_ops
-    center -->|11| n_learnloop_db
+    center -->|12| n_learnloop_db
     n_learnloop_diagnosis -->|2| center
     center -->|9| n_learnloop_diagnosis
+    n_learnloop_substrate -->|1| center
+    center -->|10| n_learnloop_substrate
     n_learnloop_sidecar_handlers -->|11| center
+    n_learnloop_content_proposals -->|2| center
+    center -->|8| n_learnloop_content_proposals
     n_learnloop_learner -->|1| center
     center -->|9| n_learnloop_learner
-    n_learnloop_substrate -->|1| center
-    center -->|9| n_learnloop_substrate
-    n_learnloop_content_proposals -->|2| center
-    center -->|6| n_learnloop_content_proposals
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

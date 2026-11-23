@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/data_capture/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
@@ -126,7 +126,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/stores/reader.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`

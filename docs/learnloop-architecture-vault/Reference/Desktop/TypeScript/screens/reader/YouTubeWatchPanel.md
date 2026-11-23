@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/YouTubeWatchPanel.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/YouTubeWatchPanel.tsx) |
-| Source lines | 577 |
+| Source lines | 622 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,8 +54,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface WatchPanelHandle` — interface, line 108
-- `export const YouTubeWatchPanel = forwardRef<WatchPanelHandle,` — const, line 115
+- `export interface WatchLens` — interface, line 110
+- `export interface WatchPanelHandle` — interface, line 119
+- `export const YouTubeWatchPanel = forwardRef<WatchPanelHandle,` — const, line 126
 
 ## Internal implementation anchors
 
@@ -84,83 +85,90 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const projectedDuration = Math.max(current.end, cue.end) - current.start` — const, line 89
 - `const previousEndsSentence = /[.!?]["')\]]?$/.test(previous.block.markdown.trim())` — const, line 90
 - `const shouldStartSection = gap >= 3 || projectedDuration > 18 || current.characters + textLength + 1 > 260 || (previous.end - current.start >= 10 && previousEndsSentence)` — const, line 91
-- `const iframeRef = useRef<HTMLIFrameElement | null>(null)` — const, line 154
-- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 155
-- `const resumeSpanRef = useRef(resumeSpan)` — const, line 159
-- `const playingRef = useRef<boolean | null>(null)` — const, line 163
-- `const seekUntilRef = useRef(0)` — const, line 164
-- `const seekRef = useRef<` — const, line 169
-- `const placementRef = useRef<string | null | undefined>(undefined)` — const, line 172
-- `const cuesRef = useRef<TranscriptCue[]>([])` — const, line 173
-- `const noteSeek = useCallback((spanId: string | null, target: number)` — const, line 174
-- `const now = Date.now()` — const, line 175
-- `const acceptPlayerTime = useCallback((time: number): boolean` — const, line 183
-- `const seek = seekRef.current` — const, line 184
-- `const now = Date.now()` — const, line 186
-- `const landed = time >= seek.target - SEEK_LANDING_EARLY_S && time <= seek.target + SEEK_LANDING_LATE_S` — const, line 188
-- `const findInputRef = useRef<HTMLInputElement | null>(null)` — const, line 206
-- `const transcriptCues = useMemo<TranscriptCue[]>(()` — const, line 208
-- `const cues: TranscriptCue[] = []` — const, line 209
-- `const range = parseTimeLocator(block.extractorBlockId)` — const, line 211
-- `const transcriptSections = useMemo(()` — const, line 219
-- `const firstFolded = fold ? transcriptCues.find((cue)` — const, line 220
-- `const activeCue = useMemo(()` — const, line 222
-- `const post = useCallback((func: string, args: unknown[] = [])` — const, line 224
-- `const handshake = useCallback(()` — const, line 230
-- `const resumeCue = transcriptCues.find((cue)` — const, line 232
-- `const hub = useListenerHub()` — const, line 241
-- `const onMessage = (event: MessageEvent)` — const, line 243
-- `const frame = iframeRef.current?.contentWindow ?? null` — const, line 247
-- `let data:` — let, line 249
-- `const paused = useWindowPaused()` — const, line 272
-- `const spanId = activeCue?.block.spanId ?? null` — const, line 283
-- `const seek = seekRef.current` — const, line 284
-- `const placement = placementRef.current` — const, line 289
-- `const placing = placement !== undefined && placement === spanId` — const, line 291
-- `const scroller = transcriptRef.current` — const, line 295
-- `const cue = scroller?.querySelector(`[data-transcript-span="$` — const, line 296
-- `const scrollerRect = scroller.getBoundingClientRect()` — const, line 303
-- `const cueRect = cue.getBoundingClientRect()` — const, line 304
-- `const top = scroller.scrollTop + cueRect.top - scrollerRect.top - (scroller.clientHeight - cueRect.height) / 2` — const, line 305
-- `const pauseAndAsk = useCallback(()` — const, line 311
-- `let best: string | null = null` — let, line 313
-- `const range = parseTimeLocator(block.extractorBlockId)` — const, line 315
-- `const seekToCue = useCallback((cue: TranscriptCue)` — const, line 323
-- `const selection = window.getSelection()` — const, line 324
-- `const findNeedle = findQuery.trim().toLowerCase()` — const, line 334
-- `const findMatches = useMemo(()` — const, line 335
-- `const scrollToFindMatch = useCallback((index: number)` — const, line 346
-- `const cue = findMatches[index]` — const, line 347
-- `const scroller = transcriptRef.current` — const, line 348
-- `const el = scroller.querySelector(`[data-transcript-span="$` — const, line 353
-- `const scrollerRect = scroller.getBoundingClientRect()` — const, line 355
-- `const rect = el.getBoundingClientRect()` — const, line 356
-- `const top = scroller.scrollTop + rect.top - scrollerRect.top - (scroller.clientHeight - rect.height) / 2` — const, line 357
-- `const gotoFindMatch = useCallback((delta: number)` — const, line 361
-- `const openFind = useCallback(()` — const, line 370
-- `const closeFind = useCallback(()` — const, line 375
-- `const handler = (event: KeyboardEvent)` — const, line 382
-- `const cue = transcriptCues.find((c)` — const, line 398
-- `const activeSpanId = activeCue?.block.spanId` — const, line 496
-- `const active = section.cues.some((cue)` — const, line 497
-- `const annotated = section.cues.some((cue)` — const, line 498
-- `const guided = section.cues.some((cue)` — const, line 499
-- `const sectionKey = section.cues[0].block.spanId ?? `t-$` — const, line 500
-- `const spanId = cue.block.spanId ?? ""` — const, line 515
-- `const cueActive = activeSpanId === spanId` — const, line 531
-- `const cueAnnotated = annotatedSpans.has(spanId)` — const, line 532
-- `const cueGuided = guidanceSpans.has(spanId)` — const, line 533
-- `const cueFindHit = findOpen && findNeedle.length >= 2 && (cue.block.markdown ?? "").toLowerCase().includes(findNeedle)` — const, line 534
-- `const cueCurrentFind = cueFindHit && findMatches[matchIdx]?.block.spanId === spanId` — const, line 536
-- `const sel = window.getSelection()` — const, line 545
-- `const quote = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : ""` — const, line 546
+- `const iframeRef = useRef<HTMLIFrameElement | null>(null)` — const, line 168
+- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 169
+- `const resumeSpanRef = useRef(resumeSpan)` — const, line 173
+- `const playingRef = useRef<boolean | null>(null)` — const, line 177
+- `const seekUntilRef = useRef(0)` — const, line 178
+- `const seekRef = useRef<` — const, line 183
+- `const placementRef = useRef<string | null | undefined>(undefined)` — const, line 186
+- `const cuesRef = useRef<TranscriptCue[]>([])` — const, line 187
+- `const noteSeek = useCallback((spanId: string | null, target: number)` — const, line 188
+- `const now = Date.now()` — const, line 189
+- `const acceptPlayerTime = useCallback((time: number): boolean` — const, line 197
+- `const seek = seekRef.current` — const, line 198
+- `const now = Date.now()` — const, line 200
+- `const landed = time >= seek.target - SEEK_LANDING_EARLY_S && time <= seek.target + SEEK_LANDING_LATE_S` — const, line 202
+- `const findInputRef = useRef<HTMLInputElement | null>(null)` — const, line 220
+- `const transcriptCues = useMemo<TranscriptCue[]>(()` — const, line 222
+- `const cues: TranscriptCue[] = []` — const, line 223
+- `const range = parseTimeLocator(block.extractorBlockId)` — const, line 225
+- `const transcriptSections = useMemo(()` — const, line 233
+- `const duration = transcriptCues.length ? transcriptCues[transcriptCues.length - 1].end : 0` — const, line 235
+- `const timeOf = useCallback((spanIds: string[])` — const, line 236
+- `const wanted = new Set(spanIds)` — const, line 237
+- `const cues = transcriptCues.filter((cue)` — const, line 238
+- `const firstFolded = fold ? transcriptCues.find((cue)` — const, line 241
+- `const activeCue = useMemo(()` — const, line 243
+- `const post = useCallback((func: string, args: unknown[] = [])` — const, line 245
+- `const handshake = useCallback(()` — const, line 251
+- `const resumeCue = transcriptCues.find((cue)` — const, line 253
+- `const hub = useListenerHub()` — const, line 262
+- `const onMessage = (event: MessageEvent)` — const, line 264
+- `const frame = iframeRef.current?.contentWindow ?? null` — const, line 268
+- `let data:` — let, line 270
+- `const paused = useWindowPaused()` — const, line 293
+- `const spanId = activeCue?.block.spanId ?? null` — const, line 304
+- `const seek = seekRef.current` — const, line 305
+- `const placement = placementRef.current` — const, line 310
+- `const placing = placement !== undefined && placement === spanId` — const, line 312
+- `const scroller = transcriptRef.current` — const, line 316
+- `const cue = scroller?.querySelector(`[data-transcript-span="$` — const, line 317
+- `const scrollerRect = scroller.getBoundingClientRect()` — const, line 324
+- `const cueRect = cue.getBoundingClientRect()` — const, line 325
+- `const top = scroller.scrollTop + cueRect.top - scrollerRect.top - (scroller.clientHeight - cueRect.height) / 2` — const, line 326
+- `const pauseAndAsk = useCallback(()` — const, line 332
+- `let best: string | null = null` — let, line 334
+- `const range = parseTimeLocator(block.extractorBlockId)` — const, line 336
+- `const seekToCue = useCallback((cue: TranscriptCue)` — const, line 344
+- `const selection = window.getSelection()` — const, line 345
+- `const findNeedle = findQuery.trim().toLowerCase()` — const, line 355
+- `const findMatches = useMemo(()` — const, line 356
+- `const scrollToFindMatch = useCallback((index: number)` — const, line 367
+- `const cue = findMatches[index]` — const, line 368
+- `const scroller = transcriptRef.current` — const, line 369
+- `const el = scroller.querySelector(`[data-transcript-span="$` — const, line 374
+- `const scrollerRect = scroller.getBoundingClientRect()` — const, line 376
+- `const rect = el.getBoundingClientRect()` — const, line 377
+- `const top = scroller.scrollTop + rect.top - scrollerRect.top - (scroller.clientHeight - rect.height) / 2` — const, line 378
+- `const gotoFindMatch = useCallback((delta: number)` — const, line 382
+- `const openFind = useCallback(()` — const, line 391
+- `const closeFind = useCallback(()` — const, line 396
+- `const handler = (event: KeyboardEvent)` — const, line 403
+- `const cue = transcriptCues.find((c)` — const, line 419
+- `const player = ( <iframe ref=` — const, line 430
+- `const activeSpanId = activeCue?.block.spanId` — const, line 536
+- `const active = section.cues.some((cue)` — const, line 537
+- `const annotated = section.cues.some((cue)` — const, line 538
+- `const guided = section.cues.some((cue)` — const, line 539
+- `const sectionKey = section.cues[0].block.spanId ?? `t-$` — const, line 540
+- `const groupSpans = section.cues.map((cue)` — const, line 541
+- `const spanId = cue.block.spanId ?? ""` — const, line 558
+- `const cueActive = activeSpanId === spanId` — const, line 574
+- `const cueAnnotated = annotatedSpans.has(spanId)` — const, line 575
+- `const cueGuided = guidanceSpans.has(spanId)` — const, line 576
+- `const cueFindHit = findOpen && findNeedle.length >= 2 && (cue.block.markdown ?? "").toLowerCase().includes(findNeedle)` — const, line 577
+- `const cueCurrentFind = cueFindHit && findMatches[matchIdx]?.block.spanId === spanId` — const, line 579
+- `const sel = window.getSelection()` — const, line 590
+- `const quote = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : ""` — const, line 591
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `WatchPanelHandle`, `YouTubeWatchPanel`; references `WatchPanelHandle`, `YouTubeWatchPanel`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `WatchLens`, `WatchPanelHandle`, `YouTubeWatchPanel`; references `WatchLens`, `WatchPanelHandle`, `YouTubeWatchPanel`
+- [[Reference/Desktop/TypeScript/screens/desks/goal/marks|src/screens/desks/goal/marks.tsx]] — import-or-re-export: `WatchLens`; references `WatchLens`
 
 ## Dependencies
 
@@ -189,6 +197,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/YouTubeWatchPanel.instance.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/YouTubeWatchPanel.instance.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/goal/watch.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/watch.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_rw5c_block_policy.py](../../../../../../../tests/test_rw5c_block_policy.py) — cross-boundary name contract: references uniquely owned exported name `YouTubeWatchPanel`; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

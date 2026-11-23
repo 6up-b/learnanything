@@ -20,7 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/serving.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/daily_plan/ad_slot.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/stores/ad_serving.py"

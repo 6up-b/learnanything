@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts) |
-| Source lines | 213 |
+| Source lines | 316 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,47 +54,64 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type InvokeArgs = Record<string, unknown>` — type, line 10
-- `export interface HarnessCall` — interface, line 12
-- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 205
-- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 211
+- `export type InvokeArgs = Record<string, unknown>` — type, line 11
+- `export interface HarnessCall` — interface, line 13
+- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 308
+- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 314
 
 ## Internal implementation anchors
 
-- `function harnessDeskState(): DeskStateDto` — function, line 20
-- `const state = fixtureDeskState()` — const, line 21
-- `const extra: Record<string, string> =` — const, line 22
-- `const padId = extra[desk.deskId]` — const, line 24
-- `function harnessPads(): PadViewDto[]` — function, line 32
-- `const at = "2026-11-23T09:00:00Z"` — const, line 33
-- `const empty = (padId: string, deskId: string): PadViewDto` — const, line 34
-- `const server = new FixtureDeskServer(harnessDeskState(), harnessPads())` — const, line 38
-- `const companion = new FixtureCompanion()` — const, line 39
-- `const carried: Array<` — const, line 41
-- `function fixtureProposals(padId: string)` — function, line 48
-- `function fixtureDrain(deskId: string)` — function, line 59
-- `const pads = Object.values(server.pads).filter((pad)` — const, line 60
-- `const words = pad.blocks.map((block)` — const, line 62
-- `const last = words[words.length - 1] ?? ""` — const, line 63
-- `const calls: HarnessCall[] = []` — const, line 67
-- `interface Window` — interface, line 70
-- `function viewFor(id: string)` — function, line 76
-- `const CONTRACT =` — const, line 80
-- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 95
-- `const view = viewFor(String(input.extractionId))` — const, line 106
-- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 111
-- `const view = viewFor(String(input.extractionId))` — const, line 112
-- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 120
-- `const extractionId = String(input.extractionId)` — const, line 150
-- `const bySpan = new Map<string, Array<Record<string, unknown>>>()` — const, line 151
-- `const block = pad.blocks.find((each)` — const, line 155
-- `const extractionId = String(input.extractionId)` — const, line 163
-- `const view = viewFor(extractionId)` — const, line 164
-- `const spanId = String(input.fromSpanId ?? "")` — const, line 165
-- `const block = view?.blocks.find((each)` — const, line 166
-- `const question =` — const, line 175
-- `const question = carried.find((each)` — const, line 182
-- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 206
+- `function harnessDeskState(): DeskStateDto` — function, line 21
+- `const state = fixtureDeskState()` — const, line 22
+- `const extra: Record<string, string> =` — const, line 23
+- `const padId = extra[desk.deskId]` — const, line 25
+- `const INK_PAD_SHOWN = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("inkpad") === "1"` — const, line 41
+- `function harnessPads(): PadViewDto[]` — function, line 43
+- `const at = "2026-11-23T09:00:00Z"` — const, line 44
+- `const empty = (padId: string, deskId: string): PadViewDto` — const, line 45
+- `const server = new FixtureDeskServer(harnessDeskState(), harnessPads())` — const, line 49
+- `const companion = new FixtureCompanion()` — const, line 50
+- `const goal = new FixtureGoal()` — const, line 51
+- `const carried: Array<` — const, line 53
+- `function fixtureProposals(padId: string)` — function, line 60
+- `function fixtureDrain(deskId: string)` — function, line 71
+- `const pads = Object.values(server.pads).filter((pad)` — const, line 72
+- `const words = pad.blocks.map((block)` — const, line 74
+- `const last = words[words.length - 1] ?? ""` — const, line 75
+- `const calls: HarnessCall[] = []` — const, line 79
+- `interface Window` — interface, line 82
+- `function viewFor(id: string)` — function, line 88
+- `const CONTRACT =` — const, line 92
+- `const promotedJobs = new Map<string,` — const, line 109
+- `let promotedJobCount = 0` — let, line 110
+- `function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown>>` — function, line 112
+- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 113
+- `function emptyUnion(spanId: string): Record<string, unknown>` — function, line 119
+- `const pen:` — const, line 124
+- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 126
+- `const view = viewFor(String(input.extractionId))` — const, line 137
+- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 142
+- `const view = viewFor(String(input.extractionId))` — const, line 143
+- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 151
+- `const annotationId = `fx_ann_$` — const, line 160
+- `const applied = server.applyInk(` — const, line 173
+- `const extractionId = String(input.extractionId)` — const, line 205
+- `const bySpan = new Map<string, Array<Record<string, unknown>>>()` — const, line 206
+- `const block = pad.blocks.find((each)` — const, line 210
+- `const extractionId = String(input.extractionId)` — const, line 218
+- `const view = viewFor(extractionId)` — const, line 219
+- `const spanId = String(input.fromSpanId ?? "")` — const, line 220
+- `const block = view?.blocks.find((each)` — const, line 221
+- `const rows = cheapRows(input)` — const, line 228
+- `const jobId = typeof input.spanId === "string" ? `pj_$` — const, line 229
+- `const job = promotedJobs.get(String(input.jobId))` — const, line 234
+- `const paper = FIXTURE_SOURCES.paper` — const, line 239
+- `const job = promotedJobs.get(String(input.jobId))` — const, line 247
+- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 252
+- `const extractionId = typeof input.extractionId === "string" ? input.extractionId : null` — const, line 253
+- `const question =` — const, line 259
+- `const question = carried.find((each)` — const, line 266
+- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 309
 
 ## Who imports or calls it
 
@@ -109,8 +126,9 @@ No live desktop source file directly imports this module. Do not infer dormancy:
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyInput`, `DeskStateDto`, `PadViewDto`
 - [[Reference/Desktop/TypeScript/fixtures/desks/companion|src/fixtures/desks/companion.ts]] — import-or-re-export; imports `FixtureCompanion`
-- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `fixturePads`
-- [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_GUIDES`, `FIXTURE_LIBRARY`, `FIXTURE_VIEWS`, `FIXTURE_WATCH`
+- [[Reference/Desktop/TypeScript/fixtures/desks/goal|src/fixtures/desks/goal.ts]] — import-or-re-export; imports `FixtureGoal`
+- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixtureInkPad`, `fixturePads`
+- [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_GUIDES`, `FIXTURE_LIBRARY`, `FIXTURE_SOURCES`, `FIXTURE_VIEWS`, `FIXTURE_WATCH`
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export; imports `FixtureDeskServer`, `fixtureDeskState`
 
 ### Assets, platform, and third-party dependencies

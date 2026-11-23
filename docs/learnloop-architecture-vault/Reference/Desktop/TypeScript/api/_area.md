@@ -35,9 +35,9 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/api/capture|capture.ts]] | `ACTIVE` | Provides `CaptureDto`, `InboxSummary`, `CaptureMediaDto` within the desktop's TypeScript/api ownership area. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 7 | 131 |
-| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 1 | 245 |
-| [[Reference/Desktop/TypeScript/api/poller|poller.ts]] | `ACTIVE` | Provides `PollResult`, `PollRegistration`, `PollerOptions`, `Poller` and related exports within the desktop's TypeScript/api ownership area. | 0 | 3 |
+| [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 7 | 133 |
+| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 1 | 260 |
+| [[Reference/Desktop/TypeScript/api/poller|poller.ts]] | `ACTIVE` | Provides `PollResult`, `PollRegistration`, `PollerOptions`, `Poller` and related exports within the desktop's TypeScript/api ownership area. | 0 | 7 |
 | [[Reference/Desktop/TypeScript/api/queryCache|queryCache.ts]] | `ACTIVE` | Provides `QueryKey`, `QueryTag`, `QueryState`, `FetchOptions` and related exports within the desktop's TypeScript/api ownership area. | 2 | 14 |
 | [[Reference/Desktop/TypeScript/api/queryTags|queryTags.ts]] | `ACTIVE` | Provides `TAG`, `KnownTag`, `READER_PREFIX`, `readerTag` within the desktop's TypeScript/api ownership area. | 0 | 25 |
 | [[Reference/Desktop/TypeScript/api/sourceKinds|sourceKinds.ts]] | `ACTIVE` | Provides `SOURCE_KINDS`, `SourceCategory`, `SourceKindRow`, `SOURCE_FILE_EXTENSIONS` and related exports within the desktop's TypeScript/api ownership area. | 0 | 4 |

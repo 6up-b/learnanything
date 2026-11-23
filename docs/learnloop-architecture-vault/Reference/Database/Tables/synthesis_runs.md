@@ -25,9 +25,9 @@ source_paths:
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/facet_identity/authority.py"
-  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
+  - "src/learnloop/content/sources/provenance.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -116,10 +116,10 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/facet_identity/authority.py`
-- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/proposals/apply_protocol.py`
 - `src/learnloop/content/sources/provenance.py`
+- `src/learnloop/content/synthesis/jobs.py`
 - `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`

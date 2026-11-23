@@ -150,8 +150,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] — imports `DiagnosticPracticePlan`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `DiagnosticPracticePlan`, `PracticeExpansionError`, `build_diagnostic_practice_plan`, `build_goal_practice_plan`, `build_practice_expansion_plan`, `generate_diagnostic_practice_proposal`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `PracticeExpansionError`, `build_goal_practice_plan`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`, `section_questions_key`; statically calls `build_goal_practice_plan`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`, `section_questions_key`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `PracticeExpansionError`, `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`; statically calls `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `PracticeExpansionError`, `build_goal_practice_plan`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`, `section_questions_key`; statically calls `build_goal_practice_plan`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`, `section_questions_key`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `generate_diagnostic_practice_proposal`; statically calls `generate_diagnostic_practice_proposal`
 - [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `PracticeExpansionError`, `build_practice_expansion_plan`, `topic_questions_key`; statically calls `build_practice_expansion_plan`, `topic_questions_key`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `PracticeExpansionError`, `ability_logit`, `generate_diagnostic_practice_proposal`, `success_band_difficulty`; statically calls `ability_logit`, `generate_diagnostic_practice_proposal`, `success_band_difficulty`
@@ -201,7 +201,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

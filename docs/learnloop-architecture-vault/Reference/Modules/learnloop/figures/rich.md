@@ -174,9 +174,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `RichJobStopped`, `run_rich_job`; statically calls `run_rich_job`
 - [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]] — imports `module`; statically calls `parse_brief`
 - [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `RichBrief`, `job_state`, `rich_job_for`, `rich_job_id_for_quick`, `rich_jobs`, `rich_on_menu`, `runtime_digest`, `tiers_allowed`
+- [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]] — imports `RichJobStopped`, `run_rich_job`; statically calls `run_rich_job`
 - [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`; statically calls `job_state`, `rich_job_for_figure`, `rich_job_for_request`, `rich_jobs`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `RICH_TASK`, `module`; statically calls `job_state`, `rich_job_for_request`, `rich_jobs`
 - [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `module`; statically calls `manim_tier_ready`, `rich_tiers_switch`
@@ -223,7 +223,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

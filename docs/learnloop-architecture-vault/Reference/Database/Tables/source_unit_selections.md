@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/exam_marking.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/import_jobs.py"
   - "src/learnloop/content/pipeline/reread.py"
 tags:
   - "learnloop/database/table"
@@ -109,10 +109,11 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/exam_marking.py`
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/import_jobs.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/content/synthesis/jobs.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
