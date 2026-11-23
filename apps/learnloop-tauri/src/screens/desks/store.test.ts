@@ -220,7 +220,7 @@ describe("pads in the store (RD4b)", () => {
     expect(server.padGet("fx_pad_running").blocks[0]).toMatchObject({ bodyMd: "my edit", headVersionId: "mine1" });
   });
 
-  it("an edit whose head moved elsewhere is rebased on the new head (the other version stays in history); an edit of a block removed elsewhere is dropped and reported", async () => {
+  it("an edit whose head moved elsewhere keeps the newer words and lands as its own marked block; so does an edit of a block removed elsewhere", async () => {
     const server = new FixtureDeskServer();
     const timers = new ManualTimers();
     let interfered = false;
@@ -240,10 +240,18 @@ describe("pads in the store (RD4b)", () => {
     store.commitPad("fx_pad_running", [{ op: "edit_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1", versionId: "mine7", bodyMd: "an edit of a removed block" }]);
     await settle(store, timers);
     const saved = server.padGet("fx_pad_running");
-    expect(saved.blocks.find((block) => block.blockId === "fx_b_r1")).toMatchObject({ bodyMd: "my edit", headVersionId: "mine1" });
+    // The other device's words stay the block's head; mine land right after it, marked as written over them.
+    expect(saved.blocks.find((block) => block.blockId === "fx_b_r1")).toMatchObject({ bodyMd: "their edit", headVersionId: "theirs" });
+    const at = saved.blocks.findIndex((block) => block.blockId === "fx_b_r1");
+    expect(saved.blocks[at + 1]).toMatchObject({ bodyMd: "my edit", provenance: "learner" });
+    expect(saved.blocks[at + 1].payload.conflict).toMatchObject({ of_block_id: "fx_b_r1", expected_head: "fx_b_r1_v1", server_head_version_id: "theirs" });
+    // The removed block stays removed; the words typed into it are kept as their own block.
     expect(saved.blocks.some((block) => block.blockId === "fx_b_r7")).toBe(false);
-    expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r1")?.bodyMd).toBe("my edit");
-    expect(notices).toEqual([{ kind: "conflict", dropped: 0, lost: 1 }]);
+    expect(saved.blocks.some((block) => block.bodyMd === "an edit of a removed block")).toBe(true);
+    // What the learner sees is what was saved.
+    expect(store.pads.fx_pad_running.blocks.map((block) => [block.blockId, block.bodyMd])).toEqual(saved.blocks.map((block) => [block.blockId, block.bodyMd]));
+    // Each edit kept apart is said once, as it lands.
+    expect(notices).toEqual([{ kind: "kept-both", count: 1 }, { kind: "kept-both", count: 1 }]);
   });
 });
 
@@ -326,5 +334,36 @@ describe("reconciling keeps what was queued meanwhile (RD4 review)", () => {
     await settle(store, timers);
     expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("written meanwhile");
     expect(server.padGet("fx_pad_running").blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("written meanwhile");
+  });
+});
+
+describe("the conflict policy (RD4 review)", () => {
+  it("a stale remove is dropped and said, never retried onto the newer words", async () => {
+    const server = new FixtureDeskServer();
+    const timers = new ManualTimers();
+    let interfered = false;
+    const store = new DeskStore("me", {
+      state: async () => server.state(),
+      apply: async (input: DeskApplyInput) => server.apply(input),
+      applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => {
+        if (!interfered) {
+          interfered = true;
+          server.applyPad({ clientId: "other", seq: 1, padId: "fx_pad_running", ops: [{ op: "edit_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1", versionId: "theirs7", bodyMd: "their newer words" }] });
+        }
+        return server.applyPad(input);
+      },
+      padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
+    }, timers);
+    const notices: DeskNotice[] = [];
+    store.onNotice((notice) => notices.push(notice));
+    await store.load();
+    await store.loadPad("fx_pad_running");
+    store.commitPad("fx_pad_running", [{ op: "remove_block", blockId: "fx_b_r7", expectedHead: "fx_b_r7_v1" }]);
+    await settle(store, timers);
+    expect(server.padGet("fx_pad_running").blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("their newer words");
+    expect(store.pads.fx_pad_running.blocks.find((block) => block.blockId === "fx_b_r7")?.bodyMd).toBe("their newer words");
+    // One remove sent, refused, and not sent again.
+    expect(server.padBatches.filter((batch) => batch.clientId === "me").flatMap((batch) => batch.ops).map((op) => op.op)).toEqual(["remove_block"]);
+    expect(notices).toEqual([{ kind: "conflict", dropped: 1, lost: 0 }]);
   });
 });

@@ -547,6 +547,8 @@ export function DeskShell({
     else if (notice.kind === "conflict") {
       const total = notice.dropped + notice.lost;
       if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn't be kept`);
+    } else if (notice.kind === "kept-both") {
+      toastNow(`your words met newer ones written elsewhere · both are kept, yours as ${notice.count === 1 ? "its own block" : "their own blocks"} marked “written over an older version”`);
     } else if (notice.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
     else onError(notice.message);
   }), [store, toastNow, onError]);

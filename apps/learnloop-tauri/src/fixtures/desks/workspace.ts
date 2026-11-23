@@ -99,12 +99,18 @@ export class FixtureDeskServer {
     const now = new Date().toISOString();
     for (const op of input.ops) {
       try {
+        // An edit typed over a moved head keeps both, as the server does: say where its words went.
+        const before = op.op === "edit_block" && op.keepBoth ? this.pads[input.padId]?.blocks.find((block) => block.blockId === op.blockId) : undefined;
+        const keeps = op.op === "edit_block" && op.keepBoth !== undefined && (!before || before.headVersionId !== op.expectedHead);
         this.pads = applyPadOp(this.pads, input.padId, op, now);
         if ("blockId" in op) {
           const head = Object.values(this.pads).flatMap((pad) => pad.blocks).find((block) => block.blockId === op.blockId);
           if (head) heads.push({ blockId: op.blockId, headVersionId: head.headVersionId });
         }
-        results.push({ status: "ok" });
+        if (keeps && op.op === "edit_block" && op.keepBoth) {
+          const kept = this.pads[input.padId].blocks.find((block) => block.blockId === op.keepBoth?.blockId);
+          results.push({ status: "ok", keptBoth: { blockId: op.keepBoth.blockId, headVersionId: kept?.headVersionId ?? "" } });
+        } else results.push({ status: "ok" });
       } catch (error) {
         if (error instanceof PadOpConflict) results.push({ status: "conflict", current: error.current });
         else if (error instanceof PadOpRefusal) results.push({ status: "refused", code: error.code, message: error.message });

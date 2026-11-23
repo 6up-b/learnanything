@@ -98,6 +98,27 @@ function withBlock(state: PadState, block: PadBlockDto): PadState {
   return { ...state, blocks: sortBlocks([...state.blocks.filter((each) => each.blockId !== block.blockId), block]) };
 }
 
+function keepBoth(pads: Pads, padId: string, state: PadState, op: Extract<PadOpDto, { op: "edit_block" }>, head: PadBlockDto | null, now: string): Pads {
+  const keep = op.keepBoth as NonNullable<typeof op.keepBoth>;
+  if (state.blocks.some((block) => block.blockId === keep.blockId)) throw new PadOpRefusal("block_exists", `A block ${keep.blockId} already exists.`);
+  const kind = head?.kind ?? "text";
+  if (!EDITABLE_KINDS.has(kind)) throw new PadOpRefusal("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.");
+  const kept: PadBlockDto = {
+    blockId: keep.blockId,
+    headVersionId: keep.versionId ?? `${keep.blockId}~${now}`,
+    kind,
+    bodyMd: op.bodyMd ?? head?.bodyMd ?? "",
+    payload: { ...(op.payload ?? head?.payload ?? {}), conflict: { of_block_id: op.blockId, expected_head: op.expectedHead, server_head_version_id: head?.headVersionId ?? null, label: keep.label ?? "", at: now } },
+    provenance: kind === "ink" ? "learner_correction" : head?.provenance ?? "learner",
+    positionKey: keyAfter(state.blocks, head ? head.blockId : state.blocks[state.blocks.length - 1]?.blockId ?? null),
+    day: head?.day ?? null,
+    createdAt: now,
+    updatedAt: now,
+    submissions: [],
+  };
+  return replace(pads, padId, withBlock(state, kept));
+}
+
 /** One op on one pad, as the server applies it. `now` stamps what the server would stamp. */
 export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string): Pads {
   if (op.op === "create_pad") {
@@ -128,6 +149,10 @@ export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string)
       return replace(pads, padId, withBlock({ ...state, pad: { ...state.pad, updatedAt: now } }, block));
     }
     case "edit_block": {
+      const current = state.blocks.find((block) => block.blockId === op.blockId);
+      // Typed over a version that is no longer the head (another device's edit, or the block removed there): the
+      // head stays, and these words land as a block of their own right after it, marked as the conflict they are.
+      if (op.keepBoth && (!current || current.headVersionId !== op.expectedHead)) return keepBoth(pads, padId, state, op, current ?? null, now);
       const head = requireHead(state, op.blockId, op.expectedHead);
       if (!EDITABLE_KINDS.has(head.kind)) throw new PadOpRefusal("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.");
       const next: PadBlockDto = {
@@ -188,15 +213,35 @@ export function anchorHead(state: PadState, blockId: string, extractionId: strin
 /** One queued op re-applied on newer pads (after a conflict): the heads it expects stamped from them. Throws
  * PadOpRefusal when it no longer applies there. An edit of a block another device changed meanwhile lands as a
  * newer version on top (the other version stays in the block's history). */
-export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string): { pads: Pads; op: PadOpDto } {
+/** Where a queued edit's words went when the server kept both: the version the client made (the edit's
+ * versionId) → the block and version its words landed in. A later edit typed on top goes on there. */
+export type KeptBothRedirects = Map<string, { blockId: string; versionId: string }>;
+
+/** One queued op re-applied on newer pads (after a conflict, or a reconcile): the server's head is kept. An edit
+ * typed over an older head keeps its expected head and lands as its own block (keepBoth); a stale remove, move or
+ * lift is refused (never retried onto newer words); versions and anchor heads are stamped from the newer pads. */
+export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string, redirects?: KeptBothRedirects): { pads: Pads; op: PadOpDto } {
   const state = pads[padId];
   let stamped: PadOpDto = op;
   if (state) {
     if (op.op === "set_title" || op.op === "keep" || op.op === "unkeep") stamped = { ...op, expectedVersion: state.pad.version };
-    if (op.op === "edit_block" || op.op === "remove_block" || op.op === "move_block" || op.op === "lift_out") {
+    if (op.op === "edit_block") {
+      const moved = redirects?.get(op.expectedHead);
+      // Typed on after an edit whose words were kept apart: it goes on in the block they landed in.
+      if (moved) stamped = { ...op, blockId: moved.blockId, expectedHead: moved.versionId, keepBoth: op.keepBoth };
+      const target = stamped as Extract<PadOpDto, { op: "edit_block" }>;
+      const head = state.blocks.find((block) => block.blockId === target.blockId);
+      if ((!head || head.headVersionId !== target.expectedHead) && !target.keepBoth) throw new PadOpRefusal("stale", "Its block changed elsewhere; the newer words were kept.");
+      if (head && head.headVersionId !== target.expectedHead && target.keepBoth && target.versionId) {
+        redirects?.set(target.versionId, { blockId: target.keepBoth.blockId, versionId: target.keepBoth.versionId ?? target.keepBoth.blockId });
+      } else if (!head && target.keepBoth && target.versionId) {
+        redirects?.set(target.versionId, { blockId: target.keepBoth.blockId, versionId: target.keepBoth.versionId ?? target.keepBoth.blockId });
+      }
+    }
+    if (op.op === "remove_block" || op.op === "move_block" || op.op === "lift_out") {
       const head = state.blocks.find((block) => block.blockId === op.blockId);
       if (!head) throw new PadOpRefusal("block_not_found", "That block was removed.");
-      stamped = { ...op, expectedHead: head.headVersionId };
+      if (head.headVersionId !== op.expectedHead) throw new PadOpRefusal("stale", "Its block changed elsewhere; nothing was done to the newer words.");
     }
     if (op.op === "link_anchor" || op.op === "unlink_anchor") stamped = { ...op, expectedAnchorHead: anchorHead(state, op.blockId, op.extractionId, op.spanId) };
   }

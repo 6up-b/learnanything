@@ -568,3 +568,4 @@
 .desk-companion .history .older { display: block; margin: 8px 0 4px; padding: 0; background: none; border: 0; color: #f0c890; font: 11px var(--desk-mono); cursor: pointer; }
 .desk-companion .history .older:disabled { color: var(--desk-t3); cursor: default; }
 .desk-drain .note.err { color: #e8a0a0; }
+.desk-pads .conflict { display: inline-block; margin-top: 3px; margin-right: 6px; padding: 0 5px; font: 10px var(--desk-mono); color: var(--desk-amber-ink); border: 1px dashed #d8b98f; border-radius: 2px; }
