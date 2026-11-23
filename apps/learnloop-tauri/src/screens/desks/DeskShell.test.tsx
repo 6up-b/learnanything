@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 import type { DeskStateDto, SourceLibraryCard } from "../../api/dto";
 import { FixtureDeskServer, fixtureDeskState } from "../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../fixtures/desks/sources";
-import { DeskShell, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { DeskShell, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "./DeskShell";
+import { Poller } from "../../api/poller";
 import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
 import { useBareAltClear } from "../reader/bareAlt";
 
@@ -229,12 +230,13 @@ describe("the key router", () => {
   it("a chord whose feature comes later is not taken: it goes on to the window", async () => {
     mount();
     await screen.findByTestId("pane-fx_w_book");
-    const c = new KeyboardEvent("keydown", { key: "c", code: "KeyC", bubbles: true, cancelable: true });
+    // `p` (your path) arrives with the goal lens.
+    const p = new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true, cancelable: true });
     act(() => {
-      window.dispatchEvent(c);
+      window.dispatchEvent(p);
     });
-    expect(c.defaultPrevented).toBe(false);
-    expect(heardKeys.fx_w_book).toContain("c");
+    expect(p.defaultPrevented).toBe(false);
+    expect(heardKeys.fx_w_book).toContain("p");
   });
 
   it("Alt held 400 ms shows which-key, and the release reaches no window", async () => {
@@ -1109,5 +1111,317 @@ describe("RD2 fix round: a resize during a zoom (finding 3)", () => {
     expect(shellHas("zooming")).toBe(false);
     const boxes = [...document.querySelectorAll<HTMLElement>("[data-desk-slot]")];
     expect(boxes.every((box) => box.style.transform === "")).toBe(true);
+  });
+});
+
+// -- RD3b: the companion and search ---------------------------------------------------------------------
+
+/** A pane with passages a selection can land in (the windows' own content is mocked away). */
+function PassagePane({ input }: { input: PaneRenderInput }) {
+  const id = input.window.windowId;
+  return (
+    <div data-testid={`pane-${id}`} data-state={input.lifecycle.state}>
+      <p data-span-id={`${id}_s1`}>{`the first passage of ${id}`}</p>
+      <p data-span-id={`${id}_s2`}>{`the second passage of ${id}`}</p>
+    </div>
+  );
+}
+
+function selectIn(windowId: string, span = 1) {
+  const p = document.querySelector(`[data-span-id="${windowId}_s${span}"]`) as HTMLElement;
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  const selection = window.getSelection() as Selection;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function companionFakes() {
+  const reads: string[] = [];
+  let answerNow = false;
+  const transport = {
+    companionAsk: vi.fn(async (input: { requestId: string }) => ({ version: 1, requestId: input.requestId, status: "queued", done: false, partialMd: "", citations: [], streamedPieces: 0, questionEventId: null, kept: false, answer: null, error: null })),
+    companionAskJob: vi.fn(async ({ requestId }: { requestId: string }) => {
+      reads.push(requestId);
+      return answerNow
+        ? { version: 1, requestId, status: "done", done: true, partialMd: "Because the factor cancels.", citations: [], streamedPieces: 0, questionEventId: "q1", kept: false,
+            answer: { eventId: "e1", readerAnswerEventId: "a1", answerMd: "Because the factor cancels.", answerMode: "answer_directly", citations: [{ extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s2", label: "the passage" }], manifest: {}, warmedSurfaceIds: [], burnedSurfaceIds: [], hintEquivalent: false, remaining: null },
+            error: null }
+        : { version: 1, requestId, status: "running", done: false, partialMd: "", citations: [], streamedPieces: 2, questionEventId: null, kept: false, answer: null, error: null };
+    }),
+    companionAskCancel: vi.fn(),
+    companionHistory: vi.fn(async () => ({ version: 1, days: [], cursor: null })),
+    searchEverything: vi.fn(async (input: { query: string }) => ({
+      version: 1, query: input.query,
+      groups: [{ group: "sources", label: "sources in your library", basis: "words", status: "ok", more: false,
+        rows: [{ ref: { kind: "source", sourceId: FIXTURE_SOURCES.paper.sourceId, extractionId: FIXTURE_SOURCES.paper.extractionId }, target: null, sourceId: FIXTURE_SOURCES.paper.sourceId, extractionId: FIXTURE_SOURCES.paper.extractionId, title: "Attention as averaging", readerEnabled: true, openOnDeskIds: [], onThisDesk: false }] }],
+      meaning: { status: "unavailable", jobId: null, unavailable: [{ group: "pads", reason: "no meaning index of pad text" }] },
+    })),
+    searchJob: vi.fn(),
+  };
+  const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+  return { transport, poller, reads, answer: () => { answerNow = true; } };
+}
+
+function mountCompanion(extra: Partial<Parameters<typeof DeskShell>[0]> = {}) {
+  const fakes = companionFakes();
+  const mounted = mount(new FixtureDeskServer(), {
+    renderPane: (input) => <PassagePane input={input} />,
+    companion: fakes.transport as unknown as CompanionTransport,
+    poller: fakes.poller,
+    reducedMotion: false,
+    ...extra,
+  });
+  return { ...mounted, ...fakes };
+}
+
+const panel = () => document.querySelector("[data-desk-companion]") as HTMLElement | null;
+const panelBox = () => {
+  const element = panel();
+  return element ? [element.style.left, element.style.top, element.style.width, element.style.height].join(",") : null;
+};
+
+describe("RD3b: the companion's summon, dissolve and dock (spec §8.3)", () => {
+  it("c with a selection opens it anchored at the selection, with the selection as its chip", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("anchored");
+    expect(panel()?.className).toContain("summon");
+    expect(panel()?.textContent).toContain("asking about");
+    expect(panel()?.textContent).toContain("the first passage of fx_w_book");
+  });
+
+  it("c again dissolves it where it is: it never passes through its dock, then goes", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const anchored = panelBox();
+    press("c", "KeyC");
+    expect(panel()?.className).toContain("leaving-dissolve");
+    expect(panelBox()).toBe(anchored);
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(panel()).toBeNull();
+    expect(document.querySelector("[data-desk-companion-tab]")).not.toBeNull();
+  });
+
+  it("shift+c opens it at its dock; c sends it back to the drawer; the tab reopens it", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("docked");
+    press("c", "KeyC");
+    expect(panel()?.className).toContain("leaving-hide");
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.click(document.querySelector("[data-desk-companion-tab]") as HTMLElement);
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("docked");
+  });
+
+  it("a docked companion never moves when the learner pans, reorders, pairs, gathers or switches desks", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    const docked = panelBox();
+    alt("KeyL", "l");
+    expect(panelBox()).toBe(docked);
+    alt("BracketRight", "]");
+    expect(panelBox()).toBe(docked);
+    alt("Comma", ",");
+    expect(panelBox()).toBe(docked);
+    alt("Period", ".");
+    alt("KeyG", "g");
+    expect(panelBox()).toBe(docked);
+    alt("KeyJ", "j");
+    await screen.findByTestId("pane-fx_w_video2");
+    expect(panelBox()).toBe(docked);
+    act(() => {
+      document.querySelector("[data-desk-stage]")?.dispatchEvent(new Event("scroll"));
+    });
+    expect(panelBox()).toBe(docked);
+  });
+
+  it("an anchored companion hands off to its dock when the view moves", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("anchored");
+    // The focus moving to the window beside, already in view, moves no view: it stays anchored.
+    alt("KeyL", "l");
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("anchored");
+    // The next one is off screen: the strip pans, and the companion goes to its dock.
+    alt("KeyL", "l");
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("docked");
+  });
+
+  it("an anchored companion hands off when its text scrolls away, but not in its first 250 ms", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const scroll = () => act(() => {
+      document.querySelector('[data-span-id="fx_w_book_s1"]')?.dispatchEvent(new Event("scroll", { bubbles: false }));
+    });
+    scroll();
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("anchored");
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    scroll();
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("docked");
+  });
+
+  it("the overview shows it as the pill", async () => {
+    mountCompanion({ reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    alt("KeyO", "o");
+    expect(document.querySelector("[data-desk-companion-pill]")?.className).toContain("on");
+  });
+});
+
+describe("RD3b: asking (the job contract through the poller)", () => {
+  it("Enter asks about the selection at once; the answer comes through the poller; a claim opens beside", async () => {
+    const { transport, poller, answer, server } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book", 1);
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "why does it cancel?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(panel()?.textContent).toContain("why does it cancel?");
+    expect(panel()?.querySelector('[data-exchange-status="asking"]')).not.toBeNull();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(transport.companionAsk).toHaveBeenCalledWith(expect.objectContaining({ surface: "desk", deskId: "fx_desk_softmax", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", question: "why does it cancel?", selectionQuote: "the first passage of fx_w_book" }));
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(panel()?.textContent).toContain("2 pieces so far");
+    answer();
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(panel()?.querySelector('[data-exchange-status="answered"]')?.textContent).toContain("Because the factor cancels.");
+    fireEvent.click(screen.getByRole("button", { name: /§ the passage/ }));
+    await flush();
+    // The cited passage's source is the book, already on the desk: it takes the focus (no second window).
+    expect(server.state().desks[0].focusWindowId).toBe("fx_w_book");
+  });
+
+  it("a question from a window whose desk is left is not read until the learner comes back (paused windows ask nothing)", async () => {
+    const { poller, reads } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book");
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "a question" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    alt("KeyJ", "j");
+    await screen.findByTestId("pane-fx_w_video2");
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads).toEqual([]);
+    alt("KeyK", "k");
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(reads.length).toBe(1);
+  });
+
+  it("typing in the companion's input: a bare c stays in the field, alt+c still hides it", async () => {
+    mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    press("C", "KeyC", { shiftKey: true });
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    act(() => input.focus());
+    act(() => {
+      fireEvent.keyDown(input, { key: "c", code: "KeyC" });
+    });
+    expect(panel()?.getAttribute("data-companion-mode")).toBe("docked");
+    alt("KeyC", "c", {}, input);
+    expect(panel()?.className).toContain("leaving-hide");
+  });
+});
+
+describe("RD3b: search in context (spec §9.3)", () => {
+  it("/ opens it; while it is open its keys are its own: x swaps nothing and alt+l moves no focus", async () => {
+    const { server } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    press("/", "Slash");
+    expect(screen.getByRole("dialog", { name: "search in context" })).toBeTruthy();
+    act(() => {
+      fireEvent.keyDown(window, { key: "x", code: "KeyX" });
+    });
+    alt("KeyL", "l");
+    await flush();
+    expect(server.batches).toEqual([]);
+    expect(state("fx_w_book")).toBe("active");
+  });
+
+  it("words come back grouped, with open on this desk first; ↓ and ↵ open the chosen result, or go to it where it is open", async () => {
+    const { server, transport } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    press("/", "Slash");
+    const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+    fireEvent.change(input, { target: { value: "att" } });
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
+    expect(transport.searchEverything).toHaveBeenCalledWith({ query: "att", deskId: "fx_desk_softmax" });
+    const groups = [...document.querySelectorAll("[data-search-group]")].map((group) => group.getAttribute("data-search-group"));
+    expect(groups[0]).toBe("open");
+    expect(groups).toContain("sources");
+    expect(document.querySelector(".desk-search-foot")?.textContent).toContain("no meaning index of pad text");
+    // The first row is the open window; ↓ to the library's source, ↵ opens it beside.
+    const openRows = document.querySelectorAll('[data-search-group="open"] [data-search-row]').length;
+    for (let i = 0; i < openRows; i += 1) fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await flush();
+    // The paper is already on this desk: it takes the focus, and no second window opens.
+    expect(server.batches.flatMap((batch) => batch.ops).some((op) => op.op === "open_window")).toBe(false);
+    expect(server.state().desks[0].focusWindowId).toBe("fx_w_paper");
+  });
+
+  it("a result not on the desk opens beside the focus", async () => {
+    const { server, transport } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    transport.searchEverything.mockResolvedValueOnce({
+      version: 1, query: "masks",
+      groups: [{ group: "sources", label: "sources in your library", basis: "words", status: "ok", more: false,
+        rows: [{ ref: { kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId, extractionId: FIXTURE_SOURCES.video2.extractionId }, target: null, sourceId: FIXTURE_SOURCES.video2.sourceId, extractionId: FIXTURE_SOURCES.video2.extractionId, title: "Masks", readerEnabled: true, openOnDeskIds: ["fx_desk_attention"], onThisDesk: false }] }],
+      meaning: { status: "unavailable", jobId: null, unavailable: [] },
+    } as never);
+    press("/", "Slash");
+    const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+    fireEvent.change(input, { target: { value: "masks" } });
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await flush();
+    const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
+    expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId });
+  });
+
+  it("esc closes it", async () => {
+    mountCompanion({ reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    press("/", "Slash");
+    fireEvent.keyDown(screen.getByLabelText("search every source, note, pad, thread and past exchange"), { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "search in context" })).toBeNull();
   });
 });

@@ -570,6 +570,20 @@ export function renameDesk(ws: Workspace, deskId: string, title: string): Step {
   return push(start(ws), { op: "rename_desk", deskId, title });
 }
 
+/** The companion's dock on this desk, remembered there (spec §8.2). */
+export function setCompanionDock(ws: Workspace, deskId: string, dock: Desk["companion"]["dock"]): Step {
+  const desk = requireDesk(ws, deskId);
+  if (desk.companion.dock === dock) return start(ws);
+  return push(start(ws), { op: "set_dock", deskId, dock });
+}
+
+/** Whether the companion shows on this desk, remembered there for the next time the desks open. */
+export function setCompanionShown(ws: Workspace, deskId: string, shown: boolean): Step {
+  const desk = requireDesk(ws, deskId);
+  if (desk.companion.shown === shown) return start(ws);
+  return push(start(ws), { op: "set_companion_shown", deskId, shown });
+}
+
 export function setView(ws: Workspace, deskId: string, windowId: string, view: Record<string, unknown>): Step {
   const desk = requireDesk(ws, deskId);
   if (slotIndexOf(desk, windowId) < 0) return start(ws);
