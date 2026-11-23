@@ -200,7 +200,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 72 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 35 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 36 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
 
@@ -281,7 +281,7 @@ flowchart LR
     n_learnloop -->|9| center
     center -->|72| n_learnloop
     n_learnloop_db -->|27| center
-    center -->|35| n_learnloop_db
+    center -->|36| n_learnloop_db
     n_learnloop_source_retrieval -->|54| center
     n_learnloop_adaptive_difficulty -->|28| center
     n_learnloop_sidecar_handlers -->|27| center

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py) |
-| Source lines | 908 |
+| Source lines | 939 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,42 +60,42 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `required_facets(vault: LoadedVault, learning_object_id: str, repository: Repository | None=None) -> set[str]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 48) — Facets the LO's ACTIVE authored practice items actually measure.
 - `scope_facets(vault: LoadedVault, learning_object_id: str, repository: Repository | None=None) -> set[str]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 73) — Facets an LO is RESPONSIBLE for: blueprint declarations ∪ measured facets.
 - `coverage_denominator_version(vault: LoadedVault, repository: Repository | None=None) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 123) — The version stamped on a rebuild: semantics tag + effective-frontier hash.
-- `contract_frontier(vault: LoadedVault, learning_object_id: str, repository: Repository | None=None) -> tuple[set[tuple[str, str]], bool]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 172) — The ``(facet, capability)`` cells this LO's contract actually requires.
-- `class LoCoverageReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 230) — What :func:`lo_relative_coverage` reads, keyed by the learning object alone.
-- `read_lo_coverage(vault: LoadedVault, repository: Repository, learning_object_id: str) -> LoCoverageReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 240)
-- `lo_relative_coverage(vault: LoadedVault, repository: Repository, *, learning_object_id: str, normalized_facet_weights: Mapping[str, float], effective_item_coverage: float) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 251)
-- `lo_relative_coverage_from(reads: LoCoverageReads, config: Any, *, normalized_facet_weights: Mapping[str, float], effective_item_coverage: float) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 267) — The item's coverage of the learning object's measured facets; ``config`` is ``recall_coverage``.
-- `covered_required_fraction(vault: LoadedVault, repository: Repository, *, learning_object_id: str, aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None=None, inferred_cells: Mapping[tuple[str, str], float] | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 313) — Fraction of the contract frontier that carries evidence (§5.2).
-- `class BreadthReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 353) — What :func:`covered_required_fraction` reads, keyed by the learning object alone: the contract frontier, then either each frontier facet's capability evidence (an authored frontier) or the item-derived facets and the LO's facet recall states (``None`` where the branch read nothi…
-- `read_breadth(vault: LoadedVault, repository: Repository, learning_object_id: str) -> BreadthReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 365)
-- `covered_required_fraction_from(reads: BreadthReads, config: Any, *, aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None=None, inferred_cells: Mapping[tuple[str, str], float] | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 387) — :func:`covered_required_fraction` over what it read; ``config`` is ``recall_coverage``.
-- `variance_floor(config: LearnLoopConfig, covered_fraction: float) -> float` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 506)
-- `apply_mastery_variance_floor(state: MasteryState, config: LearnLoopConfig, *, covered_fraction: float) -> tuple[MasteryState, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 514)
-- `build_facet_uncertainty_updates(config: LearnLoopConfig, *, error_types: Mapping[str, Any], learning_object: Any, item: PracticeItem, rubric: Rubric, learning_object_id: str, attempt_id: str, facet_outcomes: Mapping[str, float], normalized_facet_weights: Mapping[str, float], evidence_rows: Iterable[Mapping[str, Any] | Any], error_attributions: Iterable[Any], prior_uncertainties: Mapping[str, FacetUncertaintyState | None], prior_facet_recall: Mapping[str, FacetRecallState | None], observed_error_type: str | None, algorithm_version: str, now_iso: str, criterion_facet_weights: Mapping[str, Mapping[str, float]] | None=None) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 526) — ``criterion_facet_weights``: the criterion -> facet map ``facet_outcomes`` was derived with, which a hedged criterion's facets come from too; None keeps the item's own map.
-- `facet_state_label(facet_id: str, uncertainty: FacetUncertaintyState | None, recall: FacetRecallState | None, min_evidence_mass: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 630) — Diagnostic bucket for one required facet.
-- `unresolved_question_facet_counts(vault: LoadedVault, repository: Repository, learning_object_id: str, *, recall_states: Mapping[str, FacetRecallState] | None=None, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 668) — Recent unresolved tutor questions per facet for one LO.
-- `mastery_diagnostic_view(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 719)
-- `facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 885) — The score bucket the facet updater observes for one facet's outcome.
+- `contract_frontier(vault: LoadedVault, learning_object_id: str, repository: Repository | None=None, *, required: Collection[str] | None=None) -> tuple[set[tuple[str, str]], bool]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 172) — The ``(facet, capability)`` cells this LO's contract actually requires.
+- `class LoCoverageReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 235) — What :func:`lo_relative_coverage` reads, keyed by the learning object alone.
+- `read_lo_coverage(vault: LoadedVault, repository: Repository, learning_object_id: str, *, required: Collection[str] | None=None, canonical: bool=False) -> LoCoverageReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 248) — ``required``: the learning object's required facets, when the caller already read them; otherwise :func:`required_facets` now.
+- `lo_relative_coverage(vault: LoadedVault, repository: Repository, *, learning_object_id: str, normalized_facet_weights: Mapping[str, float], effective_item_coverage: float) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 270)
+- `lo_relative_coverage_from(reads: LoCoverageReads, config: Any, *, normalized_facet_weights: Mapping[str, float], effective_item_coverage: float) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 286) — The item's coverage of the learning object's measured facets; ``config`` is ``recall_coverage``.
+- `covered_required_fraction(vault: LoadedVault, repository: Repository, *, learning_object_id: str, aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None=None, inferred_cells: Mapping[tuple[str, str], float] | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 334) — Fraction of the contract frontier that carries evidence (§5.2).
+- `class BreadthReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 374) — What :func:`covered_required_fraction` reads, keyed by the learning object alone: the contract frontier, then either each frontier facet's capability evidence (an authored frontier) or the item-derived facets and the LO's facet recall states (``None`` where the branch read nothi…
+- `read_breadth(vault: LoadedVault, repository: Repository, learning_object_id: str, *, required: Collection[str] | None=None) -> BreadthReads` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 386) — ``required``: the learning object's required facets, when the caller already read them (the item-derived branch and the frontier's legacy fallback read it); otherwise :func:`required_facets` now.
+- `covered_required_fraction_from(reads: BreadthReads, config: Any, *, aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None=None, inferred_cells: Mapping[tuple[str, str], float] | None=None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 418) — :func:`covered_required_fraction` over what it read; ``config`` is ``recall_coverage``.
+- `variance_floor(config: LearnLoopConfig, covered_fraction: float) -> float` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 537)
+- `apply_mastery_variance_floor(state: MasteryState, config: LearnLoopConfig, *, covered_fraction: float) -> tuple[MasteryState, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 545)
+- `build_facet_uncertainty_updates(config: LearnLoopConfig, *, error_types: Mapping[str, Any], learning_object: Any, item: PracticeItem, rubric: Rubric, learning_object_id: str, attempt_id: str, facet_outcomes: Mapping[str, float], normalized_facet_weights: Mapping[str, float], evidence_rows: Iterable[Mapping[str, Any] | Any], error_attributions: Iterable[Any], prior_uncertainties: Mapping[str, FacetUncertaintyState | None], prior_facet_recall: Mapping[str, FacetRecallState | None], observed_error_type: str | None, algorithm_version: str, now_iso: str, criterion_facet_weights: Mapping[str, Mapping[str, float]] | None=None) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 557) — ``criterion_facet_weights``: the criterion -> facet map ``facet_outcomes`` was derived with, which a hedged criterion's facets come from too; None keeps the item's own map.
+- `facet_state_label(facet_id: str, uncertainty: FacetUncertaintyState | None, recall: FacetRecallState | None, min_evidence_mass: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 661) — Diagnostic bucket for one required facet.
+- `unresolved_question_facet_counts(vault: LoadedVault, repository: Repository, learning_object_id: str, *, recall_states: Mapping[str, FacetRecallState] | None=None, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 699) — Recent unresolved tutor questions per facet for one LO.
+- `mastery_diagnostic_view(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 750)
+- `facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 916) — The score bucket the facet updater observes for one facet's outcome.
 
 ### Module constants
 
 - `INFERRED_CELL_COVERAGE_DISCOUNT` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 111)
 - `COVERAGE_DENOMINATOR_SEMANTICS` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 117)
 - `COVERAGE_DENOMINATOR_VERSION` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 120)
-- `_QUESTION_BUMP_WINDOW_DAYS` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 664)
-- `_QUESTION_BUMP_MAX_COUNT` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 665)
+- `_QUESTION_BUMP_WINDOW_DAYS` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 695)
+- `_QUESTION_BUMP_MAX_COUNT` ([src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 696)
 
 ## Internal implementation anchors
 
-- `_covered_frontier_fraction(cell_evidence: Mapping[str, list[Any]], config: Any, *, frontier: set[tuple[str, str]], inferred_cells: Mapping[tuple[str, str], float] | None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 442) — Per-cell coverage over the contract frontier; ``cell_evidence`` holds each frontier facet's capability rows.
-- `_open_reason(outcome: float, *, hedged: bool, prior_recall: FacetRecallState | None, config: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 791)
-- `_facet_uncertainty_id(learning_object_id: str, facet_id: str) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 809)
-- `_initial_hypothesis_marginal(error_types: Mapping[str, Any], learning_object: Any, facet_id: str, error_attributions: Iterable[Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 815)
-- `_attribution_targets_facet(error_types: Mapping[str, Any], learning_object: Any, attribution: Any, facet_id: str) -> bool` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 837)
-- `_hedged_facets(evidence_rows: Iterable[Mapping[str, Any] | Any], criterion_facets: Mapping[str, Mapping[str, float]], item_facets: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 852)
-- `_row_value(row: Mapping[str, Any] | Any, key: str) -> Any` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 871)
-- `_facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 877)
-- `_raise_entropy_floor(distribution: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 895)
+- `_covered_frontier_fraction(cell_evidence: Mapping[str, list[Any]], config: Any, *, frontier: set[tuple[str, str]], inferred_cells: Mapping[tuple[str, str], float] | None) -> tuple[float, dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 473) — Per-cell coverage over the contract frontier; ``cell_evidence`` holds each frontier facet's capability rows.
+- `_open_reason(outcome: float, *, hedged: bool, prior_recall: FacetRecallState | None, config: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 822)
+- `_facet_uncertainty_id(learning_object_id: str, facet_id: str) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 840)
+- `_initial_hypothesis_marginal(error_types: Mapping[str, Any], learning_object: Any, facet_id: str, error_attributions: Iterable[Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 846)
+- `_attribution_targets_facet(error_types: Mapping[str, Any], learning_object: Any, attribution: Any, facet_id: str) -> bool` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 868)
+- `_hedged_facets(evidence_rows: Iterable[Mapping[str, Any] | Any], criterion_facets: Mapping[str, Mapping[str, float]], item_facets: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 883)
+- `_row_value(row: Mapping[str, Any] | Any, key: str) -> Any` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 902)
+- `_facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 908)
+- `_raise_entropy_floor(distribution: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 926)
 
 ## Who imports or calls it
 
@@ -103,6 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `BreadthReads`, `LoCoverageReads`, `apply_mastery_variance_floor`, `build_facet_uncertainty_updates`, `covered_required_fraction_from`, `lo_relative_coverage_from`, `read_breadth`, `read_lo_coverage`; statically calls `apply_mastery_variance_floor`, `build_facet_uncertainty_updates`, `covered_required_fraction_from`, `lo_relative_coverage_from`, `read_breadth`, `read_lo_coverage`
+- [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]] — imports `required_facets`; statically calls `required_facets`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `scope_facets`; statically calls `scope_facets`
@@ -159,7 +160,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 21 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] and 22 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -191,6 +192,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scope_facets_unions_rather_than_replaces`
 - [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
+- [tests/test_rebuild_closed_row_answer.py](../../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
+  - `test_at_the_tag_relative_coverage_sums_the_facets_in_their_sorted_order`
 - [tests/test_tutor_qa.py](../../../../../../tests/test_tutor_qa.py) — direct import
   - `test_question_raises_diagnostic_uncertainty_read_side`
 

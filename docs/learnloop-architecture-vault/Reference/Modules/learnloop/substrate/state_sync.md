@@ -367,6 +367,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_r2_the_as_of_curve_ignores_gradings_recorded_after_the_cutoff`
 - [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — direct import
 - [tests/test_rebuild_closed_row_answer.py](../../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
+  - `test_a_sibling_removed_from_the_vault_between_answers_rebuilds_to_live`
   - `test_a_sibling_retired_after_the_last_answer_rebuilds_to_live`
   - `test_an_answer_after_a_sibling_was_retired_rebuilds_to_live`
 - [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import

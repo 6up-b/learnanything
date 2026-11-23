@@ -2667,8 +2667,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_never_reads_the_switch`
   - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
 - [tests/test_rebuild_closed_row_answer.py](../../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
+  - `test_a_regrade_reuses_the_original_capture`
+  - `test_a_sibling_removed_from_the_vault_between_answers_rebuilds_to_live`
   - `test_a_sibling_retired_after_the_last_answer_rebuilds_to_live`
   - `test_an_answer_after_a_sibling_was_retired_rebuilds_to_live`
+  - `test_an_attempt_applied_at_the_tag_without_its_capture_refuses_to_replay`
+  - `test_an_attempted_sibling_closed_between_answers_rebuilds_to_live`
+  - `test_below_the_tag_nothing_is_recorded_and_replay_reads_todays_flags`
+  - `test_each_answer_records_the_set_it_read_and_coverage_and_breadth_both_count_it`
+  - `test_the_upgrade_freezes_the_predecessors_reading_then_new_answers_capture_their_own`
 - [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
   - `test_a_full_sync_after_a_rebuild_keeps_retired_items_retired`
   - `test_a_retired_item_stays_inactive_through_a_primary_load_and_a_rebuild`

@@ -47,21 +47,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py) |
-| Source lines | 729 |
+| Source lines | 732 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 720) — A column's class.
+- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 723) — A column's class.
 
 ### Module constants
 
 - `METADATA` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 26)
 - `CONTENT` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 27)
 - `_CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 30)
-- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 713)
+- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 716)
 
 ### Explicit exports
 
@@ -109,6 +109,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ad_protected_tables.py](../../../../../../tests/test_ad_protected_tables.py) — direct import
   - `test_every_column_of_every_readable_table_is_metadata_or_content`
+- [tests/test_attempt_lifecycle_inputs_migration.py](../../../../../../tests/test_attempt_lifecycle_inputs_migration.py) — direct import
+  - `test_the_table_is_a_raw_ledger_denied_to_adaptive_difficulty`
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
   - `test_nothing_in_adaptive_difficulty_reads_active_seconds_or_the_cue`
 - [tests/test_ro2_history_migration.py](../../../../../../tests/test_ro2_history_migration.py) — direct import
