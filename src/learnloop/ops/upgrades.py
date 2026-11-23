@@ -39,6 +39,7 @@ from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
+    PAD_TEXT_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -252,6 +253,9 @@ UPGRADES: tuple[Link, ...] = (
     # derives moves wherever a claim that does not re-anchor was made after a learning object was materialized. The
     # learning objects materialized before the upgrade get the predecessor's seed first, labelled a reconstruction.
     Link(MASTERY_SEED_ALGORITHM_VERSION, legacy_mastery_seeds_then_rebuild),
+    # A scratchpad's committed words are learner text: only blocks committed from the upgrade on are emitted (the
+    # pads' own sweep then queues the words standing at the upgrade), and nothing already derived reads a pad.
+    Link(PAD_TEXT_ALGORITHM_VERSION, idempotent_projection),
 )
 
 
