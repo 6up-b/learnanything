@@ -21,9 +21,9 @@ import {
 const stage = { width: 1364, height: 896 };
 
 describe("slots", () => {
-  it("two uniform slots and their gap fill the stage inside the side margins, less the mockup's 10 px on the right", () => {
+  it("two uniform slots and their gap fill the stage inside the side margins", () => {
     const w = slotWidth(stage);
-    expect(2 * w + DESK_SIZES.gap + 2 * DESK_SIZES.side + DESK_SIZES.trailing).toBe(stage.width);
+    expect(2 * w + DESK_SIZES.gap + 2 * DESK_SIZES.side).toBe(stage.width);
     const rects = slotRects(3, stage);
     expect(rects[0]).toEqual({ x: 34, y: 8, w, h: stage.height - 16 });
     expect(rects[1].x - (rects[0].x + rects[0].w)).toBe(DESK_SIZES.gap);
