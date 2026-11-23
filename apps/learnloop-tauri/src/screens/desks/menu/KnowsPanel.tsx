@@ -21,16 +21,27 @@ function day(at: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? "" : ` · ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
 }
 
-export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions): Array<{ title: string; rows: Array<{ text: string; open?: () => void }> }> {
+/** A note linked beside the passage (the learner's own, from their notes): its line and title. */
+interface LinkedNote {
+  linkId?: string;
+  line?: string;
+  note?: { title?: string; text?: string };
+}
+
+export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions, at?: { extractionId: string; spanId: string }): Array<{ title: string; rows: Array<{ text: string; open?: () => void }> }> {
+  // What lives on the passage itself (a highlight, a figure, a written question) opens the passage, where it shows.
+  const openHere = at ? () => actions.openPassage(at.extractionId, at.spanId) : undefined;
   const groups: Array<{ title: string; rows: Array<{ text: string; open?: () => void }> }> = [
     { title: "your questions to the tutor", rows: place.exchanges.map((each) => ({ text: `? ${each.questionMd} · ${each.quality.replace(/_/g, " ")}${quality(each.alias)}${day(each.createdAt)}`, open: () => actions.openThread(each.questionEventId) })) },
+    { title: "questions that moved what LearnLoop thinks of you", rows: place.adjustments.map((each) => ({ text: "? a question of yours here changed a reading of your words", open: () => actions.openThread(each.questionEventId) })) },
     { title: "your pads", rows: place.padBlocks.map((each) => ({ text: `› a ${each.kind.replace(/_/g, " ")} line${quality(each.alias)}${day(each.createdAt)}`, open: () => actions.openPadBlock(each.padId, each.liftedFromBlockId ? each.blockId : each.blockId) })) },
-    { title: "your highlights and notes", rows: place.annotations.map((each) => ({ text: `› ${each.type}${each.learnerText ? ` · ${each.learnerText}` : ""}${day(each.createdAt)}` })) },
+    { title: "your highlights and notes", rows: place.annotations.map((each) => ({ text: `› ${each.type}${each.learnerText ? ` · ${each.learnerText}` : ""}${day(each.createdAt)}`, open: openHere })) },
+    { title: "your notes linked here", rows: (place.notes as LinkedNote[]).map((each) => ({ text: `› ${each.line || each.note?.title || "a note of yours"}${each.note?.text ? ` · ${each.note.text.slice(0, 80)}` : ""}` })) },
     { title: "what LearnLoop read in your words", rows: place.gaps.map((each) => ({ text: `◇ a ${each.kind.replace(/_/g, " ")} (${each.sourceKind.replace(/_/g, " ")}) · ${each.quality.replace(/_/g, " ")}${quality(each.alias)}${day(each.createdAt)}` })) },
     { title: "carried", rows: place.carried.map((each) => ({ text: `◌ ${each.text}${day(each.since)}` })) },
     { title: "linked passages", rows: place.passageLinks.map((each) => ({ text: `§ ${each.relation.replace(/_/g, " ")}${each.quote ? ` · “${each.quote.slice(0, 80)}”` : ""}${quality(each.alias)}` })) },
-    { title: "figures", rows: place.figures.map((each) => ({ text: `◇ a figure · ${each.verification.replace(/_/g, " ")}${day(each.createdAt)}` })) },
-    { title: "questions written for this passage", rows: place.authoredQuestions.map((each) => ({ text: `? ${each.questionMd} · ${each.status}` })) },
+    { title: "figures", rows: place.figures.map((each) => ({ text: `◇ a figure · ${each.verification.replace(/_/g, " ")}${day(each.createdAt)}`, open: openHere })) },
+    { title: "questions written for this passage", rows: place.authoredQuestions.map((each) => ({ text: `? ${each.questionMd} · ${each.status}`, open: openHere })) },
     { title: "checks", rows: place.checksDue.length ? [{ text: "a check is due before this passage (nothing of it shows until it opens)" }] : [] },
   ];
   return groups.filter((group) => group.rows.length);
@@ -62,7 +73,7 @@ export function KnowsPanel({ object, load, actions, onClose }: {
       {found === null && !failure ? <div className="note">◐ reading it…</div> : null}
       {found?.places.length === 0 ? <div className="note">nothing here yet</div> : null}
       {found?.places.map((place) => {
-        const groups = knowsGroups(place.knows, actions);
+        const groups = knowsGroups(place.knows, actions, { extractionId: place.extractionId, spanId: place.spanId });
         return (
           <div key={`${place.extractionId}:${place.spanId}`} className="place" data-knows-place={place.spanId}>
             <button type="button" className="ph" onClick={() => actions.openPassage(place.extractionId, place.spanId)}>

@@ -54,4 +54,23 @@ describe("What this knows", () => {
     expect(document.activeElement).toBe(before);
     before.remove();
   });
+
+  it("shows the adjustments and the notes linked here, and opens what lives on the passage there", async () => {
+    const openThread = vi.fn();
+    const openPassage = vi.fn();
+    const read = { objectKey: "k", sourceIds: [], places: [{ extractionId: "e", spanId: "s1", role: null, knows: span({
+      adjustments: [{ questionEventId: "q7", gapId: "g1" }],
+      annotations: [{ annotationId: "a1", type: "highlight", learnerText: "", placement: "exact" }],
+      figures: [{ figureId: "f1", tier: "sketch", verification: "checked", createdAt: "2026-11-20T10:00:00Z", alias: "exact" }],
+      notes: [{ linkId: "l1", line: "your note from 3 Oct", note: { title: "softmax", text: "the exponent keeps order" } }],
+    }) }] } as unknown as PassageKnowsDto;
+    render(<KnowsPanel object={{ objectKind: "passage", extractionId: "e", spanId: "s1" }} load={async () => read} actions={{ openThread, openPadBlock: vi.fn(), openPassage }} onClose={() => undefined} />);
+    fireEvent.click(await screen.findByText(/changed a reading of your words/));
+    expect(openThread).toHaveBeenCalledWith("q7");
+    expect(screen.getByText(/your note from 3 Oct · the exponent keeps order/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/› highlight/));
+    fireEvent.click(screen.getByText(/◇ a figure · checked/));
+    expect(openPassage).toHaveBeenCalledTimes(2);
+    expect(openPassage).toHaveBeenLastCalledWith("e", "s1");
+  });
 });
