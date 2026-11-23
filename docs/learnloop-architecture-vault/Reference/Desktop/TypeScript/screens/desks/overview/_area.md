@@ -35,7 +35,7 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/desks/overview/Card|Card.tsx]] | `ACTIVE` | Implements the `Card` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/overview/controller|controller.ts]] | `ACTIVE` | Provides `SlotElements`, `ZoomPlan`, `ZoomTargets`, `FrameClock` and related exports within the desktop's TypeScript/screens/desks/overview ownership area. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/overview/controller|controller.ts]] | `ACTIVE` | Provides `SlotElements`, `ZoomPlan`, `ZoomTargets`, `FrameClock` and related exports within the desktop's TypeScript/screens/desks/overview ownership area. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/overview/engine|engine.ts]] | `ACTIVE` | Provides `OVERVIEW`, `Camera`, `IDENTITY`, `OverviewLayout` and related exports within the desktop's TypeScript/screens/desks/overview ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/screens/desks/overview/links|links.ts]] | `ACTIVE` | Provides `Relation`, `DRAWN_RELATIONS`, `openedBeside`, `relationsOf` and related exports within the desktop's TypeScript/screens/desks/overview ownership area. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/screens/desks/overview/miniature|miniature.ts]] | `ACTIVE` | Provides `cloneForMiniature`, `MiniatureBook` within the desktop's TypeScript/screens/desks/overview ownership area. | 0 | 1 |

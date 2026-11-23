@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/guidePlan.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/guidePlan.ts) |
-| Source lines | 100 |
+| Source lines | 104 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,26 +54,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const GUIDE_DIAGNOSIS_POLL_MS = 4_000` — const, line 19
-- `export const GUIDE_DIAGNOSIS_POLL_MAX_MS = 60_000` — const, line 21
-- `export function guidePlanKey(extractionId: string): QueryKey` — function, line 31
-- `export function pendingDiagnoses(plan: ReaderGuidePlanDto | null | undefined): readonly string[]` — function, line 36
-- `export function readGuidePlan( sourceId: string, extractionId: string, options:` — function, line 45
-- `export function useGuideDiagnosisRefresh( source:` — function, line 65
+- `export const GUIDE_DIAGNOSIS_POLL_MS = 4_000` — const, line 20
+- `export const GUIDE_DIAGNOSIS_POLL_MAX_MS = 60_000` — const, line 22
+- `export function guidePlanKey(extractionId: string): QueryKey` — function, line 32
+- `export function pendingDiagnoses(plan: ReaderGuidePlanDto | null | undefined): readonly string[]` — function, line 37
+- `export function readGuidePlan( sourceId: string, extractionId: string, options:` — function, line 46
+- `export function useGuideDiagnosisRefresh( source:` — function, line 66
 
 ## Internal implementation anchors
 
-- `const GUIDE_PLAN_STATE_TAGS = [TAG.graph, TAG.goals, TAG.errors] as const` — const, line 29
-- `const key = guidePlanKey(extractionId)` — const, line 50
-- `const waiting = pendingDiagnoses(peek<ReaderGuidePlanDto>(key).data).length > 0` — const, line 51
-- `const sourceId = source?.sourceId ?? null` — const, line 70
-- `const extractionId = source?.extractionId ?? null` — const, line 71
-- `const waitingOn = plan !== null && plan.extractionId === extractionId ? pendingDiagnoses(plan).join("\n") : ""` — const, line 72
-- `const onPlanRef = useRef(onPlan)` — const, line 73
-- `let cancelled = false` — let, line 78
-- `let delay = GUIDE_DIAGNOSIS_POLL_MS` — let, line 79
-- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 80
-- `const poll = ()` — const, line 81
+- `const GUIDE_PLAN_STATE_TAGS = [TAG.graph, TAG.goals, TAG.errors] as const` — const, line 30
+- `const key = guidePlanKey(extractionId)` — const, line 51
+- `const waiting = pendingDiagnoses(peek<ReaderGuidePlanDto>(key).data).length > 0` — const, line 52
+- `const sourceId = source?.sourceId ?? null` — const, line 71
+- `const extractionId = source?.extractionId ?? null` — const, line 72
+- `const waitingOn = plan !== null && plan.extractionId === extractionId ? pendingDiagnoses(plan).join("\n") : ""` — const, line 73
+- `const onPlanRef = useRef(onPlan)` — const, line 74
+- `const whenLive = useWhenLive()` — const, line 76
+- `let cancelled = false` — let, line 80
+- `let delay = GUIDE_DIAGNOSIS_POLL_MS` — let, line 81
+- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 82
+- `const poll = ()` — const, line 83
 
 ## Who imports or calls it
 
@@ -92,6 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderGuidePlanDto`
 - [[Reference/Desktop/TypeScript/api/queryCache|src/api/queryCache.ts]] — import-or-re-export; imports `QueryKey`, `peek`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
 - [[Reference/Desktop/TypeScript/screens/reader/readerCache|src/screens/reader/readerCache.ts]] — import-or-re-export; imports `cachedSourceRead`
 
 ### Assets, platform, and third-party dependencies

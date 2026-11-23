@@ -36,7 +36,7 @@ No nested ownership area.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/api/capture|capture.ts]] | `ACTIVE` | Provides `CaptureDto`, `InboxSummary`, `CaptureMediaDto` within the desktop's TypeScript/api ownership area. | 0 | 3 |
 | [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 7 | 130 |
-| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 1 | 229 |
+| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 1 | 230 |
 | [[Reference/Desktop/TypeScript/api/poller|poller.ts]] | `ACTIVE` | Provides `PollResult`, `PollRegistration`, `PollerOptions`, `Poller` and related exports within the desktop's TypeScript/api ownership area. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/api/queryCache|queryCache.ts]] | `ACTIVE` | Provides `QueryKey`, `QueryTag`, `QueryState`, `FetchOptions` and related exports within the desktop's TypeScript/api ownership area. | 2 | 14 |
 | [[Reference/Desktop/TypeScript/api/queryTags|queryTags.ts]] | `ACTIVE` | Provides `TAG`, `KnownTag`, `READER_PREFIX`, `readerTag` within the desktop's TypeScript/api ownership area. | 0 | 25 |

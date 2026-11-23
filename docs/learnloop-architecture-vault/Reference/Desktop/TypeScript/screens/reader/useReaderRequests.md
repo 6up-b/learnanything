@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderRequests.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderRequests.ts) |
-| Source lines | 212 |
+| Source lines | 216 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,50 +54,52 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface BackgroundRequest` — interface, line 5
-- `export interface SynthesizedObject` — interface, line 14
-- `export function useReaderRequests(sourceId: string | null, enabled: boolean)` — function, line 64
-- `export function parseRequestResult( resultJson: string | null | undefined ):` — function, line 183
-- `export function parseRequestError(errorJson: string | null | undefined): string | null` — function, line 200
+- `export interface BackgroundRequest` — interface, line 6
+- `export interface SynthesizedObject` — interface, line 15
+- `export function useReaderRequests(sourceId: string | null, enabled: boolean)` — function, line 65
+- `export function parseRequestResult( resultJson: string | null | undefined ):` — function, line 187
+- `export function parseRequestError(errorJson: string | null | undefined): string | null` — function, line 204
 
 ## Internal implementation anchors
 
-- `const ACTIVE_REQUEST_STATUSES = new Set(["queued", "running", "pending"])` — const, line 23
-- `function hasActiveRequest(requests: BackgroundRequest[]): boolean` — function, line 25
-- `function flattenSourceObjects(heads: Array<Record<string, unknown>>): Map<string, SynthesizedObject>` — function, line 29
-- `const flattened = new Map<string, SynthesizedObject>()` — const, line 30
-- `const object = (head.object as Record<string, unknown>) ??` — const, line 32
-- `const version = (head.version as Record<string, unknown>) ??` — const, line 33
-- `const citations = (head.citations as Array<Record<string, unknown>>) ?? []` — const, line 34
-- `let contentMd = ""` — let, line 35
-- `const content = JSON.parse(String(version.contentJson ?? "")) as` — const, line 37
-- `const objectId = String(object.id ?? "")` — const, line 42
-- `const activeSourceId = enabled ? sourceId : null` — const, line 65
-- `const activeScope = useMemo(()` — const, line 66
-- `const activeScopeRef = useRef<typeof activeScope | null>(activeScope)` — const, line 69
-- `const observedRequests = useRef(new Map<string, string>())` — const, line 81
-- `const loadArtifacts = useCallback(async (targetScope:` — const, line 83
-- `const targetSourceId = targetScope.sourceId` — const, line 84
-- `const proposals = (inbox.proposals as Array<Record<string, unknown>>) ?? []` — const, line 91
-- `const refresh = useCallback(async ()` — const, line 99
-- `const targetScope = activeScope` — const, line 101
-- `const failures: string[] = []` — const, line 107
-- `const polling = useMemo(()` — const, line 129
-- `const targetScope = activeScope` — const, line 132
-- `const targetSourceId = activeSourceId` — const, line 133
-- `let cancelled = false` — let, line 134
-- `let timer: number | undefined` — let, line 135
-- `const poll = async ()` — const, line 137
-- `let pollAgain = true` — let, line 138
-- `const snapshot = await api.readerSourceRequests(targetSourceId)` — const, line 140
-- `const next = (snapshot.requests as BackgroundRequest[]) ?? []` — const, line 142
-- `const signatures = new Map(next.map((request)` — const, line 144
-- `const newlyTerminal = next.some((request)` — const, line 147
-- `const parsed = JSON.parse(resultJson ?? "") as` — const, line 188
-- `const objectRow = (parsed.proposals ?? []).find((proposal)` — const, line 189
-- `const mappingRow = (parsed.proposals ?? []).find((proposal)` — const, line 190
-- `const parsed = JSON.parse(errorJson ?? "") as` — const, line 202
-- `const message = typeof parsed.message === "string" ? parsed.message.trim() : ""` — const, line 203
+- `const ACTIVE_REQUEST_STATUSES = new Set(["queued", "running", "pending"])` — const, line 24
+- `function hasActiveRequest(requests: BackgroundRequest[]): boolean` — function, line 26
+- `function flattenSourceObjects(heads: Array<Record<string, unknown>>): Map<string, SynthesizedObject>` — function, line 30
+- `const flattened = new Map<string, SynthesizedObject>()` — const, line 31
+- `const object = (head.object as Record<string, unknown>) ??` — const, line 33
+- `const version = (head.version as Record<string, unknown>) ??` — const, line 34
+- `const citations = (head.citations as Array<Record<string, unknown>>) ?? []` — const, line 35
+- `let contentMd = ""` — let, line 36
+- `const content = JSON.parse(String(version.contentJson ?? "")) as` — const, line 38
+- `const objectId = String(object.id ?? "")` — const, line 43
+- `const whenLive = useWhenLive()` — const, line 66
+- `const activeSourceId = enabled ? sourceId : null` — const, line 67
+- `const activeScope = useMemo(()` — const, line 68
+- `const activeScopeRef = useRef<typeof activeScope | null>(activeScope)` — const, line 71
+- `const observedRequests = useRef(new Map<string, string>())` — const, line 83
+- `const loadArtifacts = useCallback(async (targetScope:` — const, line 85
+- `const targetSourceId = targetScope.sourceId` — const, line 86
+- `const proposals = (inbox.proposals as Array<Record<string, unknown>>) ?? []` — const, line 93
+- `const refresh = useCallback(async ()` — const, line 101
+- `const targetScope = activeScope` — const, line 103
+- `const failures: string[] = []` — const, line 109
+- `const polling = useMemo(()` — const, line 131
+- `const targetScope = activeScope` — const, line 134
+- `const targetSourceId = activeSourceId` — const, line 135
+- `let cancelled = false` — let, line 136
+- `let timer: number | undefined` — let, line 137
+- `const poll = async ()` — const, line 139
+- `let pollAgain = true` — let, line 140
+- `const snapshot = await api.readerSourceRequests(targetSourceId)` — const, line 142
+- `const next = (snapshot.requests as BackgroundRequest[]) ?? []` — const, line 144
+- `const signatures = new Map(next.map((request)` — const, line 146
+- `const newlyTerminal = next.some((request)` — const, line 149
+- `const next = ()` — const, line 175
+- `const parsed = JSON.parse(resultJson ?? "") as` — const, line 192
+- `const objectRow = (parsed.proposals ?? []).find((proposal)` — const, line 193
+- `const mappingRow = (parsed.proposals ?? []).find((proposal)` — const, line 194
+- `const parsed = JSON.parse(errorJson ?? "") as` — const, line 206
+- `const message = typeof parsed.message === "string" ? parsed.message.trim() : ""` — const, line 207
 
 ## Who imports or calls it
 
@@ -113,6 +115,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
 
 ### Assets, platform, and third-party dependencies
 

@@ -34,7 +34,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/model/workspace|workspace.ts]] | `ACTIVE` | Provides `PAIR_SIZE`, `DeskWindow`, `Desk`, `ClosedWindow` and related exports within the desktop's TypeScript/screens/desks/model ownership area. | 1 | 3 |
+| [[Reference/Desktop/TypeScript/screens/desks/model/workspace|workspace.ts]] | `ACTIVE` | Provides `PAIR_SIZE`, `DeskWindow`, `Desk`, `ClosedWindow` and related exports within the desktop's TypeScript/screens/desks/model ownership area. | 1 | 4 |
 
 ## Modification guidance
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useIntentBox.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useIntentBox.ts) |
-| Source lines | 456 |
+| Source lines | 459 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -62,7 +62,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const FALLBACK_ASK: ReaderIntentActionDto =` — const, line 58
 - `export interface UseIntentBoxArgs` — interface, line 69
 - `export function useIntentBox(args: UseIntentBoxArgs)` — function, line 90
-- `export type IntentBoxController = ReturnType<typeof useIntentBox>` — type, line 456
+- `export type IntentBoxController = ReturnType<typeof useIntentBox>` — type, line 459
 
 ## Internal implementation anchors
 
@@ -130,16 +130,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const pick = useCallback((action: ReaderIntentActionDto)` — const, line 331
 - `const words = text.trim()` — const, line 335
 - `const hub = useListenerHub()` — const, line 346
-- `const onKey = (event: KeyboardEvent)` — const, line 349
-- `const input = inputRef.current` — const, line 351
-- `const inBox = input !== null && event.target === input` — const, line 352
-- `const onPaletteButton = event.target instanceof HTMLButtonElement && (boxRef.current?.contains(event.target) ?? false)` — const, line 355
-- `const buttons = Array.from(boxRef.current?.querySelectorAll<HTMLButtonElement>("[data-intent-action]") ?? [])` — const, line 357
-- `const at = onPaletteButton ? buttons.indexOf(event.target as HTMLButtonElement) : -1` — const, line 361
-- `const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1` — const, line 362
-- `const target = event.target` — const, line 371
-- `const onReading = !(target instanceof Element) || target === document.body || (hostRef.current?.contains(target) ?? false)` — const, line 372
-- `const onDown = (event: MouseEvent)` — const, line 435
+- `const onKey = (event: KeyboardEvent)` — const, line 352
+- `const input = inputRef.current` — const, line 354
+- `const inBox = input !== null && event.target === input` — const, line 355
+- `const onPaletteButton = event.target instanceof HTMLButtonElement && (boxRef.current?.contains(event.target) ?? false)` — const, line 358
+- `const buttons = Array.from(boxRef.current?.querySelectorAll<HTMLButtonElement>("[data-intent-action]") ?? [])` — const, line 360
+- `const at = onPaletteButton ? buttons.indexOf(event.target as HTMLButtonElement) : -1` — const, line 364
+- `const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1` — const, line 365
+- `const target = event.target` — const, line 374
+- `const onReading = !(target instanceof Element) || target === document.body || (hostRef.current?.contains(target) ?? false)` — const, line 375
+- `const onDown = (event: MouseEvent)` — const, line 438
 
 ## Who imports or calls it
 
@@ -158,7 +158,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderIntentActionDto`, `ReaderIntentContractDto`, `ReaderIntentRoutingDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
-- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`, `useScopeClaim`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/reader/intentPalette|src/screens/reader/intentPalette.ts]] — import-or-re-export; imports `paletteActions`, `visiblePalette`
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `passageKeys`
@@ -177,6 +177,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/scopeClaims.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/scopeClaims.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

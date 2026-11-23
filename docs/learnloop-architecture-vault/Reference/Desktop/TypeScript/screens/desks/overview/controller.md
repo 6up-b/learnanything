@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/overview/controller.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/controller.ts) |
-| Source lines | 235 |
+| Source lines | 240 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/overview/_area|TypeScript/screens/desks/overview]] |
 | Refactor status | `ACTIVE` |
@@ -54,28 +54,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface SlotElements` — interface, line 7
-- `export interface ZoomPlan` — interface, line 17
-- `export interface ZoomTargets` — interface, line 24
-- `export interface FrameClock` — interface, line 32
-- `export const ANIMATION_FRAMES: FrameClock =` — const, line 37
-- `export function focusEdge(q: number): string` — function, line 44
-- `export function cameraTransform(camera: Camera): string` — function, line 49
-- `export class ZoomController` — class, line 53
+- `export interface SlotElements` — interface, line 8
+- `export interface ZoomPlan` — interface, line 15
+- `export interface ZoomTargets` — interface, line 25
+- `export interface FrameClock` — interface, line 34
+- `export const ANIMATION_FRAMES: FrameClock =` — const, line 39
+- `export function focusEdge(q: number): string` — function, line 46
+- `export function cameraTransform(camera: Camera): string` — function, line 51
+- `export class ZoomController` — class, line 55
 
 ## Internal implementation anchors
 
-- `const edge = Math.max(0, 1 - 3 * q)` — const, line 45
-- `const slot = targets.slots.get(item.key)` — const, line 91
-- `const targets = this.targets` — const, line 140
-- `const plan = this.plan` — const, line 179
-- `const dt = this.last ? (now - this.last) / 1000 : 1 / 60` — const, line 181
-- `const plan = this.plan` — const, line 199
-- `const plan = this.plan` — const, line 209
-- `const targets = this.targets` — const, line 210
-- `const slot = targets.slots.get(item.key)` — const, line 215
-- `const values = frame.items[index]` — const, line 216
-- `const r = values.rect` — const, line 222
+- `const edge = Math.max(0, 1 - 3 * q)` — const, line 47
+- `const slot = targets.slots.get(item.key)` — const, line 93
+- `const targets = this.targets` — const, line 142
+- `const plan = this.plan` — const, line 181
+- `const dt = this.last ? (now - this.last) / 1000 : 1 / 60` — const, line 183
+- `const plan = this.plan` — const, line 201
+- `const plan = this.plan` — const, line 211
+- `const targets = this.targets` — const, line 212
+- `const slot = targets.slots.get(item.key)` — const, line 217
+- `const values = frame.items[index]` — const, line 218
+- `const element = targets.rings?.get(ring.key)` — const, line 230
+- `const q = frame.q` — const, line 232
+- `const r =` — const, line 233
 
 ## Who imports or calls it
 
@@ -88,6 +90,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/screens/desks/geometry|src/screens/desks/geometry.ts]] — import-or-re-export; imports `Rect`
 - [[Reference/Desktop/TypeScript/screens/desks/overview/engine|src/screens/desks/overview/engine.ts]] — import-or-re-export; imports `Camera`, `Frame`, `Motion`, `ZoomItem`, `frameAt`, `release`, `settleNow`, `step`
 
 ### Assets, platform, and third-party dependencies
