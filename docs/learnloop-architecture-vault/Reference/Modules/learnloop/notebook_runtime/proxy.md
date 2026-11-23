@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_gate_refuses_another_host_and_another_path`
   - `test_the_proxy_refuses_before_reaching_the_server`
   - `test_the_proxy_serves_its_bridge_and_records_ui_values_as_they_pass`
+  - `test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket`
   - `test_upstream_carries_the_token_and_never_the_frames_cookies`
 
 ## Modification guidance

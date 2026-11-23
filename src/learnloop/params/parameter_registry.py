@@ -2351,6 +2351,24 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the figure author's and verifier's metered spend a UTC day / the owner's price for a metered figure "
         "route; money bounds, no measurement authority (a figure never grades)."),
+    # The notebook runtime (docs/reviews/notebook-na0.2.md, notebook-runtime-b1-b3.md): one sandboxed marimo server
+    # per notebook session. Resource limits like the figure render's caps (RENDER_MEMORY_MAX above), every one a
+    # `keep` guardrail set from the NA0.2 measurements; none is a weight, margin or threshold of the learner model.
+    _ConfigRule(_exact(
+        "notebooks.memory_max_mib",
+        "notebooks.scratch_mib",
+    ), "structural", "operational",
+        "keep (machine safety): one notebook session's memory cap, its scope's MemoryMax (2048 MiB: about thirteen "
+        "times the 138-153 MB peak an idle session measured in NA0.2, half a figure render's 4 GiB cap since several "
+        "sessions run at once) / the size-capped tmpfs that is its home (256 MiB: a session wrote kilobytes there; a "
+        "64 MiB write went unstopped before the cap). Bounds on a sandbox, no measurement or serving authority."),
+    _ConfigRule(_exact(
+        "notebooks.idle_minutes",
+        "notebooks.max_sessions",
+    ), "structural", "operational",
+        "keep (operational): minutes a session with no frame attached runs before it is stopped (10: resuming costs "
+        "about a second, server start 0.37-0.42 s and a warm reload 0.5-0.6 s measured in NA0.2) / sessions running "
+        "at once (6: six idle sessions held about 0.8 GB). Resource bounds, no measurement or serving authority."),
     # UX Phase 2: the shell's kill switch (a string enum, so Inventory A's
     # numeric walk never reaches it; classified here so every new key has a
     # rule, Codex review of ux-phase2-shell F9). Only the app snapshot reads
