@@ -989,6 +989,16 @@ def test_the_pinned_rd4a_rpcs_are_all_of_them():
     assert set(READER_RD4A_RPCS) == set(PAD_RD4_RPCS)
 
 
+# Reader workbench v2 RD8a (spec §3.4, §10.10): saving and listing ink, and reading it as a polled job. Desktop only.
+READER_RD8A_RPCS = ("ink.save", "ink.list", "ink.transcribe", "ink.transcribe_job", "ink.transcribe_cancel")
+
+
+def test_the_pinned_rd8a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.ink import INK_RPCS
+
+    assert set(READER_RD8A_RPCS) == set(INK_RPCS)
+
+
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
@@ -1001,7 +1011,7 @@ def test_the_pinned_rd4a_rpcs_are_all_of_them():
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
     + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS + WHY_B9_RPCS
-    + READER_RD0_RPCS + READER_RD3A_RPCS + READER_RD4A_RPCS,
+    + READER_RD0_RPCS + READER_RD3A_RPCS + READER_RD4A_RPCS + READER_RD8A_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
