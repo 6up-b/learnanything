@@ -94,7 +94,7 @@ def test_the_route_rules_follow_the_route_check_and_value_of_information_stoppin
     # Value-of-information stopping (mvp-0.21), Tier 1's Decider judgments
     # (mvp-0.22) and router R2a's staged frame (mvp-0.23, the latest)
     # followed the rules and keep them.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.67"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
     # Canonical sources' mvp-0.18 and mvp-0.19 sit between the check and the rules.
     assert SUCCESSOR_CHAIN[10] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
     assert SUCCESSOR_CHAIN[8] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
@@ -240,7 +240,7 @@ def _blind_plan(vault, answer=ALTERNATIVE, *, stuck=False):
 def test_the_prompt_carries_the_rules_and_names_them(tmp_path):
     from learnloop.attempts.blind_grading import blind_grading_prompt
 
-    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
+    _paths, vault, _repository = split_vault(tmp_path / "on", seed=False)
     plan = _blind_plan(vault)
     assert plan.context.reference_policy["route_rules"] == "own-route-v2"
     assert ROUTE_RULES in blind_grading_prompt(plan.context)
@@ -263,7 +263,7 @@ def test_a_proof_item_is_graded_in_exactly_one_model_call(tmp_path, monkeypatch)
 
     monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task",
                         lambda *a, **k: pytest.fail("grading builds no second client"))
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     grader = DivergentGrader()
     admitted: list[str] = []
 
@@ -281,7 +281,7 @@ def test_a_proof_item_is_graded_in_exactly_one_model_call(tmp_path, monkeypatch)
 
 
 def test_live_an_unlocated_mark_down_on_a_divergent_route_is_unassessed(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     support = _support(repository, result.attempt_id)
@@ -306,7 +306,7 @@ def test_live_nothing_located_and_nothing_validated_is_held(tmp_path):
     review. No FSRS review, no prediction error, no follow-up, no diagnosis;
     replay reproduces the hold from the record, without a model."""
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
@@ -330,7 +330,7 @@ def test_live_nothing_located_and_nothing_validated_is_held(tmp_path):
 
 
 def test_live_a_regrade_keeps_a_hold_until_the_grader_validates_the_route(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
@@ -353,7 +353,7 @@ def test_live_a_regrade_keeps_a_hold_until_the_grader_validates_the_route(tmp_pa
 def test_live_an_adjudication_releases_a_hold_on_replay(tmp_path):
     from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
@@ -380,7 +380,7 @@ def test_live_a_wrong_final_answer_is_never_unassessed(tmp_path, config):
         def _blind_grading(self, request, context):
             return super()._blind_grading(request, context).model_copy(update={"error_attributions": []})
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=config)
+    _paths, vault, repository = split_vault(tmp_path, config=config)
     result = submit(vault, repository, Unlocated(), item_id="pi_unrelated_001",
                     answer="Four is the smallest even square, so the answer is 4.")
     attempt = repository.fetch_practice_attempt(result.attempt_id)
@@ -405,7 +405,7 @@ def test_a_ruled_grade_is_calibrated_under_the_rules_identity_and_so_is_its_regr
     from learnloop.attempts.attempts import replay_grader_identity
 
     expected = f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{METHOD_ROUTE_RULES_SUFFIX}"
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     # The identity names the prompt's rules, never a checker: it is the same
     # whatever the rule did to the grade.
     for grader, answer in ((DivergentGrader(), ALTERNATIVE), (ReviewFakeClient(), ALTERNATIVE + " (2)")):
@@ -422,7 +422,7 @@ def test_replay_reproduces_ruled_grades_without_a_model(tmp_path, monkeypatch):
     """Same-version rebuild equivalence (playbook item 6): replay reads the
     records as written and never calls a model."""
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (held)")
     submit(vault, repository, FullCreditGrader(), answer=ALTERNATIVE + " (full)")
@@ -442,7 +442,7 @@ def test_replay_reproduces_ruled_grades_without_a_model(tmp_path, monkeypatch):
 def test_a_retired_proof_check_route_is_ignored_and_reported(tmp_path):
     from learnloop.ops.doctor import run_doctor
 
-    paths, _vault, _repository = split_vault(tmp_path, version=VERSION, seed=False)
+    paths, _vault, _repository = split_vault(tmp_path, seed=False)
     config = paths.root / "learnloop.toml"
     text = config.read_text(encoding="utf-8")
     assert text.count("[ai.routing]\n") == 1
@@ -459,7 +459,7 @@ def test_cli_dry_run_plans_one_grading_call(tmp_path, monkeypatch):
     import learnloop.cli as cli_module
     from learnloop.cli.app import app
 
-    _paths, vault, _repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, _repository = split_vault(tmp_path)
     grader = DivergentGrader()
     monkeypatch.setattr(cli_module, "_ready_provider_for_task", lambda *_a, **_k: ("fake", ReadyRuntime(), grader))
     result = CliRunner().invoke(app, [
@@ -598,7 +598,7 @@ def test_f1_an_omitted_criterion_is_unlocated_and_with_nothing_assessed_holds():
 
 @pytest.mark.parametrize("grader", [OmittingGrader, EmptyGrader], ids=["missing_row", "empty_output"])
 def test_f1_live_an_incomplete_grade_is_refused(tmp_path, grader):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
     attempts = len(repository.list_all_attempts())
@@ -610,7 +610,7 @@ def test_f1_live_an_incomplete_grade_is_refused(tmp_path, grader):
 
 
 def test_f1_live_an_incomplete_regrade_keeps_an_existing_hold(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
@@ -646,7 +646,7 @@ def _weightless_vault(tmp_path):
 
     from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-    paths, _vault, repository = split_vault(tmp_path, version=VERSION, seed=False)
+    paths, _vault, repository = split_vault(tmp_path, seed=False)
     path = paths.practice_item_path("linear-algebra", ITEM)
     item = read_yaml(path)
     criteria = item["grading_rubric"]["criteria"]
@@ -775,7 +775,7 @@ def test_f2_a_criterion_the_grader_declares_unverified_is_unassessed_on_a_diverg
 
 
 def test_f2_live_declared_uncertainty_on_a_quoted_step_is_unassessed(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     result = submit(vault, repository, UncertainQuotingGrader(), answer=ALTERNATIVE)
     support = _support(repository, result.attempt_id)
     rule = support["proof_route_check"]
@@ -808,7 +808,7 @@ def test_f3_a_quote_from_the_learners_clarification_reply_locates_an_error():
 
 
 def test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     result = submit(vault, repository, FullCreditGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
                     runtime=ReadyRuntime(), client=ClarifiedErrorGrader(), grading_source="ai",
@@ -843,7 +843,7 @@ def _route_judgments(repository, attempt_id):
 
 
 def test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     blind = repository.latest_blind_grade_record(result.attempt_id)
     [first] = _route_judgments(repository, result.attempt_id)
@@ -865,7 +865,7 @@ def test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_s
 
 
 def test_f4_no_route_verdict_without_the_rules(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=NO_POLICY)
+    _paths, vault, repository = split_vault(tmp_path, config=NO_POLICY)
     result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
     assert _route_judgments(repository, result.attempt_id) == []
 
@@ -899,7 +899,7 @@ def _latest_regrade_run(repository):
 
 
 def test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict(tmp_path):
-    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path)
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     [first] = _route_judgments(repository, held.attempt_id)
     assert json.loads(first["verdict"])["held_for_review"] is True

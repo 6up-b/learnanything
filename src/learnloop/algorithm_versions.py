@@ -1018,6 +1018,18 @@ LIFECYCLE_INPUTS_ALGORITHM_VERSION = "mvp-0.66"
 # rule 2026-11-16). ONE constant.
 MASTERY_SEED_ALGORITHM_VERSION = "mvp-0.67"
 
+# mvp-0.68 (a scratchpad's words are learner text; docs/reviews/algorithm-mvp-0.68.md), on top of the mastery seeds,
+# mvp-0.67. The Reader workbench's pads (migration 262) held the learner's own writing as workflow data that nothing
+# read. At this tag a committed block version of the learner's own words (a text or note block, an ink block's
+# transcription or its correction) is emitted, once, as a learner text of source kind 'pad_text' (migration 266),
+# through ``learnloop.pads.emission`` alone: the gap pipeline reads it as any learner text, and a gap it names can
+# become a hypothesis and steer routing, the companion and the Teacher, never a check brought forward, a placement
+# observation, mastery, readiness or certification (``NON_SERVING_SOURCE_KINDS``). Quoted blocks, sketches, cells and
+# stubs emit nothing; an edit's new words supersede the gaps read from the old ones; a removed block retracts its
+# gaps; the gap rows stay. Nothing already derived moves: no pad text was ever read before the tag. No kill switch
+# (owner rule 2026-11-16). ONE constant.
+PAD_TEXT_ALGORITHM_VERSION = "mvp-0.68"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1083,6 +1095,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     APPLICATION_ORDER_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
+    PAD_TEXT_ALGORITHM_VERSION,
 )
 
 
@@ -1230,6 +1243,18 @@ def mastery_seed_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in MASTERY_SEED_VERSIONS
+
+# Versions where a committed pad block of the learner's own words is emitted as a ``pad_text`` learner text. Every
+# later successor keeps it; gates must use this set, never equality, and read it through :func:`pad_text_on`.
+PAD_TEXT_VERSIONS: frozenset[str] = successors_from(PAD_TEXT_ALGORITHM_VERSION)
+
+
+def pad_text_on(config: object) -> bool:
+    """A scratchpad's committed words are learner text (mvp-0.68), gated by the vault's tag alone (no kill switch):
+    below it a pad emits nothing, exactly as at mvp-0.67. ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in PAD_TEXT_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

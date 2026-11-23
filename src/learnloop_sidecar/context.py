@@ -466,6 +466,15 @@ class SidecarContext:
         except Exception:  # noqa: BLE001 - never block opening the vault
             _LOGGER.warning("could not queue linked notes for gaps", exc_info=True)
         try:
+            # Reader workbench v2 (mvp-0.68): a scratchpad's standing words with no reading yet (committed while
+            # emission could not run), and gaps read from words since replaced or removed, set aside.
+            from learnloop.pads.emission import reconcile as reconcile_pad_text
+
+            if reconcile_pad_text(self.vault, self.repository).queued:
+                self.post_attempt_worker.notify()
+        except Exception:  # noqa: BLE001 - never block opening the vault
+            _LOGGER.warning("could not settle the scratchpads' learner text", exc_info=True)
+        try:
             from learnloop.hints.outcome import reconcile_outcome_placements
 
             reconcile_outcome_placements(self.vault, self.repository.sqlite_path,
@@ -570,7 +579,20 @@ class SidecarContext:
     def _prefetch_gaps(self) -> None:
         from learnloop_sidecar.prefetch_runtime import notify
 
+        # A pad text read while its block's words were being replaced or removed is set aside now, not at the
+        # next pad batch (a reading under way finishes and writes its gap whatever the pad did meanwhile).
+        self._settle_pad_text()
         notify(self, "gap", "gaps")
+
+    def _settle_pad_text(self) -> None:
+        if self.vault is None or self.repository is None:
+            return
+        try:
+            from learnloop.pads.emission import reconcile as reconcile_pad_text
+
+            reconcile_pad_text(self.vault, self.repository)
+        except Exception:  # noqa: BLE001 - a gap drain never fails on the pads
+            _LOGGER.warning("could not settle the scratchpads' learner text after a gap drain", exc_info=True)
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None or not self.serving():

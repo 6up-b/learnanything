@@ -47,8 +47,16 @@ def test_the_gate_is_a_successor_after_the_route_check():
 @pytest.fixture
 def gated(tmp_path, monkeypatch):
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
     monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
+    return paths, repository, spans
+
+
+@pytest.fixture
+def gated_at_tag(gated):
+    """At the gate's own tag: the shadow rebuilds that compare it with its predecessor replay this vault there."""
+
+    paths, repository, spans = gated
+    set_algorithm_version(paths, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
     return paths, repository, spans
 
 
@@ -130,11 +138,11 @@ def test_a_reader_import_row_counts_as_an_import(gated):
         assert reference_status_for_item(connection, vault.practice_items["pi_eigen_2"]) == "unverified"
 
 
-def test_a_shadow_rebuild_at_the_tag_shows_zero_deltas(gated):
+def test_a_shadow_rebuild_at_the_tag_shows_zero_deltas(gated_at_tag):
     """Never retroactive: with every recorded status kept, mvp-0.18 projects what mvp-0.17 does."""
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
 
-    paths, repository, spans = gated
+    paths, repository, spans = gated_at_tag
     result = SEI.import_source_exercise(
         paths.root, repository, extraction_id="ext_text", span_ids=[spans["exercises"][1]], caller="learner",
         clients=service_clients(FakeServiceLLM()))
@@ -171,11 +179,11 @@ def _substantive(diff):
     return out
 
 
-def test_the_projection_reads_the_recorded_status_on_replay(gated, monkeypatch):
+def test_the_projection_reads_the_recorded_status_on_replay(gated_at_tag, monkeypatch):
     from learnloop.substrate import canonical_projection
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
 
-    paths, repository, spans = gated
+    paths, repository, spans = gated_at_tag
     result = SEI.import_source_exercise(
         paths.root, repository, extraction_id="ext_text", span_ids=[spans["exercises"][2]], caller="learner",
         clients=service_clients(FakeServiceLLM(drop_cited_quote=True)))
@@ -230,12 +238,12 @@ def test_a_regrade_against_an_edited_unverified_key_never_certifies(gated):
     assert "key_status=changed_since_check" in binding["rationale"]
 
 
-def test_the_regraded_grade_is_gated_live_and_on_rebuild(gated, monkeypatch):
+def test_the_regraded_grade_is_gated_live_and_on_rebuild(gated_at_tag, monkeypatch):
     """The live replay inside the regrade and a rebuild both read ``unverified``."""
     from learnloop.substrate import canonical_projection
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
 
-    paths, repository, spans = gated
+    paths, repository, spans = gated_at_tag
     item_id = _verified_import(paths, repository, spans)
     attempt = _attempt(paths, repository, item_id)
     _edit_key(paths, repository, item_id)

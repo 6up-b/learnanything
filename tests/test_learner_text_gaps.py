@@ -8,6 +8,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LEARNER_TEXT_GAP_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.stores import learner_gaps as store
@@ -51,7 +52,8 @@ def test_the_tutor_names_the_gap_in_the_answering_call_and_it_is_persisted(tmp_p
 
 
 def test_a_declared_prerequisite_matches_with_both_judges_logged_and_no_edge(tmp_path):
-    root, repository = _vault(tmp_path)
+    # Below Tier 1's tag the pair is judged without the Decider (serve_pre_tier1), which this test reads.
+    root, repository = _vault(tmp_path, version=LEARNER_TEXT_GAP_ALGORITHM_VERSION)
     event_id = _ask(root, repository, GapTutor(EIGEN_GAP), item="pi_spec_easy",
                     question="What's an eigenvalue again?")["event_id"]
     decider = ChoiceDecider(kind="prerequisite", pair=word_match("eigenvalues"))
@@ -67,7 +69,8 @@ def test_a_declared_prerequisite_matches_with_both_judges_logged_and_no_edge(tmp
 
 
 def test_an_undeclared_match_adds_an_edge_after_a_needed_yes_and_one_tap_undo_removes_it(tmp_path):
-    root, repository = _vault(tmp_path)
+    # Below Tier 1's tag the pair is judged without the Decider (serve_pre_tier1), which this test reads.
+    root, repository = _vault(tmp_path, version=LEARNER_TEXT_GAP_ALGORITHM_VERSION)
     event_id = _ask(root, repository, GapTutor(EIGEN_GAP))["event_id"]
     row = _run(root, repository, event_id, llm=GapLLMFake(decide=word_match("eigenvalues"), needed="yes"),
                decider=ChoiceDecider(kind="prerequisite", needed="no"))
@@ -284,7 +287,8 @@ def test_a_tutor_question_that_states_a_belief_reaches_the_holding_pen(tmp_path)
 
 
 def test_a_belief_matching_a_holding_pen_candidate_is_a_sighting_and_the_decider_never_joins(tmp_path):
-    root, repository = _vault(tmp_path)
+    # Below Tier 1's tag the pair is judged without the Decider (serve_pre_tier1), which this test reads.
+    root, repository = _vault(tmp_path, version=LEARNER_TEXT_GAP_ALGORITHM_VERSION)
     candidate_id = repository.insert_misconception_candidate(
         learning_object_id="lo_diag", statement="All matrices are diagonalizable.",
         statement_normalized="all matrices are diagonalizable", occurrence_count=1,
@@ -313,7 +317,8 @@ def test_the_decider_as_chooser_decides_the_kind_and_both_readings_are_logged(tm
 
 
 def test_the_decider_as_chooser_is_the_authoritative_prerequisite_judge(tmp_path):
-    root, repository = _vault(tmp_path, toml='[learner_text_gaps]\nchooser = "decider"\n')
+    # Below Tier 1's tag the pair is judged without the Decider (serve_pre_tier1), which this test reads.
+    root, repository = _vault(tmp_path, version=LEARNER_TEXT_GAP_ALGORITHM_VERSION, toml='[learner_text_gaps]\nchooser = "decider"\n')
     event_id = _ask(root, repository, GapTutor(EIGEN_GAP), item="pi_spec_easy")["event_id"]
     row = _run(root, repository, event_id, llm=GapLLMFake(decide=always("different")),
                decider=ChoiceDecider(kind="prerequisite", pair=word_match("eigenvalues")))

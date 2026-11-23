@@ -35,7 +35,7 @@ def test_the_successor_is_one_constant_after_fg1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.45"
     # Router objective RO4 (mvp-0.47), RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2
     # (mvp-0.51) landed after it and keep it.
-    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-22] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.67"
+    assert TAG == "mvp-0.46" == SUCCESSOR_CHAIN[-23] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
 
 
 def test_the_factors_constants_stay_in_config():

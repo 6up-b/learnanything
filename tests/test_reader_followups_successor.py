@@ -33,8 +33,8 @@ PREDECESSOR = COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
 
 def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
     # Curriculum C1's mvp-0.40 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-30:-28] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.67"
+    assert SUCCESSOR_CHAIN[-31:-29] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
 
 
 def test_planning_and_revaluation_run(tmp_path):

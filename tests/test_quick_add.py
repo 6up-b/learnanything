@@ -21,10 +21,8 @@ from learnloop.content.pipeline.quick_add import (
 )
 from learnloop.content.sources.source_outline import build_source_outline
 from learnloop.vault.loader import add_subject, init_vault, load_vault
-from learnloop.vault.paths import VaultPaths
 from learnloop.content.pipeline.jobs import QUICK_ADD_PRIORITY, DurableIngestJobs
 
-from tests.helpers import set_algorithm_version
 from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist
 from tests.source_set_synthesis_helpers import FakeSynthesisClient
 from tests.quick_add_helpers import _CLOCK, _register_source
@@ -36,7 +34,6 @@ def _setup(tmp_path: Path):
     root = tmp_path / "vault"
     init_vault(root, clock=_CLOCK)
     add_subject(root, "linear-algebra", "Linear Algebra", clock=_CLOCK)
-    set_algorithm_version(VaultPaths(root, load_vault(root).config), "mvp-0.7")
     repo = Repository(root / "state.sqlite")
 
     pdf = tmp_path / "symmetry.pdf"

@@ -233,6 +233,8 @@ def kind_state(text: LearnerText) -> dict[str, Any]:
         "learner_note": "a note the learner wrote in their own notes and linked to what they study",
         # Teacher TE2: the learner's words in a lesson, named by the teacher reading them in context.
         "lesson": "something the learner wrote during a lesson with a teacher",
+        # Reader workbench v2 (mvp-0.68): the learner's own words in a scratchpad.
+        "pad_text": "text the learner wrote in their scratchpad beside what they study, not an answer to anything",
     }[text.source_kind]
     return {"learner_text": text.text, "what_it_is": surface, "about": dict(text.context)}
 
@@ -334,13 +336,15 @@ def decider_kind(repository: Repository, budget: TextBudget, client: Any, text: 
 def reader_version(text: LearnerText) -> str:
     """The reader's prompt version for this text (RW1b's formative answers have their own task)."""
 
-    if text.source_kind == "learner_note":
-        return READER_NOTE_PROMPT_VERSION  # curriculum C5: a note the learner linked
+    if text.source_kind in ("learner_note", "pad_text"):
+        # Curriculum C5: a note the learner linked; a scratchpad's words are read the same way (free writing beside
+        # what they study, never an answer, never graded), with ``context.surface`` naming the pad.
+        return READER_NOTE_PROMPT_VERSION
     return READER_FORMATIVE_PROMPT_VERSION if text.source_kind == "reader_formative" else READER_PROMPT_VERSION
 
 
 def reader_prompt(text: LearnerText) -> str:
-    if text.source_kind == "learner_note":
+    if text.source_kind in ("learner_note", "pad_text"):
         task = READER_NOTE_TASK
     else:
         task = READER_FORMATIVE_TASK if text.source_kind == "reader_formative" else READER_TASK

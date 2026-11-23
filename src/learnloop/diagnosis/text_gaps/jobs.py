@@ -702,7 +702,7 @@ def _retry_or_fail(
 #: logged with an empty text).
 _CONTEXT_JUDGE = {"tutor_question": "tutor", "diagnosis": "diagnoser", "stuck_answer": "gap_reader",
                   "reader_formative": "gap_reader", "workbench_text": "gap_reader", "hint_feedback": "gap_reader",
-                  "learner_note": "gap_reader", "lesson": "tutor"}
+                  "learner_note": "gap_reader", "lesson": "tutor", "pad_text": "gap_reader"}
 
 
 def _skip(

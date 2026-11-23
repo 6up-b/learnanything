@@ -109,7 +109,7 @@ def test_observation_ledgers_have_constant_query_budget_and_stable_order(tmp_pat
     assert all(row["active_interpretation"] is None for row in authoritative)
 
 
-def _vault_and_repository(tmp_path, *, version: str = "mvp-0.7"):
+def _vault_and_repository(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION):
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, version)
     vault = load_vault(paths.root)

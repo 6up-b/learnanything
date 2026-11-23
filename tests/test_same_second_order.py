@@ -84,8 +84,8 @@ def _reversed_pair(vault, repository, *, second_repository=None, when=T):
 
 
 def test_the_tag():
-    assert AT == "mvp-0.65" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-4] == BEFORE == "mvp-0.64"
-    assert APPLICATION_ORDER_VERSIONS == frozenset({AT, "mvp-0.66", "mvp-0.67"})
+    assert AT == "mvp-0.65" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-5] == BEFORE == "mvp-0.64"
+    assert APPLICATION_ORDER_VERSIONS == frozenset({AT, "mvp-0.66", "mvp-0.67", "mvp-0.68"})
     for version, order in ((BEFORE, LEGACY_ORDER), (AT, APPLICATION_ORDER)):
         config = type("C", (), {"algorithms": type("A", (), {"algorithm_version": version})()})()
         assert application_order_on(config) is (version == AT)

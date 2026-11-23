@@ -205,6 +205,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         # the append-only exchange context.
         "src/learnloop/db/stores/desks.py",
         "src/learnloop/db/stores/pads.py",
+        # Migration 266: the pads' submissions, carried questions, proposals and labels.
+        "src/learnloop/db/stores/pad_ledgers.py",
         "src/learnloop/db/stores/workspace_batches.py",
         "src/learnloop/db/stores/span_projections.py",
         "src/learnloop/substrate/replay.py",

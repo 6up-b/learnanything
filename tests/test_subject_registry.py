@@ -20,10 +20,8 @@ from learnloop.curriculum.subject_registry import (
     propose_facet_merge,
 )
 from learnloop.vault.loader import add_subject, init_vault, load_vault
-from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_facet
 
-from tests.helpers import set_algorithm_version
 from tests.source_set_synthesis_helpers import FakeSynthesisClient, _setup
 
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
@@ -93,7 +91,6 @@ def _unlocked_vault(tmp_path: Path):
     root = tmp_path / "vault"
     init_vault(root, clock=_CLOCK)
     add_subject(root, "topology", "Topology", clock=_CLOCK)
-    set_algorithm_version(VaultPaths(root, load_vault(root).config), "mvp-0.7")
     for fid, claim in [("facet_open_set", "A set is open iff every point is interior."),
                        ("facet_open_cover", "An open cover is a family of open sets covering X.")]:
         upsert_facet(root, {"id": fid, "kind": "definition", "claim": claim,

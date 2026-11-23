@@ -244,7 +244,7 @@ RECORDED = {"plan_minutes_exhausted", "refused_candidates", "candidates_held", "
 def _random_world(root, rng: random.Random, name: str, monkeypatch):
     target = [(f"pi_t{index}", float(rng.choice([1.0, 2.0, 3.0]))) for index in range(rng.randint(1, 3))]
     los = {"lo_t": target, "lo_f": [("pi_f0", 2.0), ("pi_f1", 2.0)]}
-    paths = create_daily_plan_vault(root, learning_objects=los, version=INTENT_ALGORITHM_VERSION)
+    paths = create_daily_plan_vault(root, learning_objects=los)
     switch_on = rng.random() < 0.5
     append_config_toml(paths.root, POLICY_TOML[name] + ("" if switch_on else "[goals]\nheld_out_selection = false\n"))
     vault = load_vault(paths.root)

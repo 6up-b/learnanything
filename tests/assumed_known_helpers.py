@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import timedelta
 import sqlite3
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -31,7 +32,7 @@ EVIDENCE_TABLES = (
 )
 
 
-def _setup(tmp_path, *, version="mvp-0.11", placement_toml=None, name="vault"):
+def _setup(tmp_path, *, version=LATEST_ALGORITHM_VERSION, placement_toml=None, name="vault"):
     paths = create_placement_vault(tmp_path / name, version=version, placement_toml=placement_toml)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)

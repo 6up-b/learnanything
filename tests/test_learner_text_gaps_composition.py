@@ -27,6 +27,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts import stuck
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
@@ -56,7 +57,7 @@ def _at(minutes: float) -> FrozenClock:
     return FrozenClock(NOW + timedelta(minutes=minutes))
 
 
-def _vault(tmp_path, *, version: str = "mvp-0.16", toml: str = ""):
+def _vault(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION, toml: str = ""):
     paths = create_placement_vault(tmp_path / "vault", version=version)
     if toml:
         append_config_toml(paths.root, toml)

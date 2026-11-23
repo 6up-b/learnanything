@@ -10730,6 +10730,19 @@ export interface PadBlockDto {
   day: string | null;
   createdAt: string;
   updatedAt: string;
+  /** The "submitted · …" tag (spec §10.9): `current` false reads "submitted (an earlier version)". */
+  submissions: PadBlockSubmissionDto[];
+}
+
+export interface PadBlockSubmissionDto {
+  submissionId: string;
+  versionId: string;
+  as: PadSubmitAs;
+  practiceItemId: string;
+  attemptId: string | null;
+  teachBackId: string | null;
+  createdAt: string;
+  current: boolean;
 }
 
 export interface PadAnchorDto {
@@ -10774,6 +10787,120 @@ export interface PadApplyDto {
   pads: { padId: string; version: number }[];
 }
 
+// Reader workbench v2 RD4 (spec §10.6, §10.9, §10.12): submitting a block, proposals, the drain, carried questions.
+export type PadSubmitAs = "attempt" | "teach_back";
+
+export interface PadSubmitBlockInput {
+  /** Client-minted: a retry with the same request returns the recorded submission and hands nothing over. */
+  submissionId: string;
+  blockId: string;
+  versionId: string;
+  as: PadSubmitAs;
+  target: {
+    sessionId: string;
+    /** The item a problem pad or check cell answers, or a teach-back item for the block's LO (request_teach_back). */
+    practiceItemId: string;
+    assessmentContractVersionId?: string | null;
+    schedulerCandidateId?: string | null;
+    latencySeconds?: number | null;
+    activeSeconds?: number | null;
+  };
+}
+
+export interface PadSubmitBlockDto {
+  version: number;
+  submissionId: string;
+  blockId: string;
+  versionId: string;
+  as: PadSubmitAs;
+  practiceItemId: string;
+  attemptId: string | null;
+  teachBackId: string | null;
+  duplicate: boolean;
+  /** The entry point's own reply (submit_attempt's, or submit_teach_back_turn's) on the call that handed it over. */
+  entry: Record<string, unknown> | null;
+}
+
+export type ProposalLabel = "opened" | "not_this" | "dismiss" | "ignored";
+
+export interface PadProposalDto {
+  proposalId: string;
+  blockId: string;
+  blockVersionId: string;
+  foundBy: "passage_link" | "search" | "correspondent";
+  /** `{content: ContentRef, target: {span_id}}`, keys as stored. */
+  target: Record<string, unknown>;
+  reasonMd: string;
+  quote: string;
+  judgmentRef: string | null;
+  createdAt: string;
+  current: boolean;
+  labels: { label: ProposalLabel; at: string }[];
+  /** False once dismissed or marked "not this". */
+  shown: boolean;
+}
+
+export interface PadProposalsDto { version: number; padId: string; proposals: PadProposalDto[] }
+
+export interface ProposalLabelInput {
+  labelId: string;
+  proposalKind?: "pad_proposal" | "promoted_row";
+  proposalId: string;
+  label: ProposalLabel;
+}
+
+export interface PadDrainDto {
+  version: number;
+  deskId: string;
+  day: string;
+  pads: { padId: string; kind: PadKind; title: string; kept: boolean; version: number; firstLine: string;
+    lastLine: string; carryCandidate: string | null; updatedAt: string }[];
+}
+
+export type CarriedState = "carried" | "fruitful" | "not_now" | "let_go";
+
+export interface CarriedQuestionDto {
+  carriedId: string;
+  text: string;
+  originKind: "block" | "selection" | "note" | "drain" | "typed";
+  originRef: string | null;
+  /** `{extraction_id, span_id, anchor}`, keys as stored, when carried beside a passage. */
+  anchor: Record<string, unknown> | null;
+  deskId: string | null;
+  since: string;
+  state: CarriedState;
+  /** Still carried (carried or not now). */
+  carried: boolean;
+  version: number;
+  updatedAt: string;
+}
+
+export interface CarryInput {
+  carriedId: string;
+  text: string;
+  originKind: CarriedQuestionDto["originKind"];
+  originRef?: string | null;
+  anchor?: { extractionId: string; spanId: string; anchor?: Record<string, unknown> } | null;
+  deskId?: string | null;
+}
+
+export interface CarriedMarkInput {
+  eventId: string;
+  carriedId: string;
+  event: "fruitful" | "not_now" | "let_go" | "surfaced" | "ignored";
+  /** Required for a label (fruitful, not now, let it go). */
+  expectedVersion?: number;
+  ref?: string | null;
+}
+
+export interface CarriedListDto {
+  version: number;
+  carried: CarriedQuestionDto[];
+  /** The shelf's attention limit (spec §10.12), labelled where it applies. */
+  shelfLimit: number;
+  cursor: string | null;
+}
+
 export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored";
 /** How a row on another reading of the book lands here: the same text, or the same place only. */
 export type SpanAlias = "exact" | "needs_reanchor";
@@ -10797,6 +10924,8 @@ export interface PassageUnionSpanDto {
   notes: unknown[];
   authoredQuestions: { questionId: string; status: string; questionStyle: string; scopeKind: string;
     questionMd: string; alias: SpanAlias }[];
+  /** Questions still carried beside this passage (a quiet margin mark, never a nudge; spec §10.12). */
+  carried: { carriedId: string; text: string; since: string; state: CarriedState; alias: SpanAlias }[];
   exposure: { timesShown: number; lastShownAt: string | null; withheld: boolean };
 }
 

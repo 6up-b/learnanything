@@ -27,6 +27,9 @@ GAP_COLUMNS = (
     "seed_status", "detail_json", "algorithm_version", "pipeline_version", "created_at",
 )
 _JSON_COLUMNS = ("decider_json", "named_json", "detail_json")
+#: The job payload key holding a ``pad_text`` job's frozen snapshot of the learner's words: written by the pads'
+#: emission, read by the gap pipeline's adapter, so neither side imports the other (the pads' import fence).
+PAD_TEXT_SNAPSHOT = "pad_text"
 
 
 def _table_present(connection: sqlite3.Connection, name: str) -> bool:
@@ -270,6 +273,19 @@ def requeue_skipped_job(connection: sqlite3.Connection, job_id: str, *, now: str
     return cursor.rowcount == 1
 
 
+def skip_queued_job(connection: sqlite3.Connection, *, source_kind: str, source_id: str, now: str,
+                    reason: str) -> bool:
+    """Set a still-queued job aside unread (its text no longer stands); False when it is not queued (leased, read,
+    finished or absent: a reading already under way finishes, and its gap is set aside instead)."""
+
+    cursor = connection.execute(
+        "UPDATE learner_text_gap_jobs SET state = 'skipped', last_error = ?, updated_at = ? "
+        "WHERE source_kind = ? AND source_id = ? AND state = 'queued'",
+        (reason, now, source_kind, source_id),
+    )
+    return cursor.rowcount == 1
+
+
 def jobs(connection: sqlite3.Connection, *, states: Iterable[str] | None = None) -> list[dict[str, Any]]:
     if not _table_present(connection, "learner_text_gap_jobs"):
         return []
@@ -407,6 +423,7 @@ def pipeline_calls_since(connection: sqlite3.Connection, since: str) -> int:
 __all__ = [
     "COMMAND_RECEIPT_OWNER",
     "GAP_COLUMNS",
+    "PAD_TEXT_SNAPSHOT",
     "PIPELINE_RECEIPT_OWNER",
     "check_advances",
     "commitments",
@@ -429,4 +446,5 @@ __all__ = [
     "release_job",
     "reversals",
     "save_job_payload",
+    "skip_queued_job",
 ]

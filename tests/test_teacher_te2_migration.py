@@ -15,6 +15,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.reader_rd4_migration_helpers import undo_266
 from tests.teacher_te2_migration_helpers import REBUILT
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
@@ -53,6 +54,8 @@ def _downgraded(database: Path) -> None:
     with closing(sqlite3.connect(HEAD)) as source, closing(sqlite3.connect(database)) as target:
         source.backup(target)
     with closing(sqlite3.connect(database)) as connection:
+        # 266 rebuilt two of these tables after 248; its schema goes first (its ledger row stays, so only 248 runs).
+        undo_266(connection)
         connection.execute("PRAGMA foreign_keys = OFF")
         rows = {name: sql for name, sql in connection.execute(
             "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name IN (?, ?, ?, ?)", REBUILT)}
@@ -95,7 +98,12 @@ def test_248_changes_exactly_its_objects_and_keeps_every_row(tmp_path):
         assert changed == {*REBUILT, "lesson_episodes", "lesson_episodes_close_once"}
         for table in REBUILT:
             assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == counts[table]
-    with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as head:
+    # The head as 248 left it: the head with 266's schema undone.
+    before_266 = tmp_path / "before_266.sqlite"
+    with closing(sqlite3.connect(HEAD)) as source, closing(sqlite3.connect(before_266)) as target:
+        source.backup(target)
+    with closing(sqlite3.connect(before_266)) as head:
+        undo_266(head)
         expected = {row[0]: row[1] for row in head.execute("SELECT name, sql FROM sqlite_master")}
     for name in changed:
         assert after[name] == expected[name]

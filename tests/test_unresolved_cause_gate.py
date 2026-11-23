@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import (
@@ -33,7 +34,7 @@ ITEM = "pi_svd_ambiguous_001"  # one criterion, two candidate facets, no attribu
 CLOCK = FrozenClock(NOW)
 
 
-def _vault(tmp_path, algorithm_version="mvp-0.8"):
+def _vault(tmp_path, algorithm_version=LATEST_ALGORITHM_VERSION):
     paths = build_shared_facet_vault(tmp_path / "vault")
     set_algorithm_version(paths, algorithm_version)
     vault = load_vault(paths.root)

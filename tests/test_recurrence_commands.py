@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from learnloop.ai.spend import SpendCaps
 from learnloop.algorithm_versions import (
     CLAIM_FIXES_ALGORITHM_VERSION,
+    LATEST_ALGORITHM_VERSION,
     RECURRENCE_GROUP_ALGORITHM_VERSION,
 )
 from learnloop.cli import app
@@ -113,7 +114,7 @@ def test_successor_vocabulary():
     assert TEACHER_ALGORITHM_VERSION == "mvp-0.41"
     # Teacher TE1b (mvp-0.43, after follow-ups Nov 2's mvp-0.42; renumbered at its landing), then data capture.
     assert LESSON_SUGGESTIONS_ALGORITHM_VERSION == "mvp-0.43"
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.67"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.68"
 
 
 def test_the_successor_sets_no_cosine_cutoff_by_default():
@@ -419,7 +420,7 @@ def test_the_guard_stops_at_its_call_cap(tmp_path):
 # -- the backlog ---------------------------------------------------------------------------
 
 
-def _history(tmp_path, *, version="mvp-0.12"):
+def _history(tmp_path, *, version=LATEST_ALGORITHM_VERSION):
     """Three reworded diagnosed failures, judged by nobody yet."""
 
     paths, _vault, repository = split_vault(tmp_path, version=version, seed=False,
@@ -479,7 +480,7 @@ def test_the_backlog_refuses_over_its_caps(tmp_path):
 
 
 def test_the_backlog_needs_embeddings(tmp_path):
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.12", seed=False)
+    paths, _vault, repository = split_vault(tmp_path, seed=False)
     report = run_backlog(load_vault(paths.root), repository, caps=CAPS, dry_run=True)
     assert report["status"] == "invalid"
 
@@ -575,7 +576,7 @@ def test_the_cli_backlog_and_guard_dry_runs(tmp_path):
 # -- prepared vs active groups, and the kill switch (review F2) ----------------------------
 
 
-def _merged_history(tmp_path, *, version="mvp-0.12"):
+def _merged_history(tmp_path, *, version=LATEST_ALGORITHM_VERSION):
     paths, vault, repository, embedder = _history(tmp_path, version=version)
     run_backlog(vault, repository, caps=CAPS, judge_client=JudgeFake(shares_word("transpos")), embedding_client=embedder)
     return paths, load_vault(paths.root), repository
