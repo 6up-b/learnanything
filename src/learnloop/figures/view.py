@@ -341,30 +341,49 @@ def property_checks(report: Mapping[str, Any]) -> list[str]:
 # The view
 # ---------------------------------------------------------------------------
 
-def _label(row: Mapping[str, Any]) -> str:
+#: The closed codes of a view's label (``label_code``): the desktop draws its badge from the code, never from the
+#: label's words. ``rich_off`` is "can't show this kind here" (a rich figure while the rich tiers are off).
+LABEL_CODES = ("illustrative", "not_from_books", "sketch", "sketch_unchecked", "sketch_not_from_books", "manim",
+               "manim_unchecked", "manim_not_from_books", "rich_off", "engine_changed", "unsupported", "failed")
+_CODE_LABELS = {
+    "illustrative": LABELS["illustrative"], "not_from_books": NOT_FROM_BOOKS_LABEL, "sketch": SKETCH_LABEL,
+    "sketch_unchecked": SKETCH_UNCHECKED_LABEL, "sketch_not_from_books": SKETCH_NOT_FROM_BOOKS_LABEL,
+    "manim": RICH.MANIM_LABEL, "manim_unchecked": RICH.MANIM_UNCHECKED_LABEL,
+    "manim_not_from_books": RICH.MANIM_NOT_FROM_BOOKS_LABEL, "rich_off": RICH.RICH_OFF_LABEL,
+    "engine_changed": ENGINE_CHANGED_REASON,
+}
+
+
+def _label_code(row: Mapping[str, Any]) -> str:
     verification = row["verification"]
+    report = row.get("verification_report") or {}
     if verification == "illustrative" and rich_row(row):
         if row.get("grounding") == "none":
-            return RICH.MANIM_NOT_FROM_BOOKS_LABEL
-        report = row.get("verification_report") or {}
-        return RICH.MANIM_LABEL if report.get("checks") else RICH.MANIM_UNCHECKED_LABEL
-    if verification == "unsupported" and (row.get("verification_report") or {}).get("rich_off"):
-        return RICH.RICH_OFF_LABEL
+            return "manim_not_from_books"
+        return "manim" if report.get("checks") else "manim_unchecked"
+    if verification == "unsupported" and report.get("rich_off"):
+        return "rich_off"
     if verification == "illustrative" and sketch_row(row):
         if row.get("grounding") == "none":
-            return SKETCH_NOT_FROM_BOOKS_LABEL
-        report = row.get("verification_report") or {}
-        return SKETCH_LABEL if report.get("checks") else SKETCH_UNCHECKED_LABEL
-    if verification == "failed" and (row.get("verification_report") or {}).get("engine_changed"):
-        return ENGINE_CHANGED_REASON
+            return "sketch_not_from_books"
+        return "sketch" if report.get("checks") else "sketch_unchecked"
+    if verification == "failed" and report.get("engine_changed"):
+        return "engine_changed"
     if verification == "illustrative" and row.get("grounding") == "none":
-        return NOT_FROM_BOOKS_LABEL
+        return "not_from_books"
     if verification in LABELS:
-        return LABELS[verification]
-    reason = str((row.get("verification_report") or {}).get("reason") or "")
-    if verification == "unsupported":
+        return verification
+    return "unsupported" if verification == "unsupported" else "failed"
+
+
+def _label(row: Mapping[str, Any]) -> str:
+    code = _label_code(row)
+    if code in _CODE_LABELS:
+        return _CODE_LABELS[code]
+    if code == "unsupported":
         kind = row.get("unsupported_kind") or "something the figure language can't express"
         return f"can't draw this yet — needs {kind} · noted"
+    reason = str((row.get("verification_report") or {}).get("reason") or "")
     return f"couldn't build a reliable version of this ({reason or 'its checks did not pass'})"
 
 
@@ -409,6 +428,7 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         "anchor_span_id": _anchor_span(row, asked, home),
         "region": row.get("region"),
         "origin": row["origin"], "verification": row["verification"], "kind": row.get("kind"),
+        "shown": row["verification"] in store.SHOWN, "label_code": _label_code(row),
         "label": _label(row), "reason": (row.get("verification_report") or {}).get("reason") or None,
         "unsupported_kind": row.get("unsupported_kind"), "supersedes_id": row.get("supersedes_id"),
         "revision_note": row.get("revision_note"), "versions": versions, "created_at": row["created_at"],
@@ -662,8 +682,9 @@ def redelivered_view(vault: Any, repository: Repository, view: Mapping[str, Any]
         # RW5c: the labels and the claim as the switch and the ledger are now,
         # never as they were when the build finished (§10.1).
         current = figure_view(vault, repository, row, versions=int(view.get("versions") or 1))
-        keep = {key: current[key] for key in ("verification", "label", "reason", "spec_json", "predictions",
-                                              "demonstrates", "assumptions", "property_checks") if key in current}
+        keep = {key: current[key] for key in ("verification", "shown", "label_code", "label", "reason", "spec_json",
+                                              "predictions", "demonstrates", "assumptions", "property_checks")
+                if key in current}
         fresh.update(keep)
         for key in ("elements", "source_check"):
             fresh.pop(key, None)
@@ -759,6 +780,7 @@ __all__ = [
     "ADVANCED_OFF_KIND",
     "ENGINE_CHANGED_REASON",
     "LABELS",
+    "LABEL_CODES",
     "LEDGER_TASK",
     "NOT_FROM_BOOKS_LABEL",
     "PROPERTY_CHECKS",

@@ -25,6 +25,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -85,6 +86,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "spanIds": [
      "p3"
     ],
@@ -123,6 +125,7 @@
    "grounding": "anchor",
    "kind": "reconstructed",
    "label": "AI-built illustration of an interpretation · not checked against the book",
+   "labelCode": "illustrative",
    "origin": "selection",
    "passages": [],
    "predictions": [
@@ -172,6 +175,7 @@
    "reason": "the book check comes in a later version",
    "region": null,
    "revisionNote": null,
+   "shown": true,
    "spanIds": [
     "p3"
    ],
@@ -787,6 +791,7 @@
     "grounding": "anchor",
     "kind": "reconstructed",
     "label": "AI-built illustration of an interpretation · not checked against the book",
+    "labelCode": "illustrative",
     "origin": "selection",
     "passages": [],
     "predictions": [
@@ -836,6 +841,7 @@
     "reason": "the book check comes in a later version",
     "region": null,
     "revisionNote": null,
+    "shown": true,
     "spanIds": [
      "p3"
     ],
