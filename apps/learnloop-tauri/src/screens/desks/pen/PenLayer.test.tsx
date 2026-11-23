@@ -1,0 +1,314 @@
+// The pen layer on a source window (spec §10.10): strokes drawn with pen pointer events on a laid-out page (jsdom
+// lays nothing out, so the page's geometry is stubbed: one line of text per passage), each recognition becoming
+// the annotation the spec names with its ink saved through the one write sequence; touch, a paused window and an
+// unrecognized stroke keep nothing.
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { InkTranscribeJobDto } from "../../../api/dto";
+import { Poller } from "../../../api/poller";
+import type { PenSurface } from "../../ReaderScreen";
+import { WindowLifecycleContext, type WindowState } from "../lifecycle";
+import { PenHostContext, type PenApi, type PenHost } from "./host";
+import { PenLayer, STRIKE_WORDS } from "./PenLayer";
+
+// Each passage is one line: left 100, 8 px a character, 24 px tall, the first at y 100, then every 30 px.
+const LEFT = 100;
+const CHAR = 8;
+const LINE = 24;
+const TEXTS = ["the quick brown fox jumps over the lazy dog", "a second passage of plain words to mark"];
+
+let body: HTMLElement;
+let paragraphs: HTMLElement[];
+
+function lineOf(index: number) {
+  return { top: 100 + index * 30, height: LINE };
+}
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+  return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) } as DOMRect;
+}
+
+function paragraphIndex(node: Node): number {
+  return paragraphs.findIndex((p) => p.contains(node));
+}
+
+function rangeRects(range: Range): DOMRect[] {
+  const s = paragraphIndex(range.startContainer);
+  const e = paragraphIndex(range.endContainer);
+  if (s < 0 || e < 0) return [];
+  const out: DOMRect[] = [];
+  for (let i = s; i <= e; i += 1) {
+    const text = TEXTS[i];
+    const from = i === s ? range.startOffset : 0;
+    const to = i === e ? range.endOffset : text.length;
+    const { top, height } = lineOf(i);
+    out.push(rect(LEFT + from * CHAR, top, Math.max(0, to - from) * CHAR, height));
+  }
+  return out;
+}
+
+beforeEach(() => {
+  body = document.createElement("div");
+  paragraphs = TEXTS.map((text, i) => {
+    const p = document.createElement("p");
+    p.dataset.spanId = `s${i + 1}`;
+    p.textContent = text;
+    p.getBoundingClientRect = () => rect(LEFT, lineOf(i).top, 400, LINE);
+    body.appendChild(p);
+    return p;
+  });
+  body.getBoundingClientRect = () => rect(0, 0, 900, 600);
+  document.body.appendChild(body);
+  (document as unknown as { caretRangeFromPoint: (x: number, y: number) => Range | null }).caretRangeFromPoint = (x, y) => {
+    const i = paragraphs.findIndex((_p, k) => y >= lineOf(k).top && y < lineOf(k).top + LINE);
+    if (i < 0 || x < LEFT || x > LEFT + 400) return null;
+    const node = paragraphs[i].firstChild!;
+    const range = document.createRange();
+    range.setStart(node, Math.max(0, Math.min(TEXTS[i].length, Math.round((x - LEFT) / CHAR))));
+    return range;
+  };
+  Range.prototype.getClientRects = function getClientRects(this: Range) {
+    const rects = rangeRects(this);
+    return Object.assign(rects, { item: (k: number) => rects[k] }) as unknown as DOMRectList;
+  };
+  Range.prototype.getBoundingClientRect = function getBoundingClientRect(this: Range) {
+    const rects = rangeRects(this);
+    if (!rects.length) return rect(0, 0, 0, 0);
+    const left = Math.min(...rects.map((r) => r.left));
+    const top = Math.min(...rects.map((r) => r.top));
+    return rect(left, top, Math.max(...rects.map((r) => r.right)) - left, Math.max(...rects.map((r) => r.bottom)) - top);
+  };
+});
+
+afterEach(() => {
+  cleanup();
+  body.remove();
+});
+
+function fakeApi(job: Partial<InkTranscribeJobDto> = {}): PenApi {
+  let annotation = 0;
+  return {
+    readerCapture: vi.fn(async () => ({ annotationId: `ann_${++annotation}`, outboxId: "o", interactionEventId: "e", anchorStatus: "exact" as const, captureKind: "annotation", deduplicated: false, receipt: "r" })),
+    readerDeleteIntentAnnotation: vi.fn(async () => ({ eventId: "del" })),
+    readerEditAnnotation: vi.fn(async () => ({ annotationId: "ann_1", status: "exact" as const })),
+    readerSourceAnnotations: vi.fn(async () => ({ annotations: [] })),
+    inkList: vi.fn(async () => ({ version: 1, padId: null, sourceId: "src", owners: [] })),
+    inkTranscribe: vi.fn(async () => ({ version: 1, jobId: null, status: "failed" as const, done: true, result: null,
+      error: { code: "cannot_read_images", message: "cannot read images", retryable: false, details: null }, ...job })),
+    inkTranscribeJob: vi.fn(),
+    inkTranscribeCancel: vi.fn(),
+  };
+}
+
+function setup({ state = "active" as WindowState, on = true, api = fakeApi() } = {}) {
+  let n = 0;
+  const host: PenHost = {
+    on,
+    simulate: false,
+    setOn: vi.fn(),
+    saveInk: vi.fn(),
+    settled: vi.fn(async () => "saved" as const),
+    mintId: (prefix) => `${prefix}_${++n}`,
+    api,
+    poller: new Poller({ setInterval: () => 1, clearInterval: () => undefined }),
+    askCompanion: vi.fn(),
+  };
+  const surface: PenSurface = {
+    body,
+    identity: { sourceId: "src", revisionId: "rev", extractionId: "ext", renderViewId: "rv" },
+    nodesFor: vi.fn((range: Range) => [{ spanId: "s1", quote: range.toString() }]),
+  };
+  render(
+    <WindowLifecycleContext.Provider value={{ windowId: "w1", state }}>
+      <PenHostContext.Provider value={host}>
+        <PenLayer surface={surface} />
+      </PenHostContext.Provider>
+    </WindowLifecycleContext.Provider>,
+  );
+  return { host, surface, api };
+}
+
+function pointer(type: string, x: number, y: number, over: Record<string, unknown> = {}) {
+  const { button = 0, buttons = 1, ...rest } = over as { button?: number; buttons?: number };
+  const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button, buttons });
+  Object.assign(event, { pointerId: 1, pointerType: "pen", pressure: 0.5, tiltX: 0, tiltY: 0, ...rest });
+  return event;
+}
+
+function draw(points: Array<[number, number]>, over: Record<string, unknown> = {}) {
+  const target = paragraphs[0];
+  act(() => {
+    target.dispatchEvent(pointer("pointerdown", points[0][0], points[0][1], over));
+    for (const [x, y] of points.slice(1)) target.dispatchEvent(pointer("pointermove", x, y, over));
+    target.dispatchEvent(pointer("pointerup", points[points.length - 1][0], points[points.length - 1][1], over));
+  });
+}
+
+const flat = (x0: number, x1: number, y: number): Array<[number, number]> => {
+  const out: Array<[number, number]> = [];
+  for (let x = x0; x <= x1; x += 6) out.push([x, y]);
+  return out;
+};
+
+async function settle() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+describe("the pen layer", () => {
+  it("an underline becomes a highlight snapped to the words, with its ink saved in the one write sequence", async () => {
+    const { host, api, surface } = setup();
+    draw(flat(140, 300, 100 + LINE + 2)); // under the first line
+    await settle();
+    expect(api.readerCapture).toHaveBeenCalledTimes(1);
+    const capture = vi.mocked(api.readerCapture).mock.calls[0][0];
+    expect(capture).toMatchObject({ sourceId: "src", revisionId: "rev", extractionId: "ext", renderViewId: "rv", action: "highlight", learnerText: "" });
+    expect(surface.nodesFor).toHaveBeenCalled();
+    expect(vi.mocked(surface.nodesFor).mock.calls[0][0].toString()).toBe(TEXTS[0].slice(5, 24)); // x 142..294 at 8 px a character
+    expect(host.saveInk).toHaveBeenCalledTimes(1);
+    const ink = vi.mocked(host.saveInk).mock.calls[0][0];
+    expect(ink.owner).toEqual({ annotationId: "ann_1" });
+    expect(ink.pointerMeta.pointerType).toBe("pen");
+    expect(ink.strokes).toHaveLength(1);
+    expect(ink.strokes[0].points[0]).toEqual([140, 126, 0, 0.5, 0, 0]);
+    expect(screen.getByText("underline → highlight")).toBeTruthy();
+    expect(body.querySelector('[data-pen-mark="underline"]')).not.toBeNull();
+    expect(body.querySelector('path[data-pen-stroke="underline"]')).not.toBeNull();
+  });
+
+  it("a strike becomes the disposition the spec names", async () => {
+    const { api } = setup();
+    draw(flat(140, 300, 100 + LINE * 0.55));
+    await settle();
+    expect(vi.mocked(api.readerCapture).mock.calls[0][0]).toMatchObject({ action: "disposition", learnerText: STRIKE_WORDS });
+    expect(body.querySelector(".desk-pen-strike")).not.toBeNull();
+  });
+
+  it("a bracket in the margin highlights the paragraphs it spans, each anchored whole", async () => {
+    const { api } = setup();
+    const points: Array<[number, number]> = [[88, 100]];
+    for (let y = 100; y <= 150; y += 8) points.push([80, y]);
+    points.push([88, 150]);
+    draw(points);
+    await settle();
+    expect(vi.mocked(api.readerCapture).mock.calls[0][0]).toMatchObject({
+      action: "highlight", rawSelection: { extractionId: "ext", nodes: [{ spanId: "s1", start: 0, end: 1_000_000 }, { spanId: "s2", start: 0, end: 1_000_000 }] },
+    });
+    expect(body.querySelectorAll('[data-pen-mark="bracket"]')).toHaveLength(2);
+  });
+
+  it("a margin note is an interpretation holding the ink; unreadable handwriting is said plainly and the learner's words are kept", async () => {
+    const { api, host } = setup();
+    const points: Array<[number, number]> = [];
+    for (let t = 0; t < 1; t += 0.02) points.push([530 + t * 150, 110 + Math.sin(t * 60) * 7]);
+    draw(points);
+    await settle();
+    await settle();
+    expect(vi.mocked(api.readerCapture).mock.calls[0][0]).toMatchObject({ action: "interpretation", rawSelection: { nodes: [{ spanId: "s1", start: 0, end: 1_000_000 }] } });
+    const inkId = vi.mocked(host.saveInk).mock.calls[0][0].inkId;
+    expect(api.inkTranscribe).toHaveBeenCalledWith({ inkId });
+    expect(screen.getByText("handwriting can't be read yet · your ink is kept")).toBeTruthy();
+    const field = screen.getByLabelText("your note's words");
+    fireEvent.change(field, { target: { value: "does the log cancel the exp?" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(api.readerEditAnnotation).toHaveBeenCalledWith({ annotationId: "ann_1", learnerText: "does the log cancel the exp?" });
+  });
+
+  it("a reading is shown as may be wrong and is never stored as the learner's words until they keep it", async () => {
+    const api = fakeApi({ status: "done", error: null, result: { transcriptionId: "it_1", ownerKind: "annotation", ownerId: "ann_1", contentHash: "h", latexMd: "does $e^x$ cancel?", confidenceLabel: "may_be_wrong", model: "m", createdAt: "t", applied: false, reason: null, headVersionId: null } });
+    setup({ api });
+    const points: Array<[number, number]> = [];
+    for (let t = 0; t < 1; t += 0.02) points.push([530 + t * 150, 110 + Math.sin(t * 60) * 7]);
+    draw(points);
+    await settle();
+    await settle();
+    const field = screen.getByLabelText("your note's words") as HTMLTextAreaElement;
+    expect(field.value).toBe("does $e^x$ cancel?");
+    expect(screen.getByText("transcribed · may be wrong · fix it")).toBeTruthy();
+    fireEvent.blur(field);
+    expect(api.readerEditAnnotation).not.toHaveBeenCalled();
+  });
+
+  it("a closed loop selects the words inside and offers the companion; nothing is stored", async () => {
+    const { api, host } = setup();
+    const points: Array<[number, number]> = [];
+    for (let a = 0; a <= Math.PI * 2 - 0.2; a += 0.2) points.push([200 + 70 * Math.cos(a), 112 + 14 * Math.sin(a)]);
+    draw(points);
+    await settle();
+    expect(document.getSelection()?.toString()).toContain("brown");
+    expect(api.readerCapture).not.toHaveBeenCalled();
+    expect(host.saveInk).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("ask the tutor · c"));
+    expect(host.askCompanion).toHaveBeenCalled();
+  });
+
+  it("undo takes the mark back: its annotation's delete intent, its marks and ink gone", async () => {
+    const { api } = setup();
+    draw(flat(140, 300, 100 + LINE + 2));
+    await settle();
+    fireEvent.click(screen.getByText("undo"));
+    expect(api.readerDeleteIntentAnnotation).toHaveBeenCalledWith({ annotationId: "ann_1", reason: "pen undo" });
+    expect(body.querySelector('[data-pen-mark="underline"]')).toBeNull();
+    expect(body.querySelector('path[data-pen-stroke="underline"]')).toBeNull();
+  });
+
+  it("the barrel button erases a mark's ink, taking the mark back", async () => {
+    const { api } = setup();
+    draw(flat(140, 300, 100 + LINE + 2));
+    await settle();
+    draw([[200, 126], [205, 126], [210, 126]], { button: 2 });
+    expect(api.readerDeleteIntentAnnotation).toHaveBeenCalledWith({ annotationId: "ann_1", reason: "pen undo" });
+  });
+
+  it("a stroke it cannot place stays plain ink, said not kept, never stored", async () => {
+    const { api, host } = setup();
+    draw([[150, 105], [250, 160], [300, 110], [420, 170]]);
+    await settle();
+    expect(screen.getByText("ink · not recognised · not kept")).toBeTruthy();
+    expect(api.readerCapture).not.toHaveBeenCalled();
+    expect(host.saveInk).not.toHaveBeenCalled();
+  });
+
+  it("touch never draws; a paused window draws and saves nothing; a pen's first touch turns pen mode on", async () => {
+    const first = setup();
+    draw(flat(140, 300, 126), { pointerType: "touch" });
+    await settle();
+    expect(first.api.readerCapture).not.toHaveBeenCalled();
+    cleanup();
+    const paused = setup({ state: "offscreen" });
+    draw(flat(140, 300, 126));
+    await settle();
+    expect(paused.api.readerCapture).not.toHaveBeenCalled();
+    expect(body.querySelector("path")).toBeNull();
+    cleanup();
+    const off = setup({ on: false });
+    draw(flat(140, 300, 126));
+    await settle();
+    expect(off.host.setOn).toHaveBeenCalledWith(true);
+    expect(off.api.readerCapture).toHaveBeenCalled();
+  });
+});
+
+describe("ink already saved", () => {
+  it("is drawn again where it was written, with its mark and its note's words", async () => {
+    const api = fakeApi();
+    vi.mocked(api.inkList).mockResolvedValue({ version: 1, padId: null, sourceId: "src", owners: [
+      { ownerKind: "annotation", ownerId: "ann_u", contentHash: "h1", devicePixelRatio: 1, transcription: null,
+        strokes: [{ strokeId: "s1", inkId: "ink_u", points: flat(140, 300, 126).map(([x, y]) => [x, y, 0, 0.5, 0, 0] as [number, number, number, number, number, number]) }] },
+      { ownerKind: "annotation", ownerId: "ann_n", contentHash: "h2", devicePixelRatio: 1, transcription: null,
+        strokes: [{ strokeId: "s2", inkId: "ink_n", points: [[530, 110, 0, 0.5, 0, 0], [560, 118, 8, 0.5, 0, 0], [600, 104, 16, 0.5, 0, 0], [640, 112, 24, 0.5, 0, 0]] }] },
+    ] });
+    vi.mocked(api.readerSourceAnnotations).mockResolvedValue({ annotations: [
+      { annotation: { id: "ann_u" }, version: { annotationType: "highlight", learnerText: "" } },
+      { annotation: { id: "ann_n" }, version: { annotationType: "interpretation", learnerText: "my words" } },
+    ] });
+    setup({ api });
+    await settle();
+    expect(api.inkList).toHaveBeenCalledWith({ sourceId: "src" });
+    expect(body.querySelector('path[data-pen-stroke="underline"]')).not.toBeNull();
+    expect(body.querySelector('[data-pen-mark="underline"]')).not.toBeNull();
+    expect((screen.getByLabelText("your note's words") as HTMLTextAreaElement).value).toBe("my words");
+  });
+});
