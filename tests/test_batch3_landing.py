@@ -113,7 +113,7 @@ def _workbench_submit_shadow(tmp_path, *, opened: bool):
     from tests.reader_ca2_fix_orchestrator_helpers import _call, _open, _row, _step
     from tests.reader_ca2_codex_rereview_helpers import _attempt, _draft, _steps_sidecar
 
-    paths, ctx, session = _steps_sidecar(tmp_path)
+    paths, ctx, session = _steps_sidecar(tmp_path, version=TAG)
     assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
     _draft(ctx, session, CDF_ITEM, "kA", **({"earlierOpened": True} if opened else {}))
     view = _open(ctx, session)

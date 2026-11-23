@@ -6,7 +6,7 @@ from __future__ import annotations
 import sqlite3
 from contextlib import closing
 
-from learnloop.algorithm_versions import ONE_ASK_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 from tests.hint_fakes import WORK
 from tests.reader_ca2_codex_review_helpers import _call
@@ -20,9 +20,9 @@ def _attempt(paths, attempt_id: str) -> dict:
         return dict(connection.execute("SELECT * FROM practice_attempts WHERE id = ?", (attempt_id,)).fetchone())
 
 
-def _steps_sidecar(tmp_path):
+def _steps_sidecar(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION):
     paths, ctx, session = help_sidecar(tmp_path)
-    set_config(paths.root, {("algorithms", "algorithm_version"): ONE_ASK_ALGORITHM_VERSION})
+    set_config(paths.root, {("algorithms", "algorithm_version"): version})
     ctx.load(paths.root)
     return paths, ctx, session
 

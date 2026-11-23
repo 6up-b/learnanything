@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from learnloop.algorithm_versions import READER_FOLLOWUPS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.instructional import reader_followups as RF
 from learnloop.instructional.valuation import CandidateInput, ValuationProblem, value_candidates
 from learnloop.reader import reader_sessions as RS
@@ -37,9 +37,9 @@ def _attempt(repo, attempt_id, *, minutes, hints, item="pi_svd_define_001", scor
     })
 
 
-def _seeded(tmp_path, *, config: str | None = None, version: str = READER_FOLLOWUPS_ALGORITHM_VERSION):
-    """One ended session (0-40 min): a problem worked with the book and a hint,
-    at the successor (mvp-0.39; Codex review F4) unless ``version`` says otherwise."""
+def _seeded(tmp_path, *, config: str | None = None, version: str = LATEST_ALGORITHM_VERSION):
+    """One ended session (0-40 min): a problem worked with the book and a hint, at the head unless ``version``
+    says otherwise (the successor's own tests pass its tag)."""
 
     vault, repo = _setup(tmp_path)
     for item_id in ITEMS:
