@@ -163,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_menu_elsewhere_and_proposals.py](../../../../../../tests/test_menu_elsewhere_and_proposals.py) — direct import
   - `test_search_findings_are_the_judges_picks_checked_or_every_hit_unchecked_without_a_judgment`
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import
   - `test_no_bound_model_call_receives_item_text_from_outside_the_plan`
 - [tests/test_source_retrieval_guards.py](../../../../../../tests/test_source_retrieval_guards.py) — direct import

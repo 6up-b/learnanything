@@ -102,6 +102,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_menu_elsewhere_and_proposals.py](../../../../../../../tests/test_menu_elsewhere_and_proposals.py) — imports consumer [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]]
 - [tests/test_menu_promoted_rows.py](../../../../../../../tests/test_menu_promoted_rows.py) — imports consumer [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]]
+- [tests/test_menu_protected_material.py](../../../../../../../tests/test_menu_protected_material.py) — imports consumer [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]]
 
 ## Modification guidance
 

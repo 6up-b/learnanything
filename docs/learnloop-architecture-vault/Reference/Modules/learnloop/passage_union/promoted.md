@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/passage_union/promoted.py](../../../../../../src/learnloop/passage_union/promoted.py) |
-| Source lines | 181 |
+| Source lines | 184 |
 | Owning package | [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,9 +59,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `object_key(object_kind: str, *, extraction_id: str | None=None, span_id: str | None=None, annotation_id: str | None=None, block_id: str | None=None, window_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 61) — The object a menu was opened on, as one string (what a row's id and its labels are keyed by).
 - `row_id(key: str, kind: str, target: Any) -> str` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 72)
 - `cheap_rows(key: str, places: Sequence[tuple[str, str, Mapping[str, Any]]], elsewhere: Sequence[Any]=()) -> list[Row]` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 81) — The rows the union read of the object's passages gives (``places``: each passage's reading, span and union entry), and another passage the cue judge tied to the same problem (``elsewhere``: passage-link findings).
-- `finding_rows(key: str, findings: Iterable[Any]) -> list[Row]` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 140) — The judged rows: correspondents and search findings.
-- `rank(rows: Iterable[Row], *, dismissed: Iterable[str]=(), cap: int=CAP) -> list[Row]` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 156) — Option A (an orchestrator default the owner may override): the learner's history most recent first; then the rest by their own judge's rank, checked before unchecked; one of each kind before a second; ties by row id; dismissed or "not this" rows left out; at most ``cap``.
-- `dismissed_rows(labels: Iterable[Mapping[str, Any]]) -> set[str]` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 176)
+- `finding_rows(key: str, findings: Iterable[Any]) -> list[Row]` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 143) — The judged rows: correspondents and search findings.
+- `rank(rows: Iterable[Row], *, dismissed: Iterable[str]=(), cap: int=CAP) -> list[Row]` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 159) — Option A (an orchestrator default the owner may override): the learner's history most recent first; then the rest by their own judge's rank, checked before unchecked; one of each kind before a second; ties by row id; dismissed or "not this" rows left out; at most ``cap``.
+- `dismissed_rows(labels: Iterable[Mapping[str, Any]]) -> set[str]` ([source](../../../../../../src/learnloop/passage_union/promoted.py), line 179)
 
 ### Module constants
 
@@ -122,6 +122,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
   - `test_a_dismissed_or_wrong_row_is_left_out_on_that_object`
   - `test_a_due_check_is_never_a_row`
+  - `test_a_row_reached_from_two_passages_ranks_by_its_latest_act`
   - `test_the_order_learners_history_first_then_judges_rank_one_of_a_kind_first_at_most_four`
 
 ## Modification guidance

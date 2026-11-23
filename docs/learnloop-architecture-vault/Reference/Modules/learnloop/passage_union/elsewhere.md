@@ -47,24 +47,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/passage_union/elsewhere.py](../../../../../../src/learnloop/passage_union/elsewhere.py) |
-| Source lines | 156 |
+| Source lines | 187 |
 | Owning package | [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Finding` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 42) — One place elsewhere: its content reference and target, what found it, whether that was checked, and its rank within its finder (lower first).
-  - `target(self) -> dict[str, Any]` (line 57; public)
-- `by_passage_links(repository: Any, connection: Any, places: Iterable[tuple[str, str]]) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 63)
-- `by_correspondents(vault: Any, repository: Any, places: Iterable[tuple[str, str]], *, search_fallback: bool, embedder: Any | None=None, cache: Any | None=None) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 77) — Each passage's section's correspondents in the other books, judged first; the search fallback's hits (keyword, no model) only when asked and when no judged one exists.
-- `by_search(vault: Any, repository: Any, text: str, *, exclude_sources: Iterable[str]=(), exclude_places: Iterable[tuple[str, str]]=(), deep: bool, verify: bool, embedder: Any | None=None, verify_client: Any | None=None, owner_id: str='', pick_at_most: int) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 111) — Passages found for ``text`` in the other sources; with ``verify``, the judge's picks are checked and the rest dropped (a judge that looked at a hit and did not pick it said it does not say this); without a judgment, every hit is unchecked.
-- `as_proposal(finding: Finding) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 148) — A finding as a ``pad_proposals`` row's content (the caller adds the ids and the time).
+- `class Finding` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 49) — One place elsewhere: its content reference and target, what found it, whether that was checked, and its rank within its finder (lower first).
+  - `target(self) -> dict[str, Any]` (line 64; public)
+- `withheld_places(vault: Any, repository: Any, places: Iterable[tuple[str, str]]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 70) — The places among ``places`` that are exam or held-out material now.
+- `by_passage_links(vault: Any, repository: Any, connection: Any, places: Iterable[tuple[str, str]]) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 76) — The other passages a link ties to the same learner problem as ``places``; none from or to protected material.
+- `by_correspondents(vault: Any, repository: Any, places: Iterable[tuple[str, str]], *, search_fallback: bool, embedder: Any | None=None, cache: Any | None=None) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 99) — Each passage's section's correspondents in the other books, judged first; the search fallback's hits (keyword, no model) only when asked and when no judged one exists.
+- `by_search(vault: Any, repository: Any, text: str, *, exclude_sources: Iterable[str]=(), exclude_places: Iterable[tuple[str, str]]=(), deep: bool, verify: bool, embedder: Any | None=None, verify_client: Any | None=None, owner_id: str='', pick_at_most: int) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 137) — Passages found for ``text`` in the other sources; with ``verify``, the judge's picks are checked and the rest dropped (a judge that looked at a hit and did not pick it said it does not say this); without a judgment, every hit is unchecked.
+- `as_proposal(finding: Finding) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 179) — A finding as a ``pad_proposals`` row's content (the caller adds the ids and the time).
 
 ### Module constants
 
-- `UNCHECKED` ([src/learnloop/passage_union/elsewhere.py](../../../../../../src/learnloop/passage_union/elsewhere.py), line 31)
-- `RELATION_REASONS` ([src/learnloop/passage_union/elsewhere.py](../../../../../../src/learnloop/passage_union/elsewhere.py), line 33)
+- `UNCHECKED` ([src/learnloop/passage_union/elsewhere.py](../../../../../../src/learnloop/passage_union/elsewhere.py), line 38)
+- `RELATION_REASONS` ([src/learnloop/passage_union/elsewhere.py](../../../../../../src/learnloop/passage_union/elsewhere.py), line 40)
 
 ### Explicit exports
 
@@ -77,6 +78,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `by_correspondents`
 - `by_passage_links`
 - `by_search`
+- `withheld_places`
 
 ## Internal implementation anchors
 
@@ -87,17 +89,18 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `RELATION_REASONS`, `as_proposal`, `module`; statically calls `as_proposal`, `by_correspondents`, `by_passage_links`, `by_search`
-- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `by_correspondents`, `by_passage_links`, `by_search`
+- [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `RELATION_REASONS`, `as_proposal`, `module`, `withheld_places`; statically calls `as_proposal`, `by_correspondents`, `by_passage_links`, `by_search`, `withheld_places`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`, `withheld_places`; statically calls `by_correspondents`, `by_passage_links`, `by_search`, `withheld_places`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exam_withheld`; calls `exam_withheld`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `reading_source`; calls `reading_source`
 - [[Reference/Modules/learnloop/db/stores/passage_link_reads|learnloop.db.stores.passage_link_reads]] — imports `links_elsewhere`; calls `links_elsewhere`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `section_id_in_ir`; calls `section_id_in_ir`
-- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `Scope`, `library_scope`; calls `Scope`, `library_scope`
+- [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `Scope`, `exam_exclusions`, `library_scope`; calls `Scope`, `exam_exclusions`, `library_scope`
 - [[Reference/Modules/learnloop/source_retrieval/search|learnloop.source_retrieval.search]] — imports `search_spans`; calls `search_spans`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `correspondents`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `verify_spans`; calls `verify_spans`
@@ -125,7 +128,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_correspondents_judged_first_and_the_keyword_fallback_only_without_them`
   - `test_search_findings_are_the_judges_picks_checked_or_every_hit_unchecked_without_a_judgment`
 - [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
+  - `test_a_menu_whose_vault_was_switched_away_from_delivers_nothing`
+  - `test_a_retried_menu_request_answers_with_its_job_and_runs_once`
   - `test_judged_rows_arrive_through_the_job_checked_before_unchecked`
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_search_elsewhere_never_finds_or_judges_protected_material`
 
 ## Modification guidance
 

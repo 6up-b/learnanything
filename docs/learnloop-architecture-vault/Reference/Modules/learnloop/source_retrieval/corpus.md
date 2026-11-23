@@ -155,7 +155,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `MODEL_WITHHELD_ROLES`, `model_reader_withheld`; statically calls `model_reader_withheld`
-- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `Scope`, `library_scope`; statically calls `Scope`, `library_scope`
+- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `Scope`, `exam_exclusions`, `library_scope`; statically calls `Scope`, `exam_exclusions`, `library_scope`
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `MODEL_WITHHELD_ROLES`, `item_exclusions`, `model_reader_withheld`; statically calls `item_exclusions`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `current_extractions`; statically calls `current_extractions`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`; statically calls `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`
