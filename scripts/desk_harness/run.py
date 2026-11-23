@@ -435,7 +435,7 @@ async def run_overview(page: Page, base: str, results: Results, shots: Path | No
     # The four ways back restore the reading layout within 1 px: esc, o, alt+o, and ↵ / a click on the
     # card it was entered from.
     def same(a: dict[str, list[float]], b: dict[str, list[float]]) -> bool:
-        return a.keys() == b.keys() and all(all(abs(x - y) <= 1 for x, y in zip(a[k], b[k])) for k in a)
+        return a.keys() == b.keys() and all(all(abs(x - y) <= 1 for x, y in zip(a[k], b[k], strict=True)) for k in a)
 
     await page.keyboard.press("Escape")
     await settle(page, 900)
@@ -462,7 +462,7 @@ async def run_overview(page: Page, base: str, results: Results, shots: Path | No
     await page.keyboard.press("Alt+o")
     await settle(page, 900)
     times = await page.evaluate("() => window.__deskDebug.zoomFrameTimes()")
-    gaps = sorted(b - a for a, b in zip(times, times[1:]))
+    gaps = sorted(b - a for a, b in zip(times, times[1:], strict=False))
     if gaps:
         p95 = gaps[min(len(gaps) - 1, int(len(gaps) * 0.95))]
         results.check(f"frame trace (information): {len(times)} frames, median {gaps[len(gaps) // 2]:.1f} ms, p95 {p95:.1f} ms, max {gaps[-1]:.1f} ms", True)
