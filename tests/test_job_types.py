@@ -50,7 +50,8 @@ EXPECTED: dict[str, tuple[str, bool, bool, bool, bool]] = {
 
 def _observed() -> dict[str, tuple[str, bool, bool, bool, bool]]:
     return {
-        row.name: (row.handler.__name__, row.applies_vault, row.affects_queue, row.parallel, row.waits_for_ai_ok)
+        row.name: (JT.resolve_handler(row.handler).__name__, row.applies_vault, row.affects_queue, row.parallel,
+                   row.waits_for_ai_ok)
         for row in JT.JOB_TYPES
     }
 
@@ -62,8 +63,27 @@ def test_every_job_type_runs_as_characterized() -> None:
 def test_every_type_has_exactly_one_row_and_every_row_a_handler() -> None:
     names = [row.name for row in JT.JOB_TYPES]
     assert len(names) == len(set(names))
-    assert all(callable(row.handler) for row in JT.JOB_TYPES)
-    assert JT.default_handlers() == {row.name: row.handler for row in JT.JOB_TYPES}
+    for row in JT.JOB_TYPES:
+        module, _, function = row.handler.partition(":")
+        handler = JT.resolve_handler(row.handler)
+        assert callable(handler) and (handler.__module__, handler.__name__) == (module, function), row.name
+    assert JT.default_handlers() == {row.name: JT.resolve_handler(row.handler) for row in JT.JOB_TYPES}
+
+
+def test_reading_the_table_loads_no_feature_job_module() -> None:
+    """The sidecar's reload checks and the runner's flag reads take a row's facts, never its handler's module."""
+
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys\n"
+        "from learnloop.content.pipeline import job_types\n"
+        "job_types.applying_job_types(); job_types.parallel_job_types(); job_types.job_type('inventory')\n"
+        "print(sorted({row.handler.partition(':')[0] for row in job_types.JOB_TYPES} & set(sys.modules)))\n"
+    )
+    out = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "[]"
 
 
 def test_the_runner_runs_exactly_the_table(tmp_path) -> None:
@@ -173,7 +193,7 @@ def test_the_legacy_lane_resolves_its_rows_route(tmp_path, monkeypatch) -> None:
 
 
 def test_the_pipeline_reaches_retrieval_through_its_rows_and_the_hosts_sweeps() -> None:
-    """Retrieval's job types are rows whose handlers live in ``source_retrieval.jobs``. The host keeps only the
+    """Retrieval's job types are rows naming handlers in ``source_retrieval.jobs``. The host keeps only the
     derived-index sweeps, which need its lease and worker (the nightly replay, a deferred index, the fusion refit)."""
 
     def retrieval_imports(relative: str) -> set[str]:
@@ -185,4 +205,4 @@ def test_the_pipeline_reaches_retrieval_through_its_rows_and_the_hosts_sweeps() 
         "learnloop.source_retrieval.feedback", "learnloop.source_retrieval.local_index",
         "learnloop.source_retrieval.spaces", "learnloop.source_retrieval.student_encoder",
     }
-    assert retrieval_imports("learnloop/content/pipeline/job_types.py") == {"learnloop.source_retrieval.jobs"}
+    assert retrieval_imports("learnloop/content/pipeline/job_types.py") == set()

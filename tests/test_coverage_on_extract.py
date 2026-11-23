@@ -101,10 +101,10 @@ def test_the_job_runs_quiet_and_never_offers_openrouter(tmp_path, monkeypatch):
 
 
 def test_the_handler_is_registered_and_known(tmp_path, monkeypatch):
-    from learnloop.content.pipeline.job_types import job_type
+    from learnloop.content.pipeline.job_types import job_type, resolve_handler
     from learnloop.source_retrieval import jobs
 
-    assert job_type(SC.ON_EXTRACT_JOB).handler is jobs.handle_curriculum_coverage_on_extract
+    assert resolve_handler(job_type(SC.ON_EXTRACT_JOB).handler) is jobs.handle_curriculum_coverage_on_extract
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     calls: list[str] = []
     monkeypatch.setattr(SC, "rejudge_on_extract", lambda vault, repo, extraction_id, **kw: calls.append(extraction_id)

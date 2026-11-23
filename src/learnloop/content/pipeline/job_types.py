@@ -22,39 +22,27 @@ is discovered and nothing registers itself.
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from learnloop.content.authoring.jobs import (
-    handle_concept_animation,
-    handle_goal_population,
-    handle_practice_expansion,
-    handle_question_promotion,
-    handle_reader_exercise_import,
-    handle_reader_quick_check,
-    handle_rung_variant,
-    handle_source_exercise_import,
-)
-from learnloop.content.pipeline.import_jobs import (
-    handle_auto_study_map,
-    handle_extraction_repair,
-    handle_import,
-    handle_legacy_ingest,
-)
-from learnloop.content.pipeline.runner import Handler
-from learnloop.content.synthesis.jobs import handle_append_synthesis, handle_bootstrap_synthesis, handle_inventory
-from learnloop.figures.jobs import handle_figure_rich
-from learnloop.source_retrieval.jobs import (
-    handle_curriculum_coverage_on_extract,
-    handle_local_source_index,
-    handle_source_embedding_backfill,
-    handle_source_fallback_backfill,
-)
+if TYPE_CHECKING:
+    from learnloop.content.pipeline.runner import Handler
+
+_IMPORT = "learnloop.content.pipeline.import_jobs"
+_SYNTHESIS = "learnloop.content.synthesis.jobs"
+_AUTHORING = "learnloop.content.authoring.jobs"
+_FIGURES = "learnloop.figures.jobs"
+_RETRIEVAL = "learnloop.source_retrieval.jobs"
 
 
 @dataclass(frozen=True)
 class JobType:
     name: str
-    handler: Handler
+    #: ``module:function``. A name, not the function: the runner and the sidecar read the rows' facts without
+    #: importing every feature's job module, and only the runner that dispatches resolves it
+    #: (:func:`resolve_handler`).
+    handler: str
     applies_vault: bool = False
     affects_queue: bool = False
     parallel: bool = False
@@ -63,46 +51,46 @@ class JobType:
 
 
 JOB_TYPES: tuple[JobType, ...] = (
-    JobType("import", handle_import),
-    JobType("auto_study_map", handle_auto_study_map),
-    JobType("legacy_ingest", handle_legacy_ingest, applies_vault=True, waits_for_ai_ok=True,
+    JobType("import", f"{_IMPORT}:handle_import"),
+    JobType("auto_study_map", f"{_IMPORT}:handle_auto_study_map"),
+    JobType("legacy_ingest", f"{_IMPORT}:handle_legacy_ingest", applies_vault=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
-    JobType("exam_ingest", handle_legacy_ingest, applies_vault=True, waits_for_ai_ok=True,
+    JobType("exam_ingest", f"{_IMPORT}:handle_legacy_ingest", applies_vault=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
-    JobType("inventory", handle_inventory, waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
-    JobType("bootstrap_synthesis", handle_bootstrap_synthesis, applies_vault=True, waits_for_ai_ok=True,
+    JobType("inventory", f"{_SYNTHESIS}:handle_inventory", waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
+    JobType("bootstrap_synthesis", f"{_SYNTHESIS}:handle_bootstrap_synthesis", applies_vault=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
-    JobType("append_synthesis", handle_append_synthesis, applies_vault=True, waits_for_ai_ok=True,
+    JobType("append_synthesis", f"{_SYNTHESIS}:handle_append_synthesis", applies_vault=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
-    JobType("extraction_repair", handle_extraction_repair),
+    JobType("extraction_repair", f"{_IMPORT}:handle_extraction_repair"),
     # Database rows only (an authored check), so it may run beside the vault writer.
-    JobType("reader_quick_check", handle_reader_quick_check, parallel=True, waits_for_ai_ok=True,
+    JobType("reader_quick_check", f"{_AUTHORING}:handle_reader_quick_check", parallel=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
     # Reader-selected textbook exercises become vault practice items directly.
-    JobType("reader_exercise_import", handle_reader_exercise_import, applies_vault=True, affects_queue=True,
+    JobType("reader_exercise_import", f"{_AUTHORING}:handle_reader_exercise_import", applies_vault=True, affects_queue=True,
             waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
     # Picked textbook exercise proposals too (canonical sources S1).
-    JobType("source_exercise_import", handle_source_exercise_import, applies_vault=True, waits_for_ai_ok=True,
+    JobType("source_exercise_import", f"{_AUTHORING}:handle_source_exercise_import", applies_vault=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
     # Reader-driven progressive generation auto-applies grounded items.
-    JobType("practice_expansion", handle_practice_expansion, applies_vault=True, affects_queue=True,
+    JobType("practice_expansion", f"{_AUTHORING}:handle_practice_expansion", applies_vault=True, affects_queue=True,
             waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
     # Goal-wizard population applies generated practice directly.
-    JobType("goal_population", handle_goal_population, applies_vault=True, affects_queue=True, waits_for_ai_ok=True,
+    JobType("goal_population", f"{_AUTHORING}:handle_goal_population", applies_vault=True, affects_queue=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
     # Open-question promotions may materialize a note and auto-apply practice.
-    JobType("question_promotion", handle_question_promotion, applies_vault=True, affects_queue=True,
+    JobType("question_promotion", f"{_AUTHORING}:handle_question_promotion", applies_vault=True, affects_queue=True,
             waits_for_ai_ok=True, client_routes=("tutor_qa", "authoring")),
     # Learner-requested easier/harder variants auto-apply when grounded.
-    JobType("rung_variant", handle_rung_variant, applies_vault=True, affects_queue=True, waits_for_ai_ok=True,
+    JobType("rung_variant", f"{_AUTHORING}:handle_rung_variant", applies_vault=True, affects_queue=True, waits_for_ai_ok=True,
             client_routes=("rung_variant",)),
-    JobType("concept_animation", handle_concept_animation, waits_for_ai_ok=True,
+    JobType("concept_animation", f"{_AUTHORING}:handle_concept_animation", waits_for_ai_ok=True,
             client_routes=("animation", "video_generation")),
-    JobType("figure_rich", handle_figure_rich, waits_for_ai_ok=True),
-    JobType("source_embedding_backfill", handle_source_embedding_backfill, waits_for_ai_ok=True),
-    JobType("curriculum_coverage_on_extract", handle_curriculum_coverage_on_extract),
-    JobType("local_source_index", handle_local_source_index),
-    JobType("source_fallback_backfill", handle_source_fallback_backfill),
+    JobType("figure_rich", f"{_FIGURES}:handle_figure_rich", waits_for_ai_ok=True),
+    JobType("source_embedding_backfill", f"{_RETRIEVAL}:handle_source_embedding_backfill", waits_for_ai_ok=True),
+    JobType("curriculum_coverage_on_extract", f"{_RETRIEVAL}:handle_curriculum_coverage_on_extract"),
+    JobType("local_source_index", f"{_RETRIEVAL}:handle_local_source_index"),
+    JobType("source_fallback_backfill", f"{_RETRIEVAL}:handle_source_fallback_backfill"),
 )
 
 _BY_NAME = {row.name: row for row in JOB_TYPES}
@@ -114,8 +102,15 @@ def job_type(name: str) -> JobType | None:
     return _BY_NAME.get(name)
 
 
+def resolve_handler(reference: str) -> Handler:
+    """The handler a row's ``module:function`` names, importing its module."""
+
+    module, _, function = reference.partition(":")
+    return getattr(importlib.import_module(module), function)
+
+
 def default_handlers() -> dict[str, Handler]:
-    return {row.name: row.handler for row in JOB_TYPES}
+    return {row.name: resolve_handler(row.handler) for row in JOB_TYPES}
 
 
 def applying_job_types() -> tuple[str, ...]:
