@@ -105,7 +105,7 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   alt("pads.sketch", "alt+d", "sketch block", "KeyD", { kind: "sketchBlock" }, READING, { group: "pads" }),
   { id: "pads.drain", keys: "alt+shift+q", label: "close the desk's day (the drain)", chord: { code: "KeyQ", alt: true, shift: true }, action: { kind: "drain" }, scopes: READING, group: "pads" },
   alt("pads.timestamp", "alt+;", "insert ▶ timestamp", "Semicolon", { kind: "timestamp" }, READING, { later: "RD10", group: "pads" }),
-  alt("pen.toggle", "alt+p", "pen mode", "KeyP", { kind: "pen" }, ["pen", "reading"], { later: "RD8a" }),
+  alt("pen.toggle", "alt+p", "pen mode", "KeyP", { kind: "pen" }, ["pen", "reading"]),
   alt("companion.typing", "alt+c", "the companion, while typing", "KeyC", { kind: "companion", atDock: false }, ["typing"]),
   bare("media.play", "space", "play or pause", " ", { kind: "playPause" }, READING, { group: "media" }),
   bare("reading.companion", "c", "companion here", "c", { kind: "companion", atDock: false }, READING),
