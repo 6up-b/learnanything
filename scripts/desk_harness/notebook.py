@@ -191,7 +191,7 @@ MEASURE = """() => {
     return { family: s.fontFamily, size: s.fontSize, line: s.lineHeight, color: s.color, background: s.backgroundColor,
              borderLeft: s.borderLeftColor + ' ' + s.borderLeftWidth, box: [r.x, r.y, r.width, r.height] }; };
   return { body: style(document.body), h1: style(document.querySelector('h1')), em: style(document.querySelector('em')),
-           strong: style(document.querySelector('strong')), commit: style(document.getElementById('ll-commit')),
+           strong: style(document.querySelector('strong')), para: style(document.querySelector('strong')?.closest('p')), commit: style(document.getElementById('ll-commit')),
            verdict: style(document.querySelector('.ll-verdict')),
            tauri: typeof window.__TAURI_INTERNALS__ !== 'undefined' || typeof window.__TAURI__ !== 'undefined' };
 }"""
@@ -229,6 +229,9 @@ async def run_checks(browser: Any, session: dict[str, Any], checks: Checks, shot
                  inside["h1"]["family"].startswith('"Literata') and inside["em"]["family"].startswith('"Literata')
                  and hexes(inside["h1"]["color"]) == "#1f1e1c" and hexes(inside["strong"]["color"]) == "#1f1e1c",
                  {k: (inside[k]["family"][:24], inside[k]["color"]) for k in ("h1", "em", "strong")})
+    checks.check("prose is at the mockup's measured size and line (14.4 px on 24 px)",
+                 inside["para"] is not None and inside["para"]["size"] == "14.4px" and inside["para"]["line"] == "24px",
+                 inside["para"] and (inside["para"]["size"], inside["para"]["line"]))
     checks.check("a commit point is a paper card with the purple voice edge",
                  hexes(inside["commit"]["background"]) == "#fdfdfc" and inside["commit"]["borderLeft"].endswith("3px")
                  and hexes(inside["commit"]["borderLeft"].rsplit(" ", 1)[0]) == "#5b4a9a", inside["commit"])

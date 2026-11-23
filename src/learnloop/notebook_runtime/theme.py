@@ -2,10 +2,10 @@
 
 Delivered by the frame proxy (a stylesheet link it adds to the page), never by editing a notebook, so a notebook
 written outside LearnLoop looks like the workbench too. It sets marimo's own CSS variables (owner decision 13:
-variables only, so a marimo update that renames a component class breaks nothing): the workbench's page paper and
-surface, its ink and rules, Literata for prose and headings, JetBrains Mono for code; marimo's own text face for
-its controls.
-marimo's app view already keeps equal side margins (17 and 19 px in a 514 px frame against the mockup's 18 and
+variables only, so a marimo update that renames a component class breaks nothing), plus one rule where the mockup
+wins on looks and marimo has no variable: prose at the mockup's measured size and line. The variables give the
+workbench's page paper and surface, its ink and rules, Literata for prose and headings, JetBrains Mono for code;
+marimo's own text face for its controls. marimo's app view already keeps equal side margins (17 and 19 px in a 514 px frame against the mockup's 18 and
 18). marimo's "Reconnected" banner is not styled away: the proxy drops the message that shows it.
 
 The commit-point classes (``ll-commit``, ``ll-held``, ``ll-verdict``) are LearnLoop's own, for the commit gate a
@@ -29,6 +29,11 @@ INK_SOFT = "#55524c"
 RULE = "#e3e0d8"
 FRAME_RULE = "#dcd7cc"
 PURPLE = "#5b4a9a"
+
+#: The mockup's lesson prose, measured: the advance widths of two of its lines in Literata match 14.4 px (471 and 438
+#: px at 14.4 px against its 470 and 437 px of ink), and its lines are 24 px apart.
+PROSE_SIZE_PX = 14.4
+PROSE_LINE_PX = 24
 
 #: The font files the theme serves (published name -> fontsource package and file).
 FONT_FILES: dict[str, tuple[str, str]] = {
@@ -112,6 +117,9 @@ html, body {{ background: {PAGE} !important; color: {INK}; }}
   --tw-prose-code: {INK} !important;
 }}
 /* LearnLoop's commit points (the SDK's commit gate renders these classes). */
+/* The one rule beyond variables: prose at the mockup's measured size and line (14.4 px on 24 px; marimo's own is
+   14.4 px on 25.2 px, and it has no variable for either). */
+.markdown p, .markdown li, .prose p, .prose li {{ font-size: {PROSE_SIZE_PX}px !important; line-height: {PROSE_LINE_PX}px !important; }}
 .ll-commit {{ background: {SURFACE}; border: 1px solid {RULE}; border-left: 3px solid {PURPLE}; border-radius: 4px;
   padding: 10px 12px; font-family: {prose}; color: {INK}; }}
 .ll-commit.ll-held {{ border-left-style: dashed; color: {INK_SOFT}; }}

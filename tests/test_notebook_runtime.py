@@ -396,6 +396,9 @@ def test_the_paper_theme_sets_variables_and_serves_its_faces_from_the_frames_ori
         assert f"{variable}: {value} !important" in css
     assert 'url("/s/abc/__ll/fonts/literata.woff2")' in css and "--marimo-heading-font" in css
     assert ".ll-commit" in css and f"border-left: 3px solid {theme.PURPLE}" in css
+    # Variables plus exactly one rule: prose at the mockup's measured size and line.
+    rules = [line for line in css.splitlines() if "{" in line and not line.lstrip().startswith(("@font-face", ":root", ".prose, .markdown {", "html, body", ".ll-"))]
+    assert rules == [".markdown p, .markdown li, .prose p, .prose li { font-size: 14.4px !important; line-height: 24px !important; }"]
     package = tmp_path / "literata" / "files"
     package.mkdir(parents=True)
     (package / "literata-latin-wght-normal.woff2").write_bytes(b"wOF2")

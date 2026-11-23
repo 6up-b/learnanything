@@ -16,7 +16,7 @@
 | `NotebookFrame` | `screens/desks/notebook/NotebookFrame.tsx`, `notebook.css` | Takes an owner key (`pad:<id>` or `lesson:<id>`) and a notebook path, calls `notebook.open`, follows `notebook.status`, and shows honest states: opening, starting, ready (the frame), restarting (the frame stays and reconnects by itself), stopped with resume, failed with try again, and the runtime unavailable in the sidecar's words |
 | The bridge's checks | `screens/desks/notebook/bridge.ts` | A message is accepted only from the frame's own `contentWindow`, from its frame URL's origin, with exactly one of the four shapes (no extra key, text at most 4,000 characters, finite geometry). Its geometry moves onto the page, clamped to the frame's box |
 | The desks' bridge host | `DeskShell.tsx` (28 lines, additive) | `c` summons the companion at the frame's selection with its text as the chip (quoted, at most 400 characters), `shift` docks it, escape dissolves an anchored companion; `click` closes the workbench's menus. `menu` is left to B6 and B7 (the pad menu belongs to the pads) |
-| The paper theme | `notebook_runtime/theme.py`, served by the proxy | marimo's own CSS variables (page `#f7f5f0`, surface `#fdfdfc`, ink `#1f1e1c`, rules `#e3e0d8` and `#dcd7cc`, the purple voice `#5b4a9a`), Literata for prose and headings, JetBrains Mono for code, marimo's own face for its controls, the commit-point classes, and the faces served from the frame's origin |
+| The paper theme | `notebook_runtime/theme.py`, served by the proxy | marimo's own CSS variables plus one rule (prose at the mockup's 14.4 px on 24 px) (page `#f7f5f0`, surface `#fdfdfc`, ink `#1f1e1c`, rules `#e3e0d8` and `#dcd7cc`, the purple voice `#5b4a9a`), Literata for prose and headings, JetBrains Mono for code, marimo's own face for its controls, the commit-point classes, and the faces served from the frame's origin |
 | Proxy changes | `notebook_runtime/proxy.py`, `adapter.py` | The theme link and the bridge go into the page's head. The bridge posts to each of the app's origins in turn, so it no longer reads `location.ancestorOrigins`. marimo's "Reconnected" banner and toast are dropped on the WebSocket |
 | A runtime-directory fallback | `notebook_runtime/sandbox.py` | A runtime directory too deep for a socket's path gives way to the temporary directory instead of refusing every notebook (NBF-3, found in B5) |
 | The harness | `fixtures/desks/harness.tsx` (`?notebook=1`), `fakeCore.ts`, `scripts/desk_harness/notebook.py` | The lesson frame where the mockup's Teacher lesson state draws it, a real sandboxed session behind it, and 23 checks in headless Chromium |
@@ -79,11 +79,12 @@ measured the same way on both screenshots:
 
 The DOM confirms the content column: marimo's app column sits 17 and 19 px in, and a card at 17.98 px.
 
-Type is reported, not compared, because the mockup's notebook is a frame its capture did not measure:
-- prose is 14.4 px on a 25.2 px line, against about 15 px on a 24 px line in the mockup's pixels;
-- the title is 32.4 px on 40.5 px, against a 41 px pitch.
-
-That is NBF-2, an owner call: marimo has no variable for its prose scale.
+Type, measured on the mockup's pixels (its notebook is a frame its capture did not measure):
+- prose: two of its lines are as wide as Literata at 14.4 px (470 and 437 px of ink against 471 and 438 px of
+  advance), 24 px apart. marimo sets 14.4 px on a 25.2 px line and has no variable for either. **Follow-up
+  (NBF-2):** the mockup wins on looks, so the theme is now **variables plus one rule**, which sets marimo's prose
+  to 14.4 px on 24 px. The harness checks it;
+- the title is 32.4 px on 40.5 px, against a 41 px pitch (within the tolerance).
 
 ## B5: the packaged app on WebKitGTK
 
