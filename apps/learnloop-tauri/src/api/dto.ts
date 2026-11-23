@@ -11399,3 +11399,53 @@ export interface GoalSectionChoiceDto {
   choice: { operationId: string; goalId: string; extractionId: string; sectionId: string;
     choice: "read_anyway" | "none"; replayed: boolean; createdAt: string };
 }
+
+// Notebook runtime: one sandboxed marimo server per owner (a pad's cells or a lesson notebook), shown in a frame
+// whose URL the session carries. A session is process state, never evidence.
+export type NotebookOwner = `pad:${string}` | `lesson:${string}`;
+
+export interface NotebookOpenInput {
+  owner: NotebookOwner;
+  /** The notebook file, relative to the vault root; the session runs a snapshot of its bytes. */
+  path: string;
+  view?: "app" | "edit";
+}
+
+export type NotebookSessionState = "starting" | "ready" | "restarting" | "stopping" | "stopped" | "failed";
+
+export interface NotebookSessionDto {
+  version: number;
+  sessionId: string;
+  owner: NotebookOwner;
+  state: NotebookSessionState;
+  /** Why a stopped session stopped: closed, idle, make_room, replaced, run_dir_full or vault_switch. */
+  stopReason: string | null;
+  error: string | null;
+  restarts: number;
+  framesAttached: number;
+  /** The cell names marimo reported once a frame connected. */
+  cells: string[];
+  /** Seconds each recent start took to answer on the socket. */
+  startSeconds: number[];
+  /** Load only once state is "ready": `http://127.0.0.1:<port>/s/<secret>/?...`. */
+  frameUrl: string;
+  /** The session's scope memory, when it runs in a scope of its own. */
+  memoryBytes: number | null;
+}
+
+export interface NotebookCellInput {
+  name: string;
+  code: string;
+}
+
+export interface NotebookReleaseDto {
+  version: number;
+  sessionId: string;
+  released: string[];
+}
+
+export interface NotebookRunCellsDto {
+  version: number;
+  sessionId: string;
+  ran: string[];
+}

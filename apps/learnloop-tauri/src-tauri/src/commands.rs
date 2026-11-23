@@ -1385,6 +1385,13 @@ sidecar_passthrough!(companion_ask_job, "companion.ask_job");
 sidecar_passthrough!(companion_ask_cancel, "companion.ask_cancel");
 sidecar_passthrough!(search_everything, "search.everything");
 sidecar_passthrough!(search_job, "search.job");
+// Notebook runtime: sandboxed marimo sessions behind their frame proxies (desktop only; no component calls them
+// yet).
+sidecar_passthrough!(notebook_open, "notebook.open");
+sidecar_passthrough!(notebook_status, "notebook.status");
+sidecar_passthrough!(notebook_close, "notebook.close");
+sidecar_passthrough!(notebook_release, "notebook.release");
+sidecar_passthrough!(notebook_run_cells, "notebook.run_cells");
 // Reader workbench v2 RD4: submitting a block, proposals and their labels, the desk drain and carried questions
 // (desktop only; no component calls them yet).
 sidecar_passthrough!(pad_submit_block, "pad.submit_block");

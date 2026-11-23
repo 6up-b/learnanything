@@ -104,6 +104,7 @@ markers = [
   "real_draws: the router's seeded draws as production makes them (seeds on fresh ids and the date, refinement while the clock allows) instead of the default pinned by the test's node id with one batch of draws (tests/pinned_draws.py); for a test whose subject is the draw or a seed function",
   "gpu_smoke:trains a tiny random-initialised query student on the GPU under the GPU lock and the memory floors; skipped unless LEARNLOOP_GPU_SMOKE=1 (tests/test_query_student_gpu.py)",
   "ux_walk_browser: starts a UX walk (bridge, sidecar, headless Chromium) and drives it; skipped unless LEARNLOOP_UX_WALK_BROWSER=1, so neither gate starts a browser (tests/test_ux_walk_harness.py)",
+  "notebook_sandbox: starts a real sandboxed marimo server (bubblewrap and the notebook extra); skipped where either is missing (tests/test_notebook_runtime_sandbox.py)",
 ]
 
 # A bug-finding linter, not a style checker: no formatter and no naming, style or
@@ -678,9 +679,11 @@ source_modules = [
     "learnloop.causal_activity_policy",
     "learnloop.companion",
     "learnloop.desks",
+    "learnloop.notebook_runtime",
     "learnloop.pads",
     "learnloop.passage_union",
     "learnloop.reading_sources",
+    "learnloop.sandbox_profile",
     "learnloop.section_map",
     "learnloop.data_capture",
     "learnloop.router_objective",
@@ -1573,6 +1576,57 @@ ignore_imports = [
 unmatched_ignore_imports_alerting = "error"
 
 [[tool.importlinter.contracts]]
+id = "notebook-runtime-is-process-plumbing"
+name = "The notebook runtime supervises processes and proxies frames: it reads no evidence, store or authoring code"
+type = "forbidden"
+# Sandboxed marimo servers and their frame proxies are process state. The runtime imports the shared sandbox
+# profile and its own adapter; the sidecar's handlers give it the notebook bytes and the vault's settings, so it
+# never reaches the vault's stores, the learner model, a model call or the owner-side authoring harness.
+source_modules = ["learnloop.notebook_runtime"]
+forbidden_modules = [
+    "learnloop.notebook_authoring",
+    "learnloop.attempts",
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.goals",
+    "learnloop.adaptive_difficulty",
+    "learnloop.daily_plan",
+    "learnloop.db",
+    "learnloop.ai",
+    "learnloop.content",
+    "learnloop.figures",
+    "learnloop.desks",
+    "learnloop.pads",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "evidence-never-reads-the-notebook-runtime"
+name = "Nothing that writes evidence reads the notebook runtime: a notebook session is never evidence"
+type = "forbidden"
+# What a notebook frame shows, which cells ran and the UI values the proxy records are help and process state;
+# commits, when they exist, reach evidence through the host's own commit path, never through the runtime.
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.adaptive_difficulty",
+]
+forbidden_modules = ["learnloop.notebook_runtime"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "notebook-authoring-stays-outside-production"
 name = "Notebook authoring stays outside production"
 type = "forbidden"
@@ -1679,6 +1733,7 @@ source_modules = [
     "learnloop.local_embeddings",
     "learnloop.matching",
     "learnloop.migration_coordinator",
+    "learnloop.notebook_runtime",
     "learnloop.numeric",
     "learnloop.ops",
     "learnloop.outcome_contract",
@@ -1701,6 +1756,7 @@ source_modules = [
     "learnloop.router",
     "learnloop.router_objective",
     "learnloop.router_objective_switches",
+    "learnloop.sandbox_profile",
     "learnloop.scheduling",
     "learnloop.section_map",
     "learnloop.serve_eligibility",

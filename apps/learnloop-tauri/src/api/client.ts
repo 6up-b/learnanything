@@ -35,6 +35,11 @@ import type {
   SearchEverythingDto,
   SearchEverythingInput,
   SearchJobDto,
+  NotebookOpenInput,
+  NotebookSessionDto,
+  NotebookReleaseDto,
+  NotebookCellInput,
+  NotebookRunCellsDto,
   NoteSearchDto,
   NoteLinkDto,
   HiddenNoteDto,
@@ -1662,6 +1667,15 @@ export const api = {
   goalSectionChoice: (input: GoalSectionChoiceInput) => call<GoalSectionChoiceDto>("goal_section_choice", { input }),
   curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) =>
     call<DeliverablePathViewDto>("curriculum_path", { input }),
+  // Notebook runtime (desktop only, no component calls them yet): open answers at once with the session starting and
+  // its frame URL; the window loads the frame once status reads ready. Release and run need a frame attached.
+  notebookOpen: (input: NotebookOpenInput) => call<NotebookSessionDto>("notebook_open", { input }),
+  notebookStatus: (input: { sessionId: string }) => call<NotebookSessionDto>("notebook_status", { input }),
+  notebookClose: (input: { sessionId: string }) => call<NotebookSessionDto>("notebook_close", { input }),
+  notebookRelease: (input: { sessionId: string; cells: string[] }) =>
+    call<NotebookReleaseDto>("notebook_release", { input }),
+  notebookRunCells: (input: { sessionId: string; cells: NotebookCellInput[] }) =>
+    call<NotebookRunCellsDto>("notebook_run_cells", { input }),
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),

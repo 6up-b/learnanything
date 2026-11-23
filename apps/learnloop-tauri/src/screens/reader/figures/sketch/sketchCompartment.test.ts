@@ -56,10 +56,11 @@ describe("the frame document's policy", () => {
     expect(FRAME_SCRIPT).toContain(`const MESSAGE_MAX = ${FRAME_MESSAGE_MAX};`);
   });
 
-  it("is the page's only frame source besides the existing video embed, and the app's IPC endpoints stay page-only", () => {
+  it("is the page's only frame source besides the video embed and the notebook frames, and the app's IPC endpoints stay page-only", () => {
     const conf = JSON.parse(readFileSync(join(APP, "src-tauri/tauri.conf.json"), "utf8")) as { app: { security: { csp: string } } };
     const page = directives(conf.app.security.csp);
-    expect(page.get("frame-src")).toEqual([`tauri://localhost${SKETCH_FRAME_PATH}`, `http://tauri.localhost${SKETCH_FRAME_PATH}`, "https://www.youtube-nocookie.com"]);
+    // The notebook frames are served by the sidecar's per-session proxies on 127.0.0.1, one port each.
+    expect(page.get("frame-src")).toEqual([`tauri://localhost${SKETCH_FRAME_PATH}`, `http://tauri.localhost${SKETCH_FRAME_PATH}`, "https://www.youtube-nocookie.com", "http://127.0.0.1:*"]);
     expect(page.get("connect-src")).toContain("ipc:");  // the page needs it; the frame's own policy removes it
     const vite = readFileSync(join(APP, "vite.config.mjs"), "utf8");
     expect(vite).toContain('sketchFrame: resolve(root, "sketch-frame.html")');
