@@ -3,7 +3,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
-import type { AcquisitionPreviewItem, CommandError, IngestBatchDto, IngestJobDto, IngestJobPhase, IngestMode, PdfEngine, SourceLibraryCard, StartingLevel } from "../api/dto";
+import type { AcquisitionPreviewItem, CommandError, IngestBatchDto, IngestJobDto, IngestJobPhase, IngestMode, PdfEngine, SourceCategory, SourceLibraryCard, StartingLevel } from "../api/dto";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
 import { STARTING_LEVELS } from "../components/StudyMapBriefWizard";
 import { IngestActivityStack } from "../components/IngestActivity";
@@ -23,7 +23,8 @@ import { screenLeavesKey } from "../app/keymap";
 // exists. Left column is the source library; batch progress renders inline as
 // Activity cards — there are no sub-tabs.
 
-type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio" | "image";
+// The backend's source categories, so the classifier's answer is used as it comes.
+type Kind = SourceCategory;
 
 // What reading a document with text recognition (GLM-OCR) may cost, plainly.
 function recognitionCostLabel(estimate: NonNullable<AcquisitionPreviewItem["extractionEstimate"]>): string {
@@ -45,7 +46,7 @@ function detectKind(source: string): Kind | null {
   if (/\.pdf(\?|$)/i.test(s)) return "pdf";
   if (/^https?:\/\//i.test(s)) return "web";
   if (/\.(mp3|wav|m4a|flac|ogg|oga|opus|aac)$/i.test(s)) return "audio";
-  if (/\.(md|markdown|txt|vtt|srt)$/i.test(s)) return "local";
+  if (/\.(md|markdown|txt|vtt|srt)$/i.test(s)) return "textfile";
   return null;
 }
 
@@ -57,7 +58,7 @@ const KIND_META: Record<Kind, KindMeta> = {
   pdf: { color: "amber", label: "PDF", icon: "📕" },
   image: { color: "amber", label: "image", icon: "🖼" },
   youtube: { color: "red", label: "YouTube transcript", icon: "▶" },
-  local: { color: "purple", label: "local file", icon: "📁" },
+  textfile: { color: "purple", label: "local file", icon: "📁" },
   audio: { color: "pink", label: "audio file", icon: "🎙" }
 };
 
@@ -90,7 +91,7 @@ function Card({ children, style = {} }: { children: ReactNode; style?: CSSProper
 
 // ── Kind chips above input ──────────────────────────────────────────────
 function KindChips({ active }: { active: Kind | null }) {
-  const order: Kind[] = ["web", "arxiv", "pdf", "youtube", "local", "audio"];
+  const order: Kind[] = ["web", "arxiv", "pdf", "image", "youtube", "textfile", "audio"];
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
       {order.map((k) => {
@@ -99,6 +100,8 @@ function KindChips({ active }: { active: Kind | null }) {
         return (
           <span
             key={k}
+            data-kind-chip={k}
+            data-active={sel ? "true" : "false"}
             style={{
               padding: "3px 10px",
               fontSize: 11,
@@ -591,18 +594,20 @@ function IngestHome({
   const [previews, setPreviews] = useState<Record<string, AcquisitionPreviewItem>>({});
   const [pageSelection, setPageSelection] = useState("");
   const [pdfEngine, setPdfEngine] = useState<PdfEngine>("auto");
-  // The vault's own [ingest.pdf] engine: "auto (vault default)" may mean the
-  // native engine, and the page-range control must know before the sidecar
-  // refuses the batch.
+  // The vault's own [ingest.pdf] engine, and the engines under which the
+  // sidecar refuses a page range ("auto" resolved through the vault): the
+  // page-range control must know before the sidecar refuses the batch.
   const [vaultPdfEngine, setVaultPdfEngine] = useState<PdfEngine>("auto");
-  const effectivePdfEngine: PdfEngine = pdfEngine === "auto" ? vaultPdfEngine : pdfEngine;
-  const nativePdf = effectivePdfEngine === "native";
+  const [enginesRefusingRanges, setEnginesRefusingRanges] = useState<PdfEngine[]>([]);
+  const nativePdf = enginesRefusingRanges.includes(pdfEngine);
   useEffect(() => {
     let cancelled = false;
     api
       .getSettings()
       .then((settings) => {
-        if (!cancelled) setVaultPdfEngine(settings.ingest.pdfEngine);
+        if (cancelled) return;
+        setVaultPdfEngine(settings.ingest.pdfEngine);
+        setEnginesRefusingRanges(settings.ingest.pdfEnginesRefusingPageRanges ?? []);
       })
       .catch(() => {});
     return () => {
@@ -713,15 +718,7 @@ function IngestHome({
       api.classifyIngestSource(candidate)
         .then((classification) => {
           if (cancelled) return;
-          const mapped: Record<string, Kind> = {
-            web: "web",
-            arxiv: "arxiv",
-            pdf: "pdf",
-            youtube: "youtube",
-            textfile: "local",
-            audio: "audio"
-          };
-          setAuthoritativeKind(mapped[classification.kind] ?? null);
+          setAuthoritativeKind(classification.kind in KIND_META ? classification.kind : null);
         })
         .catch(() => {
           if (!cancelled) setAuthoritativeKind(null);
@@ -1204,9 +1201,9 @@ function IngestHome({
                   onChange={(value) => {
                     const next = value as PdfEngine;
                     setPdfEngine(next);
-                    if (next === "native") {
-                      // The native path sends the whole document; a staged
-                      // range would be silently ignored, so drop it here.
+                    if (enginesRefusingRanges.includes(next)) {
+                      // The native path sends the whole document and the
+                      // sidecar refuses a range with it, so drop them here.
                       setPageSelection("");
                       setStagedPageRanges({});
                     }
@@ -1366,7 +1363,7 @@ function IngestHome({
                               ...prev,
                               [src]: value
                             }))}
-                            disabled={running || importing}
+                            disabled={running || importing || nativePdf}
                             compact
                           />
                         </div>

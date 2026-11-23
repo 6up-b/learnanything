@@ -15,27 +15,10 @@ import type {
   StartExtractionRepairInput
 } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermCheckbox, TermSelect } from "./term";
-import { AddToCollectionPanel, SYLLABUS_ROLE_HINT } from "./AddToCollection";
+import { AddToCollectionPanel, SYLLABUS_ROLE_HINT, roleOptions, useSourceRoles } from "./AddToCollection";
 import { simpleShell } from "../app/shell";
 import { screenLeavesKey } from "../app/keymap";
 
-// The canonical source-role vocabulary (role_authority.KNOWN_ROLES / §4.2), in
-// the spec's ordering. Authority is finalized on source-set MEMBERSHIP, not here —
-// this control records the learner's intended role for the import-batch flow,
-// which has no collection yet.
-const SOURCE_ROLES = [
-  "primary_textbook",
-  "lecture",
-  "paper",
-  "reference",
-  "alternate_explanation",
-  "problem_set",
-  "exam",
-  "notes",
-  "syllabus"
-] as const;
-// Roles that carry assessment-only authority: they never define concepts (§4.2).
-const ASSESSMENT_ONLY_ROLES = new Set(["exam", "problem_set"]);
 
 // ING M3 (source-ingestion v2 §5.7): the Outline & unit-selection screen and the
 // Build-plan screen. Both are deterministic previews with ZERO pedagogical LLM
@@ -550,7 +533,11 @@ function RoleControl({
 }) {
   const effectiveRole = role || suggestedRole || "";
   const overridden = role !== "" && suggestedRole != null && role !== suggestedRole;
-  const assessmentOnly = ASSESSMENT_ONLY_ROLES.has(effectiveRole);
+  // A role without semantic authority never defines concepts (role_authority's
+  // matrix: problem sets, exams and notes); a scope-only syllabus has its own line.
+  const roles = useSourceRoles();
+  const authority = roles.find((row) => row.role === effectiveRole);
+  const assessmentOnly = authority != null && !authority.semanticContract && !authority.scopeOnly;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: -4 }}>
       <span
@@ -567,7 +554,7 @@ function RoleControl({
       </span>
       <TermSelect
         value={effectiveRole}
-        options={SOURCE_ROLES as unknown as string[]}
+        options={roleOptions(roles, effectiveRole)}
         onChange={onRoleChange}
         placeholder="choose role…"
         width={210}
@@ -578,7 +565,7 @@ function RoleControl({
           assessment-only authority — never defines concepts
         </Faint>
       )}
-      {effectiveRole === "syllabus" && (
+      {authority?.scopeOnly && (
         <span data-role-hint="syllabus" style={{ color: COLOR.textFaint, fontSize: 11 }}>{SYLLABUS_ROLE_HINT}</span>
       )}
     </div>
