@@ -1,11 +1,25 @@
 # Migration-head fixture
 
-**Holds migration 262 (`262_reader_workbench_foundations.sql`), the head.** The directory's name carries no number (since
+**Holds migration 264 (`264_reader_workbench_guards.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## Reader workbench v2 fix round (migration 264), `reader/rd0-fix-round`, 2026-11-22
+
+Upgraded in place (no rename; base: main at `2b683f7af7`, head 262) by the B1 procedure below:
+`264_reader_workbench_guards.sql` (five BEFORE INSERT guards refusing a replacing insert on 262's append-only tables;
+one new table, `projection_initializations`, RECEIPT, append-only by three triggers, empty here; one partial
+expression index on `interaction_events`) applied through `learnloop.db.migrate.apply_migrations` on a backup-API
+copy outside the checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[264]` only;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 262 file: eleven objects added (the table, its autoindex, the index and eight
+triggers), no existing object's definition changed, and the only table whose rows changed is `schema_migrations`
+(gains 264). The number skips 263, which D8 gap 2 takes in parallel: whichever lands second renumbers its migration
+and redoes this upgrade. The file is 7,720,960 bytes.
 
 ## Reader workbench v2 RD0 (migration 262), `reader/rd0-foundations`, 2026-11-22
 
