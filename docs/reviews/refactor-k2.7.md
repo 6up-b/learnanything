@@ -24,7 +24,7 @@ identity change, and no model call.
    package that grimp does not traverse, so a contract on `content.pipeline` would check nothing (the same reason
    `test_instructional_layering.py` and `test_e0_isolation.py` exist). The boundary is held by an AST test
    instead: the host imports only the four retrieval modules its index sweeps need (eight before), and the table
-   reaches retrieval only through `source_retrieval.jobs`. `lint-imports` is unchanged and passes (52 kept).
+   imports none (it names retrieval's handlers in `source_retrieval.jobs`). `lint-imports` is unchanged and passes (52 kept).
 4. **Where the figure and video handlers went.** K10 moved none: K10.3 changed `handle_figure_rich` in place in
    `jobs.py` (it opens its own trace scope and continues the press's trace), and the K10 strategy names no home
    ("before K2.7 moves the job handlers out of `jobs.py`, or after it in its new home"). Beside their features:
@@ -40,12 +40,21 @@ identity change, and no model call.
    `_optional_int` (import_jobs, read by `handle_inventory`), `_routed_task_client` (synthesis jobs, read by the
    authoring clients), `_reader_source_sets` (authoring jobs, read by the host's Reader enqueues). They are
    imported where read rather than copied or renamed, so every body stays byte-identical.
-7. **The structure golden rises by 5 in one number.** `modules_in_an_import_cycle` 221 → 226, raised by hand in the
-   table commit with its reason beside it. The runner reaches the five job modules (for its services' defaults)
-   and the table (for the handlers) lazily, as it reached `jobs.py`, and each imports the runner's contracts, so
-   the six join the runner's cycle; `jobs.py`, now only the host, leaves it. Keeping them out would need the job
-   contracts (`JobContext`, `IngestRunnerError`, `JobSpec`) split from the runner, which is not this step. The
-   only members edited: `jobs.py`'s stage-comment count (32 → 13) and `handle_inventory`'s over-200 line, which
+7. **The table names its handlers; the cycle ratchet rises by 3.** Each row's `handler` is a `module:function`
+   string that `resolve_handler` imports when the runner builds its default handlers (the runner, not only the
+   host, resolves them: the CLI and the tests construct `IngestRunner` directly and rely on the defaults).
+   `job_types.py` imports no LearnLoop module at run time (`Handler` only under `TYPE_CHECKING`), so the sidecar's
+   reload checks and the runner's flag reads take a row's facts without loading any feature job module (a
+   subprocess test checks it). An earlier version imported the handlers into the table; that put the table and
+   all five job modules in the runner's import cycle (221 → 226). With the names, `job_types.py` and
+   `figures/jobs.py` stay out, and `modules_in_an_import_cycle` is 224, set by hand with its reason beside it.
+   What still closes the cycle (ledger K2-22): the runner's services fall back on defaults in `import_jobs`,
+   `synthesis/jobs` and `authoring/jobs` (function-local imports in `_import_jobs`, `_synthesis_jobs`,
+   `_authoring_jobs`), each of which imports the runner at module level for `IngestRunnerError`, `JobContext`,
+   `JobCancelled` and `JobSpec`; `import_jobs` imports `source_retrieval/jobs` (`queue_source_vectors`), which
+   imports the runner too. Before K2.7 one module (`jobs.py`) closed it; `jobs.py`, now only the host, leaves it.
+   Breaking it needs the job contracts in a leaf module the runner re-exports, which is not a move. The only
+   other members edited: `jobs.py`'s stage-comment count (32 → 13) and `handle_inventory`'s over-200 line, which
    names its new module. The new modules' stage-comment counts (import_jobs 9, authoring jobs 11) are not added
    to `[stage_comments_by_file]`; the ratchet's total fell (2,351 → 2,346).
 
@@ -74,7 +83,8 @@ section and its modification guidance names the row; the generated references ar
 ## The table
 
 `JOB_TYPES` in `content/pipeline/job_types.py`, one frozen `JobType` per type, in the old `DEFAULT_HANDLERS`
-order. Readers: `default_handlers()` (the runner), `job_type(name)` (the runner's two flag reads),
+order; `handler` is the function's `module:function` (judgment call 7). Readers: `default_handlers()` (the runner,
+through `resolve_handler`), `job_type(name)` (the runner's two flag reads),
 `applying_job_types()` (the host's bind and the sidecar's two reload checks), `parallel_job_types()` (the host's
 lanes).
 
@@ -116,7 +126,8 @@ Deleted: `DEFAULT_HANDLERS`, `APPLYING_JOB_TYPES`, `_PARALLEL_JOB_TYPES` (`jobs.
 themselves (5 passed at that commit, with a check that no list names a type without a handler). The table commit
 changed only the read side (`_observed()` reads the rows); `EXPECTED` is byte-identical, so the table equals the
 old lists. Added beside it:
-- every type has exactly one row and every row a callable handler; the runner's default handlers are the table;
+- every type has exactly one row, and every row's handler reference resolves to a callable of that module and
+  name; the runner's default handlers are the table; reading the table loads no feature job module;
 - every job type the source tree enqueues through `JobSpec` (a literal, or a constant resolved through the
   module's imports; 19 found, the one dynamic site is the legacy lane's `legacy_ingest`/`exam_ingest`) has a row:
   a new type queued without a row fails here (P-fail);
@@ -188,6 +199,8 @@ the host no longer has): none left apart from four local variables that happen t
   ("these jobs can add or replace scheduler-visible practice") covered them, but it named neither, and their
   batches are not build workflows. A Today poll still reloads after them (`get_queue_revision` reloads after any
   applying job and answers `reloaded`). Kept as it ran: the rows say `affects_queue=False`.
+- **K2-22** (ledger, queued, before arc K closes): four job modules sit in the runner's import cycle
+  (judgment call 7, with the chains).
 - **K2-21** (ledger, fixed here): `KNOWN_JOB_TYPES` named `extract`, which no handler runs, and missed ten of
   the 21 types; `KNOWN_WORKFLOW_TYPES` was read by nothing. Only one test read the first, so nothing ran
   differently. Both are deleted.
@@ -212,6 +225,10 @@ All through the scratch wrapper (isolated home, config and temp dir), tests memo
 | `lint-imports --no-cache` | 52 kept, 0 broken |
 | `scripts/check_gate_partition.py` | collected 33453: landing 33387 + arc_close 66 |
 | `validate_vault.py` | passed (2,428 notes) |
+| after the table took handler names (judgment call 7): `test_job_types.py`, `test_coverage_on_extract.py`, `test_ingest_runner.py`, `test_ingest_jobs.py`, `test_ingest_m3.py`, `test_quick_add.py`, `test_question_promotion_jobs.py`, `test_library_exercises.py` | 197 passed |
+| then the 7 test files that read the sidecar's reload after an applying job (`get_queue_revision`, `needs_reload`, `completed_jobs_awaiting_reload`) | 255 passed, 5 skipped |
+| then pins, ratchets, defaults golden, CLI snapshot, kill switches, SQLite copies; layout alone; architecture alone; `ruff check`; `lint-imports` | 398 passed; 3 passed; 18 passed; all checks passed; 52 kept |
+| AST check at the tip | 134/134 moves AST-identical and verbatim; only `DurableIngestJobs` differs in the host (the table's functions) |
 | `module_validate.py` | the five new modules have no module note yet (the landing regenerates) |
 
 ## Not verified
