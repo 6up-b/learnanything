@@ -152,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_switch_stops_and_forgets_the_other_vaults_sessions`
   - `test_open_answers_at_once_with_a_frame_url_on_its_own_port`
   - `test_past_the_restart_limit_the_session_fails`
+  - `test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket`
   - `test_the_session_limit_stops_the_least_recently_used_idle_session`
 
 ## Modification guidance
