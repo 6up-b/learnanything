@@ -138,6 +138,7 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
   apply: (input: DeskApplyInput): Promise<DeskApplyDto> => api.deskApply(input),
   applyPad: (input) => api.padApply(input),
   applyInk: (input) => api.inkSave(input),
+  applyInkErase: (input) => api.inkErase(input),
   padGet: (input) => api.padGet(input),
   library: async () => (await api.getSourceLibrary()).sources,
   // The Reader's own cached read: the window that opens next reads it from the cache.
@@ -2110,6 +2111,7 @@ export function DeskShell({
     simulate: simulatePen,
     setOn: setPenOn,
     saveInk: (ink) => store.commitInk(ink),
+    eraseInk: (erase) => store.commitInkErase(erase),
     settled: () => store.settled(),
     mintId,
     api: penApi,

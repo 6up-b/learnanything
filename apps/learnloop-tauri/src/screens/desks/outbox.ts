@@ -7,10 +7,12 @@
 // replaces; until then an op queued and not yet acknowledged is lost if the app closes, and the desks
 // say nothing is saved on this device. A conflict (a stale head) takes the server's state, as §3.5
 // says for moves and pairs: the shell reloads `desk.state` and re-renders.
-import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto, InkSaveDto, InkSaveInput, PadApplyDto, PadApplyInput, PadOpDto } from "../../api/dto";
+import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto, InkEraseDto, InkEraseInput, InkSaveDto, InkSaveInput, PadApplyDto, PadApplyInput, PadOpDto } from "../../api/dto";
 
 /** One ink save (spec §10.10, RD8a): it shares the client's numbering with desk and pad batches (one outbox). */
 export type InkSaveBody = Omit<InkSaveInput, "clientId" | "seq">;
+/** One ink erase of an annotation's or a reading's ink (a block's is a pad op), in the same numbering. */
+export type InkEraseBody = Omit<InkEraseInput, "clientId" | "seq">;
 
 /** One batch: desk ops, or (with `pad`) ops on one pad sent by `pad.apply`, or (with `ink`) one `ink.save`. */
 export interface Batch {
@@ -18,13 +20,14 @@ export interface Batch {
   ops: DeskOpDto[];
   pad?: { padId: string; ops: PadOpDto[] };
   ink?: InkSaveBody;
+  inkErase?: InkEraseBody;
 }
 
 /** What a batch carries, before it has a number. */
-export type BatchBody = { ops: DeskOpDto[]; pad?: { padId: string; ops: PadOpDto[] }; ink?: InkSaveBody };
+export type BatchBody = { ops: DeskOpDto[]; pad?: { padId: string; ops: PadOpDto[] }; ink?: InkSaveBody; inkErase?: InkEraseBody };
 
 function emptyBody(body: BatchBody): boolean {
-  if (body.ink) return false;
+  if (body.ink || body.inkErase) return false;
   return body.pad ? body.pad.ops.length === 0 : body.ops.length === 0;
 }
 
@@ -59,14 +62,16 @@ export interface OutboxTransport {
   applyPad?(input: PadApplyInput): Promise<PadApplyDto>;
   /** `ink.save` (absent where no ink is written). */
   applyInk?(input: InkSaveInput): Promise<InkSaveDto>;
+  /** `ink.erase` (absent where no ink is erased). */
+  applyInkErase?(input: InkEraseInput): Promise<InkEraseDto>;
 }
 
 export type FlushOutcome =
   | { kind: "idle" }
-  | { kind: "applied"; reply: DeskApplyDto | PadApplyDto | InkSaveDto }
+  | { kind: "applied"; reply: DeskApplyDto | PadApplyDto | InkSaveDto | InkEraseDto }
   /** At least one op of `batch` hit a stale head or was refused: the server's state wins for those ops.
    * The batches queued after it stay queued, to be rebased on the server's state (`requeue`). */
-  | { kind: "conflict"; reply: DeskApplyDto | PadApplyDto | InkSaveDto; batch: Batch }
+  | { kind: "conflict"; reply: DeskApplyDto | PadApplyDto | InkSaveDto | InkEraseDto; batch: Batch }
   /** The server refused the whole batch for good (its request is invalid, so it will never apply): it is
    * dropped, and the batches after it stay queued, to be rebased. Never retried. */
   | { kind: "rejected"; message: string; batch: Batch }
@@ -184,6 +189,14 @@ export class DeskOutbox {
     return seq;
   }
 
+  /** Queue one ink erase (sent by `ink.erase`, in the same numbering). */
+  enqueueInkErase(inkErase: InkEraseBody): number {
+    const seq = this.nextSeq;
+    this.nextSeq += 1;
+    this.store.put({ seq, ops: [], inkErase });
+    return seq;
+  }
+
   /** Queue ops on one pad (sent by `pad.apply`, in the same numbering as desk batches). */
   enqueuePad(padId: string, ops: PadOpDto[]): number | null {
     if (ops.length === 0) return null;
@@ -208,9 +221,12 @@ export class DeskOutbox {
     for (;;) {
       const [batch] = this.store.load();
       if (!batch) return last;
-      let reply: DeskApplyDto | PadApplyDto | InkSaveDto;
+      let reply: DeskApplyDto | PadApplyDto | InkSaveDto | InkEraseDto;
       try {
-        if (batch.ink) {
+        if (batch.inkErase) {
+          if (!this.transport.applyInkErase) throw { code: "validation_error", message: "ink erasing is not available here" };
+          reply = await this.transport.applyInkErase({ clientId: this.clientId, seq: batch.seq, ...batch.inkErase });
+        } else if (batch.ink) {
           if (!this.transport.applyInk) throw { code: "validation_error", message: "ink writes are not available here" };
           reply = await this.transport.applyInk({ clientId: this.clientId, seq: batch.seq, ...batch.ink });
         } else if (batch.pad) {
@@ -230,7 +246,7 @@ export class DeskOutbox {
         if (isPermanentRefusal(code)) {
           // The server consumed no number for a request it refused at validation: the rest move up one.
           this.store.remove(batch.seq);
-          const rest = this.store.load().map((each): BatchBody => (each.ink ? { ops: [], ink: each.ink } : each.pad ? { ops: [], pad: each.pad } : { ops: each.ops }));
+          const rest = this.store.load().map((each): BatchBody => (each.inkErase ? { ops: [], inkErase: each.inkErase } : each.ink ? { ops: [], ink: each.ink } : each.pad ? { ops: [], pad: each.pad } : { ops: each.ops }));
           this.requeue(rest, batch.seq);
           return { kind: "rejected", message, batch };
         }

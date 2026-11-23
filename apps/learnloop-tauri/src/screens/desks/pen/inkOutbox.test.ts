@@ -59,4 +59,17 @@ describe("ink in the outbox", () => {
     expect(await store.settled()).toBe("saved");
     expect(applyInk.mock.calls.map(([input]) => [input.seq, input.inkId])).toEqual([[1, "ink_bad"], [2, "ink_2"]]);
   });
+
+  it("an ink erase takes its number in the same sequence and is sent as ink.erase", async () => {
+    const sent: Array<[string, number]> = [];
+    const outbox = new DeskOutbox("c1", {
+      apply: vi.fn(),
+      applyInk: vi.fn(async (input: InkSaveInput) => { sent.push(["ink", input.seq]); return okInk(input); }),
+      applyInkErase: vi.fn(async (input) => { sent.push(["erase", input.seq]); return { version: 1, appliedSeq: input.seq, eraseId: input.eraseId, results: [{ status: "ok" as const, duplicate: false }] }; }),
+    } as never);
+    outbox.enqueueInk(INK);
+    expect(outbox.enqueueInkErase({ owner: { extractionId: "ext" }, eraseId: "er_1", strokeIds: ["s1"] })).toBe(2);
+    expect((await outbox.flush()).kind).toBe("applied");
+    expect(sent).toEqual([["ink", 1], ["erase", 2]]);
+  });
 });

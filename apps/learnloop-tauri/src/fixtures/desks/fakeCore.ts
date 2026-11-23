@@ -151,6 +151,10 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "ink_save":
       pen.inks.push(input);
       return server.applyInk(input as unknown as { clientId: string; seq: number; inkId: string });
+    case "ink_erase": {
+      const applied = server.applyInk({ clientId: String(input.clientId), seq: Number(input.seq), inkId: String(input.eraseId) });
+      return { version: 1, appliedSeq: applied.appliedSeq, eraseId: String(input.eraseId), results: applied.results };
+    }
     case "ink_list":
       return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId === FIXTURE_INK_PAD ? fixtureInkOwners() : [] };
     case "ink_transcribe":

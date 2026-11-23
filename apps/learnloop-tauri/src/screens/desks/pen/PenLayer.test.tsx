@@ -108,6 +108,7 @@ function setup({ state = "active" as WindowState, on = true, api = fakeApi() } =
     simulate: false,
     setOn: vi.fn(),
     saveInk: vi.fn(),
+    eraseInk: vi.fn(),
     settled: vi.fn(async () => "saved" as const),
     mintId: (prefix) => `${prefix}_${++n}`,
     api,
@@ -265,13 +266,29 @@ describe("the pen layer", () => {
     expect(api.readerDeleteIntentAnnotation).toHaveBeenCalledWith({ annotationId: "ann_1", reason: "pen undo" });
   });
 
-  it("a stroke it cannot place stays plain ink, said not kept, never stored", async () => {
+  it("a stroke it cannot place stays on the page as plain ink, kept for the reading, never a mark", async () => {
     const { api, host } = setup();
     draw([[150, 105], [250, 160], [300, 110], [420, 170]]);
     await settle();
-    expect(screen.getByText("ink · not recognised · not kept")).toBeTruthy();
+    expect(screen.getByText("ink · not recognised · kept on the page")).toBeTruthy();
     expect(api.readerCapture).not.toHaveBeenCalled();
-    expect(host.saveInk).not.toHaveBeenCalled();
+    expect(host.saveInk).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(host.saveInk).mock.calls[0][0].owner).toEqual({ extractionId: "ext" });
+    expect(body.querySelector('path[data-pen-stroke="ink"]')).not.toBeNull();
+    // Its undo erases it (an ink.erase of its strokes); nothing asks to read it.
+    fireEvent.click(screen.getByText("undo"));
+    expect(host.eraseInk).toHaveBeenCalledWith({ owner: { extractionId: "ext" }, eraseId: expect.any(String), strokeIds: [vi.mocked(host.saveInk).mock.calls[0][0].strokes[0].strokeId] });
+    expect(body.querySelector('path[data-pen-stroke="ink"]')).toBeNull();
+    expect(api.inkTranscribe).not.toHaveBeenCalled();
+  });
+
+  it("the barrel erases plain page ink stroke by stroke", async () => {
+    const { host } = setup();
+    draw([[150, 105], [250, 160], [300, 110], [420, 170]]);
+    await settle();
+    draw([[250, 160], [252, 161], [254, 162]], { button: 2 });
+    expect(host.eraseInk).toHaveBeenCalledTimes(1);
+    expect(body.querySelector('path[data-pen-stroke="ink"]')).toBeNull();
   });
 
   it("touch never draws; a paused window draws and saves nothing; a pen's first touch turns pen mode on", async () => {
@@ -313,5 +330,15 @@ describe("ink already saved", () => {
     expect(body.querySelector('path[data-pen-stroke="underline"]')).not.toBeNull();
     expect(body.querySelector('[data-pen-mark="underline"]')).not.toBeNull();
     expect((screen.getByLabelText("your note's words") as HTMLTextAreaElement).value).toBe("my words");
+  });
+
+  it("plain ink on this reading's page is drawn again; another reading's is not", async () => {
+    const api = fakeApi();
+    const page = (ownerId: string) => ({ ownerKind: "source" as const, ownerId, contentHash: "hp", devicePixelRatio: 1, transcription: null,
+      strokes: [{ strokeId: `p_${ownerId}`, inkId: `ink_${ownerId}`, points: [[150, 105, 0, 0.5, 0, 0], [250, 160, 8, 0.5, 0, 0]] as Array<[number, number, number, number, number, number]> }] });
+    vi.mocked(api.inkList).mockResolvedValue({ version: 1, padId: null, sourceId: "src", owners: [page("ext"), page("ext_other")] });
+    setup({ api });
+    await settle();
+    expect(body.querySelectorAll('path[data-pen-stroke="ink"]')).toHaveLength(1);
   });
 });

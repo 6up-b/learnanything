@@ -9,7 +9,7 @@ import type {
   ReaderCaptureReceiptDto,
 } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
-import type { InkSaveBody } from "../outbox";
+import type { InkEraseBody, InkSaveBody } from "../outbox";
 import type { InkCache } from "./inkCache";
 
 export interface PenApi {
@@ -31,6 +31,8 @@ export interface PenHost {
   setOn: (on: boolean) => void;
   /** Queue one ink save in the client's one write sequence (sent in order, retried, idempotent by ink id). */
   saveInk: (ink: InkSaveBody) => void;
+  /** Queue one erase of an annotation's or a reading's ink, in the same sequence. */
+  eraseInk: (erase: InkEraseBody) => void;
   /** Every queued write acknowledged ("unsaved" when it cannot be sent now). */
   settled: () => Promise<"saved" | "unsaved">;
   mintId: (prefix: string) => string;

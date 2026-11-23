@@ -12,7 +12,7 @@
 // pad model, its batches queued in the same outbox (one numbering a client), reconciled the same way.
 import type { DeskOpDto, DeskStateDto, PadBlockSubmissionDto, PadOpDto, PadViewDto, WriteOpResultDto } from "../../api/dto";
 import { EMPTY_WORKSPACE, OpRefusal, fromDeskState, restampOp, type Step, type Workspace } from "./model/workspace";
-import { DeskOutbox, MemoryOutboxStore, type BatchBody, type InkSaveBody, type OutboxTransport, type FlushOutcome } from "./outbox";
+import { DeskOutbox, MemoryOutboxStore, type BatchBody, type InkEraseBody, type InkSaveBody, type OutboxTransport, type FlushOutcome } from "./outbox";
 import { PadOpRefusal, applyPadOp, fromPadView, restampPadOp, type KeptBothRedirects, type Pads } from "./pads/model";
 import type { Timers } from "./keys/router";
 
@@ -189,6 +189,12 @@ export class DeskStore {
     this.scheduleFlush();
   }
 
+  /** Queue one ink erase (an annotation's or a reading's ink), in the same sequence. */
+  commitInkErase(inkErase: InkEraseBody): void {
+    this.outbox.enqueueInkErase(inkErase);
+    this.scheduleFlush();
+  }
+
   private keptCount = 0;
 
   /** A block id for an edit's words, should they have to be kept apart. */
@@ -358,6 +364,10 @@ export class DeskStore {
       let lost = 0;
       const rebased: BatchBody[] = [];
       for (const batch of resync ? [] : queued) {
+        if (batch.inkErase) {
+          rebased.push({ ops: [], inkErase: batch.inkErase });
+          continue;
+        }
         if (batch.ink) {
           // An ink save names no head: it goes again as it was (its ink id makes a resend a no-op).
           rebased.push({ ops: [], ink: batch.ink });
@@ -391,7 +401,7 @@ export class DeskStore {
         }
         rebased.push({ ops });
       }
-      if (resync) lost += queued.reduce((count, batch) => count + (batch.ink ? 1 : batch.pad ? batch.pad.ops.length : batch.ops.length), 0);
+      if (resync) lost += queued.reduce((count, batch) => count + (batch.ink || batch.inkErase ? 1 : batch.pad ? batch.pad.ops.length : batch.ops.length), 0);
       this.outbox.requeue(rebased, head + 1);
       this.ws = ws;
       // A pad that could not be read again keeps what the client had.

@@ -58,6 +58,7 @@ function mount({ state = "active" as WindowState, on = true, transcribe = async 
   const pen: PenHost = {
     on, simulate: false, setOn: vi.fn(),
     saveInk: (ink) => store.commitInk(ink),
+    eraseInk: (erase) => store.commitInkErase(erase),
     settled: () => store.settled(),
     mintId: (prefix) => `${prefix}_${++minted}`,
     api, poller, askCompanion: vi.fn(),

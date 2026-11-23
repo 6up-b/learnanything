@@ -7,8 +7,9 @@
 // - a margin stroke: an interpretation annotation (the handwritten note) holding the ink, with its transcription;
 // - a closed loop: the words inside become the selection, and the companion's context (nothing is stored).
 // A recognized mark's strokes are saved with its annotation (ink.save, the client's one write sequence). Ink the
-// recognizer cannot place stays plain ink on the page: it has no annotation or block to belong to, so it is not
-// kept (its chip says so) and never becomes a guess.
+// recognizer cannot place stays plain ink on the page: kept for the reading it was drawn on (owner kind "source"),
+// redrawn when the source reopens, erasable with the barrel, and never a guess: it is the learner's marks, never
+// read or emitted as learner text unless they make it a note.
 //
 // A paused window (offscreen, hidden, a preview) draws and saves nothing: input is refused and a stroke under
 // way is dropped.
@@ -210,12 +211,19 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       return { x: local.x, y: local.y, below: toLocal(body, at.x, box.y1 + 8).y, text };
     };
     const base: Mark = { id, kind: "ink", strokes: [stroke], box, rects: [], annotationId: null, inkId: null, state: "local", chip: null };
-    const plainInk = (why: string) => setMarks((all) => [...all, { ...base, chip: chipFor("ink", why) }]);
+    // Ink that became no mark stays on the page as the learner's marks: kept for this reading (owner kind
+    // "source"), redrawn when the source reopens, erasable; never read and never learner text.
+    const plainInk = (why: string) => {
+      const inkId = h.mintId("ink");
+      h.saveInk({ owner: { extractionId: surface.identity.extractionId }, inkId, strokes: [stroke],
+        pointerMeta: { pointerType, devicePixelRatio: window.devicePixelRatio || 1 } });
+      setMarks((all) => [...all, { ...base, inkId, state: "saved", chip: chipFor("ink", why) }]);
+    };
     switch (recognition.kind) {
       case "lasso": {
         const range = wordsInLoop(body, points);
         if (!range) {
-          plainInk("ink · nothing inside to select · not kept");
+          plainInk("ink · nothing inside to select · kept on the page");
           return;
         }
         const selection = body.ownerDocument.getSelection();
@@ -229,7 +237,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
         const y = recognition.lineY ?? (box.y0 + box.y1) / 2;
         const range = rangeBetween(body, { x: box.x0 + 2, y }, { x: box.x1 - 2, y });
         if (!range) {
-          plainInk("ink · no words under it · not kept");
+          plainInk("ink · no words under it · kept on the page");
           return;
         }
         const kind = recognition.kind;
@@ -241,7 +249,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       case "bracket": {
         const spanned = passagesSpanned(body, box);
         if (!spanned.length) {
-          plainInk("ink · no paragraph beside it · not kept");
+          plainInk("ink · no paragraph beside it · kept on the page");
           return;
         }
         const mark: Mark = { ...base, kind: "bracket", rects: localRects(body, spanned.map((element) => element.getBoundingClientRect())), state: "saving", chip: chipFor("bracket", RECOGNIZED_AS.bracket) };
@@ -254,7 +262,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       case "note": {
         const beside = passageBeside(body, box);
         if (!beside?.dataset.spanId) {
-          plainInk("ink · no passage beside it · not kept");
+          plainInk("ink · no passage beside it · kept on the page");
           return;
         }
         const at = notePlace(body, box);
@@ -270,7 +278,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
         return;
       }
       case "ink":
-        plainInk("ink · not recognised · not kept");
+        plainInk("ink · not recognised · kept on the page");
         return;
     }
   // readNote is stable (declared below with useCallback on stable deps)
@@ -335,14 +343,27 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     polls.current.clear();
   }, []);
 
+  /** Erase strokes of plain page ink (the barrel, or its chip's undo): an ink.erase in the write sequence. */
+  const eraseStrokes = useCallback((mark: Mark, strokeIds: string[]) => {
+    hostRef.current.eraseInk({ owner: { extractionId: surface.identity.extractionId }, eraseId: hostRef.current.mintId("erase"), strokeIds });
+    update(mark.id, (current) => {
+      const strokes = current.strokes.filter((stroke) => !strokeIds.includes(stroke.strokeId));
+      return strokes.length ? { ...current, strokes } : null;
+    });
+  }, [surface.identity.extractionId, update]);
+
   const undo = useCallback((mark: Mark) => {
     const h = hostRef.current;
+    if (mark.kind === "ink") {
+      eraseStrokes(mark, mark.strokes.map((stroke) => stroke.strokeId));
+      return;
+    }
     polls.current.get(mark.id)?.();
     polls.current.delete(mark.id);
     if (mark.kind === "lasso") body.ownerDocument.getSelection()?.removeAllRanges();
     if (mark.annotationId) void h.api.readerDeleteIntentAnnotation({ annotationId: mark.annotationId, reason: "pen undo" }).catch(() => undefined);
     update(mark.id, () => null);
-  }, [body, update]);
+  }, [body, update, eraseStrokes]);
 
   const keepNote = useCallback((mark: Mark, text: string) => {
     if (!mark.annotationId) return;
@@ -365,6 +386,12 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       }
       const restored: Mark[] = [];
       for (const owner of ink.owners) {
+        if (owner.ownerKind === "source" && owner.ownerId === surface.identity.extractionId && owner.strokes.length) {
+          const strokes: InkStroke[] = owner.strokes.map((stroke) => ({ strokeId: stroke.strokeId, points: stroke.points }));
+          const box = boxOf(strokes.flatMap((stroke) => stroke.points.map((point) => toClient(body, point[0], point[1]))));
+          restored.push({ id: `saved:page:${owner.ownerId}`, kind: "ink", strokes, box, rects: [], annotationId: null, inkId: owner.strokes[0].inkId, state: "saved", chip: null });
+          continue;
+        }
         if (owner.ownerKind !== "annotation" || !owner.strokes.length) continue;
         const known = kinds.get(owner.ownerId);
         if (!known) continue;
@@ -394,13 +421,15 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     return () => {
       live = false;
     };
-  }, [body, surface.identity.sourceId]);
+  }, [body, surface.identity.sourceId, surface.identity.extractionId]);
 
   // The pen's input on this window's text.
   useEffect(() => {
     const asPointer = (event: PointerEvent): PointerLike => event as unknown as PointerLike;
+    const erased = new Set<string>();
     const onDown = (event: PointerEvent) => {
       if (pausedRef.current) return;
+      erased.clear();
       const target = event.target as Element | null;
       if (target?.closest("button, input, textarea, select, [contenteditable], .desk-pen-note, .desk-pen-chip")) return;
       const outcome = input.down(asPointer(event), hostRef.current.on);
@@ -442,9 +471,19 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       for (const sample of samples) {
         const at = toLocal(body, sample.x, sample.y);
         for (const mark of marksRef.current) {
-          const hit = mark.strokes.some((stroke) => distanceToPolyline(at, stroke.points.map((p) => ({ x: p[0], y: p[1] }))) <= PEN_WIDTH);
-          // A recognized mark's ink belongs to its annotation: erasing it takes the mark back, as its undo does.
-          if (hit) undo(mark);
+          // Each stroke and mark is erased once a gesture, though the eraser passes over it again before re-rendering.
+          const hit = mark.strokes.filter((stroke) => !erased.has(stroke.strokeId)
+            && distanceToPolyline(at, stroke.points.map((p) => ({ x: p[0], y: p[1] }))) <= PEN_WIDTH);
+          if (!hit.length || erased.has(mark.id)) continue;
+          // Plain page ink loses the strokes passed over; a recognized mark's ink belongs to its annotation, and
+          // erasing it takes the mark back, as its undo does.
+          if (mark.kind === "ink") {
+            for (const stroke of hit) erased.add(stroke.strokeId);
+            eraseStrokes(mark, hit.map((stroke) => stroke.strokeId));
+          } else {
+            erased.add(mark.id);
+            undo(mark);
+          }
         }
       }
     };
@@ -458,7 +497,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       body.removeEventListener("pointerup", onUp, true);
       body.removeEventListener("pointercancel", onCancel, true);
     };
-  }, [body, input, finish, undo]);
+  }, [body, input, finish, undo, eraseStrokes]);
 
   // A lasso's words are the selection (the companion reads it) and show as the mark under them, not as the native
   // selection's paint.
@@ -503,8 +542,8 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
             <Chip body={body} kind={mark.kind} x={mark.chip.x} y={mark.chip.y} below={mark.chip.below}>
               <span>{mark.chip.text}</span>
               {mark.kind === "lasso" ? <button type="button" className="askc" onClick={() => hostRef.current.askCompanion()}>ask the tutor · c</button> : null}
-              {mark.kind !== "ink" ? <button type="button" data-undo="" onClick={() => undo(mark)}>undo</button> : null}
-              <button type="button" data-x="" aria-label="dismiss" onClick={() => (mark.kind === "ink" ? update(mark.id, () => null) : update(mark.id, (current) => ({ ...current, chip: null })))}>✕</button>
+              <button type="button" data-undo="" onClick={() => undo(mark)}>undo</button>
+              <button type="button" data-x="" aria-label="dismiss" onClick={() => update(mark.id, (current) => ({ ...current, chip: null }))}>✕</button>
             </Chip>
           ) : null}
           {mark.note ? <NoteBox mark={mark} onKeep={keepNote} /> : null}
