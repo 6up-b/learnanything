@@ -285,6 +285,19 @@ export interface ReaderWindowing {
   onStatus?: (status: { readingSpan: string | null; progress: number; where: string | null }) => void;
   /** A video source's play/pause, for the desk's `space` (null when this source has no player). */
   onMediaReady?: (toggle: (() => void) | null) => void;
+  /** The goal lens over this reading (the desks' RD6): what to draw before a passage, in its gutter, and
+   *  the classes it takes. Absent, passages render as they always have. */
+  lens?: ReaderLens | null;
+}
+
+/** The desks' goal lens, laid over a reading's passages by span id (the text itself is never changed). */
+export interface ReaderLens {
+  /** A callout before the passage (a section start on the goal's path). */
+  before?: (spanId: string) => ReactNode;
+  /** A mark in the passage's left gutter; the passage becomes its offset parent. */
+  mark?: (spanId: string) => ReactNode;
+  /** Classes for the passage (dimmed for the goal). */
+  className?: (spanId: string) => string | undefined;
 }
 
 /** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
@@ -4037,6 +4050,7 @@ export function ReaderScreen({
               && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0);
             return (
               <Fragment key={block.displayNodeId ?? `p${i}`}>
+              {block.spanId && windowed?.lens?.before ? windowed.lens.before(block.spanId) : null}
               {firstFolded ? (
                 <div data-next-step-fold="">
                   <NextStepFoldLine ctl={activeCtl} />
@@ -4046,6 +4060,7 @@ export function ReaderScreen({
                 data-span-id={block.spanId ?? undefined}
                 {...(folded ? { "data-folded": "" } : {})}
                 data-extraction-id={render?.extractionId}
+                className={block.spanId ? windowed?.lens?.className?.(block.spanId) : undefined}
                 onContextMenu={(e) => {
                   if (!block.spanId) return;
                   e.preventDefault();
@@ -4062,10 +4077,11 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId)) && !working) ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId)) && !working) || windowed?.lens?.mark ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
+                {block.spanId && windowed?.lens?.mark ? windowed.lens.mark(block.spanId) : null}
                 {cueMark ? renderMark(cueMark, "text") : null}
                 {resumeMark(block.spanId)}
                 {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}
