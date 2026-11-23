@@ -35,7 +35,7 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/render/LiveMarkdownEditor|LiveMarkdownEditor.tsx]] | `ACTIVE` | Adapts `LiveMarkdownEditor` content editing or rendering into React presentation behavior. | 2 | 2 |
-| [[Reference/Desktop/TypeScript/render/MarkdownMath|MarkdownMath.tsx]] | `ACTIVE` | Adapts `MarkdownMath` content editing or rendering into React presentation behavior. | 2 | 35 |
+| [[Reference/Desktop/TypeScript/render/MarkdownMath|MarkdownMath.tsx]] | `ACTIVE` | Adapts `MarkdownMath` content editing or rendering into React presentation behavior. | 2 | 37 |
 | [[Reference/Desktop/TypeScript/render/MathLiveEditor|MathLiveEditor.tsx]] | `ACTIVE` | Adapts `MathLiveEditor` content editing or rendering into React presentation behavior. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/render/markdownPipeline|markdownPipeline.ts]] | `ACTIVE` | Adapts `markdownPipeline` content editing or rendering into React presentation behavior. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/render/mathMacros|mathMacros.tsx]] | `ACTIVE` | Adapts `mathMacros` content editing or rendering into React presentation behavior. | 0 | 3 |
