@@ -179,6 +179,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_233_classifies_nothing_new`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_the_table_is_a_receipt_and_denied_to_ad`
+- [tests/test_reader_rd0_migration.py](../../../../../../tests/test_reader_rd0_migration.py) — direct import
+  - `test_every_table_has_the_specs_role_and_each_derived_one_a_single_replayer`
 - [tests/test_reader_seen_spans_migration.py](../../../../../../tests/test_reader_seen_spans_migration.py) — direct import
   - `test_both_tables_are_workflow_and_denied_to_adaptive_difficulty`
 - [tests/test_reader_topic_question_work_migration.py](../../../../../../tests/test_reader_topic_question_work_migration.py) — direct import

@@ -37,6 +37,8 @@ GAP_TABLES = {"learner_text_gaps", "learner_text_gap_jobs", "judgment_ledger", "
 # A receipt, never learner state: at the head the gap reader asks the tier-1 Decider (mvp-0.22 on), and its
 # exclusion while the Decider is not ready leaves a decision record (arc B, ``learnloop.provenance``).
 GAP_TABLES = GAP_TABLES | {"decision_records"}
+# A derived display row, never learner state: a written gap's passages (its item's passages, or its learning object).
+GAP_TABLES = GAP_TABLES | {"learner_text_gap_spans"}
 #: A misconception reading may record a belief sighting or candidate (the
 #: pipeline's own tables, content only).
 BELIEF_TABLES = {"misconception_sightings", "belief_candidates", "misconception_candidates"}

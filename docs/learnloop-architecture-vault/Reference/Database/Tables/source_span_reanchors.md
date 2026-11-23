@@ -110,6 +110,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/ad_ingest_fakes.py`
+- `tests/desk_helpers.py`
 - `tests/test_migrations.py`
 - `tests/test_reread_safety.py`
 - `tests/test_rospeed2_section_map.py`

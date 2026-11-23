@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/reader_cue_links.py"
+  - "src/learnloop/passage_union/union.py"
   - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/source_retrieval/passage_cues.py"
 tags:
@@ -97,6 +98,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/reader_cue_links.py`
+- `src/learnloop/passage_union/union.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
@@ -112,9 +114,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/desk_helpers.py`
 - `tests/reader_rw3b_migration_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_reader_cues_cli_report.py`
+- `tests/test_reader_rd0_reads.py`
 - `tests/test_reader_rw3b_migration.py`
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_reader_rw3b_review_fixes.py`

@@ -349,6 +349,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
 - [tests/test_reader_ca2_fix_orchestrator.py](../../../../../../tests/test_reader_ca2_fix_orchestrator.py) — direct import
   - `test_223_adds_only_the_earlier_opening_column`
+- [tests/test_reader_rd0_migration.py](../../../../../../tests/test_reader_rd0_migration.py) — direct import
+  - `test_it_adds_the_tables_and_changes_nothing_else`
+  - `test_the_head_fixture_holds_them_empty_in_rollback_mode`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import
 - [tests/test_reader_rw7a_migration.py](../../../../../../tests/test_reader_rw7a_migration.py) — direct import
   - `test_the_head_fixture_is_at_217_in_rollback_mode_with_empty_rw7a_tables`

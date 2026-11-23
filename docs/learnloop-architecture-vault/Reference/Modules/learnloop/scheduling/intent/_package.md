@@ -52,8 +52,8 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] | [[Reference/Modules/learnloop/scheduling/intent/followup_gate#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 | [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] | [[Reference/Modules/learnloop/scheduling/intent/model#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
 | [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] | [[Reference/Modules/learnloop/scheduling/intent/recall_targets#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
-| [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] | [[Reference/Modules/learnloop/scheduling/intent/resolution#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
-| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 9 | 17 |
+| [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] | [[Reference/Modules/learnloop/scheduling/intent/resolution#^module-purpose|purpose]] | `ACTIVE` | 11 | 4 |
+| [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] | [[Reference/Modules/learnloop/scheduling/intent/serving#^module-purpose|purpose]] | `ACTIVE` | 10 | 17 |
 
 ## Cross-package dependencies
 
@@ -71,7 +71,7 @@ For system intent, use [[Learning System]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 12 static module edges
-- [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 7 static module edges
+- [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 9 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 4 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
@@ -86,8 +86,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.scheduling.intent"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop["learnloop"]
     n_learnloop_intent["learnloop.intent"]
+    n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_scheduling["learnloop.scheduling"]
@@ -96,8 +96,8 @@ flowchart LR
     n_learnloop_params["learnloop.params"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_daily_plan -->|12| center
+    n_learnloop_intent -->|9| center
     center -->|7| n_learnloop
-    n_learnloop_intent -->|7| center
     center -->|5| n_learnloop_db_stores
     n_learnloop_instructional -->|4| center
     n_learnloop_scheduling -->|1| center

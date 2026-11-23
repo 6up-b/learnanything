@@ -115,6 +115,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/daily_plan_reading_helpers.py](../../../../../../tests/daily_plan_reading_helpers.py) — direct import
+- [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import

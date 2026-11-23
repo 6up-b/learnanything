@@ -136,6 +136,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/daily_plan_reading_helpers.py](../../../../../../tests/daily_plan_reading_helpers.py) — direct import
+- [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/facet_reword_confirm_helpers.py](../../../../../../tests/facet_reword_confirm_helpers.py) — direct import

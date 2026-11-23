@@ -11,7 +11,10 @@ modules_in_an_import_cycle = 221
 # imports diagnosis.causal_activity_policy) once diagnosis.remediation reads the plan's effective due from it (mvp-0.64).
 # 47: learnloop.notebook_authoring, the owner-side notebook harness the owner queued on 2026-11-20. It is its own
 # first-level package so an import contract can keep every serving package from importing it.
-first_level_packages = 47
+# 51: the Reader workbench v2's four backend packages (spec_reader_workbench_v2 §3.2): learnloop.desks,
+# learnloop.pads, learnloop.passage_union and learnloop.companion, each its own package so the import fences
+# of its §3.3 can name it (evidence never reads desks or pads; the grader never reads any of the four).
+first_level_packages = 51
 first_level_root_modules = 36
 first_level_root_modules_not_upgrade = 36
 functions_over_200_lines = 70
@@ -29,9 +32,12 @@ source_text_assertions = 23
 "src/learnloop_sidecar/handlers/reader.py" = 2980
 # 269250: the diagnosis journey and grade-application goldens record every persisted row, and from mvp-0.65 each
 # applied attempt also writes its row in attempt_application_order (115 lines; no existing value moved).
-# 269542: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
+# 269274: the diagnosis journey golden's text_prerequisite case records the Reader workbench's derived passage rows
+# its tutor question and its gap reading now write (question_event_spans, learner_text_gap_spans; 24 lines, both
+# unanchored rows naming the case's LO; no existing value moved).
+# 269566: from mvp-0.66 each live attempt also writes its row in attempt_lifecycle_inputs, and the grade-application
 # golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
-golden_json_lines = 269542
+golden_json_lines = 269566
 
 [members]
 import_component = [

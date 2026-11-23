@@ -40,6 +40,8 @@ GAP_TABLES = {"learner_text_gaps", "learner_text_gap_jobs", "judgment_ledger", "
 # A receipt, never learner state: at the head the gap reader asks the tier-1 Decider (mvp-0.22 on), and its
 # exclusion while the Decider is not ready leaves a decision record (arc B, ``learnloop.provenance``).
 GAP_TABLES = GAP_TABLES | {"decision_records"}
+# A derived display row, never learner state: a written gap's passages (the authored question's passage).
+GAP_TABLES = GAP_TABLES | {"learner_text_gap_spans"}
 
 
 def _missed(repo, *, check="partly", answer="U and V are just invertible", style="next_step", spans=("s1",)):

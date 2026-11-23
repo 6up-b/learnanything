@@ -10239,7 +10239,7 @@ export interface WorkbenchHintViewDto {
   /** RW2c: the worked example under this hint (key absent while
    *  workbench.examples_enabled is off). */
   example?: WorkbenchExampleViewDto | null;
-  /** The hint's own checkable claims as verified (Reader §5.3, review F14). */
+  /** The hint's own checkable claims as verified (Reader §5.3). */
   claims?: HintClaimDto[];
   /** Fix round 10: workbench.symbolic_checks_enabled now; off, no claim shows ✓. */
   symbolicEnabled?: boolean;
@@ -10566,4 +10566,232 @@ export interface FollowupNextDto {
   line: string | null;
   practiceItemId: string | null;
   presentationId: string | null;
+}
+
+// -- Reader workbench v2 (spec §3.4): desks, pads, the union read, the companion's history, due checks.
+// The server side and the typed calls only; the client's local outbox is chosen apart (§3.5).
+
+/** One model for every "something to show" (spec §3.4). */
+export type ContentRefDto =
+  | { kind: "source"; sourceId: string; extractionId: string; view?: "render" | "pdf" | "web";
+      range?: { fromSpanId: string; toSpanId: string } }
+  | { kind: "video"; sourceId: string; extractionId: string; t?: number }
+  | { kind: "pad"; padId: string }
+  | { kind: "lesson"; lessonId: string }
+  | { kind: "thread"; rootExchangeId: string }
+  | { kind: "compare"; comparisonId?: string; query?: string }
+  | { kind: "panel"; panel: "guide" | "path" | "library" | "notes"; extractionId?: string }
+  | { kind: "figure_notebook"; figureId: string };
+
+export type PadStackEntryDto = Extract<ContentRefDto, { kind: "pad" | "lesson" }>;
+export type CompanionDock = "br" | "bl" | "right" | "cb";
+export type DeskWindowKind = ContentRefDto["kind"] | "pad_stack";
+
+export interface DeskWindowDto {
+  windowId: string;
+  /** 0, or 1 for the lower pane of a pair. */
+  pane: number;
+  kind: DeskWindowKind;
+  /** The pair's active pane (always true for a window alone in its slot). */
+  active: boolean;
+  /** Present unless `kind` is `pad_stack`. */
+  content?: ContentRefDto;
+  /** Present when `kind` is `pad_stack`. */
+  stack?: PadStackEntryDto[];
+  /** Opaque to the server: the scroll anchor by span or time, document zoom, stack mode and ratios. */
+  view: Record<string, unknown>;
+}
+
+export interface DeskDto {
+  deskId: string;
+  title: string;
+  /** A fractional key: desks order by it, then by id. */
+  position: string;
+  focusWindowId: string | null;
+  goalId: string | null;
+  companion: { dock: CompanionDock; shown: boolean };
+  version: number;
+  /** Authoritative: a pair is two windows sharing a slot. */
+  slots: { slot: number; windows: DeskWindowDto[] }[];
+}
+
+export interface DeskStateDto {
+  version: number;
+  desks: DeskDto[];
+  runningPadIds: string[];
+  /** Each client's last applied batch (one sequence per client for desk and pad batches). */
+  serverSeq: { clientId: string; seq: number }[];
+}
+
+type DeskOpBase = { expectedVersion?: number | null };
+export type DeskOpDto = DeskOpBase & (
+  | { op: "create_desk"; deskId: string; title: string; position: string; goalId?: string | null; companionDock?: CompanionDock }
+  | { op: "rename_desk"; deskId: string; title: string }
+  | { op: "archive_desk"; deskId: string }
+  | { op: "move_desk"; deskId: string; position: string }
+  | { op: "open_window"; deskId: string; windowId: string; content?: ContentRefDto; stack?: PadStackEntryDto[];
+      view?: Record<string, unknown>; afterWindowId?: string | null }
+  | { op: "close_window"; windowId: string }
+  | { op: "reopen_window"; windowId: string; slot?: number | null }
+  | { op: "move_window"; windowId: string; toSlot: number }
+  | { op: "move_to_desk"; windowId: string; toDeskId: string; afterWindowId?: string | null }
+  | { op: "pair"; windowId: string }
+  | { op: "unpair"; windowId: string }
+  | { op: "set_focus"; deskId: string; windowId: string | null }
+  | { op: "set_active_pane"; windowId: string }
+  | { op: "set_view"; windowId: string; view: Record<string, unknown> }
+  | { op: "set_dock"; deskId: string; dock: CompanionDock }
+  | { op: "set_companion_shown"; deskId: string; shown: boolean }
+  | { op: "set_goal"; deskId: string; goalId: string | null });
+
+/** One op's result: applied, not applied for a stale head (with the current head), or refused. */
+export type WriteOpResultDto =
+  | { status: "ok"; headVersionId?: string; eventId?: string }
+  | { status: "conflict"; current: Record<string, unknown> }
+  | { status: "refused"; code: string; message: string };
+
+export interface DeskApplyInput { clientId: string; seq: number; ops: DeskOpDto[] }
+export interface DeskApplyDto {
+  version: number;
+  appliedSeq: number;
+  results: WriteOpResultDto[];
+  versions: { deskId: string; version: number }[];
+}
+
+export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions";
+export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch"
+  | "cell" | "ink" | "lifted" | "check_cell";
+export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction";
+
+export interface PadDto {
+  padId: string;
+  kind: PadKind;
+  title: string;
+  kept: boolean;
+  homeDeskId: string | null;
+  workbenchSessionId: string | null;
+  lessonId: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PadBlockDto {
+  blockId: string;
+  headVersionId: string;
+  kind: PadBlockKind;
+  bodyMd: string;
+  payload: Record<string, unknown>;
+  provenance: PadProvenance;
+  positionKey: string;
+  day: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PadAnchorDto {
+  eventId: string;
+  blockId: string;
+  extractionId: string;
+  spanId: string;
+  anchor: Record<string, unknown>;
+  annotationId: string | null;
+  createdAt: string;
+}
+
+export interface PadViewDto { version: number; pad: PadDto; blocks: PadBlockDto[]; anchors: PadAnchorDto[] }
+export interface PadListDto { version: number; pads: (PadDto & { firstLine: string })[]; cursor: string | null }
+
+export type PadOpDto =
+  | { op: "create_pad"; kind: PadKind; title?: string; homeDeskId?: string | null; workbenchSessionId?: string | null;
+      lessonId?: string | null }
+  | { op: "set_title"; expectedVersion: number; title: string }
+  | { op: "keep"; expectedVersion: number }
+  | { op: "unkeep"; expectedVersion: number }
+  | { op: "insert_block"; blockId: string; versionId?: string; kind: PadBlockKind; provenance: PadProvenance;
+      positionKey: string; day?: string | null; bodyMd?: string; payload?: Record<string, unknown> }
+  | { op: "edit_block"; blockId: string; expectedHead: string; versionId?: string; bodyMd?: string;
+      payload?: Record<string, unknown> }
+  | { op: "remove_block"; blockId: string; expectedHead: string; versionId?: string }
+  | { op: "move_block"; blockId: string; expectedHead: string; positionKey: string; versionId?: string }
+  | { op: "lift_out"; blockId: string; expectedHead: string; newPadId: string; newBlockId: string; title?: string;
+      newVersionId?: string; stubVersionId?: string; positionKey?: string }
+  | { op: "link_anchor"; blockId: string; extractionId: string; spanId: string; anchor?: Record<string, unknown>;
+      annotationId?: string | null; eventId?: string; expectedHead?: string }
+  | { op: "unlink_anchor"; blockId: string; extractionId: string; spanId: string; eventId?: string; expectedHead?: string };
+
+export interface PadApplyInput { clientId: string; seq: number; padId: string; ops: PadOpDto[] }
+export interface PadApplyDto {
+  version: number;
+  appliedSeq: number;
+  results: WriteOpResultDto[];
+  heads: { blockId: string; headVersionId: string }[];
+  pads: { padId: string; version: number }[];
+}
+
+export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored";
+/** How a row on another reading of the book lands here: the same text, or the same place only. */
+export type SpanAlias = "exact" | "needs_reanchor";
+
+export interface PassageUnionSpanDto {
+  spanId: string;
+  sectionId: string | null;
+  annotations: { annotationId: string; type: string; learnerText: string; placement: string }[];
+  padBlocks: { blockId: string; padId: string; kind: PadBlockKind; provenance: PadProvenance; eventId: string;
+    annotationId: string | null; alias: SpanAlias }[];
+  exchanges: { questionEventId: string; role: "selection" | "cited" | "context"; quality: AnchorQuality;
+    alias: SpanAlias; context: string; questionMd: string; createdAt: string }[];
+  adjustments: { questionEventId: string; gapId: string }[];
+  gaps: { gapId: string; sourceKind: string; kind: string; role: string; quality: AnchorQuality; alias: SpanAlias;
+    createdAt: string }[];
+  passageLinks: { linkId: string; targetKind: string; targetId: string; relation: string; quote: string;
+    alias: SpanAlias }[];
+  figures: { figureId: string; tier: string; verification: string; createdAt: string; alias: SpanAlias }[];
+  /** A check is due before this passage: no item, learning object or purpose (spec §12.6.1). */
+  checksDue: { commitmentId: string }[];
+  notes: unknown[];
+  authoredQuestions: { questionId: string; status: string; questionStyle: string; scopeKind: string;
+    questionMd: string; alias: SpanAlias }[];
+  exposure: { timesShown: number; lastShownAt: string | null; withheld: boolean };
+}
+
+export interface PassageUnionDto {
+  version: number;
+  extractionId: string;
+  spans: PassageUnionSpanDto[];
+  sections: { sectionId: string; title: string;
+    learningObjects: { learningObjectId: string; treatment: string | null; learnerOverride: string | null }[] }[];
+}
+
+export type PassageUnionInput =
+  | { extractionId: string; fromSpanId: string; toSpanId: string }
+  | { extractionId: string; t0: number; t1: number };
+
+export interface CompanionExchangeDto {
+  questionEventId: string;
+  questionMd: string;
+  answerFirstSentence: string;
+  answerStatus: string;
+  context: string;
+  surface: string;
+  where: string;
+  /** `backfill`: asked before desks existed (no desk, the surface its own context names). */
+  origin: "live" | "backfill";
+  goalId: string | null;
+  padBlockIds: string[];
+  anchor: { extractionId: string; spanId: string; quality: AnchorQuality } | null;
+  createdAt: string;
+}
+
+export interface CompanionHistoryDto {
+  version: number;
+  days: { date: string; desks: { deskId: string | null; exchanges: CompanionExchangeDto[] }[] }[];
+  cursor: string | null;
+}
+
+export interface ChecksDueDto {
+  version: number;
+  checks: { commitmentId: string; loId: string; due: string;
+    host: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
+    provenance: Record<string, string> }[];
 }

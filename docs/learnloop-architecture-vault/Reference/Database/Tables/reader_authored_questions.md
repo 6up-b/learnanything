@@ -116,6 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/reader.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/passage_union/union.py`
 - `src/learnloop/reader/reader_observations.py`
 - `src/learnloop/reader/reader_report.py`
 
@@ -141,6 +142,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/ad_ingest_fakes.py`
+- `tests/desk_helpers.py`
 - `tests/reader_passage_check_helpers.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_data_capture_codex_rereview.py`
@@ -159,7 +161,6 @@ Indexes and uniqueness:
 - `tests/test_mobile_phone_contract.py`
 - `tests/test_mobile_v4_codex_review.py`
 - `tests/test_reader_quick_check.py`
-- `tests/test_reader_rw1b_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

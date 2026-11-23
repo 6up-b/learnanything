@@ -5,6 +5,17 @@ import { noteFallbackOffer } from "../app/planFallback";
 import { noteSessionMovedError } from "../app/sessionMoved";
 import { isWaitingForOk, waitForAiOk } from "../app/aiOk";
 import type {
+  ChecksDueDto,
+  CompanionHistoryDto,
+  DeskApplyDto,
+  DeskApplyInput,
+  DeskStateDto,
+  PadApplyDto,
+  PadApplyInput,
+  PadListDto,
+  PadViewDto,
+  PassageUnionDto,
+  PassageUnionInput,
   NoteSearchDto,
   NoteLinkDto,
   HiddenNoteDto,
@@ -1569,6 +1580,19 @@ export const api = {
   notesHidden: () => call<{ hidden: HiddenNoteDto[] }>("notes_hidden", { input: {} }),
   // Curriculum C5: Settings' opt-in (notes.gaps_enabled, off by default).
   notesSetGaps: (input: { enabled: boolean }) => call<{ gapsEnabled: boolean; line: string }>("notes_set_gaps", { input }),
+  // Reader workbench v2 (spec §3.4; desktop only, no component calls them yet): desks and pads follow the
+  // write protocol ({clientId, seq, ops}, one sequence per client); the local outbox is chosen apart (spec §3.5).
+  deskState: () => call<DeskStateDto>("desk_state", { input: {} }),
+  deskApply: (input: DeskApplyInput) => call<DeskApplyDto>("desk_apply", { input }),
+  padGet: (input: { padId: string }) => call<PadViewDto>("pad_get", { input }),
+  padList: (input: { deskId?: string; query?: string; kept?: boolean; cursor?: string } = {}) =>
+    call<PadListDto>("pad_list", { input }),
+  padApply: (input: PadApplyInput) => call<PadApplyDto>("pad_apply", { input }),
+  passageUnionRange: (input: PassageUnionInput) => call<PassageUnionDto>("passage_union_range", { input }),
+  companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
+    call<CompanionHistoryDto>("companion_history", { input }),
+  checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>
+    call<ChecksDueDto>("checks_due_for", { input }),
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),

@@ -642,6 +642,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/daily_plan_reading_helpers.py](../../../../../../tests/daily_plan_reading_helpers.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
+- [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
@@ -2031,6 +2032,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_post_probe_generation_passes_and_persists_reader_source_refs`
   - `test_practice_expansion_queue_preserves_reader_source_refs`
   - `test_practice_plan_uses_blueprint_facets_before_first_item`
+- [tests/test_reader_rd0_protocol.py](../../../../../../tests/test_reader_rd0_protocol.py) — direct import
+  - `test_batches_replayed_out_of_order_converge_to_the_in_order_state`
+- [tests/test_reader_rd0_reads.py](../../../../../../tests/test_reader_rd0_reads.py) — direct import
+  - `test_a_same_place_alias_is_flagged_never_shown_as_the_cited_text`
+  - `test_a_time_range_reads_a_transcripts_cues_and_a_bad_range_is_refused`
+  - `test_history_pages_by_cursor_and_reaches_every_exchange`
+- [tests/test_reader_rd0_rpcs.py](../../../../../../tests/test_reader_rd0_rpcs.py) — direct import
+- [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
 - [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
   - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`

@@ -340,8 +340,8 @@ The spec is `docs/specs/spec_reader_workbench_v2.md` (desks, the companion, scra
 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
-| RD-spike | Disposable packaged-app spike on WebKitGTK: the zoom engine, blur, IndexedDB durability, embeds; no product code kept | not started | — | — | A packaged app on carson |
-| RD0 | Foundations: migrations for desks, windows, pads, block versions, anchors and receipts; the write protocol; the two derived span tables with replayers; read-only `desk.*`, `pad.*`, `passage.union_range`, `companion.history`, `checks.due_for`; import fences | not started | — | — | RD-spike |
+| RD-spike | Disposable packaged-app spike on WebKitGTK: the zoom engine, blur, IndexedDB durability, embeds; no product code kept | paused | — | — | Paused by the owner on 2026-11-22, partway. Measured so far: IndexedDB kept every acknowledged write through 30 forced kills; zoom frames were far over the 20 ms budget (cost in drawing, not script), still being diagnosed |
+| RD0 | Foundations: migrations for desks, windows, pads, block versions, anchors and receipts; the write protocol; the two derived span tables with replayers; `desk.*`, `pad.*`, `passage.union_range`, `companion.history`, `checks.due_for`; import fences | landed | this commit | [reader-rd0.md](reader-rd0.md) | Migration 262, no algorithm tag. The client's local store waits for the spike's durability decision |
 | RD1 | The desk shell, the window lifecycle and the key router; source and video windows extracted from the Reader; the old panels as windows | not started | — | — | RD0 |
 | RD2, RD3 | The overview and gestures; the companion and search | not started | — | — | RD1 |
 | RD4 | Scratchpads (tag) | not started | — | — | RD1 (RD2 for the pill) |

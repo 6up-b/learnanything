@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/passage_union/union.py"
   - "src/learnloop/reader/annotations.py"
-  - "src/learnloop/reader/reader_capture.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/stores/reader.py`
+- `src/learnloop/passage_union/union.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_capture.py`
 - `src/learnloop/reader/reader_intent.py`
@@ -110,6 +111,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/desk_helpers.py`
 - `tests/test_mobile_allowlist.py`
 - `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_reader_capture.py`

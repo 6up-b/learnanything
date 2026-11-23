@@ -79,8 +79,8 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 5 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
@@ -121,9 +121,9 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
     n_learnloop_matching["learnloop.matching"]
+    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop_placement["learnloop.placement"]
     center -->|19| n_learnloop_vault
     center -->|17| n_learnloop_ai
     center -->|16| n_learnloop_db
@@ -133,9 +133,9 @@ flowchart LR
     n_learnloop_diagnosis_split -->|2| center
     center -->|5| n_learnloop_diagnosis_split
     center -->|7| n_learnloop_matching
+    center -->|5| n_learnloop_substrate
     n_learnloop_sidecar_handlers -->|5| center
     n_learnloop_cli -->|4| center
-    center -->|4| n_learnloop_placement
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

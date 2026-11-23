@@ -88439,6 +88439,18 @@ null
 }
 ]
 },
+"question_event_spans": {
+"added": [
+{
+"extraction_id": null,
+"learning_object_id": "lo_diag",
+"quality": "unanchored",
+"question_event_id": "<id:3>",
+"role": "context",
+"span_id": null
+}
+]
+},
 "question_events": {
 "added": [
 {
@@ -88685,6 +88697,18 @@ null
 "id": "<id:17>",
 "learning_object_id": "lo_ltg_define_an_eigenvector_<id:6>",
 "practice_item_id": "pi_ltg_seed_001"
+}
+]
+},
+"learner_text_gap_spans": {
+"added": [
+{
+"extraction_id": null,
+"gap_id": "<id:16>",
+"learning_object_id": "lo_diag",
+"quality": "unanchored",
+"role": "context",
+"span_id": null
 }
 ]
 },

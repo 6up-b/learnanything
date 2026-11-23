@@ -140,6 +140,7 @@ Indexes and uniqueness:
 - `src/learnloop/router_objective/price.py`
 - `src/learnloop/router_objective/report.py`
 - `src/learnloop/scheduling/action_loss.py`
+- `src/learnloop/substrate/passage_spans.py`
 - `src/learnloop/workbench/ladder.py`
 
 ### Direct SQL writers
@@ -174,6 +175,7 @@ Indexes and uniqueness:
 - `tests/ad23_contract_helpers.py`
 - `tests/ad_ingest_fakes.py`
 - `tests/data_capture_a3_time_metric_helpers.py`
+- `tests/desk_helpers.py`
 - `tests/reader_inquiry_status_helpers.py`
 - `tests/recap_fixtures.py`
 - `tests/te3b_value_helpers.py`
@@ -190,7 +192,6 @@ Indexes and uniqueness:
 - `tests/test_grading_cli.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_interaction_signals.py`
-- `tests/test_mcp_tools.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

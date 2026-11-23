@@ -29,7 +29,7 @@ source_paths:
   - "tests/cold_retry_reschedule_helpers.py"
   - "tests/data_capture_codex_review_helpers.py"
   - "tests/data_capture_successor_helpers.py"
-  - "tests/diagnostic_probe_single_use_helpers.py"
+  - "tests/desk_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -70,7 +70,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/cold_retry_reschedule_helpers.py`
 - `tests/data_capture_codex_review_helpers.py`
 - `tests/data_capture_successor_helpers.py`
-- `tests/diagnostic_probe_single_use_helpers.py`
+- `tests/desk_helpers.py`
 
 ## Extension and modification guidance
 

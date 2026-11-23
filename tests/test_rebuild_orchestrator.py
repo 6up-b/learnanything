@@ -411,6 +411,15 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
         "confidence_calibration_state": {
             "family": "tap", "state_json": "{}", "updates": 0, "through_at": at, "priors_version": "stale",
         },
+        # Reader workbench v2 (migration 262): passages of an exchange and a gap that no longer exist.
+        "question_event_spans": {
+            "question_event_id": "stale_question", "extraction_id": "stale_ext", "span_id": "s1", "role": "selection",
+            "quality": "exact_selection",
+        },
+        "learner_text_gap_spans": {
+            "gap_id": "stale_gap", "extraction_id": "stale_ext", "span_id": "s1", "role": "selection",
+            "quality": "exact_selection",
+        },
     }
     assert set(rows) == set(tables_for_role(TableRole.DERIVED))
     with connect(repository.sqlite_path) as connection:
