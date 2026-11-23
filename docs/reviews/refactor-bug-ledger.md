@@ -682,3 +682,11 @@ difference until it is fixed.
 | VR-39 | visual reference, RD4 | Arrange is a floating panel (`#181818`, border, radius 4, shadow, padding 6); the mockup's covers the pad window (`#0c0c0df5`, no border, padding 14) | `visual_reference.py --state 's11=arrange'` | RD4's fix round | open |
 | VR-40 | visual reference, RD4 | Pad menu frame 340 px wide (mockup 360), text `#d8d8e0` (`#eeeeee`), heading `#8b8b9d` 10.5 px over a rule (`#a8a8b8` 10 px, none), rows on the normal line (16.8 px) | `visual_reference.py --state 's11=menu'` | RD4's fix round | open |
 | VR-41 | visual reference, RD4 | A passage's ✎ mark has 3 px side padding on the normal line; mockup none, 18 px line | `visual_reference.py --state markback` | RD4's fix round | open |
+
+## From the notebook frame and its packaged-app check (B4–B5, 2026-11-23; `docs/reviews/notebook-frame-b4-b5.md`)
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| NBF-1 | B4 (the merged tree, before this step's edits) | `DeskShell.test.tsx` ends with six unhandled rejections: the pads transport's `passageUnionRange` mock answers `undefined`, and `DeskShell.tsx`'s union read takes `union.spans` from it. The 90 tests pass; vitest reports the run as erroring | `npx vitest run src/screens/desks/DeskShell.test.tsx` (6 errors) | The test's transport answers a union reply (or the read refuses a missing one); the RD4 fix round owns both files | open (deadline: RD4's fix round landing) |
+| NBF-2 | B4 visual reference (`#tabs=distance,pad=3`) | marimo's prose sits at 14.4 px on a 25.2 px line (headings 32.4 px on 40.5 px); the mockup's lesson measures about 15 px on 24 px (title pitch 41 px). marimo has no variable for its prose scale | `scripts/desk_harness/notebook.py --ref …` (type is reported, not compared) | A rule on `.prose` would depart from owner decision 13 (variables only): the owner's call, or accept the 1 px a line | owner |
+| NBF-3 | B5 (the packaged app on a virtual display) | A runtime directory deeper than a socket's path allows (an `XDG_RUNTIME_DIR` of 60-odd bytes) refused every notebook as "too deep for a Unix socket's path" | `test_notebook_runtime::test_a_runtime_directory_too_deep_for_a_socket_is_passed_over` | `runtime_base_dir` passes over a runtime directory too deep for the socket's path for the temporary directory | fixed (this step) |
