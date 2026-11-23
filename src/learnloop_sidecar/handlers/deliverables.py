@@ -120,8 +120,8 @@ class _Work:
         self.covering: dict[str, dict[str, Any]] = {}
         #: The (LO, attempt key) pairs this sidecar already tried to cover per goal: an LO with no candidate writes
         #: no row, so without this every read would search for it again. Keyed by the statement and the library
-        #: (``DP.attempt_keys``): a changed LO (Codex review F5), or a reading added or changed since (RD6's fix
-        #: round), is tried again.
+        #: (``DP.attempt_keys``): a changed LO (Codex review F5), or a reading added or changed
+        #: since, is tried again.
         self.attempted: dict[str, set[tuple[str, str | None]]] = {}
         #: Path judgments per (goal, depth, path state key): ``running`` while one is in
         #: flight, else the failure the Guide shows. The one coalescing set of the Guide's

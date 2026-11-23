@@ -1,5 +1,5 @@
-// RD6's fix round (spec §12.6.1, decision D15): with a cold check due on an LO, the server masks every text-bearing field
-// of the band, the lens and the path (curriculum.goal_lens_protection). This checks the client adds nothing back: the
+// Spec §12.6.1, decision D15: with a cold check due on an LO, the server masks every text-bearing field
+// of the band, the lens and the path (curriculum.goal_lens, its protection). This checks the client adds nothing back: the
 // band, the "you are reading" line (whose place words come from the window, the book's own heading), the path view and
 // the why card render no text, title or attribute naming the masked LO or its section.
 import { cleanup, render } from "@testing-library/react";
@@ -19,7 +19,7 @@ const NEUTRAL_SECTION = "a section held until its cold check";
 const HELD_REASON = "A cold check is due on a topic here. Why it matters comes back once you've answered it.";
 afterEach(cleanup);
 
-/** The band and lens as the server sends them while MASKED's check is due (goal_lens_protection's rules). */
+/** The band and lens as the server sends them while MASKED's check is due (the goal lens protection rules). */
 function masked(): { band: GoalBandDto; lens: GoalLensDto; names: string[] } {
   const goal = new FixtureGoal();
   const band = goal.band();

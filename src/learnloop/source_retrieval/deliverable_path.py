@@ -1357,7 +1357,7 @@ def owed_among(vault: Any, repository: Repository, ids: Sequence[str]) -> list[s
 def attempt_keys(vault: Any, repository: Repository, ids: Sequence[str]) -> dict[str, str | None]:
     """What a coverage attempt is remembered by, per LO: its statement (``coverage_key``) and the library it was
     tried against (``SC.scope_signature``). An attempt that found no candidate section settles nothing once a reading
-    is added, re-extracted or switched (RD6's fix round): the next read sees the LO unjudged, and coverage tries it
+    is added, re-extracted or switched: the next read sees the LO unjudged, and coverage tries it
     again."""
 
     signature = SC.scope_signature(SC.library_scope(repository))

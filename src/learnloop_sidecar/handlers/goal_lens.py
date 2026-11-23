@@ -75,7 +75,7 @@ def _settled(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> 
         attempted = set(work.attempted.get(goal_id, ()))
     if state in ("running", "failed") or not attempted:
         return set()
-    # Settled only against the library it was tried in: a reading added since may hold the LO (RD6's fix round).
+    # Settled only against the library it was tried in: a reading added since may hold the LO.
     keys = DP.attempt_keys(vault, repository, sorted({lo_id for lo_id, _key in attempted}))
     return {lo_id for lo_id, key in attempted if key == keys.get(lo_id)}
 

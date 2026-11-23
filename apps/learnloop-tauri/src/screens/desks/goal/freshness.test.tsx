@@ -1,4 +1,4 @@
-// RD6's fix round: what the goal lens shows is the current goal's, read again when it may have changed. An old lens
+// What the goal lens shows is the current goal's, read again when it may have changed. An old lens
 // reply never lands under another goal or after a refresh; an open why card follows its section; a write elsewhere
 // in the app and the next check's due time read the band (and the goals) again; a reading coming back into view is
 // asked again; a path owing a judgment once coverage finished starts it, once, and is not polled for ever.

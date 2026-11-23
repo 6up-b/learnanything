@@ -1,4 +1,4 @@
-"""RD6's fix round: ``goal.band`` and ``goal.lens`` are reads. A goal change a stopped process left half done (its
+"""``goal.band`` and ``goal.lens`` are reads. A goal change a stopped process left half done (its
 journal entry) is finished by the next curriculum action, never by a band or lens read: those write no file."""
 from __future__ import annotations
 

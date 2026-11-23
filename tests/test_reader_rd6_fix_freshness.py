@@ -1,4 +1,4 @@
-"""RD6's fix round, the two freshness majors: what the lens concludes from coverage must hold for the library and the
+"""Coverage freshness for the goal lens: what the lens concludes from coverage must hold for the library and the
 sections as they are now. A section changed since a needed LO's rows were written there reads as unknown for it,
 never as skippable (its rows are no longer read); an LO coverage tried and found nowhere is settled only against the
 library it was tried in, so a reading added since is not called skippable before the LO is tried against it. Every

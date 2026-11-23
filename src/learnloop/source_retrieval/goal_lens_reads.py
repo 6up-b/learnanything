@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.curriculum import goal_lens as GL
-from learnloop.curriculum import goal_lens_protection as GP
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import section_coverage as coverage_store
 from learnloop.section_map import extraction_sections, range_span_ids
@@ -241,7 +240,7 @@ def reading_sections(vault: Any, repository: Repository, model: GoalModel, extra
                                             else GL.LEARNER_ABOUT))
         placed = tuple(lo for lo in dict.fromkeys(model.placed.get(ref, ())) if model.reads and lo in model.reads.los)
         # A goal LO whose rows here were all written against an earlier version of the section (no standing row
-        # now): what it says of the section is unknown, never "not about it" (RD6's fix round).
+        # now): what it says of the section is unknown, never "not about it".
         current = library.section(extraction_id, section_id) if library is not None else None
         stale = tuple(sorted(lo_id for (sid, lo_id), seen in hashes.items()
                              if sid == section_id and model.reads and lo_id in model.reads.los
@@ -284,7 +283,7 @@ def _readiness(model: GoalModel, lo_id: str, likely: LikelyReader | None) -> tup
 
 
 def protection(vault: Any, repository: Repository, due: Sequence[Mapping[str, Any]],
-               model: GoalModel | None = None) -> GP.Protection:
+               model: GoalModel | None = None) -> GL.Protection:
     """What the replies may not say while checks are due (spec §12.6.1, D15), from every due LO whatever the goal:
     their titles; the sections that treat them (standing coverage about them, their path placements in any goal,
     their checks' hosts); the LOs whose explanations depend on them (prerequisites, or what a section read for an
@@ -292,7 +291,7 @@ def protection(vault: Any, repository: Repository, due: Sequence[Mapping[str, An
 
     held = sorted({str(row["lo_id"]) for row in due})
     if not held:
-        return GP.Protection()
+        return GL.Protection()
     titles = [vault.learning_objects[lo_id].title for lo_id in held if lo_id in vault.learning_objects]
     sections = {f"{row['host']['extraction_id']}/{row['host']['section_id']}" for row in due
                 if row.get("host") and row["host"].get("extraction_id") and row["host"].get("section_id")}
@@ -320,7 +319,7 @@ def protection(vault: Any, repository: Repository, due: Sequence[Mapping[str, An
         for lo_id, treatments in model.treatments.items():
             if lo_id not in held_set and any(set(treatment.assumes) & held_set for treatment in treatments):
                 depends.add(lo_id)
-    return GP.Protection.of(held, titles, sections, depends)
+    return GL.Protection.of(held, titles, sections, depends)
 
 
 def _section_ref(treatment: DP.Treatment | None) -> dict[str, Any] | None:
@@ -331,12 +330,12 @@ def _section_ref(treatment: DP.Treatment | None) -> dict[str, Any] | None:
 
 
 def band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]],
-              answered: Sequence[Mapping[str, Any]], protection: GP.Protection, likely: LikelyReader | None = None,
+              answered: Sequence[Mapping[str, Any]], protection: GL.Protection, likely: LikelyReader | None = None,
               pace: Mapping[str, Any] | None = None, progress: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """``goal.band``: the goal, its LOs as dots, the depth with each depth's size, the next step, pace and
     the path's view, masked by ``protection`` (required: no band leaves here unmasked; D15)."""
 
-    return GP.protect_band(_band_view(vault, repository, model, due=due, answered=answered, likely=likely, pace=pace,
+    return GL.protect_band(_band_view(vault, repository, model, due=due, answered=answered, likely=likely, pace=pace,
                                       progress=progress), protection)
 
 
@@ -404,13 +403,13 @@ def _held_line(line: Mapping[str, Any]) -> dict[str, Any]:
             "alternates": [{**alternate, "difference": ""} for alternate in line.get("alternates", ())]}
 
 
-def lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, protection: GP.Protection,
+def lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, protection: GL.Protection,
               from_span_id: str | None = None, to_span_id: str | None = None, t0: float | None = None,
               t1: float | None = None) -> dict[str, Any]:
     """``goal.lens``: one level per section the range touches (passages inherit it, decision D1), masked by
     ``protection`` (required: no lens leaves here unmasked; D15)."""
 
-    return GP.protect_lens(_lens_view(vault, repository, model, extraction_id, from_span_id=from_span_id,
+    return GL.protect_lens(_lens_view(vault, repository, model, extraction_id, from_span_id=from_span_id,
                                       to_span_id=to_span_id, t0=t0, t1=t1), protection)
 
 

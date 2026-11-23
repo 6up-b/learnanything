@@ -1,8 +1,8 @@
-"""RD6's fix round, the two blockers (spec §12.6.1, decision D15): while a cold check is due on an LO, nothing the goal
+"""A due check's protection (spec §12.6.1, decision D15): while a cold check is due on an LO, nothing the goal
 lens's replies carry names or describes it: not in a held LO's own path row (its title, phrase, section titles,
 treatment words, alternates, exercise), and not across LOs or goals (a section covering X and Y, with X's check due,
 names nothing of X in Y's goal; a reason written for Y that names X, or that depends on X, is withheld). The masking
-is one server function over every text-bearing field (``curriculum.goal_lens_protection``); every model is a fake."""
+is one server function over every text-bearing field (``curriculum.goal_lens``, its protection); every model is a fake."""
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -12,7 +12,6 @@ import pytest
 
 from learnloop.curriculum import commitments as C
 from learnloop.curriculum import goal_lens as GL
-from learnloop.curriculum import goal_lens_protection as GP
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import section_coverage as SC
 from learnloop.vault.loader import load_vault
@@ -21,7 +20,7 @@ from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import CoverageJudgeFake
 
 X = "Eigenvalues"
-P = GP.Protection.of(["lo_x"], [X], ["ext_book/ch_x", "ext_book/ch_shared"], ["lo_dep"])
+P = GL.Protection.of(["lo_x"], [X], ["ext_book/ch_x", "ext_book/ch_shared"], ["lo_dep"])
 
 
 def _strings(value: Any, path: str = "") -> list[tuple[str, str]]:
@@ -96,24 +95,24 @@ def _lens() -> dict[str, Any]:
 # The table: every text-bearing field of the band, its path and the lens, and what it becomes.
 BAND_TABLE = [
     ("learning_objects[0].title", None), ("learning_objects[0].readiness_line", None),
-    ("learning_objects[0].primary.title", GP.NEUTRAL_SECTION), ("learning_objects[1].primary.title", GP.NEUTRAL_SECTION),
-    ("learning_objects[1].title", "Determinants"), ("next.section.title", GP.NEUTRAL_SECTION),
-    ("path.lines[0].title", GP.NEUTRAL_LO), ("path.lines[0].phrase", ""), ("path.lines[0].reason", None),
-    ("path.lines[0].section.title", GP.NEUTRAL_SECTION), ("path.lines[0].section.treatment_words", ""),
-    ("path.lines[0].alternates[0].title", GP.NEUTRAL_SECTION), ("path.lines[0].alternates[0].difference", ""),
-    ("path.lines[0].exercise.label", GP.NEUTRAL_EXERCISE),
+    ("learning_objects[0].primary.title", GL.NEUTRAL_SECTION), ("learning_objects[1].primary.title", GL.NEUTRAL_SECTION),
+    ("learning_objects[1].title", "Determinants"), ("next.section.title", GL.NEUTRAL_SECTION),
+    ("path.lines[0].title", GL.NEUTRAL_LO), ("path.lines[0].phrase", ""), ("path.lines[0].reason", None),
+    ("path.lines[0].section.title", GL.NEUTRAL_SECTION), ("path.lines[0].section.treatment_words", ""),
+    ("path.lines[0].alternates[0].title", GL.NEUTRAL_SECTION), ("path.lines[0].alternates[0].difference", ""),
+    ("path.lines[0].exercise.label", GL.NEUTRAL_EXERCISE),
     ("path.lines[1].title", "Determinants"), ("path.lines[1].reason", None),
-    ("path.lines[1].section.title", GP.NEUTRAL_SECTION), ("path.lines[1].exercise.label", GP.NEUTRAL_EXERCISE),
+    ("path.lines[1].section.title", GL.NEUTRAL_SECTION), ("path.lines[1].exercise.label", GL.NEUTRAL_EXERCISE),
     ("path.lines[2].reason", None), ("path.lines[2].alternates[0].difference", ""),
     ("path.lines[2].alternates[0].title", "Chapter 7"), ("path.lines[2].section.title", "Chapter 6 Diagonal"),
     ("path.lines[3].reason", None),
     ("path.lines[4].reason", "Row swaps, plainly."), ("path.lines[4].section.title", "Chapter 2 Rows"),
-    ("path.uncovered[0].title", GP.NEUTRAL_LO), ("path.uncovered[0].phrase", ""),
+    ("path.uncovered[0].title", GL.NEUTRAL_LO), ("path.uncovered[0].phrase", ""),
 ]
 LENS_TABLE = [
-    ("levels[0].title", GP.NEUTRAL_SECTION), ("levels[0].reason_md", GL.HELD_REASON), ("levels[0].coverage_line", None),
+    ("levels[0].title", GL.NEUTRAL_SECTION), ("levels[0].reason_md", GL.HELD_REASON), ("levels[0].coverage_line", None),
     ("levels[0].held", True), ("levels[0].determining_lo_id", None), ("levels[0].learning_objects[0].title", None),
-    ("levels[1].title", GP.NEUTRAL_SECTION), ("levels[1].reason_md", GL.HELD_REASON),
+    ("levels[1].title", GL.NEUTRAL_SECTION), ("levels[1].reason_md", GL.HELD_REASON),
     ("levels[2].reason_md", GL.HELD_REASON), ("levels[2].coverage_line", "coverage: applies “Z”"), ("levels[2].held", False),
     ("levels[3].reason_md", GL.HELD_REASON),
     ("levels[4].reason_md", "Row swaps."), ("levels[4].title", "Chapter 2"), ("levels[4].held", False),
@@ -131,26 +130,26 @@ def _at(reply: Any, path: str) -> Any:
 
 @pytest.mark.parametrize(("path", "expected"), BAND_TABLE)
 def test_every_text_bearing_band_field_is_masked(path, expected):
-    assert _at(GP.protect_band(_band(), P), path) == expected
+    assert _at(GL.protect_band(_band(), P), path) == expected
 
 
 @pytest.mark.parametrize(("path", "expected"), LENS_TABLE)
 def test_every_text_bearing_lens_field_is_masked(path, expected):
-    assert _at(GP.protect_lens(_lens(), P), path) == expected
+    assert _at(GL.protect_lens(_lens(), P), path) == expected
 
 
 def test_no_string_left_names_the_held_lo_and_nothing_changes_without_a_due_check():
-    band, lens = GP.protect_band(_band(), P), GP.protect_lens(_lens(), P)
+    band, lens = GL.protect_band(_band(), P), GL.protect_lens(_lens(), P)
     leaks = [(path, text) for path, text in _strings(band) + _strings(lens)
              if X.casefold() in text.casefold() and path not in KEPT and not _identifier(path)]
     assert leaks == []
     # Identifiers stay, so the desks still place and open what they show.
     assert band["path"]["lines"][0]["section"]["section_id"] == "ch_x" and band["learning_objects"][0]["learning_object_id"] == "lo_x"
-    assert GP.protect_band(_band(), GP.Protection()) == _band() and GP.protect_lens(_lens(), GP.Protection()) == _lens()
+    assert GL.protect_band(_band(), GL.Protection()) == _band() and GL.protect_lens(_lens(), GL.Protection()) == _lens()
 
 
 def test_a_title_is_matched_as_whole_words():
-    rank = GP.Protection.of(["lo_r"], ["Rank"])
+    rank = GL.Protection.of(["lo_r"], ["Rank"])
     assert rank.names_held("the rank of A") and rank.names_held("Rank-nullity") and not rank.names_held("ranking the rows")
 
 
@@ -189,7 +188,7 @@ def test_another_goals_due_check_masks_a_shared_section_and_names_nothing_of_it(
     lens = call(ctx, "goal.lens", {"goal_id": goal_id, "extraction_id": "ext_book"})
     assert _leaks(band, "eigen") == [] and _leaks(lens, "eigen") == []
     shared = next(level for level in lens["levels"] if level["sectionId"] == "ch_eigen")
-    assert shared["held"] and shared["reasonMd"] == GL.HELD_REASON and shared["title"] == GP.NEUTRAL_SECTION
+    assert shared["held"] and shared["reasonMd"] == GL.HELD_REASON and shared["title"] == GL.NEUTRAL_SECTION
     # The determinants chapter, which treats nothing held, keeps its words.
     det = next(level for level in lens["levels"] if level["sectionId"] == "ch_det")
     assert not det["held"] and det["title"] == "Chapter 3 Determinants"
@@ -204,4 +203,4 @@ def test_a_held_los_own_path_row_names_nothing(tmp_path):
     lens = call(ctx, "goal.lens", {"goal_id": goal_id, "extraction_id": "ext_book"})
     assert _leaks(band, "eigen") == [] and _leaks(lens, "eigen") == []
     line = next(line for line in band["path"]["lines"] if line["learningObjectId"] == "lo_eigen")
-    assert (line["title"], line["section"]["title"], line["reason"]) == (GP.NEUTRAL_LO, GP.NEUTRAL_SECTION, None)
+    assert (line["title"], line["section"]["title"], line["reason"]) == (GL.NEUTRAL_LO, GL.NEUTRAL_SECTION, None)
