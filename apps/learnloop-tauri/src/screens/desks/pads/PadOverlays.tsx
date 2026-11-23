@@ -1,11 +1,11 @@
 // The pad's overlays: the pad menu (spec §9.2, its marimo row inserting a cell run in the pad's notebook),
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
 import type { MenuObjectInput } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
 import { useListenerHub, useWindowLifecycle } from "../lifecycle";
-import { ContextMenu } from "../menu/ContextMenu";
+import { ContextMenu, useSheetFocus } from "../menu/ContextMenu";
 import { MARIMO_CELL_INSERT, MARIMO_CELL_ROW } from "../notebook/menuBridge";
 import type { MenuRow } from "../menu/model";
 import type { PadsHost } from "./host";
@@ -180,6 +180,8 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
   const [failure, setFailure] = useState<string | null>(null);
   // One save at a time: a second press while the first is on its way would author a second item.
   const [saving, setSaving] = useState(false);
+  const node = useRef<HTMLDivElement | null>(null);
+  useSheetFocus(node, onClose);
   useEffect(() => {
     let live = true;
     const first = anchors[0];
@@ -195,7 +197,7 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
     };
   }, [anchors, host]);
   return (
-    <div className="desk-sheet" role="dialog" aria-label="make it practice">
+    <div ref={node} tabIndex={-1} className="desk-sheet" role="dialog" aria-label="make it practice">
       <div className="head">✎ make it practice · it joins your queue once you save it</div>
       <label>the question<textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <label>what a right answer says<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} /></label>

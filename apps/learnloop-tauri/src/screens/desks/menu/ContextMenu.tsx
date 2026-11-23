@@ -55,6 +55,32 @@ const PAGE_LISTEN = (target: "window", type: string, handler: (event: Event) => 
   return () => window.removeEventListener(type, handler, capture);
 };
 
+/** A menu's sheet or panel owns the focus while it is open (spec §5.4): it takes it when it opens (its first
+ * field, else itself), escape closes it wherever the key lands, and the focus goes back to where it was. */
+export function useSheetFocus(ref: { current: HTMLElement | null }, onEscape: () => void): void {
+  const escape = useRef(onEscape);
+  escape.current = onEscape;
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    const node = ref.current;
+    if (node && !node.contains(document.activeElement)) {
+      const field = node.querySelector<HTMLElement>("textarea, input, select");
+      (field ?? node).focus();
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      escape.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (before && before.isConnected && before !== document.body) before.focus();
+    };
+  }, [ref]);
+}
+
 export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, onRows, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
   const [cheap, setCheap] = useState<PromotedRowDto[]>([]);
   const [judgedPending, setJudgedPending] = useState(false);
@@ -67,6 +93,13 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   const [subPlace, setSubPlace] = useState<{ left: number; top: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const appendRef = useRef<HTMLButtonElement | null>(null);
+  // Closing the menu gives the focus back to where it was (the passage's window, the pad's editor).
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    return () => {
+      if (before && before.isConnected && before !== document.body) before.focus();
+    };
+  }, []);
 
   // The promoted rows: the cheap ones at once; the job's rows replace them when it is done. The job is cancelled
   // when the menu closes before it is (a newer menu on the desk supersedes it on the server too).

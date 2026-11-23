@@ -465,6 +465,18 @@ describe("the fix round (RD4 review)", () => {
     });
   });
 
+  it("the Make it practice sheet takes the focus, and escape lets it go", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    expect(sheet.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "make it practice" })).toBeNull();
+  });
+
   it("a submission retried after a lost reply resends the same frozen request: one submission id, one teach-back target", async () => {
     const { api } = mount({ server: anchoredRunning() });
     const sent: unknown[] = [];

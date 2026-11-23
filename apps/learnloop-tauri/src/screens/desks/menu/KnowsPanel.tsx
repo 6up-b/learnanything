@@ -1,7 +1,8 @@
 // "What this knows" (spec §9.1 `i`): the union read of the object's passages as one panel, grouped, each row with its
 // anchor quality (an alias that needs re-anchoring said so), each item openable where it has a place to open. A due
 // check shows that one is due and nothing of it (§12.6.1).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSheetFocus } from "./ContextMenu";
 import type { MenuObjectInput, PassageKnowsDto, PassageUnionSpanDto } from "../../../api/dto";
 
 export interface KnowsActions {
@@ -42,6 +43,8 @@ export function KnowsPanel({ object, load, actions, onClose }: {
   onClose: () => void;
 }) {
   const [found, setFound] = useState<PassageKnowsDto | null>(null);
+  const panel = useRef<HTMLDivElement | null>(null);
+  useSheetFocus(panel, onClose);
   const [failure, setFailure] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
@@ -53,9 +56,7 @@ export function KnowsPanel({ object, load, actions, onClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <div className="desk-sheet desk-knows" role="dialog" aria-label="what this knows" onKeyDown={(event) => {
-      if (event.key === "Escape") onClose();
-    }}>
+    <div ref={panel} tabIndex={-1} className="desk-sheet desk-knows" role="dialog" aria-label="what this knows">
       <div className="head">i · what this knows · everything LearnLoop holds about this passage, with how well it is placed</div>
       {failure ? <div className="note err">{failure}</div> : null}
       {found === null && !failure ? <div className="note">◐ reading it…</div> : null}

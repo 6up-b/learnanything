@@ -97,7 +97,7 @@ import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
-import { ContextMenu, type PromotedApi } from "./menu/ContextMenu";
+import { ContextMenu, useSheetFocus, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
 import { captureNodes, hasPassage, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
 import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
@@ -274,12 +274,12 @@ function errorText(error: unknown): string {
 /** The menu's small sheets: a margin note's words, or a review before something joins the queue. */
 function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title: string; detail: string }; onDone: (value: string | boolean | null) => void }) {
   const [text, setText] = useState("");
+  const node = useRef<HTMLDivElement | null>(null);
+  useSheetFocus(node, () => onDone(sheet.kind === "note" ? null : false));
   return (
-    <div className="desk-sheet" role="dialog" aria-label={sheet.title} onKeyDown={(event) => {
-      if (event.key === "Escape") onDone(sheet.kind === "note" ? null : false);
-    }}>
+    <div ref={node} tabIndex={-1} className="desk-sheet" role="dialog" aria-label={sheet.title}>
       <div className="head">{sheet.title} · {sheet.detail}</div>
-      {sheet.kind === "note" ? <label>your note<textarea autoFocus aria-label="your note" value={text} onChange={(event) => setText(event.target.value)} /></label> : null}
+      {sheet.kind === "note" ? <label>your note<textarea aria-label="your note" value={text} onChange={(event) => setText(event.target.value)} /></label> : null}
       <div className="acts">
         <button type="button" disabled={sheet.kind === "note" && !text.trim()} onClick={() => onDone(sheet.kind === "note" ? text.trim() : true)}>{sheet.kind === "note" ? "keep it" : "yes"}</button>
         <button type="button" onClick={() => onDone(sheet.kind === "note" ? null : false)}>not now</button>

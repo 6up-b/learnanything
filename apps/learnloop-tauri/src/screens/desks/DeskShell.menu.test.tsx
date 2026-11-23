@@ -421,8 +421,9 @@ describe("RD5 fix round: a window header's menu", () => {
     expect(asked[0]).toMatchObject({ objectKind: "window", windowId: "fx_w_book", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1" });
     fireEvent.keyDown(window, { key: "i" });
     await waitFor(() => expect(transport.passageKnows).toHaveBeenCalledWith(expect.objectContaining({ objectKind: "window", spanId: "fx_w_book_s1" })));
+    // Escape lets What this knows go (it owns the focus while open).
     fireEvent.keyDown(window, { key: "Escape" });
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "what this knows" })).toBeNull());
     // The pad stack's header: no passage, so no rows asked and no What this knows.
     await waitFor(() => expect(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head')).toBeTruthy());
     fireEvent.contextMenu(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head') as HTMLElement);
@@ -537,5 +538,19 @@ describe("RD5 fix round: the menu's keys", () => {
     fireEvent.keyDown(window, { key: "." });
     await waitFor(() => expect(asked.some((input) => input.spanId === "fx_w_book_s2")).toBe(true));
     expect(menus()).toHaveLength(1);
+  });
+});
+
+describe("RD5 fix round: the menu's sheets own the focus", () => {
+  it("Note in margin's sheet takes the focus in its field and escape lets it go, writing nothing", async () => {
+    const { transport } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    fireEvent.keyDown(window, { key: "n" });
+    const sheet = await screen.findByRole("dialog", { name: "› note in margin" });
+    expect(document.activeElement).toBe(within(sheet).getByRole("textbox", { name: "your note" }));
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "› note in margin" })).toBeNull());
+    expect(transport.readerCapture).not.toHaveBeenCalled();
   });
 });

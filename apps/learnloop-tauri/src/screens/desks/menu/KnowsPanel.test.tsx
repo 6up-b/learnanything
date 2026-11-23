@@ -39,4 +39,19 @@ describe("What this knows", () => {
     render(<KnowsPanel object={{ objectKind: "window", windowId: "w" }} load={async () => ({ objectKey: "k", sourceIds: [], places: [] }) as unknown as PassageKnowsDto} actions={{ openThread: vi.fn(), openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={() => undefined} />);
     await screen.findByText("nothing here yet");
   });
+
+  it("takes the focus when it opens, closes on escape wherever the key lands, and gives the focus back", async () => {
+    const before = document.createElement("button");
+    document.body.appendChild(before);
+    before.focus();
+    const onClose = vi.fn();
+    const view = render(<KnowsPanel object={{ objectKind: "window", windowId: "w" }} load={async () => ({ objectKey: "k", sourceIds: [], places: [] }) as unknown as PassageKnowsDto} actions={{ openThread: vi.fn(), openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={onClose} />);
+    await screen.findByText("nothing here yet");
+    expect(screen.getByRole("dialog", { name: "what this knows" }).contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(document.activeElement).toBe(before);
+    before.remove();
+  });
 });
