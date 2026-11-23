@@ -30,6 +30,8 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
   }, [load]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Its keys are bare letters and digits: a chord (alt+l moving the focus) is not "l, leave".
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();

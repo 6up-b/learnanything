@@ -22,6 +22,11 @@ interface Placed {
   carried?: CarriedQuestionDto;
 }
 
+/** A span id inside a quoted attribute selector. */
+function quoted(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
+}
+
 /** The windows' passages a mark belongs to, read from the DOM: [data-span-id] under each source window. */
 export function placeMarks(stage: HTMLElement, windows: Array<{ windowId: string; extractionId: string }>, links: PadLink[], carried: CarriedQuestionDto[]): Placed[] {
   const origin = stage.getBoundingClientRect();
@@ -31,7 +36,7 @@ export function placeMarks(stage: HTMLElement, windows: Array<{ windowId: string
     if (!host || host.getAttribute("data-window-state") === "hidden" || host.getAttribute("data-window-state") === "offscreen") continue;
     const frame = host.getBoundingClientRect();
     const at = (spanId: string) => {
-      const element = host.querySelector(`[data-span-id="${CSS.escape ? CSS.escape(spanId) : spanId}"], [data-transcript-span="${spanId}"]`);
+      const element = host.querySelector(`[data-span-id="${quoted(spanId)}"], [data-transcript-span="${quoted(spanId)}"]`);
       if (!element) return null;
       const box = element.getBoundingClientRect();
       if (box.bottom < frame.top || box.top > frame.bottom) return null;
@@ -46,10 +51,14 @@ export function placeMarks(stage: HTMLElement, windows: Array<{ windowId: string
       const anchor = question.anchor as { extraction_id?: string; span_id?: string } | null;
       if (!question.carried || anchor?.extraction_id !== extractionId || !anchor.span_id) continue;
       const place = at(anchor.span_id);
-      if (place) out.push({ key: `carried:${windowId}:${question.carriedId}`, kind: "carried", top: place.top + 18, left: place.left, carried: question });
+      if (place) out.push({ key: `carried:${windowId}:${question.carriedId}:${question.version}`, kind: "carried", top: place.top + 18, left: place.left, carried: question });
     }
   }
   return out;
+}
+
+function sameMarks(a: Placed[], b: Placed[]): boolean {
+  return a.length === b.length && a.every((mark, i) => mark.key === b[i].key && mark.top === b[i].top && mark.left === b[i].left);
 }
 
 export function PassageMarks({ stage, windows, links, carried, onOpenLink, onSurfaced, onMarkCarried }: {
@@ -69,7 +78,9 @@ export function PassageMarks({ stage, windows, links, carried, onOpenLink, onSur
     let frame = 0;
     const update = () => {
       frame = 0;
-      setPlaced(placeMarks(stage, windows, links, carried));
+      const next = placeMarks(stage, windows, links, carried);
+      // Re-rendered only when a mark moved, came or went (the look-again timer must cost nothing at rest).
+      setPlaced((now) => (sameMarks(now, next) ? now : next));
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(update);

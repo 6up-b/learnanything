@@ -2,6 +2,7 @@
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
 import { useEffect, useMemo, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
+import { useListenerHub, useWindowLifecycle } from "../lifecycle";
 import type { PadsHost } from "./host";
 import { isLearnersWords, type PadState } from "./model";
 
@@ -71,7 +72,9 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
     ...(block && isLearnersWords(block) ? [{ key: "s", glyph: "✓", label: "Submit this block as…", run: close(onSubmit) }] : []),
   ] : [];
   const insertRows: Row[] = [
-    { key: "k", glyph: "✎", label: "Sketch cell", note: "pen, line, arrow, box, text · yours", run: close(() => onInsert({ kind: "sketch", provenance: "learner", payload: { width: 480, height: 160, items: [] } })) },
+    // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving
+    // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.
+    { key: "sketch", glyph: "✎", label: "Sketch cell", note: "pen, line, arrow, box, text · yours", run: close(() => onInsert({ kind: "sketch", provenance: "learner", payload: { width: 480, height: 160, items: [] } })) },
     { key: "m", glyph: "◆", label: "marimo cell · arrives with notebooks", disabled: true },
     ...pieces.map((piece, index): Row => ({
       key: index === 0 ? "i" : `piece-${index}`,
@@ -87,10 +90,16 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
   const rows = [...textRows, ...insertRows, { key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }];
   const runnable = rows.filter((row) => !row.disabled);
   const [index, setIndex] = useState(0);
+  const hub = useListenerHub();
+  // A press in another window makes it the active one: the menu goes with the focus.
+  const lifecycle = useWindowLifecycle();
+  useEffect(() => {
+    if (lifecycle.state !== "active") onClose();
+  }, [lifecycle.state, onClose]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (practicing) return;
+      if (practicing || event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
@@ -114,13 +123,9 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
     const onDown = (event: MouseEvent) => {
       if (!(event.target as Element).closest?.(".desk-padmenu, .desk-sheet")) onClose();
     };
-    window.addEventListener("keydown", onKey, true);
-    window.addEventListener("mousedown", onDown, true);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      window.removeEventListener("mousedown", onDown, true);
-    };
-  }, [index, onClose, practicing, runnable]);
+    const offs = [hub.listen("window", "keydown", onKey, true), hub.listen("window", "mousedown", onDown, true)];
+    return () => offs.forEach((off) => off());
+  }, [hub, index, onClose, practicing, runnable]);
 
   if (practicing && state && block) {
     return <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} />;
@@ -208,8 +213,10 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
   const [shown, setShown] = useState<Set<string>>(new Set(split?.pads ?? pads.slice(0, 2).map((pad) => pad.padId)));
   const [index, setIndex] = useState(0);
   const [again, setAgain] = useState(split === null);
+  const hub = useListenerHub();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
       if (!again) {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -251,9 +258,8 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
       else return;
       event.preventDefault();
     };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [again, index, onCancel, onConfirm, order, shown]);
+    return hub.listen("window", "keydown", onKey, true);
+  }, [again, hub, index, onCancel, onConfirm, order, shown]);
   const titles = new Map(pads.map((pad) => [pad.padId, pad.title]));
   if (!again) {
     return (

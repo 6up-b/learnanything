@@ -1,6 +1,7 @@
 // An answer's proposed change to a pad (spec §8.4): a previewed diff, the inserted lines in green, with
-// "accept" and "not this". Pads arrive with RD4, which supplies the proposals and the accept (writing blocks
-// with `provenance: tutor`); until a handler is given, accept says where it will land and is not offered.
+// "accept" and "not this". The desks supply the proposals and the accept (writing blocks with
+// `provenance: tutor` into the desk's running pad); without a handler, accept says where it would land and
+// is not offered.
 import { useState } from "react";
 
 export interface ProposedDiff {

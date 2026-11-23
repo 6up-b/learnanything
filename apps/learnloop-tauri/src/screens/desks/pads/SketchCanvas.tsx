@@ -94,9 +94,12 @@ export function SketchCanvas({ payload, editable, onCommit, onTextPrompt }: {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const pressure = useRef(1);
 
+  // The canvas is drawn in its own units (a narrow column scales it down, "meet"): a pointer's screen offset is
+  // divided by that scale, or shapes land away from the pen.
   const at = (event: React.PointerEvent): { x: number; y: number } => {
     const box = svgRef.current?.getBoundingClientRect();
-    return { x: event.clientX - (box?.left ?? 0), y: event.clientY - (box?.top ?? 0) };
+    const scale = box && box.width > 0 && box.height > 0 ? Math.min(box.width / sketch.width, box.height / height) : 1;
+    return { x: (event.clientX - (box?.left ?? 0)) / scale, y: (event.clientY - (box?.top ?? 0)) / scale };
   };
   const grow = (y: number) => {
     if (y >= height - SKETCH_SIZES.growWithin) setHeight((now) => now + SKETCH_SIZES.growBy);

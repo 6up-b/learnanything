@@ -1934,27 +1934,35 @@ export function DeskShell({
   const newPadBesideRef = useRef(newPadBeside);
   newPadBesideRef.current = newPadBeside;
 
-  /** The desk's running pad, among the pads read (the drain and the companion's proposals write to it). */
+  /** The pads in a desk's stack windows (a desk's running pad is among them). */
+  const deskPadIds = useCallback((id: string | null): string[] => {
+    if (!id) return [];
+    return Object.values(wsRef.current.windows).filter((window) => window.deskId === id).flatMap((window) => (window.stack ?? []).flatMap((entry) => (entry.kind === "pad" ? [entry.padId] : [])));
+  }, []);
+
+  /** The desk's running pad among the pads read, if one is. */
   const runningPadOf = useCallback((id: string | null): string | null => {
     if (!id) return null;
     return Object.values(store.pads).find((pad) => pad.pad.kind === "running" && pad.pad.homeDeskId === id)?.pad.padId ?? null;
   }, [store]);
 
-  /** The companion's answers propose a previewed diff into the desk's running pad (spec §8.4). */
+  /** The companion's answers propose a previewed diff into the desk's running pad (spec §8.4). A desk whose
+   * stacks are not read yet (its pad window paused) reads them when the learner accepts. */
   const answerProposals = useCallback((exchange: CompanionExchange): ProposedDiff[] => {
     const answer = exchange.answer;
-    const padId = runningPadOf(exchange.deskId);
-    if (!answer || !padId) return [];
-    const state = store.pads[padId];
+    const known = runningPadOf(exchange.deskId);
+    if (!answer || (!known && deskPadIds(exchange.deskId).length === 0)) return [];
     const lines = answer.answerMd.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 6);
     return [{
       id: `${exchange.requestId}:running`,
-      target: state?.pad.title || "running",
+      target: (known ? store.pads[known]?.pad.title : "") || "running",
       label: "Add this to your pad",
       lines,
-      onAccept: () => {
-        const now = store.pads[padId];
-        if (!now) throw new Error("the pad is not open");
+      onAccept: async () => {
+        if (!runningPadOf(exchange.deskId)) await Promise.all(deskPadIds(exchange.deskId).map((padId) => store.loadPad(padId)));
+        const padId = runningPadOf(exchange.deskId);
+        const now = padId ? store.pads[padId] : null;
+        if (!padId || !now) throw new Error("this desk has no running pad");
         const refused = store.commitPad(padId, [{
           op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "tutor_quote", provenance: "tutor",
           positionKey: keyAfterLast(now.blocks), day: localDay(), bodyMd: answer.answerMd, payload: { asked_on: localDay(), question_md: exchange.question },
@@ -1962,7 +1970,15 @@ export function DeskShell({
         if (refused) throw refused;
       },
     }];
-  }, [mintId, runningPadOf, store]);
+  }, [deskPadIds, mintId, runningPadOf, store]);
+
+  /** Keep or leave a pad from the drain: the pad is read first when no window has (its stack paused). */
+  const drainWrite = useCallback((padId: string, op: "keep" | "unkeep", version: number) => {
+    void store.loadPad(padId).then(() => {
+      const refused = store.commitPad(padId, [{ op, expectedVersion: store.pads[padId]?.pad.version ?? version }]);
+      if (refused) toastNow(`couldn't ${op === "keep" ? "keep" : "leave"} it · ${refused.message}`);
+    });
+  }, [store, toastNow]);
 
   const padLinks = useMemo<PadLink[]>(() => Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, blockId: anchor.blockId, extractionId: anchor.extractionId, spanId: anchor.spanId }))),
     // store.pads changes identity on every pad change (the pad version re-renders this shell).
@@ -2685,8 +2701,8 @@ export function DeskShell({
           deskTitle={desk?.title ?? "this desk"}
           load={() => padsTransport.padDrain({ deskId })}
           actions={{
-            keep: (padId, version) => void store.commitPad(padId, [{ op: "keep", expectedVersion: store.pads[padId]?.pad.version ?? version }]),
-            leave: (padId, version) => void store.commitPad(padId, [{ op: "unkeep", expectedVersion: store.pads[padId]?.pad.version ?? version }]),
+            keep: (padId, version) => drainWrite(padId, "keep", version),
+            leave: (padId, version) => drainWrite(padId, "unkeep", version),
             carry: (text, padId) => carryQuestion(text, { kind: "drain", ref: padId }),
           }}
           onClose={() => setDraining(false)}

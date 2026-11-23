@@ -9,7 +9,7 @@ import type { PadBlockDto, PadProposalDto, PadStackEntryDto } from "../../../api
 import { MarkdownMath } from "../../../render/MarkdownMath";
 import { LiveMarkdownEditor } from "../../../render/LiveMarkdownEditor";
 import { FitMath } from "../fitMath";
-import { useScopeClaim, useWindowPaused } from "../lifecycle";
+import { useHubListener, useScopeClaim, useWindowPaused } from "../lifecycle";
 import { dayHeading, usePadsHost, type PadStackHandle, type PadsHost } from "./host";
 import { EDITABLE_KINDS, firstLine, isLearnersWords, keyAfter, type PadState, plainLine } from "./model";
 import { PadMenu, ArrangeOverlay, SubmitSheet, type MenuRequest } from "./PadOverlays";
@@ -322,14 +322,9 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     const above = below + 180 > frame.height;
     return { padId, blockId, kind, top: above ? box.top - frame.top - 6 : below, left: Math.max(6, Math.min(box.left - frame.left, frame.width - 336)), above };
   };
-  useEffect(() => {
-    if (!card) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setCard(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [card]);
+  useHubListener<KeyboardEvent>("window", "keydown", (event) => {
+    if (event.key === "Escape") setCard(null);
+  }, { enabled: card !== null });
 
   // A proposal's card that opened and closed with nothing chosen is labelled `ignored` (a weak "not now").
   const shownProposal = useRef<{ proposal: PadProposalDto; labelled: boolean } | null>(null);
@@ -413,18 +408,14 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   }, [host, windowId, proxy]);
 
   // A passage's ✎ link scrolls the pad to its block and flashes it.
-  useEffect(() => {
-    const onFlash = (event: Event) => {
-      const detail = (event as CustomEvent<{ blockId: string }>).detail;
-      const element = blockEls.current.get(detail.blockId);
-      if (!element) return;
-      element.scrollIntoView?.({ block: "center", behavior: "smooth" });
-      setFlash(detail.blockId);
-      setTimeout(() => setFlash((now) => (now === detail.blockId ? null : now)), FLASH_MS);
-    };
-    window.addEventListener("learnloop:pad-flash", onFlash);
-    return () => window.removeEventListener("learnloop:pad-flash", onFlash);
-  }, []);
+  useHubListener<CustomEvent<{ blockId: string }>>("window", "learnloop:pad-flash", (event) => {
+    const element = blockEls.current.get(event.detail.blockId);
+    if (!element) return;
+    const blockId = event.detail.blockId;
+    element.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    setFlash(blockId);
+    setTimeout(() => setFlash((now) => (now === blockId ? null : now)), FLASH_MS);
+  });
 
   // -- rendering -------------------------------------------------------------------------------------
   const renderBlock = (state: PadState, block: PadBlockDto): ReactNode => {
