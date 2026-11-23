@@ -644,8 +644,9 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   };
 
   // A lesson's own notes: its additions pad's blocks (every pad insert and edit, as on any pad), and a line to write
-  // under it; the first write creates the pad (kind lesson_additions, naming the lesson) through the pad ops.
-  const writeUnderLesson = (lessonId: string) => {
+  // under it; the first write creates the pad (kind lesson_additions, naming the lesson) through the pad ops. The
+  // pad menu opened inside a notebook lesson ("add under this lesson") inserts its block here too.
+  const writeUnderLesson = (lessonId: string, block: Parameters<typeof insertAfter>[2] = { kind: "text", provenance: "learner" }) => {
     if (!lessons) return;
     let padId = lessons.desk.additionsFor(lessonId);
     if (padId && !store.pads[padId]) return; // still being read
@@ -656,7 +657,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       lessons.desk.noteAdditions(lessonId, padId);
     }
     const state = store.pads[padId];
-    insertAfter(padId, state?.blocks[state.blocks.length - 1]?.blockId ?? null, { kind: "text", provenance: "learner" }, true);
+    insertAfter(padId, state?.blocks[state.blocks.length - 1]?.blockId ?? null, block, block.kind === "text");
   };
 
   const renderLesson = (key: string, index: number, minHeight: number): ReactNode => {

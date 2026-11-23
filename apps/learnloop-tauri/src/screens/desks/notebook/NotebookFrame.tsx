@@ -121,9 +121,12 @@ export interface NotebookFrameProps {
   style?: CSSProperties;
   /** Every session reading the frame takes (a pad's cells read their run states from it). */
   onSession?: (session: NotebookSessionDto) => void;
+  /** How soon to read a ready session again, from the reading just taken, when its owner waits on something in
+   * it (a lesson's commit point); undefined keeps POLL_MS.ready. */
+  readyPoll?: (session: NotebookSessionDto) => number | undefined;
 }
 
-export function NotebookFrame({ owner, path, view = "app", title = "notebook", calls = api, style, onSession }: NotebookFrameProps) {
+export function NotebookFrame({ owner, path, view = "app", title = "notebook", calls = api, style, onSession, readyPoll }: NotebookFrameProps) {
   const lifecycle = useWindowLifecycle();
   const paused = isPaused(lifecycle.state);
   const whenLive = useWhenLive();
@@ -136,6 +139,8 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
   const preview = lifecycle.state === "preview";
   const onSessionRef = useRef(onSession);
   onSessionRef.current = onSession;
+  const readyPollRef = useRef(readyPoll);
+  readyPollRef.current = readyPoll;
   useEffect(() => {
     if (session) onSessionRef.current?.(session);
   }, [session]);
@@ -154,7 +159,7 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
         setSession(next);
         setError(null);
         if (next.state === "stopped" || next.state === "failed") return;
-        timer = setTimeout(() => void follow(sessionId), next.state === "ready" ? POLL_MS.ready : POLL_MS.changing);
+        timer = setTimeout(() => void follow(sessionId), next.state === "ready" ? readyPollRef.current?.(next) ?? POLL_MS.ready : POLL_MS.changing);
       } catch (reason) {
         if (!cancelled) setError(errorOf(reason));
       }
@@ -167,7 +172,7 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
         if (cancelled) return;
         setSession(opened);
         setError(null);
-        timer = setTimeout(() => void follow(opened.sessionId), opened.state === "ready" ? POLL_MS.ready : POLL_MS.changing);
+        timer = setTimeout(() => void follow(opened.sessionId), opened.state === "ready" ? readyPollRef.current?.(opened) ?? POLL_MS.ready : POLL_MS.changing);
       } catch (reason) {
         if (!cancelled) setError(errorOf(reason));
       }

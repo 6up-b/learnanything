@@ -10514,9 +10514,12 @@ export interface LessonViewDto {
   te2?: boolean;
   /** Teacher TE2: the quick question, being prepared (with "Teach it anyway") or open (answer it on your own). */
   probe?: LessonProbeDto | null;
-  /** Reader workbench RD9b's seam (spec §11.2): "notebook" when the lesson's medium is a marimo notebook (teacher v2).
-   *  Not sent yet; a lesson window shows the lesson itself whenever it is absent. */
+  /** Reader workbench RD9b (spec §11.2): "notebook" when the lesson's medium is a marimo notebook, sent when the
+   *  vault holds the lesson's notebook (`notebooks/lessons/<lesson id>.py`); nothing writes one yet (NA4's teacher
+   *  half). A lesson window shows the lesson itself whenever it is absent. */
   medium?: "notebook";
+  /** The lesson's notebook, relative to the vault, with `medium`. */
+  notebookPath?: string;
 }
 
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
@@ -11212,6 +11215,15 @@ export interface NotebookSessionDto {
   cellRuns?: Record<string, NotebookCellRunDto>;
   /** A pad's session (from notebook.open only): each cell block's marimo name. */
   padCells?: Record<string, string>;
+  /** A lesson's session: its commit points, what was committed and released, and whether it is a review. */
+  lesson?: NotebookLessonDto;
+}
+
+/** A lesson notebook's commit points (spec §11.2). A review (a finished lesson) commits and releases nothing. */
+export interface NotebookLessonDto {
+  review: boolean;
+  released: string[];
+  commitPoints: Array<{ name: string; held: string[]; committed: boolean }>;
 }
 
 export interface NotebookCellRunDto {

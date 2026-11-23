@@ -106,6 +106,7 @@ import { Companion, type CompanionHandle } from "./companion/Companion";
 import { NotebookBridgeContext, type NotebookBridgeHost } from "./notebook/NotebookFrame";
 import type { BridgeMessage } from "./notebook/bridge";
 import { notebookMenuRequest, openNotebookMenu } from "./notebook/menuBridge";
+import { lessonNotebookFrame } from "./notebook/LessonNotebook";
 import type { NotebookOwner } from "../../api/dto";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
@@ -1748,7 +1749,8 @@ export function DeskShell({
     openLesson,
     ...(lessons?.onQuickCheck ? { onQuickCheck: lessons.onQuickCheck } : {}),
     ...(lessons?.onLookInLibrary ? { onLookInLibrary: lessons.onLookInLibrary } : {}),
-    ...(lessons?.notebookFrame ? { notebookFrame: lessons.notebookFrame } : {}),
+    // A notebook lesson's frame (spec §11.2); a caller may stand in its own.
+    notebookFrame: lessons?.notebookFrame ?? lessonNotebookFrame,
   }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame]);
 
   const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown> } = {}) => {

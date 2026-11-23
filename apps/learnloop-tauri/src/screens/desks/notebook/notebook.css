@@ -98,3 +98,19 @@
 .ll-cell-editor .hintline { padding: 0 10px 4px; font: 10px var(--desk-mono, monospace); color: var(--desk-ink3, #7a766e); }
 .ll-cell-group { margin: 6px -3px -1px; border-top: 1px solid #e3e0d8; }
 .ll-cell-group .ll-nb { padding: 8px 0 0; height: auto; }
+
+/* A notebook lesson in its lesson window (spec §11.2): the lesson paper's frame (.lframe, its 1 px rule and the
+   paper's own margins) holds the notebook directly, so the frame adds neither padding nor a second rule. It fills
+   the stack window below the lesson's head and modes, as the mockup's does (its 100vh less the 372 px above and
+   below it, at both of its viewports). */
+.ll-lesson-nb { display: flex; flex-direction: column; height: max(320px, calc(100vh - 372px)); }
+.ll-lesson-nb .ll-nb { flex: 1 1 auto; padding: 0; background: transparent; }
+.ll-lesson-nb .ll-nb-frame { border: 0; }
+.ll-lesson-nb .ll-nb-status { padding: 6px 10px; }
+.ll-lesson-nb-line {
+  flex: none;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--desk-rule, #dcd7cc);
+  font: 11px var(--desk-mono, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace);
+  color: var(--desk-ink2, #55524c);
+}

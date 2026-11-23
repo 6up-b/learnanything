@@ -216,9 +216,10 @@ def main() -> int:
     # Reader workbench v2 RD9a (lesson windows): screens/LessonView.tsx (the lesson screen's content, extracted) and
     # screens/desks/lesson/ model.ts, host.ts, LessonPaper.tsx and PathLessonRow.tsx (entry-reachable);
     # fixtures/desks/lessons.ts (vitest-support).
-    # The notebook frame (NotebookFrame.tsx, bridge.ts) and pad cells (PadCell.tsx, padNotebooks.ts, menuBridge.ts).
-    if len(ts_sources) != 396:
-        errors.append(f"source inventory drift: expected 396 TypeScript/TSX files, found {len(ts_sources)}")
+    # The notebook frame (NotebookFrame.tsx, bridge.ts), pad cells (PadCell.tsx, padNotebooks.ts, menuBridge.ts) and
+    # notebook lessons (LessonNotebook.tsx).
+    if len(ts_sources) != 397:
+        errors.append(f"source inventory drift: expected 397 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -322,10 +323,10 @@ def main() -> int:
         # RD2: the five screens/desks/overview modules.
         # RD4b: the seven screens/desks/pads modules and screens/desks/fitMath.tsx.
         # The notebook frame: screens/desks/notebook/NotebookFrame.tsx and bridge.ts. Pad cells: PadCell.tsx,
-        # padNotebooks.ts and menuBridge.ts.
+        # padNotebooks.ts and menuBridge.ts. Notebook lessons: LessonNotebook.tsx.
         # RD6b: the six screens/desks/goal modules.
         # RD9a: screens/LessonView.tsx and the four screens/desks/lesson modules.
-        "entry-reachable build graph": 377,
+        "entry-reachable build graph": 378,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -341,7 +342,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 402}:
+    if dict(status_counts) != {"ACTIVE": 403}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

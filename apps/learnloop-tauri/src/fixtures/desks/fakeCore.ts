@@ -1,7 +1,7 @@
 // Stands in for @tauri-apps/api/core in the desks' visual harness (vite.desks.config.mjs): every call
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
-import type { DeskApplyInput, DeskStateDto, PadViewDto } from "../../api/dto";
+import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto } from "../../api/dto";
 import { fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
@@ -212,6 +212,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "notebook_open":
     case "notebook_status":
     case "notebook_run_cells":
+    case "notebook_release":
       // The harness script answers these from a real sandboxed session when it exposes its bridge.
       if (window.__nbRpc) return window.__nbRpc(command, input);
       return notebookSession(command, input);
@@ -238,7 +239,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "lesson_turn":
       return lessons.turn(input as never);
     case "lesson_view":
-      return lessons.view(input as { lessonId: string });
+      return notebookLesson(lessons.view(input as { lessonId: string }));
     case "lesson_list":
       return lessons.list(input as { lessonIds?: string[] });
     case "lesson_activity":
@@ -255,6 +256,15 @@ declare global {
     __notebookHarness?: { frameUrl: string; sessionId: string; padCells?: Array<{ blockId: string; code: string }> };
     __nbRpc?: (command: string, input: Record<string, unknown>) => Promise<unknown>;
   }
+}
+
+/** `?nblesson=open|review`: the fixture lesson's medium is a notebook (spec §11.2), open (its commit points
+ * release) or finished (its review); the harness script serves the notebook from a real sandboxed session. */
+function notebookLesson(view: LessonViewDto): LessonViewDto {
+  const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson");
+  if (mode !== "open" && mode !== "review") return view;
+  return { ...view, medium: "notebook", notebookPath: `notebooks/lessons/${view.lessonId}.py`, closed: mode === "review",
+    closeReason: mode === "review" ? view.closeReason ?? "learner_stop" : null };
 }
 
 function notebookSession(command: string, input: Record<string, unknown>) {

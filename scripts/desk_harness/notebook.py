@@ -38,6 +38,8 @@ from typing import Any
 
 from playwright.async_api import Page, Route, async_playwright
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # visual_reference, a sibling script
+
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "apps" / "learnloop-tauri" / "dist-desk-harness"
 ORIGIN = "http://localhost:1420"
@@ -470,6 +472,248 @@ async def run_pad_cells(browser: Any, runtime: Any, checks: Checks, shots: Path 
     return facts
 
 
+#: The lesson window's notebook: the frame fixture's lesson with a commit point the learner answers (its own text
+#: field) and a held reveal under it (project-authored).
+LESSON_WINDOW = LESSON.replace(
+    """@app.cell
+def commit_point(mo):
+    mo.Html(
+        "<div class='ll-commit' id='ll-commit'>Before you drag: will the square grow faster than x?"
+        "<div class='ll-verdict'>committed · revealed after you answer</div></div>"
+    )
+    return
+""",
+    """@app.cell
+def commit_point(mo):
+    answer = mo.ui.text(placeholder="yes or no, and why")
+    mo.vstack([mo.Html("<div class='ll-commit' id='ll-commit'>Before you drag: will the square grow faster than x?"
+                       "<div class='ll-verdict'>committed · revealed after you answer</div></div>"), answer])
+    return (answer,)
+
+
+@app.cell(disabled=True)
+def reveal_point(answer, mo):
+    mo.Html("<div class='ll-commit' id='ll-reveal'>revealed · yes: x squared grows by 2x + 1 at each step"
+            "<div class='ll-verdict'>your answer stays as you wrote it</div></div>")
+    return
+""")
+LESSON_ID = "fx_lesson_softmax"
+
+
+def lesson_rpc(page: Page, runtime: Any, vault_key: str, review: bool) -> Any:
+    """The page's notebook RPCs answered by a real sandboxed session, as the sidecar answers them for a lesson."""
+
+    from learnloop.notebook_runtime.lessons import lesson_contract
+    from learnloop.notebook_runtime.runtime import ReleaseRefused
+    from learnloop.notebook_runtime.sandbox import Limits
+    from learnloop_sidecar.dto import versioned
+
+    opens: list[dict[str, Any]] = []
+
+    async def rpc(command: str, data: dict[str, Any]) -> Any:
+        def work() -> dict[str, Any]:
+            if command == "notebook_open":
+                opens.append(dict(data))
+                return versioned(runtime.open(vault_key=vault_key, owner=data["owner"], source=LESSON_WINDOW.encode(),
+                                              view=data.get("view", "app"), limits=Limits(memory_mib=2048, scratch_mib=256),
+                                              idle_minutes=10, max_sessions=4,
+                                              contract=lesson_contract(LESSON_WINDOW.encode()), review=review))
+            if command == "notebook_status":
+                return versioned(runtime.status(vault_key=vault_key, session_id=data["sessionId"]))
+            try:
+                return versioned(runtime.release(vault_key=vault_key, session_id=data["sessionId"], names=data["cells"]))
+            except ReleaseRefused as exc:
+                return {"refused": str(exc)}
+
+        return await asyncio.get_running_loop().run_in_executor(None, work)
+
+    rpc.opens = opens  # type: ignore[attr-defined]
+    return rpc
+
+
+async def lesson_page(browser: Any, runtime: Any, mode: str, viewport: dict[str, int], vault_key: str) -> tuple[Page, Any]:
+    import visual_reference as V
+
+    page = await browser.new_page(viewport=viewport)
+    await page.route("**/*", serve_dist)
+    await page.add_init_script("window.__notebookHarness = " + json.dumps({"frameUrl": "", "sessionId": ""}) + ";")
+    rpc = lesson_rpc(page, runtime, vault_key, review=mode == "review")
+    await page.expose_function("__nbRpc", rpc)
+    await page.goto(f"{ORIGIN}/desk-harness.html?lesson=1&nblesson={mode}")
+    await page.wait_for_selector("[data-desk-window]")
+    await page.evaluate("document.fonts.ready")
+    await asyncio.sleep(1.5)
+    await V.pads_beside_book(page)
+    selector = f'.desk-pads .paper[data-pad="lesson:{LESSON_ID}"]'
+    await page.wait_for_selector(f"{selector} [data-lesson-notebook]", timeout=20000)
+    await page.locator(".desk-pads .pscroller").evaluate(
+        "(s, sel) => { const p = s.querySelector(sel); s.scrollTop = Math.max(0, p.offsetTop - 2 * 30 - 30); }", selector)
+    await asyncio.sleep(0.7)
+    return page, rpc
+
+
+async def lesson_frame(page: Page, timeout: float = 40.0) -> Any:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        for frame in page.frames:
+            if "127.0.0.1" in frame.url:
+                try:
+                    if await frame.locator("#ll-commit").count():
+                        return frame
+                except Exception:  # noqa: BLE001 - still loading
+                    pass
+        await asyncio.sleep(0.1)
+    raise TimeoutError("the lesson's notebook never showed its commit point")
+
+
+async def answer_commit(frame: Any) -> None:
+    field = frame.locator("input[type=text], input:not([type])").first
+    await field.click()
+    await field.fill("yes, it adds 2x + 1")
+    await field.press("Enter")
+    await field.press("Tab")
+
+
+async def run_lesson_window(browser: Any, runtime: Any, checks: Checks, shots: Path | None) -> dict[str, Any]:
+    """A notebook lesson in its lesson window: the lesson's own session, a commit point releasing its held cell, a
+    review releasing nothing, through the desks' real lesson window (`?lesson=1&nblesson=open|review`)."""
+
+    facts: dict[str, Any] = {}
+
+    def lesson_session(vault_key: str) -> Any:
+        return next(each for each in runtime.sessions() if each.vault_key == vault_key and each.owner == f"lesson:{LESSON_ID}")
+
+    page, rpc = await lesson_page(browser, runtime, "open", VIEWPORT, "harness-lesson")
+    started = time.monotonic()
+    frame = await lesson_frame(page)
+    facts["lesson_frame_interactive_s"] = round(time.monotonic() - started, 3)
+    checks.check("a notebook lesson's window hosts the lesson's own session (owner lesson:<id>, no path, app view)",
+                 rpc.opens and rpc.opens[0] == {"owner": f"lesson:{LESSON_ID}", "view": "app"}
+                 and await page.locator(f'[data-lesson-notebook="{LESSON_ID}"] iframe').count() == 1, rpc.opens[:1])
+    checks.check("the lesson's head and modes stay above the notebook (no LessonView inside)",
+                 await page.locator('.lessonnb .lhead').count() == 1 and await page.locator('.lessonnb [data-testid="lesson-view"]').count() == 0)
+    hidden = await frame.locator("#ll-reveal").count()
+    await answer_commit(frame)
+    t0 = time.monotonic()
+    revealed = False
+    while time.monotonic() - t0 < 12 and not revealed:
+        revealed = await frame.locator("#ll-reveal").count() > 0
+        await asyncio.sleep(0.1)
+    facts["commit_to_reveal_ms"] = round(1000 * (time.monotonic() - t0), 1)
+    session = lesson_session("harness-lesson")
+    checks.check("answering the commit point releases the cell it holds, through notebook.release",
+                 hidden == 0 and revealed and session.released == {"reveal_point"} and session.commits == {"commit_point"},
+                 {"ms": facts["commit_to_reveal_ms"], "released": sorted(session.released)})
+    if shots:
+        await page.screenshot(path=str(shots / "lesson__released.png"))
+    pid = session.process.pid
+    await page.reload()
+    await page.wait_for_selector("[data-desk-window]")
+    await V_pads(page)
+    again = await lesson_frame(page)
+    checks.check("a remounted lesson window rejoins the same kernel (same session and process; the reveal kept)",
+                 lesson_session("harness-lesson").process.pid == pid and await again.locator("#ll-reveal").count() > 0)
+    await page.close()
+
+    page, rpc = await lesson_page(browser, runtime, "review", VIEWPORT, "harness-review")
+    frame = await lesson_frame(page)
+    line = await page.locator(".ll-lesson-nb-line").first.inner_text()
+    await answer_commit(frame)
+    await asyncio.sleep(3.0)
+    review = lesson_session("harness-review")
+    checks.check("a finished lesson's notebook is its review: it says so, and an answer commits and releases nothing",
+                 "review" in line and await frame.locator("#ll-reveal").count() == 0 and not review.released
+                 and not review.commits and review.review, line)
+    if shots:
+        await page.screenshot(path=str(shots / "lesson__review.png"))
+    await page.close()
+    return facts
+
+
+async def V_pads(page: Page) -> None:
+    import visual_reference as V
+
+    await page.evaluate("document.fonts.ready")
+    await asyncio.sleep(1.5)
+    await V.pads_beside_book(page)
+    selector = f'.desk-pads .paper[data-pad="lesson:{LESSON_ID}"]'
+    await page.wait_for_selector(f"{selector} [data-lesson-notebook]", timeout=20000)
+    await page.locator(".desk-pads .pscroller").evaluate(
+        "(s, sel) => { const p = s.querySelector(sel); s.scrollTop = Math.max(0, p.offsetTop - 2 * 30 - 30); }", selector)
+    await asyncio.sleep(0.7)
+
+
+def sample_frame_inside(png: Path, box: dict[str, float]) -> dict[str, Any]:
+    """Inside a frame's box on a screenshot: the page colour beside its left rule, and the notebook's content column
+    (the outermost card rules or purple voice edges) as margins from the box's sides."""
+
+    from PIL import Image
+
+    image = Image.open(png).convert("RGB")
+    x0, y0, w, h = (round(box[k]) for k in ("x", "y", "w", "h"))
+    mid = y0 + h // 2
+    edges = {(0xe3, 0xe0, 0xd8), (0x5b, 0x4a, 0x9a)}
+    inner = [x for y in range(y0 + 2, min(y0 + h - 2, image.height - 1), 2) for x in range(x0 + 2, min(x0 + w - 2, image.width - 1))
+             if image.getpixel((x, y)) in edges]
+    out: dict[str, Any] = {"page": "#%02x%02x%02x" % image.getpixel((x0 + 3, mid))}
+    if inner:
+        out.update(content_margin_left=min(inner) - x0, content_margin_right=x0 + w - 1 - max(inner))
+    return out
+
+
+async def compare_lesson_window(browser: Any, runtime: Any, ref: Path) -> list[dict[str, Any]]:
+    """The mockup's Teacher lesson state (`#tabs=distance,pad=3`) against the notebook inside the lesson tab, at
+    both viewports: the lesson regions the rd9 stage compares, the frame's whole box, and inside it the page colour
+    and the notebook's content margins (measured on both screenshots the same way)."""
+
+    import visual_reference as V
+
+    out = ref / "compare"
+    out.mkdir(parents=True, exist_ok=True, mode=0o700)
+    results = []
+    for viewport in ("design", "laptop"):
+        stem = V.file_stem("arxiv_v2", "tabs=distance,pad=3", viewport)
+        ref_json = ref / f"{stem}.json"
+        if not ref_json.exists():
+            results.append({"viewport": viewport, "status": "no reference capture"})
+            continue
+        reference = json.loads(ref_json.read_text())
+        page, _rpc = await lesson_page(browser, runtime, "open", V.VIEWPORTS[viewport], "harness-compare")
+        await lesson_frame(page)
+        await asyncio.sleep(1.5)
+        app_png = out / f"notebook_lesson__{stem}__harness.png"
+        await page.screenshot(path=str(app_png))
+        names = [name for name in V.LESSON if name in V.REGIONS]
+        measured = await V.measure(page, {name: V.REGIONS[name].harness for name in names})
+        await page.close()
+        rows: list[dict[str, Any]] = []
+        for name in names:
+            mock, app = reference["regions"].get(name), measured.get(name)
+            if mock is None or app is None:
+                if mock is not None or app is not None:
+                    rows.append({"region": name, "kind": "presence", "mockup": mock is not None, "app": app is not None})
+                continue
+            rows += V.diff_region(name, mock, app)
+        mock_frame, app_frame = reference["regions"].get("lesson_frame"), measured.get("lesson_frame")
+        if mock_frame and app_frame:
+            for key in ("x", "y", "w", "h"):
+                if abs(mock_frame["box"][key] - app_frame["box"][key]) > V.GEOMETRY_TOLERANCE_PX and not any(
+                        row["region"] == "lesson_frame" and row["prop"] == f"box.{key}" for row in rows):
+                    rows.append({"region": "lesson_frame", "kind": "geometry", "prop": f"box.{key}",
+                                 "mockup": mock_frame["box"][key], "app": app_frame["box"][key]})
+            inside_mock = sample_frame_inside(ref / reference["screenshot"], mock_frame["box"])
+            inside_app = sample_frame_inside(app_png, app_frame["box"])
+            for key in ("page", "content_margin_left", "content_margin_right"):
+                m, a = inside_mock.get(key), inside_app.get(key)
+                if m != a and not (isinstance(m, int) and isinstance(a, int) and abs(m - a) <= V.GEOMETRY_TOLERANCE_PX):
+                    rows.append({"region": "notebook_inside", "kind": "colour" if key == "page" else "geometry",
+                                 "prop": key, "mockup": m, "app": a})
+        share = V.pixel_share(ref / reference["screenshot"], app_png, out / f"notebook_lesson__{stem}__side_by_side.png")
+        results.append({"viewport": viewport, "status": "compared", "pixel_changed_share": round(share, 4), "differences": rows})
+    (out / "notebook_lesson__result.json").write_text(json.dumps(results, indent=1))
+    return results
+
+
 def sample_lesson_frame(png: Path) -> dict[str, Any]:
     """The lesson frame measured on a screenshot: its 1 px rule's box, the margins round it, the colours inside."""
 
@@ -573,9 +817,13 @@ async def main() -> int:
             browser = await playwright.chromium.launch(headless=True, args=CHROMIUM_ARGS)
             facts = await run_checks(browser, view, checks, args.shots)
             facts["pad_cells"] = await run_pad_cells(browser, runtime, checks, args.shots)
+            facts["lesson_window"] = await run_lesson_window(browser, runtime, checks, args.shots)
             if args.ref:
                 facts["reference"] = await compare_reference(browser, view, args.ref)
                 print("reference:", json.dumps(facts["reference"].get("differences"), default=str))
+                facts["lesson_reference"] = await compare_lesson_window(browser, runtime, args.ref)
+                for row in facts["lesson_reference"]:
+                    print(f"lesson window reference ({row['viewport']}):", json.dumps(row.get("differences"), default=str))
             await browser.close()
         print(json.dumps({key: value for key, value in facts.items() if key != "inside"}, default=str))
         print(f"{len(checks.rows) - checks.failed} of {len(checks.rows)} checks passed")
