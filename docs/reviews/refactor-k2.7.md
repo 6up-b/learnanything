@@ -40,7 +40,7 @@ identity change, and no model call.
    `_optional_int` (import_jobs, read by `handle_inventory`), `_routed_task_client` (synthesis jobs, read by the
    authoring clients), `_reader_source_sets` (authoring jobs, read by the host's Reader enqueues). They are
    imported where read rather than copied or renamed, so every body stays byte-identical.
-7. **The table names its handlers; the job contracts are a leaf; the cycle ratchet rises by 2.** Each row's
+7. **The table names its handlers; the job contracts are a leaf; the cycle ratchet falls to 219.** Each row's
    `handler` is a `module:function` string that `resolve_handler` imports when the runner builds its default
    handlers (the runner, not only the host, resolves them: the CLI and the tests construct `IngestRunner` directly
    and rely on the defaults). `job_types.py` imports no LearnLoop module at run time (`Handler` only under
@@ -53,19 +53,16 @@ identity change, and no model call.
    leaf, and `JobContext`, which they use only in annotations, under `TYPE_CHECKING`, so none imports the runner at
    run time. The runner loads the three job modules its services fall back on by module path
    (`runner._job_module`), as the table names its handlers.
+   Two more pure moves take the last back-imports out: `start_waiting_sections` and `practice_expansion_payload`
+   (called only by the planner and the host) into `content/pipeline/add_source.py`, and `_pdf_page_count` into
+   `content/pipeline/reread.py` (its callers there and in `import_jobs`). The two functions that imported them
+   function-locally (`after_auto_build`, `reread_plan`) each lose that one import line.
    Measured `modules_in_an_import_cycle`: 226 with handlers imported into the table, 224 with handler names, 223
-   with the contracts leaf (`source_retrieval/jobs.py` leaves), and 223 still with the defaults loaded by name;
-   221 at the base. Set by hand with its reason beside it. What still closes the cycle (ledger K2-22) is no longer
-   the runner but two back-imports from the pipeline into job modules: `add_source → authoring.jobs`
-   (`start_waiting_sections`, function-local) while `authoring.jobs → add_source`, `synthesis.jobs → add_source`
-   and `authoring.jobs → synthesis.jobs`; and `reread → import_jobs` (`_pdf_page_count`, function-local) while
-   `import_jobs → reread`. With those two edges removed the measure gives 219 (simulated); that needs two more pure
-   moves (`start_waiting_sections` and `practice_expansion_payload` into `add_source`, `_pdf_page_count` into
-   `reread`), which this step stops short of. Loading the defaults by name changes the number only together with
-   those moves: with the runner importing the job modules function-locally, the same cut still leaves 223. The only
-   other members edited: `jobs.py`'s stage-comment count (32 → 13) and `handle_inventory`'s over-200 line, which
-   names its new module. The new modules' stage-comment counts (import_jobs 9, authoring jobs 11) are not added
-   to `[stage_comments_by_file]`; the ratchet's total fell (2,351 → 2,346).
+   with the contracts leaf, 223 still with the defaults loaded by name (the planner's and re-read's back-imports
+   held it), 219 after the two moves; 221 at the base. The golden is 219 with no reason line. The only other
+   members edited: `jobs.py`'s stage-comment count (32 → 13) and `handle_inventory`'s over-200 line, which names
+   its new module. The new modules' stage-comment counts are not added to `[stage_comments_by_file]`; the
+   ratchet's total fell (2,351 → 2,346).
 
 ## What moved where
 
@@ -75,9 +72,9 @@ top-level definitions moved; three were deleted (`DEFAULT_HANDLERS`, `APPLYING_J
 
 | new module | lines | definitions | what |
 |---|---|---|---|
-| `content/pipeline/import_jobs.py` | 1,675 | 63 | `import`, `auto_study_map`, `legacy_ingest`/`exam_ingest`, `extraction_repair`; the acquisition and extraction defaults (fetch, extract, extraction identity, GLM-OCR consent, native media and audio routes, legacy one-shot) |
+| `content/pipeline/import_jobs.py` | 1,675 → 1,662 | 63, then 62 (`_pdf_page_count` to `reread.py`) | `import`, `auto_study_map`, `legacy_ingest`/`exam_ingest`, `extraction_repair`; the acquisition and extraction defaults (fetch, extract, extraction identity, GLM-OCR consent, native media and audio routes, legacy one-shot) |
 | `content/synthesis/jobs.py` | 845 | 22 | `inventory`, `bootstrap_synthesis`, `append_synthesis`; the inventory and synthesis clients, the parallel inventory mailbox |
-| `content/authoring/jobs.py` | 1,237 | 38 | Reader quick checks (section, inquiry, selection), Reader and source exercise imports, practice expansion with AD commissions, goal population, question promotion, rung variants, concept animations; their clients |
+| `content/authoring/jobs.py` | 1,237 → 1,141 | 38, then 36 (`start_waiting_sections`, `practice_expansion_payload` to `add_source.py`) | Reader quick checks (section, inquiry, selection), Reader and source exercise imports, practice expansion with AD commissions, goal population, question promotion, rung variants, concept animations; their clients |
 | `figures/jobs.py` | 46 | 1 | `figure_rich` |
 | `source_retrieval/jobs.py` | 318 | 10 | `source_embedding_backfill`, `local_source_index`, `source_fallback_backfill`, `curriculum_coverage_on_extract`; the three obligation queuers |
 | `content/pipeline/job_types.py` | 126 | new | the table |
@@ -211,8 +208,8 @@ the host no longer has): none left apart from four local variables that happen t
   ("these jobs can add or replace scheduler-visible practice") covered them, but it named neither, and their
   batches are not build workflows. A Today poll still reloads after them (`get_queue_revision` reloads after any
   applying job and answers `reloaded`). Kept as it ran: the rows say `affects_queue=False`.
-- **K2-22** (ledger, queued, before arc K closes): three job modules sit in the add-source planner's import cycle
-  through two back-imports (judgment call 7, with the chains and the measured fix).
+- **K2-22** (ledger, fixed here): the job modules' import cycles (226 at the first table) are gone; 219 against
+  the base's 221 (judgment call 7).
 - **K2-21** (ledger, fixed here): `KNOWN_JOB_TYPES` named `extract`, which no handler runs, and missed ten of
   the 21 types; `KNOWN_WORKFLOW_TYPES` was read by nothing. Only one test read the first, so nothing ran
   differently. Both are deleted.
@@ -244,6 +241,11 @@ All through the scratch wrapper (isolated home, config and temp dir), tests memo
 | after the contracts leaf and the defaults loaded by name (K2-22): the same 165-file affected set (the name filter extended with `IngestRunnerError`, `JobCancelled`, `WaitingForInput`, `FetchedBytes`, `JobSpec`, `job_contracts`, which added no file), 5 chunks, `-m "not arc_close"` | 728 passed; 861 passed; 814 passed, 11 skipped; 624 passed, 6 skipped; 63 passed |
 | then pins, ratchets, defaults golden, CLI snapshot, kill switches, SQLite copies; layout alone; architecture alone; ratchets and pins with the 223 golden; `check_gate_partition.py`; `ruff check`; `lint-imports` | 398 passed; 3 passed; 18 passed; 360 passed; collected 33456 (landing 33390 + arc_close 66); all checks passed; 52 kept |
 | AST check after K2-22 | 134/134 moves still AST-identical and verbatim |
+| the two last moves (scratch `move2_check.py`, against `7fe2f6d776`) | `practice_expansion_payload`, `start_waiting_sections`, `_pdf_page_count`: AST-identical and verbatim at their new homes; each source file lost exactly them; only `after_auto_build` and `reread_plan` changed (one function-local import line each); their global reads resolve to the same objects (`__name__`, the logger name, follows `add_source` in `start_waiting_sections`) |
+| after the two last moves: the same 165-file affected set, 5 chunks, `-m "not arc_close"` | 728 passed; 861 passed; 814 passed, 11 skipped; 624 passed, 6 skipped; 63 passed |
+| plus the 16 test files outside that set that mention the re-read, `after_auto_build`, practice expansion, waiting sections or page counts | 702 passed, 2 xfailed |
+| then pins, ratchets (golden 219), defaults golden, CLI snapshot, kill switches, SQLite copies; layout alone; architecture alone; `ruff check`; `lint-imports`; `check_gate_partition.py` | 398 passed; 3 passed; 18 passed; all checks passed; 52 kept; collected 33456 (landing 33390 + arc_close 66) |
+| AST check at the tip (against the first commit; the three last-moved names compared by `move2_check.py`) | 131/131 other moves AST-identical and verbatim; `modules_in_an_import_cycle` 219 |
 | `module_validate.py` | the five new modules have no module note yet (the landing regenerates) |
 
 ## Not verified

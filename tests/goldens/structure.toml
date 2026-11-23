@@ -6,11 +6,7 @@
 
 [ratchet]
 largest_import_component = 84
-modules_in_an_import_cycle = 223
-# 223: two ingest job modules beyond the base. The pipeline's planner and its re-read call back into them
-# (add_source imports authoring/jobs' start_waiting_sections, reread imports import_jobs' _pdf_page_count) while
-# both job modules call the planner, so import_jobs, synthesis/jobs and authoring/jobs sit in the add-source
-# cycle where jobs.py alone sat before (ledger K2-22).
+modules_in_an_import_cycle = 219
 # 221: learnloop.scheduling.intent.recall_targets, which joins the diagnosis repair lane's existing cycle (it already
 # imports diagnosis.causal_activity_policy) once diagnosis.remediation reads the plan's effective due from it (mvp-0.64).
 # 47: learnloop.notebook_authoring, the owner-side notebook harness the owner queued on 2026-11-20. It is its own
