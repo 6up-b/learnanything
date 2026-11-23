@@ -46,6 +46,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
 from learnloop.db.stores.attempts import rank_legacy_attempts
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.attempts import record_legacy_lifecycle_inputs
 from learnloop.ops.settings_store import updated_config_text
 from learnloop.params import parameter_registry as registry_service
 from learnloop.substrate.p0_projection import activate_p0_projection
@@ -134,6 +135,46 @@ legacy_order_then_rebuild = Activation(
 )
 
 
+class _ObservationOnly(Exception):
+    """Unwinds the observation pass's savepoint: it reads what the predecessor's replay reads and keeps nothing."""
+
+
+def _observe_legacy_lifecycle_inputs(vault: LoadedVault, repository: Repository, clock: Clock | None):
+    # The predecessor's own replay of the whole vault, inside a savepoint that is rolled back: for every attempt
+    # without a record it reads the required facets the way the predecessor did (from the item lifecycle as it stands
+    # now, attempted items reset as replay resets them), and nothing it wrote survives (no receipt, no appended
+    # version). Reconstructing the set from the flags directly would have to repeat every reset and re-close replay
+    # does on the way.
+    from learnloop.attempts.lifecycle_inputs import reconstructing_legacy_lifecycle_inputs
+
+    with reconstructing_legacy_lifecycle_inputs() as observed:
+        try:
+            with repository.atomic():
+                rebuild_all_derived_state(vault, repository, clock=clock)
+                raise _ObservationOnly
+        except _ObservationOnly:
+            pass
+    return dict(observed)
+
+
+def _reconstruct_then_rebuild(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None:
+    observed = _observe_legacy_lifecycle_inputs(vault, repository, clock)
+    with repository.connection() as connection:
+        record_legacy_lifecycle_inputs(connection, observed, recorded_at=utc_now_iso(clock))
+    rebuild_all_derived_state(vault, repository, clock=clock)
+
+
+#: mvp-0.66: record, for every attempt applied before the tag, the required facet set the predecessor's replay reads
+#: at it ('legacy_reconstructed'), then a whole-vault rebuild under the tag, which reads those records. Both run in the
+#: activation's one transaction, and the rebuild's receipt is the completion record, so a re-run after a committed
+#: activation does nothing and one after a death before the commit reconstructs from no records again.
+legacy_lifecycle_inputs_then_rebuild = Activation(
+    "the legacy attempts' lifecycle inputs, reconstructed, then a whole-vault rebuild under it",
+    _reconstruct_then_rebuild,
+    _rebuild_committed,
+)
+
+
 @dataclass(frozen=True)
 class Link:
     tag: str
@@ -168,8 +209,9 @@ UPGRADES: tuple[Link, ...] = (
     # predecessor's order.
     Link(APPLICATION_ORDER_ALGORITHM_VERSION, legacy_order_then_rebuild),
     # A grade application's required facets are the ones captured with its attempt: what a rebuild derives moves
-    # wherever a sibling's lifecycle changed between answers.
-    Link(LIFECYCLE_INPUTS_ALGORITHM_VERSION, whole_vault_rebuild),
+    # wherever a sibling's lifecycle changed between answers. The attempts applied before the upgrade get the
+    # predecessor's reading first, labelled a reconstruction.
+    Link(LIFECYCLE_INPUTS_ALGORITHM_VERSION, legacy_lifecycle_inputs_then_rebuild),
 )
 
 
@@ -463,6 +505,7 @@ __all__ = [
     "UpgradeResult",
     "complete_interrupted_activation",
     "idempotent_projection",
+    "legacy_lifecycle_inputs_then_rebuild",
     "legacy_order_then_rebuild",
     "publish_algorithm_version",
     "published_algorithm_version",

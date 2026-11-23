@@ -314,7 +314,7 @@ def test_the_core_reads_no_database_clock_or_id_stream(monkeypatch):
     from learnloop.clock import SystemClock
 
     for name in ("connect", "new_ulid", "utc_now_iso", "load_attempt_prior_state", "lesson_check_mass",
-                 "resolve_fsrs_weights", "required_facets", "read_lo_coverage", "read_breadth", "_attempt_reference_status",
+                 "resolve_fsrs_weights", "application_required_facets", "read_lo_coverage", "read_breadth", "_attempt_reference_status",
                  "_interpretation_variance", "_resolve_attempt_target"):
         monkeypatch.setattr(attempts_module, name, refuse)
     monkeypatch.setattr(SystemClock, "now", refuse)

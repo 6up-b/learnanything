@@ -18,6 +18,8 @@ from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
+from learnloop.attempts.lifecycle_inputs import application_required_facets, recorded_for_replay
+from learnloop.db.attempt_lifecycle_inputs import LifecycleInputs
 from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.records import FacetUncertaintyState
 from learnloop.db.repositories import (
@@ -69,7 +71,6 @@ from learnloop.learner.facet_diagnostics import (
     lo_relative_coverage_from,
     read_breadth,
     read_lo_coverage,
-    required_facets,
 )
 from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
@@ -522,6 +523,8 @@ class ApplyAttemptInput:
     # None when it is independent. Read only by :func:`_record_lesson_probe` (live, presentationless lesson
     # probes): the attempt's activity class. The class is a RAW_LEDGER row, so replay reads it back.
     diagnostic_exposure: str | None = None
+    # Replay and regrade only (mvp-0.66): the attempt's recorded required facets, read instead of today's lifecycle.
+    recorded_lifecycle_inputs: LifecycleInputs | None = None
 
 
 @dataclass(frozen=True)
@@ -593,6 +596,8 @@ class AttemptApplication:
     #: The FSRS review this attempt applied or skipped, as numbers and codes (``_fsrs_review_summary``), for the
     #: live grade's decision record; nothing persists it otherwise, and replay never reads it.
     fsrs_review: dict[str, Any] | None = None
+    #: mvp-0.66: a live application's required facet set, recorded with its attempt (None when nothing is new).
+    lifecycle_inputs: LifecycleInputs | None = None
 
 
 class AttemptValidationError(ValueError):
@@ -1442,6 +1447,7 @@ def replay_existing_attempt(
                 if attempt.get("created_at") is not None
                 else None
             ),
+            recorded_lifecycle_inputs=recorded_for_replay(vault, repository, str(attempt["id"])),
         ),
         clock=clock,
     )
@@ -3437,6 +3443,7 @@ def compute_attempt_application(
         grade_contract_unrecorded=attempt.grade_contract_unrecorded,
         unrecorded_correctness=attempt.unrecorded_correctness,
         ledger_position=attempt.replay_ledger_position,
+        recorded_lifecycle_inputs=attempt.recorded_lifecycle_inputs,
     )
 
 
@@ -3680,6 +3687,7 @@ def _persist_attempt_application(
         )
     else:
         repository.record_attempt_outcome(
+            lifecycle_inputs=application.lifecycle_inputs,
             attempt=application.attempt_record,
             evidence_rows=application.evidence_rows,
             error_events=application.error_events,
@@ -4161,6 +4169,7 @@ def _compute_resolved_grade_application(
     unrecorded_correctness: float | None = None,
     reveal_window_bounded: bool = False,
     ledger_position: tuple[str, str] | None = None,
+    recorded_lifecycle_inputs: LifecycleInputs | None = None,
 ) -> AttemptApplication:
     """What a resolved grade does to the learner's state, computed and not written.
 
@@ -4215,10 +4224,13 @@ def _compute_resolved_grade_application(
         )
     interpretation_variance = _interpretation_variance(vault, repository, inputs, clock=clock)
     recorded_mass = lesson_check_mass(repository, attempt_id, draft.attempt_type)
-    # The learning object's required facets, read once: its relative coverage and the item-derived breadth
-    # denominator must count the same set.
-    required = required_facets(vault, learning_object.id, repository)
-    lo_coverage = read_lo_coverage(vault, repository, learning_object.id, required=required)
+    # Read once, so coverage and breadth count one set; from mvp-0.66 the attempt's recorded set (a live one records
+    # what it reads here), so a sibling closed or reopened later reaches no earlier attempt.
+    required, canonical, lifecycle_inputs = application_required_facets(
+        vault, repository, attempt_id=attempt_id, learning_object_id=learning_object.id, replay=replay,
+        recorded=recorded_lifecycle_inputs,
+    )
+    lo_coverage = read_lo_coverage(vault, repository, learning_object.id, required=required, canonical=canonical)
     breadth = read_breadth(vault, repository, learning_object.id, required=required)
     fsrs_weights = resolve_fsrs_weights(repository)
     reference_status = _attempt_reference_status(repository, item, draft, replay=replay)
@@ -4243,7 +4255,7 @@ def _compute_resolved_grade_application(
         error_event_ids=error_event_ids,
         grading_evidence=grading_evidence,
     )
-    return grade_application(inputs, scope, reads)
+    return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs)
 
 
 def _interpretation_variance(

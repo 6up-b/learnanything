@@ -236,10 +236,13 @@ class LoCoverageReads:
     """What :func:`lo_relative_coverage` reads, keyed by the learning object alone.
 
     ``required`` stays the set the read built: the coverage sums iterate it, and a set rebuilt from the same members
-    may iterate in another order, which moves a float sum's last bit."""
+    may iterate in another order, which moves a float sum's last bit. ``canonical`` (from mvp-0.66, where the set is
+    the one captured with the attempt): the sums iterate the facets in sorted order instead, so a replay that reads the
+    set back from its record adds in the order the live application did."""
 
-    required: set[str]
+    required: Collection[str]
     open_uncertainties: dict[str, FacetUncertaintyState]
+    canonical: bool = False
 
 
 def read_lo_coverage(
@@ -247,10 +250,11 @@ def read_lo_coverage(
     repository: Repository,
     learning_object_id: str,
     *,
-    required: set[str] | None = None,
+    required: Collection[str] | None = None,
+    canonical: bool = False,
 ) -> LoCoverageReads:
     """``required``: the learning object's required facets, when the caller already read them; otherwise
-    :func:`required_facets` now."""
+    :func:`required_facets` now. ``canonical``: see :class:`LoCoverageReads`."""
 
     if required is None:
         required = required_facets(vault, learning_object_id, repository)
@@ -260,7 +264,7 @@ def read_lo_coverage(
             vault, repository, learning_object_id, statuses=("open", "resolving")
         )
     }
-    return LoCoverageReads(required=required, open_uncertainties=open_uncertainties)
+    return LoCoverageReads(required=required, open_uncertainties=open_uncertainties, canonical=canonical)
 
 
 def lo_relative_coverage(
@@ -290,6 +294,8 @@ def lo_relative_coverage_from(
 
     required, open_uncertainties = reads.required, reads.open_uncertainties
     measured_required = set(open_uncertainties) if open_uncertainties else required
+    if reads.canonical:
+        measured_required = sorted(measured_required)
     if not measured_required:
         return 1.0, {
             "required_facets": [],
@@ -373,7 +379,7 @@ class BreadthReads:
     frontier: set[tuple[str, str]]
     authored: bool
     cell_evidence: dict[str, list[Any]] | None = None
-    required: set[str] | None = None
+    required: Collection[str] | None = None
     recall_states: list[Any] | None = None
 
 
@@ -382,7 +388,7 @@ def read_breadth(
     repository: Repository,
     learning_object_id: str,
     *,
-    required: set[str] | None = None,
+    required: Collection[str] | None = None,
 ) -> BreadthReads:
     """``required``: the learning object's required facets, when the caller already read them (the item-derived
     branch and the frontier's legacy fallback read it); otherwise :func:`required_facets` now."""

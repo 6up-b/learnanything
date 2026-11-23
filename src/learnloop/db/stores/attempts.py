@@ -27,6 +27,7 @@ from learnloop.db.attempt_order import (
     LEGACY_ORDER,
     AttemptOrder,
 )
+from learnloop.db.attempt_lifecycle_inputs import LIFECYCLE_INPUTS_TABLE, LifecycleInputs
 from learnloop.db.row_serialization import _json, _loads
 from learnloop.db.stores.diagnoses import merge_causal_view_into_feedback
 from learnloop.db.stores.observation_ledger import load_effective_assessment_contracts
@@ -216,7 +217,49 @@ def rank_legacy_attempts(connection: Any, *, algorithm_version: str, recorded_at
     return len(attempt_ids)
 
 
+def _insert_attempt_lifecycle_inputs(
+    connection: Any, attempt_id: str, inputs: LifecycleInputs, *, recorded_at: str
+) -> None:
+    # A plain INSERT: a second row for one attempt is a writer's bug, and replacing one would rewrite what an
+    # application read.
+    connection.execute(
+        f"INSERT INTO {LIFECYCLE_INPUTS_TABLE}(attempt_id, learning_object_id, required_facets_json, basis, "
+        "policy_version, recorded_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (attempt_id, inputs.learning_object_id, inputs.required_facets_json(), inputs.basis, inputs.policy_version,
+         recorded_at),
+    )
+
+
+def record_legacy_lifecycle_inputs(
+    connection: Any, inputs_by_attempt: Mapping[str, LifecycleInputs], *, recorded_at: str
+) -> int:
+    """Record the upgrade's reconstructed inputs for attempts that have no row, in attempt id order; how many."""
+
+    for attempt_id in sorted(inputs_by_attempt):
+        _insert_attempt_lifecycle_inputs(connection, attempt_id, inputs_by_attempt[attempt_id], recorded_at=recorded_at)
+    return len(inputs_by_attempt)
+
+
 class AttemptStoreMixin:
+    def attempt_lifecycle_inputs(self, attempt_id: str) -> LifecycleInputs | None:
+        """The required facet set recorded for the attempt's grade application, or None."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                f"SELECT * FROM {LIFECYCLE_INPUTS_TABLE} WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+        return LifecycleInputs.from_row(row) if row is not None else None
+
+    def attempt_applied_at_version(self, attempt_id: str) -> str | None:
+        """The tag the attempt pipeline applied the attempt at (its application-order reservation), or None when it
+        was ranked by an upgrade or never reserved one."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                f"SELECT algorithm_version FROM {APPLICATION_ORDER_TABLE} WHERE attempt_id = ? AND basis = ?",
+                (attempt_id, BASIS_APPLIED),
+            ).fetchone()
+        return str(row["algorithm_version"]) if row is not None else None
 
     def insert_practice_attempt(self, attempt: Mapping[str, Any]) -> None:
         with self.connection() as connection:
@@ -1270,12 +1313,18 @@ class AttemptStoreMixin:
         ability_transition: Mapping[str, Any] | None = None,
         attempt_debug_payload: Mapping[str, Any] | None = None,
         item_parameter_state: ItemParameterState | None = None,
+        lifecycle_inputs: LifecycleInputs | None = None,
     ) -> None:
         """The live attempt's write. The item row takes only its scheduling columns
-        (:meth:`_record_attempt_practice_item_state`): content sync owns the rest."""
+        (:meth:`_record_attempt_practice_item_state`): content sync owns the rest. ``lifecycle_inputs`` (from
+        mvp-0.66): the required facet set the grade application read, recorded with the attempt."""
 
         with self.connection() as connection:
             self._insert_practice_attempt(connection, attempt)
+            if lifecycle_inputs is not None:
+                _insert_attempt_lifecycle_inputs(
+                    connection, str(attempt["id"]), lifecycle_inputs, recorded_at=str(attempt["created_at"])
+                )
             for row in evidence_rows:
                 self._insert_grading_evidence(connection, attempt["id"], row)
             for event in error_events:
