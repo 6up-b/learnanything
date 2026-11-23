@@ -167,7 +167,7 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `run_doctor`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `build_due_queue`, `explain_practice_item`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `explain_practice_item`, `serve_due_queue`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `coerce_override_value`, `prepare_run_vault`; calls `coerce_override_value`, `prepare_run_vault`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `rebuild_all_derived_state`, `rebuild_live_derived_state`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `ShadowRebuildError`, `shadow_rebuild`

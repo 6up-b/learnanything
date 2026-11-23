@@ -164,6 +164,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_due_queue_golden.py](../../../../../../tests/test_due_queue_golden.py) — direct import
   - `test_a_phone_build`
   - `test_a_phone_read_where_no_item_reaches_the_episode`
+- [tests/test_due_queue_stages.py](../../../../../../tests/test_due_queue_stages.py) — direct import
+  - `test_the_ranking_reads_nothing`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_phone_decision_holds_no_offer_and_serves_what_it_can`
   - `test_a_phone_follow_up_stays_forced_beside_an_open_desktop_offer`

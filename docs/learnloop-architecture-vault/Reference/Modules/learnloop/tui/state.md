@@ -86,7 +86,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `StartupMaintenanceResult`, `run_startup_maintenance`; calls `run_startup_maintenance`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `ScheduledItem`, `SchedulerSession`, `build_due_queue`; calls `SchedulerSession`, `build_due_queue`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `ScheduledItem`, `SchedulerSession`, `serve_due_queue`; calls `SchedulerSession`, `serve_due_queue`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `StateSyncResult`, `sync_vault_state`; calls `sync_vault_state`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`

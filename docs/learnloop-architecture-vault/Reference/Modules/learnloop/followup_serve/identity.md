@@ -163,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/test_followup_authoring_retry.py](../../../../../../tests/test_followup_authoring_retry.py) — direct import

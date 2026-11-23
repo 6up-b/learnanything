@@ -235,6 +235,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_fresh_replacement_surface_resolves_the_pending_need`
 - [tests/test_diagnostic_probe_single_use.py](../../../../../../tests/test_diagnostic_probe_single_use.py) — direct import
   - `test_vault_sync_does_not_reactivate_an_administered_diagnostic_probe`
+- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — direct import
   - `test_doctor_warns_when_attempt_log_needs_explicit_rebuild_marker`

@@ -452,7 +452,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `retrievability`
 - [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] — imports `CHOICE_PRESET`, `TIER_KEEP`, `TIER_LIGHT`, `TIER_PUSH`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `intent_serving`; calls `intent_serving`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `OfferTrace`, `SELECTION_POLICY`, `SchedulerSession`, `build_due_queue`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`; calls `OfferTrace`, `SchedulerSession`, `build_due_queue`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `OfferTrace`, `SELECTION_POLICY`, `SchedulerSession`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`, `serve_due_queue`; calls `OfferTrace`, `SchedulerSession`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`, `serve_due_queue`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `module`
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `exam_exclusions`; calls `exam_exclusions`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; calls `plan_deliverable`
