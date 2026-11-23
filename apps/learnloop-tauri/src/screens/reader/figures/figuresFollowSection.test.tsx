@@ -58,7 +58,7 @@ function judged(section: CorrespondentSectionDto): CorrespondentsDto {
 function layFigure(over: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_lay", extractionId: "ext_lay", spanIds: ["l3"], anchorSpanId: "l3", region: null, origin: "selection",
-    verification: "illustrative", kind: "reconstructed", label: "AI-built illustration", reason: null, unsupportedKind: null,
+    verification: "illustrative", shown: true, labelCode: "illustrative", kind: "reconstructed", label: "AI-built illustration", reason: null, unsupportedKind: null,
     supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-30T00:00:00Z", specJson: JSON.stringify(FLAGSHIP),
     demonstrates: FLAGSHIP.demonstrates, assumptions: [], predictions: [], ...over,
   };
@@ -155,7 +155,7 @@ it("shows nothing when its own book no longer lists it (held out, switched off, 
   expect(shown).toBe(false);
   expect(document.querySelector("[data-figure]")).toBeNull();
   // A listed figure that is not shown (a failed line) is not followed either.
-  api.readerFigures.mockResolvedValue({ extractionId: "ext_lay", figures: [layFigure({ verification: "failed", specJson: null })] });
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_lay", figures: [layFigure({ verification: "failed", shown: false, labelCode: "failed", specJson: null })] });
   await act(async () => {
     shown = await ctlRef!.follow(REF, { sourceTitle: "Lay", sectionTitle: "5.1" }, "s5");
   });

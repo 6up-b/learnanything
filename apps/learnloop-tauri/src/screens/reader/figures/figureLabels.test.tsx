@@ -50,7 +50,7 @@ const ELEMENTS: FigureElementDto[] = [
 function figure(changes: Partial<FigureViewDto> = {}): FigureViewDto {
   return {
     figureId: "fig_1", extractionId: "ext", spanIds: ["s1"], anchorSpanId: "s1", region: null, origin: "selection",
-    verification: "illustrative", kind: "reconstructed", label: "x", reason: null, unsupportedKind: null, supersedesId: null,
+    verification: "illustrative", shown: true, labelCode: "illustrative", kind: "reconstructed", label: "x", reason: null, unsupportedKind: null, supersedesId: null,
     revisionNote: null, versions: 1, createdAt: "2026-11-02T00:00:00", specJson: JSON.stringify(SPEC), demonstrates: "the model's free text",
     assumptions: [], predictions: [], propertyChecks: ["values_finite"], elements: ELEMENTS,
     sourceCheck: { status: "checked", certificationVersion: 1, reasons: [], recheckDue: false, rebuild: false }, ...changes,
@@ -209,7 +209,7 @@ it("the ⓘ shows the book's equation as read, the page and opens it", () => {
 });
 
 it("a rejected figure shows the frame's failed state, with rebuild only when it is offered", () => {
-  const rejected = { verification: "failed" as const, specJson: null, reason: "its definition differs from the book's equation it quotes", elements: [] };
+  const rejected = { verification: "failed" as const, shown: false, labelCode: "failed" as const, specJson: null, reason: "its definition differs from the book's equation it quotes", elements: [] };
   const rebuild = vi.fn();
   const request = vi.fn();
   const { container, rerender } = render(<FigureInline figure={figure({ ...rejected, sourceCheck: { status: "differs", certificationVersion: 1, reasons: ["differs"], recheckDue: false, rebuild: true } })} ctl={ctl({ rebuild, request })} />);

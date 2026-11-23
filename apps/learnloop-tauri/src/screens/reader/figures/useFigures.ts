@@ -334,7 +334,7 @@ export function useFigures({
             return "not_shown";
           }
           const figure = job.state === "done" ? job.result?.figure ?? null : null;
-          const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
+          const shown = figure !== null && figure.shown;
           if (figure && figure.supersedesId && !shown) {
             // A "not right?" version that did not verify: the earlier one stays.
             setPending((list) => [...list, { key, anchorSpanId, state: "failed", message: figure.reason ? `${frameBadge(figure.verification)} (${figure.reason})` : frameBadge(figure.verification), code: figure.verification, retry, cancel }]);
@@ -503,7 +503,7 @@ export function useFigures({
         return refuse();
       }
       if (!current()) return false;
-      if (!found || (found.verification !== "verified" && found.verification !== "illustrative")) return refuse();
+      if (!found || !found.shown) return refuse();
       // Shown here, under the passage the learner is reading; a fuller version still
       // being built stays with its own book (only a ready one comes along).
       const figure: FigureViewDto = { ...found, anchorSpanId: at,

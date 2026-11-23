@@ -9667,6 +9667,11 @@ export interface FigurePredictionDto {
   targetStep?: number;
 }
 
+/** The closed codes of a figure's label (``figures.view.LABEL_CODES``); "rich_off" is "can't show this kind here". */
+export type FigureLabelCode =
+  | "illustrative" | "not_from_books" | "sketch" | "sketch_unchecked" | "sketch_not_from_books" | "manim"
+  | "manim_unchecked" | "manim_not_from_books" | "rich_off" | "engine_changed" | "unsupported" | "failed";
+
 export interface FigureViewDto {
   figureId: string;
   extractionId: string;
@@ -9677,7 +9682,11 @@ export interface FigureViewDto {
    *  "teacher" (a lesson's visual, shown in the lesson only). */
   origin: "selection" | "library" | "tutor" | "show_me" | "ask" | "teacher";
   verification: FigureVerification;
+  /** Whether the figure is shown (verified or an illustration, as the server presents it now). */
+  shown: boolean;
   kind: "reconstructed" | "illustrative" | null;
+  /** The server's label code: the Reader draws its own words for it (figureBadge), never matches the label's. */
+  labelCode: FigureLabelCode;
   /** The server's label (the Reader draws its own code-owned badge instead, FIGURE_FRAME). */
   label: string;
   reason: string | null;
