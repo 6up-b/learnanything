@@ -287,7 +287,11 @@ export function LessonView({
 
   const lessonId = view?.lessonId;
   const openCheck = view?.openCheck ?? null;
-  const activityLog = Boolean(view?.activityLog);
+  // A finished lesson reopened is its review: it records no new activity. One that closes while shown keeps its
+  // tracker, so its last interval still reaches the sidecar.
+  const [seenOpen, setSeenOpen] = useState(false);
+  useEffect(() => { if (view && !view.closed) setSeenOpen(true); }, [view]);
+  const activityLog = Boolean(view?.activityLog) && seenOpen;
   useEffect(() => {
     if (!lessonId || !activityLog) return;
     // A paused window is not in the foreground, whatever the page's focus.

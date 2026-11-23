@@ -373,6 +373,21 @@ describe("a finished lesson's quick question", () => {
   });
 });
 
+describe("a finished lesson's review records no activity", () => {
+  it("starts no activity tracker, so nothing is sent however it is used or closed", async () => {
+    api.lessonView.mockImplementation(async () => ({ ...FIXTURE_LESSON_VIEW, activityLog: true }));
+    api.lessonActivity.mockClear();
+    const { rerender } = mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }] });
+    await screen.findByText("If every score goes up by 3, what happens to the loss?");
+    fireEvent.keyDown(window, { key: "a" });
+    fireEvent.pointerDown(document.body);
+    rerender("hidden");
+    cleanup();
+    await act(async () => { await Promise.resolve(); });
+    expect(api.lessonActivity).not.toHaveBeenCalled();
+  });
+});
+
 describe("the notebook seam", () => {
   it("a notebook lesson shows the host's frame instead of the lesson; any other lesson shows itself", async () => {
     api.lessonView.mockImplementation(async () => ({ ...FIXTURE_LESSON_VIEW, medium: "notebook" }));
