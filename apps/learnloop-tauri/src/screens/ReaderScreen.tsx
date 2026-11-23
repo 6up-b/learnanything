@@ -66,7 +66,7 @@ import { PreparingView } from "./reader/PreparingView";
 import { readerKeyBarKeys } from "./reader/readerKeys";
 import { type ReadingPosition } from "./reader/readingPosition";
 import { useBareAltClear } from "./reader/bareAlt";
-import { useListenerHub, useScopeClaim, useWindowLifecycle, useWindowPaused } from "./desks/lifecycle";
+import { WindowScope, useListenerHub, useScopeClaim, useWindowLifecycle, useWindowPaused, type ListenerHub, type ScopeClaims, type WindowLifecycle } from "./desks/lifecycle";
 import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
@@ -262,12 +262,20 @@ export interface ReaderOpenSource {
   besideTrail?: ReturnStack | null;
 }
 
+/** The rail's box in a panel window, marked with the window it lives by (read from the scope around it). */
+function RailScope({ children }: { children: ReactNode }) {
+  const lifecycle = useWindowLifecycle();
+  return <div data-rail-window={lifecycle.windowId ?? ""} data-rail-state={lifecycle.state} style={{ display: "contents" }}>{children}</div>;
+}
+
 /** Reader workbench v2 (spec §7.1, §21.1): this Reader is one source window on a desk. It shows the
  *  source pane only; the window's frame carries the title, and the rail (Guide, Ask, Notes) shows in a
  *  panel window bound to this book when the desk has one (`railHost`), else nowhere. */
 export interface ReaderWindowing {
-  /** The panel window's body to show the rail in, and the tab it opens on. */
-  railHost?: { node: HTMLElement; tab: "guide" | "notes" } | null;
+  /** The panel window's body to show the rail in, the tab it opens on, and that panel's own lifecycle,
+   *  listener hub and scope claims: the rail is shown in the panel, so its keys, timers and exposure go
+   *  by the panel, not by this source window. */
+  railHost?: { node: HTMLElement; tab: "guide" | "notes"; lifecycle: WindowLifecycle; hub: ListenerHub; claims?: ScopeClaims } | null;
   /** The book's title once known, for the window's frame and the shelf. */
   onTitle?: (title: string) => void;
   /** The desk's way into this window: jump to a passage (a path row, a shelf row). */
@@ -3684,7 +3692,14 @@ export function ReaderScreen({
   // position themselves on the screen leave the window (its own box would otherwise place them).
   const placeRail = (rail: ReactNode): ReactNode => {
     if (!windowed) return rail;
-    return windowed.railHost ? createPortal(rail, windowed.railHost.node) : null;
+    const host = windowed.railHost;
+    if (!host) return null;
+    return createPortal(
+      <WindowScope lifecycle={host.lifecycle} hub={host.hub} claims={host.claims}>
+        <RailScope>{rail}</RailScope>
+      </WindowScope>,
+      host.node,
+    );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
 

@@ -1408,7 +1408,7 @@ export function DeskShell({
             card={card}
             libraryLoaded={library !== null}
             startSpan={typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null}
-            railHost={railNode ? { node: railNode, tab: railTab } : null}
+            railHost={railNode && railPanel ? { node: railNode, tab: railTab, lifecycle: lifecycles[railPanel] ?? { windowId: railPanel, state: "hidden" }, hub: hubFor(railPanel), claims: claimsFor(railPanel) } : null}
             onStatus={onStatusFor(window.windowId)}
             onJumpReady={onJumpReadyFor(window.windowId)}
             onMediaReady={onMediaReadyFor(window.windowId)}
