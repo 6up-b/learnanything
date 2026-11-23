@@ -23,7 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
 #: The attention limit of the split menu's promoted rows (spec §9.1: "the limit of four is an attention limit").
@@ -89,6 +89,9 @@ def cheap_rows(key: str, places: Sequence[tuple[str, str, Mapping[str, Any]]],
         rid = row_id(key, kind, target)
         if rid not in rows:
             rows[rid] = Row(rid, kind, glyph, label, reason, action, **more)
+        elif (more.get("learner_at") or "") > (rows[rid].learner_at or ""):
+            # The same row reached from another of the object's passages ranks by the learner's latest act on it.
+            rows[rid] = replace(rows[rid], learner_at=more["learner_at"])
 
     for _extraction_id, _span_id, entry in places:
         for exchange in entry.get("exchanges") or ():

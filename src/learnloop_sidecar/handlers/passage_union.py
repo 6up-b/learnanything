@@ -23,6 +23,15 @@ PASSAGE_UNION_RPCS: tuple[str, ...] = ("passage.union_range",)
 PASSAGE_CONTENT_RPCS: tuple[str, ...] = ("passage.content",)
 
 
+def _notes_by_span(vault: Any, repository: Any, extraction_id: str) -> dict[str, list[dict[str, Any]]]:
+    """The notes linked beside each passage of a reading (curriculum C2's marks, while notes.enabled): the sidecar
+    reads the notes' code, so the union read below it never does. Every union read here hands them in."""
+
+    if not NL.enabled(vault) or repository.get_extraction_run(extraction_id) is None:
+        return {}
+    return {mark["span_id"]: mark["notes"] for mark in NL.marks(vault, repository, extraction_id)}
+
+
 class UnionRangeInput(ParamsModel):
     extraction_id: str = Field(min_length=1)
     from_span_id: str | None = None
@@ -45,14 +54,11 @@ def passage_union_range_handler(ctx: SidecarContext, params: UnionRangeInput) ->
     """``{extraction_id, spans: [{span_id, …everything tied to it}], sections}``."""
 
     vault, repository = ctx.require_vault()
-    # The notes linked beside each passage (curriculum C2's marks, while notes.enabled): the sidecar reads
-    # the notes' code, so the union read below it never does.
-    notes_by_span = ({mark["span_id"]: mark["notes"] for mark in NL.marks(vault, repository, params.extraction_id)}
-                     if NL.enabled(vault) and repository.get_extraction_run(params.extraction_id) is not None else {})
     try:
         return versioned(union_range(vault, repository, extraction_id=params.extraction_id,
                                      from_span_id=params.from_span_id, to_span_id=params.to_span_id, t0=params.t0,
-                                     t1=params.t1, notes_by_span=notes_by_span))
+                                     t1=params.t1, notes_by_span=_notes_by_span(vault, repository,
+                                                                                params.extraction_id)))
     except UnionError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
 
@@ -106,6 +112,13 @@ class MenuObjectInput(ParamsModel):
         return self
 
 
+class PromotedInput(MenuObjectInput):
+    """The menu's object and, from a client that may retry, its request id: a repeat answers with the job the
+    first request started (its work runs once); the same id for another object is refused."""
+
+    request_id: str | None = Field(default=None, min_length=1)
+
+
 def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[str, list[tuple[str, str]], str,
                                                                                     list[str], bool]:
     """The object's key, its passages, the words to search by, the sources it sits in, and whether any of its
@@ -156,9 +169,13 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
 
 def _union_entries(vault: Any, repository: Any, places: list[tuple[str, str]]) -> list[tuple[str, str, dict]]:
     out = []
+    notes: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for extraction_id, span_id in places:
+        if extraction_id not in notes:
+            notes[extraction_id] = _notes_by_span(vault, repository, extraction_id)
         try:
-            union = union_range(vault, repository, extraction_id=extraction_id, from_span_id=span_id, to_span_id=span_id)
+            union = union_range(vault, repository, extraction_id=extraction_id, from_span_id=span_id, to_span_id=span_id,
+                                notes_by_span=notes[extraction_id])
         except UnionError:
             continue
         out.extend((extraction_id, span_id, entry) for entry in union["spans"])
@@ -192,8 +209,8 @@ def passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[
                                  for extraction_id, span_id, entry in _union_entries(vault, repository, places)]})
 
 
-@method("passage.promoted", MenuObjectInput)
-def passage_promoted_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[str, Any]:
+@method("passage.promoted", PromotedInput)
+def passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict[str, Any]:
     """The menu's promoted rows at once (the cheap ones, ranked, at most four) and the job finding the judged ones:
     ``{object_key, rows, cap, withheld, pending_job: {job_id} | null, paid: {searched_by_meaning, verified,
     reason}}``. ``withheld``: a passage of the object is exam or held-out material, so nothing is searched for it
@@ -229,11 +246,17 @@ def passage_promoted_handler(ctx: SidecarContext, params: MenuObjectInput) -> di
         everything = cheap + judged
         return {"rows": [row.wire() for row in P.rank(everything, dismissed=_dismissed(repository, everything))]}
 
-    job = PJ.registry(ctx, _PROMOTED_REGISTRY).start(
-        ctx, kind=PROMOTED_KIND, job_id=f"prom_{new_ulid()}", work=work,
-        supersede_key=f"menu:{params.desk_id or ''}")
+    jobs = PJ.registry(ctx, _PROMOTED_REGISTRY)
+    request_key = params.model_dump(mode="json")
+    known = jobs.known(PJ.vault_key(ctx), params.request_id) if params.request_id else None
+    if known is not None and known.request_key != request_key:
+        raise SidecarError("request_reused", "That request id was already used for another menu.",
+                           details={"request_id": params.request_id})
+    job_id = known.job_id if known is not None else jobs.start(
+        ctx, kind=PROMOTED_KIND, job_id=params.request_id or f"prom_{new_ulid()}", work=work,
+        request_key=request_key, supersede_key=f"menu:{params.desk_id or ''}").job_id
     return versioned({"object_key": key, "rows": [row.wire() for row in rows], "cap": P.CAP, "withheld": withheld,
-                      "pending_job": {"job_id": job.job_id}, "paid": paid})
+                      "pending_job": {"job_id": job_id}, "paid": paid})
 
 
 class PromotedJobInput(ParamsModel):
