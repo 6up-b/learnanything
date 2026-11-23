@@ -94,9 +94,8 @@ def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes,
     while an inserted, removed or moved cell makes a new one. Writes the derived copy under the vault."""
 
     import hashlib
-    import os
 
-    from learnloop.notebook_runtime import adapter
+    from learnloop.notebook_runtime import adapter, hostfiles
     from learnloop.pads.cells import pad_cells
 
     cells = pad_cells(repository, pad_id)
@@ -107,12 +106,11 @@ def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes,
     named = [(adapter.cell_name(cell["block_id"]), cell["code"]) for cell in cells]
     source = adapter.notebook_from_cells(named).encode("utf-8")
     revision = hashlib.sha256("\n".join(name for name, _code in named).encode()).hexdigest()
-    folder = vault_root / PAD_NOTEBOOKS
-    folder.mkdir(parents=True, exist_ok=True)
-    target = folder / f"{adapter.cell_name(pad_id)[2:]}.py"
-    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
-    temporary.write_bytes(source)
-    os.replace(temporary, target)
+    try:
+        # Never through a link: the vault may hold one anywhere below its root.
+        hostfiles.write_beneath(vault_root, PAD_NOTEBOOKS.parts, f"{adapter.cell_name(pad_id)[2:]}.py", source)
+    except hostfiles.UnsafePath as exc:
+        raise SidecarError("notebook_path_invalid", f"The pad's notebook was not written: {exc}.") from exc
     return source, revision, {cell["block_id"]: name for cell, (name, _code) in zip(cells, named, strict=True)}
 
 

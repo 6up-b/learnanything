@@ -114,3 +114,9 @@ the notebook stage compare it.
 - The menu row and the frame's right-click opening the pad menu (both wait on the menus branch).
 - Two windows showing the same pad at once: both mount a frame on the same session, which marimo allows, but the
   harness shows one.
+
+## Fix round (adversarial review of the notebook work on main, 2026-11-23)
+
+| Finding | Ledger | What changed | Proof |
+|---|---|---|---|
+| Derived notebook writes followed links out of the vault (`.learnloop/notebooks/pads` as a link; a link at the fixed temporary name) | NBF-6 | `hostfiles.write_beneath` opens every directory below the vault without following links, writes an unpredictable temporary created exclusively, and replaces through the directory's descriptor; a refusal is `notebook_path_invalid` | `test_the_derived_notebook_never_follows_a_link_out_of_the_vault`: a link at the folder is refused with nothing written outside; links at the temporary and target names leave their target untouched |

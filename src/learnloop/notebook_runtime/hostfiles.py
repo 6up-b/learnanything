@@ -147,6 +147,50 @@ def listening_socket(directory: Path, name: str, backlog: int = 64) -> socket.so
     return server
 
 
+def write_beneath(root: Path, parts: tuple[str, ...], name: str, data: bytes) -> Path:
+    """Write ``root/<parts...>/name`` without following a link below ``root`` (the vault: shared, not private).
+
+    Each directory below ``root`` is made if missing and opened without following links, so a link in any
+    component is refused. The bytes go to a fresh, unpredictable temporary name created exclusively and never
+    followed, which then replaces ``name`` through the directory's descriptor (a link at ``name`` is replaced, not
+    written through; a directory there is refused)."""
+
+    import secrets
+
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        for part in parts:
+            try:
+                os.mkdir(part, 0o755, dir_fd=fd)
+            except FileExistsError:
+                pass
+            try:
+                child = os.open(part, _DIR_FLAGS, dir_fd=fd)
+            except OSError as exc:
+                if exc.errno in (errno.ELOOP, errno.ENOTDIR):
+                    raise UnsafePath(f"{part} under {root} is a link or not a directory") from exc
+                raise
+            os.close(fd)
+            fd = child
+        temporary = f".{name}.{secrets.token_hex(8)}.tmp"
+        file_fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644,
+                          dir_fd=fd)
+        try:
+            view = memoryview(data)
+            while view:
+                view = view[os.write(file_fd, view):]
+        finally:
+            os.close(file_fd)
+        try:
+            os.replace(temporary, name, src_dir_fd=fd, dst_dir_fd=fd)
+        except OSError as exc:
+            os.unlink(temporary, dir_fd=fd)
+            raise UnsafePath(f"{name} cannot be replaced ({exc.strerror})") from exc
+    finally:
+        os.close(fd)
+    return Path(root).joinpath(*parts, name)
+
+
 def check_socket(path: Path) -> None:
     """Before connecting: ``path`` itself (not a link's target) is a socket of this user, else refused."""
 
@@ -159,4 +203,4 @@ def check_socket(path: Path) -> None:
 
 
 __all__ = ["UnsafePath", "check_socket", "listening_socket", "open_private_dir", "private_dir", "remove_private",
-           "remove_private_dir", "write_private"]
+           "remove_private_dir", "write_beneath", "write_private"]
