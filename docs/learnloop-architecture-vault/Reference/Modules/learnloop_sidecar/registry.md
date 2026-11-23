@@ -354,6 +354,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
 - [tests/test_reader_rd3a_search.py](../../../../../tests/test_reader_rd3a_search.py) — direct import
   - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
+- [tests/test_reader_rd4_rpcs.py](../../../../../tests/test_reader_rd4_rpcs.py) — direct import
+  - `test_a_submission_target_refuses_an_extra_field_and_names_a_kind`
+  - `test_params_refuse_an_extra_field`
+  - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_reader_wrap_up.py](../../../../../tests/test_reader_wrap_up.py) — direct import
   - `test_wrap_up_is_a_pure_read_and_its_actions_are_the_chips_rpcs`
 - [tests/test_regrade_contract_replay.py](../../../../../tests/test_regrade_contract_replay.py) — direct import

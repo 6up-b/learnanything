@@ -149,6 +149,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `_in_diagnostic_block`; statically calls `_in_diagnostic_block`
+- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `SubmitAttemptInput`, `submit_attempt_on`; statically calls `SubmitAttemptInput`, `submit_attempt_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `_log_attempt_recorded`; statically calls `_log_attempt_recorded`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `_earlier_opened_hint`; statically calls `_earlier_opened_hint`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `ServePracticeItemInput`, `SubmitAttemptInput`, `_cached_submission`, `_earlier_opened_hint`, `get_practice_item`, `submit_attempt_on`; statically calls `ServePracticeItemInput`, `SubmitAttemptInput`, `_cached_submission`, `_earlier_opened_hint`, `get_practice_item`, `submit_attempt_on`
@@ -220,7 +221,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]], [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]], [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]], [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]], [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]], [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]], [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -279,6 +280,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_f_with_no_plan_an_existing_presentation_is_served_with_no_new_value_admission`
+- [tests/test_reader_rd4_submission.py](../../../../../../tests/test_reader_rd4_submission.py) — direct import
 - [tests/test_reader_rw2b_fix10.py](../../../../../../tests/test_reader_rw2b_fix10.py) — direct import
   - `test_item3_the_refold_never_drops_an_assist_it_already_counted`
 - [tests/test_reader_rw2b_fix11.py](../../../../../../tests/test_reader_rw2b_fix11.py) — direct import

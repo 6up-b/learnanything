@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/field/workbench_signals.py"
   - "src/learnloop/hints/report.py"
   - "src/learnloop/instructional/reader_followups.py"
-  - "src/learnloop/reader/recap.py"
+  - "src/learnloop/pads/submission.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -112,6 +112,7 @@ None found by exact static reference scan.
 - `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/instructional/reader_followups.py`
+- `src/learnloop/pads/submission.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/workbench/help_outcomes.py`

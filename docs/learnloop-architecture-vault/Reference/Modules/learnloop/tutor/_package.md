@@ -53,14 +53,14 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/tutor/__init__|learnloop.tutor]] | [[Reference/Modules/learnloop/tutor/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] | [[Reference/Modules/learnloop/tutor/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 9 | 66 |
+| [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] | [[Reference/Modules/learnloop/tutor/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 9 | 68 |
 | [[Reference/Modules/learnloop/tutor/context_delivery|learnloop.tutor.context_delivery]] | [[Reference/Modules/learnloop/tutor/context_delivery#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
 | [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] | [[Reference/Modules/learnloop/tutor/durable_promotion#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] | [[Reference/Modules/learnloop/tutor/promotions#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 | [[Reference/Modules/learnloop/tutor/question_queue|learnloop.tutor.question_queue]] | [[Reference/Modules/learnloop/tutor/question_queue#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] | [[Reference/Modules/learnloop/tutor/question_signal#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/tutor/reader_modes|learnloop.tutor.reader_modes]] | [[Reference/Modules/learnloop/tutor/reader_modes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
-| [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] | [[Reference/Modules/learnloop/tutor/teach_back#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
+| [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] | [[Reference/Modules/learnloop/tutor/teach_back#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] | [[Reference/Modules/learnloop/tutor/tutor_qa#^module-purpose|purpose]] | `ACTIVE` | 27 | 61 |
 
 ## Cross-package dependencies
@@ -89,7 +89,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 14 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 15 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 6 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
@@ -118,8 +118,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.tutor"]
     n_learnloop["learnloop"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_db["learnloop.db"]
@@ -129,8 +129,8 @@ flowchart LR
     n_learnloop_reader["learnloop.reader"]
     n_learnloop -->|1| center
     center -->|14| n_learnloop
+    n_learnloop_sidecar_handlers -->|15| center
     center -->|14| n_learnloop_vault
-    n_learnloop_sidecar_handlers -->|14| center
     center -->|11| n_learnloop_ai
     n_learnloop_learner -->|1| center
     center -->|9| n_learnloop_learner

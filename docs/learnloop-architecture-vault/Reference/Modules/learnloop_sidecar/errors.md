@@ -505,6 +505,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refusals_come_back_on_the_request_and_start_no_job`
 - [tests/test_reader_rd3a_search.py](../../../../../tests/test_reader_rd3a_search.py) — direct import
   - `test_an_unknown_desk_is_refused`
+- [tests/test_reader_rd4_carried_and_proposals.py](../../../../../tests/test_reader_rd4_carried_and_proposals.py) — direct import
+  - `test_carrying_is_idempotent_and_writes_one_event_and_no_evidence`
+  - `test_labels_are_logged_once_and_dismiss_or_not_this_hides_the_marker`
+  - `test_three_labels_each_logged_and_a_stale_label_is_a_conflict`
+- [tests/test_reader_rd4_submission.py](../../../../../tests/test_reader_rd4_submission.py) — direct import
+  - `test_a_retry_hands_nothing_over_again_and_a_reused_id_is_refused`
+  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
+  - `test_an_answer_only_from_its_problem_pad_or_check_cell`
+  - `test_an_edit_after_submitting_keeps_the_submitted_version_and_its_tag_says_so`
+  - `test_what_is_refused`
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_unknown_recap_events_are_refused_before_any_write`

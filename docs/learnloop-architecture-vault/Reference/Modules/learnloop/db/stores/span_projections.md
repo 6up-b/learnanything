@@ -117,6 +117,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_rd0_guards_migration.py](../../../../../../../tests/test_reader_rd0_guards_migration.py) — imports consumer [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]]
 - [tests/test_reader_rd0_spans.py](../../../../../../../tests/test_reader_rd0_spans.py) — imports consumer [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]]
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../../../tests/test_reader_rd3a_companion_ask.py) — imports consumer [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]]
+- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]]
 
 ## Modification guidance
 

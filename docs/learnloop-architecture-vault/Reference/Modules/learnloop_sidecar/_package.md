@@ -65,16 +65,16 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/__init__|learnloop_sidecar]] | [[Reference/Modules/learnloop_sidecar/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]] | [[Reference/Modules/learnloop_sidecar/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] | [[Reference/Modules/learnloop_sidecar/background_jobs#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
-| [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] | [[Reference/Modules/learnloop_sidecar/context#^module-purpose|purpose]] | `ACTIVE` | 79 | 222 |
+| [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] | [[Reference/Modules/learnloop_sidecar/context#^module-purpose|purpose]] | `ACTIVE` | 79 | 224 |
 | [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] | [[Reference/Modules/learnloop_sidecar/dto#^module-purpose|purpose]] | `ACTIVE` | 81 | 16 |
-| [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] | [[Reference/Modules/learnloop_sidecar/errors#^module-purpose|purpose]] | `ACTIVE` | 80 | 135 |
+| [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] | [[Reference/Modules/learnloop_sidecar/errors#^module-purpose|purpose]] | `ACTIVE` | 80 | 137 |
 | [[Reference/Modules/learnloop_sidecar/exam_grading|learnloop_sidecar.exam_grading]] | [[Reference/Modules/learnloop_sidecar/exam_grading#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] | [[Reference/Modules/learnloop_sidecar/logging#^module-purpose|purpose]] | `ACTIVE` | 10 | 1 |
 | [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] | [[Reference/Modules/learnloop_sidecar/phone_reader#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] | [[Reference/Modules/learnloop_sidecar/polled_jobs#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] | [[Reference/Modules/learnloop_sidecar/post_attempt_worker#^module-purpose|purpose]] | `ACTIVE` | 1 | 11 |
 | [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] | [[Reference/Modules/learnloop_sidecar/prefetch_runtime#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
-| [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 78 | 151 |
+| [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 78 | 152 |
 | [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] | [[Reference/Modules/learnloop_sidecar/request_origin#^module-purpose|purpose]] | `ACTIVE` | 8 | 14 |
 | [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]] | [[Reference/Modules/learnloop_sidecar/section_questions#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] | [[Reference/Modules/learnloop_sidecar/server#^module-purpose|purpose]] | `ACTIVE` | 1 | 47 |
@@ -118,6 +118,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 1 static module edge
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 1 static module edge
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 

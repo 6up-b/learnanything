@@ -47,7 +47,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`, `232_help_assist_figures.sql`, `248_teacher_te2_sources.sql`, `250_help_assists_phone_surface.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`, `232_help_assist_figures.sql`, `248_teacher_te2_sources.sql`, `250_help_assists_phone_surface.sql`, `266_reader_workbench_pads.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

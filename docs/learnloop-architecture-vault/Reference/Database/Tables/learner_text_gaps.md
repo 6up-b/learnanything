@@ -47,7 +47,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`, `248_teacher_te2_sources.sql`, `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`, `248_teacher_te2_sources.sql`, `262_reader_workbench_foundations.sql`, `266_reader_workbench_pads.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -141,6 +141,8 @@ None found by exact static reference scan.
 - `tests/learner_note_source_kind_migration_helpers.py`
 - `tests/mcp_world.py`
 - `tests/notes_as_learner_text_helpers.py`
+- `tests/reader_rd4_helpers.py`
+- `tests/reader_rd4_migration_helpers.py`
 - `tests/ro2_history_protection_helpers.py`
 - `tests/router_card_reading_gaps_helpers.py`
 - `tests/teacher_te2_migration_helpers.py`
@@ -154,8 +156,6 @@ None found by exact static reference scan.
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`
 - `tests/test_hint_h2b_review.py`
-- `tests/test_hypothesis_reference_contract.py`
-- `tests/test_kill_switches.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -176,7 +176,7 @@ CREATE TABLE "learner_text_gaps" (
   id TEXT PRIMARY KEY,
   source_kind TEXT NOT NULL CHECK (source_kind IN (
     'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note',
-    'lesson', 'external_chat'
+    'lesson', 'external_chat', 'pad_text'
   )),
   -- question_events.id | practice_attempts.id | attempt_diagnoses.id |
   -- reader_authored_questions.id (reader_formative) | RW2b's row (workbench_text) |

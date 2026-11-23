@@ -16,13 +16,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/262_reader_workbench_foundations.sql"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/companion/search.py"
+  - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/db/stores/pad_reads.py"
   - "src/learnloop/db/stores/pads.py"
   - "src/learnloop/desks/content_ref.py"
-  - "src/learnloop/desks/workspace.py"
-  - "src/learnloop/experiments/contextual_embeddings/e1/pins.py"
-  - "src/learnloop/figures/spec.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
-- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`, `266_reader_workbench_pads.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -106,6 +106,7 @@ None found by exact static reference scan.
 
 - `tests/desk_helpers.py`
 - `tests/reader_rd0_migration_helpers.py`
+- `tests/reader_rd4_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_mobile_allowlist.py`
 - `tests/test_reader_rd0_fences.py`
@@ -114,6 +115,11 @@ None found by exact static reference scan.
 - `tests/test_reader_rd0_protocol.py`
 - `tests/test_reader_rd0_rpcs.py`
 - `tests/test_reader_rd3a_search.py`
+- `tests/test_reader_rd4_carried_and_proposals.py`
+- `tests/test_reader_rd4_emission.py`
+- `tests/test_reader_rd4_migration.py`
+- `tests/test_reader_rd4_rpcs.py`
+- `tests/test_reader_rd4_submission.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

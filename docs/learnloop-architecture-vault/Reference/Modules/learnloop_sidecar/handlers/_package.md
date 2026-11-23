@@ -173,10 +173,10 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] | [[Reference/Modules/learnloop_sidecar/handlers/measurement#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] | [[Reference/Modules/learnloop_sidecar/handlers/notes#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] | [[Reference/Modules/learnloop_sidecar/handlers/pads#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] | [[Reference/Modules/learnloop_sidecar/handlers/pads#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] | [[Reference/Modules/learnloop_sidecar/handlers/passage_union#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/placement|learnloop_sidecar.handlers.placement]] | [[Reference/Modules/learnloop_sidecar/handlers/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
-| [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] | [[Reference/Modules/learnloop_sidecar/handlers/practice#^module-purpose|purpose]] | `ACTIVE` | 7 | 38 |
+| [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] | [[Reference/Modules/learnloop_sidecar/handlers/practice#^module-purpose|purpose]] | `ACTIVE` | 8 | 39 |
 | [[Reference/Modules/learnloop_sidecar/handlers/practice_index|learnloop_sidecar.handlers.practice_index]] | [[Reference/Modules/learnloop_sidecar/handlers/practice_index#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] | [[Reference/Modules/learnloop_sidecar/handlers/proposals#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/provenance|learnloop_sidecar.handlers.provenance]] | [[Reference/Modules/learnloop_sidecar/handlers/provenance#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -199,7 +199,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/side_by_side|learnloop_sidecar.handlers.side_by_side]] | [[Reference/Modules/learnloop_sidecar/handlers/side_by_side#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop_sidecar/handlers/source_service|learnloop_sidecar.handlers.source_service]] | [[Reference/Modules/learnloop_sidecar/handlers/source_service#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop_sidecar/handlers/sqlite_admin|learnloop_sidecar.handlers.sqlite_admin]] | [[Reference/Modules/learnloop_sidecar/handlers/sqlite_admin#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] | [[Reference/Modules/learnloop_sidecar/handlers/teach_back#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
+| [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] | [[Reference/Modules/learnloop_sidecar/handlers/teach_back#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] | [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa#^module-purpose|purpose]] | `ACTIVE` | 4 | 11 |
 | [[Reference/Modules/learnloop_sidecar/handlers/vault|learnloop_sidecar.handlers.vault]] | [[Reference/Modules/learnloop_sidecar/handlers/vault#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/why|learnloop_sidecar.handlers.why]] | [[Reference/Modules/learnloop_sidecar/handlers/why#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -218,7 +218,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 42 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 33 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 30 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 31 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 28 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
@@ -228,8 +228,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 19 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 16 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
+- [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 15 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 14 static module edges
-- [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 14 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 13 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 13 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 13 static module edges
@@ -246,6 +246,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 7 static module edges
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 5 static module edges
@@ -259,7 +260,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 2 static module edges
-- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 1 static module edge
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 1 static module edge
@@ -296,7 +296,7 @@ flowchart LR
     center -->|42| n_learnloop_ai
     center -->|39| n_learnloop_instructional
     center -->|33| n_learnloop_diagnosis
-    center -->|30| n_learnloop_attempts
+    center -->|31| n_learnloop_attempts
     center -->|28| n_learnloop_db_stores
     center -->|28| n_learnloop_learner
 ```

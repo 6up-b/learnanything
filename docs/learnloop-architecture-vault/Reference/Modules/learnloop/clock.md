@@ -356,6 +356,11 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Clock`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `Clock`
 - [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `Clock`
 - [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -534,7 +539,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 432 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 437 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

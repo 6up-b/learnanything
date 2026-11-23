@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/pipeline.py](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py) |
-| Source lines | 1205 |
+| Source lines | 1227 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -68,9 +68,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `default_clients(vault: LoadedVault) -> PipelineClients` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 270)
 - `authoritative(chooser: str, reading: GapReading | None, decider: DeciderKind) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 288) — The kind the chooser switch makes authoritative (``unread`` without one).
 - `process_learner_text(root: Path, repository: Repository, text: LearnerText, *, clients: PipelineClients | None=None, budget: TextBudget | None=None, clock: Clock | None=None, progress: Mapping[str, Any] | None=None, save_progress: Callable[[Mapping[str, Any]], None] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 890) — Read, match, act and log one learner text; returns its ledger row.
-- `stored_words(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1116) — The words a ``learner_text_gaps`` row keeps: the learner's text, bounded (a linked note's too, C2b: note text is learner text).
-- `failed_row(text: LearnerText, *, vault: LoadedVault, error: str, now_iso: str, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1123) — The ledger row for a learner text whose job gave up (no target).
-- `named_gaps_for_card(connection: Any, *, learning_object_ids: Sequence[str] | None=None, before: str | None=None, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1164) — Each named gap as a typed event (router spec §4), oldest first.
+- `source_detail(text: LearnerText) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1124) — What a gap row keeps about where its words were written, beyond its columns: a pad text's passages and the facts its emission froze, so the gap's derived passage rows are rebuilt from the row alone.
+- `stored_words(text: LearnerText) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1137) — The words a ``learner_text_gaps`` row keeps: the learner's text, bounded (a linked note's too, C2b: note text is learner text).
+- `failed_row(text: LearnerText, *, vault: LoadedVault, error: str, now_iso: str, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1144) — The ledger row for a learner text whose job gave up (no target).
+- `named_gaps_for_card(connection: Any, *, learning_object_ids: Sequence[str] | None=None, before: str | None=None, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1185) — Each named gap as a typed event (router spec §4), oldest first.
 
 ### Module constants
 
@@ -94,6 +95,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `failed_row`
 - `named_gaps_for_card`
 - `process_learner_text`
+- `source_detail`
 
 ## Internal implementation anchors
 
@@ -117,8 +119,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_belief(vault: LoadedVault, repository: Repository, text: LearnerText, reading: GapReading, *, budget: TextBudget, clients: PipelineClients, clock: Clock | None) -> actions.ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 771)
 - `_decide(repository: Repository, text: LearnerText, vault: LoadedVault, *, budget: TextBudget, clients: PipelineClients, progress: Mapping[str, Any], checkpoint: Checkpoint) -> tuple[GapReading | None, DeciderKind, str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 826) — The reading, the Decider's kind, the chooser and the authoritative kind.
 - `_read_and_act(root: Path, vault: LoadedVault, repository: Repository, text: LearnerText, *, budget: TextBudget, clients: PipelineClients, now_iso: str, clock: Clock | None, state: dict[str, Any], checkpoint: Checkpoint) -> tuple[actions.ActionOutcome, GapReading | None, DeciderKind, str, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 952) — The reading and its action (inside the text's receipts).
-- `_log(root: Path, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, reading: GapReading | None, decider: DeciderKind, chooser: str, kind: str, budget: TextBudget, now_iso: str, clock: Clock | None, before_write: Callable[[], None] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 982) — Log the reading as one ``learner_text_gaps`` row (and its sooner check or commitment).
-- `_record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText, outcome: actions.ActionOutcome, *, gap_id: str, learner_words: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1051) — Diagnosis input provenance, in the ledger row's transaction: a question's words (the gap's), a created prerequisite's drafted title and a seeded item's question each record what they were written from (``text_gaps.provenance``).
+- `_log(root: Path, repository: Repository, text: LearnerText, outcome: actions.ActionOutcome, *, reading: GapReading | None, decider: DeciderKind, chooser: str, kind: str, budget: TextBudget, now_iso: str, clock: Clock | None, before_write: Callable[[], None] | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 989) — Log the reading as one ``learner_text_gaps`` row (and its sooner check or commitment).
+- `_record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText, outcome: actions.ActionOutcome, *, gap_id: str, learner_words: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/pipeline.py), line 1058) — Diagnosis input provenance, in the ledger row's transaction: a question's words (the gap's), a created prerequisite's drafted title and a seeded item's question each record what they were written from (``text_gaps.provenance``).
 
 ## Who imports or calls it
 
@@ -182,6 +184,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_helpers.py](../../../../../../../tests/learner_text_gaps_helpers.py) — direct import
 - [tests/learner_text_gaps_review_helpers.py](../../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/notes_as_learner_text_helpers.py](../../../../../../../tests/notes_as_learner_text_helpers.py) — direct import
+- [tests/reader_rd4_helpers.py](../../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — direct import
   - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
 - [tests/test_hint_feedback_texts.py](../../../../../../../tests/test_hint_feedback_texts.py) — direct import
@@ -212,6 +215,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_c2b_a_note_and_an_ordinary_gap_share_the_gap_readers_route`
 - [tests/test_reader_formative_texts.py](../../../../../../../tests/test_reader_formative_texts.py) — direct import
   - `test_reading_it_writes_only_gap_rows_and_names_the_observations_hypothesis`
+- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — direct import
+  - `test_a_reading_that_finished_after_its_words_were_replaced_is_set_aside_by_the_reconcile`
 - [tests/test_reader_rw1b_review.py](../../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
