@@ -641,8 +641,6 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | N
     if pages is None:
         path = stored_original_path(vault.root, str(revision.get("asset_hash") or ""))
         if path is not None:
-            from learnloop.content.pipeline.import_jobs import _pdf_page_count
-
             pages = _pdf_page_count(path.read_bytes())
     settings = vault.config.ingest.pdf.glm_ocr.model_dump()
     priced = estimate(pages, settings, backend="api" if backend == "api" else "local")
@@ -776,3 +774,20 @@ def web_reread_plan(vault: Any, repository: Any, source_id: str, *, title: str |
         "confirm_label": WEB_REREAD_LABEL,
         "cancel_label": "Not now",
     }
+
+
+def _pdf_page_count(raw_bytes: bytes) -> int | None:
+    try:
+        import io
+
+        import pypdf
+
+        reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
+        if reader.is_encrypted:
+            try:
+                reader.decrypt("")
+            except Exception:
+                return None
+        return len(reader.pages)
+    except Exception:  # noqa: BLE001 — validation is strictly best-effort
+        return None

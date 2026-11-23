@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.pipeline.job_contracts import FetchedBytes, IngestRunnerError
+from learnloop.content.pipeline.reread import _pdf_page_count
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import exam_ingest_instructions
 from learnloop.ids import new_ulid
@@ -1602,23 +1603,6 @@ def _validate_page_selection(raw_bytes: bytes, pages: list[int]) -> None:
             details={"page_count": page_count, "requested_max": max(beyond) + 1},
             retryable=False,
         )
-
-
-def _pdf_page_count(raw_bytes: bytes) -> int | None:
-    try:
-        import io
-
-        import pypdf
-
-        reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
-        if reader.is_encrypted:
-            try:
-                reader.decrypt("")
-            except Exception:
-                return None
-        return len(reader.pages)
-    except Exception:  # noqa: BLE001 — validation is strictly best-effort
-        return None
 
 
 def _normalize_pages(raw: Any) -> list[int]:

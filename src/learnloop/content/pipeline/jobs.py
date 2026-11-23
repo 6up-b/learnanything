@@ -37,12 +37,8 @@ from learnloop.content.pipeline.runner import (
     derive_batch_status,
     effective_ingest_job_status,
 )
-from learnloop.content.authoring.jobs import (
-    AD_MODELS_OFF_CODE,
-    _reader_source_sets,
-    ad_commission_batch_id,
-    practice_expansion_payload,
-)
+from learnloop.content.authoring.jobs import AD_MODELS_OFF_CODE, _reader_source_sets, ad_commission_batch_id
+from learnloop.content.pipeline.add_source import practice_expansion_payload
 from learnloop.content.pipeline.job_types import applying_job_types, parallel_job_types
 
 
