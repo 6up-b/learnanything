@@ -267,6 +267,9 @@ export function App() {
   const [calibrationSessionId, setCalibrationSessionId] = useState<string | null>(null);
   // Teacher TE1: the open lesson ("Teach me this" on a topic or a Reader selection), shown over the shell.
   const [lessonEntry, setLessonEntry] = useState<LessonEntry | null>(null);
+  // Reader workbench RD9a: a lesson asked for while the desks are the current place opens in a window there (each
+  // ask once, by its seq) instead of over the shell.
+  const [deskLessonRequest, setDeskLessonRequest] = useState<{ seq: number; entry: LessonEntry } | null>(null);
   // Learner field F2: the overlay is a "Check what I already know" quick check.
   // Its answers return straight to the check (results are revealed at the end),
   // instead of opening feedback after each one.
@@ -1329,7 +1332,7 @@ export function App() {
     setTodayStage("queue");
     const entry = lessonEntryFor(result);
     if (entry) {
-      setLessonEntry(entry);
+      openLessonEntry(entry);
       return;
     }
     if (result.step) routePlanStep(result.step);
@@ -1401,7 +1404,17 @@ export function App() {
 
   // Teacher TE1: "Teach me this" on a Reader selection opens a lesson on its section's topics.
   function teachMeFromReader(request: { extractionId: string; spanIds: string[] }) {
-    setLessonEntry({ kind: "open", entry: "reader_selection", selection: request });
+    openLessonEntry({ kind: "open", entry: "reader_selection", selection: request });
+  }
+
+  // Reader workbench RD9a (spec §11.1): with the desks as the current place, a lesson opens in a window on the current
+  // desk instead of switching screens; anywhere else it is the lesson screen, as before.
+  function openLessonEntry(entry: LessonEntry) {
+    if (tab === "reader" && !planReading && readerSurface === "desks" && vaultRoot) {
+      setDeskLessonRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry }));
+      return;
+    }
+    setLessonEntry(entry);
   }
 
   // Learner field F2: "Check what I already know" from the LO inspector.
@@ -2449,6 +2462,7 @@ export function App() {
             onLeave={() => chooseReaderSurface("reader")}
             firstSourceId={readerSource?.card.sourceId ?? null}
             reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
+            {...(algoConfig().lessons ? { lessons: { request: deskLessonRequest, onQuickCheck: (ids: string[]) => void startQuickCheck(ids), onLookInLibrary: lookInLibrary } } : {})}
           />
         );
       }
@@ -2532,7 +2546,7 @@ export function App() {
         onQuickCheck={(ids) => void startQuickCheck(ids)}
         {...(algoConfig().lessons ? { onTeachMe: (learningObjectId: string, title: string) => {
           setInspectorId(null);
-          setLessonEntry({ kind: "open", entry: "learning_object", learningObjectIds: [learningObjectId], title });
+          openLessonEntry({ kind: "open", entry: "learning_object", learningObjectIds: [learningObjectId], title });
         } } : {})}
       />
       {lessonEntry ? (

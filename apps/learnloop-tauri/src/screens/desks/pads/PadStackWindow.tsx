@@ -15,6 +15,12 @@ import { EDITABLE_KINDS, firstLine, isLearnersWords, keyAfter, type PadState, pl
 import { PadMenu, ArrangeOverlay, SubmitSheet, type MenuRequest } from "./PadOverlays";
 import { SketchCanvas } from "./SketchCanvas";
 import { activePad, fractionalOpen, mergeAmount, paperMinHeight, scrollTargetFor, tabMargin, type PadGeometry, type TabGrade } from "./stickyTabs";
+import { isLessonItem, lessonOfKey, lessonTabMeta, lessonTabTitle, stackItemKeys } from "../lesson/model";
+import { LessonPaper } from "../lesson/LessonPaper";
+
+const NO_OPENINGS: string[] = [];
+const noSubscribe = () => () => undefined;
+const noVersion = () => 0;
 
 /** Hover cards (spec §10.6): open 160 ms after the pointer settles, hide 220 ms after it leaves. */
 export const CARD_MS = { open: 160, hide: 220 } as const;
@@ -100,11 +106,26 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const paused = useWindowPaused();
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
-  const padIds = useMemo(() => stackPadIds(stack, view), [stack, view]);
+  // A stack's items are its pads and its Teacher lessons (spec §11.1), keyed as lesson/model says; a lesson's
+  // additions pad is read with it.
+  const lessons = host.lessons ?? null;
+  const lessonsVersion = useSyncExternalStore(lessons?.desk.subscribe ?? noSubscribe, lessons?.desk.getVersion ?? noVersion);
+  const openings = lessons ? lessons.desk.openingsFor(windowId) : NO_OPENINGS;
+  const openingsKey = openings.join("|");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const padIds = useMemo(() => stackItemKeys(stack, view, openings), [stack, view, openingsKey]);
   useEffect(() => {
     if (paused) return;
-    for (const padId of padIds) void store.loadPad(padId);
-  }, [padIds, paused, store]);
+    for (const padId of padIds) {
+      if (!isLessonItem(padId)) {
+        void store.loadPad(padId);
+        continue;
+      }
+      const lessonId = lessonOfKey(padId);
+      const additions = lessonId ? lessons?.desk.additionsFor(lessonId) : null;
+      if (additions) void store.loadPad(additions);
+    }
+  }, [padIds, paused, store, lessons, lessonsVersion]);
   const pads = padIds.map((padId) => store.pads[padId] ?? null);
   const today = host.today();
 
@@ -216,6 +237,19 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     if (!scroller.scrollTo) scroller.scrollTop = target;
     setActive(index);
   }, [geometry]);
+
+  // An opening whose lesson the stack now holds itself is done.
+  const ownLessons = stack.filter((entry) => entry.kind === "lesson").map((entry) => (entry.kind === "lesson" ? entry.lessonId : "")).join("|");
+  useEffect(() => {
+    if (lessons && ownLessons) lessons.desk.landed(windowId, ownLessons.split("|"));
+  }, [lessons, ownLessons, windowId]);
+
+  // A lesson just opened here (or asked for from elsewhere) is scrolled to once the stack shows its tab.
+  useEffect(() => {
+    if (!lessons || split) return;
+    const key = lessons.desk.takeReveal(windowId, padIds);
+    if (key) scrollToPad(padIds.indexOf(key));
+  });
 
   // -- proposals: read when a pad is shown (never while the window is paused), again after a write ------
   const proposalsFor = useCallback((padId: string) => {
@@ -595,7 +629,55 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     );
   };
 
+  // A lesson's own notes: its additions pad's blocks (every pad insert and edit, as on any pad), and a line to write
+  // under it; the first write creates the pad (kind lesson_additions, naming the lesson) through the pad ops.
+  const writeUnderLesson = (lessonId: string) => {
+    if (!lessons) return;
+    let padId = lessons.desk.additionsFor(lessonId);
+    if (padId && !store.pads[padId]) return; // still being read
+    if (!padId) {
+      padId = host.mintId("pad");
+      const topic = lessons.desk.summary(lessonId)?.title;
+      if (!write(padId, [{ op: "create_pad", kind: "lesson_additions", title: `your additions${topic ? ` · ${topic}` : ""}`, lessonId }])) return;
+      lessons.desk.noteAdditions(lessonId, padId);
+    }
+    const state = store.pads[padId];
+    insertAfter(padId, state?.blocks[state.blocks.length - 1]?.blockId ?? null, { kind: "text", provenance: "learner" }, true);
+  };
+
+  const renderLesson = (key: string, index: number, minHeight: number): ReactNode => {
+    const lessonId = lessonOfKey(key);
+    const entry = lessons?.desk.entryFor(key) ?? null;
+    const additionsId = lessonId ? lessons?.desk.additionsFor(lessonId) ?? null : null;
+    const additions = additionsId ? store.pads[additionsId] ?? null : null;
+    return (
+      <div className={`paper k-lesson${index === active ? " open" : ""}`} ref={(node) => setRef(paperEls.current, key, node)} style={{ minHeight }} data-pad={key}>
+        {lessons && entry ? (
+          <LessonPaper
+            host={lessons}
+            itemKey={key}
+            lessonId={lessonId}
+            entry={entry}
+            hasAdditions={Boolean(additions?.blocks.length)}
+            additions={(
+              <>
+                {additions ? additions.blocks.map((block) => renderBlock(additions, block)) : null}
+                {lessonId ? (
+                  <div className="pb jot" onClick={() => writeUnderLesson(lessonId)}>
+                    <div className="gut" />
+                    <div className="bx wline">write under this lesson</div>
+                  </div>
+                ) : null}
+              </>
+            )}
+          />
+        ) : <div className="lnone">a lesson opens here only in the desks</div>}
+      </div>
+    );
+  };
+
   const renderPaper = (state: PadState | null, padId: string, index: number, minHeight: number): ReactNode => {
+    if (isLessonItem(padId)) return renderLesson(padId, index, minHeight);
     if (!state) {
       const failure = store.padFailure(padId);
       return <div className="paper" ref={(node) => setRef(paperEls.current, padId, node)} style={{ minHeight }}>{failure ? `couldn't read this pad · ${failure}` : "◐ reading the pad…"}</div>;
@@ -629,6 +711,30 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   };
 
   const tabLabel = (state: PadState | null, padId: string, index: number): ReactNode => {
+    if (isLessonItem(padId)) {
+      // "Teacher lesson · <topic>" and "made <date> from your <what>" (spec §11.1).
+      const lessonId = lessonOfKey(padId);
+      const summary = lessonId ? lessons?.desk.summary(lessonId) ?? null : null;
+      return (
+        <button
+          key={`tab-${padId}`}
+          type="button"
+          ref={(node) => setRef(tabEls.current, padId, node)}
+          className={`ptab lesson${index === active ? " open" : ""}`}
+          data-pad-tab={padId}
+          style={{ top: index * 30, bottom: (padIds.length - 1 - index) * 30 }}
+          onClick={() => scrollToPad(index)}
+        >
+          <span className="sheet">
+            <span className="tt">{lessonTabTitle(lessonId ? summary?.title : lessons?.desk.openingTitle(padId))}</span>
+            <span className="tl" />
+            <span className="tm">{lessonId ? lessonTabMeta(summary) : "opening…"}</span>
+          </span>
+          <span className="fl l" />
+          <span className="fl r" />
+        </button>
+      );
+    }
     const title = state?.pad.title || (state?.pad.kind === "running" ? "running" : "a pad");
     const first = state ? plainLine(state.blocks.find((block) => block.bodyMd)?.bodyMd ?? "") : "";
     return (
@@ -683,7 +789,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       ) : (
         <div className="pscroller" ref={scrollerRef}>
           {padIds.map((padId, index) => (
-            <div key={padId} style={{ display: "contents" }}>
+            // An opened lesson keeps its opening's key, so the window that opened it is not remounted.
+            <div key={lessons ? lessons.desk.reactKey(padId) : padId} style={{ display: "contents" }}>
               {tabLabel(pads[index], padId, index)}
               {renderPaper(pads[index], padId, index, minHeight)}
             </div>
@@ -747,7 +854,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       ) : null}
       {arranging ? (
         <ArrangeOverlay
-          pads={padIds.map((padId) => ({ padId, title: store.pads[padId]?.pad.title || "a pad", line: plainLine(store.pads[padId]?.blocks.find((block) => block.bodyMd)?.bodyMd ?? "") }))}
+          pads={padIds.filter((padId) => !isLessonItem(padId)).map((padId) => ({ padId, title: store.pads[padId]?.pad.title || "a pad", line: plainLine(store.pads[padId]?.blocks.find((block) => block.bodyMd)?.bodyMd ?? "") }))}
           split={split}
           onCancel={() => setArranging(false)}
           onConfirm={(shown) => {

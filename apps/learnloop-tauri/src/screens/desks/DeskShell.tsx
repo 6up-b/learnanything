@@ -112,7 +112,13 @@ import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import { useGoalDesk, type GoalReading } from "./goal/GoalLayer";
 import { LIVE_GOAL_TRANSPORT, type GoalTransport } from "./goal/controller";
+import { LessonDesk, LIVE_LESSONS_TRANSPORT, type LessonsHost, type LessonsTransport, type Opening } from "./lesson/host";
+import { addLessonToStack, findLesson, lessonKey, lessonStack, lessonTabTitle, stackWindowOf } from "./lesson/model";
+import { PathLessonRow } from "./lesson/PathLessonRow";
+import type { LessonEntry } from "../LessonView";
+import type { LessonViewDto } from "../../api/dto";
 import "../../styles/goal.css";
+import "../../styles/lesson.css";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
@@ -424,6 +430,17 @@ export interface DeskShellProps {
   padsTransport?: PadsTransport;
   /** The goal lens's calls (goal.band, goal.lens, the learner's choices); absent, the sidecar's. */
   goalTransport?: GoalTransport;
+  /** Teacher lessons as windows (spec §11.1), when lessons are on: what a lesson window hands back to the app, and
+   *  a lesson the app asks to open while the desks are its current place (`seq` makes each ask one open). */
+  lessons?: {
+    request?: { seq: number; entry: LessonEntry } | null;
+    onQuickCheck?: (learningObjectIds: string[]) => void;
+    onLookInLibrary?: (phrase: string) => void;
+    /** RD9b's notebook frame for a notebook lesson. */
+    notebookFrame?: (lessonId: string, view: LessonViewDto) => ReactNode;
+  };
+  /** The lessons' summaries (lesson.list); absent, the sidecar's. */
+  lessonsTransport?: LessonsTransport;
 }
 
 export function DeskShell({
@@ -432,7 +449,7 @@ export function DeskShell({
   onLeave,
   firstSourceId = null,
   transport = LIVE_DESK_TRANSPORT,
-  reader,
+  reader: readerProp,
   renderPane,
   initialViewport,
   mintId = defaultMintId,
@@ -444,6 +461,8 @@ export function DeskShell({
   poller = appPoller,
   padsTransport = LIVE_PADS_TRANSPORT,
   goalTransport = LIVE_GOAL_TRANSPORT,
+  lessons,
+  lessonsTransport = LIVE_LESSONS_TRANSPORT,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -452,6 +471,12 @@ export function DeskShell({
     [vaultKey, transport, timers, mintId],
   );
   const storeWs = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  // Teacher lessons on the desks (spec §11.1): their summaries and the openings in flight. The shell stores an
+  // opened lesson in its stack (add_to_stack) when the opening's turn returns its id.
+  const lessonOpened = useRef<(opening: Opening, lessonId: string) => void>(() => undefined);
+  const lessonDesk = useMemo(() => new LessonDesk(lessonsTransport, (opening, lessonId) => lessonOpened.current(opening, lessonId)), [lessonsTransport]);
+  // A lesson window's title and the path view's rows follow the summaries as they land.
+  useSyncExternalStore(lessonDesk.subscribe, lessonDesk.getVersion);
   // Pad changes re-render the shell too (the passages' ✎ links, the companion's pad proposals).
   useSyncExternalStore(store.subscribe, store.getPadVersion);
   const [storeReady, setStoreReady] = useState(store.loaded);
@@ -729,8 +754,9 @@ export function DeskShell({
     if (content.kind === "source" || content.kind === "video") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
     if (content.kind === "panel") return PANEL_TITLES[content.panel];
     if (content.kind === "compare") return content.query ? `compare · ${content.query}` : "compare";
+    if (content.kind === "lesson") return lessonTabTitle(lessonDesk.summary(content.lessonId)?.title);
     return KIND_WORD[content.kind] ?? content.kind;
-  }, [status, library]);
+  }, [status, library, lessonDesk]);
 
   // -- the overview: its layout, a zoom's plan and its commit (spec §6.2, §6.3) -----------------------
 
@@ -1647,10 +1673,90 @@ export function DeskShell({
 
   // -- opening windows -------------------------------------------------------------------------------
 
+  // -- Teacher lessons as windows (spec §11.1) -------------------------------------------------------
+
+  /** The desk's stack, where a lesson lands: its first stack window, or the one ensuring its running pad makes. */
+  const stackForLessons = useCallback((id: string): string | null => {
+    const existing = stackWindowOf(wsRef.current, id);
+    if (existing) return existing;
+    const before = new Set(wsRef.current.runningPadIds ?? []);
+    const step = ensureRunningPad(wsRef.current, id, () => mintId("pad"), () => mintId("win"));
+    commit(step);
+    for (const padId of step.ws.runningPadIds ?? []) if (!before.has(padId)) store.noteCreatedPad(padId, "running", "running", id);
+    return stackWindowOf(wsRef.current, id);
+  }, [wsRef, commit, mintId, store]);
+
+  /** A stored lesson on the current desk: focused where it already is (its own window, or a stack's tab), else added
+   * to the desk's stack and scrolled to. */
+  const placeLesson = useCallback((lessonId: string) => {
+    const id = deskIdRef.current;
+    if (!id) return;
+    const found = findLesson(wsRef.current, id, lessonId);
+    if (found) {
+      commit(setFocus(wsRef.current, id, found.windowId));
+      if (found.inStack) lessonDesk.reveal(found.windowId, lessonKey(lessonId));
+      return;
+    }
+    const stackId = stackForLessons(id);
+    if (!stackId) return;
+    commit(addLessonToStack(wsRef.current, id, stackId, lessonId));
+    lessonDesk.reveal(stackId, lessonKey(lessonId));
+  }, [wsRef, commit, lessonDesk, stackForLessons]);
+
+  /** Every lesson entry on the desks opens a window on the current desk instead of switching screens (spec §11.1):
+   * a stored lesson by its id, a new one as an opening tab in the desk's stack, stored once its turn returns. */
+  const openLesson = useCallback((entry: LessonEntry) => {
+    if (entry.kind === "resume") {
+      placeLesson(entry.lessonId);
+      return;
+    }
+    const id = deskIdRef.current;
+    if (!id) return;
+    const stackId = stackForLessons(id);
+    if (!stackId) return;
+    commit(setFocus(wsRef.current, id, stackId));
+    lessonDesk.open(stackId, entry);
+  }, [wsRef, commit, lessonDesk, placeLesson, stackForLessons]);
+  // An opening's lesson joins the stack it was opened in (the focus is left where the learner has it now: the
+  // opening turn can take a minute).
+  lessonOpened.current = (opening, lessonId) => {
+    const window = wsRef.current.windows[opening.windowId];
+    if (window) commit(addLessonToStack(wsRef.current, window.deskId, opening.windowId, lessonId, { focus: false }));
+  };
+
+  // A lesson the app asked for while the desks are its place (a Teach me from the inspector, a hand-off).
+  const lessonRequestSeq = useRef<number | null>(null);
+  const lessonRequest = lessons?.request ?? null;
+  useEffect(() => {
+    if (!lessonRequest || !ws || !deskId || lessonRequest.seq === lessonRequestSeq.current) return;
+    lessonRequestSeq.current = lessonRequest.seq;
+    openLesson(lessonRequest.entry);
+  }, [lessonRequest, ws, deskId, openLesson]);
+
+  // The Reader's "Teach me this" (a source window's selection, a pad line) opens the lesson here, not as a screen.
+  const reader = useMemo<ReaderPassThrough | undefined>(() => (readerProp?.onTeachMe
+    ? { ...readerProp, onTeachMe: (request: { extractionId: string; spanIds: string[] }) => openLesson({ kind: "open", entry: "reader_selection", selection: request }) }
+    : readerProp), [readerProp, openLesson]);
+
+  const lessonsHost = useMemo<LessonsHost>(() => ({
+    desk: lessonDesk,
+    onError,
+    openLesson,
+    ...(lessons?.onQuickCheck ? { onQuickCheck: lessons.onQuickCheck } : {}),
+    ...(lessons?.onLookInLibrary ? { onLookInLibrary: lessons.onLookInLibrary } : {}),
+    ...(lessons?.notebookFrame ? { notebookFrame: lessons.notebookFrame } : {}),
+  }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame]);
+
   const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown> } = {}) => {
     const current = wsRef.current;
     const id = deskIdRef.current;
     if (!id) return;
+    if (content.kind === "lesson") {
+      // A lesson lands in the desk's stack (spec §11.1), or is focused where it already is.
+      placeLesson(content.lessonId);
+      setOpener(false);
+      return;
+    }
     const step = openBeside(current, id, content, () => mintId("win"), {
       spanId: options.spanId ?? null,
       view: { ...(options.view ?? {}), ...(options.spanId ? { spanId: options.spanId } : {}) },
@@ -1675,7 +1781,7 @@ export function DeskShell({
       shellTimers.current.add(handle);
     }
     setOpener(false);
-  }, [commit, mintId, timers]);
+  }, [commit, mintId, timers, placeLesson]);
 
   const openHit = useCallback((hit: { sourceId: string | null; extractionId: string; spanId: string }) => {
     if (!hit.sourceId) return;
@@ -2097,7 +2203,8 @@ export function DeskShell({
       else padHandles.current.delete(windowId);
     },
     carry: carryQuestion,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures]);
+    lessons: lessonsHost,
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, lessonsHost]);
 
   /** The pad stack the keys act on: the focused window when it is one. */
   const focusedStack = (): PadStackHandle | null => (focusIdRef.current ? padHandles.current.get(focusIdRef.current) ?? null : null);
@@ -2273,8 +2380,16 @@ export function DeskShell({
     mintId,
     onError,
     onOpen: openGoalSection,
+    // The path view's Teacher lesson row (spec §12.5): the newest lesson on the LO, opening its window.
+    lessonRow: (learningObjectId, closePath) => (
+      <PathLessonRow desk={lessonDesk} learningObjectId={learningObjectId} onOpen={(lessonId) => { closePath(); placeLesson(lessonId); }} />
+    ),
   });
   goalPathRef.current = { open: goalDesk.pathOpen, toggle: goalDesk.togglePath };
+  // Each path opening reads the lessons again (one may have been taught since).
+  useEffect(() => {
+    if (!goalDesk.pathOpen) lessonDesk.forgetAll();
+  }, [goalDesk.pathOpen, lessonDesk]);
 
   const surfacedCarried = useRef(new Set<string>());
   const onCarriedSurfaced = useCallback((question: CarriedQuestionDto) => {
@@ -2423,8 +2538,9 @@ export function DeskShell({
     const content = window.content;
     const card = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
     if (renderPane) return renderPane({ window, lifecycle, card });
-    if (window.kind === "pad_stack" || content?.kind === "pad") {
-      const stack = window.stack ?? (content?.kind === "pad" ? [{ kind: "pad" as const, padId: content.padId }] : []);
+    if (window.kind === "pad_stack" || content?.kind === "pad" || content?.kind === "lesson") {
+      // A pad or a lesson in a slot of its own is a stack of one.
+      const stack = window.stack ?? (content?.kind === "pad" ? [{ kind: "pad" as const, padId: content.padId }] : content?.kind === "lesson" ? lessonStack(content) : []);
       return <PadStackWindow windowId={window.windowId} stack={stack} view={window.view ?? {}} />;
     }
     if (!content) return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;

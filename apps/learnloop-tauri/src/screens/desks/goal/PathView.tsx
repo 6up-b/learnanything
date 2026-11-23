@@ -3,7 +3,7 @@
 // margin legend; right, one row per LO in path order with its primary section, another way ("use this one
 // instead", stored), its cold check, the exercise worth trying, and at the end what isn't needed ("read it
 // anyway", stored). Clicks open beside on the goal's desk. Everything shown is goal.band's and goal.lens's.
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { DeliverableSectionDto, GoalBandDto, GoalBandLoDto, GoalLensSectionDto, ReadingPathDepth } from "../../../api/dto";
 import { formatDay, goalLabel } from "./model";
 
@@ -30,7 +30,7 @@ function paceLine(band: GoalBandDto): string {
   return `Due ${formatDay(band.goal.dueAt)}: about ${pace.neededPerDay} attempts a day needed; you've averaged ${pace.attemptsPerDay}.`;
 }
 
-export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUseInstead, onReadAnyway, onAddPhrase }: {
+export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUseInstead, onReadAnyway, onAddPhrase, lessonRow }: {
   band: GoalBandDto;
   here: string | null;
   notNeeded: NotNeeded[];
@@ -40,6 +40,8 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
   onUseInstead: (learningObjectId: string, section: DeliverableSectionDto) => void;
   onReadAnyway: (extractionId: string, sectionId: string, on: boolean) => void;
   onAddPhrase: (phrase: string) => void;
+  /** The Teacher lesson on an LO, if one exists (opens its window): the desks' lesson windows render it. */
+  lessonRow?: (learningObjectId: string) => ReactNode;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
@@ -155,6 +157,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
                   <span className="gp-st" />
                 </button>
               ) : null}
+              {lessonRow ? lessonRow(dot.learningObjectId) : null}
             </div>
           );
         })}

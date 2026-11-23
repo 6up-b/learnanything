@@ -10514,6 +10514,9 @@ export interface LessonViewDto {
   te2?: boolean;
   /** Teacher TE2: the quick question, being prepared (with "Teach it anyway") or open (answer it on your own). */
   probe?: LessonProbeDto | null;
+  /** Reader workbench RD9b's seam (spec §11.2): "notebook" when the lesson's medium is a marimo notebook (teacher v2).
+   *  Not sent yet; a lesson window shows the lesson itself whenever it is absent. */
+  medium?: "notebook";
 }
 
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */

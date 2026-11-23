@@ -213,8 +213,11 @@ def main() -> int:
     # screens/desks/fitMath.tsx (entry-reachable through DeskShell); fixtures/desks/pads.ts (vitest-support).
     # Reader workbench v2 RD6b (the goal lens): screens/desks/goal/ model.ts, controller.ts, GoalBand.tsx, marks.tsx,
     # PathView.tsx and GoalLayer.tsx (entry-reachable through DeskShell); fixtures/desks/goal.ts (vitest-support).
-    if len(ts_sources) != 385:
-        errors.append(f"source inventory drift: expected 385 TypeScript/TSX files, found {len(ts_sources)}")
+    # Reader workbench v2 RD9a (lesson windows): screens/LessonView.tsx (the lesson screen's content, extracted) and
+    # screens/desks/lesson/ model.ts, host.ts, LessonPaper.tsx and PathLessonRow.tsx (entry-reachable);
+    # fixtures/desks/lessons.ts (vitest-support).
+    if len(ts_sources) != 391:
+        errors.append(f"source inventory drift: expected 391 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -318,12 +321,14 @@ def main() -> int:
         # RD2: the five screens/desks/overview modules.
         # RD4b: the seven screens/desks/pads modules and screens/desks/fitMath.tsx.
         # RD6b: the six screens/desks/goal modules.
-        "entry-reachable build graph": 367,
+        # RD9a: screens/LessonView.tsx and the four screens/desks/lesson modules.
+        "entry-reachable build graph": 372,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
         # RD1: fixtures/desks (sources, workspace, fakeCore, harness). RD4b: fixtures/desks/pads.ts. RD6b: fixtures/desks/goal.ts.
-        "vitest-support": 14,
+        # RD9a: fixtures/desks/lessons.ts.
+        "vitest-support": 15,
         "native-entry-reachable": 6,
     }
     if dict(activation_counts) != expected_activation_counts:
@@ -333,7 +338,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 391}:
+    if dict(status_counts) != {"ACTIVE": 397}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

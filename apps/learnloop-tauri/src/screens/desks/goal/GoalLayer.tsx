@@ -66,7 +66,7 @@ export interface GoalDesk {
   togglePath: () => boolean;
 }
 
-export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings, focused, padAnchors, hubFor, timers, mintId, onError, onOpen }: {
+export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings, focused, padAnchors, hubFor, timers, mintId, onError, onOpen, lessonRow }: {
   transport: GoalTransport;
   deskGoalId: string | null | undefined;
   /** Where this desk's "no goal" is remembered on this machine (a desk with no stored goal shows the primary one). */
@@ -81,6 +81,8 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
   onError: (message: string) => void;
   /** Open a section beside on the goal's desk. */
   onOpen: (section: { extractionId: string; sourceId?: string; startSpanId: string | null }) => void;
+  /** The path view's Teacher lesson row for an LO (RD9a), given a way to close the path before its window opens. */
+  lessonRow?: (learningObjectId: string, closePath: () => void) => ReactNode;
 }): GoalDesk {
   const asked = useMemo(() => [...new Set([
     ...readings.filter((reading) => !reading.paused).map((reading) => reading.extractionId),
@@ -254,6 +256,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
           onUseInstead={(learningObjectId: string, section: DeliverableSectionDto) => goal.override(learningObjectId, "use_instead", `${section.extractionId}/${section.sectionId}`)}
           onReadAnyway={goal.readAnyway}
           onAddPhrase={goal.addPhrase}
+          {...(lessonRow ? { lessonRow: (learningObjectId: string) => lessonRow(learningObjectId, () => goal.setPathOpen(false)) } : {})}
         />
       ) : null}
     </>
