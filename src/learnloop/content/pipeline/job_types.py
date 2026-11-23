@@ -53,10 +53,11 @@ class JobType:
 JOB_TYPES: tuple[JobType, ...] = (
     JobType("import", f"{_IMPORT}:handle_import"),
     JobType("auto_study_map", f"{_IMPORT}:handle_auto_study_map"),
-    JobType("legacy_ingest", f"{_IMPORT}:handle_legacy_ingest", applies_vault=True, waits_for_ai_ok=True,
-            client_routes=("canonical_ingest",)),
-    JobType("exam_ingest", f"{_IMPORT}:handle_legacy_ingest", applies_vault=True, waits_for_ai_ok=True,
-            client_routes=("canonical_ingest",)),
+    # The canonical-ingest proposal auto-applies practice items.
+    JobType("legacy_ingest", f"{_IMPORT}:handle_legacy_ingest", applies_vault=True, affects_queue=True,
+            waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
+    JobType("exam_ingest", f"{_IMPORT}:handle_legacy_ingest", applies_vault=True, affects_queue=True,
+            waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
     JobType("inventory", f"{_SYNTHESIS}:handle_inventory", waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
     JobType("bootstrap_synthesis", f"{_SYNTHESIS}:handle_bootstrap_synthesis", applies_vault=True, waits_for_ai_ok=True,
             client_routes=("canonical_ingest",)),
@@ -70,8 +71,8 @@ JOB_TYPES: tuple[JobType, ...] = (
     JobType("reader_exercise_import", f"{_AUTHORING}:handle_reader_exercise_import", applies_vault=True, affects_queue=True,
             waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
     # Picked textbook exercise proposals too (canonical sources S1).
-    JobType("source_exercise_import", f"{_AUTHORING}:handle_source_exercise_import", applies_vault=True, waits_for_ai_ok=True,
-            client_routes=("canonical_ingest",)),
+    JobType("source_exercise_import", f"{_AUTHORING}:handle_source_exercise_import", applies_vault=True,
+            affects_queue=True, waits_for_ai_ok=True, client_routes=("canonical_ingest",)),
     # Reader-driven progressive generation auto-applies grounded items.
     JobType("practice_expansion", f"{_AUTHORING}:handle_practice_expansion", applies_vault=True, affects_queue=True,
             waits_for_ai_ok=True, client_routes=("canonical_ingest",)),

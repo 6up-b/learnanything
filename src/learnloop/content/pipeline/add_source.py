@@ -3300,8 +3300,8 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
 
         if state["error_code"] == APPEND_INPUT_OVER_CEILING:
             # Refused before anything was paid, and a retry refuses the same
-            # way (refactor K3.4): no Retry; details name the setting. Building
-            # it in parts arrives with K2.4.
+            # way: no Retry; details name the setting. A larger append is split
+            # into passes, so this is a single section too large on its own.
             return _line(f"Questions for {phrase} are too much to write at once", "problem", None, state["error"])
         if state["status"] == "cancelled" and not vault.config.ingest.auto_build:
             # The owner turned automatic building off while it was queued.

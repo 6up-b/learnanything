@@ -25,6 +25,7 @@ other item stays a pending review proposal.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -55,6 +56,7 @@ from learnloop.content.synthesis.source_set_synthesis import (
     SynthesisOutcome,
     _count_items,
     _collect_inputs,
+    _consolidate_same_title_concepts,
     _result_tokens,
     _synthesis_pass_key,
     finish_synthesis_run,
@@ -90,9 +92,10 @@ def request_append_reconciliation(
     )
 
 
-#: The typed refusal of an append whose request is over ``append_input_ceiling``.
+#: The typed refusal of an append request over ``append_input_ceiling``: one whose new
+#: inventories cannot be split into passes that fit (a single inventory over it).
 #: Not retryable: the same append refuses the same way until it is narrowed or
-#: the ceiling is raised (splitting a large append into passes is K2.4).
+#: the ceiling is raised.
 APPEND_INPUT_OVER_CEILING = "append_input_over_ceiling"
 
 
@@ -169,7 +172,7 @@ def _over_ceiling(tokens: int, ceiling: int) -> StudyMapError:
             "message": message,
             "suggested_action": (
                 "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; "
-                "splitting a large update into passes is not built yet"
+                "a single section over it cannot be split into passes"
             ),
         }],
     )
@@ -863,28 +866,108 @@ class _AppendContext:
     revision_diff: dict[str, Any]
 
 
-def _append_unit(run: Any) -> list[list[dict[str, Any]]]:
-    """One unit, the new inventories whole: an append over its input ceiling is refused, not split."""
+def _append_passes(run: Any) -> list[list[dict[str, Any]]]:
+    """The append's units of work: the new inventories whole when their request fits ``append_input_ceiling``, as
+    before; otherwise split, in order (``select_new_inventories``': revision, then unit order), into passes of whole
+    inventories, each as large as fits under the ceiling with room left for its span round (the span-request count
+    times its character cap, as tokens), since the ceiling holds each request alone and a span round sends its base
+    request again with the spans. Each pass sends the run's one neighbourhood and is asked as an append of its own
+    inventories would be, so its checkpoint answers it again whatever the other passes hold. An inventory too large
+    to share a pass gets one of its own; one over the ceiling alone is refused by the budget before anything is paid,
+    as an unsplit append over it is."""
 
-    return [run.context.new_inventories]
+    inventories = list(run.context.new_inventories)
+    if run.unlimited_token_budget or len(inventories) < 2:
+        return [inventories]
+    ceiling = run.budgets.append_input_ceiling
+    tokens = _pass_tokens(run)
+    if tokens(inventories) <= ceiling:
+        return [inventories]
+    room = ceiling - run.budgets.synthesis_span_request_max_count * run.budgets.synthesis_span_char_cap // 4
+    passes: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    for inventory in inventories:
+        if current and tokens([*current, inventory]) > room:
+            passes.append(current)
+            current = []
+        current.append(inventory)
+    passes.append(current)
+    return passes
+
+
+def _pass_tokens(run: Any) -> Callable[[list[dict[str, Any]]], int]:
+    """A pass's base request size, estimated as the runner estimates every request it checks."""
+
+    context_for = _append_contexts(run)
+    schema = len(json.dumps(AppendReconciliation.model_json_schema()))
+
+    def tokens(inventories: list[dict[str, Any]]) -> int:
+        return max(1, (len(append_reconciliation_prompt(context_for(inventories, 0, 1, []))) + schema) // 4)
+
+    return tokens
 
 
 def _append_contexts(run: Any):
+    # A pass is asked as an append of its own inventories: its position among the passes stays out of the request
+    # (``shard_ordinal`` and ``shard_count`` at their defaults), so an unchanged pass is its checkpoint's again.
     def context(shard, ordinal, shard_count, resolved_spans):
         return AppendReconciliationContext(
             source_set_id=run.source_set.id, subject_id=run.source_set.subject_id,
             change_kind=run.context.change_kind, brief=run.brief, new_inventories=shard,
             neighborhood=run.context.neighborhood, exam_profile=run.inputs.exam_profile or {},
             revision_diff=run.context.revision_diff, resolved_spans=resolved_spans,
-            shard_ordinal=ordinal, shard_count=shard_count, one_facet_per_skill=run.one_facet_per_skill,
+            one_facet_per_skill=run.one_facet_per_skill,
         )
 
     return context
 
 
-def _within_the_brief(run: Any, answer: Any, **_unused: Any) -> tuple[Any, dict[str, Any], list[dict[str, Any]]]:
+#: The list fields of an append's answer, which a split append's passes add to.
+_APPEND_LISTS = ("span_requests", "concepts", "facets", "learning_objects", "blueprints", "practice_items",
+                 "provenance_links", "notation_mappings", "conflicts", "restructures", "conflict_candidates",
+                 "non_conflict_dispositions", "notes")
+
+
+def _merge_append(merged: Any, answer: Any) -> Any:
+    """Two passes' answers as one: their items in pass order, their summaries each once."""
+
+    summaries = [text for text in dict.fromkeys((merged.summary, answer.summary)) if text]
+    return merged.model_copy(update={
+        "summary": "\n".join(summaries),
+        **{name: [*getattr(merged, name), *getattr(answer, name)] for name in _APPEND_LISTS},
+    })
+
+
+def _within_the_brief(run: Any, answer: Any, *, shard_count: int = 1,
+                      **_unused: Any) -> tuple[Any, dict[str, Any], list[dict[str, Any]]]:
+    diagnostics: list[dict[str, Any]] = []
+    if shard_count > 1:
+        # Passes are independent: two may declare the same concept, or restructure the same entity.
+        answer = _consolidate_same_title_concepts(answer)
+        answer, diagnostics = _one_restructure_per_target(answer)
     answer, preset_diagnostics = _within_preset(answer, run.brief)
-    return answer, {}, preset_diagnostics
+    return answer, {}, [*diagnostics, *preset_diagnostics]
+
+
+def _one_restructure_per_target(answer: Any) -> tuple[Any, list[dict[str, Any]]]:
+    """A split append's restructures, the first per target: two updates of one entity in one proposal would conflict
+    at apply, so the later ones are dropped with a review record naming them."""
+
+    kept, dropped, seen = [], [], set()
+    for restructure in answer.restructures:
+        target = (restructure.target_entity_type, restructure.target_entity_id)
+        (dropped if target in seen else kept).append(restructure)
+        seen.add(target)
+    if not dropped:
+        return answer, []
+    return answer.model_copy(update={"restructures": kept}), [{
+        "gate": "split_append_restructures",
+        "severity": "review",
+        "entity_refs": [restructure.target_entity_id for restructure in dropped],
+        "message": (f"dropped {len(dropped)} restructure(s) of an entity an earlier pass of this update already "
+                    "restructures"),
+        "suggested_action": "review the kept restructure; ask for the dropped change in a later update",
+    }]
 
 
 def _append_digest(rows: list[dict[str, Any]], context: _AppendContext, summary: str) -> Any:
@@ -897,10 +980,11 @@ APPEND_CALL = SynthesisCall(
     result_model=AppendReconciliation,
     checkpoint_key=append_checkpoint_key,
     checkpoint_purpose=APPEND_AGENT_PURPOSE,
-    shards=_append_unit,
+    shards=_append_passes,
     contexts=_append_contexts,
     spend=_AppendBudget,
     sharded=False,
+    merge=_merge_append,
     after_passes=_within_the_brief,
 )
 

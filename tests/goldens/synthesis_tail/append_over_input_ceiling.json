@@ -266,7 +266,7 @@
          "gate": "append_input_ceiling",
          "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
          "severity": "hard_fail",
-         "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; splitting a large update into passes is not built yet"
+         "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; a single section over it cannot be split into passes"
         }
        ]
       }
@@ -292,7 +292,7 @@
     "gate": "append_input_ceiling",
     "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
     "severity": "hard_fail",
-    "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; splitting a large update into passes is not built yet"
+    "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; a single section over it cannot be split into passes"
    }
   ],
   "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
