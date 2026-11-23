@@ -958,7 +958,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     # #s11=menu: right-click a line of yours.
     await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
     menu = await page.locator(".desk-menu").inner_text()
-    results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE, marimo arriving with notebooks (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "marimo cell · arrives with notebooks" in menu, menu[:160])
+    results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE with the marimo cell row live (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "marimo cell" in menu and "arrives with notebooks" not in menu, menu[:160])
     await shot(page, shots, "pads-menu")
     await page.keyboard.press("Escape")
 
