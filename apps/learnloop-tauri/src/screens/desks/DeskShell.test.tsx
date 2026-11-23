@@ -20,9 +20,17 @@ const heardKeys: Record<string, string[]> = {};
 function Pane({ input }: { input: PaneRenderInput }) {
   const hub = useListenerHub();
   const id = input.window.windowId;
-  useEffect(() => hub.listen("window", "keydown", (event: KeyboardEvent) => {
-    (heardKeys[id] ??= []).push(event.key);
-  }), [hub, id]);
+  useEffect(() => {
+    const offs = [
+      hub.listen("window", "keydown", (event: KeyboardEvent) => {
+        (heardKeys[id] ??= []).push(event.key);
+      }),
+      hub.listen("window", "keyup", (event: KeyboardEvent) => {
+        (heardKeys[id] ??= []).push(`up:${event.key}`);
+      }, true),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [hub, id]);
   return <div data-testid={`pane-${id}`} data-state={input.lifecycle.state}>{id}</div>;
 }
 
@@ -234,12 +242,17 @@ describe("the key router", () => {
     expect(screen.getByText("window left")).toBeTruthy();
     // Not built yet, so not on the panel.
     expect(screen.queryByText("overview")).toBeNull();
-    const before = (heardKeys.fx_w_book ?? []).length;
     act(() => {
       fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
     });
     expect(screen.queryByRole("dialog", { name: "alt keys" })).toBeNull();
-    expect((heardKeys.fx_w_book ?? []).length).toBe(before);
+    expect(heardKeys.fx_w_book ?? []).not.toContain("up:Alt");
+    // A tap's release does reach the window (its capture-clearing gesture).
+    act(() => {
+      fireEvent.keyDown(window, { key: "Alt", code: "AltLeft", altKey: true });
+      fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
+    });
+    expect(heardKeys.fx_w_book).toContain("up:Alt");
   });
 
   it("alt+↵ enters focus mode (only the focused window is active) and esc leaves it", async () => {

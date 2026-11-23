@@ -1,8 +1,8 @@
 // Reader workbench v2 (spec §3.6): media identity is per instance. Two players on one desk each hear
 // only their own iframe: a message is taken when `event.source` is that player's frame, not merely
 // when it comes from YouTube's origin (which every player shares).
-import { act, cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReaderRenderBlockDto, ReaderWatchPlanDto } from "../../api/dto";
 import { WindowScope, type ListenerHub, DIRECT_HUB } from "../desks/lifecycle";
 import { YouTubeWatchPanel } from "./YouTubeWatchPanel";
@@ -84,5 +84,22 @@ describe("two players on one desk", () => {
     deliver(window, 90);
     deliver(null, 91);
     expect(clockOf("cccc")).toContain("0:00");
+  });
+});
+
+describe("a player whose window leaves the view", () => {
+  it("is paused when its window goes offscreen, and not before", () => {
+    // jsdom has no smooth scrolling; the transcript follows playback with it.
+    Element.prototype.scrollTo = vi.fn();
+    const { rerender } = render(<Player videoId="dddd" state="active" />);
+    const frame = frameOf("dddd");
+    const post = vi.spyOn(frame.contentWindow as Window, "postMessage");
+    act(() => {
+      fireEvent.load(frame);
+    });
+    const commands = () => post.mock.calls.map(([message]) => JSON.parse(String(message)).func).filter(Boolean);
+    expect(commands()).not.toContain("pauseVideo");
+    rerender(<Player videoId="dddd" state="offscreen" />);
+    expect(commands()).toContain("pauseVideo");
   });
 });
