@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/pads.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/pads.ts) |
-| Source lines | 128 |
+| Source lines | 139 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -61,6 +61,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const FIXTURE_INK_PAD = "fx_pad_hand"` — const, line 91
 - `export function fixtureInkPad(): PadViewDto` — function, line 106
 - `export function fixtureInkOwners(): import("../../api/dto").InkOwnerViewDto[]` — function, line 118
+- `export function fixtureCellsPad(cells: Array<` — function, line 132
 
 ## Internal implementation anchors
 
@@ -83,6 +84,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const reading = (id: string, hash: string)` — const, line 108
 - `const blocks: PadBlockDto[] = [ block(` — const, line 109
 - `const owner = (blockId: string, hash: string, words: number, transcription:` — const, line 119
+- `const at = (n: number)` — const, line 133
+- `const blocks: PadBlockDto[] = [ block(` — const, line 134
 
 ## Who imports or calls it
 
@@ -91,7 +94,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/companion|src/fixtures/desks/companion.ts]] — import-or-re-export: `FIXTURE_MATH`; references `FIXTURE_MATH`
 - [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export: `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixtureInkPad`, `fixturePads`; references `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixtureInkPad`, `fixturePads`
-- [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `fixtureMathPad`; references `fixtureMathPad`
+- [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `fixtureCellsPad`, `fixtureMathPad`; references `fixtureCellsPad`, `fixtureMathPad`
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `fixturePads`; references `fixturePads`
 
 ## Dependencies
@@ -114,6 +117,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

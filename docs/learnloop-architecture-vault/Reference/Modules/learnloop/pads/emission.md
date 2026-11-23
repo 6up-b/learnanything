@@ -144,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
+- [tests/test_notebook_pad_cells.py](../../../../../../tests/test_notebook_pad_cells.py) — direct import
+  - `test_a_cells_code_is_never_learner_text`
 - [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — direct import
   - `test_a_committed_text_block_is_queued_once_with_its_snapshot`
   - `test_a_reading_that_finished_after_its_words_were_replaced_is_set_aside_by_the_reconcile`

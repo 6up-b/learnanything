@@ -171,6 +171,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_reused`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
   - `test_an_offered_build_is_admitted_under_the_builds_key_and_stops_when_figures_go_off`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_route_that_cannot_be_called_refuses_the_request_with_its_code`
+  - `test_a_switch_turned_off_mid_build_refuses_with_the_gates_rule`
+  - `test_records_keep_ids_and_codes_only`
+  - `test_the_gate_record_names_the_request_and_why_a_press_cancelled_mid_build`
 - [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
   - `test_a_build_with_manim_on_the_menu_sends_v3_and_records_the_menu`
   - `test_the_reuse_key_names_the_menu_and_the_rich_versions`

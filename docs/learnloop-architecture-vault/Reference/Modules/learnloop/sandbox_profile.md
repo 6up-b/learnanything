@@ -112,6 +112,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/rich_fixtures.py](../../../../../tests/rich_fixtures.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
 - [tests/test_concept_animation_service.py](../../../../../tests/test_concept_animation_service.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
 - [tests/test_concept_animation_validator.py](../../../../../tests/test_concept_animation_validator.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
+- [tests/test_figure_rich_attempt_records.py](../../../../../tests/test_figure_rich_attempt_records.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
 - [tests/test_figure_rich_contract.py](../../../../../tests/test_figure_rich_contract.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
 - [tests/test_manim_figure_checks.py](../../../../../tests/test_manim_figure_checks.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
 - [tests/test_manim_sandbox_hostile.py](../../../../../tests/test_manim_sandbox_hostile.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
@@ -120,7 +121,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/notebook_runtime_helpers.py](../../../../../tests/notebook_runtime_helpers.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
 - [tests/test_notebook_rpcs.py](../../../../../tests/test_notebook_rpcs.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
 - [tests/test_notebook_runtime.py](../../../../../tests/test_notebook_runtime.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
-- [tests/test_notebook_runtime_sandbox.py](../../../../../tests/test_notebook_runtime_sandbox.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
 
 ## Modification guidance
 

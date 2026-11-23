@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/reader_digest_narrative_helpers.py](../../../../../../tests/reader_digest_narrative_helpers.py) — direct import
+- [tests/reader_rd10_helpers.py](../../../../../../tests/reader_rd10_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import

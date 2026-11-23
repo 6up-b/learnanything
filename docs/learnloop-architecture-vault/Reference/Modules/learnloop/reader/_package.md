@@ -86,7 +86,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] | [[Reference/Modules/learnloop/reader/reader_capture#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] | [[Reference/Modules/learnloop/reader/reader_cues#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] | [[Reference/Modules/learnloop/reader/reader_dialogue#^module-purpose|purpose]] | `ACTIVE` | 22 | 29 |
-| [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] | [[Reference/Modules/learnloop/reader/reader_guidance#^module-purpose|purpose]] | `ACTIVE` | 15 | 28 |
+| [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] | [[Reference/Modules/learnloop/reader/reader_guidance#^module-purpose|purpose]] | `ACTIVE` | 16 | 28 |
 | [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] | [[Reference/Modules/learnloop/reader/reader_inquiry#^module-purpose|purpose]] | `ACTIVE` | 1 | 21 |
 | [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] | [[Reference/Modules/learnloop/reader/reader_intent#^module-purpose|purpose]] | `ACTIVE` | 1 | 11 |
 | [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] | [[Reference/Modules/learnloop/reader/reader_observations#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
@@ -138,7 +138,7 @@ For system intent, use [[Learning System]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 57 static module edges
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 27 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 28 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 7 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 7 static module edges
@@ -174,7 +174,7 @@ flowchart LR
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers -->|57| center
     center -->|29| n_learnloop
-    n_learnloop_source_retrieval -->|27| center
+    n_learnloop_source_retrieval -->|28| center
     center -->|22| n_learnloop_content_sources
     center -->|20| n_learnloop_db
     center -->|16| n_learnloop_ai

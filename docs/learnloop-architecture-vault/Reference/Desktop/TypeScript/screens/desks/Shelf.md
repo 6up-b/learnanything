@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/Shelf.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/Shelf.tsx) |
-| Source lines | 276 |
+| Source lines | 281 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -55,31 +55,31 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface ShelfRow` — interface, line 7
-- `export function Shelf(` — function, line 25
-- `export function CarriedList(` — function, line 221
+- `export function Shelf(` — function, line 27
+- `export function CarriedList(` — function, line 226
 
 ## Internal implementation anchors
 
-- `const DRAG_THRESHOLD_PX = 5` — const, line 23
-- `const setOpen = (next: boolean)` — const, line 60
-- `const body = ( <> <ShelfBody rows=` — const, line 68
-- `function ShelfBody(` — function, line 104
-- `const press = useRef<` — const, line 119
-- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 120
-- `const slotAt = (clientY: number): number` — const, line 123
-- `const list = listRef.current` — const, line 124
-- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 126
-- `let target = 0` — let, line 127
-- `const box = item.getBoundingClientRect()` — const, line 129
-- `const onPointerDown = (row: ShelfRow)` — const, line 135
-- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 138
-- `const current = press.current` — const, line 139
-- `const onPointerUp = (row: ShelfRow)` — const, line 147
-- `const current = press.current` — const, line 148
-- `const to = slotAt(event.clientY)` — const, line 152
-- `const read = (at?: string)` — const, line 230
-- `const base = at ? now ?? [] : []` — const, line 234
-- `const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go")` — const, line 246
+- `const DRAG_THRESHOLD_PX = 5` — const, line 25
+- `const setOpen = (next: boolean)` — const, line 62
+- `const body = ( <> <ShelfBody rows=` — const, line 70
+- `function ShelfBody(` — function, line 106
+- `const press = useRef<` — const, line 121
+- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 122
+- `const slotAt = (clientY: number): number` — const, line 125
+- `const list = listRef.current` — const, line 126
+- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 128
+- `let target = 0` — let, line 129
+- `const box = item.getBoundingClientRect()` — const, line 131
+- `const onPointerDown = (row: ShelfRow)` — const, line 137
+- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 140
+- `const current = press.current` — const, line 141
+- `const onPointerUp = (row: ShelfRow)` — const, line 149
+- `const current = press.current` — const, line 150
+- `const to = slotAt(event.clientY)` — const, line 154
+- `const read = (at?: string)` — const, line 235
+- `const base = at ? now ?? [] : []` — const, line 239
+- `const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go")` — const, line 251
 
 ## Who imports or calls it
 

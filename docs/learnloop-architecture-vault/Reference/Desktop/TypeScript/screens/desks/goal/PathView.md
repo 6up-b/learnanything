@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/goal/PathView.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/PathView.tsx) |
-| Source lines | 182 |
+| Source lines | 185 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] |
 | Refactor status | `ACTIVE` |
@@ -63,15 +63,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function readiness(dot: GoalBandLoDto): string` — function, line 18
 - `function paceLine(band: GoalBandDto): string` — function, line 24
 - `const pace = band.pace` — const, line 25
-- `const ref = useRef<HTMLDivElement | null>(null)` — const, line 44
-- `const lines = new Map<string, Line>((band.path?.lines ?? []).map((line)` — const, line 46
-- `const dots = band.learningObjects ?? []` — const, line 47
-- `const needed = dots.filter((dot)` — const, line 48
-- `const prerequisites = dots.filter((dot)` — const, line 49
-- `const depthLabel = band.depths?.find((depth)` — const, line 50
-- `const onKeyDown = (event: ReactKeyboardEvent)` — const, line 51
-- `const line = lines.get(dot.learningObjectId)` — const, line 97
-- `const later = dot.kind === "later"` — const, line 98
+- `const ref = useRef<HTMLDivElement | null>(null)` — const, line 46
+- `const lines = new Map<string, Line>((band.path?.lines ?? []).map((line)` — const, line 48
+- `const dots = band.learningObjects ?? []` — const, line 49
+- `const needed = dots.filter((dot)` — const, line 50
+- `const prerequisites = dots.filter((dot)` — const, line 51
+- `const depthLabel = band.depths?.find((depth)` — const, line 52
+- `const onKeyDown = (event: ReactKeyboardEvent)` — const, line 53
+- `const line = lines.get(dot.learningObjectId)` — const, line 99
+- `const later = dot.kind === "later"` — const, line 100
 
 ## Who imports or calls it
 

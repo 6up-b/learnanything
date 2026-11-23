@@ -240,6 +240,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `call_labels`, `content_key`; statically calls `call_labels`, `content_key`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `active_request_gate`, `call_labels`, `content_key`, `gate_model_requests`; statically calls `active_request_gate`, `call_labels`, `content_key`, `gate_model_requests`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `call_labels`, `content_key`, `gate_model_requests`; statically calls `call_labels`, `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `active_request_gate`, `gate_model_requests`; statically calls `active_request_gate`, `gate_model_requests`
@@ -278,7 +279,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 134 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 135 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -315,6 +316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_ca3_compare_anywhere_helpers.py](../../../../../../tests/reader_ca3_compare_anywhere_helpers.py) — direct import
 - [tests/reader_digest_narrative_helpers.py](../../../../../../tests/reader_digest_narrative_helpers.py) — direct import
 - [tests/reader_passage_check_helpers.py](../../../../../../tests/reader_passage_check_helpers.py) — direct import
+- [tests/reader_rd10_helpers.py](../../../../../../tests/reader_rd10_helpers.py) — direct import
 - [tests/reader_tutor_fakes.py](../../../../../../tests/reader_tutor_fakes.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/required_method_authority_helpers.py](../../../../../../tests/required_method_authority_helpers.py) — direct import
@@ -334,6 +336,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ai_single_request.py](../../../../../../tests/test_ai_single_request.py) — direct import
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
   - `test_single_request_is_nested_context_local_and_restored_after_failure`
+- [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
 - [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
   - `test_a_transport_that_does_not_stream_reports_no_output`

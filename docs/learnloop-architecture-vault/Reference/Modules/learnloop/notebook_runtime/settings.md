@@ -112,7 +112,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_notebook_runtime.py](../../../../../../tests/test_notebook_runtime.py) — direct import
   - `test_a_run_directory_past_its_bound_stops_the_session`
   - `test_the_app_frames_notebooks_from_any_loopback_port`
-  - `test_the_bridge_is_injected_and_names_only_the_workbench_origins`
+  - `test_the_bridge_and_the_paper_theme_are_injected_and_the_bridge_names_only_the_workbench_origins`
   - `test_the_frame_csp_contains_the_page`
   - `test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket`
   - `test_the_scope_keeps_the_session_when_a_child_runs_out_of_memory`

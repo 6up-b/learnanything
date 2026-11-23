@@ -7,11 +7,13 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/notebook_runtime/__init__.py"
   - "src/learnloop/notebook_runtime/adapter.py"
+  - "src/learnloop/notebook_runtime/lessons.py"
   - "src/learnloop/notebook_runtime/proxy.py"
   - "src/learnloop/notebook_runtime/runtime.py"
   - "src/learnloop/notebook_runtime/sandbox.py"
   - "src/learnloop/notebook_runtime/settings.py"
   - "src/learnloop/notebook_runtime/supervisor.py"
+  - "src/learnloop/notebook_runtime/theme.py"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.notebook_runtime"
@@ -49,12 +51,14 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/notebook_runtime/__init__|learnloop.notebook_runtime]] | [[Reference/Modules/learnloop/notebook_runtime/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] | [[Reference/Modules/learnloop/notebook_runtime/adapter#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
+| [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] | [[Reference/Modules/learnloop/notebook_runtime/adapter#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
+| [[Reference/Modules/learnloop/notebook_runtime/lessons|learnloop.notebook_runtime.lessons]] | [[Reference/Modules/learnloop/notebook_runtime/lessons#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/notebook_runtime/proxy|learnloop.notebook_runtime.proxy]] | [[Reference/Modules/learnloop/notebook_runtime/proxy#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/notebook_runtime/runtime|learnloop.notebook_runtime.runtime]] | [[Reference/Modules/learnloop/notebook_runtime/runtime#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/notebook_runtime/runtime|learnloop.notebook_runtime.runtime]] | [[Reference/Modules/learnloop/notebook_runtime/runtime#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]] | [[Reference/Modules/learnloop/notebook_runtime/sandbox#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/notebook_runtime/settings|learnloop.notebook_runtime.settings]] | [[Reference/Modules/learnloop/notebook_runtime/settings#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
-| [[Reference/Modules/learnloop/notebook_runtime/supervisor|learnloop.notebook_runtime.supervisor]] | [[Reference/Modules/learnloop/notebook_runtime/supervisor#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/notebook_runtime/supervisor|learnloop.notebook_runtime.supervisor]] | [[Reference/Modules/learnloop/notebook_runtime/supervisor#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/notebook_runtime/theme|learnloop.notebook_runtime.theme]] | [[Reference/Modules/learnloop/notebook_runtime/theme#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 
 ## Cross-package dependencies
 
@@ -64,7 +68,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 3 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
 
 ## Workflow entry points
 

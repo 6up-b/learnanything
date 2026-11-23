@@ -410,6 +410,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_due_replay_is_scheduled_for_a_fully_indexed_library`
 - [tests/test_question_promotion_jobs.py](../../../../../../../tests/test_question_promotion_jobs.py) — direct import
   - `test_queue_revision_advances_after_promotion_job_is_completed`
+- [tests/test_queue_revision_after_applying_jobs.py](../../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
+  - `test_a_legacy_ingest_that_applies_practice_moves_the_revision`
+  - `test_a_picked_source_exercise_written_as_practice_moves_the_revision`
 - [tests/test_quick_add.py](../../../../../../../tests/test_quick_add.py) — direct import
   - `test_quick_add_batches_take_queue_priority`
 - [tests/test_reader_active_reading.py](../../../../../../../tests/test_reader_active_reading.py) — direct import

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/refusal_records.py](../../../../../src/learnloop/refusal_records.py) |
-| Source lines | 438 |
+| Source lines | 443 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,13 +61,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `router_spend_record(*, cap_usd: Any, spent_usd: Any, request_usd: Any, owner_kind: Any, owner_id: Any, event: Mapping[str, Any]) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 201) — The router's daily guard refused a metered request: no receipt is written, so this is the only row.
 - `envelope_record(*, envelope: Any, cap_usd: Any, spent_usd: Any, request_usd: Any, owner_kinds: Any=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 218) — A shared daily cap (``source_service.max_daily_cost_usd``, ``hints.max_daily_cost_usd``, the figures', the Reader's, ...) refused a metered request before it was sent: no call row exists, and each caller turns the refusal into its own status (``over_budget``, ``capped``, an empt…
 - `lesson_budget_record(*, lesson_id: Any, exc: BaseException | None, refusal: Mapping[str, Any] | None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 238) — A lesson's own envelope (or a cap below it) refused its next request, so the lesson closed with ``budget``: the close receipt says ``budget``, and this names which request (its purpose), the rule and the numbers.
-- `figure_gate_record(*, rule: str, purpose: Any) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 269) — The figure gate refused a figure-derived request; every later request of the unit is refused with it.
-- `router_row_record(row: Mapping[str, Any], exc: BaseException) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 278) — The ledger refused a router decision row; the caller's behaviour applies all the same (``applied``).
-- `plan_logger_record(*, decision_kind: str, block_id: Any, plan_id: Any, logger: Any, exc: BaseException, logged_ref: Any=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 303) — A plan decision's logger raised: the block it describes is served all the same, with no ledger row (or, for a follow-up's interrupt, with a row whose linked rows stopped at ``logged_ref``).
-- `followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool, retry: bool=False, value_check_error: BaseException | None=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 328) — The follow-up gate's decision for one workflow: what it chose, the rule, the arms, the components' answers.
-- `built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None` ([source](../../../../../src/learnloop/refusal_records.py), line 398)
-- `write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 408) — Build and write one record through ``repository`` (joining its open transaction without committing it, else a short one of its own); its id, or None.
-- `write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 422) — Build and write one record on ``connection``, inside the transaction the caller holds; never raises.
+- `figure_gate_record(*, rule: str, purpose: Any, held: str | None=None, subject: tuple[str, str] | None=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 269) — The figure gate refused a figure-derived request; every later request of the unit is refused with it.
+- `router_row_record(row: Mapping[str, Any], exc: BaseException) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 283) — The ledger refused a router decision row; the caller's behaviour applies all the same (``applied``).
+- `plan_logger_record(*, decision_kind: str, block_id: Any, plan_id: Any, logger: Any, exc: BaseException, logged_ref: Any=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 308) — A plan decision's logger raised: the block it describes is served all the same, with no ledger row (or, for a follow-up's interrupt, with a row whose linked rows stopped at ``logged_ref``).
+- `followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool, retry: bool=False, value_check_error: BaseException | None=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 333) — The follow-up gate's decision for one workflow: what it chose, the rule, the arms, the components' answers.
+- `built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None` ([source](../../../../../src/learnloop/refusal_records.py), line 403)
+- `write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 413) — Build and write one record through ``repository`` (joining its open transaction without committing it, else a short one of its own); its id, or None.
+- `write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 427) — Build and write one record on ``connection``, inside the transaction the caller holds; never raises.
 
 ### Module constants
 

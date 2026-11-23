@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/notebook_runtime/supervisor.py](../../../../../../src/learnloop/notebook_runtime/supervisor.py) |
-| Source lines | 365 |
+| Source lines | 430 |
 | Owning package | [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,29 +65,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `async after_stop(self, session: Session) -> None` (line 70; public)
   - `async api(self, session: Session, rel: str, body: dict[str, Any]) -> tuple[int, str]` (line 72; public)
 - `class Session` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 76)
-  - `base_url(self) -> str` (line 107; public)
-  - `touch(self) -> None` (line 110; public)
-  - `view_dict(self) -> dict[str, Any]` (line 113; public)
-- `notebook_revision(source: bytes) -> str` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 120)
-- `class Supervisor` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 124) — Starts, watches and stops one session's server.
-  - `__init__(self, session: Session, backend: Backend, *, restart_limit: int=settings.RESTART_LIMIT, backoff_seconds: float=settings.RESTART_BACKOFF_SECONDS, ready_timeout: float=settings.READY_TIMEOUT_SECONDS, stop_timeout: float=settings.STOP_TIMEOUT_SECONDS) -> None` (line 127; internal)
-  - `async start(self) -> None` (line 142; public) — Start the server and wait until it answers on its socket (``ready``) or say why not (``failed``).
-  - `async _launch(self) -> bool` (line 153; internal)
-  - `async _wait_ready(self) -> bool` (line 178; internal)
-  - `async _supervise(self) -> None` (line 193; internal)
-  - `async stop(self, reason: str, *, graceful: bool=True) -> None` (line 218; public) — Stop the server (graceful first, forced after the timeout); the session ends ``stopped``.
-  - `async _kill(self) -> None` (line 252; internal)
-- `class SandboxBackend` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 268) — The real backend: a sandboxed ``marimo edit`` on a Unix socket, reached with httpx over the socket.
-  - `__init__(self, *, scoped: bool) -> None` (line 271; internal)
-  - `_client(self, session: Session, timeout: float=5.0) -> Any` (line 274; internal)
-  - `async spawn(self, session: Session) -> Process` (line 281; public)
-  - `async ready(self, session: Session) -> bool` (line 297; public)
-  - `async server_token(self, session: Session) -> str | None` (line 304; public)
-  - `async shutdown(self, session: Session) -> None` (line 309; public)
-  - `async api(self, session: Session, rel: str, body: dict[str, Any]) -> tuple[int, str]` (line 314; public)
-  - `signal_group(self, session: Session, signum: int) -> None` (line 322; public)
-  - `async after_stop(self, session: Session) -> None` (line 326; public) — A stale socket goes; a scope systemd keeps listed as failed (a server killed by a signal) is reset by its own name, so nothing of a stopped session stays registered.
-- `run_dir_bytes(run_dir: Path) -> int` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 357)
+  - `base_url(self) -> str` (line 117; public)
+  - `touch(self) -> None` (line 120; public)
+  - `view_dict(self) -> dict[str, Any]` (line 123; public)
+  - `lesson_view(self) -> dict[str, Any]` (line 131; public)
+  - `releasable(self) -> set[str]` (line 137; public) — The held cells the learner's commits have unlocked (none in a review).
+- `note_cell_progress(session: Session, cell_id: str, status: str | None, stamp: float | None, error: bool) -> None` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 145) — A cell's run as marimo reports it: running starts its clock, idle stops it (``ms``), an error output marks it.
+- `note_commits(session: Session, values: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 164) — Controls set by the frame (object id to value): a non-empty value on a commit point's own control commits it.
+- `notebook_revision(source: bytes) -> str` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 180)
+- `class Supervisor` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 184) — Starts, watches and stops one session's server.
+  - `__init__(self, session: Session, backend: Backend, *, restart_limit: int=settings.RESTART_LIMIT, backoff_seconds: float=settings.RESTART_BACKOFF_SECONDS, ready_timeout: float=settings.READY_TIMEOUT_SECONDS, stop_timeout: float=settings.STOP_TIMEOUT_SECONDS) -> None` (line 187; internal)
+  - `async start(self) -> None` (line 202; public) — Start the server and wait until it answers on its socket (``ready``) or say why not (``failed``).
+  - `async _launch(self) -> bool` (line 213; internal)
+  - `async _wait_ready(self) -> bool` (line 240; internal)
+  - `async _supervise(self) -> None` (line 255; internal)
+  - `async stop(self, reason: str, *, graceful: bool=True) -> None` (line 280; public) — Stop the server (graceful first, forced after the timeout); the session ends ``stopped``.
+  - `async _kill(self) -> None` (line 314; internal)
+- `class SandboxBackend` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 330) — The real backend: a sandboxed ``marimo edit`` on a Unix socket, reached with httpx over the socket.
+  - `__init__(self, *, scoped: bool, python: str | None=None) -> None` (line 333; internal)
+  - `_client(self, session: Session, timeout: float=5.0) -> Any` (line 339; internal)
+  - `async spawn(self, session: Session) -> Process` (line 346; public)
+  - `async ready(self, session: Session) -> bool` (line 362; public)
+  - `async server_token(self, session: Session) -> str | None` (line 369; public)
+  - `async shutdown(self, session: Session) -> None` (line 374; public)
+  - `async api(self, session: Session, rel: str, body: dict[str, Any]) -> tuple[int, str]` (line 379; public)
+  - `signal_group(self, session: Session, signum: int) -> None` (line 387; public)
+  - `async after_stop(self, session: Session) -> None` (line 391; public) — A stale socket goes; a scope systemd keeps listed as failed (a server killed by a signal) is reset by its own name, so nothing of a stopped session stays registered.
+- `run_dir_bytes(run_dir: Path) -> int` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 422)
 
 ### Module constants
 
@@ -103,21 +107,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `async _drain(process: Any, session: Session) -> None` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 341) — Keep the tail of the server's output in memory; the pipe never blocks the server.
+- `async _drain(process: Any, session: Session) -> None` ([source](../../../../../../src/learnloop/notebook_runtime/supervisor.py), line 406) — Keep the tail of the server's output in memory; the pipe never blocks the server.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/notebook_runtime/proxy|learnloop.notebook_runtime.proxy]] — imports `READY`, `Session`
+- [[Reference/Modules/learnloop/notebook_runtime/proxy|learnloop.notebook_runtime.proxy]] — imports `READY`, `Session`, `note_cell_progress`, `note_commits`; statically calls `note_cell_progress`, `note_commits`
 - [[Reference/Modules/learnloop/notebook_runtime/runtime|learnloop.notebook_runtime.runtime]] — imports `LIVE_STATES`, `READY`, `STARTING`, `STOPPED`, `SandboxBackend`, `Session`, `Supervisor`, `notebook_revision`, `run_dir_bytes`; statically calls `SandboxBackend`, `Session`, `Supervisor`, `notebook_revision`, `run_dir_bytes`
+
+### Repository tooling consumers
+
+- [scripts/desk_harness/notebook.py](../../../../../../scripts/desk_harness/notebook.py); calls `SandboxBackend`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] — imports `module`; calls `server_token`
+- [[Reference/Modules/learnloop/notebook_runtime/lessons|learnloop.notebook_runtime.lessons]] — imports `committed_value`; calls `committed_value`
 - [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]] — imports `Layout`, `Limits`, `launch_command`; calls `launch_command`
 - [[Reference/Modules/learnloop/notebook_runtime/settings|learnloop.notebook_runtime.settings]] — imports `module`
 
@@ -140,7 +149,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/notebook_runtime_helpers.py](../../../../../../tests/notebook_runtime_helpers.py) — direct import
+- [tests/test_notebook_lessons.py](../../../../../../tests/test_notebook_lessons.py) — direct import
+  - `test_a_commit_is_a_value_on_a_commit_points_own_control_and_a_review_commits_nothing`
 - [tests/test_notebook_runtime.py](../../../../../../tests/test_notebook_runtime.py) — direct import
+  - `test_a_cells_run_is_timed_from_marimos_messages`
   - `test_a_crashed_server_is_restarted_with_backoff`
   - `test_a_restart_waits_out_its_backoff_and_a_stop_ends_it`
   - `test_a_server_that_ignores_shutdown_is_terminated`

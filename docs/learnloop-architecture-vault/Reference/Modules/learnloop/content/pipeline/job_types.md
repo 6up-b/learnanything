@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/job_types.py](../../../../../../../src/learnloop/content/pipeline/job_types.py) |
-| Source lines | 121 |
+| Source lines | 122 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,11 +56,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ## Public API
 
 - `class JobType` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 40)
-- `job_type(name: str) -> JobType | None` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 99) — The row for ``name``, or None for a type the table does not hold (a handler a test injects).
-- `resolve_handler(reference: str) -> Handler` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 105) — The handler a row's ``module:function`` names, importing its module.
-- `default_handlers() -> dict[str, Handler]` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 112)
-- `applying_job_types() -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 116)
-- `parallel_job_types() -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 120)
+- `job_type(name: str) -> JobType | None` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 100) — The row for ``name``, or None for a type the table does not hold (a handler a test injects).
+- `resolve_handler(reference: str) -> Handler` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 106) — The handler a row's ``module:function`` names, importing its module.
+- `default_handlers() -> dict[str, Handler]` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 113)
+- `applying_job_types() -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 117)
+- `parallel_job_types() -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 121)
 
 ### Module constants
 
@@ -70,7 +70,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_FIGURES` ([src/learnloop/content/pipeline/job_types.py](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 35)
 - `_RETRIEVAL` ([src/learnloop/content/pipeline/job_types.py](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 36)
 - `JOB_TYPES` ([src/learnloop/content/pipeline/job_types.py](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 53)
-- `_BY_NAME` ([src/learnloop/content/pipeline/job_types.py](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 96)
+- `_BY_NAME` ([src/learnloop/content/pipeline/job_types.py](../../../../../../../src/learnloop/content/pipeline/job_types.py), line 97)
 
 ## Internal implementation anchors
 

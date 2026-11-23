@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/source_retrieval/fallback_space.py"
   - "src/learnloop/source_retrieval/feedback.py"
   - "src/learnloop/source_retrieval/find_sources.py"
+  - "src/learnloop/source_retrieval/follow_along.py"
   - "src/learnloop/source_retrieval/goal_lens_choices.py"
   - "src/learnloop/source_retrieval/goal_lens_reads.py"
   - "src/learnloop/source_retrieval/jobs.py"
@@ -49,6 +50,7 @@ source_paths:
   - "src/learnloop/source_retrieval/tutor.py"
   - "src/learnloop/source_retrieval/vault_notes.py"
   - "src/learnloop/source_retrieval/verify.py"
+  - "src/learnloop/source_retrieval/video_chapters.py"
   - "src/learnloop/source_retrieval/windows.py"
 generated: true
 generated_at: "2026-11-02"
@@ -100,6 +102,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] | [[Reference/Modules/learnloop/source_retrieval/fallback_space#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] | [[Reference/Modules/learnloop/source_retrieval/feedback#^module-purpose|purpose]] | `ACTIVE` | 10 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] | [[Reference/Modules/learnloop/source_retrieval/find_sources#^module-purpose|purpose]] | `ACTIVE` | 15 | 29 |
+| [[Reference/Modules/learnloop/source_retrieval/follow_along|learnloop.source_retrieval.follow_along]] | [[Reference/Modules/learnloop/source_retrieval/follow_along#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/source_retrieval/goal_lens_choices|learnloop.source_retrieval.goal_lens_choices]] | [[Reference/Modules/learnloop/source_retrieval/goal_lens_choices#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] | [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]] | [[Reference/Modules/learnloop/source_retrieval/jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
@@ -118,7 +121,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/recipes|learnloop.source_retrieval.recipes]] | [[Reference/Modules/learnloop/source_retrieval/recipes#^module-purpose|purpose]] | `ACTIVE` | 16 | 11 |
 | [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] | [[Reference/Modules/learnloop/source_retrieval/role_labeller#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/source_retrieval/search|learnloop.source_retrieval.search]] | [[Reference/Modules/learnloop/source_retrieval/search#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
-| [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] | [[Reference/Modules/learnloop/source_retrieval/section_coverage#^module-purpose|purpose]] | `ACTIVE` | 17 | 23 |
+| [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] | [[Reference/Modules/learnloop/source_retrieval/section_coverage#^module-purpose|purpose]] | `ACTIVE` | 20 | 23 |
 | [[Reference/Modules/learnloop/source_retrieval/service_spend|learnloop.source_retrieval.service_spend]] | [[Reference/Modules/learnloop/source_retrieval/service_spend#^module-purpose|purpose]] | `ACTIVE` | 21 | 5 |
 | [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] | [[Reference/Modules/learnloop/source_retrieval/source_vectors#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/source_retrieval/spaces|learnloop.source_retrieval.spaces]] | [[Reference/Modules/learnloop/source_retrieval/spaces#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
@@ -130,20 +133,21 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] | [[Reference/Modules/learnloop/source_retrieval/tutor#^module-purpose|purpose]] | `ACTIVE` | 6 | 16 |
 | [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] | [[Reference/Modules/learnloop/source_retrieval/vault_notes#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] | [[Reference/Modules/learnloop/source_retrieval/verify#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
+| [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] | [[Reference/Modules/learnloop/source_retrieval/video_chapters#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/windows|learnloop.source_retrieval.windows]] | [[Reference/Modules/learnloop/source_retrieval/windows#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 87 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 67 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 92 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 69 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 56 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 44 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 41 static module edges
-- [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 32 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 42 static module edges
+- [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 34 static module edges
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 28 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 27 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 28 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 23 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 8 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 7 static module edges
@@ -167,7 +171,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 50 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 53 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 19 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 11 static module edges
@@ -201,15 +205,15 @@ flowchart LR
     n_learnloop_local_embeddings["learnloop.local_embeddings"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    center -->|87| n_learnloop_ai
-    center -->|67| n_learnloop_db
+    center -->|92| n_learnloop_ai
+    center -->|69| n_learnloop_db
     center -->|56| n_learnloop_db_stores
-    n_learnloop_sidecar_handlers -->|50| center
+    n_learnloop_sidecar_handlers -->|53| center
     center -->|44| n_learnloop_vault
-    center -->|41| n_learnloop
-    center -->|32| n_learnloop_practice_index
+    center -->|42| n_learnloop
+    center -->|34| n_learnloop_practice_index
     center -->|28| n_learnloop_local_embeddings
-    center -->|27| n_learnloop_reader
+    center -->|28| n_learnloop_reader
     n_learnloop_content_sources -->|1| center
     center -->|23| n_learnloop_content_sources
 ```

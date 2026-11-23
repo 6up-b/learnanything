@@ -108,6 +108,8 @@ None found by exact static reference scan.
 - `src/learnloop/router_objective/preference_report.py`
 - `src/learnloop/teacher/report.py`
 - `src/learnloop/teacher/service.py`
+- `src/learnloop/teacher/summaries.py`
+- `src/learnloop_sidecar/handlers/notebooks.py`
 
 ### Direct SQL writers
 

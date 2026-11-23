@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_two_process.py`
 - `tests/test_mobile_v2_plan.py`
 - `tests/test_question_promotion_jobs.py`
+- `tests/test_queue_revision_after_applying_jobs.py`
 - `tests/test_vault_watcher_refresh.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

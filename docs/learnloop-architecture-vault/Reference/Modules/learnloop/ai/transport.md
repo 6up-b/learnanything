@@ -230,6 +230,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `execute_structured_operation`, `render_structured_prompt`; statically calls `execute_structured_operation`, `render_structured_prompt`
 - [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `OperationClient`, `execute_structured_operation`; statically calls `execute_structured_operation`
@@ -264,7 +265,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 111 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 112 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -287,6 +288,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_active_reading_helpers.py](../../../../../../tests/reader_active_reading_helpers.py) — direct import
 - [tests/reader_digest_narrative_helpers.py](../../../../../../tests/reader_digest_narrative_helpers.py) — direct import
 - [tests/reader_passage_check_helpers.py](../../../../../../tests/reader_passage_check_helpers.py) — direct import
+- [tests/reader_rd10_helpers.py](../../../../../../tests/reader_rd10_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import

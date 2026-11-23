@@ -482,6 +482,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/feedback|learnloop.source_retrieval.feedback]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `Repository`
+- [[Reference/Modules/learnloop/source_retrieval/follow_along|learnloop.source_retrieval.follow_along]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/goal_lens_choices|learnloop.source_retrieval.goal_lens_choices]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] — imports `Repository`
@@ -508,6 +509,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `Repository`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `Repository`
 - [[Reference/Modules/learnloop/source_retrieval/windows|learnloop.source_retrieval.windows]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `Repository`
@@ -615,7 +617,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 414 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 416 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -712,6 +714,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_fixtures.py](../../../../../../tests/reader_fixtures.py) — direct import
 - [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
 - [tests/reader_inquiry_status_helpers.py](../../../../../../tests/reader_inquiry_status_helpers.py) — direct import
+- [tests/reader_rd10_helpers.py](../../../../../../tests/reader_rd10_helpers.py) — direct import
 - [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/reader_requests_helpers.py](../../../../../../tests/reader_requests_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
@@ -1994,6 +1997,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_queue_roundtrip`
   - `test_sidecar_reader_question_transcript_can_be_resumed`
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
+- [tests/test_queue_revision_after_applying_jobs.py](../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
+  - `test_a_legacy_ingest_that_applies_practice_moves_the_revision`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_randomization_layer.py](../../../../../../tests/test_randomization_layer.py) — direct import
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import

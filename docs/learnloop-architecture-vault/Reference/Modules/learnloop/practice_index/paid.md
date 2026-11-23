@@ -171,6 +171,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/service_spend|learnloop.source_retrieval.service_spend]] — imports `SUBSCRIPTION_PROFILE_TYPES`
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `PaidCalls`, `estimated_call_tokens`, `plan_route`, `resolve_client`, `transport_problem`; statically calls `PaidCalls`, `estimated_call_tokens`, `plan_route`, `resolve_client`, `transport_problem`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `PaidRoute`, `estimated_call_tokens`, `plan_route`, `resolve_client`, `transport_problem`; statically calls `estimated_call_tokens`, `plan_route`, `resolve_client`, `transport_problem`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `PaidCalls`, `PaidRoute`, `plan_route`, `resolve_client`; statically calls `PaidCalls`, `plan_route`, `resolve_client`
 - [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `plan_route`; statically calls `plan_route`
@@ -205,7 +206,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] and 45 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] and 46 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -229,6 +230,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_c1_r5_followup_a_the_refresh_resolves_its_route_once_and_judge_sends_on_it`
 - [tests/test_e0_review_round5.py](../../../../../../tests/test_e0_review_round5.py) — direct import
   - `test_the_service_copies_route_their_source_routes_to_openrouter_haiku`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_prebuild_whose_author_is_not_the_plan_holds_for_the_plan`
+  - `test_a_rich_prebuild_holds_for_the_plan_and_the_render_minutes`
+  - `test_a_rich_prebuild_whose_item_became_protected_holds_for_it`
 - [tests/test_label_roles_cli.py](../../../../../../tests/test_label_roles_cli.py) — direct import
 - [tests/test_mcp_c1a_review.py](../../../../../../tests/test_mcp_c1a_review.py) — direct import
   - `test_the_dry_run_bounds_the_live_verification`

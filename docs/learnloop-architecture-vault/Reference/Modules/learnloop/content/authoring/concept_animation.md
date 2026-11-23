@@ -207,6 +207,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_valid_scene_passes_and_names_class`
   - `test_validator_rejects_malicious_samples`
   - `test_validator_requires_scene_subclass_and_reports_syntax_errors`
+- [tests/test_figure_rich_attempt_records.py](../../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
+  - `test_a_failed_render_and_its_repair_are_two_attempts`
+  - `test_a_scene_out_of_pacing_is_repaired_by_the_second_attempt`
 - [tests/test_figure_rich_contract.py](../../../../../../../tests/test_figure_rich_contract.py) — direct import
   - `test_tiers_allowed_needs_the_switch_linux_bwrap_manim_and_the_standing_opt_in`
 - [tests/test_manim_figure_checks.py](../../../../../../../tests/test_manim_figure_checks.py) — direct import

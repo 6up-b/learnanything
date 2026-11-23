@@ -195,7 +195,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `load_state`; statically calls `load_state`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `lessons_active`; statically calls `lessons_active`
-- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `Clients`, `open_lesson`, `open_lessons`, `require_active`, `take_turn`, `view_lesson`
+- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `Clients`, `lessons_active`, `open_lesson`, `open_lessons`, `require_active`, `take_turn`, `view_lesson`
 
 ## Dependencies
 
@@ -304,6 +304,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_only_a_miss_since_the_last_lesson_counts`
 - [tests/test_live_dialogue_contract_baseline.py](../../../../../../tests/test_live_dialogue_contract_baseline.py) — direct import
   - `test_initial_deadline_and_cancellation`
+- [tests/test_notebook_lessons.py](../../../../../../tests/test_notebook_lessons.py) — direct import
+- [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
+  - `test_lesson_list_names_each_lesson_with_its_additions_pad`
+  - `test_review_replays_a_finished_lesson_with_no_model_call_and_no_write`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_a_lesson_figure_never_spawns_a_rich_job`
   - `test_a_planned_visual_is_the_identical_request_and_hits_the_same_figure`

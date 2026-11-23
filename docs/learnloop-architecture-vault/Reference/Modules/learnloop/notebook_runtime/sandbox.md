@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py) |
-| Source lines | 175 |
+| Source lines | 189 |
 | Owning package | [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,11 +61,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `socket(self) -> Path` (line 62; public)
   - `token_file(self) -> Path` (line 66; public)
 - `missing_requirements() -> list[str]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 70) — Why the runtime cannot run here, in words; empty when it can.
-- `runtime_base_dir() -> Path` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 87) — Where sessions' run directories go: the user's runtime directory (short paths, private, gone at logout), else the temporary directory.
-- `write_shared_files(base: Path) -> tuple[Path, Path]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 96) — marimo's config directory and the hosts file, written once under ``base`` (both mounted read-only).
-- `scope_available() -> bool` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 112) — Whether ``systemd-run --user --scope`` can start a scope here (probed once per process).
-- `scope_prefix(unit: str, limits: Limits, *, scoped: bool) -> list[str]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 130)
-- `launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, scoped: bool, python: str | None=None, bwrap: str | None=None) -> tuple[list[str], dict[str, str]]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 140) — The argv and environment that start one marimo server on ``layout.socket``.
+- `runtime_base_dir() -> Path` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 93) — Where sessions' run directories go: the user's runtime directory (short, private, gone at logout), else the temporary directory.
+- `write_shared_files(base: Path) -> tuple[Path, Path]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 110) — marimo's config directory and the hosts file, written once under ``base`` (both mounted read-only).
+- `scope_available() -> bool` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 126) — Whether ``systemd-run --user --scope`` can start a scope here (probed once per process).
+- `scope_prefix(unit: str, limits: Limits, *, scoped: bool) -> list[str]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 144)
+- `launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, scoped: bool, python: str | None=None, bwrap: str | None=None) -> tuple[list[str], dict[str, str]]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 154) — The argv and environment that start one marimo server on ``layout.socket``.
 
 ### Module constants
 
@@ -75,7 +75,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SANDBOX_LAUNCHER` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 33)
 - `SANDBOX_CONFIG` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 34)
 - `SANDBOX_SCRATCH` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 35)
-- `_SCOPE_PROBE` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 109)
+- `SOCKET_SUFFIX_BYTES` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 88)
+- `SOCKET_PATH_MAX_BYTES` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 90)
+- `_SCOPE_PROBE` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 123)
 
 ## Internal implementation anchors
 
@@ -86,9 +88,13 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/notebook_runtime/runtime|learnloop.notebook_runtime.runtime]] — imports `Layout`, `Limits`, `RuntimeUnavailable`, `missing_requirements`, `runtime_base_dir`, `scope_available`, `write_shared_files`; statically calls `Layout`, `RuntimeUnavailable`, `runtime_base_dir`, `scope_available`, `write_shared_files`
+- [[Reference/Modules/learnloop/notebook_runtime/runtime|learnloop.notebook_runtime.runtime]] — imports `Layout`, `Limits`, `RuntimeUnavailable`, `SOCKET_PATH_MAX_BYTES`, `missing_requirements`, `runtime_base_dir`, `scope_available`, `write_shared_files`; statically calls `Layout`, `RuntimeUnavailable`, `runtime_base_dir`, `scope_available`, `write_shared_files`
 - [[Reference/Modules/learnloop/notebook_runtime/supervisor|learnloop.notebook_runtime.supervisor]] — imports `Layout`, `Limits`, `launch_command`; statically calls `launch_command`
 - [[Reference/Modules/learnloop_sidecar/handlers/notebooks|learnloop_sidecar.handlers.notebooks]] — imports `Limits`, `RuntimeUnavailable`
+
+### Repository tooling consumers
+
+- [scripts/desk_harness/notebook.py](../../../../../../scripts/desk_harness/notebook.py); calls `Limits`, `missing_requirements`, `scope_available`
 
 ## Dependencies
 
@@ -122,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_runtime_refusals_are_stable_errors`
 - [tests/test_notebook_runtime.py](../../../../../../tests/test_notebook_runtime.py) — direct import
   - `test_a_refused_runtime_is_said_before_anything_starts`
+  - `test_a_runtime_directory_too_deep_for_a_socket_is_passed_over`
   - `test_a_runtime_directory_too_deep_for_a_socket_is_refused`
   - `test_the_launch_uses_the_shared_hardened_profile_and_the_servers_mounts`
   - `test_the_scope_keeps_the_session_when_a_child_runs_out_of_memory`

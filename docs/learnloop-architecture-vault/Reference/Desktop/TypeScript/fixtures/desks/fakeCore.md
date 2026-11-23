@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts) |
-| Source lines | 316 |
+| Source lines | 396 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,64 +54,76 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type InvokeArgs = Record<string, unknown>` — type, line 11
-- `export interface HarnessCall` — interface, line 13
-- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 308
-- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 314
+- `export type InvokeArgs = Record<string, unknown>` — type, line 13
+- `export interface HarnessCall` — interface, line 15
+- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 388
+- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 394
 
 ## Internal implementation anchors
 
-- `function harnessDeskState(): DeskStateDto` — function, line 21
-- `const state = fixtureDeskState()` — const, line 22
-- `const extra: Record<string, string> =` — const, line 23
-- `const padId = extra[desk.deskId]` — const, line 25
-- `const INK_PAD_SHOWN = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("inkpad") === "1"` — const, line 41
-- `function harnessPads(): PadViewDto[]` — function, line 43
-- `const at = "2026-11-23T09:00:00Z"` — const, line 44
-- `const empty = (padId: string, deskId: string): PadViewDto` — const, line 45
-- `const server = new FixtureDeskServer(harnessDeskState(), harnessPads())` — const, line 49
-- `const companion = new FixtureCompanion()` — const, line 50
-- `const goal = new FixtureGoal()` — const, line 51
-- `const carried: Array<` — const, line 53
-- `function fixtureProposals(padId: string)` — function, line 60
-- `function fixtureDrain(deskId: string)` — function, line 71
-- `const pads = Object.values(server.pads).filter((pad)` — const, line 72
-- `const words = pad.blocks.map((block)` — const, line 74
-- `const last = words[words.length - 1] ?? ""` — const, line 75
-- `const calls: HarnessCall[] = []` — const, line 79
-- `interface Window` — interface, line 82
-- `function viewFor(id: string)` — function, line 88
-- `const CONTRACT =` — const, line 92
-- `const promotedJobs = new Map<string,` — const, line 109
-- `let promotedJobCount = 0` — let, line 110
-- `function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown>>` — function, line 112
-- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 113
-- `function emptyUnion(spanId: string): Record<string, unknown>` — function, line 119
-- `const pen:` — const, line 124
-- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 126
-- `const view = viewFor(String(input.extractionId))` — const, line 137
-- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 142
-- `const view = viewFor(String(input.extractionId))` — const, line 143
-- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 151
-- `const annotationId = `fx_ann_$` — const, line 160
-- `const applied = server.applyInk(` — const, line 173
-- `const extractionId = String(input.extractionId)` — const, line 205
-- `const bySpan = new Map<string, Array<Record<string, unknown>>>()` — const, line 206
-- `const block = pad.blocks.find((each)` — const, line 210
+- `const LESSON_PAGE = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lesson") === "1"` — const, line 22
+- `function harnessDeskState(): DeskStateDto` — function, line 26
+- `const state = fixtureDeskState()` — const, line 27
+- `const extra: Record<string, string> =` — const, line 28
+- `const padId = extra[desk.deskId]` — const, line 30
+- `const stack = state.desks.find((desk)` — const, line 44
+- `const INK_PAD_SHOWN = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("inkpad") === "1"` — const, line 50
+- `function harnessPads(): PadViewDto[]` — function, line 52
+- `const at = "2026-11-23T09:00:00Z"` — const, line 53
+- `const empty = (padId: string, deskId: string): PadViewDto` — const, line 54
+- `const server = new FixtureDeskServer(harnessDeskState(), harnessPads())` — const, line 59
+- `const companion = new FixtureCompanion()` — const, line 60
+- `const goal = new FixtureGoal()` — const, line 61
+- `const lessons = new FixtureLessons()` — const, line 62
+- `const videoFixture = new FixtureVideo(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("video") === "1")` — const, line 64
+- `const carried: Array<` — const, line 66
+- `function fixtureProposals(padId: string)` — function, line 73
+- `function fixtureDrain(deskId: string)` — function, line 84
+- `const pads = Object.values(server.pads).filter((pad)` — const, line 85
+- `const words = pad.blocks.map((block)` — const, line 87
+- `const last = words[words.length - 1] ?? ""` — const, line 88
+- `const calls: HarnessCall[] = []` — const, line 92
+- `interface Window` — interface, line 95
+- `function viewFor(id: string)` — function, line 101
+- `const CONTRACT =` — const, line 105
+- `const promotedJobs = new Map<string,` — const, line 122
+- `let promotedJobCount = 0` — let, line 123
+- `function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown>>` — function, line 125
+- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 126
+- `function emptyUnion(spanId: string): Record<string, unknown>` — function, line 132
+- `const pen:` — const, line 137
+- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 139
+- `const view = viewFor(String(input.extractionId))` — const, line 150
+- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 155
+- `const view = viewFor(String(input.extractionId))` — const, line 156
+- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 164
+- `const annotationId = `fx_ann_$` — const, line 173
+- `const applied = server.applyInk(` — const, line 186
 - `const extractionId = String(input.extractionId)` — const, line 218
-- `const view = viewFor(extractionId)` — const, line 219
-- `const spanId = String(input.fromSpanId ?? "")` — const, line 220
-- `const block = view?.blocks.find((each)` — const, line 221
-- `const rows = cheapRows(input)` — const, line 228
-- `const jobId = typeof input.spanId === "string" ? `pj_$` — const, line 229
-- `const job = promotedJobs.get(String(input.jobId))` — const, line 234
-- `const paper = FIXTURE_SOURCES.paper` — const, line 239
-- `const job = promotedJobs.get(String(input.jobId))` — const, line 247
-- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 252
-- `const extractionId = typeof input.extractionId === "string" ? input.extractionId : null` — const, line 253
-- `const question =` — const, line 259
-- `const question = carried.find((each)` — const, line 266
-- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 309
+- `const bySpan = new Map<string, Array<Record<string, unknown>>>()` — const, line 219
+- `const block = pad.blocks.find((each)` — const, line 223
+- `const sectionOf = (spanId: string)` — const, line 229
+- `const extractionId = String(input.extractionId)` — const, line 234
+- `const view = viewFor(extractionId)` — const, line 235
+- `const spanId = String(input.fromSpanId ?? "")` — const, line 236
+- `const block = view?.blocks.find((each)` — const, line 237
+- `const rows = cheapRows(input)` — const, line 244
+- `const jobId = typeof input.spanId === "string" ? `pj_$` — const, line 245
+- `const job = promotedJobs.get(String(input.jobId))` — const, line 250
+- `const paper = FIXTURE_SOURCES.paper` — const, line 255
+- `const job = promotedJobs.get(String(input.jobId))` — const, line 263
+- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 268
+- `const extractionId = typeof input.extractionId === "string" ? input.extractionId : null` — const, line 269
+- `const question =` — const, line 275
+- `const question = carried.find((each)` — const, line 282
+- `interface Window` — interface, line 358
+- `function notebookLesson(view: LessonViewDto): LessonViewDto` — function, line 366
+- `const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson")` — const, line 367
+- `function notebookSession(command: string, input: Record<string, unknown>)` — function, line 373
+- `const forced = new URLSearchParams(window.location.search).get("nbstate")` — const, line 374
+- `const real = window.__notebookHarness` — const, line 375
+- `const state = forced && forced !== "ready" ? forced : "ready"` — const, line 379
+- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 389
 
 ## Who imports or calls it
 
@@ -124,11 +136,13 @@ No live desktop source file directly imports this module. Do not infer dormancy:
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyInput`, `DeskStateDto`, `PadViewDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyInput`, `DeskStateDto`, `LessonViewDto`, `PadViewDto`
 - [[Reference/Desktop/TypeScript/fixtures/desks/companion|src/fixtures/desks/companion.ts]] — import-or-re-export; imports `FixtureCompanion`
 - [[Reference/Desktop/TypeScript/fixtures/desks/goal|src/fixtures/desks/goal.ts]] — import-or-re-export; imports `FixtureGoal`
+- [[Reference/Desktop/TypeScript/fixtures/desks/lessons|src/fixtures/desks/lessons.ts]] — import-or-re-export; imports `FIXTURE_LESSON_ID`, `FixtureLessons`, `fixtureAdditionsPad`
 - [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixtureInkPad`, `fixturePads`
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_GUIDES`, `FIXTURE_LIBRARY`, `FIXTURE_SOURCES`, `FIXTURE_VIEWS`, `FIXTURE_WATCH`
+- [[Reference/Desktop/TypeScript/fixtures/desks/video|src/fixtures/desks/video.ts]] — import-or-re-export; imports `FixtureVideo`
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export; imports `FixtureDeskServer`, `fixtureDeskState`
 
 ### Assets, platform, and third-party dependencies

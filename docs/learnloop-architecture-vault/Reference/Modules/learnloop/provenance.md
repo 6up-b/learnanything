@@ -115,6 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `module`; statically calls `DecisionRecord`, `continue_trace`, `current_cause`, `current_trace`, `is_code`, `write`, `write_through`
 - [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`, `where`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `current_trace`, `trace_scope`
 - [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]] — imports `module`; statically calls `trace_scope`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `current_trace`, `trace_scope`, `write`
 - [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `module`; statically calls `DecisionRecord`, `check_no_prose`, `current_trace`, `new_trace_id`, `where`
@@ -150,7 +151,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 27 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 28 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -186,6 +187,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sidecar_records_a_rejected_probe_value`
 - [tests/test_figure_decision_records.py](../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
+- [tests/test_figure_request_records.py](../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_route_that_cannot_be_called_refuses_the_request_with_its_code`
+  - `test_records_keep_ids_and_codes_only`
 - [tests/test_figure_rich_job.py](../../../../../tests/test_figure_rich_job.py) — direct import
   - `test_the_rich_job_continues_the_press_trace`
 - [tests/test_figure_wait_estimate.py](../../../../../tests/test_figure_wait_estimate.py) — direct import
@@ -264,6 +268,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_synthesis_tail_golden.py](../../../../../tests/test_synthesis_tail_golden.py) — direct import
 - [tests/test_why_cases.py](../../../../../tests/test_why_cases.py) — direct import
   - `test_case_3_a_figure_stored_failed_has_one_author_record_per_attempt_with_typed_codes`
+  - `test_why_didnt_show_me_work_names_the_refusal_and_the_menu`
   - `test_why_wasnt_this_probe_answer_read`
 - [tests/test_why_reader.py](../../../../../tests/test_why_reader.py) — direct import
   - `test_a_follow_up_gate_call_that_answered_after_the_gate_is_discarded`

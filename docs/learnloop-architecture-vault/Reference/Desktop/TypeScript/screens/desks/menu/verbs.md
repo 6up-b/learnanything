@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/verbs.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/verbs.ts) |
-| Source lines | 215 |
+| Source lines | 214 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -54,11 +54,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface MenuApi` — interface, line 20
-- `export interface MenuContext` — interface, line 32
+- `export interface MenuApi` — interface, line 19
+- `export interface MenuContext` — interface, line 30
 - `export function promotedRef(row: PromotedRowDto):` — function, line 68
 - `export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext): Promise<void>` — function, line 86
-- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string): MenuRow[]` — function, line 204
+- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string): MenuRow[]` — function, line 203
 
 ## Internal implementation anchors
 
@@ -81,7 +81,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId)` — const, line 149
 - `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 162
 - `const drafted = await ctx.api.readerAuthorSectionQuestion(` — const, line 175
-- `const lesson = await ctx.api.lessonTurn(anchor ?` — const, line 180
 
 ## Who imports or calls it
 
@@ -94,7 +93,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `CorrespondentsDto`, `LessonTurnInput`, `LessonViewDto`, `MenuObjectInput`, `PassageKnowsDto`, `PromotedRowDto`, `ReaderAuthorSectionQuestionDto`, `ReaderCaptureInput`, `ReaderCaptureReceiptDto`, `ReaderExerciseImportReceiptDto`, `ReaderImportExerciseInput`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `CorrespondentsDto`, `MenuObjectInput`, `PassageKnowsDto`, `PromotedRowDto`, `ReaderAuthorSectionQuestionDto`, `ReaderCaptureInput`, `ReaderCaptureReceiptDto`, `ReaderExerciseImportReceiptDto`, `ReaderImportExerciseInput`
+- [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export; imports `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/desks/menu/model|src/screens/desks/menu/model.ts]] — import-or-re-export; imports `MenuObject`, `MenuRow`, `VerbId`, `objectInput`, `verbsFor`
 
 ### Assets, platform, and third-party dependencies

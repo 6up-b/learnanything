@@ -47,76 +47,80 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py) |
-| Source lines | 1063 |
+| Source lines | 1209 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `rich_tiers_switch(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 128)
-- `manim_runtime_state(vault: Any, *, probe: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 132) — Whether this machine can run the Manim tier, and why not: Linux, the ``bwrap`` binary, Manim installed (probed once per process per command: ``manim --version`` takes seconds).
-- `manim_tier_ready(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 169) — The Manim tier is on the menu: the rich tiers on, this machine ready, the standing opt-in given.
-- `manim_opt_in_needed(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 177) — The Manim tier would be on the menu but for the opt-in, never asked yet (the press shows the inline *allow · not now* once; spec §9b.3).
-- `tiers_allowed(vault: Any, *, sketch: bool) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/figures/rich.py), line 187) — The author's menu (module docstring), in the spec's order.
-- `rich_on_menu(tiers: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 198)
-- `runtime_digest(vault: Any) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 202) — What a Manim figure's reuse key and row name: the Manim version and the sandbox profile (§8.5).
-- `class RichBrief` ([source](../../../../../../src/learnloop/figures/rich.py), line 214)
-  - `as_dict(self) -> dict[str, Any]` (line 222; public)
-- `parse_brief(raw: Any, tiers: Sequence[str], status: str, *, grounded: bool=True) -> tuple[RichBrief | None, list[str]]` ([source](../../../../../../src/learnloop/figures/rich.py), line 228) — The author's ``rich_json`` for a rich status: the tier must be the status and on the menu; the brief is capped at :data:`RICH_BRIEF_MAX`.
-- `class FigureManimOutputV1(ManimAnimation)` ([source](../../../../../../src/learnloop/figures/rich.py), line 271) — The rich author's answer for the ``manim`` tier: the concept animation contract (scene_code, scene_class, title, narration_md), reused, plus ``declared_json`` (the functions, claims and plotted_from; spec §9b.1).
-- `declared_text() -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 297)
-- `rich_instructions() -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 312)
-- `rich_context(vault: Any, author_context: Mapping[str, Any], brief: Mapping[str, Any], problems: Sequence[str], revision: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 316) — What the rich author is sent: what the figure author saw (passages, the request, its grounding), the brief, the animation settings the concept pipeline uses, and the problems of the last attempt (code's words).
-- `rich_prompt(context: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 344)
-- `rich_build_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/rich.py), line 354) — What a rich job depends on, compared before every request it makes (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switches, the rich route as configured, the day's cap and price, and the standing opt-in (withdrawn: the job stops with nothing stored).
-- `attempt_hosted_job(repository: Repository, payload: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 374) — RW5d P3 (orchestrator ruling R1): a rich job for a figure asked on an attempt host (practice, feedback or the workbench).
-- `class RichJobStopped(Exception)` ([source](../../../../../../src/learnloop/figures/rich.py), line 396) — The rich job ends without a row (``code``: ``figures_changed``, ``rich_disabled``, ``manim_unavailable``, ``exam_material``, ``waiting_for_plan``, ``capped``, ``unpriced``, ``unrouted``, ``not_isolated``, ``models_off``); ``retryable`` for the plan wait.
-  - `__init__(self, code: str, message: str, *, retryable: bool=False) -> None` (line 402; internal)
-- `run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any], *, client: Any | None=None, report: Report | None=None, renderer: Renderer | None=None, function_runner: M.FunctionRunner | None=None, live_vault: Callable[[], Any] | None=None, cancellation: tuple[type[BaseException], ...]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 445) — The rich job's body (module docstring).
-- `content_key_for(payload: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 832) — A rich job's request identity: its input and the quick figure it follows (a rerun recovers a paid answer).
-- `canonical_spec(figure: M.ManimFigure, brief: Mapping[str, Any], assumptions: Sequence[Mapping[str, Any]], claims: Sequence[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 841)
-- `rich_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/rich.py), line 924) — The rich jobs the queue still keeps, newest first.
-- `job_state(job: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 933) — A rich job as the figure line reads it: ``pending`` (with its phase), ``waiting_for_plan``, ``failed`` (with code's reason) or ``cancelled``.
-- `rich_job_for_quick(repository: Repository, fast_figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 953) — The newest rich job started for this quick figure, in any state, looked up by its payload over the whole queue (not a recent window), so a recovered intent (Codex review F8) never restarts a build that ran, failed or was cancelled long ago.
-- `rich_job_for_request(repository: Repository, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 966) — The newest rich job of this figure request, in any state, looked up by its payload over the whole queue (Reader follow-ups Nov 1b, RW5d P2b ruling R1: a stored failure's job, however many rich jobs ran since).
-- `rich_job_for_figure(repository: Repository, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 978) — The newest rich job correcting this figure (payload ``supersedes_id``), in any state, over the whole queue (Reader follow-ups Nov 1b, Codex review F4: a newer correction speaks for the figure even after it left the recent window, a cancelled one that stored no row included).
-- `rich_job_id_for_quick(repository: Repository, fast_figure_id: str) -> str | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 991)
-- `rich_job_for(jobs: Sequence[Mapping[str, Any]], *, input_hash: str | None=None, fast_figure_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 996)
-- `due_for_plan_retry(job_id: str, *, now: float | None=None) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 1011) — A plan-waiting job is asked again at most once per :data:`PLAN_WAIT_RETRY_SECONDS` (in this process).
-- `plan_retry_order(job_id: str) -> float` ([source](../../../../../../src/learnloop/figures/rich.py), line 1023) — A sort key: the job's last plan retry in this process (``-inf``: never asked), so a scan asks the least recently asked job first (follow-ups batch 6, Codex review F2).
+- `rich_tiers_switch(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 136)
+- `manim_runtime_state(vault: Any, *, probe: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 140) — Whether this machine can run the Manim tier, and why not: Linux, the ``bwrap`` binary, Manim installed (probed once per process per command: ``manim --version`` takes seconds).
+- `manim_tier_ready(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 177) — The Manim tier is on the menu: the rich tiers on, this machine ready, the standing opt-in given.
+- `manim_opt_in_needed(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 185) — The Manim tier would be on the menu but for the opt-in, never asked yet (the press shows the inline *allow · not now* once; spec §9b.3).
+- `class MenuFacts` ([source](../../../../../../src/learnloop/figures/rich.py), line 203) — What the menu is decided from, read by :func:`menu_facts`: the sketch tier as ready on this machine; whether a rich job can be started (a spawner), and when it can't, the request's host; the rich tiers' switch, the Manim opt-in, and ``manim_runtime_state`` when it was asked (Non…
+- `tier_menu(facts: MenuFacts) -> tuple[tuple[str, ...], dict[str, str]]` ([source](../../../../../../src/learnloop/figures/rich.py), line 216) — The author's menu (module docstring), in the spec's order, and a code (:data:`TIER_ABSENT_CODES`) for each tier left off it.
+- `menu_facts(vault: Any, *, sketch: bool, spawner: bool, host: str | None=None) -> MenuFacts` ([source](../../../../../../src/learnloop/figures/rich.py), line 239) — The facts :func:`tier_menu` decides from, read in :func:`manim_tier_ready`'s order: the Manim probe is asked only with a spawner, the rich tiers on and the standing opt-in (as before), never otherwise.
+- `tiers_allowed(vault: Any, *, sketch: bool) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/figures/rich.py), line 250) — The author's menu (module docstring), in the spec's order, for a request that can start a rich job.
+- `rich_on_menu(tiers: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 256)
+- `runtime_digest(vault: Any) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 260) — What a Manim figure's reuse key and row name: the Manim version and the sandbox profile (§8.5).
+- `class RichBrief` ([source](../../../../../../src/learnloop/figures/rich.py), line 272)
+  - `as_dict(self) -> dict[str, Any]` (line 280; public)
+- `parse_brief(raw: Any, tiers: Sequence[str], status: str, *, grounded: bool=True) -> tuple[RichBrief | None, list[str]]` ([source](../../../../../../src/learnloop/figures/rich.py), line 286) — The author's ``rich_json`` for a rich status: the tier must be the status and on the menu; the brief is capped at :data:`RICH_BRIEF_MAX`.
+- `class FigureManimOutputV1(ManimAnimation)` ([source](../../../../../../src/learnloop/figures/rich.py), line 329) — The rich author's answer for the ``manim`` tier: the concept animation contract (scene_code, scene_class, title, narration_md), reused, plus ``declared_json`` (the functions, claims and plotted_from; spec §9b.1).
+- `declared_text() -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 355)
+- `rich_instructions() -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 370)
+- `rich_context(vault: Any, author_context: Mapping[str, Any], brief: Mapping[str, Any], problems: Sequence[str], revision: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 374) — What the rich author is sent: what the figure author saw (passages, the request, its grounding), the brief, the animation settings the concept pipeline uses, and the problems of the last attempt (code's words).
+- `rich_prompt(context: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 402)
+- `rich_build_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/rich.py), line 412) — What a rich job depends on, compared before every request it makes (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switches, the rich route as configured, the day's cap and price, and the standing opt-in (withdrawn: the job stops with nothing stored).
+- `attempt_hosted_job(repository: Repository, payload: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 432) — RW5d P3 (orchestrator ruling R1): a rich job for a figure asked on an attempt host (practice, feedback or the workbench).
+- `class RichJobStopped(Exception)` ([source](../../../../../../src/learnloop/figures/rich.py), line 454) — The rich job ends without a row (``code``: ``figures_changed``, ``rich_disabled``, ``manim_unavailable``, ``exam_material``, ``waiting_for_plan``, ``capped``, ``unpriced``, ``unrouted``, ``not_isolated``, ``models_off``); ``retryable`` for the plan wait.
+  - `__init__(self, code: str, message: str, *, retryable: bool=False) -> None` (line 460; internal)
+- `run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any], *, client: Any | None=None, report: Report | None=None, renderer: Renderer | None=None, function_runner: M.FunctionRunner | None=None, live_vault: Callable[[], Any] | None=None, cancellation: tuple[type[BaseException], ...]=(), clock: Clock | None=None, job_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 503) — The rich job's body (module docstring).
+- `content_key_for(payload: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 974) — A rich job's request identity: its input and the quick figure it follows (a rerun recovers a paid answer).
+- `canonical_spec(figure: M.ManimFigure, brief: Mapping[str, Any], assumptions: Sequence[Mapping[str, Any]], claims: Sequence[Mapping[str, Any]]) -> str` ([source](../../../../../../src/learnloop/figures/rich.py), line 983)
+- `rich_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/rich.py), line 1066) — The rich jobs the queue still keeps, newest first.
+- `job_state(job: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 1075) — A rich job as the figure line reads it: ``pending`` (with its phase), ``waiting_for_plan``, ``failed`` (with code's reason) or ``cancelled``.
+- `rich_job_for_quick(repository: Repository, fast_figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 1095) — The newest rich job started for this quick figure, in any state, looked up by its payload over the whole queue (not a recent window), so a recovered intent (Codex review F8) never restarts a build that ran, failed or was cancelled long ago.
+- `rich_job_for_request(repository: Repository, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 1108) — The newest rich job of this figure request, in any state, looked up by its payload over the whole queue (Reader follow-ups Nov 1b, RW5d P2b ruling R1: a stored failure's job, however many rich jobs ran since).
+- `rich_job_for_figure(repository: Repository, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 1120) — The newest rich job correcting this figure (payload ``supersedes_id``), in any state, over the whole queue (Reader follow-ups Nov 1b, Codex review F4: a newer correction speaks for the figure even after it left the recent window, a cancelled one that stored no row included).
+- `rich_job_id_for_quick(repository: Repository, fast_figure_id: str) -> str | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 1133)
+- `rich_job_for(jobs: Sequence[Mapping[str, Any]], *, input_hash: str | None=None, fast_figure_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 1138)
+- `due_for_plan_retry(job_id: str, *, now: float | None=None) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 1153) — A plan-waiting job is asked again at most once per :data:`PLAN_WAIT_RETRY_SECONDS` (in this process).
+- `plan_retry_order(job_id: str) -> float` ([source](../../../../../../src/learnloop/figures/rich.py), line 1165) — A sort key: the job's last plan retry in this process (``-inf``: never asked), so a scan asks the least recently asked job first (follow-ups batch 6, Codex review F2).
 
 ### Module constants
 
-- `RICH_TASK` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 89)
-- `RICH_PROMPT_VERSION` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 90)
-- `RICH_TIERS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 92)
-- `RICH_BRIEF_MAX` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 94)
-- `MAX_RICH_ATTEMPTS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 96)
-- `SANDBOX_PROFILE_VERSION` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 98)
-- `RICH_JOB_TYPE` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 100)
-- `PLAN_WAIT_RETRY_SECONDS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 104)
-- `WAITING_FOR_PLAN` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 106)
-- `RICH_OFF_KIND` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 108)
-- `RICH_OFF_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 109)
-- `MANIM_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 111)
-- `MANIM_UNCHECKED_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 112)
-- `MANIM_NOT_FROM_BOOKS_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 113)
-- `MANIM_NOT_COVERED` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 115)
-- `LEDGER_TASK` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 116)
-- `TIER_LEDGER_TASK` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 117)
-- `_MANIM_PROBE` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 124)
-- `_PROBE_GUARD` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 125)
-- `DECLARED_TEXT` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 279)
-- `RICH_INSTRUCTIONS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 301)
-- `ATTEMPT_HOST_READER_ONLY` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 370)
-- `PREFETCH_NOT_PLAN` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 551)
-- `PREFETCH_RENDER_CAP` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 553)
-- `BACKGROUND_HOLDS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 562)
-- `LEARNER_STATE_OFF` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 615)
-- `PHASES` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 920)
-- `_LAST_REQUEUE` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 1007)
-- `_REQUEUE_GUARD` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 1008)
+- `RICH_TASK` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 97)
+- `RICH_PROMPT_VERSION` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 98)
+- `RICH_TIERS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 100)
+- `RICH_BRIEF_MAX` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 102)
+- `MAX_RICH_ATTEMPTS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 104)
+- `SANDBOX_PROFILE_VERSION` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 106)
+- `RICH_JOB_TYPE` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 108)
+- `PLAN_WAIT_RETRY_SECONDS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 112)
+- `WAITING_FOR_PLAN` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 114)
+- `RICH_OFF_KIND` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 116)
+- `RICH_OFF_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 117)
+- `MANIM_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 119)
+- `MANIM_UNCHECKED_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 120)
+- `MANIM_NOT_FROM_BOOKS_LABEL` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 121)
+- `MANIM_NOT_COVERED` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 123)
+- `LEDGER_TASK` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 124)
+- `TIER_LEDGER_TASK` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 125)
+- `_MANIM_PROBE` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 132)
+- `_PROBE_GUARD` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 133)
+- `TIER_ABSENT_CODES` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 198)
+- `DECLARED_TEXT` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 337)
+- `RICH_INSTRUCTIONS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 359)
+- `ATTEMPT_HOST_READER_ONLY` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 428)
+- `PREFETCH_NOT_PLAN` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 658)
+- `PREFETCH_RENDER_CAP` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 660)
+- `BACKGROUND_HOLDS` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 669)
+- `LEARNER_STATE_OFF` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 722)
+- `PHASES` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 1062)
+- `_LAST_REQUEUE` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 1149)
+- `_REQUEUE_GUARD` ([src/learnloop/figures/rich.py](../../../../../../src/learnloop/figures/rich.py), line 1150)
 
 ### Explicit exports
 
@@ -152,22 +156,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `rich_prompt`
 - `run_rich_job`
 - `tiers_allowed`
+- `tier_menu`
+- `menu_facts`
+- `MenuFacts`
+- `TIER_ABSENT_CODES`
 
 ## Internal implementation anchors
 
-- `_say(report: Report | None, phase: str, message: str) -> None` ([source](../../../../../../src/learnloop/figures/rich.py), line 419)
-- `_existing(repository: Repository, input_hash: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 424)
-- `_verified_quotes(brief: Mapping[str, Any], span_texts: Mapping[str, str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/figures/rich.py), line 429)
-- `_background_holds() -> tuple[str, ...]` ([source](../../../../../../src/learnloop/figures/rich.py), line 556)
-- `_prefetch_hold(repository: Repository, client: Any | None) -> Callable[[Any], str | None]` ([source](../../../../../../src/learnloop/figures/rich.py), line 565) — RW5d P5: a prebuild's rich job's hold before every request (the vault as configured now): the switch, the power and foreground work (the gate waits for it first, before it reads the vault: Codex re-review F16), the rich author's route on the plan (Codex review F2), and today's b…
-- `_prefetch_wait() -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 590) — A prebuild's rich job's wait for foreground work to end (at most ``FOREGROUND_WAIT_SECONDS``), run by its gate before it reads the vault.
-- `_pressed_foreground(pressed: bool) -> Iterator[None]` ([source](../../../../../../src/learnloop/figures/rich.py), line 600) — RW5d P5 (Codex review F7): a pressed rich build is the learner's work in flight, so background prebuilds yield to it while it runs.
-- `_recovered(vault: Any, repository: Repository, payload: Mapping[str, Any], found: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 619) — The figure this job's input already stored (a resumed job whose row committed before it was acknowledged, or a concurrent store), returned only while the learner state its author was sent, as the stored row and the job's payload record it, is not protected now (Codex re-review F…
-- `_plan_down(exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 636)
-- `_interrupt(report: Report | None, phase: str) -> Callable[[], None] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 643) — The claim check's ``interrupt`` hook: the job's heartbeat in its current phase, where a cancel is noticed (Codex review F2, F6).
-- `_run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any], gate: FiguresGate, client: Any | None, report: Report | None, renderer: Renderer | None, function_runner: M.FunctionRunner | None, clock: Clock | None, cancellation: tuple[type[BaseException], ...]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 652)
-- `_repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any], gate: FiguresGate, route: R.FigureRoute, report: Report | None, render: Renderer, function_runner: M.FunctionRunner | None, stderr: str, previous: M.ManimFigure, clock: Clock | None, cancellation: tuple[type[BaseException], ...]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 770)
-- `_store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any], route: R.FigureRoute, figure: M.ManimFigure | None, checks: M.CheckReport | None, video: bytes | None, failure: str, span_texts: Mapping[str, str], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 852)
+- `_say(report: Report | None, phase: str, message: str) -> None` ([source](../../../../../../src/learnloop/figures/rich.py), line 477)
+- `_existing(repository: Repository, input_hash: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 482)
+- `_verified_quotes(brief: Mapping[str, Any], span_texts: Mapping[str, str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/figures/rich.py), line 487)
+- `_record_rich(repository: Repository, payload: Mapping[str, Any], attempts: FR.AuthorAttempts, *, job_id: str | None, result: Mapping[str, Any] | None=None, error: BaseException | None=None) -> None` ([source](../../../../../../src/learnloop/figures/rich.py), line 535) — The job's ``figure_rich_author`` records, one per attempt it started (none when it stopped before any: its stop record says why).
+- `_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any], *, client: Any | None, report: Report | None, renderer: Renderer | None, function_runner: M.FunctionRunner | None, live_vault: Callable[[], Any] | None, cancellation: tuple[type[BaseException], ...], clock: Clock | None, job_id: str | None, attempts: FR.AuthorAttempts) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 553)
+- `_background_holds() -> tuple[str, ...]` ([source](../../../../../../src/learnloop/figures/rich.py), line 663)
+- `_prefetch_hold(repository: Repository, client: Any | None) -> Callable[[Any], str | None]` ([source](../../../../../../src/learnloop/figures/rich.py), line 672) — RW5d P5: a prebuild's rich job's hold before every request (the vault as configured now): the switch, the power and foreground work (the gate waits for it first, before it reads the vault: Codex re-review F16), the rich author's route on the plan (Codex review F2), and today's b…
+- `_prefetch_wait() -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 697) — A prebuild's rich job's wait for foreground work to end (at most ``FOREGROUND_WAIT_SECONDS``), run by its gate before it reads the vault.
+- `_pressed_foreground(pressed: bool) -> Iterator[None]` ([source](../../../../../../src/learnloop/figures/rich.py), line 707) — RW5d P5 (Codex review F7): a pressed rich build is the learner's work in flight, so background prebuilds yield to it while it runs.
+- `_recovered(vault: Any, repository: Repository, payload: Mapping[str, Any], found: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 726) — The figure this job's input already stored (a resumed job whose row committed before it was acknowledged, or a concurrent store), returned only while the learner state its author was sent, as the stored row and the job's payload record it, is not protected now (Codex re-review F…
+- `_plan_down(exc: BaseException) -> bool` ([source](../../../../../../src/learnloop/figures/rich.py), line 743)
+- `_interrupt(report: Report | None, phase: str) -> Callable[[], None] | None` ([source](../../../../../../src/learnloop/figures/rich.py), line 750) — The claim check's ``interrupt`` hook: the job's heartbeat in its current phase, where a cancel is noticed (Codex review F2, F6).
+- `_run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any], gate: FiguresGate, client: Any | None, report: Report | None, renderer: Renderer | None, function_runner: M.FunctionRunner | None, clock: Clock | None, cancellation: tuple[type[BaseException], ...]=(), attempts: FR.AuthorAttempts | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 759)
+- `_repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any], gate: FiguresGate, route: R.FigureRoute, report: Report | None, render: Renderer, function_runner: M.FunctionRunner | None, stderr: str, previous: M.ManimFigure, clock: Clock | None, cancellation: tuple[type[BaseException], ...]=(), attempts: FR.AuthorAttempts | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 892)
+- `_render_failed(attempts: FR.AuthorAttempts, result: Any) -> None` ([source](../../../../../../src/learnloop/figures/rich.py), line 964) — The current attempt's render failed: out of its time (the renderer's own timeout, no exit code), or not.
+- `_store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any], route: R.FigureRoute, figure: M.ManimFigure | None, checks: M.CheckReport | None, video: bytes | None, failure: str, span_texts: Mapping[str, str], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/rich.py), line 994)
 
 ## Who imports or calls it
 
@@ -175,7 +186,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]] — imports `module`; statically calls `parse_brief`
-- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `RichBrief`, `job_state`, `rich_job_for`, `rich_job_id_for_quick`, `rich_jobs`, `rich_on_menu`, `runtime_digest`, `tiers_allowed`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `RichBrief`, `job_state`, `menu_facts`, `rich_job_for`, `rich_job_id_for_quick`, `rich_jobs`, `rich_on_menu`, `runtime_digest`, `tier_menu`
 - [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]] — imports `RichJobStopped`, `run_rich_job`; statically calls `run_rich_job`
 - [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`; statically calls `job_state`, `rich_job_for_figure`, `rich_job_for_request`, `rich_jobs`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `RICH_TASK`, `module`; statically calls `job_state`, `rich_job_for_request`, `rich_jobs`
@@ -198,13 +209,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `has_tables`, `insert_figure`, `request`, `reusable`, `set_request_figure`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `FiguresChanged`, `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`; calls `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `FiguresChanged`, `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `hold_reason`, `manim_opt_in`, `rich_tiers_enabled`; calls `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `hold_reason`, `manim_opt_in`, `rich_tiers_enabled`
 - [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] — imports `foreground`, `module`; calls `foreground`, `wait_idle`
 - [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]] — imports `module`
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `module`; calls `ManimFigure`, `check_claims`, `parse_figure`
 - [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] — imports `NOT_ON_MAINS`, `SWITCHED_OFF`, `YIELDED`, `background_hold`; calls `background_hold`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `render_minutes_left`; calls `render_minutes_left`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `ATTEMPT_HOST_REFS`, `LEARNER_STATE_INPUTS_KEY`, `_carries_learner_state`, `_inherited_withheld`, `_inherits_learner_state`, `_learner_state_withheld`, `_withheld`, `rich_base_item_protected`, `stored_learner_state_withheld`; calls `_carries_learner_state`, `_inherited_withheld`, `_inherits_learner_state`, `_learner_state_withheld`, `_withheld`, `rich_base_item_protected`, `stored_learner_state_withheld`
+- [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `module`; calls `AuthorAttempts`, `in_one_trace`, `rich_stop_record`, `write_records`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`; calls `FigureRoute`, `daily_envelope`, `models_off`
 - [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `MANIM_FIG_VERSION`
 - [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]] — imports `quote_in`; calls `quote_in`
@@ -213,7 +225,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `sqlite3`, `sys`, `threading`, `time`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `sqlite3`, `sys`, `threading`, `time`, `types`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -234,6 +246,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/rich_fixtures.py](../../../../../../tests/rich_fixtures.py) — direct import
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_the_vocabulary_comes_from_the_code_owned_labels`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_full_menu_has_no_absent_tier`
+  - `test_a_rich_job_whose_learner_state_became_protected_holds_for_it`
+  - `test_a_rich_prebuild_holds_for_the_plan_and_the_render_minutes`
+  - `test_a_rich_prebuild_whose_item_became_protected_holds_for_it`
+  - `test_every_code_is_staged`
+  - `test_the_menu_names_a_code_for_each_absent_tier`
+  - `test_tiers_allowed_is_the_menu_it_was_and_probes_only_when_it_did`
+- [tests/test_figure_rich_attempt_records.py](../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
+  - `test_a_stop_waiting_for_the_plan_is_deferred_with_its_attempt`
+  - `test_a_video_that_lands_records_its_one_attempt_on_the_figure`
 - [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
   - `test_switched_off_no_rich_tier_and_no_ask`
   - `test_the_prompt_names_the_rich_tiers_the_menu_offers`

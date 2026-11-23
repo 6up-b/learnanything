@@ -337,6 +337,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — direct import
 - [tests/reader_followups_round4_helpers.py](../../../../../../tests/reader_followups_round4_helpers.py) — direct import
 - [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
+- [tests/reader_rd10_helpers.py](../../../../../../tests/reader_rd10_helpers.py) — direct import
 - [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
@@ -613,6 +614,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
+- [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
 - [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
   - `test_a_crash_between_two_renames_is_completed_at_the_next_sidecar_bind`
   - `test_doctor_and_the_feed_surface_a_conflicted_intent`
@@ -1501,6 +1504,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_predictions.py](../../../../../../tests/test_figure_predictions.py) — direct import
   - `test_the_backlog_sweep_queues_missed_predictions`
   - `test_what_changed_is_kept_once_and_read_with_the_missed_prediction`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_hold_with_no_code_is_recorded_unclassified`
+  - `test_a_listed_chain_whose_pick_is_withheld_is_recorded_once_per_figure`
+  - `test_a_listed_figure_whose_spec_no_longer_parses_is_recorded_once`
+  - `test_a_route_that_cannot_be_called_refuses_the_request_with_its_code`
+  - `test_a_switch_turned_off_mid_build_refuses_with_the_gates_rule`
+  - `test_the_gate_record_names_the_request_and_why_a_press_cancelled_mid_build`
 - [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
   - `test_allowing_where_manim_cannot_run_is_refused`
@@ -2194,6 +2204,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_next_practice.py](../../../../../../tests/test_next_practice.py) — direct import
   - `test_a_writable_read_of_the_due_queue_would_have_changed_it`
   - `test_it_reads_nothing_through_the_callers_repository`
+- [tests/test_notebook_lessons.py](../../../../../../tests/test_notebook_lessons.py) — direct import
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_a_changed_note_is_read_with_its_current_snapshot_and_the_old_one_is_not`
   - `test_a_hidden_link_is_never_read_and_undo_queues_it_again`
@@ -2538,6 +2549,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_queue_roundtrip`
   - `test_sidecar_reader_question_transcript_can_be_resumed`
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
+- [tests/test_queue_revision_after_applying_jobs.py](../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
+  - `test_a_legacy_ingest_that_applies_practice_moves_the_revision`
+  - `test_a_picked_source_exercise_written_as_practice_moves_the_revision`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
   - `test_exam_prep_quick_add_ends_with_an_applied_map_and_its_goal`
   - `test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief`
@@ -2613,11 +2627,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
   - `test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once`
   - `test_the_umbrella_rebuild_runs_both_replayers`
+- [tests/test_reader_rd10_video.py](../../../../../../tests/test_reader_rd10_video.py) — direct import
+  - `test_chapters_are_judged_once_stored_suggested_and_accepting_stores`
+  - `test_chapters_are_off_with_the_curriculum`
+  - `test_follow_along_maps_the_playing_cue_to_the_books_correspondent_passage`
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
   - `test_the_empty_and_thin_states`
   - `test_the_lens_levels_follow_the_real_path_and_coverage`
   - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
+- [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
+  - `test_lesson_list_names_each_lesson_with_its_additions_pad`
 - [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_typed_summary_is_deterministic_from_the_ledgers`

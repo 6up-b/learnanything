@@ -103,6 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] — imports `ListwiseTask`, `judge_listwise`, `route_skip`, `task_output_tokens`; statically calls `ListwiseTask`, `judge_listwise`, `route_skip`, `task_output_tokens`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `ListwiseTask`, `judge_listwise`, `listwise_caps`, `route_skip`, `task_output_tokens`; statically calls `ListwiseTask`, `judge_listwise`, `listwise_caps`, `route_skip`, `task_output_tokens`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `ListwiseTask`, `judge_listwise`, `listwise_caps`, `route_skip`; statically calls `ListwiseTask`, `judge_listwise`, `listwise_caps`, `route_skip`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `ListwiseTask`, `judge_listwise`, `listwise_caps`; statically calls `ListwiseTask`, `judge_listwise`, `listwise_caps`
 
 ## Dependencies
 
@@ -132,7 +133,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]], [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]], [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]], [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]], [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]], [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]], [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
