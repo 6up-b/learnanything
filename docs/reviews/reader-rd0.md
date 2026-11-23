@@ -325,3 +325,74 @@ questions touched instead of a read section. The live databases were unchanged, 
 Not run: the write-through comparison after a new Ask and a new gap reading on a copy, because both make a model
 call. The tests compare write-through with a rebuild on fakes.
 
+
+## 15. Fix round (the Codex Astra adversarial review of the landing, 2026-11-22)
+
+Branch `reader/rd0-fix-round` from main `2b683f7af7`. All ten findings were defects; each is fixed, with a ledger
+row (`docs/reviews/refactor-bug-ledger.md`, RD0-1 to RD0-10). Each review scenario was first reproduced on the
+landed code, in a scratch test file kept out of the tree: before the fixes 12 of its tests failed, each by the
+review's scenario (the stale close closed the moved window; the stale unlink removed the newer link;
+`IntegrityError: UNIQUE constraint failed: pad_block_anchors.event_id` and `… pad_block_versions.version_id`;
+`{'aB': 1} != {'aB': 2, 'a_b': 1}`; the opened vault's projections stayed empty; live and rebuild gap rows differed
+after the hide; the figure gap had no row; `INSERT OR REPLACE` did not raise; the practice projection read the
+answers; the grader and union fences stayed kept with a bypass added). After the fixes, those of its tests still
+written against the old op shapes fail on validation, as they should, and the rest pass; the committed tests below
+are the ones that hold the fixes.
+
+**The version model (RD0-1, RD0-2).** A desk op is bound to an explicit desk and its version: every window op names
+`desk_id`, its `expected_version` is that desk's, never whichever desk holds the window when the op lands, and a
+window no longer on the named desk is a conflict whose `current` names the desk's head and where the window is
+(`{desk_id, version, window_id, window_desk_id}`). A transfer (`move_to_desk`) names both heads
+(`expected_version`, `to_expected_version`), both checked before anything moves. A pad's anchors have their own head
+per (block, reading, passage): the newest link or unlink event. `link_anchor` and `unlink_anchor` must send
+`expected_anchor_head`, with an explicit `null` for "no event yet"; a stale one is a conflict with
+`current.anchor_head`. Block edits keep the block head. The protocol's shape is unchanged: a stale head is a
+`conflict` carrying the current head, and the batch's other ops land.
+
+| # | Finding | Test (fail-first on the landed code) | Fix |
+|---|---|---|---|
+| 1 | window ops versioned against the window's current desk; transfers unchecked at the destination | `test_reader_rd0_protocol.py::test_a_window_op_queued_for_one_desk_never_lands_on_the_desk_the_window_moved_to`, `::test_a_transfer_checks_the_destination_head_too` | the version model above (`desks/workspace.py`) |
+| 2 | anchor changes with no effective head | `::test_an_anchor_change_names_the_anchor_head_it_expects`, `::test_an_anchor_op_without_its_expected_head_is_refused_by_the_params` | required `expected_anchor_head` (`pads/blocks.py`, `db.stores.pad_reads.latest_anchor_event`) |
+| 3 | client-id collisions stalled the outbox | `::test_a_reused_client_id_is_a_refusal_and_the_outbox_moves_on` | `event_exists` and `id_collision` refusals; other database errors still fail the batch |
+| 4 | opaque JSON camelCased (keys merged) | `test_reader_rd0_rpcs.py::test_opaque_json_round_trips_with_its_keys_as_stored` | `learnloop_sidecar.dto.Verbatim` for payloads, anchors and views; declared fields still camelCase |
+| 5 | history never projected on a vault already at the latest tag | `test_reader_rd0_spans.py::test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once` | `substrate.passage_spans.initialize_on_open`, run by the sidecar's vault open after state sync, one transaction with one receipt per projection in `projection_initializations` (migration 264), whatever the tag; a vault with both receipts does one read. A migration was needed: no existing table records a one-time, tag-independent projection (`derived_state_rebuilds` rows are read as canonical-projection baselines) |
+| 6 | `learner_note` gap rows diverged after a link changed | `::test_a_note_link_changed_after_the_gap_was_read_keeps_live_equal_to_rebuild[hidden]`, `[linked]` | both paths read the hand links that stood when the gap's text was read (created before the gap): a link hidden later still places the gap, a link made later does not, in both. Chosen over reprojecting on every link decision because the link has several writers and this one rule keeps live equal to rebuild by construction |
+| 7 | fence bypasses | `test_reader_rd0_fences.py::test_a_grader_reaching_a_workbench_read_through_any_dependency_breaks_its_fence`, `::test_the_union_read_reaching_a_mutating_store_breaks_its_fence`, `::test_the_read_modules_hold_no_write` | reads apart from writes (`db.stores.pad_reads`, `db.stores.span_projection_reads`); `graders-never-reach-the-workbench-v2` at the grading leaves with indirect imports refused (it caught one real chain while being written: the projection writer imported the read module for one existence check, reachable from the grader through the gap pipeline; the check now lives in the writer); the union fenced off the mutating stores, and its own SQL and the history's on read-only connections |
+| 8 | figure predictions missing from `reader_formative` | `test_reader_rd0_spans.py::test_a_figure_prediction_gap_is_placed_on_its_figures_passages[fpr_1]`, `[fpr_1:explained]` | the figure's passages, `source_context` |
+| 9 | replacing inserts bypassed append-only | `test_reader_rd0_guards_migration.py::test_a_replacing_insert_is_refused_and_the_row_stays` (5 tables), `::test_a_replacing_insert_cannot_rewrite_a_blocks_chain` | BEFORE INSERT guards (migration 264); the exchange-context writer checks first and inserts plainly |
+| 10 | a full scan of the answers per projection | `test_reader_rd0_spans.py::test_projecting_a_practice_question_reads_no_reader_answer`, `test_reader_rd0_guards_migration.py::test_one_exchanges_answer_lookup_uses_the_index` | a partial expression index (migration 264); the lookup sorts in Python, since an SQL `ORDER BY created_at` made the planner walk the `(kind, created_at)` index over every answer even with the new index; no lookup for a non-Reader exchange |
+
+**RD0-10, measured** (a fresh vault with 20,000 Reader answers, median of 15 runs, the projection in one transaction):
+
+| | Reader exchange projection | practice question projection | one answer lookup |
+|---|---|---|---|
+| landed code, no index | 13.71 ms | 15.52 ms | — |
+| fixed code, index dropped | 15.46 ms | 0.00 ms | 14.79 ms |
+| fixed code, with the index | 0.02 ms | 0.00 ms | 0.00 ms |
+
+The landed cost grew with every answer recorded, inside the Ask's RPC (under the sidecar's response mutex) and inside
+the gap pipeline's `BEGIN IMMEDIATE`; it is now an index probe.
+
+**Migration 264** (D8 gap 2 takes 263, in its gate): the guards, `projection_initializations` (RECEIPT) and the
+index; the fixture upgrade in its own commit. On this branch alone the range-asserting upgrade tests meet the missing
+263 (as RD0 met 261); they pass with an empty placeholder 263 present (§15 results).
+
+No algorithm tag: nothing that scores, schedules, certifies or writes evidence reads anything changed here.
+
+**Fix round results** (each pytest run `-n 1 -m "not arc_close"` through the scratch wrapper in a 3G scope):
+
+| Command | Result |
+|---|---|
+| the seven RD0 test files with the new tests | 97 passed |
+| `scripts/affected_tests.py --files <the changed src files>` | 1,376 files (the sidecar's vault open changed); filter: names matching `reader|tutor|text_gap|learner_gap|gaps|rebuild|replay|table_role|notes|rd0|ask|provenance|question|workbench|intent|desk|mobile|sidecar|context|golden|first_run|startup|load`, plus every file counting table writes or recording rows (`table_counts`, `row_delta`, `_database_changes`), migration and schema tests apart: 324 files in 9 chunks of at most 40 | 5,033 passed, 17 skipped, 5 xfailed, 1 failed: `test_reader_ca2_fix_orchestrator.py::test_223_…`, the missing 263 |
+| the 51 migration and schema tests + the range-asserting files + `test_migrations`, `test_rebuild_orchestrator`, `test_table_roles`, both RD0 migration tests | 315 passed, 28 failed, every one "264 != 263" |
+| the same 28 with an empty placeholder `migrations/263_d8_placeholder.sql` (removed after) | 28 passed |
+| identity pins, structure ratchets, effective defaults, CLI snapshot, kill switches, sqlite copies, public tip guards, and the row-recording goldens (grade application, diagnosis journey, due queue, synthesis tail) | 478 passed (no golden moved: the open's initialization is not a stage those goldens record) |
+| `tests/test_architecture.py` alone / `tests/test_test_layout.py` alone | 18 passed / 3 passed |
+| `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / Contracts: 52 kept, 0 broken. / collected 33100: landing 33034 + arc_close 66 |
+| `npm run typecheck` / `npx vitest run --maxWorkers=2 src/api` | exit 0 / 2 files, 6 tests passed |
+| the migration-head upgrade to 264 | applied `[264]`; checkpoint (0, 0, 0); journal `delete`; integrity ok; foreign keys clean; 11 objects; only `schema_migrations` changed |
+
+No Rust changed (no `cargo check`). Not verified: the owner copies (for RD0-5 the orchestrator's check is that an
+already-upgraded copy, opened once through the sidecar, gains its two receipts and that a second open writes
+nothing), the landing gate and the full suite, and the frontend build.
