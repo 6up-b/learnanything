@@ -765,6 +765,8 @@ The top four are drawn with a cyan ring. They are an attention limit, labelled.
 
 **The curve.** Each link is a cubic Bézier from the focused card's bottom centre to the target's bottom centre, each link offset by 26 world px from its neighbours. On the same row it dips; to another row it is a vertical S. Its label sits at u = .82.
 
+**The stroke** (the mockup's; added 2026-11-23): every link is cyan at 85 % opacity and 1.6 px on screen, whatever its weight; an explicit link (3) is solid, the others (2 and 1) are dashed 8 px / 6 px. The label is 11 px, `#bfeef5` over a `#0a0a0b` halo.
+
 **Toggles.** `b` in the overview toggles relations. There is no right-angle option in the product; the mockup's `links:` chip was a comparison aid.
 
 ### 6.6 Gather
