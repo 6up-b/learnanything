@@ -149,7 +149,8 @@ def chapters_suggest(ctx: SidecarContext, params: ChaptersInput) -> dict[str, An
 
     def work(job: PJ.PolledJob) -> dict[str, Any]:
         try:
-            result = VC.suggest(vault, repository, resolved, client=client, live_vault=live_vault)
+            result = VC.suggest(vault, repository, resolved, client=client, live_vault=live_vault,
+                                wanted=lambda: not job.cancelled and job.live())
         except (VC.ChaptersError, SC.CoverageError) as exc:
             raise _chapters_error(exc) from exc
         return {"status": result.status, "reason": result.reason, "message": result.message, "chapters": result.chapters,

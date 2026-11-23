@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -259,17 +259,24 @@ def accepted_at(repository: Repository, extraction_id: str, t: float) -> dict[st
     return _view(rows[0]) if rows else None
 
 
+class NotWanted(Exception):
+    """The judgment's job was cancelled, or its context closed or switched vaults, before its chapters were stored."""
+
+
 def store_suggestions(repository: Repository, extraction_id: str, source_id: str | None,
                       chapters: Sequence[dict[str, Any]], *, clock: Clock | None = None,
-                      guard: SC.CoverageGuard | None = None) -> None:
+                      guard: SC.CoverageGuard | None = None, wanted: Callable[[], bool] | None = None) -> None:
     """Replace the reading's chapters still suggested by these; a decided chapter (and the same chapter suggested
-    again) keeps its row."""
+    again) keeps its row. ``wanted``: whether the job asking is still wanted (not cancelled, its context open),
+    checked inside the write transaction, so a cancel that lands while the request is out stores nothing."""
 
     now = utc_now_iso(clock)
     with repository.atomic():
         connection = repository.connection()
         if guard is not None:
             guard.check("recording chapters")  # the last check, inside the write transaction
+        if wanted is not None and not wanted():
+            raise NotWanted("chapters no longer wanted")
         connection.execute("DELETE FROM video_chapters WHERE extraction_id = ? AND state = 'suggested'", (extraction_id,))
         for chapter in chapters:
             connection.execute(
@@ -304,7 +311,7 @@ def decide(vault: Any, repository: Repository, chapter_id_: str, decision: str, 
 
 def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None = None,
             clock: Clock | None = None, budget: SpendBudget | None = None,
-            live_vault: Any | None = None) -> SuggestResult:
+            live_vault: Any | None = None, wanted: Callable[[], bool] | None = None) -> SuggestResult:
     """Judge a video's chapters and store them suggested (no call when the same request is in the ledger). Never
     raises for a model failure: the result's ``status`` says what happened (``ready``, ``unavailable``, ``capped``,
     ``failed``, ``stale``, ``no_sections``)."""
@@ -328,7 +335,10 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
     learning_objects = SC.source_learning_objects(vault, repository, library, extraction_id)
     prompt = build_prompt(vault, library, extraction_id, sections, learning_objects)
     route = plan_route(vault, SC.ROUTE_TASK, client)
-    guard = SC.CoverageGuard(library, [(extraction_id, section.section_id) for section in sections], live_vault=live_vault)
+    # The curriculum's switch is read from the vault as it is at every request and at the write (a reload that turns
+    # it off stops the judgment), as protection is.
+    guard = SC.CoverageGuard(library, [(extraction_id, section.section_id) for section in sections], live_vault=live_vault,
+                             gate=SC.enabled)
 
     def capture(value: Any) -> Any:
         if not {judgment.ref for judgment in value.judgments} >= set(prompt.refs):
@@ -349,6 +359,9 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
                 price=vault.config.source_retrieval.llm_price_per_million, owner_id=owner_id, client=client,
                 route=route, validate=capture, clock=clock, budget=budget, admit=lambda _estimate: guard.check("attempt"),
                 context={"extraction_id": extraction_id})
+    except SC.GateClosed:
+        return SuggestResult("unavailable", reason="curriculum_disabled",
+                             message="The deliverable curriculum is off (curriculum.enabled = false).")
     except SC.ProtectionChanged:
         return SuggestResult("stale", reason="protection_changed", message=SC.STALE_MESSAGE)
     if not outcome.judged:
@@ -363,14 +376,21 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
                              else outcome.reason or outcome.status)
     chapters = assemble(extraction_id, sections, prompt, {key: dict(row) for key, row in outcome.rows.items()})
     try:
-        store_suggestions(repository, extraction_id, reading.source_id, chapters, clock=clock, guard=guard)
+        store_suggestions(repository, extraction_id, reading.source_id, chapters, clock=clock, guard=guard, wanted=wanted)
+    except SC.GateClosed:
+        return SuggestResult("unavailable", reason="curriculum_disabled",
+                             message="The deliverable curriculum is off (curriculum.enabled = false).")
     except SC.ProtectionChanged:
         return SuggestResult("stale", reason="protection_changed", message=SC.STALE_MESSAGE)
+    except NotWanted as exc:
+        from learnloop.ai.errors import AIInterrupted
+
+        raise AIInterrupted("chapter judgment cancelled before its chapters were stored") from exc
     return SuggestResult("ready", chapters=list_chapters(vault, repository, extraction_id, states=STATES))
 
 
 __all__ = [
-    "CHAPTERS_TASK", "ChaptersError", "SuggestResult", "TranscriptSection", "VideoChaptersOutputV1", "accepted_at",
+    "CHAPTERS_TASK", "ChaptersError", "NotWanted", "SuggestResult", "TranscriptSection", "VideoChaptersOutputV1", "accepted_at",
     "assemble", "build_prompt", "decide", "list_chapters", "section_at", "store_suggestions", "suggest",
     "transcript_sections",
 ]

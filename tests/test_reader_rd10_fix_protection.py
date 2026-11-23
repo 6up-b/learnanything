@@ -151,3 +151,42 @@ def test_the_replies_say_when_the_next_check_falls_due(tmp_path):
     _due_check(repository, "lo_det", days=2)
     assert call(ctx, "reader.follow_along", follow)["nextCheckDue"] is not None
     assert call(ctx, "chapters.list", {"extraction_id": VIDEO})["nextCheckDue"] is not None
+
+
+# -- the chapters job: cancelled while its request is out, and the curriculum switched off meanwhile ---------------
+
+class _CancellingJudge(ChaptersJudgeFake):
+    """Answers, but first does something to the world (cancels the job, switches the curriculum off)."""
+
+    def __init__(self, before) -> None:
+        super().__init__()
+        self.before = before
+
+    def complete(self, request):
+        self.before()
+        return super().complete(request)
+
+
+def test_a_suggestion_cancelled_while_its_request_is_out_stores_nothing(tmp_path):
+    paths, repository = build_video_vault(tmp_path / "vault")
+    holder: dict[str, Any] = {}
+    judge = _CancellingJudge(lambda: call(holder["ctx"], "chapters.cancel",
+                                          {"job_id": next(iter(holder["ctx"].video_chapters_judging.values()))}))
+    ctx = holder["ctx"] = context(paths.root, video_chapters_client=judge)
+    finished = _wait(ctx, call(ctx, "chapters.suggest", {"extraction_id": VIDEO})["jobId"])
+    assert finished["status"] == "cancelled" and judge.calls == 1
+    # "nothing was kept" is true: no chapter was stored.
+    assert call(ctx, "chapters.list", {"extraction_id": VIDEO})["chapters"] == []
+
+
+def test_the_curriculum_switched_off_while_a_suggestion_runs_stores_nothing(tmp_path):
+    from learnloop.source_retrieval import video_chapters as VC
+    from learnloop.vault.loader import load_vault
+    from tests.ux_phase1_support import set_config
+
+    paths, repository = build_video_vault(tmp_path / "vault")
+    judge = _CancellingJudge(lambda: set_config(paths.root, {("curriculum", "enabled"): False}))
+    result = VC.suggest(load_vault(paths.root), repository, VIDEO, client=judge)
+    assert (result.status, result.reason) == ("unavailable", "curriculum_disabled")
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM video_chapters").fetchone()[0] == 0
