@@ -26,6 +26,28 @@ interface Row {
   run?: () => void;
 }
 
+/** A source piece: the passage's own words as the source has them (whole, not a search label or the page's
+ * rendered text), its title, page, section and time apart. A held-out passage is not copied, and says so. */
+async function insertPiece(host: PadsHost, onInsert: (block: InsertBlock) => void, extractionId: string, spanId: string): Promise<void> {
+  try {
+    const content = await host.api.passageContent({ extractionId, fromSpanId: spanId, toSpanId: spanId });
+    const span = content.spans.find((each) => each.spanId === spanId) ?? content.spans[0];
+    if (content.withheld || !span || span.withheld || span.text === null) {
+      host.toast("this passage is held out (exam material): it is not copied into a pad");
+      return;
+    }
+    onInsert({
+      kind: "source_piece", provenance: "source", bodyMd: span.text,
+      payload: {
+        source_id: content.sourceId, source_title: content.title ?? "the source", extraction_id: extractionId, span_id: span.spanId,
+        page: span.page, section_label: span.sectionLabel, ...(span.t0 !== null ? { t: span.t0, t_end: span.t1 } : {}),
+      },
+    });
+  } catch (error) {
+    host.toast(`couldn't read that passage · ${messageOf(error)}`);
+  }
+}
+
 /** A block's anchored passages (its links), for Teach me and the LO of a teach-back. */
 function anchorsOf(state: PadState | null, blockId: string | null): Array<{ extractionId: string; spanId: string }> {
   if (!state || !blockId) return [];
@@ -83,11 +105,16 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
       key: index === 0 ? "i" : `piece-${index}`,
       glyph: piece.t !== undefined ? "▶" : "§",
       label: piece.label,
-      run: close(() => onInsert({ kind: "source_piece", provenance: "source", bodyMd: piece.text, payload: { source_title: piece.sourceTitle, extraction_id: piece.extractionId, span_id: piece.spanId, ...(piece.t !== undefined ? { t: piece.t } : {}) } })),
+      run: close(() => void insertPiece(host, onInsert, piece.extractionId, piece.spanId)),
     })),
     { key: "o", glyph: "⌕", label: "a piece of another source…", run: close(() => host.openSearch("", (row) => {
-      if (row.kind !== "result" || !row.ref || (row.ref.kind !== "source" && row.ref.kind !== "video")) return;
-      onInsert({ kind: "source_piece", provenance: "source", bodyMd: row.text, payload: { source_title: row.text.split(" · ")[0], extraction_id: row.ref.extractionId, span_id: row.target?.spanId ?? null } });
+      // A piece is a passage: a whole source (or a pad, a thread) is not one.
+      const spanId = row.kind === "result" ? row.target?.spanId : undefined;
+      if (row.kind !== "result" || !row.ref || (row.ref.kind !== "source" && row.ref.kind !== "video") || !spanId) {
+        host.toast("choose a passage (or a moment of a video) to put a piece of it here");
+        return;
+      }
+      void insertPiece(host, onInsert, row.ref.extractionId, spanId);
     })) },
   ];
   const rows = [...textRows, ...insertRows, { key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }];

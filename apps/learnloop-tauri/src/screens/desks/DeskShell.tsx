@@ -263,6 +263,7 @@ export const LIVE_PADS_TRANSPORT: PadsTransport = {
   authorPracticeItem: (input) => api.authorPracticeItem(input),
   submitTeachBackTurn: (input) => api.submitTeachBackTurn(input),
   getSession: (sessionId) => api.getSession(sessionId),
+  passageContent: (input) => api.passageContent(input),
   workbenchOpenProblems: async () => (await api.workbenchOpenProblems()) as unknown as { problems: Array<{ sessionId: string; practiceItemId?: string | null }> },
   padDrain: (input) => api.padDrain(input),
   figureRequest: (input) => api.figureRequest(input),

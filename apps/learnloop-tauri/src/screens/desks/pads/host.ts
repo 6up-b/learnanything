@@ -7,6 +7,7 @@ import type {
   PadProposalsDto,
   PadSubmitBlockDto,
   PadSubmitBlockInput,
+  PassageContentDto,
   PassageUnionDto,
   PassageUnionInput,
   ProposalLabelInput,
@@ -29,6 +30,8 @@ export interface PadsApi {
   submitTeachBackTurn(input: SubmitTeachBackTurnInput): Promise<TeachBackTurnResult>;
   /** The session (its checkpoint holds a teach-back in progress). */
   getSession(sessionId: string): Promise<SessionSnapshot>;
+  /** A passage as its source has it (a source piece's words, apart from its title, page and time). */
+  passageContent(input: PassageUnionInput): Promise<PassageContentDto>;
   /** The open problems (a problem pad's item). */
   workbenchOpenProblems(): Promise<{ problems: Array<{ sessionId: string; practiceItemId?: string | null }> }>;
 }

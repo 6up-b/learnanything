@@ -63,10 +63,18 @@ function fakeApi(): PadsApi & { calls: Array<[string, unknown]> } {
     workbenchOpenProblems: log("workbenchOpenProblems", { problems: [{ sessionId: "wb1", practiceItemId: "item_problem" }] }),
     submitTeachBackTurn: log("submitTeachBackTurn", { done: true } as never),
     getSession: log("getSession", { checkpoint: null } as never),
+    passageContent: async (input) => {
+      calls.push(["passageContent", input]);
+      const span = (input as { fromSpanId: string }).fromSpanId;
+      return { version: 1, extractionId: input.extractionId, sourceId: "src_other", title: "Another book", withheld: false,
+        spans: [{ spanId: span, text: "The whole passage, as the source has it, unclipped and with $x^2$ intact.", page: 12, t0: null, t1: null, sectionId: "sec3", sectionLabel: "3 Temperature", withheld: false }] } as never;
+    },
   };
 }
 
 let minted = 0;
+const TOASTS = new WeakMap<object, string[]>();
+const toastsOf = (host: PadsHost) => TOASTS.get(host) ?? [];
 
 function mount(options: { state?: WindowState; server?: FixtureDeskServer; padIds?: string[]; practiceSessionId?: string | null; view?: Record<string, unknown> } = {}) {
   const server = options.server ?? new FixtureDeskServer();
@@ -115,6 +123,7 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
       });
     }
   };
+  TOASTS.set(host, toasts);
   return { server, store, api, host, views, toasts, view, flush, rerender: (state: WindowState) => view.rerender(ui(state)) };
 }
 
@@ -252,8 +261,10 @@ describe("a pad stack window", () => {
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
     fireEvent.click(screen.getByText("the passage in view · a book"));
+    // The piece's words are the passage's own, read whole (not the page's rendered text).
+    await waitFor(() => expect(store.pads.fx_pad_running.blocks[1]?.kind).toBe("source_piece"));
     const blocks = store.pads.fx_pad_running.blocks;
-    expect(blocks[1]).toMatchObject({ kind: "source_piece", provenance: "source", bodyMd: "a passage's words" });
+    expect(blocks[1]).toMatchObject({ kind: "source_piece", provenance: "source", bodyMd: "The whole passage, as the source has it, unclipped and with $x^2$ intact." });
     expect(store.pads.fx_pad_running.anchors.some((anchor) => anchor.blockId === blocks[1].blockId && anchor.spanId === "fx_ext_x_s4")).toBe(true);
     await flush();
     expect(server.padBatches.map((batch) => (batch.ops as PadOpDto[]).map((op) => op.op))).toEqual([["insert_block", "link_anchor"]]);
@@ -463,5 +474,51 @@ describe("the fix round (RD4 review)", () => {
     });
     fireEvent.click(mark);
     expect(document.querySelector('[data-pad-card="source"]')).not.toBeNull();
+  });
+
+  it("a piece of another source is the passage's own words (fetched whole), with its title and page apart; a whole source is not a piece", async () => {
+    const { host, store } = mount();
+    let insert: ((row: never) => void) | undefined;
+    host.openSearch = ((_query: string, callback?: (row: never) => void) => { insert = callback; }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("a piece of another source…"));
+    expect(insert).toBeDefined();
+    // A source row (no passage) inserts nothing and says why.
+    await act(async () => {
+      insert!({ kind: "result", key: "s", group: "sources", text: "Another book", where: "source", byMeaning: false, ref: { kind: "source", sourceId: "src_other", extractionId: "ext_other" }, target: null, raw: {} } as never);
+    });
+    expect(store.pads.fx_pad_running.blocks.some((each) => each.kind === "source_piece")).toBe(false);
+    expect(toastsOf(host).some((text) => /choose a passage/.test(text))).toBe(true);
+    // A passage row inserts the passage's canonical words, never the row's clipped label.
+    await act(async () => {
+      insert!({ kind: "result", key: "p", group: "passages", text: "Another book p.12 · The whole passage, as the…", where: "passage", byMeaning: false, ref: { kind: "source", sourceId: "src_other", extractionId: "ext_other" }, target: { spanId: "ext_other_s9" }, raw: {} } as never);
+      await Promise.resolve();
+    });
+    const piece = await waitFor(() => {
+      const found = store.pads.fx_pad_running.blocks.find((each) => each.kind === "source_piece");
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    expect(piece.bodyMd).toBe("The whole passage, as the source has it, unclipped and with $x^2$ intact.");
+    expect(piece.payload).toMatchObject({ source_title: "Another book", page: 12, extraction_id: "ext_other", span_id: "ext_other_s9", source_id: "src_other", section_label: "3 Temperature" });
+  });
+
+  it("a held-out passage is not copied into a pad, and says so", async () => {
+    const { host, store, api } = mount();
+    api.passageContent = (async (input: { extractionId: string; fromSpanId: string }) => ({ version: 1, extractionId: input.extractionId, sourceId: "src_other", title: "An exam", withheld: true,
+      spans: [{ spanId: input.fromSpanId, text: null, page: 1, t0: null, t1: null, sectionId: null, sectionLabel: null, withheld: true }] })) as never;
+    let insert: ((row: never) => void) | undefined;
+    host.openSearch = ((_query: string, callback?: (row: never) => void) => { insert = callback; }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("a piece of another source…"));
+    await act(async () => {
+      insert!({ kind: "result", key: "p", group: "passages", text: "An exam · question 1", where: "passage", byMeaning: false, ref: { kind: "source", sourceId: "src_other", extractionId: "ext_exam" }, target: { spanId: "ext_exam_s1" }, raw: {} } as never);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(store.pads.fx_pad_running.blocks.some((each) => each.kind === "source_piece")).toBe(false);
+    expect(toastsOf(host).some((text) => /held out/.test(text))).toBe(true);
   });
 });

@@ -94,6 +94,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const { store } = host;
   useSyncExternalStore(store.subscribe, store.getPadVersion);
   const paused = useWindowPaused();
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   const padIds = useMemo(() => stackPadIds(stack, view), [stack, view]);
   useEffect(() => {
     if (paused) return;
@@ -229,15 +231,16 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
 
   // -- writing ---------------------------------------------------------------------------------------
   const write = useCallback((padId: string, ops: Parameters<typeof store.commitPad>[1]): boolean => {
-    // A paused window writes nothing (a hidden desk's pad, a card in the overview).
-    if (paused) return false;
+    // A paused window writes nothing (a hidden desk's pad, a card in the overview), read now: an insert that
+    // waited on a read (a source piece) must not write through a closure from while it was live.
+    if (pausedRef.current) return false;
     const refused = store.commitPad(padId, ops);
     if (refused) {
       host.toast(refused.code === "not_editable" ? "a quote is the source's words · add a note under it" : `couldn't change the pad · ${refused.message}`);
       return false;
     }
     return true;
-  }, [host, paused, store]);
+  }, [host, store]);
 
   const insertAfter = useCallback((padId: string, after: string | null, block: { kind: PadBlockDto["kind"]; provenance: PadBlockDto["provenance"]; bodyMd?: string; payload?: Record<string, unknown> }, edit = false): string | null => {
     const state = store.pads[padId];
