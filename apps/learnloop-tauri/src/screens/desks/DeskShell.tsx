@@ -282,6 +282,9 @@ export function DeskShell({
   const [ovCam, setOvCam] = useState<Camera>({ x: 24, y: 70, s: OVERVIEW.scale });
   const [selection, setSelection] = useState<{ deskId: string; windowId: string } | null>(null);
   const [zooming, setZooming] = useState(false);
+  // While a zoom leaves the overview: the desk it lands on and its camera, so the soft crop and the
+  // slivers it will show are already there on its last frame (the commit then changes nothing).
+  const [leaveTarget, setLeaveTarget] = useState<{ deskId: string; cams: Record<string, number> } | null>(null);
   const [showRelations, setShowRelations] = useState(true);
   const [gatherPreview, setGatherPreview] = useState(false);
   const [panEase, setPanEase] = useState(false);
@@ -290,9 +293,18 @@ export function DeskShell({
   const [movedNotice, setMovedNotice] = useState<{ deskId: string; title: string; until: number } | null>(null);
   const preOverview = useRef<{ deskId: string; focusId: string | null } | null>(null);
   const worldRef = useRef<HTMLDivElement | null>(null);
-  const slotEls = useRef(new Map<string, SlotElements>());
+  // Each slot's three elements, by slot key. Kept apart because React attaches a parent's ref after its
+  // children's, so one record per slot would lose the children on every render.
+  const boxEls = useRef(new Map<string, HTMLElement>());
+  const innerEls = useRef(new Map<string, HTMLElement>());
+  const cardEls = useRef(new Map<string, HTMLElement>());
+  const slotElements = useCallback((): Map<string, SlotElements> => {
+    const out = new Map<string, SlotElements>();
+    for (const [key, box] of boxEls.current) out.set(key, { box, inner: innerEls.current.get(key) ?? null, card: cardEls.current.get(key) ?? null });
+    return out;
+  }, []);
   const lateEls = useRef(new Map<string, HTMLElement>());
-  const sliverEls = useRef(new Set<HTMLElement>());
+  const sliverEls = useRef(new Map<string, HTMLElement>());
   const miniatures = useMemo(() => new MiniatureBook(), []);
   const miniHosts = useRef(new Map<string, HTMLDivElement>());
   const onEndRef = useRef<(goal: 0 | 1, base: 0 | 1) => void>(() => undefined);
@@ -560,10 +572,10 @@ export function DeskShell({
 
   const zoomTargets = useCallback(() => ({
     world: worldRef.current as HTMLElement,
-    slots: slotEls.current,
+    slots: slotElements(),
     late: [...lateEls.current.values()],
-    slivers: [...sliverEls.current],
-  }), []);
+    slivers: [...sliverEls.current.values()],
+  }), [slotElements]);
 
   /** Start a zoom from the reading view (into the overview); returns false when one cannot start. */
   const beginEnter = useCallback((): boolean => {
@@ -601,7 +613,10 @@ export function DeskShell({
     const plan = planZoom(1, deskIdTo, cams, windowTo, ovCamRef.current);
     if (!plan) return false;
     pendingLeave.current = { deskId: deskIdTo, windowId: windowTo, cams, focusMode: focusAfter };
-    flushSync(() => setZooming(true));
+    flushSync(() => {
+      setZooming(true);
+      setLeaveTarget({ deskId: deskIdTo, cams });
+    });
     controller.begin(plan, zoomTargets());
     return true;
   }, [controller, planZoom, zoomTargets]);
@@ -611,7 +626,10 @@ export function DeskShell({
     const plan = controller.plan;
     controller.clean();
     if (goal === base) {
-      flushSync(() => setZooming(false));
+      flushSync(() => {
+        setZooming(false);
+        setLeaveTarget(null);
+      });
       pendingLeave.current = null;
       return;
     }
@@ -636,7 +654,10 @@ export function DeskShell({
         if (leave.focusMode) setFocusMode(true);
       }
     });
-    frameClock.request(() => frameClock.request(() => setZooming(false)));
+    frameClock.request(() => frameClock.request(() => {
+      setZooming(false);
+      setLeaveTarget(null);
+    }));
   };
 
   /** alt+o, o, the button, esc, ↵: the fast eased zoom (a crossfade with reduced motion). */
@@ -1097,7 +1118,7 @@ export function DeskShell({
     }
     if (!d.moved && Math.hypot(dx, dy) <= OVERVIEW.cardDragPx) return;
     d.moved = true;
-    const element = d.key ? slotEls.current.get(d.key)?.box : null;
+    const element = d.key ? boxEls.current.get(d.key) : null;
     if (element) {
       element.style.transform = `translate(${dx / d.cam.s}px, ${dy / d.cam.s}px)`;
       element.style.zIndex = "30";
@@ -1113,7 +1134,7 @@ export function DeskShell({
       return;
     }
     if (d.kind !== "card" || !d.windowId || !d.deskId) return;
-    const element = d.key ? slotEls.current.get(d.key)?.box : null;
+    const element = d.key ? boxEls.current.get(d.key) : null;
     if (element) {
       element.style.transform = "";
       element.style.zIndex = "";
@@ -1421,7 +1442,10 @@ export function DeskShell({
   const movedShown = movedNotice && movedNotice.deskId === deskId && movedNotice.until > timers.now() ? movedNotice : null;
   const focusWindow = focusId ? ws.windows[focusId] : undefined;
   const focusZoom = typeof focusWindow?.view?.zoom === "number" ? (focusWindow.view.zoom as number) : 1;
-  const slivers = desk && !focusMode ? sliverSlots(cam, slotCount, stage) : { left: null, right: null };
+  // The slivers: the current desk's; while a zoom leaves the overview, the desk it lands on.
+  const sliverDesk = leaveTarget ? deskById(ws, leaveTarget.deskId) : desk;
+  const sliverCam = leaveTarget && sliverDesk ? leaveTarget.cams[sliverDesk.deskId] ?? 0 : cam;
+  const slivers = sliverDesk && !focusMode ? sliverSlots(sliverCam, sliverDesk.slots.length, stage) : { left: null, right: null };
   const shelfRows: ShelfRow[] = desk
     ? desk.slots.flatMap((slot, index) => slot.map((id) => {
       const window = ws.windows[id];
@@ -1540,7 +1564,12 @@ export function DeskShell({
                   : { x: rect.x - eachCam, y: top + rect.y, w: rect.w, h: rect.h };
                 const card = ovLayout?.cards[rowIndex]?.[index] ?? reading;
                 const box = overview ? card : reading;
-                const mask = !full && !overview && !zooming && onCurrent && !focusMode ? softCropMask(eachVisibility[index], rect.w) : null;
+                const leavingTo = leaveTarget?.deskId === each.deskId;
+                const mask = full || focusMode
+                  ? null
+                  : leavingTo
+                    ? softCropMask(slotVisibility(leaveTarget.cams[each.deskId] ?? 0, each.slots.length, stage)[index], rect.w)
+                    : !overview && !zooming && onCurrent ? softCropMask(eachVisibility[index], rect.w) : null;
                 const slotPaused = slot.every((id) => isPaused(lifecycles[id]?.state ?? "hidden"));
                 const panes = full ? slot.filter((id) => id === focusId) : slot;
                 const first = ws.windows[slot.find((id) => ws.windows[id]?.active) ?? slot[0]];
@@ -1551,9 +1580,8 @@ export function DeskShell({
                   <div
                     key={key}
                     ref={(node) => {
-                      const known = slotEls.current.get(key);
-                      if (node) slotEls.current.set(key, { box: node, inner: known?.inner ?? null, card: known?.card ?? null });
-                      else slotEls.current.delete(key);
+                      if (node) boxEls.current.set(key, node);
+                      else boxEls.current.delete(key);
                     }}
                     data-desk-slot={`${each.deskId}:${index}`}
                     data-desk-slot-key={key}
@@ -1573,8 +1601,8 @@ export function DeskShell({
                       <div
                         className="desk-slot-inner"
                         ref={(node) => {
-                          const known = slotEls.current.get(key);
-                          if (known) known.inner = node;
+                          if (node) innerEls.current.set(key, node);
+                          else innerEls.current.delete(key);
                         }}
                         style={{ width: reading.w, height: reading.h }}
                       >
@@ -1639,8 +1667,8 @@ export function DeskShell({
                     <div
                       className="desk-card"
                       ref={(node) => {
-                        const known = slotEls.current.get(key);
-                        if (known) known.card = node;
+                        if (node) cardEls.current.set(key, node);
+                        else cardEls.current.delete(key);
                       }}
                       style={{ width: card.w, height: card.h, transform: `scale(${box.w / card.w}, ${box.h / card.h})` }}
                     >
@@ -1688,15 +1716,15 @@ export function DeskShell({
               </>
             ) : null}
           </div>
-          {desk && slivers.left !== null && !overview ? (
-            <Sliver side="l" title={titleOf(ws.windows[desk.slots[slivers.left][0]])} kind={ws.windows[desk.slots[slivers.left][0]]?.kind ?? "source"}
-              register={(node) => { if (node) sliverEls.current.add(node); }}
-              onClick={() => commit(setFocus(wsRef.current, desk.deskId, desk.slots[slivers.left as number][0]))} />
+          {sliverDesk && slivers.left !== null && (!overview || leaveTarget) ? (
+            <Sliver side="l" title={titleOf(ws.windows[sliverDesk.slots[slivers.left][0]])} kind={ws.windows[sliverDesk.slots[slivers.left][0]]?.kind ?? "source"}
+              register={(node) => { if (node) sliverEls.current.set("l", node); else sliverEls.current.delete("l"); }}
+              onClick={() => commit(setFocus(wsRef.current, sliverDesk.deskId, sliverDesk.slots[slivers.left as number][0]))} />
           ) : null}
-          {desk && slivers.right !== null && !overview ? (
-            <Sliver side="r" title={titleOf(ws.windows[desk.slots[slivers.right][0]])} kind={ws.windows[desk.slots[slivers.right][0]]?.kind ?? "source"}
-              register={(node) => { if (node) sliverEls.current.add(node); }}
-              onClick={() => commit(setFocus(wsRef.current, desk.deskId, desk.slots[slivers.right as number][0]))} />
+          {sliverDesk && slivers.right !== null && (!overview || leaveTarget) ? (
+            <Sliver side="r" title={titleOf(ws.windows[sliverDesk.slots[slivers.right][0]])} kind={ws.windows[sliverDesk.slots[slivers.right][0]]?.kind ?? "source"}
+              register={(node) => { if (node) sliverEls.current.set("r", node); else sliverEls.current.delete("r"); }}
+              onClick={() => commit(setFocus(wsRef.current, sliverDesk.deskId, sliverDesk.slots[slivers.right as number][0]))} />
           ) : null}
           {movedShown && !overview ? (
             <div className="desk-sliver r desk-moved" role="status"><span className="sg">→</span><span className="st">moved to “{movedShown.title}”</span></div>
