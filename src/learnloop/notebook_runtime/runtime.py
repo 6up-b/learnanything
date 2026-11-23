@@ -29,6 +29,7 @@ from learnloop.notebook_runtime.proxy import FrameProxy
 from learnloop.notebook_runtime.sandbox import (
     Layout,
     Limits,
+    SOCKET_PATH_MAX_BYTES,
     RuntimeUnavailable,
     missing_requirements,
     runtime_base_dir,
@@ -53,8 +54,6 @@ T = TypeVar("T")
 #: The bound on a call from the request thread into the runtime's loop (stops are graceful-then-forced, each
 #: bounded by the supervisor's own timeout).
 CALL_SECONDS = 30.0
-#: A Unix socket's path must fit ``sun_path`` (108 bytes on Linux, with its terminating zero).
-SOCKET_PATH_MAX_BYTES = 100
 #: The bound on stopping everything when the context closes or switches vaults.
 CLOSE_SECONDS = 15.0
 

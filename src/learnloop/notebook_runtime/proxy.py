@@ -25,7 +25,7 @@ import logging
 import socket
 from typing import Any, Callable
 
-from learnloop.notebook_runtime import adapter, settings
+from learnloop.notebook_runtime import adapter, settings, theme
 from learnloop.notebook_runtime.supervisor import READY, Session
 
 LOG = logging.getLogger(__name__)
@@ -39,22 +39,26 @@ _DROPPED_REQUEST_HEADERS = frozenset({"host", "cookie", "authorization", "conten
 _DROPPED_RESPONSE_HEADERS = frozenset({"set-cookie", "content-length", "transfer-encoding", "content-encoding",
                                        "connection", "content-security-policy", "x-frame-options", "keep-alive"})
 
-#: The bridge (the workbench's four messages): posts only when framed, only to an allowed workbench origin, and
-#: only ``companion``, ``menu``, ``click`` and ``escape``. Notebook JavaScript shares the frame's origin and can post
-#: the same messages, so the workbench treats their payloads as untrusted notebook text.
+#: The bridge (the workbench's four messages): posts only when framed, and only ``companion``, ``menu``, ``click``
+#: and ``escape``. It addresses each of the app's own origins in turn: a ``postMessage`` whose target origin is not
+#: the parent's is dropped by the browser, so exactly the workbench receives it, without reading the parent's origin
+#: from ``location.ancestorOrigins`` (which not every engine has). Notebook JavaScript shares the frame's origin and
+#: can post the same messages, so the workbench treats their payloads as untrusted notebook text.
 BRIDGE_JS = """(function () {
   if (window.parent === window) return;
-  var allowed = %(origins)s;
-  var ancestors = (location.ancestorOrigins && location.ancestorOrigins.length) ? location.ancestorOrigins[0] : null;
-  if (allowed.indexOf(ancestors) < 0) return;
-  function post(msg) { window.parent.postMessage(msg, ancestors); }
+  var origins = %(origins)s;
+  function post(msg) {
+    for (var i = 0; i < origins.length; i++) {
+      try { window.parent.postMessage(msg, origins[i]); } catch (e) { /* not this origin */ }
+    }
+  }
   function selection() {
     var sel = window.getSelection(); var text = sel ? String(sel) : ""; var rect = null;
     if (sel && sel.rangeCount && text) {
       var r = sel.getRangeAt(0).getBoundingClientRect();
       rect = { x: r.x, y: r.y, width: r.width, height: r.height };
     }
-    return { text: text, rect: rect };
+    return { text: text.slice(0, %(text_max)d), rect: rect };
   }
   function typing(el) {
     return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
@@ -76,11 +80,15 @@ BRIDGE_JS = """(function () {
   document.addEventListener("mousedown", function () { post({ ll: "click" }); }, true);
 })();
 """
+#: The longest selection the bridge sends (the workbench quotes it as context, never more).
+BRIDGE_TEXT_MAX = 4000
 BRIDGE_PATH = "__ll/bridge.js"
+THEME_PATH = "__ll/theme.css"
+FONTS_PREFIX = "__ll/fonts/"
 
 
 def bridge_script() -> bytes:
-    return (BRIDGE_JS % {"origins": json.dumps(list(settings.WORKBENCH_ORIGINS))}).encode("utf-8")
+    return (BRIDGE_JS % {"origins": json.dumps(list(settings.WORKBENCH_ORIGINS)), "text_max": BRIDGE_TEXT_MAX}).encode("utf-8")
 
 
 def frame_csp(port: int) -> str:
@@ -120,7 +128,9 @@ def gate(host: str | None, path: str, *, port: int, base_url: str) -> tuple[str 
 def frame_may(method: str, rel: str) -> bool:
     """Whether the frame may make this request (the bridge script is the proxy's own)."""
 
-    if (method, rel) in adapter.FRAME_ALLOWED or (method == "GET" and rel == BRIDGE_PATH):
+    if (method, rel) in adapter.FRAME_ALLOWED or (method == "GET" and rel in (BRIDGE_PATH, THEME_PATH)):
+        return True
+    if method == "GET" and rel.startswith(FONTS_PREFIX):
         return True
     return method == "GET" and rel.startswith(adapter.FRAME_ALLOWED_GET_PREFIXES)
 
@@ -146,7 +156,11 @@ def security_headers(port: int) -> list[tuple[bytes, bytes]]:
 
 
 def inject_bridge(html: bytes, base_url: str) -> bytes:
-    tag = f'<script src="{base_url}/{BRIDGE_PATH}"></script>'.encode()
+    """The bridge script and the paper theme, first in the page's head (marimo adds its own styles later, at
+    runtime; the theme's variables carry ``!important`` so its order does not matter)."""
+
+    tag = (f'<link rel="stylesheet" href="{base_url}/{THEME_PATH}">'
+           f'<script src="{base_url}/{BRIDGE_PATH}"></script>').encode()
     return html.replace(b"<head>", b"<head>" + tag, 1) if b"<head>" in html else tag + html
 
 
@@ -232,6 +246,18 @@ class FrameProxy:
                                 (b"content-length", str(len(body)).encode()), *security_headers(self.port)]})
         await send({"type": "http.response.body", "body": body})
 
+    def _own_file(self, rel: str) -> tuple[bytes | None, bytes] | None:
+        """The proxy's own files: the bridge, the paper theme and its fonts (None: not the proxy's)."""
+
+        if rel == BRIDGE_PATH:
+            return bridge_script(), b"text/javascript; charset=utf-8"
+        if rel == THEME_PATH:
+            return theme.theme_css(self.session.base_url).encode("utf-8"), b"text/css; charset=utf-8"
+        if rel.startswith(FONTS_PREFIX):
+            path = theme.font_file(rel[len(FONTS_PREFIX):])
+            return (path.read_bytes() if path is not None else None), b"font/woff2"
+        return None
+
     async def _http(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         session = self.session
         headers = _headers(scope)
@@ -245,10 +271,14 @@ class FrameProxy:
         if not frame_may(method, rel):
             await self._plain(send, 403, "refused by the notebook frame policy")
             return
-        if rel == BRIDGE_PATH:
-            body = bridge_script()
+        own = self._own_file(rel)
+        if own is not None:
+            body, content_type = own
+            if body is None:
+                await self._plain(send, 404, "not installed")
+                return
             await send({"type": "http.response.start", "status": 200, "headers": [
-                (b"content-type", b"text/javascript; charset=utf-8"), (b"content-length", str(len(body)).encode()),
+                (b"content-type", content_type), (b"content-length", str(len(body)).encode()),
                 *security_headers(self.port)]})
             await send({"type": "http.response.body", "body": body})
             return
@@ -335,6 +365,10 @@ class FrameProxy:
                     cells = adapter.kernel_ready_cells(message)
                     if cells is not None:
                         session.cell_ids, session.cell_codes = cells
+                    if adapter.is_reconnected_notice(message):
+                        # A frame reconnects whenever its window moves or reloads; marimo's banner says so and
+                        # offers a Restart the frame may not call (restarts are the sidecar's).
+                        continue
                     await send({"type": "websocket.send", "text": message})
             except Exception:  # noqa: BLE001 - the server went away; the page reconnects
                 pass

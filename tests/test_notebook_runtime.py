@@ -5,6 +5,7 @@ The real sandbox is tests/test_notebook_runtime_sandbox.py."""
 from __future__ import annotations
 
 import asyncio
+import json
 import signal
 from pathlib import Path
 
@@ -373,13 +374,65 @@ def test_the_frame_csp_contains_the_page():
     assert directives["object-src"] == "'none'" and directives["form-action"] == "'none'"
 
 
-def test_the_bridge_is_injected_and_names_only_the_workbench_origins():
+def test_the_bridge_and_the_paper_theme_are_injected_and_the_bridge_names_only_the_workbench_origins():
     html = proxy.inject_bridge(b"<html><head><title>x</title></head></html>", "/s/abc")
-    assert html.startswith(b'<html><head><script src="/s/abc/__ll/bridge.js"></script>')
+    assert html.startswith(b'<html><head><link rel="stylesheet" href="/s/abc/__ll/theme.css">'
+                           b'<script src="/s/abc/__ll/bridge.js"></script>')
     script = proxy.bridge_script().decode()
     for origin in settings.WORKBENCH_ORIGINS:
         assert origin in script
     assert '"companion"' in script and '"menu"' in script and '"click"' in script and '"escape"' in script
+    # It addresses each workbench origin in turn rather than reading the parent's from location.ancestorOrigins,
+    # which not every engine has; the browser drops a post whose target origin is not the parent's.
+    assert "ancestorOrigins" not in script and "postMessage(msg, origins[i])" in script
+
+
+def test_the_paper_theme_sets_variables_and_serves_its_faces_from_the_frames_origin(tmp_path, monkeypatch):
+    from learnloop.notebook_runtime import theme
+
+    css = theme.theme_css("/s/abc")
+    for variable, value in (("--background", theme.PAGE), ("--foreground", theme.INK), ("--card", theme.SURFACE),
+                            ("--border", theme.RULE), ("--primary", theme.PURPLE), ("--tw-prose-headings", theme.INK)):
+        assert f"{variable}: {value} !important" in css
+    assert 'url("/s/abc/__ll/fonts/literata.woff2")' in css and "--marimo-heading-font" in css
+    assert ".ll-commit" in css and f"border-left: 3px solid {theme.PURPLE}" in css
+    package = tmp_path / "literata" / "files"
+    package.mkdir(parents=True)
+    (package / "literata-latin-wght-normal.woff2").write_bytes(b"wOF2")
+    monkeypatch.setenv(theme.FONT_PACKAGES_ENV, str(tmp_path))
+    assert theme.font_file("literata.woff2").read_bytes() == b"wOF2"
+    assert theme.font_file("../../etc/passwd") is None and theme.font_file("jetbrains-mono.woff2") is None
+
+
+def test_the_frame_may_load_the_theme_and_its_fonts_and_nothing_else_of_the_proxys():
+    assert proxy.frame_may("GET", proxy.THEME_PATH) and proxy.frame_may("GET", proxy.FONTS_PREFIX + "literata.woff2")
+    assert not proxy.frame_may("POST", proxy.THEME_PATH) and not proxy.frame_may("GET", "__ll/other")
+
+
+def test_marimos_reconnected_notice_is_recognised_and_nothing_else():
+    banner = json.dumps({"op": "banner", "data": {"op": "banner", "title": "Reconnected",
+                                                  "description": "You have reconnected to an existing session.",
+                                                  "action": "restart"}})
+    alert = json.dumps({"op": "alert", "data": {"title": "Reconnected", "description": "x"}})
+    assert adapter.is_reconnected_notice(banner) and adapter.is_reconnected_notice(alert)
+    other = json.dumps({"op": "banner", "data": {"title": "Kernel restarted", "description": "x"}})
+    cell = json.dumps({"op": "cell-op", "data": {"output": "Reconnected"}})
+    assert not adapter.is_reconnected_notice(other) and not adapter.is_reconnected_notice(cell)
+    assert not adapter.is_reconnected_notice("Reconnected but not json")
+
+
+def test_a_runtime_directory_too_deep_for_a_socket_is_passed_over(tmp_path, monkeypatch):
+    from learnloop.notebook_runtime import sandbox
+
+    deep = tmp_path / ("d" * 90)
+    deep.mkdir()
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(deep))
+    chosen = sandbox.runtime_base_dir()
+    assert not str(chosen).startswith(str(deep))
+    short = Path("/run/user") / str(__import__("os").getuid())
+    if short.is_dir():
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(short))
+        assert sandbox.runtime_base_dir().parent == short
 
 
 def _asgi(app, scope):

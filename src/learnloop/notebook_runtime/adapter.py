@@ -63,6 +63,11 @@ APP_VIEW_PARAMS: tuple[tuple[str, str], ...] = (("view-as", "present"), ("show-c
 KIOSK_PARAM = "kiosk"
 SESSION_ID_PARAM = "session_id"
 
+#: What marimo's server sends a page that reconnects to a running session: a ``banner`` (with a Restart action) or
+#: an ``alert`` titled "Reconnected". The proxy drops both on the way to the frame.
+RECONNECTED_TITLE = "Reconnected"
+RECONNECTED_OPS = ("banner", "alert")
+
 #: The WebSocket message that names the session's cells (ids, names and code, in order).
 KERNEL_READY_OP = "kernel-ready"
 
@@ -119,6 +124,20 @@ def kernel_ready_cells(message: str) -> tuple[dict[str, str], dict[str, str]] | 
     codes = [str(value) for value in body.get("codes") or ()]
     # Untrusted input (the sandbox writes it): a short list pairs what it can, never raises.
     return dict(zip(names, ids, strict=False)), dict(zip(ids, codes, strict=False))
+
+
+def is_reconnected_notice(message: str) -> bool:
+    """Whether a WebSocket message is marimo's "Reconnected" banner or toast."""
+
+    if RECONNECTED_TITLE not in message[:400]:
+        return False
+    try:
+        data = json.loads(message)
+    except ValueError:
+        return False
+    body = data.get("data", data) if isinstance(data, dict) else {}
+    op = data.get("op") if isinstance(data, dict) else None
+    return op in RECONNECTED_OPS and isinstance(body, dict) and body.get("title") == RECONNECTED_TITLE
 
 
 def ui_values(set_request_body: bytes) -> dict[str, Any]:
@@ -264,6 +283,10 @@ def interface_problems() -> list[str]:
         pass
     if not bundle:
         problems.append("the frontend no longer reads the view-as and show-chrome URL parameters")
+    handler = importlib.import_module("marimo._server.api.endpoints.ws.session_handler")
+    source = inspect.getsource(handler)
+    if f'title="{RECONNECTED_TITLE}"' not in source or "BannerNotification(" not in source:
+        problems.append("marimo's reconnect notice is no longer a banner titled Reconnected")
     return problems
 
 

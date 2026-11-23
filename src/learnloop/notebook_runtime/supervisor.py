@@ -268,8 +268,11 @@ class Supervisor:
 class SandboxBackend:
     """The real backend: a sandboxed ``marimo edit`` on a Unix socket, reached with httpx over the socket."""
 
-    def __init__(self, *, scoped: bool) -> None:
+    def __init__(self, *, scoped: bool, python: str | None = None) -> None:
         self.scoped = scoped
+        #: The interpreter the server runs on (default: this process's); a harness whose own interpreter is a
+        #: throwaway environment names the project's.
+        self.python = python
 
     def _client(self, session: Session, timeout: float = 5.0) -> Any:
         import httpx
@@ -287,7 +290,7 @@ class SandboxBackend:
         layout.token_file.write_text(session.token, encoding="utf-8")
         os.chmod(layout.token_file, 0o600)
         argv, env = launch_command(layout, session.limits, base_url=session.base_url, unit=session.unit,
-                                   scoped=self.scoped)
+                                   scoped=self.scoped, python=self.python)
         process = await asyncio.create_subprocess_exec(*argv, env=env, stdin=subprocess.DEVNULL,
                                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                                        start_new_session=True)
