@@ -599,7 +599,7 @@ class MaterialView:
         deleted is merely absent, as any entity reference (the gap's other references still judge it)."""
 
         kind, source = str(row.get("source_kind") or ""), str(row.get("source_id") or "")
-        if kind not in _T.GAP_SOURCES or not source or kind in ("learner_note", "lesson"):
+        if kind not in _T.GAP_SOURCES or not source or kind in ("learner_note", "lesson", "pad_text"):
             return True
         if kind == "tutor_question":
             return self._entity_withheld(connection, "question_event", source)

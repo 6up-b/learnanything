@@ -1057,6 +1057,77 @@ def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: st
                              sources=prepared.bound_sources)
 
 
+# -- scratchpads (Reader workbench v2, mvp-0.68) ------------------------------------------------
+
+
+def pad_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None:
+    """A committed block version of the learner's own words in a scratchpad (``pad_text``, spec §10.11), read by the
+    gap reader like a note (free writing, never an answer, never graded), tier 2 (``NON_SERVING_SOURCE_KINDS``).
+
+    The text and its facts come from the snapshot the pads' emission froze in the job's payload, never from a pad:
+    nothing here reads the workbench's pads (import fence 1). The topics are the LOs of the passages the block was
+    linked to and, for a problem pad, its item's LO; the context names the surface, whether the words were transcribed
+    from handwriting (they may be misread), and whether they include a quote (read, never taken as the learner's
+    belief). Linked to withheld material: :class:`SourceWithheld`."""
+
+    from learnloop.db.stores import learner_gaps as gap_store
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        job = gap_store.job_for_source(connection, "pad_text", source_id)
+    snapshot = ((job or {}).get("payload") or {}).get(gap_store.PAD_TEXT_SNAPSHOT)
+    if not isinstance(snapshot, Mapping) or not str(snapshot.get("text") or "").strip():
+        return None
+    passages = [(str(place[0]), str(place[1])) for place in snapshot.get("passages") or () if len(place) == 2]
+    by_extraction: dict[str, list[str]] = {}
+    for extraction_id, span_id in passages:
+        by_extraction.setdefault(extraction_id, []).append(span_id)
+    for extraction_id, spans in by_extraction.items():
+        refusal = spans_withheld(vault, repository, extraction_id, spans)
+        if refusal is not None:
+            raise SourceWithheld(refusal)
+    los: list[str] = []
+    item = None
+    session_id = snapshot.get("workbench_session_id")
+    if session_id:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            row = connection.execute("SELECT practice_item_id FROM workbench_sessions WHERE id = ?",
+                                     (str(session_id),)).fetchone() if _table(connection, "workbench_sessions") else None
+        item = vault.practice_items.get(str(row[0])) if row is not None and row[0] else None
+        if item is not None and item.learning_object_id in vault.learning_objects:
+            los.append(item.learning_object_id)
+    for extraction_id, span_id in passages:
+        for lo_id in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span_id):
+            if lo_id in vault.learning_objects and lo_id not in los:
+                los.append(lo_id)
+    subjects = {subject for lo in los for subject in vault.learning_objects[lo].subjects[:1]}
+    context: dict[str, Any] = {"surface": "scratchpad", "block_kind": str(snapshot.get("block_kind") or "")}
+    if los:
+        context["learning_objects"] = [vault.learning_objects[lo].title for lo in los]
+    if passages:
+        context["passages"] = _key_texts(repository, passages)
+    if item is not None:
+        context["question"] = presented_prompt(item.prompt, getattr(item, "required_method", None))
+    if snapshot.get("transcribed"):
+        context["transcribed_from_handwriting"] = True
+    if snapshot.get("quoted_by_learner"):
+        context["quoted_by_learner"] = True
+    return LearnerText(
+        source_kind="pad_text",
+        source_id=source_id,
+        text=str(snapshot["text"]),
+        context_judge="gap_reader",
+        created_at=str(snapshot.get("written_at") or ""),
+        subject_id=next(iter(subjects)) if len(subjects) == 1 else None,
+        anchor_learning_object_ids=tuple(los),
+        practice_item_id=item.id if item is not None else None,
+        reading=None,
+        context=context,
+        markers={"quoted_by_learner": bool(snapshot.get("quoted_by_learner")),
+                 "transcribed": bool(snapshot.get("transcribed"))},
+        bound_passages=tuple((extraction_id, None, span_id) for extraction_id, span_id in passages),
+    )
+
+
 # -- lessons (teacher TE2) -------------------------------------------------------------------
 
 
@@ -1123,6 +1194,8 @@ def learner_text(
         return workbench_text(vault, repository, source_id)
     if source_kind == "learner_note":
         return learner_note_text(vault, repository, source_id)
+    if source_kind == "pad_text":
+        return pad_text(vault, repository, source_id)
     raise ValueError(f"unknown learner-text source {source_kind!r}")
 
 
@@ -1150,6 +1223,7 @@ __all__ = [
     "learner_notes_enabled",
     "learner_text",
     "missed_formative_ids",
+    "pad_text",
     "reader_formative_text",
     "reading_from_diagnosis",
     "resolve_prerequisite_ref",

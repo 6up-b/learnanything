@@ -955,6 +955,13 @@ def _read_and_act(
 ) -> tuple[actions.ActionOutcome, GapReading | None, DeciderKind, str, str]:
     """The reading and its action (inside the text's receipts)."""
 
+    if text.source_kind == "pad_text" and text.markers.get("quoted_by_learner"):
+        # A pad block that includes someone else's words stays the learner's text (its row keeps the words for the
+        # companion and the Teacher) but is never read for a gap: a belief or a missing prerequisite named from a
+        # pasted passage would be the passage's, not the learner's (spec §10.11). No model call.
+        return (actions.ActionOutcome("none", detail={"reason": "quoted_by_learner"}), None,
+                DeciderKind("disabled", error="quoted by the learner: not read"),
+                str(vault.config.learner_text_gaps.chooser), "none")
     reading, decider, chooser, kind = _decide(
         repository, text, vault, budget=budget, clients=clients, progress=state, checkpoint=checkpoint,
     )
@@ -1006,7 +1013,7 @@ def _log(
             vault, learning_object_id=str(outcome.created_learning_object_id),
             practice_item_id=outcome.seed_practice_item_id, now_iso=now_iso,
         )
-    detail = dict(outcome.detail)
+    detail = {**dict(outcome.detail), **source_detail(text)}
     detail["spend"] = budget.spend.summary()
     named = reading.named() if reading is not None else {}
     row = {
@@ -1065,9 +1072,10 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
         question_record,
     )
 
-    if text.source_kind in NOTE_SOURCE_KINDS:
+    if text.source_kind in NOTE_SOURCE_KINDS or text.source_kind == "pad_text":
         # C2b: the row keeps the note's words (learner text); they carry what the note is
-        # linked to (its topics), as a missed active-reading answer does.
+        # linked to (its topics), as a missed active-reading answer does. A pad's words the same:
+        # its topics and the passages the block was linked to.
         record_text_write(
             connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
             record=note_record(text), clock=clock,
@@ -1113,6 +1121,19 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
             )
 
 
+def source_detail(text: LearnerText) -> dict[str, Any]:
+    """What a gap row keeps about where its words were written, beyond its columns: a pad text's passages and the
+    facts its emission froze, so the gap's derived passage rows are rebuilt from the row alone."""
+
+    if text.source_kind != "pad_text":
+        return {}
+    return {"pad_text": {
+        "passages": [[str(extraction_id), str(span_id)] for extraction_id, _section, span_id in text.bound_passages],
+        "quoted_by_learner": bool(text.markers.get("quoted_by_learner")),
+        "transcribed": bool(text.markers.get("transcribed")),
+    }}
+
+
 def stored_words(text: LearnerText) -> str:
     """The words a ``learner_text_gaps`` row keeps: the learner's text, bounded (a
     linked note's too, C2b: note text is learner text)."""
@@ -1149,7 +1170,7 @@ def failed_row(
         "kind": UNREAD, "action": "failed", "edge_id": edge_id,
         "created_concept_id": created.get("concept_id") if written else None,
         "created_learning_object_id": written,
-        "detail_json": {"error": error, **({
+        "detail_json": {"error": error, **source_detail(text), **({
             "progress": {"created": bool(written), "edge_id": edge_id},
             "edge_prerequisite": (progress.get("edge") or {}).get("prerequisite") if not written else None,
         } if written or edge_id else {})},
@@ -1202,4 +1223,5 @@ __all__ = [
     "failed_row",
     "named_gaps_for_card",
     "process_learner_text",
+    "source_detail",
 ]

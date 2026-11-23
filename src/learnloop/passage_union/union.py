@@ -8,7 +8,7 @@ text is marked ``needs_reanchor``, never shown as if it were the cited text.
 Per span: the learner's annotations; pad blocks linked to it; tutor exchanges whose selection or
 citations name it; the exchanges where the tutor adjusted the learner's reasoning (an exchange whose
 question was read as a misconception); learner-text gaps tied to it, with their anchor quality; passage
-links with their relation; figures made for it; "a check is due before this" (the host passage of a due
+links with their relation; the questions the learner carries beside it; figures made for it; "a check is due before this" (the host passage of a due
 check, with no item, learning object or purpose); linked notes; reader-authored questions; and its
 exposure (how often and when last it was shown) and whether it is exam or held-out material. Per section of the
 range: its learning objects and their coverage.
@@ -101,7 +101,7 @@ class _Placer:
 def _empty(span_id: str, section_id: str | None) -> dict[str, Any]:
     return {"span_id": span_id, "section_id": section_id, "annotations": [], "pad_blocks": [], "exchanges": [],
             "adjustments": [], "gaps": [], "passage_links": [], "figures": [], "checks_due": [], "notes": [],
-            "authored_questions": [], "exposure": {"times_shown": 0, "last_shown_at": None, "withheld": False}}
+            "authored_questions": [], "carried": [], "exposure": {"times_shown": 0, "last_shown_at": None, "withheld": False}}
 
 
 def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None = None,
@@ -150,6 +150,16 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
                     "block_id": anchor["block_id"], "pad_id": head["pad_id"], "kind": head["kind"],
                     "provenance": head["provenance"], "event_id": anchor["event_id"],
                     "annotation_id": anchor["annotation_id"], "alias": placed[1]})
+
+        # Questions the learner carries, beside the passage they were carried from (still carried only: a quiet
+        # margin mark, never a nudge; spec §10.12).
+        for row in pad_reads.carried_on_readings(connection, readings, ("carried", "not_now")):
+            anchor = row["anchor"] or {}
+            placed = placer.place(anchor.get("extraction_id"), anchor.get("span_id"))
+            if placed:
+                out[placed[0]]["carried"].append({
+                    "carried_id": row["carried_id"], "text": row["text"], "since": row["since"],
+                    "state": row["state"], "alias": placed[1]})
 
         # Tutor exchanges and the reasoning the tutor adjusted.
         exchange_rows = spans_store.rows_on_readings(connection, "question_event_spans", readings)

@@ -639,6 +639,8 @@ GAP_SOURCES: Mapping[str, str] = MappingProxyType({
     "learner_note": "withheld: AD reads no personal note (none is allowlisted for the card)",
     # Teacher TE2: a lesson's words live in its ledger, which AD may not read (lesson tables are DENIED).
     "lesson": "withheld: AD reads no lesson ledger (the lesson tables are denied to it)",
+    # Reader workbench v2 (mvp-0.68): a scratchpad's words; the pads are outside AD's registry altogether.
+    "pad_text": "withheld: AD reads no scratchpad (the pads' tables are unreadable inside an AD operation)",
 })
 
 #: There is no incumbent scope (the final round: inversion, owner decision 2026-10-24). The plan

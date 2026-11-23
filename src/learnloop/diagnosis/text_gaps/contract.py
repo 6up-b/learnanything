@@ -31,7 +31,7 @@ PIPELINE_VERSION = "learner-text-gaps-v1"
 #: concept / LO, an added prerequisite edge (the serving gate reads it).
 PROVENANCE_MECHANISM = LEARNER_TEXT_GAP_MECHANISM
 SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "workbench_text", "hint_feedback",
-                "learner_note", "lesson")
+                "learner_note", "lesson", "pad_text")
 #: The kinds this pipeline reads today: ``workbench_text`` is admitted by the
 #: schema (migration 208) for RW2b, which builds its adapter; until then a
 #: queued one is skipped as having nothing to read.
@@ -48,8 +48,11 @@ SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative
 #: ``propose_gap`` names (:func:`~.sources.lesson_gap_text`), the teacher reading in context as the tutor does
 #: (its reading names the gap; the Decider's second opinion as for any text). Serving, as a tutor question's: a
 #: missing prerequisite is created on first sighting under the daily cap, a misconception waits in the holding pen.
+#: Reader workbench v2 (mvp-0.68, migration 266) adds ``pad_text``: a committed block version of the learner's own
+#: words in a scratchpad, emitted by ``learnloop.pads.emission`` alone with its snapshot in the job's payload
+#: (:func:`~.sources.pad_text`), so nothing here reads a pad (import fence 1).
 READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback",
-                         "workbench_text", "learner_note", "lesson")
+                         "workbench_text", "learner_note", "lesson", "pad_text")
 #: The kinds whose named gaps stay content and display (spec W1 tier 2, RW1b
 #: §4.5 "no successor"): a gap read from them names a prerequisite or a belief
 #: (and may create one), but never brings a check forward and is never a weak
@@ -63,7 +66,10 @@ READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_
 #: never a serving change (spec_adaptive_hints_v1 §9; no successor).
 #: ``learner_note`` (curriculum C5) joins them: a note "only ever steers what
 #: to suggest, never grades you" (owner Q9; spec §12 C5, no successor).
-NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback", "learner_note")
+#: ``pad_text`` (Reader workbench v2, spec §10.11) joins them: a scratchpad's words steer hypotheses, routing, the
+#: companion and the Teacher, and never bring a check forward or count for placement; any serving effect beyond
+#: that is a successor of its own.
+NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback", "learner_note", "pad_text")
 #: The kinds whose text is the learner's own NOTES (curriculum C5): read like
 #: any other learner text (C2b, owner 2026-11-01: the pipeline's ordinary
 #: routes, the Decider and the embedding shortlist, and the row keeps the

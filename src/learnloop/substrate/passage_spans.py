@@ -325,6 +325,12 @@ def gap_rows(connection: Any, vault: Any, gap: Mapping[str, Any]) -> list[dict[s
         rows = [_row(str(reading), str(span), SELECTION, EXACT_SELECTION)
                 for _key, target_kind, status, reading, span in standing.values()
                 if target_kind == "passage" and status == "accepted" and span]
+    elif kind == "pad_text":
+        # A scratchpad's words: the passages its block (or the quote it is a note under) was linked to when they
+        # were emitted, frozen on the gap row itself, so a link made or removed later moves neither live nor rebuild.
+        places = (_json(gap.get("detail_json"), {}).get("pad_text") or {}).get("passages") or []
+        rows = [_row(str(place[0]), str(place[1]), SELECTION, EXACT_SELECTION)
+                for place in places if isinstance(place, list) and len(place) == 2]
     elif kind in _ITEM_PLACED_GAP_KINDS:
         places, item_lo = _item_passages(vault, gap.get("practice_item_id"))
         rows = _context_rows(places, None)
@@ -334,7 +340,7 @@ def gap_rows(connection: Any, vault: Any, gap: Mapping[str, Any]) -> list[dict[s
     return _dedupe(rows)
 
 
-_GAP_COLUMNS = "id, source_kind, source_id, practice_item_id, anchor_learning_object_id, created_at"
+_GAP_COLUMNS = "id, source_kind, source_id, practice_item_id, anchor_learning_object_id, created_at, detail_json"
 
 
 def project_gap(connection: Any, vault: Any, gap_id: str) -> int:

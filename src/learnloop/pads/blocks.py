@@ -9,7 +9,8 @@ the server answers, and a retry never mints a second object.
 Provenance is never laundered (a P3 invariant): an edit keeps its block's provenance, except an ink
 block's transcription, whose edit is the learner's correction; quoted source, tutor and figure blocks
 and lifted stubs are not the learner's to edit. Workflow data and the learner's own writing, never
-evidence: emission to learner-text gaps and submission as an attempt are later stages' explicit exits.
+evidence: the explicit exits are ``pads.emission`` (committed words to learner-text gaps) and
+``pads.submission`` (a submitted block to the attempt and teach-back entry points).
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from learnloop.db.stores.workspace_batches import PAD
 from learnloop.desks.content_ref import WireModel
 from learnloop.desks.protocol import OpConflict, OpRefused, apply_batch, run_op
 from learnloop.ids import new_ulid
+from learnloop.pads.submission import tags as submission_tags
 
 BlockKind = Literal["text", "note", "source_quote", "source_piece", "tutor_quote", "figure", "sketch", "cell", "ink",
                     "lifted", "check_cell"]
@@ -177,9 +179,11 @@ def pad_view(repository: Any, pad_id: str) -> dict[str, Any]:
         heads = [head for head in reads.heads(connection, pad_id) if not head["tombstone"]]
         created = reads.first_versions(connection, [head["block_id"] for head in heads])
         anchors = reads.standing_anchors_for_blocks(connection, [head["block_id"] for head in heads])
+        submitted = submission_tags(connection, heads)
     return {
         "pad": _pad_out(row),
-        "blocks": [_block_out(head, created.get(head["block_id"])) for head in heads],
+        "blocks": [{**_block_out(head, created.get(head["block_id"])),
+                    "submissions": submitted.get(str(head["block_id"]), [])} for head in heads],
         "anchors": [{"event_id": a["event_id"], "block_id": a["block_id"], "extraction_id": a["extraction_id"],
                      "span_id": a["span_id"], "anchor": a["anchor"], "annotation_id": a["annotation_id"],
                      "created_at": a["created_at"]} for a in anchors],
