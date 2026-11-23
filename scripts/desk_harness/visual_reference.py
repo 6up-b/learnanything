@@ -58,7 +58,7 @@ PIXEL_THRESHOLD = 24
 # What each region's box means for the comparison: "box" its position and size, "pos" its position and
 # height (its width follows its text, which differs between the owner's book and the fixture), "size" its
 # width and height (where it sits follows content above it), "none" no geometry (only colour and type).
-GEOM_KEYS = {"box": ("x", "y", "w", "h"), "pos": ("x", "y", "h"), "size": ("w", "h"), "width": ("w",), "height": ("h",), "none": ()}
+GEOM_KEYS = {"box": ("x", "y", "w", "h"), "pos": ("x", "y", "h"), "yh": ("y", "h"), "size": ("w", "h"), "width": ("w",), "height": ("h",), "none": ()}
 
 
 @dataclass(frozen=True)
@@ -107,7 +107,7 @@ region("footer_kbd", ".desk-keys > span:not(.desk-dots):not(.note) kbd", "height
 region("footer_dot_focus", ".desk-dots button.f", "size")
 region("footer_dot_inview", ".desk-dots button.in", "size")
 region("footer_dot", ".desk-dots button:not(.f):not(.in)", "size")
-region("footer_note", ".desk-keys .note", "pos")
+region("footer_note", ".desk-keys .note", "height")
 region("window_focus", ".desk-window.focus", "box")
 region("window_focus_head", ".desk-window.focus .desk-pane-head", "box")
 region("window_focus_glyph", ".desk-window.focus .desk-pane-head .g", "none")
@@ -116,13 +116,14 @@ region("window_focus_loc", ".desk-window.focus .desk-pane-head .loc", "none")
 region("window_focus_close", ".desk-window.focus .desk-pane-head .x", "none")
 region("window_other", ".desk-window:not(.focus):not(.paused)", "size")
 region("window_other_head", ".desk-window:not(.focus):not(.paused) .desk-pane-head", "size")
-region("book_paper", ".desk-window [data-window-kind='source'] > .desk-pane-body", "none")
+# The page sheet: the Reader's scroller that holds the passages (the mockup's .sheet).
+region("book_paper", ".desk-window [data-window-kind='source'] .ll-scroll:has(> [data-span-id])", "none")
 # The first passage is the one being read (amber); the plain style is the next one's.
 region("book_prose", ".desk-window [data-window-kind='source'] [data-span-id] @1", "none")
 region("book_heading", ".desk-window [data-window-kind='source'] h2", "none")
 region("video_paper", ".desk-window [data-window-kind='video'] > .desk-pane-body", "none")
 region("video_cue", ".desk-window [data-window-kind='video'] [data-transcript-span]", "none")
-region("focus_badge", "~.desk-zoom-badge", "pos")
+region("focus_badge", "~.desk-zoom-badge", "yh")
 # ── the overview (RD2) ──
 region("ov_label", ".desk-ov-label", "none")
 # The mockup draws the ring on the card itself, the desks on a ring element over it: only the ring compares.

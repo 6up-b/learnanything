@@ -53,6 +53,9 @@
   overflow: hidden;
 }
 
+/* On a short window the top bar is 34 px, as the mockup's (its rule is by window height). */
+@media (max-height: 820px) { .desk-shell:not(.focus-mode) > .desk-top { height: 34px; align-self: start; } }
+
 /* The desks' own controls start bare; :where keeps this reset below every component rule. The Reader's
    own controls inside a window keep their styles. */
 :where(.desk-top, .desk-shelf, .desk-shelf-rail, .desk-keys, .desk-sliver, .desk-pane-head, .desk-whichkey, .desk-quiet) button,
@@ -96,6 +99,16 @@
   font-family: var(--desk-book) !important;
   line-height: 1.6;
 }
+/* The book's prose and the transcript's cues at the mockup's reading sizes; the Reader sets its own sizes
+   inline, so these win by importance. */
+.desk-pane[data-window-kind="source"] [data-span-id]:not(h1, h2, h3, h4, h5, h6) { font-size: 16.5px !important; line-height: 1.66 !important; }
+/* The book reads on a page sheet set in the window, the window's dark showing round it (the mockup's .sheet).
+   The Reader's scroller holds the passages directly, so the scroller is the sheet. */
+.desk-pane[data-window-kind="source"] > .desk-pane-body { background: #1a1a1c; }
+.desk-pane[data-window-kind="source"] .ll-scroll:has(> [data-span-id]) {
+  margin: 22px 18px 0 22px; padding: 40px 44px 54px 48px !important; background: var(--desk-paper); border-radius: 2px; box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
+}
+.desk-pane[data-window-kind="video"] [data-transcript-span] { font-size: 15px !important; line-height: 1.62 !important; color: var(--desk-ink) !important; }
 
 /* ── the top bar: desks are rooms ── */
 .desk-top { display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--desk-line); background: #09090a; white-space: nowrap; min-width: 0; }
@@ -105,7 +118,7 @@
 .desk-tabs button[aria-current="true"] { color: var(--desk-t); background: #1d1d21; }
 .desk-tabs input { font: 12px var(--desk-mono); background: #1d1d21; color: var(--desk-t); border: 1px solid var(--desk-line2); border-radius: 5px; padding: 3px 8px; width: 180px; }
 .desk-top .grow { flex: 1; }
-.desk-top .tb { font: 12px var(--desk-mono); color: var(--desk-t2); padding: 4px 8px; border-radius: 5px; }
+.desk-top .tb { font: 11.5px var(--desk-mono); color: var(--desk-t2); padding: 4px 8px; border-radius: 4px; }
 .desk-top .tb:hover { color: var(--desk-t); background: #1d1d21; }
 
 /* ── the main area: the shelf and the stage ── */
@@ -187,9 +200,9 @@
 
 .desk-pane { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
 .desk-pane.active-pane { box-shadow: inset 2px 0 0 var(--desk-amber); }
-.desk-pane-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid var(--desk-line); background: #151517; font: 11.5px var(--desk-mono); color: var(--desk-t); min-width: 0; }
-.desk-pane-head .g { color: var(--desk-t3); flex: none; }
-.desk-pane-head .t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desk-pane-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid #000; background: rgba(22, 22, 24, .94); font: 11.5px var(--desk-mono); color: var(--desk-t2); min-width: 0; }
+.desk-pane-head .g { color: var(--desk-t); flex: none; }
+.desk-pane-head .t { color: var(--desk-t); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .desk-pane-head .loc { color: var(--desk-t2); flex: none; }
 .desk-pane-head .hint { margin-left: auto; color: var(--desk-t3); font-size: 10px; flex: none; }
 .desk-pane-head .x { margin-left: 6px; color: var(--desk-t3); flex: none; }
@@ -212,8 +225,9 @@
 .desk-keys { display: flex; gap: 16px; align-items: center; padding: 0 16px; border-top: 1px solid var(--desk-line); background: #070708; color: var(--desk-t2); font: 11px var(--desk-mono); white-space: nowrap; overflow: hidden; }
 .desk-keys .note { color: var(--desk-t3); }
 .desk-keys .note kbd { color: var(--desk-amber); }
-.desk-dots { margin-left: auto; display: flex; gap: 6px; align-items: center; }
-.desk-dots button { display: inline-block; width: 18px; height: 4px; border-radius: 2px; background: #3a3a40; transition: background .2s, width .2s, opacity .2s; }
+.desk-dots { margin-left: auto; display: flex; gap: 10px; align-items: center; padding: 0 4px; }
+.desk-dots + .note { margin-left: 10px; }
+.desk-dots button { display: inline-block; width: 15px; height: 4px; border-radius: 2px; background: #3a3a40; transition: background .2s, width .2s, opacity .2s; }
 .desk-dots button.in { background: #9a6f3a; }
 .desk-dots button.f { background: var(--desk-amber); }
 
@@ -221,13 +235,13 @@
 .desk-shelf { border-right: 1px solid var(--desk-line); background: #0e0e10; display: flex; flex-direction: column; min-height: 0; padding: 10px 0 8px; overflow: hidden; }
 .desk-shelf h4 { margin: 0 14px 6px; font: 500 10px var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--desk-t3); display: flex; gap: 6px; }
 .desk-shelf h4 .grow { flex: 1; }
-.desk-shelf h4 .switch { font: 10px var(--desk-mono); text-transform: none; letter-spacing: 0; color: var(--desk-t3); background: none; border: 0; padding: 0; cursor: pointer; }
+.desk-shelf h4 .switch { font: 500 10px var(--desk-mono); text-transform: none; letter-spacing: 0; color: var(--desk-t3); background: none; border: 0; padding: 0; cursor: pointer; }
 .desk-shelf h4 .switch:hover { color: var(--desk-t); }
 .desk-shelf .rows { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
 .desk-src { display: block; width: calc(100% - 12px); margin: 0 6px 2px; padding: 6px 8px 7px; border-radius: 6px; text-align: left; transition: background .2s, transform .18s; }
 .desk-src:hover { background: #17171a; }
-.desk-src.open { background: #1a1a1e; box-shadow: inset 2px 0 0 var(--desk-t2); }
-.desk-src.prim { box-shadow: inset 2px 0 0 var(--desk-amber); }
+.desk-src.open { background: #1b1a17; box-shadow: inset 2px 0 0 #9a6f3a; }
+.desk-src.prim { box-shadow: inset 3px 0 0 var(--desk-amber); }
 .desk-src.dragging { opacity: .6; }
 .desk-src .k { font: 9.5px var(--desk-mono); color: var(--desk-t3); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 6px; }
 .desk-src .n { font-size: 12px; color: var(--desk-t); line-height: 1.35; margin-top: 1px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -261,7 +275,7 @@
 .desk-shell.focus-mode .desk-sliver { opacity: 0; pointer-events: none; }
 .desk-window.focused-full { border-radius: 0; box-shadow: none; z-index: 20; }
 .desk-window.focused-full .desk-pane-body .desk-measure { max-width: var(--desk-measure); margin: 0 auto; width: 100%; }
-.desk-zoom-badge { position: fixed; z-index: 140; right: 18px; top: 12px; font: 11px var(--desk-mono); color: var(--desk-t2); background: rgba(20, 20, 22, .9); border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px 8px; }
+.desk-zoom-badge { position: fixed; z-index: 140; left: 50%; bottom: 22px; transform: translateX(-50%); font: 12px var(--desk-mono); color: var(--desk-t); background: rgba(24, 24, 24, .94); border: 1px solid #3a3a3a; border-radius: 12px; padding: 5px 14px; pointer-events: none; white-space: nowrap; }
 .desk-zoom-badge.fade { animation: desk-zoom-badge 2.2s ease forwards; }
 @keyframes desk-zoom-badge { 0% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
@@ -548,9 +562,9 @@
 .desk-pmark .pop .acts { display: flex; gap: 10px; margin-top: 6px; }
 .desk-pmark .pop .acts button { color: #f0c890; }
 .desk-carried { margin-top: 10px; }
-.desk-carried .q { padding: 2px 14px; font: 11px var(--desk-mono); color: var(--desk-t2); display: flex; flex-direction: column; }
+.desk-carried .q { padding: 0; margin: 0 14px 5px; font: italic 11px/1.4 var(--desk-mono); color: var(--desk-t); display: flex; flex-direction: column; }
 .desk-carried .q .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.desk-carried .q .s { color: var(--desk-t3); font-size: 10px; }
+.desk-carried .q .s { color: var(--desk-t3); font-size: 9.5px; font-style: normal; }
 .desk-carried .more { padding: 2px 14px; color: var(--desk-t3); font-size: 10px; }
 
 /* -- display math is never clipped (§13.4, an owner rule) ---------------------------------------------- */
@@ -569,7 +583,7 @@
 .desk-companion .history .older:disabled { color: var(--desk-t3); cursor: default; }
 .desk-drain .note.err { color: #e8a0a0; }
 .desk-pads .conflict { display: inline-block; margin-top: 3px; margin-right: 6px; padding: 0 5px; font: 10px var(--desk-mono); color: var(--desk-amber-ink); border: 1px dashed #d8b98f; border-radius: 2px; }
-.desk-carried .q { width: 100%; text-align: left; cursor: pointer; }
+.desk-carried .q { width: calc(100% - 28px); text-align: left; cursor: pointer; }
 .desk-carried .q:hover .t { color: var(--desk-t); }
 .desk-carried .more { display: block; text-align: left; cursor: pointer; color: #f0c890; }
 .desk-carried-list { max-height: 70vh; overflow-y: auto; }
