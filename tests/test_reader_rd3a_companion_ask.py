@@ -11,7 +11,8 @@ import os
 import queue
 import threading
 import time
-from contextlib import closing
+from collections.abc import Callable, Iterator
+from contextlib import ExitStack, closing, contextmanager
 from typing import Any
 
 import pytest
@@ -72,55 +73,71 @@ class _Lines:
         return json.loads(self.lines.get(timeout=timeout))
 
 
+@contextmanager
+def _serial_loop() -> Iterator[tuple[Callable[[int, str, dict[str, Any]], None], _Lines]]:
+    """``server.serve`` on a pair of pipes: yields a sender and the replies; at exit the input ends (EOF) and the
+    loop is joined."""
+
+    from learnloop_sidecar.server import serve
+
+    in_read, in_write = os.pipe()
+    out_read, out_write = os.pipe()
+    with ExitStack() as files:
+        # Closed in reverse: the loop's stdout first, so the reply pump reads its end before its pipe is closed
+        # (closing a reader another thread is blocked in waits on that reader's lock).
+        replies = _Lines(files.enter_context(io.open(out_read, "r", encoding="utf-8")))
+        stdin = files.enter_context(io.open(in_read, "r", encoding="utf-8"))
+        writer = files.enter_context(io.open(in_write, "w", encoding="utf-8"))
+        stdout = files.enter_context(io.open(out_write, "w", encoding="utf-8"))
+        loop = threading.Thread(target=serve, args=(stdin, stdout), daemon=True)
+        loop.start()
+
+        def send(request_id: int, method: str, params: dict[str, Any]) -> None:
+            writer.write(json.dumps({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}) + "\n")
+            writer.flush()
+
+        try:
+            yield send, replies
+        finally:
+            writer.close()
+            loop.join(WAIT)
+        assert not loop.is_alive()
+
+
 def test_a_second_rpc_is_served_while_a_generation_is_held(tmp_path, monkeypatch):
     """The mutex proof: the real serial loop (``server.serve``) answers ``companion.ask`` with its job, then
     serves ``desk.state`` and a poll, all while the tutor's model request is held inside ``complete``."""
 
-    from learnloop_sidecar.server import serve
-
     tutor = HeldTutor()
     paths, _ctx, _repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
-    in_read, in_write = os.pipe()
-    out_read, out_write = os.pipe()
-    stdin, stdout = io.open(in_read, "r", encoding="utf-8"), io.open(out_write, "w", encoding="utf-8")
-    writer, replies = io.open(in_write, "w", encoding="utf-8"), _Lines(io.open(out_read, "r", encoding="utf-8"))
-    loop = threading.Thread(target=serve, args=(stdin, stdout), daemon=True)
-    loop.start()
-
-    def send(request_id: int, method: str, params: dict[str, Any]) -> None:
-        writer.write(json.dumps({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}) + "\n")
-        writer.flush()
-
-    try:
-        send(1, "initialize", {"vaultPath": str(paths.root)})
-        assert "result" in replies.next(WAIT)
-        send(2, "companion.ask", ask_params("req_held"))
-        started = replies.next(5.0)["result"]
-        assert started["status"] in ("queued", "running") and started["done"] is False
-        assert tutor.entered.wait(WAIT)  # the model request is in flight
-        send(3, "desk.state", {})
-        state = replies.next(5.0)
-        assert "result" in state and tutor.inside.is_set(), "desk.state waited for the held generation"
-        send(4, "companion.ask_job", {"requestId": "req_held"})
-        polled = replies.next(5.0)["result"]
-        assert tutor.inside.is_set()
-        assert (polled["status"], polled["done"], polled["partialMd"], polled["citations"]) == (
-            "running", False, "", [])
-    finally:
-        tutor.release.set()
-    deadline, polled, number = time.monotonic() + WAIT, {}, 5
-    while time.monotonic() < deadline:
-        send(number, "companion.ask_job", {"requestId": "req_held"})
-        polled = replies.next(5.0)["result"]
-        number += 1
-        if polled["done"]:
-            break
-        time.sleep(0.05)
-    assert polled["status"] == "done" and polled["partialMd"] == tutor.answer_md
-    assert polled["citations"] == polled["answer"]["citations"] and polled["questionEventId"]
-    writer.close()
-    loop.join(WAIT)
-    assert not loop.is_alive()
+    with _serial_loop() as (send, replies):
+        try:
+            send(1, "initialize", {"vaultPath": str(paths.root)})
+            assert "result" in replies.next(WAIT)
+            send(2, "companion.ask", ask_params("req_held"))
+            started = replies.next(5.0)["result"]
+            assert started["status"] in ("queued", "running") and started["done"] is False
+            assert tutor.entered.wait(WAIT)  # the model request is in flight
+            send(3, "desk.state", {})
+            state = replies.next(5.0)
+            assert "result" in state and tutor.inside.is_set(), "desk.state waited for the held generation"
+            send(4, "companion.ask_job", {"requestId": "req_held"})
+            polled = replies.next(5.0)["result"]
+            assert tutor.inside.is_set()
+            assert (polled["status"], polled["done"], polled["partialMd"], polled["citations"]) == (
+                "running", False, "", [])
+        finally:
+            tutor.release.set()
+        deadline, polled, number = time.monotonic() + WAIT, {}, 5
+        while time.monotonic() < deadline:
+            send(number, "companion.ask_job", {"requestId": "req_held"})
+            polled = replies.next(5.0)["result"]
+            number += 1
+            if polled["done"]:
+                break
+            time.sleep(0.05)
+        assert polled["status"] == "done" and polled["partialMd"] == tutor.answer_md
+        assert polled["citations"] == polled["answer"]["citations"] and polled["questionEventId"]
 
 
 def test_the_job_answers_with_the_reader_asks_reply_and_reader_ask_still_answers(tmp_path, monkeypatch):
