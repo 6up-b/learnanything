@@ -6569,7 +6569,7 @@ export interface ReaderPromptContractDto {
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
-  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean; /** RW5d P1: "show me" in the learner's words (figures.show_me_enabled). */ showMe?: boolean; /** RW5d P2: the sketch tier (figures.sketch_enabled, engine ready). */ sketch?: boolean };
+  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean; /** RW5d P1: "show me" in the learner's words (always sent with figures on). */ showMe?: boolean; /** RW5d P2: the sketch tier (where the engine can run). */ sketch?: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
@@ -9247,7 +9247,7 @@ export interface LibraryNoteDto {
   roles: string[];
   speaksTo: { id: string; statement: string } | null;
   label: string;
-  /** RW5b: the organizer judged this equation or figure block explorable (present only while figures.offers_enabled is on). */
+  /** RW5b: the organizer judged this equation or figure block explorable (present only while figures.enabled is on). */
   explorable?: boolean;
 }
 
@@ -9702,14 +9702,14 @@ export interface FigureViewDto {
   predictions: FigurePredictionDto[];
   /** The closed keys of the checks LearnLoop ran (§8.3 steps 1-2); the Reader names them in its own words. */
   propertyChecks?: string[];
-  /** RW5d P1 (present only while figures.show_me_enabled is on): the goal in its author's voice. */
+  /** RW5d P1: the goal in its author's voice. */
   goalText?: string | null;
   goalAuthor?: "learner" | "tutor" | "teacher" | null;
   /** Where its passages came from: the learner's selection, found in their books, or none ("not from your books"). */
   grounding?: FigureGrounding;
   /** The passages found in the learner's books it was built from (grounding "retrieved"). */
   passages?: FigurePassageDto[];
-  /** RW5d P2 (present only while figures.sketch_enabled is on): a declarative figure or a sketch.
+  /** RW5d P2 (present only where the sketch engine can run): a declarative figure or a sketch.
    *  RW5d P2b (present while figures.rich_tiers_enabled is on): or a Manim figure. */
   tier?: "grammar" | "sketch" | "manim";
   /** A shown sketch's code-owned check lines and the engine it was verified under (specJson is its SketchProgramV1). */
@@ -9720,7 +9720,7 @@ export interface FigureViewDto {
   fuller?: FigureFullerDto | null;
   /** RW5d P4b: "lesson" when a lesson shows it (its own predictions suppressed, no fuller version). */
   host?: "lesson";
-  /** RW5c (present only for a grammar figure while figures.checked_labels_enabled is on): every label
+  /** RW5c (present only for a grammar figure): every label
    *  of a figure with a checked element, by the element id its specJson carries in that label's place. */
   elements?: FigureElementDto[];
   sourceCheck?: FigureSourceCheckDto;

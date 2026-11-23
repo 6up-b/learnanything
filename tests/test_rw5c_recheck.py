@@ -18,11 +18,10 @@ from learnloop.figures import listing as FL
 from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
-from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from tests.figure_fixtures import AuthorFake, build, call, context, rows, set_config
-from tests.rw5c_fixtures import EXTRACTION, FLAGSHIP_EXPR, FLAGSHIP_TEX, HALF_EXPR, PARAMETERS, build_check_vault, plot, set_switch
+from tests.rw5c_fixtures import EXTRACTION, FLAGSHIP_EXPR, FLAGSHIP_TEX, HALF_EXPR, PARAMETERS, build_check_vault, plot
 
 sandboxed = pytest.mark.skipif(not pf_sandbox.sandbox_available(), reason="needs bubblewrap")
 BOOK = [("s1", "Text", f"The density is $${FLAGSHIP_TEX}$$ for a mixture."), ("s5", "Text", "$f(x)=x$")]
@@ -39,12 +38,11 @@ def _vault(tmp_path, answers: list[Any]) -> tuple[Any, Any, AuthorFake, Any]:
 
 
 def _stored_before_rw5c(paths: Any, ctx: Any, params: dict[str, Any]) -> dict[str, Any]:
-    """A figure built with the switch off (as every figure before RW5c), then the switch on."""
+    """A figure stored before RW5c: built with no source check (step 3 did not exist then)."""
 
-    set_switch(paths, False)
-    figure = build(context(paths.root, author=ctx.figure_author_client), params)["figure"]
-    set_switch(paths, True)
-    return figure
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(SC, "enabled", lambda _vault: False)
+        return build(context(paths.root, author=ctx.figure_author_client), params)["figure"]
 
 
 @sandboxed
@@ -134,23 +132,6 @@ def test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored(tmp_pat
     assert listed["sourceCheck"]["recheckDue"] is False
 
 
-def test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing(tmp_path, monkeypatch):
-    paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
-    figure = _stored_before_rw5c(paths, ctx, REQUEST)
-    full = store.figure(repository.connection(), figure["figureId"])
-
-    def flip(_payload: dict[str, Any], _sandbox: Any) -> pf_sandbox.SandboxResult:
-        set_switch(paths, False)
-        return pf_sandbox.SandboxResult(True, output={"sympy_version": "fake", "results": []})
-
-    monkeypatch.setattr(SC, "_run_sandbox", flip)
-    monkeypatch.setattr(pf_sandbox, "sandbox_available", lambda: True)
-    assert SC.recheck(load_vault(paths.root), repository, full) is None
-    assert rows(repository, "figure_source_checks") == []
-    assert SC.recheck(load_vault(paths.root), repository, full) is None  # off now: not even started
-    assert rows(repository, "figure_source_checks") == []
-
-
 def test_dry_run_writes_nothing_and_the_cli_reports_by_reason_key(tmp_path, monkeypatch):
     paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
     monkeypatch.setattr(pf_sandbox, "sandbox_available", lambda: False)
@@ -202,7 +183,7 @@ def test_the_audit_lists_no_equation_of_a_source_held_out_after_its_check(tmp_pa
 
 
 @sandboxed
-def test_the_report_has_a_source_checks_block_only_while_the_switch_is_on(tmp_path):
+def test_the_report_has_a_source_checks_block_only_while_figures_are_on(tmp_path):
     paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
     figure = build(ctx, REQUEST)["figure"]
     runner = CliRunner()
@@ -210,9 +191,9 @@ def test_the_report_has_a_source_checks_block_only_while_the_switch_is_on(tmp_pa
     assert block["figures"] == 1 and block["outcomes"] == {"checked": 1} and block["elements"]["book"] == 1
     assert block["latency_ms"]["max"] is not None and block["opened"] == {"with_book": 0, "without": 0}
     assert figure["sourceCheck"]["status"] == "checked"
-    set_switch(paths, False)
-    off = json.loads(runner.invoke(app, ["reader", "report", "--json", "--vault", str(paths.root)]).output)["figures"]
-    assert "source_checks" not in off
+    set_config(paths, "figures", enabled=False)
+    off = json.loads(runner.invoke(app, ["reader", "report", "--json", "--vault", str(paths.root)]).output)
+    assert "source_checks" not in (off.get("figures") or {})
 
 
 def test_dry_run_needs_recheck(tmp_path):
@@ -261,21 +242,6 @@ def test_pressing_rebuild_calls_the_author_and_stores_a_new_version(tmp_path):
     assert [item["figureId"] for item in listed] == [rebuilt["figureId"]]
 
 
-@sandboxed
-def test_rebuild_is_not_offered_with_revisions_off(tmp_path):
-    paths, repository, _author, ctx = _vault(tmp_path, [HALF])
-    figure = _stored_before_rw5c(paths, ctx, DENSITY)
-    full = store.figure(repository.connection(), figure["figureId"])
-    SC.recheck(load_vault(paths.root), repository, full)
-    set_config(paths, "figures", revisions_enabled=False)
-    ctx = context(paths.root, author=AuthorFake())
-    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
-    assert listed["sourceCheck"]["rebuild"] is False
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.figure_revise", {"figureId": figure["figureId"], "note": "", "rebuild": True})
-    assert caught.value.code == "revisions_disabled"
-
-
 def test_rebuild_of_a_figure_with_no_difference_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(pf_sandbox, "sandbox_available", lambda: False)
     paths, _repository, _author, ctx = _vault(tmp_path, [plot("x")])
@@ -302,14 +268,14 @@ def test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing(tmp_pat
     paths, repository, author, _ctx = _vault(tmp_path, [HALF])
     # A real pre-build (its request's build mode is ``prefetch``: nobody pressed for it), made before RW5c.
     set_config(paths, "figures", prefetch_enabled=True)
-    set_switch(paths, False)
     P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
     try:
-        outcome = FB.build_prefetch_figure(load_vault(paths.root), repository, FQ.FigureRequest(
-            extraction_id=EXTRACTION, span_ids=DENSITY["spanIds"], origin="prefetch"), author_client=author)
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(SC, "enabled", lambda _vault: False)
+            outcome = FB.build_prefetch_figure(load_vault(paths.root), repository, FQ.FigureRequest(
+                extraction_id=EXTRACTION, span_ids=DENSITY["spanIds"], origin="prefetch"), author_client=author)
     finally:
         P.set_power_reader(None)
-    set_switch(paths, True)
     figure_id = outcome.view["figure_id"]
     reader = context(paths.root, author=AuthorFake())
     assert [figure["figureId"] for figure in call(reader, "reader.figures", {"extractionId": EXTRACTION})["figures"]] \
@@ -328,22 +294,6 @@ def test_section_figures_leave_a_rejected_figure_out(tmp_path):
     full = store.figure(repository.connection(), figure["figureId"])
     SC.recheck(vault, repository, full)
     assert FL.section_figures(vault, repository, EXTRACTION, lambda span: "sec") == {}
-
-
-@sandboxed
-def test_a_kept_build_result_read_after_the_switch_turns_off_shows_no_label(tmp_path):
-    paths, repository, _author, ctx = _vault(tmp_path, [plot("x", label="the model's name")])
-    job = call(ctx, "reader.figure_request", REQUEST)
-    kept = ctx.figure_jobs.get(job["jobId"])
-    assert kept.done.wait(60)
-    set_switch(paths, False)
-    ctx.vault = None
-    fresh = call(context(paths.root, author=AuthorFake()), "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
-    assert "elements" not in fresh and "sourceCheck" not in fresh and "the model's name" in fresh["specJson"]
-    view = FV.redelivered_view(load_vault(paths.root), repository, {
-        "figure_id": fresh["figureId"], "elements": [{"id": "x"}], "source_check": {"status": "checked"}, "spec_json": "stale",
-        "versions": 1})
-    assert "elements" not in view and "source_check" not in view and "the model's name" in view["spec_json"]
 
 
 # -- the report's opens and notes go by their own dates (Astra A5) --------------------------------------

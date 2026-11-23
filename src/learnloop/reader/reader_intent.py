@@ -77,7 +77,7 @@ TASK = "reader_intent"
 RECEIPT_OWNER = "reader_intent"
 #: The question set every routing row is produced by.
 QUESTION_SET_VERSION = "reader-intent-qs-v1"
-#: Reader RW5d P1 (``figures.show_me_enabled``): the figure action's option text
+#: Reader RW5d P1 ("show me", with figures on): the figure action's option text
 #: gains the clause about the learner's words, under its own question-set version.
 SHOW_ME_QUESTION_SET_VERSION = "reader-intent-qs-v2-show-me"
 #: Reader CA3 (``reader_compare.scope_enabled``): the options gain
@@ -278,7 +278,7 @@ class Availability:
     notes: bool = False
     #: RW5a's explorable figures (``figures.enabled``): "make this explorable".
     figures: bool = False
-    #: RW5d's "show me" (``figures.show_me_enabled``): the figure action takes
+    #: RW5d's "show me" (with figures on): the figure action takes
     #: the learner's words, labelled "show me…".
     show_me: bool = False
     #: Reader CA3 (``reader_compare.scope_enabled`` with the library's compare):
@@ -300,8 +300,7 @@ class Availability:
             model=model,
             notes=notes,
             figures=bool(getattr(getattr(config, "figures", None), "enabled", False)),
-            show_me=bool(getattr(getattr(config, "figures", None), "enabled", False)
-                         and getattr(getattr(config, "figures", None), "show_me_enabled", False)),
+            show_me=bool(getattr(getattr(config, "figures", None), "enabled", False)),
             compare_scope=bool(
                 getattr(getattr(config, "library_ask", None), "enabled", False)
                 and getattr(getattr(config, "source_service", None), "enabled", False)

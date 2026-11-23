@@ -67,9 +67,9 @@ export interface FiguresContract {
   predictions: boolean;
   region: boolean;
   revisions: boolean;
-  /** RW5b: "make this explorable" offers (present only while figures.offers_enabled is on). */
+  /** RW5b: "make this explorable" offers (sent with figures on). */
   offers?: boolean;
-  /** RW5d P1: "show me" in the learner's words (present only while figures.show_me_enabled is on). */
+  /** RW5d P1: "show me" in the learner's words (sent with figures on). */
   showMe?: boolean;
   /** RW5d P2: the sketch tier. */
   sketch?: boolean;

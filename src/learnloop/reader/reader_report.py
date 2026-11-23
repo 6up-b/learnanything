@@ -365,13 +365,13 @@ def build_reader_report(
     it is on does the report read the figure tables and carry its
     ``figures`` block, so with figures off it is the report of before RW5a
     (fix round 3; the CLI passes the switch). ``figure_offers_enabled``
-    (RW5b, ``figures.offers_enabled`` under it) adds the figures built from
+    (RW5b; the CLI passes ``figures.enabled``) adds the figures built from
     an offer, by origin; off, the block is RW5a's. ``figure_show_me_enabled``
-    (RW5d P1, ``figures.show_me_enabled``) adds ``show_me``: requests with a
+    (RW5d P1; the CLI passes ``figures.enabled``) adds ``show_me``: requests with a
     goal by origin and anchoring, the grounding mix, abstentions ("not from
     your books"), unsupported kinds and the "not right?" rate of show-me
     figures (counts only, never the words); off, the block is RW5b's.
-    ``figure_sketch_enabled`` (RW5d P2, ``figures.sketch_enabled``) adds
+    ``figure_sketch_enabled`` (RW5d P2; the CLI passes ``figures.enabled``) adds
     ``tiers``: figures by tier and verification, the author's tier verdicts
     (the ``figure_tier`` receipts), its ``why_not_spec`` reasons counted (so
     grammar erosion is visible, R3), and sketch pauses and errors in the

@@ -425,6 +425,16 @@ def end_below_floor_allowance():
     end_test_allowance()
 
 
+# A figure vault built without the sketch tier makes the sealed engine unavailable, as a machine without it is
+# (the tier has no switch of its own): undone after the test, so the next one starts with the engine as it is.
+@pytest.fixture(autouse=True)
+def end_sketch_engine_absence():
+    yield
+    figures = sys.modules.get("tests.figure_fixtures")
+    if figures is not None:
+        figures.end_sketch_engine_absence()
+
+
 @pytest.fixture(autouse=True)
 def close_test_background_owners():
     start = _background_owners.mark()

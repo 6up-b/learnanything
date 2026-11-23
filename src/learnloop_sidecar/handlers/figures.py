@@ -53,14 +53,11 @@
   opens a stored figure on an attempt host (the chooser's
   ``explore_figure`` line), recorded the same way.
 
-Desktop only (pinned in tests/test_mobile_allowlist.py). Kill switches:
+Desktop only (pinned in tests/test_mobile_allowlist.py). Kill switch:
 ``figures.enabled`` (off: every RPC here refuses, the prompt contract has no
 ``figures`` key, the intent box has no "make this explorable" and no route
-is called), ``figures.predictions_enabled``, ``figures.region_enabled``,
-``figures.revisions_enabled``, and RW5b's ``figures.offers_enabled`` (off:
-no ``offers`` in the contract and an offered request is refused) and
-``figures.advanced_panels_enabled``. Nothing here writes an attempt, evidence,
-mastery, certification, FSRS, scheduler state or a plan.
+is called). Nothing here writes an attempt, evidence, mastery,
+certification, FSRS, scheduler state or a plan.
 """
 from __future__ import annotations
 
@@ -71,16 +68,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.attempts.salience_firewall import salience_payload
-from learnloop.figure_admission import (
-    figures_enabled,
-    help_kind_enabled,
-    offers_enabled,
-    predictions_enabled,
-    region_enabled,
-    revisions_enabled,
-    rich_tiers_enabled,
-    show_me_enabled,
-)
+from learnloop.figure_admission import figures_enabled, help_kind_enabled, rich_tiers_enabled
 from learnloop.figures import power as P
 from learnloop.figures import build as FB
 from learnloop.figures import predictions as FPR
@@ -117,23 +105,17 @@ FIGURE_RPCS: tuple[str, ...] = (
 
 
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
-    """What the Reader's prompt contract adds for RW5a (absent while off).
-    RW5b adds ``offers: true`` only while ``figures.offers_enabled`` is on, so
-    with it off the contract is RW5a's, key for key."""
+    """What the Reader's prompt contract adds for figures (absent while
+    ``figures.enabled`` is off). Predictions, regions, revisions, offers and
+    "show me" have no switch of their own, so their keys are constant: the
+    desktop still reads them."""
 
     if not figures_enabled(vault):
         return {}
-    figures: dict[str, Any] = {"predictions": predictions_enabled(vault), "region": region_enabled(vault),
-                               "revisions": revisions_enabled(vault)}
-    if offers_enabled(vault):
-        figures["offers"] = True
-    if show_me_enabled(vault):
-        # RW5d P1: present only while figures.show_me_enabled is on, so off the
-        # contract is RW5b's, key for key.
-        figures["show_me"] = True
+    figures: dict[str, Any] = {"predictions": True, "region": True, "revisions": True, "offers": True,
+                               "show_me": True}
     if sketch_ready(vault):
-        # RW5d P2: present only while the sketch tier is on (and the engine
-        # ready), so off the contract is P1's, key for key.
+        # RW5d P2: present only where the sealed engine can run.
         figures["sketch"] = True
     if help_kind_enabled(vault):
         # RW5d P3: present only while figures in attempts are on, so off the
@@ -460,8 +442,6 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
         # prefetch service's is in-process only. No RPC names either origin.
         raise SidecarError("validation_error", f"Figures with origin {origin!r} are not made here.")
     goal = " ".join(str(goal_text or "").split()) or None
-    if goal is not None and not show_me_enabled(vault):
-        raise SidecarError("show_me_disabled", "\"Show me\" in your own words is switched off (figures.show_me_enabled).")
     if origin == "ask" or any(host_ref.get(name) for name in ATTEMPT_HOST_REFS):
         # RW5d P3: the Ask panel on practice, feedback and the workbench.
         if origin != "ask" or extraction_id or span_ids or region:
@@ -483,8 +463,6 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     if origin == "tutor" and goal is not None:
         # The tutor's goal: only the one its stored answer wrote, grounded in
         # that answer's cited passages; the press is the grant (SM9).
-        if not offers_enabled(vault):
-            raise SidecarError("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
         stored = tutor_figure_goal(repository, offer_ref)
         if anchored or stored is None or not _same_goal(stored.get("text"), goal):
             raise SidecarError("not_offered", "That figure goal was not offered by the tutor's answer.")
@@ -492,8 +470,6 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
         keys = [(str(key[0]), str(key[1])) for key in stored.get("span_keys") or () if len(key) == 2]
     elif origin != "selection" and origin != "show_me":
         # RW5b: an offered figure is one block the judgment offered, no region, no goal.
-        if not offers_enabled(vault):
-            raise SidecarError("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
         offered = offered_spans(vault, repository, origin, offer_ref)
         wanted = {(str(extraction_id), str(span)) for span in span_ids}
         if goal is not None or region is not None or len(wanted) != 1 or not wanted <= offered:

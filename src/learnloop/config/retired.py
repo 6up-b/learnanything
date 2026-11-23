@@ -82,6 +82,15 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("RouterLessonSuggestionsConfig", ("enabled",), bool, True, "D7"),
     RetiredField("RouterLessonSuggestionsConfig", ("in_objective",), bool, True, "D7"),
     RetiredField("DataCaptureConfig", ("serving",), bool, True, "D7"),
+    # The figure content switches the owner retired (2026-11-14): each only turned one feature off by itself.
+    RetiredField("FiguresConfig", ("predictions_enabled",), bool, True, "K10.16"),
+    RetiredField("FiguresConfig", ("region_enabled",), bool, True, "K10.16"),
+    RetiredField("FiguresConfig", ("revisions_enabled",), bool, True, "K10.16"),
+    RetiredField("FiguresConfig", ("advanced_panels_enabled",), bool, True, "K10.16"),
+    RetiredField("FiguresConfig", ("offers_enabled",), bool, True, "K10.16"),
+    RetiredField("FiguresConfig", ("show_me_enabled",), bool, True, "K10.16"),
+    RetiredField("FiguresConfig", ("sketch_enabled",), bool, True, "K10.16"),
+    RetiredField("FiguresConfig", ("checked_labels_enabled",), bool, True, "K10.16"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}

@@ -12,11 +12,11 @@ from learnloop_sidecar.context import SidecarContext
 import learnloop_sidecar.handlers  # noqa: F401 -- register methods before registry reads
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
-from tests.figure_fixtures import AuthorFake
+from tests.figure_fixtures import AuthorFake, sketch_engine_absent
 from tests.hint_fakes import ITEM, WORK, assists, hint_vault
 
 
-CONFIG = '[hints]\nchoice_policy = "argmax"\n[figures]\nsketch_enabled = false\nrich_tiers_enabled = false\n'
+CONFIG = '[hints]\nchoice_policy = "argmax"\n[figures]\nrich_tiers_enabled = false\n'
 SELF_GRADE = {"criterionPoints": {"cdf": 2, "value": 0}, "confidence": 3}
 GOAL = "show how the area under 2x grows as the cut point moves"
 
@@ -58,6 +58,7 @@ def _call(ctx: Any, name: str, params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _sidecar(tmp_path, *, author: AuthorFake | None = None, help_on: bool = True):
+    sketch_engine_absent()
     paths = hint_vault(tmp_path, config=CONFIG + ("" if help_on else "help_kind_enabled = false\n"))
     ctx = SidecarContext()
     ctx.load(paths.root)

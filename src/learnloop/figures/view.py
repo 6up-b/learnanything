@@ -1,9 +1,9 @@
 """How a stored figure is presented now: its row under today's switches, and the view the Reader is sent.
 
 A stored row is never rewritten; what goes out is computed on every read. :func:`figure_view` presents a row through
-one chain (:func:`_presented_row`): a legacy ``verified`` shown as an illustration (:func:`shown_row`), each tier or
-panel kind that is switched off shown as "can't draw this yet" with its program withheld (:func:`advanced_off_row`,
-:func:`sketch_off_row`, :func:`rich_off_row`), a sketch verified under another engine or verifier verified again by
+one chain (:func:`_presented_row`): a legacy ``verified`` shown as an illustration (:func:`shown_row`), a tier that
+is off or that this machine can't run shown as "can't draw this yet" with its program withheld
+(:func:`sketch_off_row`, :func:`rich_off_row`), a sketch verified under another engine or verifier verified again by
 code, its verdict appended to ``judgment_ledger`` (:func:`sketch_rechecked`), a figure whose stated claim the source
 check proved different shown failed (:func:`source_rejected`), and the free-text label rule applied as presented
 (:func:`worded_row`). The view adds the code-owned label, the predictions without their answers, the source check's
@@ -29,13 +29,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import (
-    advanced_panels_enabled,
-    predictions_enabled,
-    revisions_enabled,
-    rich_tiers_enabled,
-    show_me_enabled,
-)
+from learnloop.figure_admission import rich_tiers_enabled
 from learnloop.figures import elements as E
 from learnloop.figures import labels as L
 from learnloop.figures import rich as RICH
@@ -64,8 +58,8 @@ LABELS = {
 SKETCH_LABEL = L.SKETCH_LABEL
 SKETCH_UNCHECKED_LABEL = L.SKETCH_UNCHECKED_LABEL
 SKETCH_NOT_FROM_BOOKS_LABEL = L.SKETCH_NOT_FROM_BOOKS_LABEL
-#: What a stored sketch shows while the tier is off, and when a new engine refuses it.
-SKETCH_OFF_KIND = "a simulation (figures.sketch_enabled is off)"
+#: What a stored sketch shows where the engine can't run, and when a new engine refuses it.
+SKETCH_OFF_KIND = "a simulation (the sketch engine can't run here)"
 ENGINE_CHANGED_REASON = "couldn't run under this version · rebuild"
 
 
@@ -73,10 +67,6 @@ def rich_row(row: Mapping[str, Any]) -> bool:
     """RW5d P2b: a stored rich figure (a Manim figure)."""
 
     return row.get("tier") in RICH.RICH_TIERS or row.get("spec_version") in RICH_SPEC_VERSIONS
-
-
-#: What a stored figure that uses an RW5b panel shows while the panels are off.
-ADVANCED_OFF_KIND = "a panel kind that is switched off (figures.advanced_panels_enabled)"
 
 
 # ---------------------------------------------------------------------------
@@ -113,24 +103,6 @@ def _advanced_kinds(row: Mapping[str, Any]) -> list[str]:
         return []
 
 
-def advanced_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
-    """RW5b: a shown figure that uses a heat map, vector field, trajectory or
-    iterated map, while ``figures.advanced_panels_enabled`` is off, is the
-    unsupported-kind state ("can't draw this yet"); its spec never goes out."""
-
-    if advanced_panels_enabled(vault) or row.get("verification") not in store.SHOWN or not row.get("spec_json"):
-        return row
-    try:
-        kinds = S.advanced_kinds(json.loads(row["spec_json"]))
-    except (TypeError, ValueError):
-        return row
-    if not kinds:
-        return row
-    report = dict(row.get("verification_report") or {})
-    return {**row, "verification": V.UNSUPPORTED, "unsupported_kind": ADVANCED_OFF_KIND, "spec_json": None,
-            "verification_report": {**report, "reason": f"{', '.join(dict.fromkeys(kinds))} is switched off"}}
-
-
 def sketch_row(row: Mapping[str, Any]) -> bool:
     """RW5d P2: a stored sketch."""
 
@@ -138,15 +110,15 @@ def sketch_row(row: Mapping[str, Any]) -> bool:
 
 
 def sketch_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
-    """RW5d P2: a shown sketch while ``figures.sketch_enabled`` is off (or the
-    engine can't run here) is the unsupported-kind state ("can't draw this
-    yet"); its program never goes out."""
+    """RW5d P2: a shown sketch where the sealed engine can't run (or figures
+    are off) is the unsupported-kind state ("can't draw this yet"); its
+    program never goes out."""
 
     if not sketch_row(row) or row.get("verification") not in store.SHOWN or sketch_ready(vault):
         return row
     report = dict(row.get("verification_report") or {})
     return {**row, "verification": V.UNSUPPORTED, "unsupported_kind": SKETCH_OFF_KIND, "spec_json": None,
-            "verification_report": {**report, "reason": "the sketch tier is switched off"}}
+            "verification_report": {**report, "reason": "the sketch engine can't run here"}}
 
 
 def rich_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -315,10 +287,10 @@ def worded_row(row: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def available_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The chain's first step after :func:`shown_row`: a tier or panel kind that is off, or that this machine
-    can't run, shown as "can't draw this yet" with its program withheld. The same object when it can be drawn."""
+    """The chain's first step after :func:`shown_row`: a tier that is off, or that this machine can't run, shown
+    as "can't draw this yet" with its program withheld. The same object when it can be drawn."""
 
-    return rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, row)))
+    return rich_off_row(vault, sketch_off_row(vault, row))
 
 
 def drawable_now(vault: Any, row: Mapping[str, Any]) -> bool:
@@ -434,16 +406,14 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         "revision_note": row.get("revision_note"), "versions": versions, "created_at": row["created_at"],
         "spec_json": None, "demonstrates": None, "assumptions": [], "predictions": [], "property_checks": [],
     }
-    if show_me_enabled(vault):
-        # RW5d (absent while show me is off, so the view is RW5a/b's key for key):
-        # the goal in its author's voice, the grounding and the cited passages.
-        manifest = (asked or {}).get("grounding_manifest") or {}
-        view.update({
-            "goal_text": row.get("goal_text"), "goal_author": (asked or {}).get("goal_author"),
-            "grounding": row.get("grounding") or "anchor",
-            "passages": [dict(item) for item in manifest.get("passages") or ()]
-            if (row.get("grounding") or "anchor") == "retrieved" else [],
-        })
+    # RW5d: the goal in its author's voice, the grounding and the cited passages.
+    manifest = (asked or {}).get("grounding_manifest") or {}
+    view.update({
+        "goal_text": row.get("goal_text"), "goal_author": (asked or {}).get("goal_author"),
+        "grounding": row.get("grounding") or "anchor",
+        "passages": [dict(item) for item in manifest.get("passages") or ()]
+        if (row.get("grounding") or "anchor") == "retrieved" else [],
+    })
     if sketch_ready(vault):
         # RW5d P2 (absent while the tier is off, so the view is P1's key for key).
         view["tier"] = "sketch" if sketch_row(row) else "grammar"
@@ -456,10 +426,10 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         view["manim"] = None
         view["fuller"] = None if rich_row(row) else fuller_state(vault, repository, row)
     if (row.get("verification_report") or {}).get("source_check_rejected"):
-        # RW5c (§6.6): the frame's failed state, with *rebuild* while revisions are on.
+        # RW5c (§6.6): the frame's failed state, with *rebuild*.
         view["elements"] = []
         view["source_check"] = {"status": "differs", "certification_version": SC.CERTIFICATION_VERSION,
-                                "reasons": ["differs"], "recheck_due": False, "rebuild": revisions_enabled(vault)}
+                                "reasons": ["differs"], "recheck_due": False, "rebuild": True}
     if row["verification"] not in store.SHOWN or not row.get("spec_json"):
         return view
     if rich_row(row):
@@ -474,24 +444,22 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     view["assumptions"] = report.get("assumptions") or [
         {"text": item.text, "span_id": None, "quote": None} for item in compiled.spec.assumptions]
     dropped = set(report.get("dropped_predictions") or ())
-    answered: dict[int, dict[str, Any]] = {}
-    if predictions_enabled(vault):
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            answered = {found["prediction_index"]: found
-                        for found in store.predictions_for_figure(connection, str(row["id"]))}
-        for index, (prediction, _node) in enumerate(compiled.predictions):
-            if index in dropped:
-                continue
-            outcome = S.prediction_outcome(compiled, index)
-            choices = ([{"value": value, "label": S.DIRECTION_LABELS[value]} for value in S.DIRECTIONS]
-                       if prediction.observe.kind == "direction"
-                       else [{"value": label, "label": label} for label in outcome["choices"]])
-            view["predictions"].append({
-                # The change itself is in spec_json (parameter names are the
-                # spec's own keys, which the wire's camel-casing would rename).
-                "index": index, "prompt": prediction.prompt, "kind": prediction.observe.kind, "choices": choices,
-                "answered": _prediction_view(answered.get(index)),
-            })
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        answered = {found["prediction_index"]: found
+                    for found in store.predictions_for_figure(connection, str(row["id"]))}
+    for index, (prediction, _node) in enumerate(compiled.predictions):
+        if index in dropped:
+            continue
+        outcome = S.prediction_outcome(compiled, index)
+        choices = ([{"value": value, "label": S.DIRECTION_LABELS[value]} for value in S.DIRECTIONS]
+                   if prediction.observe.kind == "direction"
+                   else [{"value": label, "label": label} for label in outcome["choices"]])
+        view["predictions"].append({
+            # The change itself is in spec_json (parameter names are the
+            # spec's own keys, which the wire's camel-casing would rename).
+            "index": index, "prompt": prediction.prompt, "kind": prediction.observe.kind, "choices": choices,
+            "answered": _prediction_view(answered.get(index)),
+        })
     _source_check_view(vault, repository, row, compiled, view)
     return view
 
@@ -528,22 +496,21 @@ def _sketch_view(vault: Any, repository: Repository, row: Mapping[str, Any], vie
                    for entry in report.get("tested") or ()],
     }
     dropped = set(report.get("dropped_predictions") or ())
-    if predictions_enabled(vault):
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            answered = {found["prediction_index"]: found
-                        for found in store.predictions_for_figure(connection, str(row["id"]))}
-        for index, prediction in enumerate(program.predictions):
-            if index in dropped:
-                continue
-            kind = prediction.observe.kind
-            choices = ([{"value": value, "label": S.DIRECTION_LABELS[value]} for value in S.DIRECTIONS]
-                       if kind == "direction" else
-                       [{"value": label, "label": label} for label in prediction.observe.choices])
-            # target_step (Codex review F5): the clock step the answer is
-            # graded at, so the desktop's playback stops exactly there.
-            view["predictions"].append({"index": index, "prompt": prediction.prompt, "kind": kind,
-                                        "choices": choices, "answered": _prediction_view(answered.get(index)),
-                                        "target_step": SV.prediction_target_step(compiled, index)})
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        answered = {found["prediction_index"]: found
+                    for found in store.predictions_for_figure(connection, str(row["id"]))}
+    for index, prediction in enumerate(program.predictions):
+        if index in dropped:
+            continue
+        kind = prediction.observe.kind
+        choices = ([{"value": value, "label": S.DIRECTION_LABELS[value]} for value in S.DIRECTIONS]
+                   if kind == "direction" else
+                   [{"value": label, "label": label} for label in prediction.observe.choices])
+        # target_step (Codex review F5): the clock step the answer is
+        # graded at, so the desktop's playback stops exactly there.
+        view["predictions"].append({"index": index, "prompt": prediction.prompt, "kind": kind,
+                                    "choices": choices, "answered": _prediction_view(answered.get(index)),
+                                    "target_step": SV.prediction_target_step(compiled, index)})
     return view
 
 
@@ -777,7 +744,6 @@ def _prebuilt_pressed(repository: Repository, row: Mapping[str, Any]) -> bool:
 
 
 __all__ = [
-    "ADVANCED_OFF_KIND",
     "ENGINE_CHANGED_REASON",
     "LABELS",
     "LABEL_CODES",
@@ -790,7 +756,6 @@ __all__ = [
     "SKETCH_NOT_FROM_BOOKS_LABEL",
     "SKETCH_OFF_KIND",
     "SKETCH_UNCHECKED_LABEL",
-    "advanced_off_row",
     "available_row",
     "drawable_now",
     "figure_view",

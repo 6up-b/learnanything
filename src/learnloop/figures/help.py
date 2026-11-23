@@ -36,7 +36,7 @@ from typing import Any
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
-from learnloop.figure_admission import help_kind_enabled, show_me_enabled
+from learnloop.figure_admission import help_kind_enabled
 
 #: The ladder level a figure's help row is written at (§11.2): one
 #: hint-equivalent in the fold, the level of ``explore_figure`` (§11.4). A
@@ -65,7 +65,7 @@ _TREATS = ("introduces", "develops", "applies")
 
 
 def enabled(vault: Any) -> bool:
-    """``figures.help_kind_enabled`` (under ``figures.enabled`` and ``show_me_enabled``)."""
+    """``figures.help_kind_enabled`` (under ``figures.enabled``)."""
 
     return help_kind_enabled(vault)
 
@@ -391,7 +391,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
     figures already opened in this attempt (their chain roots)."""
 
     from learnloop.figures import view as FV
-    from learnloop.figures.protection import row_withheld, show_me_row
+    from learnloop.figures.protection import row_withheld
     from learnloop.figures.spec import SPEC_VERSIONS
     from learnloop.source_retrieval.corpus import item_exclusions
     from learnloop.tutor.tutor_qa import span_leaks_expected
@@ -415,10 +415,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
         if FV.rich_row(row):
             # Ruling R1: attempt hosts are grammar and sketch only.
             continue
-        if show_me_row(row) and not show_me_enabled(vault):
-            continue
-        if not FV.drawable_now(vault, row) or FV.advanced_off_row(vault, row) is not row \
-                or FV.sketch_off_row(vault, row) is not row:
+        if not FV.drawable_now(vault, row):
             continue
         if FV.source_rejected(vault, repository, row):
             continue  # RW5c: a stated claim proved different is not shown

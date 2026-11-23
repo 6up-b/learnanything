@@ -38,7 +38,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from learnloop.figure_admission import sketch_enabled
+from learnloop.figure_admission import figures_enabled
 from learnloop.figures import grammar as G
 from learnloop.figures import spec as S
 
@@ -864,11 +864,11 @@ def element_index(scene: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
 
 
 def sketch_ready(vault: Any) -> bool:
-    """The sketch tier as offered on this machine: its switch, and the engine
+    """The sketch tier as offered on this machine: figures on, and the engine
     present with its pinned digest (spec §7.2: an unavailable tier is left
     out of the author's menu)."""
 
-    if not sketch_enabled(vault):
+    if not figures_enabled(vault):
         return False
     # Imported here, not at the top: the sidecar starts without loading the
     # sealed engine's module (``test_sidecar_start_imports_neither_wasmtime_nor_the_engine``).

@@ -35,13 +35,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import (
-    FiguresChanged,
-    FiguresGate,
-    advanced_panels_enabled,
-    figures_enabled,
-    rich_tiers_enabled,
-)
+from learnloop.figure_admission import FiguresChanged, FiguresGate, figures_enabled, rich_tiers_enabled
 from learnloop.figures import author_answer as AA
 from learnloop.figures import records as FR
 from learnloop.figures import rich as RICH
@@ -443,7 +437,9 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
     if clipped is not None and request.region is not None:
         request.region = {**request.region, "bbox": [round(float(value), 2) for value in clipped]}
     digest = hashlib.sha256(image[1]).hexdigest() if image is not None else None
-    advanced = advanced_panels_enabled(vault)
+    # The advanced panels have no switch: every new build is prompted and keyed under their prompt version.
+    # The plain one stays in the alternates below, which read figures stored before the panels.
+    advanced = True
     sketch = sketch_ready(vault)
     # RW5d P2b: the menu (spec §7.2): a rich tier only with a way to start its job.
     menu = RICH.tiers_allowed(vault, sketch=sketch) if spawn_rich is not None else (

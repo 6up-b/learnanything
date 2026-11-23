@@ -35,7 +35,7 @@ import pydantic
 import pytest
 
 from learnloop_sidecar.errors import SidecarError
-from tests.figure_fixtures import AuthorFake, flagship, set_config
+from tests.figure_fixtures import AuthorFake, flagship, set_config, sketch_engine_absent
 from tests.hint_fakes import ITEM, ChooserFake, WriterFake, assists, prefer, reveals
 from tests.figures_help_helpers import (
     GOAL,
@@ -277,7 +277,8 @@ def test_f5_an_attempt_builds_admission_key_carries_the_switch(tmp_path):
     from learnloop.vault.loader import load_vault
     from tests.hint_fakes import hint_vault
 
-    paths = hint_vault(tmp_path, config="[figures]\nsketch_enabled = false\nrich_tiers_enabled = false\n")
+    sketch_engine_absent()
+    paths = hint_vault(tmp_path, config="[figures]\nrich_tiers_enabled = false\n")
     on = load_vault(paths.root)
     request = FQ.FigureRequest(extraction_id=None, span_ids=[], origin="ask", goal_text=GOAL, goal_author="learner",
                                host_ref={"item_id": ITEM, "submission_id": "k1"})

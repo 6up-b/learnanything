@@ -31,8 +31,6 @@ enabled = true
 enabled = true
 [figures]
 enabled = true
-show_me_enabled = true
-offers_enabled = true
 [library_ask]
 enabled = true
 [source_service]

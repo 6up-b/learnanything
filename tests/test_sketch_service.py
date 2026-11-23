@@ -1,11 +1,11 @@
 """RW5d P2: the sketch tier through the figure service and its RPCs
 (spec_reader_show_me_figures_v1 §6.6, §8.4, §8.5, §9.5; G-SM10, G-SM12, G-SM13, G-SM19).
 
-* With ``figures.sketch_enabled`` the author's contract is
+* Wherever the sealed engine runs, the author's contract is
   ``FigureAuthorOutputV2`` under ``+sketch-v1``; a sketch answer is verified
   in the sealed engine and stored as a sketch (tier, spec version, engine
   digest, check lines); every build appends a ``figure_tier`` receipt.
-* Off: the contract, the prompt and the reuse key are RW5b's byte for byte,
+* Without the engine: the contract, the prompt and the reuse key are RW5b's byte for byte,
   no ``figure_tier`` row is written, and a stored sketch lists as
   "can't draw this yet" (and can't be revised or predicted on).
 * Engine upgrades re-verify a stored sketch with no model call.
@@ -39,8 +39,10 @@ from tests.figure_fixtures import (
     call,
     context,
     counts,
+    end_sketch_engine_absence,
     flagship,
     rows,
+    sketch_engine_absent,
 )
 
 WHY = "the grammar has no random process with state"
@@ -53,16 +55,13 @@ def _setup(tmp_path, answers, *, sketch=True):
     return paths, repository, ctx, author
 
 
-def _switch(paths, on):
-    """Set figures.sketch_enabled in the vault's learnloop.toml (once set, rewritten in place)."""
+def _switch(_paths, on):
+    """The sketch tier made available (the engine loads) or not (as on a machine without it): it has no switch."""
 
-    config = paths.root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    assert "sketch_enabled = " in text
-    text = text.replace("sketch_enabled = true", "sketch_enabled = X").replace("sketch_enabled = false",
-                                                                              "sketch_enabled = X")
-    config.write_text(text.replace("sketch_enabled = X", f"sketch_enabled = {'true' if on else 'false'}"),
-                      encoding="utf-8")
+    if on:
+        end_sketch_engine_absence()
+    else:
+        sketch_engine_absent()
 
 
 def _ledger(repository, task):
@@ -128,9 +127,9 @@ def test_an_unsupported_answer_records_its_verdict(tmp_path):
     assert tier["verdict"] == "unsupported" and "3-D surface" in tier["rationale"]
 
 
-def test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte(tmp_path):
-    """G-SM12 (off): the V1 output model, P1's prompt, no figure_tier row, and
-    the same reuse key as before P2."""
+def test_without_the_engine_the_contract_prompt_and_key_are_rw5bs_byte_for_byte(tmp_path):
+    """G-SM12 (the tier unavailable): the V1 output model, P1's prompt, no
+    figure_tier row, and the same reuse key as before P2."""
 
     paths, repository, ctx, author = _setup(tmp_path, [flagship(kind="illustrative")], sketch=False)
     figure = build(ctx)["figure"]
@@ -149,7 +148,7 @@ def test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte(tmp_path):
     assert FB.request_hash(request, context_, None) != FB.request_hash(request, context_, None, sketch=True)
 
 
-def test_off_a_stored_sketch_lists_as_cant_draw_this_yet(tmp_path):
+def test_without_the_engine_a_stored_sketch_lists_as_cant_draw_this_yet(tmp_path):
     paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
     built = build(ctx)["figure"]
     _switch(paths, False)
@@ -157,7 +156,7 @@ def test_off_a_stored_sketch_lists_as_cant_draw_this_yet(tmp_path):
     (listed,) = call(off, "reader.figures", {"extractionId": EXTRACTION})["figures"]
     assert listed["figureId"] == built["figureId"]
     assert listed["verification"] == "unsupported" and listed["specJson"] is None
-    assert listed["label"].startswith("can't draw this yet") and "sketch_enabled" in listed["label"]
+    assert listed["label"].startswith("can't draw this yet") and "sketch engine" in listed["label"]
     with pytest.raises(SidecarError) as revise:
         call(off, "reader.figure_revise", {"figureId": built["figureId"], "note": "wrong"})
     assert revise.value.code == "sketch_disabled"
@@ -507,47 +506,17 @@ def test_a_verifier_version_bump_reverifies_a_current_engines_report(tmp_path, m
     assert "built under" in rechecked["rationale"] and f"{built_under})" in rechecked["rationale"]
 
 
-def test_the_shipped_default_is_on(tmp_path):
-    """G-SM14 passed from inside the sketch compartment (2026-11-01): a vault
-    that never set figures.sketch_enabled offers the sketch tier (the engine is
-    ready here) and builds a verified sketch."""
+def test_the_tier_is_offered_wherever_the_engine_runs(tmp_path):
+    """G-SM14 passed from inside the sketch compartment (2026-11-01): with the
+    engine ready (it is here) a vault offers the sketch tier and builds a
+    verified sketch."""
 
-    from learnloop.config.schema import FiguresConfig
-
-    assert FiguresConfig().sketch_enabled is True
     paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)], sketch=True)
-    config = paths.root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    config.write_text("\n".join(line for line in text.splitlines() if not line.startswith("sketch_enabled")) + "\n",
-                      encoding="utf-8")
-    assert "sketch_enabled" not in config.read_text(encoding="utf-8")
     ctx = context(paths.root, author=author)
     assert call(ctx, "reader.prompt_contract", {})["figures"]["sketch"] is True
     figure = build(ctx)["figure"]
     assert figure["tier"] == "sketch"
     assert "SketchProgramV1" in author.prompts[0]
-
-
-def test_off_never_loads_the_engine(tmp_path, monkeypatch):
-    """The kill switch (figures.sketch_enabled = false): RW5b's contract, no
-    figure_tier row, and neither the engine nor wasmtime is touched."""
-
-    import learnloop.figures.sketch_engine as E
-
-    paths, repository, ctx, author = _setup(tmp_path, [flagship(kind="illustrative")], sketch=False)
-    assert "sketch_enabled = false" in (paths.root / "learnloop.toml").read_text(encoding="utf-8")
-
-    def _no_engine(*_args, **_kwargs):
-        raise AssertionError("the sketch engine was loaded with the tier off")
-
-    monkeypatch.setattr(E, "engine_ready", _no_engine)
-    monkeypatch.setattr(E, "_compile", _no_engine)
-    ctx = context(paths.root, author=author)
-    assert "sketch" not in call(ctx, "reader.prompt_contract", {})["figures"]
-    figure = build(ctx)["figure"]
-    assert "tier" not in figure and "sketch" not in figure
-    assert "SketchProgramV1" not in author.prompts[0]
-    assert _ledger(repository, "figure_tier") == []
 
 
 def test_sidecar_start_imports_neither_wasmtime_nor_the_engine():
