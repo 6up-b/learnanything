@@ -172,7 +172,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_grading_call_with_records_present_sees_none_of_them`
   - `test_a_held_grade_gets_a_record_when_the_hold_first_applies`
   - `test_a_job_with_no_enqueue_record_keeps_a_trace_of_its_own`
-  - `test_a_live_held_attempt_writes_its_hold_record_in_the_attempt_step`
+  - `test_a_live_held_attempt_writes_the_records_its_core_returned`
+  - `test_a_record_that_cannot_be_built_leaves_the_grade_and_logs`
   - `test_a_record_that_cannot_be_written_changes_no_grade`
   - `test_a_rejected_probe_value_and_a_learner_lane_offer_are_recorded`
   - `test_continue_trace_switches_the_scope_in_place_and_its_exit_restores`
@@ -254,6 +255,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_sampling_points.py](../../../../../tests/test_router_sampling_points.py) — direct import
 - [tests/test_slate_record.py](../../../../../tests/test_slate_record.py) — direct import
   - `test_a_persisting_build_writes_one_slate_record_with_its_exclusions`
+  - `test_a_record_that_cannot_be_built_changes_nothing_and_writes_nothing`
   - `test_a_record_that_cannot_be_written_changes_nothing_served`
   - `test_the_rule_that_put_the_head_first`
 - [tests/test_synthesis_tail_golden.py](../../../../../tests/test_synthesis_tail_golden.py) — direct import
