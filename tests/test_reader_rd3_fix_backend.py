@@ -243,10 +243,10 @@ def test_a_full_record_of_ids_refuses_a_new_id_rather_than_forget_one(workbench)
     assert call(ctx, "companion.ask", ask_params("req_1", question="req_1?"))["status"] == "expired"
 
 
-def test_running_asks_are_bounded_and_results_are_pruned_as_jobs_finish(workbench):
+def test_running_asks_are_bounded(workbench):
     tutor = HeldTutor()
     _paths, ctx, _repository, _spans = workbench(tutor)
-    ctx.companion_ask_jobs = PJ.PolledJobs(kept=1, running=1, remember_ids=True)
+    ctx.companion_ask_jobs = PJ.PolledJobs(running=1, remember_ids=True)
     call(ctx, "companion.ask", ask_params("req_running"))
     assert tutor.entered.wait(WAIT)
     with pytest.raises(SidecarError) as busy:
@@ -255,9 +255,23 @@ def test_running_asks_are_bounded_and_results_are_pruned_as_jobs_finish(workbenc
     tutor.release.set()
     wait_job(ctx, "req_running")
     tutor.hold = False
-    call(ctx, "companion.ask", ask_params("req_after", question="after?"))
-    wait_job(ctx, "req_after")
-    # Pruned as the second finished, with no third start: one result kept.
+    call(ctx, "companion.ask", ask_params("req_waiting", question="another?"))
+    assert wait_job(ctx, "req_waiting")["status"] == "done"
+
+
+def test_results_are_pruned_as_jobs_finish_not_only_when_the_next_starts(workbench):
+    tutor = HeldTutor()
+    _paths, ctx, _repository, _spans = workbench(tutor)
+    ctx.companion_ask_jobs = PJ.PolledJobs(kept=1, running=2, remember_ids=True)
+    call(ctx, "companion.ask", ask_params("req_one"))
+    call(ctx, "companion.ask", ask_params("req_two", question="two?"))
+    assert ctx.companion_ask_jobs.kept_count() == 2  # both running: neither is dropped
+    jobs = [job_of(ctx, "req_one"), job_of(ctx, "req_two")]
+    tutor.release.set()
+    for job in jobs:
+        assert job.done.wait(WAIT)
+        job.thread.join(WAIT)
+    # Both finished and no third job started: the older result went as the later one finished.
     assert ctx.companion_ask_jobs.kept_count() == 1
 
 
