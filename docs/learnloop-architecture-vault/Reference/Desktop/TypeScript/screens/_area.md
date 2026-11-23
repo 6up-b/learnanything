@@ -46,7 +46,7 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/ExamScreen|ExamScreen.tsx]] | `ACTIVE` | Implements the `ExamScreen` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
 | [[Reference/Desktop/TypeScript/screens/FeedbackScreen|FeedbackScreen.tsx]] | `ACTIVE` | Implements the `FeedbackScreen` routed desktop screen and coordinates its learner-facing workflow state. | 35 | 1 |
 | [[Reference/Desktop/TypeScript/screens/GraphScreen|GraphScreen.tsx]] | `ACTIVE` | Implements the `GraphScreen` routed desktop screen and coordinates its learner-facing workflow state. | 14 | 1 |
-| [[Reference/Desktop/TypeScript/screens/IngestScreen|IngestScreen.tsx]] | `ACTIVE` | Implements the `IngestScreen` routed desktop screen and coordinates its learner-facing workflow state. | 14 | 1 |
+| [[Reference/Desktop/TypeScript/screens/IngestScreen|IngestScreen.tsx]] | `ACTIVE` | Implements the `IngestScreen` routed desktop screen and coordinates its learner-facing workflow state. | 15 | 1 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeMapScreen|KnowledgeMapScreen.tsx]] | `ACTIVE` | Implements the `KnowledgeMapScreen` routed desktop screen and coordinates its learner-facing workflow state. | 15 | 2 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeStrataView|KnowledgeStrataView.tsx]] | `ACTIVE` | Implements the `KnowledgeStrataView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeTerrainView|KnowledgeTerrainView.tsx]] | `ACTIVE` | Implements the `KnowledgeTerrainView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   CommandError,
   DurableIngestStatus,
+  IngestBudgetBoundsDto,
   IngestBatchDto,
   IngestJobView,
   SynthesisCandidateSummary
@@ -90,14 +93,13 @@ function batchTitle(batch: IngestBatchDto): string {
   return readableSourceTail(source);
 }
 
-// Import-completion source id — the outline CTA target. Only import workflows
-// carry it, under either casing depending on the emitting job.
+// Import-completion source id — the outline CTA target. Only the `import` job
+// carries it, under either casing depending on the emitting job; an exercise
+// import's workflow also says "import" and is no source to outline.
 function importedSourceId(batch: IngestBatchDto): string | null {
   if (batch.status !== "completed") return null;
-  const isImport = (job: IngestJobView) =>
-    job.jobType === "import_source" || /import/i.test(batch.workflowType);
   for (const job of batch.jobs) {
-    if (!isImport(job) || !job.result) continue;
+    if (job.jobType !== "import" || !job.result) continue;
     const id = job.result.sourceId ?? job.result.source_id;
     if (typeof id === "string" && id) return id;
   }
@@ -348,11 +350,16 @@ function BatchCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const active = isActive(batch.status);
-  const failedSynthesis = batch.jobs.find(
-    (job) =>
-      (job.jobType === "bootstrap_synthesis" || job.jobType === "append_synthesis") &&
-      job.status === "failed"
-  );
+  // Which synthesis may be retried is the host's own check (a cancelled or
+  // blocked one too, once every inventory is complete), carried on the batch.
+  const failedSynthesis = batch.canRetrySynthesis
+    ? batch.jobs.find((job) => job.id === batch.retrySynthesisJobId)
+    : undefined;
+  const settingsQuery = useCachedQuery(["get_settings"], () => api.getSettings(), {
+    tags: [TAG.settings],
+    enabled: failedSynthesis !== undefined
+  });
+  const bounds = settingsQuery.data?.ingest.budgetBounds;
   const inventoryOutputEstimate = batch.jobs
     .filter((job) => job.jobType === "inventory" && job.status === "completed")
     .reduce((total, job) => total + Number(job.usage?.output_tokens_estimate ?? 0), 0);
@@ -366,10 +373,10 @@ function BatchCard({
   const [unlimitedTokenBudget, setUnlimitedTokenBudget] = useState(false);
   const [retryingSynthesis, setRetryingSynthesis] = useState(false);
   const [candidate, setCandidate] = useState<SynthesisCandidateSummary | null>(null);
-  const candidatePreserved = Boolean(failedSynthesis?.error?.details?.candidate_preserved);
-  const synthesisCeilingValid = unlimitedTokenBudget || (synthesisCeiling >= 10_000 && synthesisCeiling <= 2_000_000);
-  const synthesisOutputValid = unlimitedTokenBudget || (synthesisShardOutput >= 1_000 && synthesisShardOutput <= 200_000
-    && synthesisOutput >= 1_000 && synthesisOutput <= 200_000);
+  const candidatePreserved = failedSynthesis !== undefined && batch.canReuseCandidate;
+  const synthesisCeilingValid = unlimitedTokenBudget || withinBounds(bounds, "synthesisTotalInputCeiling", synthesisCeiling);
+  const synthesisOutputValid = unlimitedTokenBudget || (withinBounds(bounds, "synthesisShardOutputTokens", synthesisShardOutput)
+    && withinBounds(bounds, "synthesisOutputTokens", synthesisOutput));
   const resumable = (batch.status === "failed" || batch.status === "cancelled") && !failedSynthesis;
   const sourceId = importedSourceId(batch);
   const facetIdentity = batch.jobs
@@ -545,8 +552,8 @@ function BatchCard({
           <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "center", gap: "7px 8px", marginTop: 9 }}>
             <input
               type="number"
-              min={10000}
-              max={2000000}
+              min={bounds?.synthesisTotalInputCeiling.min}
+              max={bounds?.synthesisTotalInputCeiling.max}
               step={10000}
               value={synthesisCeiling}
               onChange={(event) => setSynthesisCeiling(Number(event.target.value))}
@@ -556,8 +563,8 @@ function BatchCard({
             <Faint style={{ fontSize: 10 }}>total input tokens across synthesis calls</Faint>
             <input
               type="number"
-              min={1000}
-              max={200000}
+              min={bounds?.synthesisShardOutputTokens.min}
+              max={bounds?.synthesisShardOutputTokens.max}
               step={1000}
               value={synthesisShardOutput}
               onChange={(event) => setSynthesisShardOutput(Number(event.target.value))}
@@ -567,8 +574,8 @@ function BatchCard({
             <Faint style={{ fontSize: 10 }}>maximum output tokens per synthesis shard</Faint>
             <input
               type="number"
-              min={1000}
-              max={200000}
+              min={bounds?.synthesisOutputTokens.min}
+              max={bounds?.synthesisOutputTokens.max}
               step={1000}
               value={synthesisOutput}
               onChange={(event) => setSynthesisOutput(Number(event.target.value))}
@@ -644,6 +651,17 @@ function JobRow({ job }: { job: IngestJobView }) {
       )}
     </Card>
   );
+}
+
+// The handler's accepted range (`get_settings`' budget bounds). Until they load,
+// only a finite number passes: the sidecar refuses an out-of-range ceiling itself.
+function withinBounds(
+  bounds: IngestBudgetBoundsDto | undefined,
+  field: keyof IngestBudgetBoundsDto,
+  value: number
+): boolean {
+  if (!Number.isFinite(value)) return false;
+  return bounds == null || (value >= bounds[field].min && value <= bounds[field].max);
 }
 
 function synthesisRecoveryMessage(code?: string): string {

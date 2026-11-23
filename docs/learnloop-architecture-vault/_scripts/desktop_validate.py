@@ -205,8 +205,9 @@ def main() -> int:
     # windows/PanelWindow.tsx and api/poller.ts (entry-reachable through the Reader place's lazy DeskShell);
     # fixtures/desks/ sources.ts, workspace.ts, fakeCore.ts and harness.tsx (the synthetic workspace and the
     # visual harness page; vitest-support).
-    if len(ts_sources) != 352:
-        errors.append(f"source inventory drift: expected 352 TypeScript/TSX files, found {len(ts_sources)}")
+    # A source kind is one row: api/sourceKinds.ts (generated from SOURCE_KINDS; entry-reachable).
+    if len(ts_sources) != 353:
+        errors.append(f"source inventory drift: expected 353 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -306,8 +307,8 @@ def main() -> int:
         # IH6: QuestionInProgress.tsx. RE0: attemptClock.ts, useAttemptClock.ts. C5: the six Golden Path files left.
         # Waiting you can see: components/Waiting.tsx, copy/waiting.ts. Reader scrolls: components/scrollWithin.ts.
         # The one OK to use AI: app/aiOk.ts. What comes next, dated: app/nextPractice.ts. An honest wait: app/waitDetail.ts.
-        # RD1: the ten screens/desks modules and api/poller.ts.
-        "entry-reachable build graph": 337,
+        # RD1: the ten screens/desks modules and api/poller.ts; api/sourceKinds.ts (a source kind is one row).
+        "entry-reachable build graph": 338,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -322,7 +323,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 358}:
+    if dict(status_counts) != {"ACTIVE": 359}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

@@ -42,7 +42,7 @@ def test_an_automatic_build_never_takes_a_held_out_unit_as_teaching(tmp_path):
     # Reading order (no chapter chosen) skips it too.
     vault = load_vault(root)
     choice = core._choose_scope(repo, vault.config, vault, source_id, core._completed_extraction(repo, source_id),
-                                chapter_ids=None, start_unit_id=held.unit_id, exclude_job_id=None)
+                                chapter_ids=None, start_unit_id=held.unit_id, exclude_job_id=None).choice
     assert choice is not None and not set(held.unit_ids) & set(choice.unit_ids)
     assert set(held.unit_ids) <= choice.withheld_unit_ids
 

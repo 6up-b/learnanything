@@ -1874,6 +1874,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_report_is_static_deterministic_and_empty_contracts_are_not_perfect`
   - `test_untyped_and_instructional_edges_convert_nothing`
   - `test_upstream_without_a_contract_converts_nothing`
+- [tests/test_ingest_decision_records.py](../../../../../../tests/test_ingest_decision_records.py) — direct import
+  - `test_an_automatic_build_records_scope_inventory_rows_and_apply_under_its_planners_trace`
+- [tests/test_ingest_eligibility_contract.py](../../../../../../tests/test_ingest_eligibility_contract.py) — direct import
+  - `test_page_ranges_are_refused_under_exactly_the_engines_settings_name`
 - [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — direct import
   - `test_apply_stamps_coverage_boundary_and_later_rebuilds_add_nothing`
   - `test_canonical_lane_does_not_auto_apply_gated_items`

@@ -48,36 +48,34 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/quick_add.py](../../../../../../../src/learnloop/content/pipeline/quick_add.py) |
-| Source lines | 491 |
+| Source lines | 483 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class QuickAddError(ValueError)` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 52) — Typed failure for the Quick-add plan/enqueue flow.
-  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None) -> None` (line 55; internal)
-- `class QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 62)
-  - `source_set_id(self) -> str` (line 87; public)
-  - `confirmation(self) -> dict[str, Any]` (line 90; public) — THE single confirmation checkpoint (§1): what will be imported, the selected-unit summary, the suggested role, the token estimate, and any external-AI consent.
-  - `as_dict(self) -> dict[str, Any]` (line 114; public)
-- `select_relevant_units(outline, *, keywords: set[str], cap_tokens: int, ranked_unit_ids: list[str] | None=None) -> tuple[list[str], list[str], int, bool]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 160) — Deterministic ToC-guided relevant-scope selection (§1).
-- `rank_units_by_text(repo, outline, extraction_id: str, *, query_text: str, keywords: set[str], rrf_k: int=60) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 207) — Slice 2 T6: units ranked by relevance to the brief, best first; unmatched omitted.
-- `plan_quick_add(repo, config, vault, source: str, *, subject_id: str | None=None, brief_overrides: dict[str, Any] | None=None) -> QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 310) — Build the single-confirmation Quick-add plan for an already-extracted source.
-- `enqueue_quick_add(vault, ingest_jobs, plan: QuickAddPlan, *, role_override: str | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, batch_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 428) — Post-confirmation step: create the source set from the plan and enqueue the priority [inventory(selected) -> bootstrap_synthesis] build batch (§1).
+- `class QuickAddError(ValueError)` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 41) — Typed failure for the Quick-add plan/enqueue flow.
+  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None) -> None` (line 44; internal)
+- `class QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 51)
+  - `source_set_id(self) -> str` (line 76; public)
+  - `confirmation(self) -> dict[str, Any]` (line 79; public) — THE single confirmation checkpoint (§1): what will be imported, the selected-unit summary, the suggested role, the token estimate, and any external-AI consent.
+  - `as_dict(self) -> dict[str, Any]` (line 103; public)
+- `select_relevant_units(outline, *, keywords: set[str], cap_tokens: int, ranked_unit_ids: list[str] | None=None) -> tuple[list[str], list[str], int, bool]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 149) — Deterministic ToC-guided relevant-scope selection (§1).
+- `rank_units_by_text(repo, outline, extraction_id: str, *, query_text: str, keywords: set[str], rrf_k: int=60) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 196) — Slice 2 T6: units ranked by relevance to the brief, best first; unmatched omitted.
+- `plan_quick_add(repo, config, vault, source: str, *, subject_id: str | None=None, brief_overrides: dict[str, Any] | None=None) -> QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 299) — Build the single-confirmation Quick-add plan for an already-extracted source.
+- `enqueue_quick_add(vault, ingest_jobs, plan: QuickAddPlan, *, role_override: str | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, batch_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 420) — Post-confirmation step: create the source set from the plan and enqueue the priority [inventory(selected) -> bootstrap_synthesis] build batch (§1).
 
 ### Module constants
 
-- `_ROLE_BY_CATEGORY` ([src/learnloop/content/pipeline/quick_add.py](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 37)
-- `_CONFIDENT_ROLE_CATEGORIES` ([src/learnloop/content/pipeline/quick_add.py](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 46)
-- `_STOPWORDS` ([src/learnloop/content/pipeline/quick_add.py](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 47)
+- `_STOPWORDS` ([src/learnloop/content/pipeline/quick_add.py](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 36)
 
 ## Internal implementation anchors
 
-- `_keywords(brief: dict[str, Any], vault, subject_id: str | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 141)
-- `_query_text(brief: dict[str, Any], vault, subject_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 249)
-- `_resolve_extraction(repo, source_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 262) — Return ``(revision_id, extraction_id)`` for the latest completed extraction of ``source_id`` (its current revision preferred), or None.
-- `_default_brief(brief_overrides: dict[str, Any] | None, title: str, subject_id: str | None, vault=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 280)
+- `_keywords(brief: dict[str, Any], vault, subject_id: str | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 130)
+- `_query_text(brief: dict[str, Any], vault, subject_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 238)
+- `_resolve_extraction(repo, source_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 251) — Return ``(revision_id, extraction_id)`` for the latest completed extraction of ``source_id`` (its current revision preferred), or None.
+- `_default_brief(brief_overrides: dict[str, Any] | None, title: str, subject_id: str | None, vault=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 269)
 
 ## Who imports or calls it
 
@@ -99,6 +97,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] — imports `validate_brief`; calls `validate_brief`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `search_blocks`; calls `search_blocks`
+- [[Reference/Modules/learnloop/ingest/source_kinds|learnloop.ingest.source_kinds]] — imports `source_kind`; calls `source_kind`
 - [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `read_learner_profile`; calls `read_learner_profile`
 - [[Reference/Modules/learnloop/practice_index/text|learnloop.practice_index.text]] — imports `reciprocal_rank_fusion`; calls `reciprocal_rank_fusion`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`

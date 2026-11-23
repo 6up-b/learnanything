@@ -357,6 +357,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hypothesis_marks.py](../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_a_mark_that_fits_nothing_is_refused`
   - `test_while_held_there_is_no_list_and_nothing_can_be_marked_but_a_display_event_is_recorded`
+- [tests/test_ingest_eligibility_contract.py](../../../../../tests/test_ingest_eligibility_contract.py) — direct import
+  - `test_page_ranges_are_refused_under_exactly_the_engines_settings_name`
 - [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_a_stem_part_with_no_stimulus_is_still_refused`
   - `test_an_error_hunt_with_a_blank_worked_solution_is_still_refused`

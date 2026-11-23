@@ -151,7 +151,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | H1 | Distinguish the old scalar from FSRS difficulty | landed | `ece7907885` | [refactor-h1.md](refactor-h1.md) | Six callers read item parameters through the one seam (`resolve_item_irt_params`); a guard test (`tests/test_difficulty_kinds_apart.py`: 54 modules, 161 sites) fails on a crossing read; 24 caller cases give the same numbers. Left: the lesson weight's reconstruction (ledger L4-2). Found: H1-1 (the terminal app's scalar bar can show FSRS D; with H5) |
-| H2 | Compare four ways to use difficulty in replay | not started | — | — | Owner decided on 2026-11-20: run H2 now; H3 to H6 are decided from its report |
+| H2 | Compare four ways to use difficulty in replay | landed | this commit | [difficulty-four-way.md](difficulty-four-way.md) | Run on copies of the owner's vaults on 2026-11-23; the numbers went to the owner. H3 to H6 wait on the owner's decision from them |
 | H3 | Retire scalar difficulty from mastery and surprise | waiting on | — | — | H2 and owner's call with the [AD memory spec](../specs/spec_ad_memory_v1.md) |
 | H4 | Retire the model-estimated difficulty signal from AD | waiting on | — | — | Owner's call with the AD memory spec |
 | H5 | Update exam strata, retrieval filters and authoring | waiting on | — | — | Owner's call with the AD memory spec |
@@ -190,11 +190,11 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K2.5 | Split normalization into named stages with one state | landed | `f623e525ac` | [refactor-k2.5.md](refactor-k2.5.md) | — |
 | K2.6 | Share the judge heartbeat and lapse checks | landed | `ece7907885` | [refactor-k2.6.md](refactor-k2.6.md) | `judgment_claims.claim_heartbeat` replaces the two copied loops (it stops and joins its thread); a lapsed lease no longer commits (the paid answer is kept for the retry); service spend renews in each reservation's injected clock. Production −5 lines |
 | K2.7 | Put each job type in one table row | not started | — | — | — |
-| K2.8 | Give each source kind one definition | not started | — | — | — |
+| K2.8 | Give each source kind one definition | landed | this commit | [refactor-k2-batch-eligibility-records.md](refactor-k2-batch-eligibility-records.md) | `ingest/source_kinds.py` is the table; the desktop's copy is generated from it; `ingest/fetchers.py` and `ingest/detect.py` deleted; every reader's answer unchanged on a fixed corpus |
 | K2.9 | Centralize extractor choice and consent checks | landed | this commit | [refactor-k2.9-10.md](refactor-k2.9-10.md) | `pdf_extractor_for` returns the extractor and the consent it needs; the import job asks it and raises the card, with the same words and order as before |
 | K2.10 | Fold small fixes for conflicts, estimates and comments | landed in part | this commit | [refactor-k2.9-10.md](refactor-k2.9-10.md) | Conflict resolution writes its mapping, status and audit row in one guarded transaction (ledger K2-2 fixed); three stale comments corrected. Not done: one JSON token estimator: the three in use give different numbers (30,003, 30,003 and 5,003 tokens for one non-ASCII payload), and unifying them would move shard membership and with it manifests: it needs its own decision |
-| K2.11 | Have desktop read ingest eligibility from the sidecar | not started | — | — | Due before the UX overhaul |
-| K2.12 | Record why ingest made its key decisions | not started | — | — | — |
+| K2.11 | Have desktop read ingest eligibility from the sidecar | landed | this commit | [refactor-k2-batch-eligibility-records.md](refactor-k2-batch-eligibility-records.md) | Retry and reuse eligibility, source roles, budget bounds and page-range refusals come from the sidecar; of the four disagreements the backend was right in three, and neither copy in the fourth (roles that never define concepts) |
+| K2.12 | Record why ingest made its key decisions | landed | this commit | [refactor-k2-batch-eligibility-records.md](refactor-k2-batch-eligibility-records.md) | Decision records for build scope, the inventory choice and auto-apply, under the planner's trace (`learnloop why <planner job id>`) |
 | K3 | Fix ingestion defects that cost money or data | landed | `dcf1eb5301` | [refactor-k3.md](refactor-k3.md), [final fix](refactor-k3.5.md) | — |
 | K3.1 | Choose the current inventory row for synthesis | landed | `46b13f53c7` | [refactor-k3.md](refactor-k3.md) | — |
 | K3.2 | Keep appends scoped to newly inventoried units | landed | `a83beeee84` | [refactor-k3.md](refactor-k3.md) | — |

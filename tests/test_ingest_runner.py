@@ -875,7 +875,7 @@ def test_compose_display_title_variants():
 
 
 def test_youtube_oembed_metadata_parses_and_falls_back(monkeypatch):
-    from learnloop.ingest import fetchers
+    from learnloop.ingest import youtube as fetchers
 
     monkeypatch.setattr(
         fetchers,

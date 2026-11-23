@@ -164,6 +164,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_section_read_in_part_says_what_its_reading_can_give`
 - [tests/test_followups_batch7_note_titles.py](../../../../../../../tests/test_followups_batch7_note_titles.py) — direct import
   - `test_a_local_uri_reads_as_its_file_name_in_words`
+- [tests/test_ingest_decision_records.py](../../../../../../../tests/test_ingest_decision_records.py) — direct import
+  - `test_reading_on_records_the_chapters_skipped_as_built`
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_approx_token_count_is_chars_over_four`
   - `test_boundary_override_camelcase_keys_are_normalized`
