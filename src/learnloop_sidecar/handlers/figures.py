@@ -86,6 +86,7 @@ from learnloop.figures import build as FB
 from learnloop.figures import predictions as FPR
 from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
+from learnloop.figures import rich as RICH
 from learnloop.figures import view as FV
 from learnloop.figures.protection import ATTEMPT_HOST_REFS, figure_withheld
 from learnloop.figures.sketch import sketch_ready
@@ -262,10 +263,11 @@ def _start(ctx: SidecarContext, request: FQ.FigureRequest, *, attempt: dict[str,
     author = getattr(ctx, "figure_author_client", None)
     # RW5d: the grounding retrieval (the sources service's, unset; a fake in tests).
     find = getattr(ctx, "figure_find_sources", None)
-    # RW5d P3 ruling R1: an attempt host's figure is grammar or sketch only (no
-    # rich spawner, so no rich tier on the author's menu, no rich job and no
+    # RW5d P3 ruling R1: an attempt host's tiers name no rich one (no rich
+    # spawner, so no rich tier on the author's menu, no rich job and no
     # fuller version); rich (Manim) figures stay Reader-side.
-    spawn = _rich_spawner(ctx, vault) if rich_tiers_enabled(vault) and attempt is None else None
+    rich_here = attempt is None or RICH.rich_on_menu(FQ.ATTEMPT_HOST_TIERS)
+    spawn = _rich_spawner(ctx, vault) if rich_tiers_enabled(vault) and rich_here else None
     # The job exists only once ``start`` makes it, and ``on_job`` hands it over
     # before the work runs (inline or on its thread).
     started: list[Any] = []
@@ -1038,7 +1040,7 @@ def attempt_view(view: dict[str, Any]) -> dict[str, Any]:
     """A figure's view as an attempt host shows it (ruling R1): never its
     fuller (Manim) version, which stays Reader-side."""
 
-    if view and view.get("fuller") is not None:
+    if view and view.get("fuller") is not None and not RICH.rich_on_menu(FQ.ATTEMPT_HOST_TIERS):
         return {**view, "fuller": None}
     return view
 
@@ -1046,7 +1048,7 @@ def attempt_view(view: dict[str, Any]) -> dict[str, Any]:
 def _refuse_rich(row: dict[str, Any] | None) -> None:
     """Ruling R1: a rich figure is never opened or revised on an attempt host."""
 
-    if row is not None and FV.rich_row(row):
+    if row is not None and FV.rich_row(row) and not RICH.rich_on_menu(FQ.ATTEMPT_HOST_TIERS):
         raise SidecarError("validation_error", RICH_READER_ONLY)
 
 
@@ -1365,7 +1367,8 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
                    for key in {host.submission_id, *submissions} if key):
                 return {"host": "feedback", "line": COST_LINES["feedback"], "counts_as_hint": False,
                         "status": "free"}
-            if FV.rich_row(figure_store.figure(connection, figure_id) or {}):
+            if FV.rich_row(figure_store.figure(connection, figure_id) or {}) \
+                    and not RICH.rich_on_menu(FQ.ATTEMPT_HOST_TIERS):
                 # Ruling R1: a rich figure is never recorded (or shown) on an attempt host.
                 return {"host": host.kind, "status": "not_recorded", "message": RICH_READER_ONLY}
             root = chain_root(connection, figure_id)

@@ -70,6 +70,7 @@ from learnloop.figures.protection import (
 )
 from learnloop.figures.request import (
     _PREFETCH_BUILD,
+    LESSON_TIERS,
     FigureRefused,
     FigureRequest,
     anchored,
@@ -353,9 +354,9 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     finished, and listing it is honest."""
 
     request = check_request(vault, repository, request)
-    if lesson_hosted(request):
-        # RW5d P4b: a lesson host is grammar and sketch only (LESSON_TIERS):
-        # no rich job is started from a lesson, whatever the caller passed.
+    if lesson_hosted(request) and not RICH.rich_on_menu(LESSON_TIERS):
+        # RW5d P4b: a lesson's tiers name no rich one, so no rich job is
+        # started from a lesson, whatever the caller passed.
         spawn_rich = None
     request.rich_spawnable = spawn_rich is not None
     # One gate for the whole request (Codex review F1): grounding's rewrite,

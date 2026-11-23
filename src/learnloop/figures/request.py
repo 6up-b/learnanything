@@ -62,6 +62,12 @@ SERVICE_ORIGINS = ("teacher", "prefetch")
 #: sketch tier"; P3 ruling R1's precedent): the turn waits on its figure, so no
 #: rich (minutes-long, queued) tier is on the author's menu in a lesson.
 LESSON_TIERS = ("grammar", "sketch")
+#: RW5d P3 ruling R1: an attempt host's tiers (practice, feedback, the workbench): rich (Manim) figures are made
+#: and opened in the Reader only. The doors that keep it each read this: no spawner for the build (the sidecar's
+#: press), no fuller version in the view and no rich figure opened or recorded there (the sidecar's attempt
+#: host). The rich worker's refusal of an attempt-hosted job (``rich.attempt_hosted_job``) is the same rule; it
+#: can't import this module, which imports it.
+ATTEMPT_HOST_TIERS = ("grammar", "sketch")
 #: RW5b: the origins an offer builds with (``figures.offers_enabled``).
 OFFER_ORIGINS = ("library", "tutor")
 #: RW5d: who wrote a goal (set on the server, never taken from a client;
@@ -447,6 +453,7 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
 
 
 __all__ = [
+    "ATTEMPT_HOST_TIERS",
     "FigureRefused",
     "FigureRequest",
     "GOAL_AUTHORS",
