@@ -1,23 +1,24 @@
 # Migration-head fixture
 
-**Holds migration 270 (`270_ink_transcriptions_guard.sql`), the head** (269 is held for another stage and absent here). The directory's name carries no number (since
+**Holds migration 269 (`269_ink_transcriptions_guard.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
 
-## Pen and ink fix round (migration 270), `reader/rd8fix`, 2026-11-23
+## Pen and ink fix round (migration 269), `reader/rd8fix`, 2026-11-23
 
-Upgraded in place (no rename; base: the second workbench batch, head 268; 269 is held for inline checks and absent, so
-the runner applied the one pending file) by the B1 procedure below: `270_ink_transcriptions_guard.sql` (the replacing-
-INSERT guard of `ink_transcriptions` recreated to refuse an insert meeting either of its keys) applied through
-`learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
-`upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[270]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
-`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
-and the copy written into its place with `backup_database`, no companion files. Compared with the 268 file: no object
-added or removed, one definition changed (the trigger `ink_transcriptions_no_replace`), and the only table whose rows
-changed is `schema_migrations` (gains 270). The file stays 7,860,224 bytes.
+Upgraded in place (no rename; base: the second workbench batch, head 268) by the B1 procedure below:
+`269_ink_transcriptions_guard.sql` (the replacing-INSERT guard of `ink_transcriptions` recreated to refuse an insert
+meeting either of its keys) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the
+tracked 268 file, outside the checkout, under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[269]` only;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 268 file: no object added or removed, one definition changed (the trigger
+`ink_transcriptions_no_replace`), and the only table whose rows changed is `schema_migrations` (gains 269). The file
+stays 7,860,224 bytes. (This fix round first numbered it 270; it was renumbered before landing so no gap reaches
+main, and redone from the tracked 268 file.)
 
 ## Reader workbench v2 suggested video chapters (migration 268), `reader/rd10-video-carried`, 2026-11-23
 

@@ -1,4 +1,4 @@
-"""Migration 270 (pen and ink, fix round): `ink_transcriptions`' replacing-INSERT guard refuses an insert meeting either
+"""Migration 269 (pen and ink, fix round): `ink_transcriptions`' replacing-INSERT guard refuses an insert meeting either
 key (the primary key, or the owner and strokes), so a reading's receipt cannot be replaced; nothing else changes. The
 number is the file name alone (``MIGRATION``)."""
 
@@ -12,7 +12,7 @@ import pytest
 
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from tests.helpers import MIGRATION_HEAD_FIXTURE
-from tests.reader_rd8a_migration_helpers import GUARD_267, undo_270
+from tests.reader_rd8a_migration_helpers import GUARD_267, undo_269
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 MIGRATION = next(m for m in discover_migrations() if m.name == "ink_transcriptions_guard")
@@ -31,7 +31,7 @@ def _copy(tmp_path: Path) -> Path:
 def test_it_changes_the_guard_alone_and_keeps_every_row(tmp_path):
     database = _copy(tmp_path)
     with closing(sqlite3.connect(database)) as connection:
-        undo_270(connection)
+        undo_269(connection)
         connection.execute("DELETE FROM schema_migrations WHERE version = ?", (MIGRATION.version,))
         connection.execute(_READING.format(verb=""), ("it_1", "kept"))
         connection.commit()

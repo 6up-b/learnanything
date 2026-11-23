@@ -26,12 +26,12 @@ def undo_267(connection: sqlite3.Connection) -> None:
         connection.execute(f"DROP TABLE IF EXISTS {table}")
 
 
-#: The replacing-INSERT guard of ``ink_transcriptions`` as 267 wrote it (the primary key alone); 270 widened it.
+#: The replacing-INSERT guard of ``ink_transcriptions`` as 267 wrote it (the primary key alone); 269 widened it.
 GUARD_267 = "WHEN EXISTS (SELECT 1 FROM ink_transcriptions WHERE transcription_id = NEW.transcription_id)"
 
 
-def undo_270(connection: sqlite3.Connection) -> None:
-    """Take a head copy back to before 270: the guard as 267 wrote it. The caller removes 270's ``schema_migrations``
+def undo_269(connection: sqlite3.Connection) -> None:
+    """Take a head copy back to before 269: the guard as 267 wrote it. The caller removes 269's ``schema_migrations``
     row with its own."""
 
     connection.execute("DROP TRIGGER IF EXISTS ink_transcriptions_no_replace")
