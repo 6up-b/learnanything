@@ -23,8 +23,12 @@ export interface CardFaceProps {
 export function CardFace({ glyph, kind, title, where, progress, extra, miniatureHost, paper }: CardFaceProps) {
   return (
     <div className="desk-card-face">
-      <div className="desk-card-k">{glyph} {kind}</div>
-      <div className="desk-card-n">{title}</div>
+      {/* The picture first, as the mockup's cards: then the name, the minimap bar and where. */}
+      <div className={`desk-card-thumb${paper ? " paper" : ""}`}>
+        {miniatureHost ? <div className="desk-card-mini" ref={miniatureHost} /> : <div className="desk-card-unopened">not opened yet</div>}
+      </div>
+      <div className="desk-card-n"><span className="desk-card-g">{glyph}</span> {title}</div>
+      <div className="desk-card-k">{kind}</div>
       {progress !== null ? (
         <div className="desk-card-bar" aria-hidden="true">
           <span className="ln" />
@@ -33,9 +37,6 @@ export function CardFace({ glyph, kind, title, where, progress, extra, miniature
       ) : null}
       {where ? <div className="desk-card-w">{where}</div> : null}
       {extra}
-      <div className={`desk-card-thumb${paper ? " paper" : ""}`}>
-        {miniatureHost ? <div className="desk-card-mini" ref={miniatureHost} /> : <div className="desk-card-unopened">not opened yet</div>}
-      </div>
     </div>
   );
 }

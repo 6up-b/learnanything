@@ -156,6 +156,7 @@
 .desk-shell.overview .desk-card { opacity: 1; visibility: visible; }
 .desk-card-face { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; padding: 34px; color: var(--desk-t); font-family: var(--desk-mono); overflow: hidden; }
 .desk-card-k { font-size: 28px; letter-spacing: .06em; text-transform: uppercase; color: var(--desk-t3); }
+.desk-card-g { color: var(--desk-t3); }
 .desk-card-n { font-size: 38px; line-height: 1.3; color: var(--desk-t); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-family: var(--desk-ui); }
 .desk-card-bar { position: relative; height: 12px; flex: none; }
 .desk-card-bar .ln { position: absolute; left: 0; right: 0; top: 4px; height: 5px; background: #2e2e34; border-radius: 3px; }

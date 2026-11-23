@@ -1439,7 +1439,9 @@ export function DeskShell({
       const sameDesk = selectedRelations.filter((relation) => ws.windows[relation.windowId]?.deskId === each.deskId);
       const { order } = gatherOrder(each.slots, selection.windowId, sameDesk);
       order.forEach((slot, index) => {
-        if (each.slots[index]?.[0] !== slot[0] && ovLayout.cards[row][index]) ghosts.push({ key: slot.join("+"), rect: ovLayout.cards[row][index] });
+        // Only the linked cards: where each would go.
+        const linked = slot.some((id) => sameDesk.some((relation) => relation.windowId === id));
+        if (linked && each.slots[index]?.[0] !== slot[0] && ovLayout.cards[row][index]) ghosts.push({ key: slot.join("+"), rect: ovLayout.cards[row][index] });
       });
     }
   }

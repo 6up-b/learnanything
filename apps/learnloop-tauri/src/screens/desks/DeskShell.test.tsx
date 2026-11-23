@@ -412,6 +412,20 @@ describe("the overview", () => {
     expect(document.querySelectorAll(".ov-recede").length).toBe(0);
   });
 
+  it("g held previews a gather: dashed ghosts where the linked cards would go, gone on release", async () => {
+    mount(new FixtureDeskServer(), { reducedMotion: true });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyO", "o");
+    act(() => {
+      fireEvent.keyDown(window, { key: "g", code: "KeyG" });
+    });
+    expect(document.querySelectorAll(".desk-ov-ghost").length).toBe(2);
+    act(() => {
+      fireEvent.keyUp(window, { key: "g", code: "KeyG" });
+    });
+    expect(document.querySelectorAll(".desk-ov-ghost").length).toBe(0);
+  });
+
   it("a key pressed during a zoom settles it at once", async () => {
     const frames = new ManualFrames();
     mount(new FixtureDeskServer(), { frameClock: frames, reducedMotion: false });
