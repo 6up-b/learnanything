@@ -167,6 +167,21 @@ export class DeskStore {
     return null;
   }
 
+  /** Read a pad again from the server (a reading LearnLoop wrote into one of its blocks moved that block's head),
+   * once every queued write is acknowledged; a pad with changes still queued keeps what the client has. */
+  async refreshPad(padId: string): Promise<void> {
+    await this.settled();
+    if (!this.transport.padGet || this.outbox.queued().some((batch) => batch.pad?.padId === padId)) return;
+    try {
+      const view = await this.transport.padGet({ padId });
+      if (this.outbox.queued().some((batch) => batch.pad?.padId === padId)) return;
+      this.pads = { ...this.pads, [padId]: fromPadView(view) };
+      this.emitPads();
+    } catch {
+      // The pad keeps what the client has; the next change reconciles it.
+    }
+  }
+
   /** Queue one ink save (pen and ink, RD8a): sent after the batches before it, retried until the server's
    * receipt; a resent ink id with the same strokes is a no-op on the server. */
   commitInk(ink: InkSaveBody): void {
