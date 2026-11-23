@@ -1827,6 +1827,19 @@ export function DeskShell({
       toastNow("this result has nothing to open yet");
       return;
     }
+    // A note opens by its identity: a Reader note or highlight in its book at its passage (the window's view
+    // names the note); an inbox note has no desk window yet, so it is said where it lives, not opened as an
+    // unbound Notes panel.
+    const note = row.raw as { noteKind?: string; noteRefKind?: string | null; snippet?: string; title?: string };
+    if (note.noteKind === "note") {
+      const target = row.target ?? {};
+      if (note.noteRefKind === "capture" || ref.kind === "panel") {
+        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note · it opens from Today's inbox`);
+        return;
+      }
+      openContent(ref, { spanId: target.spanId ?? null, view: { ...(target.noteKey ? { noteKey: target.noteKey } : {}), ...(target.annotationId ? { annotationId: target.annotationId } : {}) } });
+      return;
+    }
     if (ref.kind === "thread") {
       const passage = (row.raw as { passage?: ContentRefDto | null }).passage;
       const extractionId = passage && (passage.kind === "source" || passage.kind === "video") ? passage.extractionId : null;

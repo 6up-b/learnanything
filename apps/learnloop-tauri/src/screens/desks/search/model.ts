@@ -10,6 +10,7 @@ import type {
   SearchNoteRowDto,
   SearchPadRowDto,
   SearchPassageRowDto,
+  SearchRowBase,
   SearchScope,
   SearchSourceRowDto,
   SearchThreadRowDto,
@@ -29,7 +30,7 @@ export interface OpenWindow {
 export type SearchRow =
   | { kind: "open"; key: string; text: string; where: string; windowId: string }
   | { kind: "result"; key: string; group: SearchScope; text: string; where: string; byMeaning: boolean; ref: ContentRefDto | null;
-      target: { spanId?: string; t?: number; blockId?: string } | null; raw: SearchGroupDto["rows"][number] };
+      target: SearchRowBase["target"]; raw: SearchGroupDto["rows"][number] };
 
 export interface ShownGroup {
   id: SearchScope | "open";

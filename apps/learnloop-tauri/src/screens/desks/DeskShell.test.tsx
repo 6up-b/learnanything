@@ -1502,6 +1502,50 @@ describe("RD3b: search in context (spec §9.3)", () => {
     expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId });
   });
 
+  it("a note result opens its note by its identity: a Reader note at its passage in its book, an inbox note said where it lives", async () => {
+    const { server, transport } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    const noteRows = [
+      { ref: { kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId, extractionId: FIXTURE_SOURCES.video2.extractionId }, target: { spanId: "fx_v2_c3", noteKey: "annotation:an7", annotationId: "an7" },
+        noteKind: "note", noteKey: "annotation:an7", noteRefKind: "annotation", title: "masks", heading: null, snippet: "masks hide the future", capturedOn: null, byMeaning: false },
+      { ref: { kind: "panel", panel: "notes" }, target: { noteKey: "capture:cap3", captureId: "cap3" },
+        noteKind: "note", noteKey: "capture:cap3", noteRefKind: "capture", title: "masks, again", heading: null, snippet: "ask about causal masks", capturedOn: "2026-11-20", byMeaning: false },
+    ];
+    for (const index of [0, 1]) {
+      transport.searchEverything.mockResolvedValueOnce({
+        version: 1, query: "masks",
+        groups: [{ group: "notes", label: "your notes", basis: "words", status: "ok", more: false, rows: [noteRows[index]] }],
+        meaning: { status: "unavailable", jobId: null, unavailable: [] },
+      } as never);
+    }
+    const search = async (title: string) => {
+      press("/", "Slash");
+      const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+      fireEvent.change(input, { target: { value: "masks" } });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+        await Promise.resolve();
+      });
+      // The note's row (the window opened by the first search is in "open on this desk" above it).
+      const row = [...document.querySelectorAll<HTMLElement>("[data-search-row]")].find((each) => each.textContent?.includes(title));
+      fireEvent.click(row as HTMLElement);
+      await flush();
+    };
+    await search("masks hide");
+    const opened = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window");
+    expect(opened).toHaveLength(1);
+    expect(opened[0].op === "open_window" ? [opened[0].content, opened[0].view] : null).toMatchObject([
+      { kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId }, { spanId: "fx_v2_c3", noteKey: "annotation:an7", annotationId: "an7" },
+    ]);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    await search("ask about causal masks");
+    // No desk window shows an inbox note: nothing opens (no unbound Notes panel), and it says where the note is.
+    expect(server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window")).toHaveLength(1);
+    expect(document.querySelector(".desk-toast")?.textContent).toMatch(/inbox note/);
+  });
+
   it("esc closes it", async () => {
     mountCompanion({ reducedMotion: true });
     await screen.findByTestId("pane-fx_w_book");
