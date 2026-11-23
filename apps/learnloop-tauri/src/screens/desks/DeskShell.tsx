@@ -30,6 +30,7 @@ import {
   setFocus,
   setCompanionDock,
   setCompanionShown,
+  setGoal,
   setView,
   slotIndexOf,
   swapInView,
@@ -106,6 +107,9 @@ import type { SearchRow } from "./search/model";
 import { clipQuote, readWindowSelection, type WindowSelection } from "./selection";
 import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
+import { useGoalDesk, type GoalReading } from "./goal/GoalLayer";
+import { LIVE_GOAL_TRANSPORT, type GoalTransport } from "./goal/controller";
+import "../../styles/goal.css";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
@@ -361,6 +365,8 @@ export interface DeskShellProps {
   poller?: Poller;
   /** The pads' and carried questions' calls; absent, the sidecar's. */
   padsTransport?: PadsTransport;
+  /** The goal lens's calls (goal.band, goal.lens, the learner's choices); absent, the sidecar's. */
+  goalTransport?: GoalTransport;
 }
 
 export function DeskShell({
@@ -380,6 +386,7 @@ export function DeskShell({
   companion: companionTransport = LIVE_COMPANION_TRANSPORT,
   poller = appPoller,
   padsTransport = LIVE_PADS_TRANSPORT,
+  goalTransport = LIVE_GOAL_TRANSPORT,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -1162,6 +1169,8 @@ export function DeskShell({
       case "search":
         setSearch({ query: "" });
         return true;
+      case "path":
+        return goalPathRef.current.toggle();
       default:
         return false;
     }
@@ -1230,7 +1239,7 @@ export function DeskShell({
         // A claim with the focus on the page (the Reader's intent box): the selection's shortcuts still pass.
         typingClaim: has("typing"),
         // Search in context or the drain is open: its keys are its own (as an open menu owns them).
-        menu: has("menu") || searchOpenRef.current || drainingRef.current,
+        menu: has("menu") || searchOpenRef.current || drainingRef.current || goalPathRef.current.open,
         check: has("check"),
         focus: focusModeRef.current,
         overview: overviewRef.current,
@@ -1642,6 +1651,8 @@ export function DeskShell({
   chipRef.current = chip;
   const searchOpenRef = useRef(false);
   searchOpenRef.current = search !== null;
+  // The goal lens's path view: `p` toggles it, and while it is open its keys are its own (a menu scope).
+  const goalPathRef = useRef<{ open: boolean; toggle: () => boolean }>({ open: false, toggle: () => false });
   const anchoredAt = useRef(0);
   const groundingRef = useRef<Grounding>({ reason: "" });
 
@@ -2034,6 +2045,48 @@ export function DeskShell({
     // store.pads changes identity on every pad change (the pad version re-renders this shell).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [store.pads]);
+  // -- the goal lens (spec §12): the band, each reading's marks, the path view ----------------------------
+  const goalReadings = useMemo<GoalReading[]>(() => {
+    if (!ws) return [];
+    const out: GoalReading[] = [];
+    for (const window of Object.values(ws.windows)) {
+      const content = window.content;
+      if (!content || (content.kind !== "source" && content.kind !== "video")) continue;
+      const card = library?.find((each) => each.sourceId === content.sourceId);
+      out.push({ windowId: window.windowId, extractionId: content.extractionId, book: titleOf(window),
+        paused: isPaused(lifecycles[window.windowId]?.state ?? "hidden"), paper: card?.kindNoun === "paper" });
+    }
+    return out;
+  }, [ws, lifecycles, titleOf, library]);
+  const goalFocused = useMemo(() => {
+    const window = focusId && ws ? ws.windows[focusId] : null;
+    if (!window) return null;
+    const content = window.content;
+    const extractionId = content && (content.kind === "source" || content.kind === "video") ? content.extractionId : null;
+    return { windowId: window.windowId, extractionId, readingSpan: status[window.windowId]?.readingSpan ?? null,
+      where: status[window.windowId]?.where ?? (extractionId ? titleOf(window) : null) };
+  }, [focusId, ws, status, titleOf]);
+  const openGoalSection = useCallback((section: { extractionId: string; sourceId?: string; startSpanId: string | null }) => {
+    const onDesk = Object.values(wsRef.current.windows).some((window) => window.content && (window.content.kind === "source" || window.content.kind === "video") && window.content.extractionId === section.extractionId);
+    if (onDesk || !section.sourceId) openPassage(section.extractionId, section.startSpanId);
+    else openContent({ kind: "source", sourceId: section.sourceId, extractionId: section.extractionId, view: "render" }, { spanId: section.startSpanId });
+  }, [openPassage, openContent]);
+  const goalDesk = useGoalDesk({
+    transport: goalTransport,
+    deskGoalId: desk?.goalId,
+    offKey: deskId ? `learnloop.desks.goalOff.${vaultKey}.${deskId}` : null,
+    onSetGoal: (goalId) => { if (deskIdRef.current) commit(setGoal(wsRef.current, deskIdRef.current, goalId)); },
+    readings: goalReadings,
+    focused: goalFocused,
+    padAnchors: padLinks,
+    hubFor,
+    timers,
+    mintId,
+    onError,
+    onOpen: openGoalSection,
+  });
+  goalPathRef.current = { open: goalDesk.pathOpen, toggle: goalDesk.togglePath };
+
   const surfacedCarried = useRef(new Set<string>());
   const onCarriedSurfaced = useCallback((question: CarriedQuestionDto) => {
     if (surfacedCarried.current.has(question.carriedId)) return;
@@ -2205,6 +2258,7 @@ export function DeskShell({
             onMediaReady={onMediaReadyFor(window.windowId)}
             onError={onError}
             reader={reader}
+            lens={goalDesk.lensFor(window.windowId, content.extractionId)}
           />
         );
       }
@@ -2334,7 +2388,7 @@ export function DeskShell({
 
   return (
     <PadsHostContext.Provider value={padsHost}>
-    <div className={`desk-shell${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
+    <div className={`desk-shell${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}${goalDesk.hasBand ? " has-goal" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
         <span className="desk-brand">◇ LearnLoop</span>
         <nav className="desk-tabs" aria-label="desks">
@@ -2382,11 +2436,13 @@ export function DeskShell({
             +
           </button>
         </nav>
+        {goalDesk.topChip}
         <span className="grow" />
         <button type="button" className="tb" aria-pressed={overview} title="alt+o" onClick={() => toggleOverview()}>o overview</button>
         <button type="button" className="tb" aria-expanded={opener} onClick={() => setOpener((open) => !open)}>+ open beside</button>
         {onLeave ? <button type="button" className="tb" onClick={onLeave}>old Reader</button> : null}
       </header>
+      {goalDesk.band}
       <main className={`desk-main${viewportWidth < DESK_SIZES.shelfFoldBelow ? " rail" : ""}`} ref={mainRef}>
         <Shelf
           rows={shelfRows}
@@ -2511,6 +2567,7 @@ export function DeskShell({
                             ✕
                           </button>
                         </div>
+                        {window.kind === "pad_stack" ? goalDesk.padLine((window.stack ?? []).flatMap((entry) => (entry.kind === "pad" ? [entry.padId] : []))) : null}
                         <div className="desk-pane-body" data-desk-pane-body="">
                           {/* A window that fails to render fails alone: the desk and its other windows stay. */}
                           <ScreenErrorBoundary resetKey={id}>
@@ -2701,7 +2758,9 @@ export function DeskShell({
           ) : null}
         </section>
       </main>
+      {goalDesk.overlays}
       <footer className="desk-keys">
+        {goalDesk.hasBand && !overview ? <span className="gk"><kbd>p</kbd> your path</span> : null}
         {hints.map(([keys, label]) => <span key={keys}><kbd>{keys}</kbd> {label}</span>)}
         {ungather && ungather.deskId === deskId && !overview ? (
           <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ ungather</button>
