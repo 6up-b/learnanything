@@ -216,8 +216,9 @@ def reading_sections(vault: Any, repository: Repository, model: GoalModel, extra
     library = model.library
     reading = library.reading(extraction_id) if library is not None else None
     with repository.connection() as connection:
-        named = (coverage_store.learning_objects_in_reading(connection, extraction_id)
-                 if coverage_store.table_present(connection) else [])
+        present = coverage_store.table_present(connection)
+        named = coverage_store.learning_objects_in_reading(connection, extraction_id) if present else []
+        hashes = coverage_store.section_hashes_in_reading(connection, extraction_id) if present else {}
     standing = SC.standing(vault, repository, library, named) if library is not None and reading is not None else {}
     out = []
     for row in rows:
@@ -238,8 +239,15 @@ def reading_sections(vault: Any, repository: Repository, model: GoalModel, extra
                 coverage.append(GL.Coverage(lo_id, entry.treatment if entry.treatment is not None
                                             else GL.LEARNER_ABOUT))
         placed = tuple(lo for lo in dict.fromkeys(model.placed.get(ref, ())) if model.reads and lo in model.reads.los)
+        # A goal LO whose rows here were all written against an earlier version of the section (no standing row
+        # now): what it says of the section is unknown, never "not about it".
+        current = library.section(extraction_id, section_id) if library is not None else None
+        stale = tuple(sorted(lo_id for (sid, lo_id), seen in hashes.items()
+                             if sid == section_id and model.reads and lo_id in model.reads.los
+                             and current is not None and current.section_hash not in seen
+                             and not any(entry.learning_object_id == lo_id for entry in coverage)))
         reads = GL.SectionReads(ref=ref, title=str(row["label"]), coverage=tuple(coverage), placed=placed,
-                                protection=protection, choice=model.choices.get(ref))
+                                protection=protection, choice=model.choices.get(ref), stale=stale)
         place = {"section_id": section_id, "title": str(row["label"]), "start_span_id": str(row["start_span_id"]),
                  "span_ids": spans}
         out.append((place, reads))
@@ -274,6 +282,46 @@ def _readiness(model: GoalModel, lo_id: str, likely: LikelyReader | None) -> tup
     return "untested", UNTESTED_LINE
 
 
+def protection(vault: Any, repository: Repository, due: Sequence[Mapping[str, Any]],
+               model: GoalModel | None = None) -> GL.Protection:
+    """What the replies may not say while checks are due (spec §12.6.1, D15), from every due LO whatever the goal:
+    their titles; the sections that treat them (standing coverage about them, their path placements in any goal,
+    their checks' hosts); the LOs whose explanations depend on them (prerequisites, or what a section read for an
+    LO takes as known). Read only."""
+
+    held = sorted({str(row["lo_id"]) for row in due})
+    if not held:
+        return GL.Protection()
+    titles = [vault.learning_objects[lo_id].title for lo_id in held if lo_id in vault.learning_objects]
+    sections = {f"{row['host']['extraction_id']}/{row['host']['section_id']}" for row in due
+                if row.get("host") and row["host"].get("extraction_id") and row["host"].get("section_id")}
+    library = model.library if model is not None and model.library is not None else None
+    try:
+        library = library or SC.Library(vault, repository)
+        for entries in SC.standing(vault, repository, library, held).values():
+            for (extraction_id, section_id), entry in entries.items():
+                if entry.treatment is None or entry.treatment in SC.ABOUT:
+                    sections.add(f"{extraction_id}/{section_id}")
+    except SC.CoverageError:
+        pass
+    with repository.connection() as connection:
+        marks = ",".join("?" * len(held))
+        for extraction_id, section_id in connection.execute(
+                f"SELECT extraction_id, section_id FROM deliverable_path_sections WHERE learning_object_id IN ({marks})",
+                held).fetchall():
+            sections.add(f"{extraction_id}/{section_id}")
+    held_set = set(held)
+    concepts = {vault.learning_objects[lo_id].concept for lo_id in held if lo_id in vault.learning_objects}
+    concepts.discard(None)
+    depends = {lo_id for lo_id, lo in vault.learning_objects.items()
+               if lo_id not in held_set and set(getattr(lo, "prerequisites", ()) or ()) & concepts}
+    if model is not None:
+        for lo_id, treatments in model.treatments.items():
+            if lo_id not in held_set and any(set(treatment.assumes) & held_set for treatment in treatments):
+                depends.add(lo_id)
+    return GL.Protection.of(held, titles, sections, depends)
+
+
 def _section_ref(treatment: DP.Treatment | None) -> dict[str, Any] | None:
     if treatment is None:
         return None
@@ -282,10 +330,18 @@ def _section_ref(treatment: DP.Treatment | None) -> dict[str, Any] | None:
 
 
 def band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]],
-              answered: Sequence[Mapping[str, Any]], likely: LikelyReader | None = None,
+              answered: Sequence[Mapping[str, Any]], protection: GL.Protection, likely: LikelyReader | None = None,
               pace: Mapping[str, Any] | None = None, progress: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """``goal.band``: the goal, its LOs as dots, the depth with each depth's size, the next step, pace and
-    the path's view (lines hide their purpose text while a check is due on their LO)."""
+    the path's view, masked by ``protection`` (required: no band leaves here unmasked; D15)."""
+
+    return GL.protect_band(_band_view(vault, repository, model, due=due, answered=answered, likely=likely, pace=pace,
+                                      progress=progress), protection)
+
+
+def _band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]],
+               answered: Sequence[Mapping[str, Any]], likely: LikelyReader | None = None,
+               pace: Mapping[str, Any] | None = None, progress: Mapping[str, Any] | None = None) -> dict[str, Any]:
 
     view = model.view
     base: dict[str, Any] = {
@@ -347,10 +403,19 @@ def _held_line(line: Mapping[str, Any]) -> dict[str, Any]:
             "alternates": [{**alternate, "difference": ""} for alternate in line.get("alternates", ())]}
 
 
-def lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *,
+def lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, protection: GL.Protection,
               from_span_id: str | None = None, to_span_id: str | None = None, t0: float | None = None,
               t1: float | None = None) -> dict[str, Any]:
-    """``goal.lens``: one level per section the range touches (passages inherit it, decision D1)."""
+    """``goal.lens``: one level per section the range touches (passages inherit it, decision D1), masked by
+    ``protection`` (required: no lens leaves here unmasked; D15)."""
+
+    return GL.protect_lens(_lens_view(vault, repository, model, extraction_id, from_span_id=from_span_id,
+                                      to_span_id=to_span_id, t0=t0, t1=t1), protection)
+
+
+def _lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *,
+               from_span_id: str | None = None, to_span_id: str | None = None, t0: float | None = None,
+               t1: float | None = None) -> dict[str, Any]:
 
     base: dict[str, Any] = {"goal_id": model.goal.id, "extraction_id": extraction_id, "status": model.status,
                             "message": model.message, "depth": model.depth,
@@ -368,4 +433,4 @@ def lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_i
 
 
 __all__ = ["GoalModel", "LikelyReader", "Progress", "band_view", "depth_sizes", "goal_view", "lens_view",
-           "primary_of", "read_goal", "reading_sections"]
+           "primary_of", "protection", "read_goal", "reading_sections"]

@@ -171,7 +171,7 @@ describe("the goal band on the desks", () => {
     await waitFor(() => expect(screen.getByRole("region", { name: "your goal" })).toBeTruthy());
     act(() => { fireEvent.keyDown(window, { key: "C", code: "KeyC", shiftKey: true }); });
     await settle();
-    const line = await screen.findByText("◎ goal in context");
+    const line = await screen.findByText("◎ goal in view");
     expect(line.className).toBe("goal gctx");
   });
 

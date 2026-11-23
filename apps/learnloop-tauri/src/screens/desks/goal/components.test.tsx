@@ -31,6 +31,42 @@ function bandProps(overrides: Partial<Parameters<typeof GoalBand>[0]> = {}) {
   };
 }
 
+describe("the reading passage", () => {
+  it("keeps full colour inside a dimmed section, as the active passage and an annotation do", () => {
+    const goal = new FixtureGoal();
+    const lens = readerLens({ index: indexLens(goal.lens(BOOK)), dimOn: true, windowId: "w", handlers: { hover: vi.fn(), tap: vi.fn() } })!;
+    const dimmed = indexLens(goal.lens(BOOK))!.sections.find((section) => section.dim)!.spanIds[0];
+    expect(lens.className!(dimmed, { annotated: false, active: false })).toContain("gl-dim");
+    expect(lens.className!(dimmed, { annotated: false, active: false, reading: true })).not.toContain("gl-dim");
+  });
+});
+
+describe("a pad's anchors", () => {
+  it("ask the lens for their reading only while a window that is not paused shows the pad", async () => {
+    const goal = new FixtureGoal();
+    const asked: string[] = [];
+    const transport: GoalTransport = {
+      goals: async () => goal.goals(), band: async () => goal.band(), lens: async (input) => { asked.push(input.extractionId); return goal.lens(input.extractionId); },
+      sectionChoice: async () => ({}) as never, path: async () => ({}), setDepth: async () => ({}), override: async () => ({}),
+      setScope: async () => ({}), scopeDecide: async () => ({}),
+    };
+    const quiet = () => undefined;
+    function Probe({ paused }: { paused: boolean }) {
+      useGoalDesk({ transport, deskGoalId: null, offKey: null, onSetGoal: quiet, readings: [], focused: null,
+        padAnchors: [{ padId: "pad_1", extractionId: BOOK, spanId: `${BOOK}_s1_2`, paused }], hubFor: () => DIRECT_HUB,
+        timers: { set: () => 0, clear: () => undefined, now: () => 0 }, mintId: (prefix) => `${prefix}_1`, onError: quiet, onOpen: quiet });
+      return null;
+    }
+    const view = render(<Probe paused />);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(asked).toEqual([]);
+    view.rerender(<Probe paused={false} />);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(asked).toEqual([BOOK]);
+  });
+});
+
 describe("the band", () => {
   it("says the goal in the learner's words, its LOs as dots in path order, the depth and what is next", () => {
     const props = bandProps();
@@ -231,9 +267,27 @@ describe("the path view", () => {
     const skippable = indexLens(goal.lens(BOOK))!.bySpan.get(`${BOOK}_s6_1`)!;
     return {
       band: goal.band(), here: "lo_fx_softmax", notNeeded: [{ extractionId: BOOK, book: "Softmax, a short book", section: skippable }],
-      onClose: vi.fn(), onDepth: vi.fn(), onOpen: vi.fn(), onUseInstead: vi.fn(), onReadAnyway: vi.fn(), onAddPhrase: vi.fn(), ...overrides,
+      onClose: vi.fn(), onDepth: vi.fn(), onOpen: vi.fn(), onUseInstead: vi.fn(), onReadAnyway: vi.fn(), onAddPhrase: vi.fn(), onCorrect: vi.fn(), ...overrides,
     };
   }
+
+  it("takes the learner's correction of the goal's scope from its change line, and offers none without a way to send it", () => {
+    const value = props();
+    render(<PathView {...value} />);
+    fireEvent.click(document.querySelector("button[data-gp-change]")!);
+    const input = document.querySelector("input[data-gp-change]") as HTMLInputElement;
+    // The path's own p and esc do not close it from the learner's words.
+    fireEvent.keyDown(input, { key: "p" });
+    expect(value.onClose).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "not the proofs; add the Jacobian" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(value.onCorrect).toHaveBeenCalledWith("not the proofs; add the Jacobian");
+    expect(document.querySelector("input[data-gp-change]")).toBeNull();
+    cleanup();
+    render(<PathView {...props({ onCorrect: undefined })} />);
+    expect(document.querySelector("[data-gp-change]")).toBeNull();
+    expect(screen.getByText(/resolved to/).textContent).not.toContain("change:");
+  });
 
   it("lists each LO with its primary, another way and the depth sizes; marks where you are reading", () => {
     const value = props();

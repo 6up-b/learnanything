@@ -1354,6 +1354,16 @@ def owed_among(vault: Any, repository: Repository, ids: Sequence[str]) -> list[s
         all(row.get("lo_hash") == coverage_key(vault, lo_id) for row in rows) for rows in states.get(lo_id, ()))]
 
 
+def attempt_keys(vault: Any, repository: Repository, ids: Sequence[str]) -> dict[str, str | None]:
+    """What a coverage attempt is remembered by, per LO: its statement (``coverage_key``) and the library it was
+    tried against (``SC.scope_signature``). An attempt that found no candidate section settles nothing once a reading
+    is added, re-extracted or switched: the next read sees the LO unjudged, and coverage tries it
+    again."""
+
+    signature = SC.scope_signature(SC.library_scope(repository))
+    return {lo_id: (None if (key := coverage_key(vault, lo_id)) is None else f"{key}|{signature}") for lo_id in ids}
+
+
 def coverage_key(vault: Any, learning_object_id: str) -> str | None:
     """What C0a's judge read of the LO (its ``lo_hash``): the key an attempt is remembered
     by, so a statement changed since is tried again (Codex review F5)."""

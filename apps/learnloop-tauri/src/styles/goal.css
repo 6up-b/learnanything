@@ -126,6 +126,10 @@
 .desk-shell .gp-scope, .desk-shell .gp-unm, .desk-shell .gp-ready { font: 11px/1.55 var(--desk-mono); color: var(--desk-t2); margin-bottom: 12px; }
 .desk-shell .gp-scope b { color: var(--desk-t); font-weight: 500; }
 .desk-shell .gp-scope .faint, .desk-shell .gp-ready .faint { color: var(--desk-t3); display: block; margin-top: 3px; }
+.desk-shell .gp-scope .gp-change { background: none; border: 0; padding: 0; font: inherit; text-align: left; cursor: text; }
+.desk-shell .gp-scope .gp-change:hover { color: var(--desk-t2); }
+.desk-shell .gp-scope .gp-change-in { display: block; width: 100%; margin-top: 3px; font: inherit; color: var(--desk-t); background: transparent;
+  border: 0; border-bottom: 1px solid var(--desk-line, var(--desk-t3)); padding: 1px 0; outline: none; }
 .desk-shell .gp-unm { border-left: 1px dashed #6e6790; padding-left: 9px; }
 .desk-shell .gp-unm i { color: var(--gl-amber-hi); }
 .desk-shell .act { font: 11.5px var(--desk-mono); color: var(--desk-t); border: 1px solid #4a4466 !important; padding: 4px 10px !important; border-radius: 3px; background: #24212f !important; white-space: nowrap; }

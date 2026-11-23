@@ -132,3 +132,38 @@ sizes (now `:where`); a whole section's marks lit for one hovered passage.
 - WebKit (WebKitGTK, the packaged app's engine): the harness and the reference run Chromium only.
 - The desktop app against a real vault's goal (the lens was driven through the fixture).
 - Pointer gestures on a touchpad.
+
+## Fix round (frontend): the RD6 adversarial review (Codex Astra, 2026-11-23)
+
+The frontend half of RD6's fix round, in the same branch as the backend half (`reader/rd6fix`; RD6a's fix round has
+the table for the blockers' server side). Every finding was checked against the code and held; each has a fail-first
+test and a ledger row.
+
+| Finding | Ledger | What changed | Fail-first test |
+|---|---|---|---|
+| Blocker 1 (client side): "you are reading" took the window's own place words, the book's heading of a held section | RD6-1 | `hereLine` shows the server's neutral title for a held section | `goal/protection.test.tsx`: band, here line, path view and why card rendered from masked replies; no text, title or attribute names the masked LO or its sections |
+| Major: an old lens reply overwrote a current one; an open why card kept its old section | RD6-6 | Each lens request has a ticket and lands only while it is the latest for its reading under the goal shown; the why card is re-read from the latest lens (closed when its section is gone) and closed on a goal change | `goal/freshness.test.tsx` (2) |
+| Major: a ready lens never refreshed (a check falling due, a write elsewhere, the goals list fetched once, a reading coming back) | RD6-7 | The band is read again at `nextCheckDue`; the app's writes (the query cache's goals, queue, sources, graph and vault tags, watched through one cache entry) read the goals, band and readings again; a reading that leaves view is asked again on return | `goal/freshness.test.tsx` (3) |
+| Major: coverage finishing did not start the judgment; "pending" polled for ever | RD6-8 | A band whose path owes a judgment (pending or stale) with no coverage running starts it with `curriculum.path`, once per path state; only judging or covering is polled | `goal/freshness.test.tsx` (1) |
+| Major: a transcript group took its first cue's section | RD6-9 | A group shows its most needed section (`mostNeededSpan`) | `goal/watch.test.tsx` |
+| Major: source summaries overclaimed "not needed" | RD6-10 | A whole source or "the rest" is called not needed only when every section concerned is mapped and skippable, later or already shown (`noneNeeded`); the video head names every range on the path, touching ranges as one | `goal/shelf.test.tsx`, `goal/watch.test.tsx` |
+| Minor: the passage being read not exempt from dimming | RD6-11 | The Reader passes `reading` (the scrolled-to passage) to the lens, kept at full colour; the playing cue gets `gl-keep` | `goal/components.test.tsx`, `goal/watch.test.tsx` |
+| Minor: paused pads asked the lens | RD6-12 | A pad anchor is `paused` when no unpaused window shows its pad (DeskShell, from the windows' stacks and lifecycles); its reading is not asked, its cached levels stay | `goal/components.test.tsx` |
+| Minor: "change: type what's missing or not needed" had no action | RD6-13 | The line opens an input whose words go to the goal as a scope correction (`curriculum.set_scope`, kind `correction`); no handler, no line | `goal/components.test.tsx` |
+| Minor: "goal in context" claimed the tutor answers with the goal | RD6-14 | The badge reads "◎ goal in view", its title saying the tutor's answers don't take the goal into account yet (sending it is a prompt change, its own step) | `companion/Companion.test.tsx` |
+
+Corrections to this record: §2 judgment call 7 (a group takes its first cue's section) is replaced by the most needed
+section; judgment call 6's six-second recheck now runs only while work runs, and an owed judgment is started.
+
+Assertions changed: `watch.test.tsx`'s head reads "on your path · 0:18–2:30" (its three touching ranges as one, was
+"0:18–1:06"), and cue c1, the one playing at 0:00, now keeps full colour (the plain cue checked is c3);
+`components.test.tsx`'s path view props pass `onCorrect`; "◎ goal in context" reads "◎ goal in view" in
+`Companion.test.tsx`, `GoalDesk.test.tsx` and the desk harness's goal run; `test_reader_rd6a_goal_lens.py` no longer
+excludes the section title from its leak check; `test_deliverable_codex_review.py` seeds an attempt with
+`DP.attempt_keys`.
+
+Shared files touched (small, additive): `DeskShell.tsx` (the pad anchors' `paused`), `ReaderScreen.tsx` (the lens
+`reading` flag), `YouTubeWatchPanel.tsx` (the playing cue's `gl-keep`), `api/dto.ts` (`GoalBandDto.nextCheckDue`).
+
+Checked: the rd6 visual comparison is unchanged (7 findings before and after: colour 4, missing 3); the desk harness,
+every run, 152 checks pass (display math included); the whole vitest suite passes.

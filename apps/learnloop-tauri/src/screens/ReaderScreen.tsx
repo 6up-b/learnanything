@@ -302,8 +302,8 @@ export interface ReaderLens {
   /** A mark in the passage's left gutter; the passage becomes its offset parent. */
   mark?: (spanId: string) => ReactNode;
   /** Classes for the passage (dimmed for the goal); `state` says what the Reader marks on it (the learner's
-   *  annotation, the passage being read), which stays at full colour. */
-  className?: (spanId: string, state: { annotated: boolean; active: boolean }) => string | undefined;
+   *  annotation, the active passage, the passage scrolled to and being read), which stays at full colour. */
+  className?: (spanId: string, state: { annotated: boolean; active: boolean; reading?: boolean }) => string | undefined;
   /** The same lens over a video's transcript. */
   watch?: WatchLens | null;
 }
@@ -4115,7 +4115,7 @@ export function ReaderScreen({
                 } : {})}
                 {...(folded ? { "data-folded": "" } : {})}
                 data-extraction-id={render?.extractionId}
-                className={block.spanId ? windowed?.lens?.className?.(block.spanId, { annotated: annotatedSpans.has(block.spanId), active }) : undefined}
+                className={block.spanId ? windowed?.lens?.className?.(block.spanId, { annotated: annotatedSpans.has(block.spanId), active, reading: readingSpan === block.spanId }) : undefined}
                 onContextMenu={(e) => {
                   if (!block.spanId) return;
                   e.preventDefault();
