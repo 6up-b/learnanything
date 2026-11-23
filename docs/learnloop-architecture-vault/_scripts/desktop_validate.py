@@ -333,7 +333,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 384}:
+    if dict(status_counts) != {"ACTIVE": 388}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))
