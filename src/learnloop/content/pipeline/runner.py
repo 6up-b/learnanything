@@ -106,59 +106,8 @@ def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
     return status
 
 
-# Application-validated open vocabularies (§6.2 — deliberately not SQL CHECKs).
-KNOWN_WORKFLOW_TYPES = frozenset(
-    {"import", "import_inventory", "legacy_ingest", "create_study_map", "update_study_map"}
-)
-KNOWN_JOB_TYPES = frozenset(
-    {
-        "import",
-        "extract",
-        "inventory",
-        "legacy_ingest",
-        "exam_ingest",
-        "bootstrap_synthesis",
-        "append_synthesis",
-        "extraction_repair",
-        "source_embedding_backfill",
-        # Local contextual retrieval P1a/P1b: the local 9B index batch and the
-        # Voyage fallback backfill (each queued only while its switch is on).
-        "local_source_index",
-        "source_fallback_backfill",
-        # Deliverable curriculum C0b: the coverage job a completed extraction
-        # queues while curriculum.coverage_on_extract is on (quiet: plan only).
-        "curriculum_coverage_on_extract",
-    }
-)
-
-# These jobs can add or replace scheduler-visible practice. Bump the durable
-# high-water mark only after the ingest row itself is completed, so a Today
-# poll cannot observe the revision before the sidecar is able to reload the
-# newly written vault state.
-#: The jobs whose whole purpose is model work: without the learner's one OK to
-#: use AI they wait for it before they start, instead of failing and being
-#: tried again (a job of another type that reaches a model call waits the same
-#: way, from the refusal itself).
-WAITS_FOR_AI_OK_JOB_TYPES = frozenset(
-    {
-        "legacy_ingest", "exam_ingest", "inventory", "bootstrap_synthesis", "append_synthesis",
-        "reader_quick_check", "reader_exercise_import", "source_exercise_import", "practice_expansion",
-        "goal_population", "question_promotion", "rung_variant", "concept_animation", "figure_rich",
-        "source_embedding_backfill",
-    }
-)
 #: The waiting job's payload (``result.waiting_for_input``): what saying OK resumes.
 WAITING_FOR_OK_PAYLOAD = {"code": model_use.WAITING_CODE}
-
-_QUEUE_AFFECTING_JOB_TYPES = frozenset(
-    {
-        "practice_expansion",
-        "rung_variant",
-        "question_promotion",
-        "reader_exercise_import",
-        "goal_population",
-    }
-)
 
 # The batches whose end, however it ends, bumps the same revision: a book's
 # build (its topics and question plans) and the questions written for a section
@@ -365,18 +314,19 @@ class RunnerServices:
         return default_authoring_route(ctx)
 
 
-def _job_defaults() -> Any:
-    """Load concrete ingest jobs only when a default seam is actually used.
+def _job_types() -> Any:
+    """Load the job types and their handlers only when they are needed.
 
-    ``jobs`` imports the runner contracts to host handlers and the durable worker
-    facade. Keeping this dependency lazy lets queue-only callers import and test
-    the runner without initializing acquisition or provider code. The same holds
-    for the job modules below, whose defaults the services fall back on.
+    The handler modules import the runner contracts, and their defaults pull in
+    acquisition and provider code. Keeping these dependencies lazy lets
+    queue-only callers import and test the runner without initializing either;
+    the same holds for the job modules below, whose defaults the services fall
+    back on.
     """
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline import job_types
 
-    return jobs
+    return job_types
 
 
 def _import_jobs() -> Any:
@@ -619,7 +569,7 @@ class IngestRunner:
         self.worker_id = worker_id
         self.clock = clock or SystemClock()
         self.handlers: dict[str, Handler] = {
-            **_job_defaults().DEFAULT_HANDLERS,
+            **_job_types().default_handlers(),
             **dict(handlers or {}),
         }
         self.services = services or RunnerServices()
@@ -1100,7 +1050,8 @@ class IngestRunner:
         try:
             if handler is None:
                 raise IngestRunnerError(f"unknown job_type '{job['job_type']}'.")
-            if job["job_type"] in WAITS_FOR_AI_OK_JOB_TYPES:
+            type_row = _job_types().job_type(job["job_type"])
+            if type_row is not None and type_row.waits_for_ai_ok:
                 model_use.require(self.vault_root)
             heartbeat_stop = threading.Event()
             heartbeat_thread = threading.Thread(
@@ -1243,7 +1194,8 @@ class IngestRunner:
                     usage=ctx._usage or None,
                     clock=self.clock,
                 )
-                if completed and job["job_type"] in _QUEUE_AFFECTING_JOB_TYPES:
+                type_row = _job_types().job_type(job["job_type"])
+                if completed and type_row is not None and type_row.affects_queue:
                     self.repo.bump_queue_revision(clock=self.clock)
         self._clear_job_interruptible(job["id"], job["attempt_count"])
         self._refresh_batch(batch_id)

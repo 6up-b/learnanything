@@ -31,7 +31,6 @@ from learnloop.reader import reader_quick_check as RQC
 from learnloop.reader import reader_requests as RR
 from learnloop.content.pipeline.runner import (
     CHECKPOINT_LADDER,
-    Handler,
     IngestRunner,
     JobSpec,
     RunnerServices,
@@ -42,30 +41,9 @@ from learnloop.content.authoring.jobs import (
     AD_MODELS_OFF_CODE,
     _reader_source_sets,
     ad_commission_batch_id,
-    handle_concept_animation,
-    handle_goal_population,
-    handle_practice_expansion,
-    handle_question_promotion,
-    handle_reader_exercise_import,
-    handle_reader_quick_check,
-    handle_rung_variant,
-    handle_source_exercise_import,
     practice_expansion_payload,
 )
-from learnloop.content.pipeline.import_jobs import (
-    handle_auto_study_map,
-    handle_extraction_repair,
-    handle_import,
-    handle_legacy_ingest,
-)
-from learnloop.content.synthesis.jobs import handle_append_synthesis, handle_bootstrap_synthesis, handle_inventory
-from learnloop.figures.jobs import handle_figure_rich
-from learnloop.source_retrieval.jobs import (
-    handle_curriculum_coverage_on_extract,
-    handle_local_source_index,
-    handle_source_embedding_backfill,
-    handle_source_fallback_backfill,
-)
+from learnloop.content.pipeline.job_types import applying_job_types, parallel_job_types
 
 
 def _queue_due_replay(host: Any, runner: Any, newest: Mapping[str, Any] | None,
@@ -106,55 +84,7 @@ def _queue_due_replay(host: Any, runner: Any, newest: Mapping[str, Any] | None,
     return batch
 
 
-DEFAULT_HANDLERS: dict[str, Handler] = {
-    "import": handle_import,
-    "auto_study_map": handle_auto_study_map,
-    "legacy_ingest": handle_legacy_ingest,
-    "exam_ingest": handle_legacy_ingest,
-    "inventory": handle_inventory,
-    "bootstrap_synthesis": handle_bootstrap_synthesis,
-    "append_synthesis": handle_append_synthesis,
-    "extraction_repair": handle_extraction_repair,
-    "reader_quick_check": handle_reader_quick_check,
-    "reader_exercise_import": handle_reader_exercise_import,
-    "source_exercise_import": handle_source_exercise_import,
-    "practice_expansion": handle_practice_expansion,
-    "goal_population": handle_goal_population,
-    "question_promotion": handle_question_promotion,
-    "rung_variant": handle_rung_variant,
-    "concept_animation": handle_concept_animation,
-    "figure_rich": handle_figure_rich,
-    "source_embedding_backfill": handle_source_embedding_backfill,
-    "curriculum_coverage_on_extract": handle_curriculum_coverage_on_extract,
-    "local_source_index": handle_local_source_index,
-    "source_fallback_backfill": handle_source_fallback_backfill,
-}
-
-
-
 _LEGACY_JOB_TYPES = ("legacy_ingest", "exam_ingest")
-# Job types whose completion can change vault content (an applied study map or
-# canonical note). The sidecar must reload its in-memory vault after one of
-# these finishes in the background drain, or screens that read the loaded vault
-# (Today, knowledge map) keep serving the pre-apply snapshot.
-APPLYING_JOB_TYPES = (
-    "legacy_ingest",
-    "exam_ingest",
-    "bootstrap_synthesis",
-    "append_synthesis",
-    # Reader-driven progressive generation auto-applies grounded items.
-    "practice_expansion",
-    # Learner-requested easier/harder variants auto-apply when grounded.
-    "rung_variant",
-    # Open-question promotions may materialize a note and auto-apply practice.
-    "question_promotion",
-    # Reader-selected textbook exercises become vault practice items directly.
-    "reader_exercise_import",
-    # Picked textbook exercise proposals too (canonical sources S1).
-    "source_exercise_import",
-    # Goal-wizard population applies generated practice directly.
-    "goal_population",
-)
 _ACTIVE_STATUSES = {"queued", "running", "waiting_for_input"}
 _RECENT_LIMIT = 30
 
@@ -162,7 +92,6 @@ _RECENT_LIMIT = 30
 # drain orders by batch priority DESC first, so anything above the default 0
 # jumps the queue between checkpoints. Bulk batches stay at 0.
 QUICK_ADD_PRIORITY = 100
-_PARALLEL_JOB_TYPES = ("reader_quick_check",)
 _QUICK_CHECK_WORKERS = 3
 
 
@@ -372,7 +301,7 @@ class DurableIngestJobs:
         # Jobs that finished before this bind are already reflected in the vault
         # load that accompanies it; only jobs completing AFTER this point should
         # trigger a reload from the batch-polling handlers.
-        for job in runner.repo.ingest_jobs_by_types(APPLYING_JOB_TYPES):
+        for job in runner.repo.ingest_jobs_by_types(applying_job_types()):
             if job["status"] == "completed":
                 self._reloaded.add(job["id"])
 
@@ -651,9 +580,9 @@ class DurableIngestJobs:
             quick_running = any(thread.is_alive() for thread in self._quick_check_threads)
         lanes: list[tuple[str, ...]] = []
         if not worker_running:
-            lanes.append(tuple(job_type for job_type in runner.handlers if job_type not in _PARALLEL_JOB_TYPES))
+            lanes.append(tuple(job_type for job_type in runner.handlers if job_type not in parallel_job_types()))
         if not quick_running:
-            lanes.append(_PARALLEL_JOB_TYPES)
+            lanes.append(parallel_job_types())
         if not any(
             runner.repo.has_runnable_ingest_job(
                 job_types=lane,
@@ -1793,9 +1722,9 @@ class DurableIngestJobs:
                     eligible_job_types=tuple(
                         job_type
                         for job_type in runner.handlers
-                        if job_type not in _PARALLEL_JOB_TYPES
+                        if job_type not in parallel_job_types()
                     ),
-                    compatible_running_job_types=_PARALLEL_JOB_TYPES,
+                    compatible_running_job_types=parallel_job_types(),
                 )
             except Exception:  # noqa: BLE001 — the drain thread must never die silently on one bad job
                 ran = 0
@@ -1841,14 +1770,14 @@ class DurableIngestJobs:
             try:
                 ran = runner.drain(
                     max_jobs=1,
-                    eligible_job_types=_PARALLEL_JOB_TYPES,
+                    eligible_job_types=parallel_job_types(),
                     allow_parallel=True,
                     max_parallel=_QUICK_CHECK_WORKERS,
                 )
             except Exception:  # noqa: BLE001 — one worker must not kill the lane
                 ran = 0
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
-            active = runner.repo.ingest_jobs_by_types(_PARALLEL_JOB_TYPES)
+            active = runner.repo.ingest_jobs_by_types(parallel_job_types())
             if idle_rounds >= 3 and not any(
                 job["status"] in _ACTIVE_STATUSES for job in active
             ):

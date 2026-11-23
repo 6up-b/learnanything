@@ -21,7 +21,8 @@ from learnloop.content.synthesis.source_unit_selection import (
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, camel_name, versioned
 from learnloop_sidecar.errors import SidecarError, require_ai_ok
-from learnloop.content.pipeline.jobs import APPLYING_JOB_TYPES, ActiveIngestJobError
+from learnloop.content.pipeline.job_types import applying_job_types
+from learnloop.content.pipeline.jobs import ActiveIngestJobError
 from learnloop_sidecar.registry import method
 
 # How many recent ingests the screen shows; the vault keeps everything.
@@ -436,7 +437,7 @@ def _reload_applied_batches(ctx: SidecarContext, batches: list[dict[str, Any]]) 
         job["id"]
         for batch in batches
         for job in batch.get("jobs") or []
-        if job.get("job_type") in APPLYING_JOB_TYPES
+        if job.get("job_type") in applying_job_types()
         and ctx.ingest_jobs.needs_reload(job["id"])
     ]
     if not pending:
