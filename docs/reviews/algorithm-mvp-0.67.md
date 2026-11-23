@@ -413,3 +413,27 @@ had not touched it, and the ratchets pass with this branch's values). The ledger
 - The owner's vaults: no copy opened (the orchestrator's lane, above).
 - The full suite, the arc-close gate and the durability lane (WAL, production pragmas).
 - Vault references were not regenerated (the landing does).
+
+## Owner copies (run by the orchestrator)
+
+The procedure above on backup-API copies of the owner's three vaults (vault A from `mvp-0.61`, B and C from
+`mvp-0.58`, each upgraded to `mvp-0.66` first). Counts only.
+
+| Step | A | B | C |
+|---|---|---|---|
+| 1. Learning objects (practised, attempt-free) | 37 (15, 22) | 21 (8, 13) | 18 (1, 17) |
+| 1. Claims in force by source and scope | rung variant request, LO: 3 | wizard, global: 1; learner report, LO: 3; rung variant request, LO: 4; tutor gap declaration, LO: 2 | wizard, global: 1 |
+| 1. Re-anchors with no recorded application position | 3 | 9 | 0 |
+| 2. Predecessor shadow: mastery changed | 0 | 0 | 0 |
+| 3. Activation: seeds added; mastery changed (practised, attempt-free); facet, schedule, surprise changed; due dates moved | 37; 0 (0, 0); 0, 0, 0; 0 | 21; 0 (0, 0); 0, 0, 0; 0 | 18; 0 (0, 0); 0, 0, 0; 0 |
+| 3. `integrity_check`; foreign-key violations | ok; 0 | ok; 0 | ok; 0 |
+| 4. Legacy seeds; captured; LOs or rows without a seed; seeds for LOs not in the vault; selected claim not considered | 37; 0; 0; 0; 0 | 21; 0; 0; 0; 0 | 18; 0; 0; 0; 0 |
+| 4. Seeds with a selected claim | 3 | 18 | 18 |
+| 5. Successor shadow: mastery changed | 0 | 0 | 0 |
+| 5. Second live rebuild, then compare (seeds included) | 0 changed | 0 changed | 0 changed |
+| 6. Live database unchanged | yes | yes | yes |
+
+The re-anchors without an application position were there before the upgrade; their position is the one the
+evidence-time review lists as unrecoverable, and the upgrade neither adds nor resolves them. `learnloop doctor` exits 1
+on each copy for content findings that predate this tag; none concerns state.
+
