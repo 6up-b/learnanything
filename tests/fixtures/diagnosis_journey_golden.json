@@ -53095,6 +53095,19 @@
 }
 ]
 },
+"mastery_seed_inputs": {
+"added": [
+{
+"basis": "captured_at_materialization",
+"claims_made_json": [],
+"learning_object_id": "lo_svd_definition",
+"materialized_at": "2026-05-19T12:00:00Z",
+"policy_version": "covering_claims_seed_v1",
+"recorded_at": "2026-05-19T12:00:00Z",
+"selected_claim_id": null
+}
+]
+},
 "practice_attempts": {
 "added": [
 {
@@ -56555,6 +56568,19 @@
 "logit_mean": -0.4097328583384957,
 "logit_variance": 1.3891916336845442,
 "updated_at": "2026-05-19T12:00:00Z"
+}
+]
+},
+"mastery_seed_inputs": {
+"added": [
+{
+"basis": "captured_at_materialization",
+"claims_made_json": [],
+"learning_object_id": "lo_svd_definition",
+"materialized_at": "2026-05-19T12:00:00Z",
+"policy_version": "covering_claims_seed_v1",
+"recorded_at": "2026-05-19T12:00:00Z",
+"selected_claim_id": null
 }
 ]
 },
@@ -66392,6 +66418,19 @@ null
 "logit_mean": -0.9659446859526998,
 "logit_variance": 1.5510829710709502,
 "updated_at": "2026-05-01T19:00:00Z"
+}
+]
+},
+"mastery_seed_inputs": {
+"added": [
+{
+"basis": "captured_at_materialization",
+"claims_made_json": [],
+"learning_object_id": "lo_svd_compute",
+"materialized_at": "2026-05-01T19:00:00Z",
+"policy_version": "covering_claims_seed_v1",
+"recorded_at": "2026-05-01T19:00:00Z",
+"selected_claim_id": null
 }
 ]
 },
@@ -85037,6 +85076,19 @@ null
 "logit_mean": -0.3096572313164457,
 "logit_variance": 1.782625194090402,
 "updated_at": "2026-05-19T12:00:00Z"
+}
+]
+},
+"mastery_seed_inputs": {
+"added": [
+{
+"basis": "captured_at_materialization",
+"claims_made_json": [],
+"learning_object_id": "lo_svd_definition",
+"materialized_at": "2026-05-19T12:00:00Z",
+"policy_version": "covering_claims_seed_v1",
+"recorded_at": "2026-05-19T12:00:00Z",
+"selected_claim_id": null
 }
 ]
 },
