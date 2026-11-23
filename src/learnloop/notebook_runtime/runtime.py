@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
 import secrets
 import threading
 import time
@@ -174,8 +175,12 @@ class NotebookRuntime:
         if not self.running:
             self._epoch += 1
             return
-        self._call(lambda: self._stop_where(lambda entry: entry.session.vault_key != vault_key, "vault_switch"),
-                   timeout=CLOSE_SECONDS)
+        others = [entry for entry in list(self._entries.values()) if entry.session.vault_key != vault_key]
+        try:
+            self._call(lambda: self._stop_where(lambda entry: entry.session.vault_key != vault_key, "vault_switch"),
+                       timeout=CLOSE_SECONDS)
+        finally:
+            self._kill_left(others)
 
     def close(self) -> None:
         """Stop every session and the loop thread (the context closing). Bounded; idempotent."""
@@ -183,10 +188,13 @@ class NotebookRuntime:
         if not self.running:
             return
         loop, thread = self._loop, self._thread
+        every = list(self._entries.values())
         try:
             self._call(lambda: self._stop_where(lambda entry: True, "closed", forget=True), timeout=CLOSE_SECONDS)
         except Exception:  # noqa: BLE001 - the loop stops below either way
             LOG.warning("notebook sessions did not all stop within %.0f s", CLOSE_SECONDS, exc_info=True)
+        # One deadline for the graceful part; then every server still alive is killed, before any task is cancelled.
+        self._kill_left(every)
         assert loop is not None and thread is not None
         try:
             self._call(_cancel_other_tasks, timeout=5)
@@ -198,6 +206,19 @@ class NotebookRuntime:
             loop.close()
         with self._lock:
             self._loop, self._thread, self._sweep = None, None, None
+
+    def _kill_left(self, entries: list[_Entry]) -> None:
+        """SIGKILL the process group of every given session's server still running (from the calling thread: it
+        cannot be cancelled with the loop's tasks)."""
+
+        for entry in entries:
+            process = entry.session.process
+            if process is None or process.returncode is not None:
+                continue
+            try:
+                entry.supervisor.backend.signal_group(entry.session, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
 
     # -- on the loop --------------------------------------------------------------------------------------------
 

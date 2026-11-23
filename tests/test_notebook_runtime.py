@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
+import time
 from pathlib import Path
 
 import pytest
@@ -731,3 +732,37 @@ def test_a_stop_during_a_spawn_kills_the_server_when_the_spawn_returns(tmp_path)
     backend, supervisor = asyncio.run(scenario())
     assert backend.processes and all(process.returncode is not None for process in backend.processes)
     assert supervisor.session.state == STOPPED and supervisor.session.process is None
+
+
+# -- closing never leaves a server running ---------------------------------------------------------------------
+
+def test_closing_kills_a_server_that_stalls_its_shutdown_and_ignores_sigterm(monkeypatch):
+    pytest.importorskip("uvicorn")
+    import signal as signals
+
+    from learnloop.notebook_runtime import runtime as runtime_module
+    from learnloop.notebook_runtime.runtime import NotebookRuntime
+
+    class Stubborn(FakeBackend):
+        async def shutdown(self, held):
+            self.shutdowns += 1
+            await asyncio.sleep(3600)
+
+        def signal_group(self, held, signum):
+            self.signals.append(signum)
+            if signum == signals.SIGKILL and held.process is not None:
+                held.process.exit(-signum)
+
+    monkeypatch.setattr(runtime_module, "CLOSE_SECONDS", 0.5)
+    backend = Stubborn()
+    with short_base_dir() as base:
+        made = NotebookRuntime(backend=backend, base_dir=base, requirements=lambda: [], sweep_seconds=3600,
+                               supervisor_options={"stop_timeout": 30})
+        view = made.open(vault_key="/v1", owner="pad:p1", source=b"x = 1", view="app", limits=LIMITS,
+                         idle_minutes=10, max_sessions=3)
+        _ready(made, "/v1", view["session_id"])
+        process = backend.processes[0]
+        started = time.monotonic()
+        made.close()
+    assert process.returncode is not None and signals.SIGKILL in backend.signals
+    assert time.monotonic() - started < 15
