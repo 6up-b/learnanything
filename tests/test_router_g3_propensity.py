@@ -14,7 +14,7 @@ import pytest
 
 from learnloop.router import mixture as mx
 
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import B, mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 
 
@@ -36,7 +36,7 @@ def _recompute(row):
 
 def test_the_logged_propensity_is_reproducible_from_the_logged_components(tmp_path):
     runtime = fake_runtime(decider=FakeDecider(choice=_skewed), llm=FakeLLM())
-    env = mixture_env(tmp_path, runtime)
+    env = mixture_env(tmp_path, runtime, version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert decisions, "the mixture made no decision"
@@ -65,7 +65,7 @@ def test_the_logged_propensity_is_reproducible_from_the_logged_components(tmp_pa
 
 def test_a_failed_models_weight_goes_to_the_staged_rule(tmp_path):
     runtime = fake_runtime(decider=FakeDecider(error=RuntimeError("down")), llm=FakeLLM())
-    env = mixture_env(tmp_path, runtime)
+    env = mixture_env(tmp_path, runtime, version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert decisions

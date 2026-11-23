@@ -111,7 +111,7 @@ def test_a_learner_pick_under_the_mixture_has_no_propensity(tmp_path):
 
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(choice=first_option), llm=FakeLLM(),
                                              seed=seed_with_first_uniform(at_least=0.2)),
-                      toml="[router.weights]\nstaged = 0.0\ndecider = 1.0\nllm = 0.0\n")
+                      toml="[router.weights]\nstaged = 0.0\ndecider = 1.0\nllm = 0.0\n", version=B)
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     advance(env, serve=True)
     record, step = learner_pick(env, "pi_p1b")
@@ -124,7 +124,7 @@ def test_a_learner_pick_under_the_mixture_has_no_propensity(tmp_path):
 
 
 def test_each_mixture_decision_stores_its_card_both_requests_and_both_raw_answers(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()), version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert decisions
@@ -160,7 +160,7 @@ def test_router_log_shows_one_decisions_receipt_in_full(tmp_path):
 
     from learnloop.cli import app
 
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()), version=B)
     run(env)
     row = next(row for row in rows(env) if row["policy"] == "router_mixture_v1")
     runner = CliRunner()
@@ -178,15 +178,15 @@ def test_router_log_shows_one_decisions_receipt_in_full(tmp_path):
 
 def test_the_sensors_are_logged_and_never_select(tmp_path):
     seed = lambda key, decision_id: "fixed-seed"  # noqa: E731
-    first = mixture_env(tmp_path / "a", fake_runtime(decider=FakeDecider(p_yes=0.1), llm=FakeLLM(), seed=seed))
-    second = mixture_env(tmp_path / "b", fake_runtime(decider=FakeDecider(p_yes=0.9), llm=FakeLLM(), seed=seed))
+    first = mixture_env(tmp_path / "a", fake_runtime(decider=FakeDecider(p_yes=0.1), llm=FakeLLM(), seed=seed), version=B)
+    second = mixture_env(tmp_path / "b", fake_runtime(decider=FakeDecider(p_yes=0.9), llm=FakeLLM(), seed=seed), version=B)
     assert _blocks(run(first)) == _blocks(run(second))
     noisy = [row["sensor_answers_json"]["decider"]["teach_first"] for row in rows(second) if row["sensor_answers_json"]]
     assert noisy and all(set(values.values()) == {0.9} for values in noisy)
 
 
 def test_without_sensors_the_question_set_is_v1(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()), toml="[router]\nsensors = false\n")
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()), toml="[router]\nsensors = false\n", version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert decisions and all(row["question_set_version"] == "router_qs_v1" for row in decisions)
@@ -198,7 +198,7 @@ def test_without_sensors_the_question_set_is_v1(tmp_path):
 
 def test_staged_mode_at_the_successor_serves_r2a_exactly_and_asks_no_model(tmp_path):
     decider, llm = FakeDecider(), FakeLLM()
-    staged = mixture_env(tmp_path / "staged", fake_runtime(decider=decider, llm=llm), toml='[router]\nmode = "staged"\n')
+    staged = mixture_env(tmp_path / "staged", fake_runtime(decider=decider, llm=llm), toml='[router]\nmode = "staged"\n', version=B)
     # R2a's frame is the staged rule: its tag's own mixture with no model set up draws from the fallback's
     # distribution with its floor (data capture A5), so the twin names the rule too.
     r2a = mixture_env(tmp_path / "r2a", fake_runtime(), version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
@@ -210,7 +210,7 @@ def test_staged_mode_at_the_successor_serves_r2a_exactly_and_asks_no_model(tmp_p
 
 
 def test_with_no_model_set_up_the_plan_says_the_models_are_not_set_up(tmp_path):
-    none = mixture_env(tmp_path / "none", fake_runtime())
+    none = mixture_env(tmp_path / "none", fake_runtime(), version=B)
     run(none)
     assert {row["mode"] for row in rows(none)} == {"mixture"}
     record = advance(none, serve=False)[0]
@@ -263,7 +263,7 @@ def test_a_serve_waits_at_most_the_timeout_then_the_rule_takes_both_shares(tmp_p
     gate = threading.Event()
     try:
         runtime = fake_runtime(decider=FakeDecider(gate=gate), llm=FakeLLM(gate=gate), inline=False)
-        env = mixture_env(tmp_path, runtime, toml="[router]\ntimeout_seconds = 0.2\nprefetch_timeout_seconds = 0.4\n")
+        env = mixture_env(tmp_path, runtime, toml="[router]\ntimeout_seconds = 0.2\nprefetch_timeout_seconds = 0.4\n", version=B)
         build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
         import time
 
@@ -297,7 +297,7 @@ def test_the_deciders_route_never_resolves_to_a_chat_model(tmp_path, monkeypatch
 
 def test_a_failed_decider_is_never_answered_by_the_llm_in_its_place(tmp_path):
     llm = FakeLLM()
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(error=RuntimeError("502")), llm=llm))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(error=RuntimeError("502")), llm=llm), version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     # One LLM request per decision: its own, never a second on the Decider's behalf.
@@ -311,7 +311,7 @@ def test_the_daily_guard_refuses_metered_calls_and_never_a_subscription_call(tmp
 
     decider = FakeDecider()
     llm = SubscriptionLLM()
-    env = mixture_env(tmp_path, fake_runtime(decider=decider, llm=llm), toml="[router]\nmax_daily_cost_usd = 0.0\n")
+    env = mixture_env(tmp_path, fake_runtime(decider=decider, llm=llm), toml="[router]\nmax_daily_cost_usd = 0.0\n", version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert decisions
@@ -394,7 +394,7 @@ def test_an_unfinished_request_keeps_its_reservation_after_a_restart(tmp_path, m
     from tests.router_model_fakes import first_option
 
     first = _PricedDecider(choice=first_option)
-    env = mixture_env(tmp_path, fake_runtime(decider=first), toml=_decider_only(0.015))
+    env = mixture_env(tmp_path, fake_runtime(decider=first), toml=_decider_only(0.015), version=B)
     real = Repository.record_model_event
 
     def finish_lost(self, action, event, **kwargs):
@@ -446,7 +446,7 @@ def test_a_json_repair_is_admitted_as_its_own_request(tmp_path, monkeypatch):
     # reserves about $0.02, so the cap holds one request, not two.
     toml = ("[router]\nmax_daily_cost_usd = 0.03\n[router.weights]\nstaged = 0.0\ndecider = 0.0\nllm = 1.0\n"
             "[ingest.cost_pause.prices]\nmetered_chat = 1.0\n")
-    env = mixture_env(tmp_path, fake_runtime(llm=client), toml=toml)
+    env = mixture_env(tmp_path, fake_runtime(llm=client), toml=toml, version=B)
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     assert sum(len(instance.requests) for instance in fake.instances) == 1
     (row,) = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
@@ -480,7 +480,7 @@ def test_the_llm_rationale_is_shown_only_for_the_option_it_explains(tmp_path):
 
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=split),
                                              seed=_seed_drawing(first_at_least=0.2, second_at_least=0.7)),
-                      toml="[router.weights]\nstaged = 0.0\ndecider = 0.0\nllm = 1.0\n")
+                      toml="[router.weights]\nstaged = 0.0\ndecider = 0.0\nllm = 1.0\n", version=B)
     record = run(env)
     drawn = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert drawn
@@ -556,7 +556,7 @@ def test_a_drawn_llm_pick_shows_its_rationale_and_its_cited_answers(tmp_path):
     # Pin the first stage to the LLM's branch: staged and decider weights 0.
     env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=cited),
                                              seed=seed_with_first_uniform(at_least=0.12)),
-                      toml="[router.weights]\nstaged = 0.0\ndecider = 0.0\nllm = 1.0\n")
+                      toml="[router.weights]\nstaged = 0.0\ndecider = 0.0\nllm = 1.0\n", version=B)
     run(env)
     record = advance(env, serve=False)[0]
     written = [block for block in record.blocks if block.chosen.get("why_kind") == "model_written"]

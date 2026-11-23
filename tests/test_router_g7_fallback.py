@@ -15,7 +15,7 @@ import pytest
 from learnloop.ai.decisions import DecisionResponseInvalid
 from learnloop.daily_plan.engine import advance, build_plan
 
-from tests.router_mixture_helpers import mixture_env, rows
+from tests.router_mixture_helpers import B, mixture_env, rows
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 
 # The gated LLM always misses the wait; the decider, on its own thread, must answer inside it, which 0.3 s did not
@@ -27,7 +27,7 @@ def test_a_timeout_reaches_the_staged_rule_with_fallback_llm(tmp_path):
     gate = threading.Event()
     try:
         runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(gate=gate), inline=False)
-        env = mixture_env(tmp_path, runtime, toml=FAST, serve=True)
+        env = mixture_env(tmp_path, runtime, toml=FAST, serve=True, version=B)
         build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
         record, step = advance(env, serve=True)
         assert step is not None and step["kind"] == "item"
@@ -53,7 +53,7 @@ def test_a_timeout_reaches_the_staged_rule_with_fallback_llm(tmp_path):
 ])
 def test_an_error_or_an_invalid_answer_falls_back(tmp_path, error, status):
     runtime = fake_runtime(decider=FakeDecider(error=error), llm=FakeLLM(error=RuntimeError("boom")))
-    env = mixture_env(tmp_path, runtime)
+    env = mixture_env(tmp_path, runtime, version=B)
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     advance(env, serve=True)
     row = rows(env)[0]

@@ -303,14 +303,14 @@ def _r2b_env_with_a_lifting_hold(tmp_path, decider, *, items=None):
     from datetime import timedelta
 
     from learnloop.clock import FrozenClock
-    from tests.router_mixture_helpers import mixture_env
+    from tests.router_mixture_helpers import B, mixture_env
     from tests.router_model_fakes import fake_runtime, seed_with_first_uniform
     from tests.ux_phase4_feedback_helpers import _iso
 
     env = mixture_env(
         tmp_path, fake_runtime(decider=decider, seed=seed_with_first_uniform(at_least=0.5)), items=items,
         toml="[router.weights]\nstaged = 0.0\ndecider = 1.0\nllm = 0.0\n",
-    )
+     version=B)
     now = env.clock.now()
     env.repository.create_followup_task(
         kind="cold_retry", case_kind="misconception", case_ref="ep_r8",

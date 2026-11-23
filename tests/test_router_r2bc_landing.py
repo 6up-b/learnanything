@@ -282,7 +282,7 @@ def test_router_embeddings_and_the_source_backfill_each_answer_to_their_own_guar
                                seed=seed_with_first_uniform(at_least=0.2)),
         toml="[router]\nsimilar_include_rate = 1.0\nmax_daily_cost_usd = 5.0\n"
              "[router.weights]\nstaged = 0.5\ndecider = 0.5\nllm = 0.0\n",
-    )
+     version=B)
     root = env.vault.root
     enable_embeddings(root)
     _set_line(root, r"^dimensions = 4096$", f"dimensions = {EMBED_DIMS}")
