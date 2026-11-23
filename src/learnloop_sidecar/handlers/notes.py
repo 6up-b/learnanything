@@ -340,17 +340,27 @@ def _meaning_reason(vault: Any) -> str:
     return VN.meaning_unavailable(vault) or "switched off"
 
 
-def search_vault_notes(ctx: SidecarContext, vault: Any, repository: Any, *, query: str, mode: str) -> list[dict[str, Any]]:
+def search_vault_notes(ctx: SidecarContext, vault: Any, repository: Any, *, query: str, mode: str) -> dict[str, Any]:
     """The vault's notes holding ``query`` (``words``) or nearest it (``meaning``), as ``notes.search``
-    finds them, for the workbench's search in context. The caller checks :func:`notes_search_state`
-    first; a refusal raises the notes' sidecar error."""
+    finds them, for the workbench's search in context: ``{hits, basis, meaning?}``. Each hit also names
+    where its note lives: a Reader note or highlight its reading and first passage (``extraction_id``,
+    ``span_id``), a capture-inbox note none. The caller checks :func:`notes_search_state` first; a
+    refusal raises the notes' sidecar error."""
+
+    from learnloop.source_retrieval import vault_notes as VN
 
     try:
         found = NL.search(vault, repository, query=query, mode=mode,
                           embedder=getattr(ctx, "note_embedding_client", None))
     except NL.NotesError as exc:
         raise _error(exc) from exc
-    return list(found.get("hits") or [])
+    hits = [dict(hit) for hit in found.get("hits") or ()]
+    notes = VN.read_many(vault, repository, [str(hit.get("note_key") or "") for hit in hits])
+    for hit in hits:
+        note = notes.get(str(hit.get("note_key") or ""))
+        hit["extraction_id"] = note.extraction_id if note is not None else None
+        hit["span_id"] = note.span_id if note is not None else None
+    return {"hits": hits, "basis": found.get("basis"), "meaning": found.get("meaning")}
 
 
 class NoteRef(ParamsModel):

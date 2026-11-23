@@ -129,11 +129,14 @@ def _reconcile(ctx: SidecarContext, vault: Any, repository: Any, gap: dict[str, 
 
 def queue_tutor_question_gap(
     ctx: SidecarContext, vault: Any, repository: Any, event_id: str, reading: dict[str, Any] | None,
+    *, wake: bool = True,
 ) -> dict[str, Any]:
     """Queue an answered question's gap reading and wake the worker.
 
     Off the request path: the overlay polls :func:`get_learner_text_gap`.
-    Never fails the answer.
+    Never fails the answer. ``wake`` false (a job whose context closed or switched vaults since it
+    started) queues the reading in the question's vault and leaves the context's workers alone (they now
+    serve another epoch or vault); the queued row waits for that vault's worker.
     """
 
     if not vault.config.learner_text_gaps.enabled:
@@ -142,7 +145,8 @@ def queue_tutor_question_gap(
         from learnloop.diagnosis.text_gaps.jobs import enqueue_tutor_question
 
         enqueue_tutor_question(vault, repository, event_id)
-        ctx.post_attempt_worker.notify()
+        if wake:
+            ctx.post_attempt_worker.notify()
     except Exception:  # noqa: BLE001 - the answer stands without its gap reading
         logging.getLogger(__name__).warning("learner-text gap enqueue failed", exc_info=True)
         return {"status": "failed"}
