@@ -12,7 +12,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES
 from tests.helpers import MIGRATION_HEAD_FIXTURE
-from tests.reader_rd8a_migration_helpers import APPEND_ONLY, RD8A_ADDED_OBJECTS, TABLES, undo_268
+from tests.reader_rd8a_migration_helpers import APPEND_ONLY, RD8A_ADDED_OBJECTS, TABLES, undo_267
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 MIGRATION = next(m for m in discover_migrations() if m.name == "reader_workbench_ink")
@@ -51,7 +51,7 @@ def _head_copy(tmp_path: Path) -> Path:
 def test_it_adds_its_objects_and_changes_nothing_else(tmp_path):
     database = _head_copy(tmp_path)
     with closing(sqlite3.connect(database)) as connection:
-        undo_268(connection)
+        undo_267(connection)
         connection.execute("DELETE FROM schema_migrations WHERE version = ?", (MIGRATION.version,))
         connection.commit()
         before = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}

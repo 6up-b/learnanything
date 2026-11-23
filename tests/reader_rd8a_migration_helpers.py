@@ -18,8 +18,8 @@ RD8A_ADDED_OBJECTS = OBJECTS | {f"sqlite_autoindex_{table}_1" for table in TABLE
     "sqlite_autoindex_ink_transcriptions_2"}
 
 
-def undo_268(connection: sqlite3.Connection) -> None:
-    """Take a head copy back to before 268: its two tables dropped. The caller removes 268's ``schema_migrations``
+def undo_267(connection: sqlite3.Connection) -> None:
+    """Take a head copy back to before 267: its two tables dropped. The caller removes 267's ``schema_migrations``
     row with its own."""
 
     for table in TABLES:
