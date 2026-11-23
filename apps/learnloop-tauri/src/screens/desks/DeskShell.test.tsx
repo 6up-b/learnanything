@@ -1712,6 +1712,28 @@ describe("RD4b: pads in the desks", () => {
     expect(list.querySelector('[data-carried-row="c2"]')).toBeNull();
   });
 
+  it("a passage's ✎ marks come from the passage union (no pad loaded), an alias that needs re-anchoring marked as such", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const asked: unknown[] = [];
+    fakes.transport.passageUnionRange = (async (input: unknown) => {
+      asked.push(input);
+      return { version: 1, extractionId: FIXTURE_SOURCES.book.extractionId, sections: [], spans: [
+        { spanId: "fx_w_book_s1", sectionId: null, annotations: [], exchanges: [], adjustments: [], padBlocks: [{ blockId: "b_old", padId: "p_old", kind: "text", provenance: "learner", eventId: "e1", annotationId: null, alias: "needs_reanchor" }] },
+        { spanId: "fx_w_book_s2", sectionId: null, annotations: [], exchanges: [], adjustments: [], padBlocks: [{ blockId: "b9", padId: "p9", kind: "source_quote", provenance: "source", eventId: "e2", annotationId: null, alias: "exact" }] },
+      ] };
+    }) as never;
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport, renderPane: (input) => <PassagePane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    await flush();
+    await flush();
+    expect(asked.some((input) => (input as { extractionId: string }).extractionId === FIXTURE_SOURCES.book.extractionId)).toBe(true);
+    const marks = [...document.querySelectorAll<HTMLElement>(".desk-pmark.pad")];
+    expect(marks).toHaveLength(2);
+    expect(marks.filter((mark) => mark.classList.contains("reanchor"))).toHaveLength(1);
+    expect(marks.find((mark) => mark.classList.contains("reanchor"))?.getAttribute("title")).toMatch(/re-anchor/);
+  });
+
   it("a carried question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {
     const server = new FixtureDeskServer();
     const fakes = padsTransport(server);

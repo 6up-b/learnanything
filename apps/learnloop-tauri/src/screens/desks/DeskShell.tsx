@@ -97,7 +97,7 @@ import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windo
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { DrainPanel } from "./pads/DrainPanel";
-import { PassageMarks, type PadLink } from "./pads/PassageMarks";
+import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
 import { keyAfter } from "./pads/model";
 import { PadsHostContext, PendingFigures, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
 import type { ProposedDiff } from "./companion/DiffProposal";
@@ -1935,19 +1935,33 @@ export function DeskShell({
   // -- pads (spec §10): the host the pad windows use, the carried questions, the drain ----------------------
 
   // Every desk has its running pad in a stack (spec §10.5): ensured, idempotently, the first time the desks show
-  // a desk whose stacks hold none (a new desk, or one from before running pads).
+  // a desk with windows whose stacks hold none (a new desk, or one from before running pads); never during a zoom,
+  // so no layout changes under a transition. An empty desk keeps saying how to open a book.
   const ensuredDesks = useRef(new Set<string>());
   useEffect(() => {
     const desk = ws && deskId ? deskById(ws, deskId) : undefined;
-    // An empty desk keeps saying how to open a book; it gets its running pad with its first window.
-    if (!ws || !deskId || !desk || desk.slots.length === 0 || ensuredDesks.current.has(deskId)) return;
+    if (!ws || !deskId || !desk || overview || zooming || desk.slots.length === 0 || ensuredDesks.current.has(deskId)) return;
     ensuredDesks.current.add(deskId);
     if (hasRunningPad(ws, deskId)) return;
     const before = new Set(ws.runningPadIds ?? []);
     const step = ensureRunningPad(ws, deskId, () => mintId("pad"), () => mintId("win"));
     commit(step);
     for (const padId of step.ws.runningPadIds ?? []) if (!before.has(padId)) store.noteCreatedPad(padId, "running", "running", deskId);
-  }, [ws, deskId, commit, mintId, store]);
+  }, [ws, deskId, overview, zooming, commit, mintId, store]);
+
+  // Every stack's pads are read once when the desks open (one pad.get each, never polled), so a desk visited for
+  // the first time shows its pads as it arrives instead of "reading the pad…" after the zoom.
+  const prefetched = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ws) return;
+    for (const window of Object.values(ws.windows)) {
+      for (const entry of window.stack ?? []) {
+        if (entry.kind !== "pad" || prefetched.current.has(entry.padId)) continue;
+        prefetched.current.add(entry.padId);
+        void store.loadPad(entry.padId);
+      }
+    }
+  }, [ws, store]);
 
   // Pads an earlier build kept in a stack window's view join its stack by their own op, once.
   const migratedStacks = useRef(new Set<string>());
@@ -2144,10 +2158,66 @@ export function DeskShell({
     if ((await store.settled()) !== "saved") throw new Error("it could not be saved just now");
   }, [store]);
 
-  const padLinks = useMemo<PadLink[]>(() => Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, blockId: anchor.blockId, extractionId: anchor.extractionId, spanId: anchor.spanId }))),
-    // store.pads changes identity on every pad change (the pad version re-renders this shell).
+  // The passages' ✎ links come from the passage union of what each source window shows (links on another reading
+  // resolved through aliases, whether or not any pad is loaded), read again when the view moves or a pad changes.
+  // A paused window reads nothing.
+  const [unionLinks, setUnionLinks] = useState<Record<string, PadLink[]>>({});
+  const unionKey = useRef<Record<string, string>>({});
+  const padVersionNow = store.getPadVersion();
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || !ws || !deskId || overview) return;
+    let live = true;
+    const read = () => {
+      const desk = deskById(wsRef.current, deskId);
+      for (const id of desk?.slots.flat() ?? []) {
+        const content = wsRef.current.windows[id]?.content;
+        const lifecycle = lifecyclesRef.current[id];
+        if (!content || (content.kind !== "source" && content.kind !== "video") || (lifecycle && isPaused(lifecycle.state))) continue;
+        const range = visibleSpanRange(stage, id);
+        if (!range) continue;
+        const key = `${content.extractionId}|${range.from}|${range.to}|${store.getPadVersion()}`;
+        if (unionKey.current[id] === key) continue;
+        unionKey.current[id] = key;
+        const extractionId = content.extractionId;
+        void Promise.resolve().then(() => padsTransport.passageUnionRange({ extractionId, fromSpanId: range.from, toSpanId: range.to })).then((union) => {
+          if (!live) return;
+          const links = union.spans.flatMap((span) => span.padBlocks.map((block) => ({ padId: block.padId, blockId: block.blockId, extractionId, spanId: span.spanId, alias: block.alias })));
+          setUnionLinks((now) => ({ ...now, [id]: links }));
+        }, () => undefined);
+      }
+    };
+    read();
+    let frame: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (frame) clearTimeout(frame);
+      frame = setTimeout(read, 400);
+    };
+    stage.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    // The Reader renders its passages after this does: look again shortly.
+    const settle = setTimeout(read, 800);
+    return () => {
+      live = false;
+      stage.removeEventListener("scroll", onScroll, { capture: true });
+      if (frame) clearTimeout(frame);
+      clearTimeout(settle);
+    };
+    // The windows' identity is in ws; a pad change is padVersionNow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store.pads]);
+  }, [ws, deskId, overview, padVersionNow, padsTransport, lifecycles]);
+  const padLinks = useMemo<PadLink[]>(() => {
+    const seen = new Set<string>();
+    const out: PadLink[] = [];
+    for (const links of Object.values(unionLinks)) {
+      for (const link of links) {
+        const key = `${link.extractionId}|${link.spanId}|${link.blockId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(link);
+      }
+    }
+    return out;
+  }, [unionLinks]);
   const surfacedCarried = useRef(new Set<string>());
   const onCarriedSurfaced = useCallback((question: CarriedQuestionDto) => {
     if (surfacedCarried.current.has(question.carriedId)) return;
