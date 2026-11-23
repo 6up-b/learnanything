@@ -659,3 +659,47 @@ def test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket(tmp_path, 
                 for host in re.findall(r"[a-z]+://([^/:\s'\"`{]+)", node.value):
                     assert host == "127.0.0.1" or host == "localhost" or host.endswith(".localhost"), (path.name, host)
     assert settings.FRAME_HOST == "127.0.0.1"
+
+
+# -- the frame cannot grow the sidecar's memory ---------------------------------------------------------------------
+
+def _asgi_body(app, scope, body):
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    asyncio.run(app(scope, receive, send))
+    return sent
+
+
+def test_an_oversized_request_is_refused_and_nothing_is_recorded_before_the_server_accepts_it(tmp_path):
+    import json as _json
+
+    held = session(tmp_path, secret="abc")
+    held.cell_ids = {"controls": "Hbol"}
+    app = proxy.FrameProxy(held)
+    app.port = 7000
+    path = "/s/abc/" + adapter.SET_UI_ELEMENT_VALUE
+    big = _json.dumps({"objectIds": ["Hbol-0"], "values": ["x" * settings.REQUEST_MAX_BYTES]}).encode()
+    sent = _asgi_body(app, _scope(path, method="POST"), big)
+    assert sent[0]["status"] == 413 and held.ui_values == {}
+    small = _json.dumps({"objectIds": ["Hbol-0", "fake-1"], "values": [3, 4]}).encode()
+    sent = _asgi_body(app, _scope(path, method="POST"), small)
+    assert sent[0]["status"] == 503 and held.ui_values == {}  # the server did not take it: nothing kept
+
+
+def test_recorded_values_are_only_known_controls_within_a_bound(tmp_path):
+    from learnloop.notebook_runtime.supervisor import record_ui_values
+
+    held = session(tmp_path)
+    held.cell_ids = {"controls": "Hbol", "other": "MJUe"}
+    record_ui_values(held, {"Hbol-0": 3, "nope-0": 1, "Hbol": 2, "MJUe-1": "y"})
+    assert held.ui_values == {"Hbol-0": 3, "MJUe-1": "y"}
+    record_ui_values(held, {"MJUe-2": "x" * settings.UI_VALUES_MAX_BYTES})
+    assert "MJUe-2" not in held.ui_values
+    record_ui_values(held, {"Hbol-0": 5})
+    assert held.ui_values["Hbol-0"] == 5

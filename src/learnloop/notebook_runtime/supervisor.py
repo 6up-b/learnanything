@@ -98,6 +98,9 @@ class Session:
     cell_ids: dict[str, str] = field(default_factory=dict)
     cell_codes: dict[str, str] = field(default_factory=dict)
     ui_values: dict[str, Any] = field(default_factory=dict)
+    #: The JSON size of each kept value, and their sum (bounded by ``settings.UI_VALUES_MAX_BYTES``).
+    ui_sizes: dict[str, int] = field(default_factory=dict, repr=False)
+    ui_bytes: int = 0
     #: Per cell name, what its last run said: ``{"status", "ms", "error"}`` (read from marimo's cell messages).
     cell_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
     _run_started: dict[str, float] = field(default_factory=dict, repr=False)
@@ -159,6 +162,30 @@ def note_cell_progress(session: Session, cell_id: str, status: str | None, stamp
             run["ms"] = round(max(0.0, stamp - session._run_started.pop(name)) * 1000, 1)
     if error:
         run["error"] = True
+
+
+def record_ui_values(session: Session, values: dict[str, Any]) -> None:
+    """Keep the controls' values the server accepted, for replay after a restart: only controls of the notebook's
+    own cells (marimo names one ``<cell id>-<n>``), and never more than ``UI_VALUES_MAX_BYTES`` in all (a value that
+    would pass it is not kept; the page keeps its own)."""
+
+    import json
+
+    known = set(session.cell_ids.values())
+    for object_id, value in values.items():
+        cell, _, index = object_id.rpartition("-")
+        if cell not in known or not index.isdigit():
+            continue
+        try:
+            size = len(json.dumps(value))
+        except (TypeError, ValueError):
+            continue
+        total = session.ui_bytes - session.ui_sizes.get(object_id, 0) + size
+        if total > settings.UI_VALUES_MAX_BYTES:
+            continue
+        session.ui_values[object_id] = value
+        session.ui_sizes[object_id] = size
+        session.ui_bytes = total
 
 
 def note_commits(session: Session, values: dict[str, Any]) -> None:

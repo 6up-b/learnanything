@@ -26,7 +26,7 @@ import socket
 from typing import Any, Callable
 
 from learnloop.notebook_runtime import adapter, hostfiles, settings, theme
-from learnloop.notebook_runtime.supervisor import READY, Session, note_cell_progress, note_commits
+from learnloop.notebook_runtime.supervisor import READY, Session, note_cell_progress, note_commits, record_ui_values
 
 LOG = logging.getLogger(__name__)
 
@@ -288,14 +288,18 @@ class FrameProxy:
         while True:
             message = await receive()
             body += message.get("body", b"")
+            if len(body) > settings.REQUEST_MAX_BYTES:
+                # The sidecar's memory is outside the session's caps: a frame cannot grow it.
+                await self._plain(send, 413, "the request is larger than a notebook")
+                return
             if not message.get("more_body"):
                 break
         if headers.get(adapter.SESSION_HEADER.lower()):
             session.marimo_session_id = headers[adapter.SESSION_HEADER.lower()]
+        accepted_values: dict[str, Any] | None = None
         if rel == adapter.SET_UI_ELEMENT_VALUE:
-            values = adapter.ui_values(body)
-            session.ui_values.update(values)
-            note_commits(session, values)
+            # Kept (for replay) and read as commits only once the server has accepted them.
+            accepted_values = adapter.ui_values(body)
         elif rel == adapter.INSTANTIATE:
             filled = adapter.instantiate_with_values(body, session.ui_values)
             if filled is not None:
@@ -316,6 +320,9 @@ class FrameProxy:
         except Exception:  # noqa: BLE001 - the server is down or restarting
             await self._plain(send, 502, "the notebook server is not running")
             return
+        if accepted_values and response.status_code < 400:
+            record_ui_values(session, accepted_values)
+            note_commits(session, accepted_values)
         try:
             out = downstream_headers(response.headers, port=self.port)
             if "text/html" in response.headers.get("content-type", ""):
