@@ -14,9 +14,13 @@ modules_in_an_import_cycle = 221
 # 51: the Reader workbench v2's four backend packages (spec_reader_workbench_v2 §3.2): learnloop.desks,
 # learnloop.pads, learnloop.passage_union and learnloop.companion, each its own package so the import fences
 # of its §3.3 can name it (evidence never reads desks or pads; the grader never reads any of the four).
-first_level_packages = 51
-first_level_root_modules = 36
-first_level_root_modules_not_upgrade = 36
+# 52: learnloop.notebook_runtime, the sandboxed marimo servers and their frame proxies, its own package so two
+# import contracts can name it (it reads no evidence or store; nothing that writes evidence reads it).
+first_level_packages = 52
+# 37: learnloop.sandbox_profile, the one hardened bubblewrap profile, moved out of the Manim module so the notebook
+# runtime shares it without importing figure or authoring code (standard library only).
+first_level_root_modules = 37
+first_level_root_modules_not_upgrade = 37
 functions_over_200_lines = 70
 comment_lines_naming_a_stage_artifact = 2351
 test_files_named_for_a_stage = 184
@@ -164,6 +168,7 @@ root_modules = [
     "refusal_records",
     "reveal_coverage",
     "router_objective_switches",
+    "sandbox_profile",
     "section_map",
     "serve_eligibility",
     "symbolic_view",

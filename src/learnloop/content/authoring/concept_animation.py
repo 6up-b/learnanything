@@ -68,6 +68,11 @@ from learnloop.content.authoring.animation_media import (
     probe_duration_seconds,
     remux_faststart,
 )
+# The one sandbox profile, shared with PF and the notebook runtime; the private names stay for this module's callers.
+from learnloop.sandbox_profile import HARDENED_BWRAP_FLAGS  # noqa: F401 - re-exported
+from learnloop.sandbox_profile import bwrap_path as _sandbox_bwrap_path
+from learnloop.sandbox_profile import executable_mount_roots as _executable_mount_roots  # noqa: F401 - re-exported
+from learnloop.sandbox_profile import sandboxed_command as _sandboxed_command
 
 logger = logging.getLogger(__name__)
 
@@ -314,14 +319,6 @@ def _render_env() -> dict[str, str]:
     return env
 
 
-def _sandbox_bwrap_path() -> str | None:
-    """The bubblewrap binary to sandbox renders with, or None off-Linux."""
-
-    if sys.platform != "linux":
-        return None
-    return shutil.which("bwrap")
-
-
 def sandbox_bwrap_path() -> str | None:
     """Public name of :func:`_sandbox_bwrap_path` (Reader RW5d P2b: the figure
     service asks whether the Manim tier can run here)."""
@@ -329,13 +326,6 @@ def sandbox_bwrap_path() -> str | None:
     return _sandbox_bwrap_path()
 
 
-#: Reader RW5d P2b (spec_reader_show_me_figures_v1 §9b.3, Q17): the hardened
-#: profile's extra flags. ``--unshare-user`` makes the user namespace
-#: mandatory (``--unshare-all`` only tries it), which ``--disable-userns``
-#: needs: the sandboxed code can create no further user namespace (the usual
-#: first step of a kernel exploit from inside one), and holds no capability
-#: (``--cap-drop ALL``). keep: a security boundary.
-HARDENED_BWRAP_FLAGS: tuple[str, ...] = ("--unshare-user", "--disable-userns", "--cap-drop", "ALL")
 #: Reader RW5d P2b: a figure render's memory and CPU caps, and its task cap
 #: (fork bombs), applied by a ``systemd-run --user --scope`` around the
 #: sandbox (else ``prlimit --as``). keep: oomd history; a render never starves
@@ -421,75 +411,6 @@ def capped_scope_prefix(*, memory_bytes: int = RENDER_MEMORY_MAX, cpu_quota: str
         if shutil.which("nice"):
             prefix += [shutil.which("nice") or "nice", "-n", "19"]
     return prefix
-
-
-def _executable_mount_roots(executable: str) -> set[str]:
-    """Install roots (``<root>/bin/exe`` → ``<root>``) for an executable and
-    every hop of its symlink chain, so a venv python that links into e.g. a
-    uv-managed interpreter tree stays runnable inside the sandbox."""
-
-    import os
-
-    roots: set[str] = set()
-    path = Path(executable)
-    for _ in range(10):
-        if len(path.parents) >= 2:
-            roots.add(str(path.parents[1]))
-        try:
-            target = Path(os.readlink(path))
-        except OSError:
-            break
-        path = target if target.is_absolute() else path.parent / target
-    return roots
-
-
-def _sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardened: bool = True,
-                       unset_env: tuple[str, ...] = ()) -> list[str]:
-    """Wrap a render command in bubblewrap: every namespace unshared (so no
-    network), system + interpreter mounts read-only, the scratch workdir as
-    the only writable path, and the sandbox dying with the sidecar.
-
-    ``hardened`` (Reader RW5d P2b, Q17: the figure renders' and the
-    inspector's profile): also :data:`HARDENED_BWRAP_FLAGS` (a mandatory user
-    namespace with no further ones, every capability dropped).
-
-    ``unset_env`` (Codex review F1): variables the launcher outside the
-    sandbox needed (the scope's session bus) that the sandboxed command must
-    not see; bubblewrap unsets them before it execs."""
-
-    args = [
-        bwrap,
-        "--die-with-parent",
-        "--new-session",
-        "--unshare-all",
-        *(HARDENED_BWRAP_FLAGS if hardened else ()),
-        "--proc", "/proc",
-        "--dev", "/dev",
-        "--tmpfs", "/tmp",
-        "--ro-bind", "/usr", "/usr",
-        "--ro-bind-try", "/lib", "/lib",
-        "--ro-bind-try", "/lib64", "/lib64",
-        "--ro-bind-try", "/bin", "/bin",
-        "--ro-bind-try", "/sbin", "/sbin",
-        # Font/loader config manim + its ffmpeg need; nothing else from /etc.
-        "--ro-bind-try", "/etc/fonts", "/etc/fonts",
-        "--ro-bind-try", "/etc/alternatives", "/etc/alternatives",
-        "--ro-bind-try", "/etc/ld.so.cache", "/etc/ld.so.cache",
-    ]
-    prefixes = {sys.prefix, sys.base_prefix}
-    prefixes |= _executable_mount_roots(sys.executable)
-    # command[0] is whatever interpreter/executable resolve_manim_command
-    # picked (dedicated animation venv, conda env, explicit override) — mount
-    # its install tree too, or the sandboxed exec fails.
-    if command:
-        prefixes |= _executable_mount_roots(command[0])
-    for prefix in sorted(prefixes):
-        if prefix and prefix != "/usr" and not prefix.startswith("/usr/"):
-            args += ["--ro-bind-try", prefix, prefix]
-    args += ["--bind", str(workdir), str(workdir), "--chdir", str(workdir)]
-    for name in unset_env:
-        args += ["--unsetenv", name]
-    return [*args, "--", *command]
 
 
 def _combined_scene_videos(media_root: Path, scene_class: str) -> list[Path]:
