@@ -42681,6 +42681,17 @@
 }
 ]
 },
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:33>",
+"basis": "applied",
+"recorded_at": "2026-05-19T12:00:00Z",
+"sequence": 2
+}
+]
+},
 "attempt_completion_work": {
 "added": [
 {
@@ -48674,6 +48685,17 @@
 }
 ]
 },
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:44>",
+"basis": "applied",
+"recorded_at": "2026-05-19T12:00:00Z",
+"sequence": 2
+}
+]
+},
 "attempt_completion_work": {
 "added": [
 {
@@ -52398,6 +52420,17 @@
 }
 ]
 },
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "att_held_probe",
+"basis": "applied",
+"recorded_at": "2026-05-19T12:00:00Z",
+"sequence": 1
+}
+]
+},
 "attempt_completion_work": {
 "added": [
 {
@@ -53942,6 +53975,17 @@
 "parameters": null,
 "prompt": "Define SVD."
 }
+}
+]
+},
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:1>",
+"basis": "applied",
+"recorded_at": "2026-05-19T12:00:00Z",
+"sequence": 1
 }
 ]
 },
@@ -57607,6 +57651,17 @@ null
 "parameters": null,
 "prompt": "Fresh-surface prompt for pi_svd_define_002."
 }
+}
+]
+},
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:74>",
+"basis": "applied",
+"recorded_at": "2026-05-19T12:00:00Z",
+"sequence": 2
 }
 ]
 },
@@ -61884,6 +61939,17 @@ null
 "id": "<id:16>",
 "practice_item_id": "pi_svd_compute_001",
 "schema_version": 1
+}
+]
+},
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:1>",
+"basis": "applied",
+"recorded_at": "2026-05-01T19:00:00Z",
+"sequence": 1
 }
 ]
 },
@@ -68555,6 +68621,17 @@ null
 "id": "<id:119>",
 "practice_item_id": "pi_svd_compute_002",
 "schema_version": 1
+}
+]
+},
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:104>",
+"basis": "applied",
+"recorded_at": "2026-05-01T21:00:00Z",
+"sequence": 2
 }
 ]
 },
@@ -75471,6 +75548,17 @@ null
 "sdk_version": null,
 "started_at": "2026-05-02T00:00:00Z",
 "status": "completed"
+}
+]
+},
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:198>",
+"basis": "applied",
+"recorded_at": "2026-05-01T23:00:00Z",
+"sequence": 3
 }
 ]
 },
@@ -83833,6 +83921,17 @@ null
 "parameters": null,
 "prompt": "Define SVD."
 }
+}
+]
+},
+"attempt_application_order": {
+"added": [
+{
+"algorithm_version": "mvp-0.65",
+"attempt_id": "<id:45>",
+"basis": "applied",
+"recorded_at": "2026-05-19T12:00:00Z",
+"sequence": 1
 }
 ]
 },
