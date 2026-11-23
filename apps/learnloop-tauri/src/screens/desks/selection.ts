@@ -2,6 +2,7 @@
 // where it shows on the stage, read from the DOM selection. The companion anchors at it and asks about it;
 // the avoid rule keeps it uncovered.
 import type { Rect } from "./geometry";
+import { selectionQuote } from "../../render/mathSnippet";
 import { WINDOW_ATTRIBUTE } from "./keys/listeners";
 
 export interface WindowSelection {
@@ -20,16 +21,27 @@ function spanOf(element: Element): string | null {
   return element.getAttribute("data-span-id") ?? element.getAttribute("data-transcript-span");
 }
 
-/** The selection's text as the learner reads it: rendered math by its TeX source (KaTeX keeps both a
- * visual copy and a MathML copy, and the DOM's own text would repeat every symbol). */
-export function quoteOf(range: Range, doc: Document = document): string {
-  const box = doc.createElement("div");
-  box.append(range.cloneContents());
-  for (const math of box.querySelectorAll(".katex")) {
-    const tex = math.querySelector('annotation[encoding="application/x-tex"]')?.textContent;
-    math.replaceWith(tex ? `$${tex.trim()}$` : math.querySelector(".katex-html")?.textContent ?? "");
+/** The selection's text as the learner reads it: rendered math by its TeX source, through the Reader's own
+ * `selectionQuote` (a formula the selection starts or ends inside is taken whole, a displayed one keeps its
+ * display delimiters; KaTeX's drawn and MathML copies would otherwise repeat or flatten every symbol). */
+export function quoteOf(range: Range): string {
+  return selectionQuote(range, range.toString()).replace(/\s+/g, " ").trim();
+}
+
+/** A quote cut to `max` characters, never inside a formula: a cut that would fall inside one ends before it. */
+export function clipQuote(quote: string, max: number): string {
+  if (quote.length <= max) return quote;
+  let cut = max;
+  // Each formula's span, $$…$$ tried before $…$: a cut inside one moves to the formula's start.
+  for (const match of quote.matchAll(/\$\$[\s\S]+?\$\$|\$[^$]+?\$/g)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (start < cut && end > cut) {
+      cut = start;
+      break;
+    }
   }
-  return (box.textContent ?? "").replace(/\s+/g, " ").trim();
+  return quote.slice(0, cut).trimEnd();
 }
 
 /** The current DOM selection inside the window `windowId`, or null when there is none there. */
@@ -39,7 +51,7 @@ export function readWindowSelection(windowId: string, stage: Element | null, doc
   const range = selection.getRangeAt(0);
   const host = doc.querySelector(`[${WINDOW_ATTRIBUTE}="${windowId}"]`);
   if (!host || !host.contains(range.commonAncestorContainer)) return null;
-  const quote = quoteOf(range, doc);
+  const quote = quoteOf(range);
   if (!quote) return null;
   const spanIds: string[] = [];
   const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;

@@ -103,7 +103,7 @@ import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
 import type { SearchRow } from "./search/model";
-import { readWindowSelection, type WindowSelection } from "./selection";
+import { clipQuote, readWindowSelection, type WindowSelection } from "./selection";
 import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import "../../styles/desk.css";
@@ -1682,7 +1682,7 @@ export function DeskShell({
       const id = focusIdRef.current;
       const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null;
       if (selected) {
-        setChip({ quote: selected.quote.slice(0, 400), spanIds: selected.spanIds, windowId: selected.windowId });
+        setChip({ quote: clipQuote(selected.quote, 400), spanIds: selected.spanIds, windowId: selected.windowId });
         anchor = selected.bounds;
       } else if (lastPointer.current) {
         anchor = { x: lastPointer.current.x, y: lastPointer.current.y, w: 1, h: 1 };
@@ -1934,7 +1934,7 @@ export function DeskShell({
     openPassage,
     openSearch: (query, insert) => setSearch({ query, insert: insert ?? null }),
     askAbout: (quote) => {
-      setChip({ quote: quote.slice(0, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
+      setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
       stepCompanion({ kind: "dock" });
     },
     showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null) => {
