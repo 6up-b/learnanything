@@ -50,6 +50,7 @@ from learnloop.ops.upgrades import (
     Link,
     idempotent_projection,
     legacy_lifecycle_inputs_then_rebuild,
+    legacy_mastery_seeds_then_rebuild,
     legacy_order_then_rebuild,
     targets,
     upgrade,
@@ -73,7 +74,7 @@ EXPECTED_ACTIVATIONS = {
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION: idempotent_projection,
     APPLICATION_ORDER_ALGORITHM_VERSION: legacy_order_then_rebuild,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION: legacy_lifecycle_inputs_then_rebuild,
-    MASTERY_SEED_ALGORITHM_VERSION: whole_vault_rebuild,
+    MASTERY_SEED_ALGORITHM_VERSION: legacy_mastery_seeds_then_rebuild,
 }
 
 LINKS = pytest.mark.parametrize("link", UPGRADES, ids=lambda link: link.tag)

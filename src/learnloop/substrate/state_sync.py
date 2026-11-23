@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import PracticeItemState, Repository
 from learnloop.goals.goal_projection import resolve_goal_scope
+from learnloop.algorithm_versions import mastery_seed_on
 from learnloop.learner.mastery import initial_mastery_state_for_learning_object
+from learnloop.learner.mastery_seed import materialize_mastery
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import LoadedVault
 
@@ -197,8 +199,13 @@ def sync_vault_state(
         deactivated_items += 1
 
     mastery_states = repository.mastery_states()
+    record_seeds = mastery_seed_on(vault.config)
     for learning_object_id, learning_object in vault.learning_objects.items():
         if learning_object_id in mastery_states:
+            continue
+        if record_seeds:
+            # mvp-0.67: the row and the claims its seed read, in one transaction.
+            created_mastery += int(materialize_mastery(vault, repository, learning_object_id, now))
             continue
         repository.upsert_mastery_state(
             initial_mastery_state_for_learning_object(vault, repository, learning_object_id, now)

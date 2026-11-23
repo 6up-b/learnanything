@@ -4,11 +4,12 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from learnloop.clock import Clock, FrozenClock, parse_utc
+from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.repositories import CANONICAL_STAMPED_TABLES, Repository
 from learnloop.attempts.attempts import AttemptResult, GradeAttribution, replay_existing_attempt
 from learnloop.learner import mastery as learner_mastery
+from learnloop.learner.mastery_seed import note_rebuilt_seed, recorded_seed_for_replay
 from learnloop.vault.models import LoadedVault
 
 
@@ -131,6 +132,13 @@ class _ClaimStream:
     (review F5): after every attempt that sorts before it. Claims at one point
     keep their ``(created_at, id)`` order.
 
+    From mvp-0.67 a learning object whose first mastery seed was recorded
+    (``mastery_seed_inputs``) is seeded from the record before the stream
+    opens (``seeded_with``: the ids of the claims the record considered).
+    The stream then seeds nothing, applies every re-anchoring claim placed
+    before the first attempt at its own point too, and never applies a
+    claim the record already holds: replay no longer invents the seed's time.
+
     A re-claim replaces the earlier claim of its source on its scope. Below
     the successor mvp-0.36 the replaced row was deleted, so it is not
     replayed (a rebuild then disagrees with live wherever its re-anchor had
@@ -148,17 +156,20 @@ class _ClaimStream:
         self, vault: LoadedVault, repository: Repository, learning_object_id: str,
         positions: dict[str, tuple[int, float, str] | None],
         pending: list[tuple[tuple[int, float, str], dict[str, Any]]],
+        *,
+        seeded: bool = False,
     ):
         self._vault = vault
         self._repository = repository
         self._learning_object_id = learning_object_id
         self._positions = positions
         self._pending = pending
-        self._seeded = False
+        self._seeded = seeded
 
     @classmethod
     def open(
-        cls, vault: LoadedVault, repository: Repository, learning_object_id: str, attempts: list[dict[str, Any]]
+        cls, vault: LoadedVault, repository: Repository, learning_object_id: str, attempts: list[dict[str, Any]],
+        *, seeded_with: frozenset[str] | None = None,
     ) -> "_ClaimStream | None":
         if not learner_mastery.claim_fixes_live(vault):
             return None
@@ -185,9 +196,11 @@ class _ClaimStream:
                 continue
             if claim.get("scope_type") != "learning_object" or claim.get("scope_id") != learning_object_id:
                 continue
+            if seeded_with is not None and str(claim.get("id") or "") in seeded_with:
+                continue  # the recorded seed read it already: applying it again would count it twice
             pending.append((position, claim))
         pending.sort(key=lambda pair: pair[0])
-        return cls(vault, repository, learning_object_id, positions, pending)
+        return cls(vault, repository, learning_object_id, positions, pending, seeded=seeded_with is not None)
 
     def advance_to(self, index: int, until_iso: str) -> None:
         """Apply every claim placed before the attempt at ``index``; seed the row on first use."""
@@ -195,15 +208,15 @@ class _ClaimStream:
         if not self._seeded:
             self._seeded = True
             if self._repository.mastery_state(self._learning_object_id) is None:
-                self._repository.upsert_mastery_state(
-                    learner_mastery.initial_mastery_state_for_learning_object(
-                        self._vault,
-                        self._repository,
-                        self._learning_object_id,
-                        until_iso,
-                        claims_made=self._made_by(lambda position: position[0] <= index),
-                    )
+                seed = learner_mastery.seed_for_learning_object(
+                    self._vault,
+                    self._repository,
+                    self._learning_object_id,
+                    until_iso,
+                    claims_made=self._made_by(lambda position: position[0] <= index),
                 )
+                self._repository.upsert_mastery_state(seed.state)
+                note_rebuilt_seed(self._learning_object_id, seed)
             # Claims placed before the first attempt are in its seed already.
             self._pending = [pair for pair in self._pending if pair[0][0] > index]
             return
@@ -350,10 +363,18 @@ def _replay_learning_object(
         repository.rebuild_stamp_snapshot(CANONICAL_STAMPED_TABLES) if project_canonical_state else None
     )
     repository.reset_learning_object_derived_state(learning_object_id)
+    # mvp-0.67: the seed recorded where the row was first persisted, before anything replays on it.
+    recorded_seed = recorded_seed_for_replay(vault, repository, learning_object_id)
+    if recorded_seed is not None:
+        stamp = str(attempts[0]["created_at"]) if attempts and attempts[0].get("created_at") else utc_now_iso(clock)
+        repository.upsert_mastery_state(learner_mastery.recorded_seed_state(vault, recorded_seed, stamp))
     # LP-min (a), the claim-fixes successor: claims enter the attempt stream at
     # their own time. Off, or below the tag: None, and the first attempt seeds
     # from the claims in force now, exactly as the predecessor.
-    claim_stream = _ClaimStream.open(vault, repository, learning_object_id, attempts)
+    claim_stream = _ClaimStream.open(
+        vault, repository, learning_object_id, attempts,
+        seeded_with=recorded_seed.claim_ids if recorded_seed is not None else None,
+    )
     replayed: list[AttemptResult] = []
     for index, attempt in enumerate(attempts):
         observed_at = parse_utc(attempt.get("created_at"))

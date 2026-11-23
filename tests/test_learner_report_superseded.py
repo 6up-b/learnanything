@@ -27,6 +27,8 @@ import pytest
 
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
+    LIFECYCLE_INPUTS_ALGORITHM_VERSION,
+    MASTERY_SEED_ALGORITHM_VERSION,
     ONE_ASK_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
@@ -35,6 +37,7 @@ from learnloop.content.authoring.rung_variants import RungVariantError, request_
 from learnloop.db.repositories import Repository
 from learnloop.learner.learner_profile import seed_global_learner_claim
 from learnloop.learner.mastery import covering_learner_claim
+from learnloop.ops.upgrades import upgrade
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -136,14 +139,30 @@ def test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_
 
 
 @pytest.mark.parametrize("version", [PREDECESSOR, TAG])
-@pytest.mark.xfail(strict=True, reason=(
-    "pre-existing, a separate class (found by this stage, not its subject): a claim that never re-anchors "
-    "(an init-wizard starting level, a manual claim) made after an LO's row was materialized (every LO is at "
-    "the vault's first sync) leaves the live row as it was, while replay seeds the LO from the claims in force "
-    "at its first attempt, and an attempt-free LO from the claims in force at rebuild time"
-))
-def test_a_global_claim_made_after_materialization_rebuilds_to_live(tmp_path, version):
+def test_below_mvp067_a_global_claim_made_after_materialization_rebuilds_to_other_mastery(tmp_path, version):
+    """A separate class found by this stage (not its subject), kept as characterization below the tag that fixes
+    it: a claim that never re-anchors (an init-wizard starting level, a manual claim) made after an LO's row was
+    materialized (every LO is at the vault's first sync) leaves the live row as it was, while replay seeds the LO
+    from the claims in force at its first attempt, and an attempt-free LO from the claims in force at rebuild time.
+    From mvp-0.67 the seed is recorded where the row was first persisted and replayed (the test below,
+    ``tests/test_mastery_seed_replay.py``)."""
+
     paths, vault, repository = _vault(tmp_path, version=version)
+    seed_global_learner_claim(repository, "some_exposure", clock=_at(1))
+    _answer(vault, repository, "pi_svd_define_001", minutes=2, points=2.0)
+    changed = {change["key"].get("learning_object_id") for change in _shadow_summary(paths)["mastery"]["changes"]}
+    assert "lo_svd_definition" in changed
+
+
+@pytest.mark.parametrize("born", [True, False], ids=["born-at-mvp-0.67", "activated-from-mvp-0.66"])
+def test_a_global_claim_made_after_materialization_rebuilds_to_live(tmp_path, born):
+    """The same history on a vault at mvp-0.67: one made there, and one made at mvp-0.66 and upgraded before it."""
+
+    paths, vault, repository = _vault(tmp_path, version=MASTERY_SEED_ALGORITHM_VERSION if born else (
+        LIFECYCLE_INPUTS_ALGORITHM_VERSION))
+    if not born:
+        assert upgrade(paths.root, to=MASTERY_SEED_ALGORITHM_VERSION).upgraded
+        vault = load_vault(paths.root)
     seed_global_learner_claim(repository, "some_exposure", clock=_at(1))
     _answer(vault, repository, "pi_svd_define_001", minutes=2, points=2.0)
     assert _shadow_summary(paths)["summary"] == ZERO

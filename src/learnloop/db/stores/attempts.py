@@ -28,6 +28,8 @@ from learnloop.db.attempt_order import (
     AttemptOrder,
 )
 from learnloop.db.attempt_lifecycle_inputs import LIFECYCLE_INPUTS_TABLE, LifecycleInputs
+from learnloop.db.mastery_seed_inputs import MasterySeedInputs
+from learnloop.db.stores.practice_state import insert_mastery_seed_inputs
 from learnloop.db.row_serialization import _json, _loads
 from learnloop.db.stores.diagnoses import merge_causal_view_into_feedback
 from learnloop.db.stores.observation_ledger import load_effective_assessment_contracts
@@ -1314,10 +1316,13 @@ class AttemptStoreMixin:
         attempt_debug_payload: Mapping[str, Any] | None = None,
         item_parameter_state: ItemParameterState | None = None,
         lifecycle_inputs: LifecycleInputs | None = None,
+        mastery_seed_inputs: MasterySeedInputs | None = None,
     ) -> None:
         """The live attempt's write. The item row takes only its scheduling columns
         (:meth:`_record_attempt_practice_item_state`): content sync owns the rest. ``lifecycle_inputs`` (from
-        mvp-0.66): the required facet set the grade application read, recorded with the attempt."""
+        mvp-0.66): the required facet set the grade application read, recorded with the attempt.
+        ``mastery_seed_inputs`` (from mvp-0.67): the seed the attempt's prior was built from when its learning
+        object had no mastery row, recorded with the row this write persists."""
 
         with self.connection() as connection:
             self._insert_practice_attempt(connection, attempt)
@@ -1332,6 +1337,8 @@ class AttemptStoreMixin:
             self._insert_attempt_surprise(connection, surprise)
             self._record_attempt_practice_item_state(connection, practice_item_state)
             self._upsert_mastery_state_record(connection, mastery_state)
+            if mastery_seed_inputs is not None:
+                insert_mastery_seed_inputs(connection, mastery_seed_inputs, recorded_at=str(attempt["created_at"]))
             for state in facet_uncertainty_states:
                 self._upsert_facet_uncertainty_state(connection, state)
             if quality_state is not None:
