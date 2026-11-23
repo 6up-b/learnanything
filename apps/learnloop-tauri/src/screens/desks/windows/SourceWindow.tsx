@@ -3,9 +3,10 @@
 // its transcript) run unchanged inside it; what makes it one window among many is around it: its
 // listeners go through the desk's router, its timers and media pause when it leaves the view, and it
 // logs reading activity only while it is active or visible (desks/lifecycle.tsx).
-import { useCallback, useMemo, type ComponentProps } from "react";
+import { useCallback, useMemo, useState, type ComponentProps } from "react";
 import type { ContentRefDto, SourceLibraryCard } from "../../../api/dto";
-import { ReaderScreen, type ReaderWindowing } from "../../ReaderScreen";
+import { ReaderScreen, type PenSurface, type ReaderWindowing } from "../../ReaderScreen";
+import { PenLayer } from "../pen/PenLayer";
 
 export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">;
 
@@ -45,8 +46,10 @@ export function SourceWindow({
     (status: { readingSpan: string | null; progress: number; where: string | null }) => onStatus(status),
     [onStatus],
   );
+  // Pen mode's way onto the text (RD8a): the pen layer mounts on the surface the Reader hands over.
+  const [penSurface, setPenSurface] = useState<PenSurface | null>(null);
   const windowing = useMemo<ReaderWindowing>(
-    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus }),
+    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, onPenSurface: setPenSurface }),
     [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus],
   );
   // The Reader opens its first source once, on mount: a window opens one book for its life.
@@ -63,12 +66,15 @@ export function SourceWindow({
     );
   }
   return (
-    <ReaderScreen
-      key={card.sourceId}
-      onError={onError}
-      initialSource={initialSource}
-      windowed={windowing}
-      {...(reader ?? {})}
-    />
+    <>
+      <ReaderScreen
+        key={card.sourceId}
+        onError={onError}
+        initialSource={initialSource}
+        windowed={windowing}
+        {...(reader ?? {})}
+      />
+      <PenLayer surface={penSurface} />
+    </>
   );
 }
