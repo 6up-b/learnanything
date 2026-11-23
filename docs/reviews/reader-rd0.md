@@ -396,3 +396,19 @@ No algorithm tag: nothing that scores, schedules, certifies or writes evidence r
 No Rust changed (no `cargo check`). Not verified: the owner copies (for RD0-5 the orchestrator's check is that an
 already-upgraded copy, opened once through the sidecar, gains its two receipts and that a second open writes
 nothing), the landing gate and the full suite, and the frontend build.
+
+### Fix round on owner copies (run by the orchestrator)
+
+Finding 5's one-time projection, on backup-API copies of the owner's three vaults. Each copy was opened with this
+round's code, which migrated it to 264 without a tag upgrade, so both span tables started empty with no receipt.
+
+| | A | B | C |
+|---|---|---|---|
+| First open: `question_event_spans`, `learner_text_gap_spans` rows; receipts | 53, 74; 2 | 27, 0; 2 | 51, 2; 2 |
+| Second open | nothing done, rows unchanged | nothing done, rows unchanged | nothing done, rows unchanged |
+| Rows equal to a replayer rebuild | yes | yes | yes |
+| `integrity_check`; foreign-key violations | ok; 0 | ok; 0 | ok; 0 |
+| Then upgraded to `mvp-0.66`; shadow mastery, facet, schedule changed | 0, 0, 0 | 0, 0, 0 | 0, 0, 0 |
+
+The live databases were unchanged, and the copies were deleted.
+
