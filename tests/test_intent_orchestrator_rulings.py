@@ -140,12 +140,13 @@ def test_r1_every_gate_of_the_build_is_the_admission_predicates():
     plus ``zero_priority`` (ranking: a request, which every check candidate
     is, carries the requested floor, so it never meets it)."""
 
-    # The candidate loop is the body both entry points share (``build_due_queue`` serves, ``read_due_queue`` reads).
-    literals, computed = _withheld_reasons(scheduler._due_queue)
+    # The candidate loop, which the ranking's second stage runs for both entry points (``build_due_queue`` serves,
+    # ``read_due_queue`` reads).
+    literals, computed = _withheld_reasons(scheduler._score_candidates)
     assert literals == {"zero_priority"}
     assert computed == 1
     assert scheduler._REQUESTED_PRIORITY_FLOOR > 0
-    source = inspect.getsource(scheduler._due_queue)
+    source = inspect.getsource(scheduler._score_candidates)
     assert source.count("admission_reason(") == 1
     assert "routine_withhold_reason(" not in source
     assert "diagnostic_freshness_reserve" not in source
