@@ -183,3 +183,24 @@ needs the comparison's `pillow`: 23 of 23 with it); visual reference `rd5` 2 row
 identity pins, structure ratchets, mobile allowlist and desktop RPC contract 759 passed, architecture 18, layout 3;
 ruff clean; lint-imports 54 kept. No Rust, config, HTTP use or migration changed. Each fix's test failed with the
 code before it (run against the files at the previous commit).
+
+### After the backend half (`reader/rd5fixb`, contract in reader-rd5a.md §9)
+
+Merged, then main (batch 2). The client sides of its contract:
+
+| Contract item | Client side |
+|---|---|
+| `requestId` on `passage.promoted` | One per menu opening, reused on a retryable failure; `request_reused` mints a new one once (RD5-47) |
+| `withheld` | The menu says "exam or held-out material: nothing is searched for it", names the object without quoting it, and leaves out Ask, Find, Compare, Show me, Make it practice, Append, Carry and Teach me; a verb pressed before the first answer waits for it and refuses on protected material; the pad menu does the same for a line about it (RD5-48). Carry and Teach me are beyond the brief's list: a carried question and a lesson take the words on too |
+| An interrupted job reads failed (`interrupted`) | None of its rows show; the menu says it can look again, and a new opening asks anew (RD5-49) |
+| `clientIdempotencyKey` on `author_practice_item` | One key per practice sheet, sent with every save of it (RD5-41 now fixed) |
+| `passage.knows` fills notes | Rendered since RD5-46 |
+| Make it practice on an exercise (RD5-8) | Option (A): a sheet shows the exercise's own words (`passage.content`; protected material is neither shown nor imported), imports only when asked, and lists the items made with the existing edit and retire controls, said plainly to be in the queue already (RD5-50). Draft-then-admit (B) stays an owner option: it needs storage of its own |
+
+When the first answer fails outright, the menu treats the object as unprotected (the verbs' own calls keep their
+protections); a judgment call. New file: `screens/desks/menu/ExerciseSheet.tsx` (`desktop_validate.py`: 418 files,
+398 entry-reachable, ACTIVE 424).
+
+**Assertions changed:** the menu's `passage.promoted` calls carry the `requestId` (two tests expect it); Make it
+practice on an exercise opens the sheet, where the test expected the confirmation and the import.
+
