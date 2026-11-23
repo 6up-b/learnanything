@@ -41,7 +41,7 @@ The Reader workbench's desks: the shell, the window lifecycle contract, the shel
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/desks/DeskShell|DeskShell.tsx]] | `ACTIVE` | Implements the `DeskShell` routed desktop screen and coordinates its learner-facing workflow state. | 33 | 2 |
-| [[Reference/Desktop/TypeScript/screens/desks/Shelf|Shelf.tsx]] | `ACTIVE` | Implements the `Shelf` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/Shelf|Shelf.tsx]] | `ACTIVE` | Implements the `Shelf` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/fitMath|fitMath.tsx]] | `ACTIVE` | Implements the `fitMath` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 3 |
 | [[Reference/Desktop/TypeScript/screens/desks/geometry|geometry.ts]] | `ACTIVE` | Provides `DESK_SIZES`, `Rect`, `Stage`, `slotWidth` and related exports within the desktop's TypeScript/screens/desks ownership area. | 0 | 8 |
 | [[Reference/Desktop/TypeScript/screens/desks/lifecycle|lifecycle.tsx]] | `ACTIVE` | Implements the `lifecycle` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 39 |

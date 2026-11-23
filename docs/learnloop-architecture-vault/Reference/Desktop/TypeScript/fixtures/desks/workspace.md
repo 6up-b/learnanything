@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/workspace.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/workspace.ts) |
-| Source lines | 164 |
+| Source lines | 177 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -66,20 +66,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const results: WriteOpResultDto[] = []` — const, line 97
 - `const heads:` — const, line 98
 - `const now = new Date().toISOString()` — const, line 99
-- `const head = Object.values(this.pads).flatMap((pad)` — const, line 104
-- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 123
-- `const results: WriteOpResultDto[] = []` — const, line 126
-- `const touched = new Set<string>()` — const, line 127
-- `const conflict = this.stale(op)` — const, line 129
-- `const desk = deskById(this.ws, op.deskId)` — const, line 155
-- `const to = deskById(this.ws, op.toDeskId)` — const, line 159
+- `const before = op.op === "edit_block" && op.keepBoth ? this.pads[input.padId]?.blocks.find((block)` — const, line 103
+- `const keeps = op.op === "edit_block" && op.keepBoth !== undefined && (!before || before.headVersionId !== op.expectedHead)` — const, line 104
+- `const head = Object.values(this.pads).flatMap((pad)` — const, line 107
+- `const kept = this.pads[input.padId].blocks.find((block)` — const, line 111
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 129
+- `const results: WriteOpResultDto[] = []` — const, line 132
+- `const touched = new Set<string>()` — const, line 133
+- `const conflict = this.stale(op)` — const, line 135
+- `const runningBefore = new Set(this.ws.runningPadIds ?? [])` — const, line 141
+- `const now = new Date().toISOString()` — const, line 145
+- `const desk = deskById(this.ws, op.deskId)` — const, line 168
+- `const to = deskById(this.ws, op.toDeskId)` — const, line 172
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export: `FixtureDeskServer`; references `FixtureDeskServer`
+- [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export: `FixtureDeskServer`, `fixtureDeskState`; references `FixtureDeskServer`, `fixtureDeskState`
 - [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `FixtureDeskServer`; references `FixtureDeskServer`
 
 ## Dependencies
