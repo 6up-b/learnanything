@@ -138,7 +138,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/claims|learnloop_sidecar.handlers.claims]] | [[Reference/Modules/learnloop_sidecar/handlers/claims#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/cli|learnloop_sidecar.handlers.cli]] | [[Reference/Modules/learnloop_sidecar/handlers/cli#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/companion|learnloop_sidecar.handlers.companion]] | [[Reference/Modules/learnloop_sidecar/handlers/companion#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] | [[Reference/Modules/learnloop_sidecar/handlers/companion_ask#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] | [[Reference/Modules/learnloop_sidecar/handlers/companion_ask#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/compare_scope|learnloop_sidecar.handlers.compare_scope]] | [[Reference/Modules/learnloop_sidecar/handlers/compare_scope#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] | [[Reference/Modules/learnloop_sidecar/handlers/correspondents#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] | [[Reference/Modules/learnloop_sidecar/handlers/daily_plan#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
@@ -172,7 +172,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] | [[Reference/Modules/learnloop_sidecar/handlers/library_ask#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] | [[Reference/Modules/learnloop_sidecar/handlers/measurement#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] | [[Reference/Modules/learnloop_sidecar/handlers/notes#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] | [[Reference/Modules/learnloop_sidecar/handlers/notes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] | [[Reference/Modules/learnloop_sidecar/handlers/pads#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] | [[Reference/Modules/learnloop_sidecar/handlers/passage_union#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/placement|learnloop_sidecar.handlers.placement]] | [[Reference/Modules/learnloop_sidecar/handlers/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |

@@ -39,7 +39,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
+<<<<<<< HEAD
 | Source lines | 11143 |
+=======
+| Source lines | 11113 |
+>>>>>>> reader/rd3-fix-frontend
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
@@ -910,6 +914,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface DeskDto` — interface, line 10645
 - `export interface DeskStateDto` — interface, line 10658
 - `export type DeskOpDto = DeskOpBase & ( |` — type, line 10667
+<<<<<<< HEAD
 - `export type DeskMembershipOpDto = DeskOpBase & ( |` — type, line 10695
 - `export type WriteOpResultDto = |` — type, line 10701
 - `export interface DeskApplyInput` — interface, line 10712
@@ -965,6 +970,61 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface SearchGroupDto` — interface, line 11106
 - `export interface SearchEverythingDto` — interface, line 11122
 - `export interface SearchJobDto` — interface, line 11135
+=======
+- `export type WriteOpResultDto = |` — type, line 10691
+- `export interface DeskApplyInput` — interface, line 10696
+- `export interface DeskApplyDto` — interface, line 10697
+- `export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions"` — type, line 10704
+- `export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch" | "cell" | "ink" | "lifted" | "check_cell"` — type, line 10705
+- `export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction"` — type, line 10707
+- `export interface PadDto` — interface, line 10709
+- `export interface PadBlockDto` — interface, line 10722
+- `export interface PadBlockSubmissionDto` — interface, line 10737
+- `export interface PadAnchorDto` — interface, line 10748
+- `export interface PadViewDto` — interface, line 10758
+- `export interface PadListDto` — interface, line 10759
+- `export type PadOpDto = |` — type, line 10761
+- `export interface PadApplyInput` — interface, line 10781
+- `export interface PadApplyDto` — interface, line 10782
+- `export type PadSubmitAs = "attempt" | "teach_back"` — type, line 10791
+- `export interface PadSubmitBlockInput` — interface, line 10793
+- `export interface PadSubmitBlockDto` — interface, line 10810
+- `export type ProposalLabel = "opened" | "not_this" | "dismiss" | "ignored"` — type, line 10824
+- `export interface PadProposalDto` — interface, line 10826
+- `export interface PadProposalsDto` — interface, line 10843
+- `export interface ProposalLabelInput` — interface, line 10845
+- `export interface PadDrainDto` — interface, line 10852
+- `export type CarriedState = "carried" | "fruitful" | "not_now" | "let_go"` — type, line 10860
+- `export interface CarriedQuestionDto` — interface, line 10862
+- `export interface CarryInput` — interface, line 10878
+- `export interface CarriedMarkInput` — interface, line 10887
+- `export interface CarriedListDto` — interface, line 10896
+- `export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored"` — type, line 10904
+- `export type SpanAlias = "exact" | "needs_reanchor"` — type, line 10906
+- `export interface PassageUnionSpanDto` — interface, line 10908
+- `export interface PassageUnionDto` — interface, line 10932
+- `export type PassageUnionInput = |` — type, line 10940
+- `export interface CompanionExchangeDto` — interface, line 10944
+- `export interface CompanionHistoryDto` — interface, line 10960
+- `export interface ChecksDueDto` — interface, line 10966
+- `export type CompanionAskSurface = "desk" | "reader" | "lesson" | "notebook"` — type, line 10976
+- `export interface CompanionAskInput extends ReaderAskInput` — interface, line 10980
+- `export type CompanionAskStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "expired"` — type, line 10991
+- `export interface PolledJobErrorDto` — interface, line 10993
+- `export interface CompanionAskJobDto` — interface, line 11001
+- `export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges"` — type, line 11027
+- `export interface SearchEverythingInput` — interface, line 11029
+- `export interface SearchRowBase` — interface, line 11037
+- `export interface SearchSourceRowDto extends SearchRowBase` — interface, line 11043
+- `export interface SearchPassageRowDto extends SearchRowBase` — interface, line 11047
+- `export type SearchNoteRowDto = SearchRowBase & ( |` — type, line 11051
+- `export interface SearchPadRowDto extends SearchRowBase` — interface, line 11058
+- `export interface SearchThreadRowDto extends SearchRowBase` — interface, line 11063
+- `export interface SearchExchangeRowDto extends SearchRowBase` — interface, line 11067
+- `export interface SearchGroupDto` — interface, line 11072
+- `export interface SearchEverythingDto` — interface, line 11089
+- `export interface SearchJobDto` — interface, line 11102
+>>>>>>> reader/rd3-fix-frontend
 
 ## Internal implementation anchors
 
@@ -1106,7 +1166,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export: `CarriedQuestionDto`, `CarryInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageUnionDto`, `PassageUnionInput`, `ProposalLabelInput`; references `CarriedQuestionDto`, `CarryInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageUnionDto`, `PassageUnionInput`, `ProposalLabelInput`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export: `PadAnchorDto`, `PadBlockDto`, `PadBlockKind`, `PadDto`, `PadOpDto`, `PadProvenance`, `PadViewDto`; references `PadAnchorDto`, `PadBlockDto`, `PadBlockKind`, `PadDto`, `PadOpDto`, `PadProvenance`, `PadViewDto`
 - [[Reference/Desktop/TypeScript/screens/desks/search/SearchPanel|src/screens/desks/search/SearchPanel.tsx]] — import-or-re-export: `SearchEverythingDto`, `SearchEverythingInput`, `SearchGroupDto`, `SearchJobDto`; references `SearchEverythingDto`, `SearchEverythingInput`, `SearchGroupDto`, `SearchJobDto`
-- [[Reference/Desktop/TypeScript/screens/desks/search/model|src/screens/desks/search/model.ts]] — import-or-re-export: `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`; references `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`
+- [[Reference/Desktop/TypeScript/screens/desks/search/model|src/screens/desks/search/model.ts]] — import-or-re-export: `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchRowBase`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`; references `ContentRefDto`, `SearchEverythingDto`, `SearchExchangeRowDto`, `SearchGroupDto`, `SearchNoteRowDto`, `SearchPadRowDto`, `SearchPassageRowDto`, `SearchRowBase`, `SearchScope`, `SearchSourceRowDto`, `SearchThreadRowDto`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `DeskOpDto`, `DeskStateDto`, `PadBlockSubmissionDto`, `PadOpDto`, `PadViewDto`; references `DeskOpDto`, `DeskStateDto`, `PadBlockSubmissionDto`, `PadOpDto`, `PadViewDto`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `ContentRefDto`, `LibraryHitDto`; references `ContentRefDto`, `LibraryHitDto`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] — import-or-re-export: `ContentRefDto`, `SourceLibraryCard`; references `ContentRefDto`, `SourceLibraryCard`

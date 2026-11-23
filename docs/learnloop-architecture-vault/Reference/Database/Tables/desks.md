@@ -109,6 +109,7 @@ None found by exact static reference scan.
 - `tests/test_reader_rd0_reads.py`
 - `tests/test_reader_rd0_rpcs.py`
 - `tests/test_reader_rd1_model_parity.py`
+- `tests/test_reader_rd3_fix_backend.py`
 - `tests/test_reader_rd3a_companion_ask.py`
 - `tests/test_reader_rd4_rpcs.py`
 

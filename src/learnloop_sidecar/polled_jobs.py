@@ -10,9 +10,11 @@ What a job guarantees:
 * **One vault.** A job and its request id belong to the vault the context had open when it started
   (:func:`vault_key`); every read, repeat and cancel names the vault open now, so another vault's job
   is not found there, and a repeated id is looked up only among this vault's.
-* **Its own epoch.** A job captures the context's background epoch; a close or a vault switch ends
-  it. From then on its model requests are refused, it ends ``interrupted``, and :meth:`PolledJob.live`
-  is false, so its completion records its own vault's facts and never wakes the context's workers.
+* **Its own epoch.** A job captures the context's background epoch, which a close ends; a vault switch
+  interrupts the previous vault's polled jobs (:func:`interrupt_vault`; other background jobs keep their
+  own vault guards). Either way its next model request is refused, it ends ``interrupted``, and
+  :meth:`PolledJob.live` is false, so its completion records its own vault's facts and never wakes the
+  context's workers.
 * **Its receipts.** Calls the job records itself are owned by ``<kind>:<job_id>``; every root receipt
   started on its thread, whoever records it (a query embedding, a rewrite), carries
   ``owning_job`` in its ``budget_json``, one row per call. A plan-first fallback offer the job's
@@ -89,6 +91,8 @@ class PolledJob:
     result: Any = None
     error: SidecarError | None = None
     cancelled: bool = False
+    #: Its vault was switched away from (not the learner's cancel): it ends interrupted.
+    interrupted: bool = False
     #: Physical model requests admitted (sent) for this job: a cancel after one says the request went.
     requests_sent: int = 0
     #: Output pieces the model request in flight has streamed (a progress measure; 0 for a transport that
@@ -113,7 +117,7 @@ class PolledJob:
         """False once the context closed or switched vaults after this job started: its completion then
         touches nothing of the context (no worker woken, no prefetch queued)."""
 
-        return bool(self._live())
+        return not self.interrupted and bool(self._live())
 
     def note(self, **values: Any) -> None:
         with self.lock:
@@ -166,10 +170,10 @@ class _CancelGate:
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
         admission = None if self._outer is None else self._outer.admit(client, purpose=purpose, prompt=prompt,
                                                                        budget=budget)
-        if self._job.cancelled:
+        if self._job.cancelled or self._job.interrupted:
             if self._outer is not None:
                 self._outer.settle(admission, {})
-            raise SpendCancelled(f"{purpose} not sent: the job was cancelled")
+            raise SpendCancelled(f"{purpose} not sent: the job was cancelled or its vault closed")
         with self._job.lock:
             self._job.requests_sent += 1
         return admission
@@ -273,6 +277,16 @@ class PolledJobs:
                 if not job.done.is_set():
                     job.cancelled = True
         return job
+
+    def interrupt(self, vault: str) -> None:
+        """Interrupt every unfinished job of ``vault`` (its vault was switched away from)."""
+
+        with self._lock:
+            jobs = [job for (job_vault, _id), job in self._jobs.items() if job_vault == vault]
+        for job in jobs:
+            with job.lock:
+                if not job.done.is_set():
+                    job.interrupted = True
 
     def supersede(self, vault: str, key: str) -> None:
         """Cancel every unfinished job of ``vault`` with this supersede key (a newer request replaces them)."""
@@ -380,9 +394,26 @@ def registry(ctx: Any, name: str, **kwargs: Any) -> PolledJobs:
     if jobs is None:
         jobs = PolledJobs(**kwargs)
         setattr(ctx, name, jobs)
+    # Known to the context, so a vault switch reaches it (whoever set the attribute).
+    known = getattr(ctx, "polled_registries", None)
+    if known is None:
+        known = ctx.polled_registries = {}
+    known[name] = jobs
     return jobs
 
 
+def interrupt_vault(ctx: Any, vault_root: Any) -> None:
+    """A vault switch: every unfinished polled job of ``vault_root`` sends no further request, ends
+    ``interrupted`` and wakes nothing of the context. Only polled jobs: other background jobs guard their own
+    vault, and a request already sent finishes and is recorded in its own vault as before."""
+
+    if not vault_root:
+        return
+    vault = str(Path(vault_root).resolve())
+    for jobs in list((getattr(ctx, "polled_registries", None) or {}).values()):
+        jobs.interrupt(vault)
+
+
 __all__ = ["CANCELLED", "DONE", "EXPIRED", "FAILED", "MAX_KEPT_JOBS", "MAX_RECEIPTS", "MAX_REMEMBERED_IDS",
-           "MAX_RUNNING", "QUEUED", "RUNNING", "PolledJob", "PolledJobs", "Receipt", "as_job_error", "registry",
-           "vault_key"]
+           "MAX_RUNNING", "QUEUED", "RUNNING", "PolledJob", "PolledJobs", "Receipt", "as_job_error", "interrupt_vault",
+           "registry", "vault_key"]
