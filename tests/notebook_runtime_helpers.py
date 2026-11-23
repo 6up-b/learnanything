@@ -207,12 +207,13 @@ def wait_state(runtime: Any, vault_key: str, session_id: str, state: str, timeou
 async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[str],
                            set_value: tuple[str, Any] | None = None, then_wanted: tuple[str, ...] = (),
                            during: Any = None, after_during: tuple[str, ...] = (),
-                           pattern: str | None = None) -> dict[str, Any]:
+                           pattern: str | None = None, linger: float = 0.0) -> dict[str, Any]:
     """Load the page, open the WebSocket, instantiate, wait for ``wanted`` in the cells' output; then optionally set
     a UI element's value (object id from a cell name) or call ``during()`` in a thread, and wait for
     ``then_wanted`` (with both, ``during()`` runs after the value is set, and ``after_during`` is waited for).
-    ``pattern``: a regular expression whose matches in any message are kept in ``out["matches"]``. What a browser
-    frame would do, through the proxy."""
+    ``pattern``: a regular expression whose matches in any message are kept in ``out["matches"]``. ``linger``: keep
+    the WebSocket open (and read) this many seconds more, so reports that follow an output (a cell's idle) reach
+    the proxy. What a browser frame would do, through the proxy."""
 
     import httpx
     import websockets
@@ -259,6 +260,12 @@ async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[
             if during is not None:
                 out["during"] = await asyncio.get_running_loop().run_in_executor(None, during)
                 await wait_for(after_during if set_value is not None else then_wanted)
+            end = time.monotonic() + linger
+            while time.monotonic() < end:
+                try:
+                    await asyncio.wait_for(ws.recv(), max(0.05, end - time.monotonic()))
+                except asyncio.TimeoutError:
+                    break
     out["seen"] = sorted(seen)
     return out
 
