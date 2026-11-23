@@ -7,7 +7,13 @@ import ReactDOM from "react-dom/client";
 import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
+import { PadStackWindow } from "../../screens/desks/pads/PadStackWindow";
+import { PadsHostContext, type PadsHost } from "../../screens/desks/pads/host";
+import { DeskStore } from "../../screens/desks/store";
+import { REAL_TIMERS } from "../../screens/desks/keys/router";
+import { fixtureMathPad } from "./pads";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "./sources";
+import { FixtureDeskServer } from "./workspace";
 import "../../styles/app.css";
 import "../../styles/palettes.css";
 
@@ -45,9 +51,49 @@ function PreviewCard({ state }: { state: WindowState }) {
   );
 }
 
+/** The display-math fixture (`?latex=1`, spec §13.4 rule 5): the math pad in pad windows of three widths, so
+ * one equation fits, is scaled, and scrolls; the harness measures every equation's ink against its nearest
+ * clipping ancestor, and hovers a mark for the card. */
+export const LATEX_WIDTHS = [640, 430, 300] as const;
+
+function LatexFixture() {
+  const host = React.useMemo<PadsHost>(() => {
+    const server = new FixtureDeskServer();
+    server.pads.fx_pad_math = fixtureMathPad();
+    const store = new DeskStore("latex", {
+      state: async () => server.state(),
+      apply: async (input) => server.apply(input),
+      applyPad: async (input) => server.applyPad(input),
+      padGet: async ({ padId }) => server.padGet(padId),
+    }, REAL_TIMERS);
+    const nothing = async () => ({}) as never;
+    return {
+      store, deskId: "fx_desk_softmax", mintId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2)}`, today: () => "2026-11-23",
+      api: { padProposals: async ({ padId }) => ({ version: 1, padId, proposals: [] }) as never, proposalLabel: nothing, padSubmitBlock: nothing, carriedCarry: nothing,
+        requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }) },
+      practiceSessionId: null, openPassage: noop, openSearch: noop, askAbout: noop, toast: noop, setView: noop, sourcePieces: () => [], register: noop, carry: noop,
+    };
+  }, []);
+  return (
+    <PadsHostContext.Provider value={host}>
+      <div className="desk-shell" data-latex-fixture="" style={{ position: "fixed", inset: 0, display: "flex", gap: 16, padding: 16, background: "#0e0e10", alignItems: "stretch" }}>
+        {LATEX_WIDTHS.map((width) => (
+          <div key={width} data-latex-column={width} style={{ width, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <WindowScope lifecycle={{ windowId: `latex-${width}`, state: "active" }} hub={DIRECT_HUB}>
+              <PadStackWindow windowId={`latex-${width}`} stack={[{ kind: "pad", padId: "fx_pad_math" }]} view={{}} />
+            </WindowScope>
+          </div>
+        ))}
+      </div>
+    </PadsHostContext.Provider>
+  );
+}
+
 export function Harness({ search = window.location.search }: { search?: string }) {
-  const preview = new URLSearchParams(search).get("preview");
+  const params = new URLSearchParams(search);
+  const preview = params.get("preview");
   if (preview === "preview" || preview === "active") return <PreviewCard state={preview} />;
+  if (params.get("latex") === "1") return <LatexFixture />;
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex" }}>
       <DeskShell

@@ -16,6 +16,33 @@ export interface HarnessCall {
 
 const server = new FixtureDeskServer();
 const companion = new FixtureCompanion();
+// One carried question beside the book's third passage (project-authored).
+const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
+  { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
+    anchor: { extraction_id: "fx_ext_softmax", span_id: "fx_ext_softmax_s1_3" }, deskId: "fx_desk_softmax", since: "2026-11-21T10:00:00Z",
+    state: "carried", carried: true, version: 1, updatedAt: "2026-11-21T10:00:00Z" } as never,
+];
+
+/** The fixture's one proposal: beside the running pad's first block, a passage on the same idea. */
+function fixtureProposals(padId: string) {
+  if (padId !== "fx_pad_running") return { version: 1, padId, proposals: [] };
+  return { version: 1, padId, proposals: [{
+    proposalId: "fx_prop1", blockId: "fx_b_r1", blockVersionId: server.padGet(padId).blocks.find((block) => block.blockId === "fx_b_r1")?.headVersionId ?? "",
+    foundBy: "passage_link", target: { content: { kind: "source", source_id: "fx_src_softmax", extraction_id: "fx_ext_softmax" }, target: { span_id: "fx_ext_softmax_s2_1" } },
+    reasonMd: "Softmax, a short book p.2 takes this to the next step", quote: "The exponential is chosen because differences in scores become ratios of weights.",
+    judgmentRef: null, createdAt: "2026-11-23T09:00:00Z", current: true, labels: [], shown: true,
+  }] };
+}
+
+/** Today's pads on a desk, as pad.drain reads them. */
+function fixtureDrain(deskId: string) {
+  const pads = Object.values(server.pads).filter((pad) => pad.pad.homeDeskId === deskId);
+  return { version: 1, deskId, day: new Date().toISOString().slice(0, 10), pads: pads.map((pad) => {
+    const words = pad.blocks.map((block) => block.bodyMd.trim()).filter(Boolean);
+    const last = words[words.length - 1] ?? "";
+    return { padId: pad.pad.padId, kind: pad.pad.kind, title: pad.pad.title, kept: pad.pad.kept, version: pad.pad.version, firstLine: words[0] ?? "", lastLine: last, carryCandidate: last.endsWith("?") ? last : null, updatedAt: pad.pad.updatedAt };
+  }) };
+}
 const calls: HarnessCall[] = [];
 
 declare global {
@@ -80,6 +107,32 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "curriculum_guide_slice":
       // The fixture vault has curriculum off: the Guide shows its reading-path card, as a vault without it does.
       throw { code: "curriculum_disabled", message: "curriculum is off in the fixture", retryable: false };
+    case "pad_get":
+      return server.padGet(String(input.padId));
+    case "pad_apply":
+      return server.applyPad(input as unknown as Parameters<FixtureDeskServer["applyPad"]>[0]);
+    case "pad_proposals":
+      return fixtureProposals(String(input.padId));
+    case "proposal_label":
+      return { version: 1, labelId: input.labelId, applied: true, at: new Date().toISOString() };
+    case "pad_drain":
+      return fixtureDrain(String(input.deskId));
+    case "carried_list":
+      return { version: 1, carried: carried.filter((question) => question.carried), shelfLimit: 3, cursor: null };
+    case "carried_carry": {
+      const question = { carriedId: String(input.carriedId), text: String(input.text), originKind: input.originKind, originRef: input.originRef ?? null,
+        anchor: input.anchor ? { extraction_id: (input.anchor as { extractionId: string }).extractionId, span_id: (input.anchor as { spanId: string }).spanId } : null,
+        deskId: input.deskId ?? null, since: new Date().toISOString(), state: "carried", carried: true, version: 1, updatedAt: new Date().toISOString() };
+      carried.push(question as never);
+      return { version: 1, carried: question, created: true };
+    }
+    case "carried_mark": {
+      const question = carried.find((each) => each.carriedId === input.carriedId);
+      if (question && input.event !== "surfaced" && input.event !== "ignored") {
+        Object.assign(question, { state: input.event, carried: input.event === "not_now", version: question.version + 1 });
+      }
+      return { version: 1, carried: question, applied: true, conflict: false };
+    }
     case "companion_ask":
       return companion.ask(input as unknown as Parameters<FixtureCompanion["ask"]>[0]);
     case "companion_ask_job":

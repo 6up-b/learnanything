@@ -575,3 +575,9 @@ Ids follow the review's finding numbers, so the frontend half's rows join this t
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|
 | RD4a-1 | RD4a, wiring the pads' emission past fence 1 | Fence 1 (`evidence-never-reads-desks-or-pads`) forbade the pads' writer store (`db.stores.pads`) but not the read module the RD0 fix round split out of it (`db.stores.pad_reads`), so the gap pipeline, replay or any evidence writer could import the pads' reads and pass the fence. | `tests/test_reader_rd4_rpcs.py::test_fence_one_refuses_the_pads_read_and_ledger_modules_too` (its `pad_reads` cases fail with the module left out of the fence) | `db.stores.pad_reads` (and RD4's `db.stores.pad_ledgers`) added to the fence's forbidden modules; nothing imported it there, so the fence holds as before | fixed |
+
+## From the Reader workbench v2 scratchpads frontend (RD4b, 2026-11-23)
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| RD4b-1 | RD4b, testing a pad edit's reconcile | The desk store let two flushes run at once: the idle timer's flush and another could overlap, and while the first was reconciling a conflict the second sent the batches queued after the conflicting one with heads that no longer held, before they were rebased (they then conflicted or were refused instead of landing). | `store.test.ts > pads in the store > an edit whose head moved elsewhere is rebased…` (two notices instead of one: the queued edit was sent stale) | `DeskStore.flush` chains: one flush at a time, each with its reconcile | fixed |

@@ -119,6 +119,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/LibraryScreen|src/screens/LibraryScreen.tsx]] — import-or-re-export: `LiveMarkdownEditor`; references `LiveMarkdownEditor`
+- [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export: `LiveMarkdownEditor`; references `LiveMarkdownEditor`
 - [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `LiveMarkdownEditor`, `LiveMarkdownKeyInfo`; references `LiveMarkdownEditor`, `LiveMarkdownKeyInfo`
 
 ## Dependencies

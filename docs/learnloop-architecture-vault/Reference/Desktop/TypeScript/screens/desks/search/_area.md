@@ -35,7 +35,7 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/desks/search/SearchPanel|SearchPanel.tsx]] | `ACTIVE` | Implements the `SearchPanel` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/search/model|model.ts]] | `ACTIVE` | Provides `ROWS_PER_GROUP`, `GROUP_ORDER`, `OpenWindow`, `SearchRow` and related exports within the desktop's TypeScript/screens/desks/search ownership area. | 1 | 2 |
+| [[Reference/Desktop/TypeScript/screens/desks/search/model|model.ts]] | `ACTIVE` | Provides `ROWS_PER_GROUP`, `GROUP_ORDER`, `OpenWindow`, `SearchRow` and related exports within the desktop's TypeScript/screens/desks/search ownership area. | 1 | 3 |
 
 ## Modification guidance
 

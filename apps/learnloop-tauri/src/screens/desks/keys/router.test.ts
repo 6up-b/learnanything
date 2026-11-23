@@ -136,9 +136,11 @@ describe("the resolved scope and precedence matrix", () => {
     expect(later.filter((entry) => entry.endsWith(":RD2"))).toEqual([]);
     // RD3 built the companion and search: c, shift+c, alt+c and / wait no more.
     expect(later.filter((entry) => entry.endsWith(":RD3"))).toEqual([]);
-    expect(later).toContain("alt+n:RD4");
+    // RD4 built the pads: new pad, arrange, sketch, the pad tabs, the drain and the menu on a pad line.
+    expect(later.filter((entry) => entry.endsWith(":RD4"))).toEqual([]);
+    expect(later).toContain("alt+;:RD10");
     const built = DESK_BINDINGS.filter((binding) => !binding.later).map((binding) => binding.keys);
-    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc", "alt+o", "o", "alt+g", "alt+shift+g", "alt+shift+j", "alt+shift+k", "b", "g (hold)", "↵", "c", "shift+c", "alt+c", "/"]));
+    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc", "alt+o", "o", "alt+g", "alt+shift+g", "alt+shift+j", "alt+shift+k", "b", "g (hold)", "↵", "c", "shift+c", "alt+c", "/", "alt+n", "alt+a", "alt+d", "alt+shift+q", "."]));
   });
 
   it("the overview owns its navigation keys and passes the reading view's keys nowhere", () => {

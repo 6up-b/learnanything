@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/workspace.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/workspace.ts) |
-| Source lines | 127 |
+| Source lines | 164 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,19 +54,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function fixtureDeskState(): DeskStateDto` — function, line 11
-- `export function toDeskState(ws: Workspace, serverSeq: DeskStateDto["serverSeq"]): DeskStateDto` — function, line 49
-- `export class FixtureDeskServer` — class, line 72
+- `export function fixtureDeskState(): DeskStateDto` — function, line 13
+- `export function toDeskState(ws: Workspace, serverSeq: DeskStateDto["serverSeq"]): DeskStateDto` — function, line 51
+- `export class FixtureDeskServer` — class, line 74
 
 ## Internal implementation anchors
 
-- `const window = ws.windows[id]` — const, line 60
-- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 86
-- `const results: WriteOpResultDto[] = []` — const, line 89
-- `const touched = new Set<string>()` — const, line 90
-- `const conflict = this.stale(op)` — const, line 92
-- `const desk = deskById(this.ws, op.deskId)` — const, line 118
-- `const to = deskById(this.ws, op.toDeskId)` — const, line 122
+- `const window = ws.windows[id]` — const, line 62
+- `const state = this.pads[padId]` — const, line 87
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 94
+- `const results: WriteOpResultDto[] = []` — const, line 97
+- `const heads:` — const, line 98
+- `const now = new Date().toISOString()` — const, line 99
+- `const head = Object.values(this.pads).flatMap((pad)` — const, line 104
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 123
+- `const results: WriteOpResultDto[] = []` — const, line 126
+- `const touched = new Set<string>()` — const, line 127
+- `const conflict = this.stale(op)` — const, line 129
+- `const desk = deskById(this.ws, op.deskId)` — const, line 155
+- `const to = deskById(this.ws, op.toDeskId)` — const, line 159
 
 ## Who imports or calls it
 
@@ -74,14 +80,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export: `FixtureDeskServer`; references `FixtureDeskServer`
+- [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `FixtureDeskServer`; references `FixtureDeskServer`
 
 ## Dependencies
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyDto`, `DeskApplyInput`, `DeskOpDto`, `DeskStateDto`, `WriteOpResultDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyDto`, `DeskApplyInput`, `DeskOpDto`, `DeskStateDto`, `PadApplyDto`, `PadApplyInput`, `PadViewDto`, `WriteOpResultDto`
+- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `fixturePads`
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_SOURCES`
 - [[Reference/Desktop/TypeScript/screens/desks/model/workspace|src/screens/desks/model/workspace.ts]] — import-or-re-export; imports `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`
+- [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export; imports `PadOpConflict`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`
 
 ### Assets, platform, and third-party dependencies
 
@@ -96,6 +105,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/store.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/store.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/overview/links.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/overview/links.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/fixtures/desks/opParity.test.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/opParity.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).

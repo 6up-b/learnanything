@@ -9,7 +9,7 @@ import { flushSync } from "react-dom";
 import { api } from "../../api/client";
 import { cachedSourceRead } from "../reader/readerCache";
 import { poller as appPoller, type Poller } from "../../api/poller";
-import type { CompanionDock, CompanionHistoryDto, ContentRefDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard, TutorCitationDto } from "../../api/dto";
+import type { CarriedQuestionDto, CompanionDock, CompanionHistoryDto, ContentRefDto, PadDrainDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard, TutorCitationDto } from "../../api/dto";
 import {
   closeWindow,
   createDesk,
@@ -21,6 +21,7 @@ import {
   moveFocused,
   moveToDesk,
   moveToDeskAt,
+  openStackBeside,
   moveWindowTo,
   openBeside,
   pairFocused,
@@ -91,6 +92,12 @@ import { deskStoreFor } from "./store";
 import { Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
 import { ThreadWindow } from "./windows/ThreadWindow";
+import { PadStackWindow } from "./pads/PadStackWindow";
+import { DrainPanel } from "./pads/DrainPanel";
+import { PassageMarks, type PadLink } from "./pads/PassageMarks";
+import { keyAfter } from "./pads/model";
+import { PadsHostContext, localDay, type PadStackHandle, type PadsApi, type PadsHost, type SourcePiece } from "./pads/host";
+import type { ProposedDiff } from "./companion/DiffProposal";
 import { Companion, type CompanionHandle } from "./companion/Companion";
 import { CompanionAsks, companionAsksFor, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
@@ -112,6 +119,7 @@ import "@fontsource-variable/caveat";
 
 export interface DeskTransport extends OutboxTransport {
   state(): Promise<DeskStateDto>;
+  padGet?(input: { padId: string }): Promise<import("../../api/dto").PadViewDto>;
   library(): Promise<SourceLibraryCard[]>;
   /** A source's current reading, which a window names (its content reference carries both). */
   resolveExtraction(sourceId: string): Promise<string>;
@@ -120,6 +128,8 @@ export interface DeskTransport extends OutboxTransport {
 export const LIVE_DESK_TRANSPORT: DeskTransport = {
   state: () => api.deskState(),
   apply: (input: DeskApplyInput): Promise<DeskApplyDto> => api.deskApply(input),
+  applyPad: (input) => api.padApply(input),
+  padGet: (input) => api.padGet(input),
   library: async () => (await api.getSourceLibrary()).sources,
   // The Reader's own cached read: the window that opens next reads it from the cache.
   resolveExtraction: async (sourceId) => (await cachedSourceRead(sourceId, ["reader_render_view", sourceId], () =>
@@ -165,11 +175,41 @@ function firstVisibleSpan(windowId: string | null): string | null {
   return visible ? visible.getAttribute("data-span-id") ?? visible.getAttribute("data-transcript-span") : null;
 }
 
+/** A position key after a pad's last block. */
+function keyAfterLast(blocks: Array<{ blockId: string; positionKey: string }>): string {
+  return keyAfter(blocks as never, blocks[blocks.length - 1]?.blockId ?? null);
+}
+
 function threadTitle(thread: CompanionExchange[]): string {
   const last = thread[thread.length - 1];
   if (!last) return "nothing asked yet";
   return last.question.length > 40 ? `${last.question.slice(0, 39)}…` : last.question;
 }
+
+/** The pads' calls beyond `pad.get` / `pad.apply` (spec §10; RD4a), and the carried questions'. */
+export interface PadsTransport extends PadsApi {
+  padDrain(input: { deskId: string }): Promise<PadDrainDto>;
+  figureRequest(input: import("../../api/dto").FigureRequestV1Input): Promise<import("../../api/dto").LibraryJobDto<import("../../api/dto").FigureBuildResultDto>>;
+  readerFigureJob(input: { jobId: string }): Promise<import("../../api/dto").LibraryJobDto<import("../../api/dto").FigureBuildResultDto>>;
+  carriedList(input: { which?: "open" | "closed" | "all"; deskId?: string }): Promise<{ carried: CarriedQuestionDto[]; shelfLimit: number }>;
+  carriedMark(input: import("../../api/dto").CarriedMarkInput): Promise<unknown>;
+}
+
+export const LIVE_PADS_TRANSPORT: PadsTransport = {
+  padProposals: (input) => api.padProposals(input),
+  proposalLabel: (input) => api.proposalLabel(input),
+  padSubmitBlock: (input) => api.padSubmitBlock(input),
+  carriedCarry: (input) => api.carriedCarry(input),
+  requestTeachBack: (input) => api.requestTeachBack(input),
+  passageUnionRange: (input) => api.passageUnionRange(input),
+  authorPracticeItem: (input) => api.authorPracticeItem(input),
+  workbenchOpenProblems: async () => (await api.workbenchOpenProblems()) as unknown as { problems: Array<{ sessionId: string; practiceItemId?: string | null }> },
+  padDrain: (input) => api.padDrain(input),
+  figureRequest: (input) => api.figureRequest(input),
+  readerFigureJob: (input) => api.readerFigureJob(input),
+  carriedList: (input) => api.carriedList(input),
+  carriedMark: (input) => api.carriedMark(input),
+};
 
 /** The companion's and search's calls (spec §3.4; RD3a's jobs). */
 export interface CompanionTransport extends CompanionApi, SearchApi {
@@ -315,6 +355,8 @@ export interface DeskShellProps {
   companion?: CompanionTransport;
   /** The job poller (tests pass one they tick by hand); absent, the app's one poller. */
   poller?: Poller;
+  /** The pads' and carried questions' calls; absent, the sidecar's. */
+  padsTransport?: PadsTransport;
 }
 
 export function DeskShell({
@@ -333,6 +375,7 @@ export function DeskShell({
   onDebugHandle,
   companion: companionTransport = LIVE_COMPANION_TRANSPORT,
   poller = appPoller,
+  padsTransport = LIVE_PADS_TRANSPORT,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -341,6 +384,8 @@ export function DeskShell({
     [vaultKey, transport, timers, mintId],
   );
   const storeWs = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  // Pad changes re-render the shell too (the passages' ✎ links, the companion's pad proposals).
+  useSyncExternalStore(store.subscribe, store.getPadVersion);
   const [storeReady, setStoreReady] = useState(store.loaded);
   const ws: Workspace | null = storeReady ? storeWs : null;
   const wsRef = useMemo(() => ({ get current(): Workspace { return store.ws; } }), [store]);
@@ -388,6 +433,12 @@ export function DeskShell({
   const [chip, setChip] = useState<{ quote: string; spanIds: string[]; windowId: string } | null>(null);
   const [avoid, setAvoid] = useState(0);
   const [search, setSearch] = useState<{ query: string; insert?: ((row: SearchRow) => void) | null } | null>(null);
+  // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
+  const padHandles = useRef(new Map<string, PadStackHandle>());
+  const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number }>({ list: [], limit: 3 });
+  const [draining, setDraining] = useState(false);
+  const drainingRef = useRef(false);
+  drainingRef.current = draining;
   const companionRef = useRef<CompanionHandle | null>(null);
   const [ungather, setUngather] = useState<{ deskId: string; order: string[][] } | null>(null);
   const [movedNotice, setMovedNotice] = useState<{ deskId: string; title: string; until: number } | null>(null);
@@ -958,6 +1009,9 @@ export function DeskShell({
         commit(focusAlong(current, id, action.direction));
         return true;
       case "paneOrDesk": {
+        // In a pad stack, alt+j/k goes to the next pad (or split pane) first, then on to the next desk.
+        const stack = focusedStackRef.current();
+        if (stack && stack.padOrDesk(action.direction)) return true;
         const step = focusPane(current, id, action.direction);
         if (step) commit(step);
         else switchDesk(action.direction);
@@ -1058,6 +1112,38 @@ export function DeskShell({
         toggle();
         return true;
       }
+      case "newPad": {
+        const stack = focusedStackRef.current();
+        if (stack) stack.newPad(focusIdRef.current ? readWindowSelection(focusIdRef.current, stageRef.current)?.quote : undefined);
+        else newPadBesideRef.current();
+        return true;
+      }
+      case "sketchBlock": {
+        const stack = focusedStackRef.current();
+        if (!stack) return false;
+        stack.sketchBlock();
+        return true;
+      }
+      case "arrangePads": {
+        const stack = focusedStackRef.current();
+        if (!stack) return false;
+        stack.arrange();
+        return true;
+      }
+      case "nextPad": {
+        const stack = focusedStackRef.current();
+        if (!stack) return false;
+        stack.nextPad(action.direction);
+        return true;
+      }
+      case "menu": {
+        // The pad menu on the hovered line; the source menu on a passage arrives with the menus.
+        const stack = focusedStackRef.current();
+        return stack ? stack.menuAtHover() : false;
+      }
+      case "drain":
+        setDraining(true);
+        return true;
       case "companion":
         companionKeyRef.current(action.atDock);
         return true;
@@ -1129,8 +1215,8 @@ export function DeskShell({
       const has = (scope: ClaimedScope) => (open?.get(scope)?.size ?? 0) > 0;
       const resolution = resolveKey(event, {
         typing: isTypingTarget(event.target) || has("typing"),
-        // Search in context is open: its keys are its own (an open menu or the search panel owns them).
-        menu: has("menu") || searchOpenRef.current,
+        // Search in context or the drain is open: its keys are its own (as an open menu owns them).
+        menu: has("menu") || searchOpenRef.current || drainingRef.current,
         check: has("check"),
         focus: focusModeRef.current,
         overview: overviewRef.current,
@@ -1728,6 +1814,183 @@ export function DeskShell({
     openContent(ref, { spanId: row.target?.spanId ?? null });
   }, [commit, openContent, toastNow]);
 
+  // -- pads (spec §10): the host the pad windows use, the carried questions, the drain ----------------------
+
+  const refreshCarried = useCallback(() => {
+    // Through a promise, so a call that throws (a sidecar without carried questions) is a quiet failure too.
+    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit }), () => undefined);
+  }, [padsTransport]);
+  useEffect(() => {
+    if (ws) refreshCarried();
+    // Read once when the desks open; carrying refreshes it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ws === null]);
+
+  const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }) => {
+    void padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }).then(() => {
+      toastNow("carried · it comes back beside a related passage");
+      refreshCarried();
+    }, (error: unknown) => toastNow(`couldn't carry it · ${error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error)}`));
+  }, [padsTransport, mintId, toastNow, refreshCarried]);
+
+  /** A passage beside the focus (a quote's back-link, a hover card's "open it beside"), at its time for a video. */
+  const openPassage = useCallback((extractionId: string, spanId: string | null, t?: number) => {
+    let found: ContentRefDto | null = null;
+    for (const window of Object.values(wsRef.current.windows)) {
+      const content = window.content;
+      if (content && (content.kind === "source" || content.kind === "video") && content.extractionId === extractionId) {
+        found = content;
+        break;
+      }
+    }
+    if (!found) {
+      toastNow("that passage's source isn't on a desk · find it with /");
+      return;
+    }
+    const ref = found.kind === "video" && t !== undefined ? { ...found, t } : found;
+    openContent(ref, { spanId });
+  }, [openContent, toastNow]);
+
+  /** The passage at the top of each open source window, and the cue at the top of each video (the pad menu's
+   * source pieces). */
+  const sourcePieces = useCallback((): SourcePiece[] => {
+    const current = wsRef.current;
+    const id = deskIdRef.current;
+    const each = id ? deskById(current, id) : null;
+    if (!each) return [];
+    const out: SourcePiece[] = [];
+    for (const windowId of each.slots.flat()) {
+      const window = current.windows[windowId];
+      const content = window?.content;
+      if (!window || !content || (content.kind !== "source" && content.kind !== "video")) continue;
+      const spanId = statusRef.current[windowId]?.readingSpan ?? firstVisibleSpan(windowId);
+      if (!spanId) continue;
+      const element = document.querySelector(`[${WINDOW_ATTRIBUTE}="${windowId}"] [data-span-id="${spanId}"], [${WINDOW_ATTRIBUTE}="${windowId}"] [data-transcript-span="${spanId}"]`);
+      const text = (element?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
+      if (!text) continue;
+      const title = titleOf(window);
+      out.push({ label: `${content.kind === "video" ? "the cue playing now" : "the passage in view"} · ${shortName(title)}`, extractionId: content.extractionId, spanId, text, sourceTitle: title });
+    }
+    return out;
+  }, [titleOf]);
+
+  const padsHost = useMemo<PadsHost>(() => ({
+    store,
+    deskId,
+    mintId,
+    today: () => localDay(),
+    api: padsTransport,
+    practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
+    openPassage,
+    openSearch: (query, insert) => setSearch({ query, insert: insert ?? null }),
+    askAbout: (quote) => {
+      setChip({ quote: quote.slice(0, 400), spanIds: [], windowId: focusIdRef.current ?? "" });
+      stepCompanion({ kind: "dock" });
+    },
+    showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null) => {
+      // The Reader's figure build (RW5d), read until it is done; a figure that is not shown lands nowhere.
+      let job = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
+      for (let tries = 0; job.state === "pending" && tries < 120; tries += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        job = await padsTransport.readerFigureJob({ jobId: job.jobId });
+      }
+      const figure = job.result?.figure;
+      if (!figure || !figure.shown) return null;
+      return { figureId: figure.figureId, line: figure.demonstrates || figure.goalText || text };
+    },
+    ...(reader?.onTeachMe ? { teachMe: (extractionId: string, spanIds: string[]) => reader.onTeachMe?.({ extractionId, spanIds }) } : {}),
+    toast: toastNow,
+    setView: (windowId, view) => {
+      const window = wsRef.current.windows[windowId];
+      if (window) commit(setView(wsRef.current, window.deskId, windowId, view));
+    },
+    sourcePieces,
+    register: (windowId, handle) => {
+      if (handle) padHandles.current.set(windowId, handle);
+      else padHandles.current.delete(windowId);
+    },
+    carry: carryQuestion,
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion]);
+
+  /** The pad stack the keys act on: the focused window when it is one. */
+  const focusedStack = (): PadStackHandle | null => (focusIdRef.current ? padHandles.current.get(focusIdRef.current) ?? null : null);
+  const focusedStackRef = useRef(focusedStack);
+  focusedStackRef.current = focusedStack;
+
+  /** alt+n away from a stack: a new pad in a new stack window beside, titled from the selection. */
+  const newPadBeside = useCallback(() => {
+    const id = deskIdRef.current;
+    if (!id) return;
+    const selected = focusIdRef.current ? readWindowSelection(focusIdRef.current, stageRef.current) : null;
+    const padId = mintId("pad");
+    const title = selected ? `Scratchpad · “${selected.quote.slice(0, 40)}”` : "Scratchpad · new notes";
+    const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
+    if (refused) {
+      toastNow(`couldn't make a pad · ${refused.message}`);
+      return;
+    }
+    commit(openStackBeside(wsRef.current, id, [padId], () => mintId("win")));
+  }, [commit, mintId, store, toastNow]);
+  const newPadBesideRef = useRef(newPadBeside);
+  newPadBesideRef.current = newPadBeside;
+
+  /** The pads in a desk's stack windows (a desk's running pad is among them). */
+  const deskPadIds = useCallback((id: string | null): string[] => {
+    if (!id) return [];
+    return Object.values(wsRef.current.windows).filter((window) => window.deskId === id).flatMap((window) => (window.stack ?? []).flatMap((entry) => (entry.kind === "pad" ? [entry.padId] : [])));
+  }, []);
+
+  /** The desk's running pad among the pads read, if one is. */
+  const runningPadOf = useCallback((id: string | null): string | null => {
+    if (!id) return null;
+    return Object.values(store.pads).find((pad) => pad.pad.kind === "running" && pad.pad.homeDeskId === id)?.pad.padId ?? null;
+  }, [store]);
+
+  /** The companion's answers propose a previewed diff into the desk's running pad (spec §8.4). A desk whose
+   * stacks are not read yet (its pad window paused) reads them when the learner accepts. */
+  const answerProposals = useCallback((exchange: CompanionExchange): ProposedDiff[] => {
+    const answer = exchange.answer;
+    const known = runningPadOf(exchange.deskId);
+    if (!answer || (!known && deskPadIds(exchange.deskId).length === 0)) return [];
+    const lines = answer.answerMd.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 6);
+    return [{
+      id: `${exchange.requestId}:running`,
+      target: (known ? store.pads[known]?.pad.title : "") || "running",
+      label: "Add this to your pad",
+      lines,
+      onAccept: async () => {
+        if (!runningPadOf(exchange.deskId)) await Promise.all(deskPadIds(exchange.deskId).map((padId) => store.loadPad(padId)));
+        const padId = runningPadOf(exchange.deskId);
+        const now = padId ? store.pads[padId] : null;
+        if (!padId || !now) throw new Error("this desk has no running pad");
+        const refused = store.commitPad(padId, [{
+          op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "tutor_quote", provenance: "tutor",
+          positionKey: keyAfterLast(now.blocks), day: localDay(), bodyMd: answer.answerMd, payload: { asked_on: localDay(), question_md: exchange.question },
+        }]);
+        if (refused) throw refused;
+      },
+    }];
+  }, [deskPadIds, mintId, runningPadOf, store]);
+
+  /** Keep or leave a pad from the drain: the pad is read first when no window has (its stack paused). */
+  const drainWrite = useCallback((padId: string, op: "keep" | "unkeep", version: number) => {
+    void store.loadPad(padId).then(() => {
+      const refused = store.commitPad(padId, [{ op, expectedVersion: store.pads[padId]?.pad.version ?? version }]);
+      if (refused) toastNow(`couldn't ${op === "keep" ? "keep" : "leave"} it · ${refused.message}`);
+    });
+  }, [store, toastNow]);
+
+  const padLinks = useMemo<PadLink[]>(() => Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, blockId: anchor.blockId, extractionId: anchor.extractionId, spanId: anchor.spanId }))),
+    // store.pads changes identity on every pad change (the pad version re-renders this shell).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [store.pads]);
+  const surfacedCarried = useRef(new Set<string>());
+  const onCarriedSurfaced = useCallback((question: CarriedQuestionDto) => {
+    if (surfacedCarried.current.has(question.carriedId)) return;
+    surfacedCarried.current.add(question.carriedId);
+    void padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event: "surfaced" }).catch(() => undefined);
+  }, [padsTransport, mintId]);
+
   // -- window status from inside (title, reading place, rail hosts, media) ------------------------
 
   const viewTimers = useRef(new Map<string, { handle: unknown; save: () => void }>());
@@ -1868,7 +2131,11 @@ export function DeskShell({
     const content = window.content;
     const card = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
     if (renderPane) return renderPane({ window, lifecycle, card });
-    if (!content) return <div className="desk-panel desk-quiet">Scratchpads open here once they are built (they are stored, and kept).</div>;
+    if (window.kind === "pad_stack" || content?.kind === "pad") {
+      const stack = window.stack ?? (content?.kind === "pad" ? [{ kind: "pad" as const, padId: content.padId }] : []);
+      return <PadStackWindow windowId={window.windowId} stack={stack} view={window.view ?? {}} />;
+    }
+    if (!content) return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
     switch (content.kind) {
       case "source":
       case "video": {
@@ -2016,6 +2283,7 @@ export function DeskShell({
     : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "tutor here"], ["shift+c", "at its dock"], ["/", "find"]];
 
   return (
+    <PadsHostContext.Provider value={padsHost}>
     <div className={`desk-shell${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
         <span className="desk-brand">◇ LearnLoop</span>
@@ -2085,6 +2353,8 @@ export function DeskShell({
             commit(moveWindowTo(wsRef.current, deskId, id, toSlot));
           }}
           onSearch={() => setSearch({ query: "" })}
+          carried={carried.list.slice(0, carried.limit).map((question) => ({ carriedId: question.carriedId, text: question.text, since: question.since }))}
+          carriedMore={Math.max(0, carried.list.length - carried.limit)}
         />
         <section
           className="desk-stage"
@@ -2307,6 +2577,27 @@ export function DeskShell({
               This desk is empty. <button type="button" onClick={() => setOpener(true)}>open a source beside</button>
             </div>
           ) : null}
+          {/* Marks follow their passages by left/top: none while a zoom's frames run (they write transforms only). */}
+          {!overview && !zooming ? (
+            <PassageMarks
+              stage={stageRef.current}
+              windows={(desk?.slots.flat() ?? []).flatMap((id) => {
+                const content = ws.windows[id]?.content;
+                return content && (content.kind === "source" || content.kind === "video") ? [{ windowId: id, extractionId: content.extractionId }] : [];
+              })}
+              links={padLinks}
+              carried={carried.list}
+              onOpenLink={(link) => {
+                const stackWindow = Object.values(wsRef.current.windows).find((window) => window.deskId === deskId && (window.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === link.padId));
+                if (stackWindow && deskId) commit(setFocus(wsRef.current, deskId, stackWindow.windowId));
+                window.dispatchEvent(new CustomEvent("learnloop:pad-flash", { detail: { blockId: link.blockId } }));
+              }}
+              onSurfaced={onCarriedSurfaced}
+              onMarkCarried={(question, event) => {
+                void padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then(refreshCarried, () => undefined);
+              }}
+            />
+          ) : null}
           {hud ? <div className="desk-hud" role="status">{hud}</div> : null}
           <Companion
             ref={companionRef}
@@ -2322,6 +2613,7 @@ export function DeskShell({
             }}
             threadTitle={threadTitle(thread)}
             thread={thread}
+            proposals={answerProposals}
             chip={chip ? { quote: chip.quote } : null}
             cannotAsk={grounding.reason}
             avoid={avoid}
@@ -2405,7 +2697,20 @@ export function DeskShell({
           {Math.round(focusZoom * 100)}% · alt+↵ or esc to leave · = − to zoom
         </div>
       ) : null}
+      {draining && deskId ? (
+        <DrainPanel
+          deskTitle={desk?.title ?? "this desk"}
+          load={() => padsTransport.padDrain({ deskId })}
+          actions={{
+            keep: (padId, version) => drainWrite(padId, "keep", version),
+            leave: (padId, version) => drainWrite(padId, "unkeep", version),
+            carry: (text, padId) => carryQuestion(text, { kind: "drain", ref: padId }),
+          }}
+          onClose={() => setDraining(false)}
+        />
+      ) : null}
     </div>
+    </PadsHostContext.Provider>
   );
 }
 

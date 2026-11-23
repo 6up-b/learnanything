@@ -1,6 +1,7 @@
 // The desks' fixture companion and search (spec §18.3): `companion.ask` as a polled job answered by a fake
 // tutor the harness can hold open (to time edits and hover while an answer generates), `companion.history`
 // and `search.everything` / `search.job` over the synthetic workspace. Project-authored text only.
+import { FIXTURE_MATH } from "./pads";
 import type {
   CompanionAskInput,
   CompanionAskJobDto,
@@ -61,7 +62,10 @@ export class FixtureCompanion {
       });
     }
     const done = job.status === "done" || job.status === "cancelled";
-    const answerMd = `A synthetic answer from the fixture's tutor to “${job.input.question}”. The weights come from the scores' differences, so the passage's claim holds.`;
+    // A question naming "math" gets the display-math fixture back (the §13.4 test of the companion's bubbles).
+    const answerMd = /math/.test(job.input.question)
+      ? `Work through it in order:${FIXTURE_MATH.aligned}and the Jacobian:${FIXTURE_MATH.matrix}with the wide form:${FIXTURE_MATH.wide}`
+      : `A synthetic answer from the fixture's tutor to “${job.input.question}”. The weights come from the scores' differences, so the passage's claim holds.`;
     return {
       version: 1,
       requestId,

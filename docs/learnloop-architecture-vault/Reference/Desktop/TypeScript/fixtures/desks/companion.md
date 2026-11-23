@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/companion.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/companion.ts) |
-| Source lines | 190 |
+| Source lines | 194 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,33 +54,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const FAKE_ANSWER_MS = 600` — const, line 23
-- `export class FixtureCompanion` — class, line 25
+- `export const FAKE_ANSWER_MS = 600` — const, line 24
+- `export class FixtureCompanion` — class, line 26
 
 ## Internal implementation anchors
 
-- `interface FakeJob` — interface, line 15
-- `const known = this.jobs.get(input.requestId)` — const, line 36
-- `const job = this.jobs.get(requestId)` — const, line 43
-- `const done = job.status === "done" || job.status === "cancelled"` — const, line 63
-- `const answerMd = `A synthetic answer from the fixture's tutor to “$` — const, line 64
-- `const job = this.jobs.get(requestId)` — const, line 94
-- `const earlier: CompanionExchangeDto[] = [` — const, line 100
-- `const all = [...this.answered, ...earlier]` — const, line 110
-- `const q = input.query?.toLowerCase().trim()` — const, line 111
-- `const rows = q ? all.filter((exchange)` — const, line 112
-- `const days = new Map<string, CompanionExchangeDto[]>()` — const, line 113
-- `const date = row.createdAt.slice(0, 10)` — const, line 115
-- `const q = input.query.toLowerCase().trim()` — const, line 126
-- `const sources = FIXTURE_LIBRARY.filter((card)` — const, line 127
-- `const passages = this.passages((text)` — const, line 137
-- `const jobId = `fx_search_$` — const, line 138
-- `const groups: SearchGroupDto[] = [` — const, line 140
-- `const search = this.searches.get(jobId)` — const, line 165
-- `const done = this.now() - search.at >= 300` — const, line 167
-- `const rows = done ? this.passages((text)` — const, line 169
-- `const card = FIXTURE_LIBRARY.find((entry)` — const, line 180
-- `const video = view.extractionId === FIXTURE_SOURCES.video.extractionId || view.extractionId === FIXTURE_SOURCES.video2.extractionId` — const, line 181
+- `interface FakeJob` — interface, line 16
+- `const known = this.jobs.get(input.requestId)` — const, line 37
+- `const job = this.jobs.get(requestId)` — const, line 44
+- `const done = job.status === "done" || job.status === "cancelled"` — const, line 64
+- `const answerMd = /math/.test(job.input.question) ? `Work through it in order:$` — const, line 66
+- `const job = this.jobs.get(requestId)` — const, line 98
+- `const earlier: CompanionExchangeDto[] = [` — const, line 104
+- `const all = [...this.answered, ...earlier]` — const, line 114
+- `const q = input.query?.toLowerCase().trim()` — const, line 115
+- `const rows = q ? all.filter((exchange)` — const, line 116
+- `const days = new Map<string, CompanionExchangeDto[]>()` — const, line 117
+- `const date = row.createdAt.slice(0, 10)` — const, line 119
+- `const q = input.query.toLowerCase().trim()` — const, line 130
+- `const sources = FIXTURE_LIBRARY.filter((card)` — const, line 131
+- `const passages = this.passages((text)` — const, line 141
+- `const jobId = `fx_search_$` — const, line 142
+- `const groups: SearchGroupDto[] = [` — const, line 144
+- `const search = this.searches.get(jobId)` — const, line 169
+- `const done = this.now() - search.at >= 300` — const, line 171
+- `const rows = done ? this.passages((text)` — const, line 173
+- `const card = FIXTURE_LIBRARY.find((entry)` — const, line 184
+- `const video = view.extractionId === FIXTURE_SOURCES.video.extractionId || view.extractionId === FIXTURE_SOURCES.video2.extractionId` — const, line 185
 
 ## Who imports or calls it
 
@@ -94,6 +94,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CompanionAskInput`, `CompanionAskJobDto`, `CompanionExchangeDto`, `CompanionHistoryDto`, `SearchEverythingDto`, `SearchGroupDto`, `SearchJobDto`
+- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `FIXTURE_MATH`
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_LIBRARY`, `FIXTURE_SOURCES`, `FIXTURE_VIEWS`
 
 ### Assets, platform, and third-party dependencies

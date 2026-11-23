@@ -250,8 +250,9 @@ describe("the key router", () => {
     });
     expect(screen.getByRole("dialog", { name: "alt keys" })).toBeTruthy();
     expect(screen.getByText("window left")).toBeTruthy();
-    // Not built yet (RD4), so not on the panel.
-    expect(screen.queryByText("new pad")).toBeNull();
+    // Built now (the pads), so on the panel; a chord whose feature is not built yet is not.
+    expect(screen.getByText("new pad")).toBeTruthy();
+    expect(screen.queryByText("insert ▶ timestamp")).toBeNull();
     act(() => {
       fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
     });
@@ -1423,5 +1424,152 @@ describe("RD3b: search in context (spec §9.3)", () => {
     press("/", "Slash");
     fireEvent.keyDown(screen.getByLabelText("search every source, note, pad, thread and past exchange"), { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "search in context" })).toBeNull();
+  });
+});
+
+describe("RD4b: pads in the desks", () => {
+  function padsTransport(server: FixtureDeskServer) {
+    const calls: Array<[string, unknown]> = [];
+    return {
+      calls,
+      transport: {
+        padProposals: async (input: { padId: string }) => ({ version: 1, padId: input.padId, proposals: [] }),
+        proposalLabel: async () => ({}),
+        padSubmitBlock: async () => ({}) as never,
+        carriedCarry: async (input: unknown) => {
+          calls.push(["carriedCarry", input]);
+          return { carried: {} as never, created: true };
+        },
+        requestTeachBack: async () => ({ practiceItemId: "tb" }),
+        passageUnionRange: async () => ({ sections: [] }) as never,
+        authorPracticeItem: async () => ({ practiceItemId: "x" }),
+        workbenchOpenProblems: async () => ({ problems: [] }),
+        padDrain: async ({ deskId }: { deskId: string }) => ({
+          version: 1, deskId, day: "2026-11-23",
+          pads: [{ padId: "fx_pad_running", kind: "running", title: "running", kept: false, version: 1, firstLine: "softmax keeps the winner", lastLine: "is it the same move?", carryCandidate: "is it the same move?", updatedAt: "2026-11-23T10:00:00Z" }],
+        }) as never,
+        carriedList: async () => ({ carried: [], shelfLimit: 3 }),
+        carriedMark: async (_input: unknown) => ({}),
+        figureRequest: async () => ({ jobId: "j", kind: "figure_build", askId: null, state: "done", result: { figure: null, reused: false } }) as never,
+        readerFigureJob: async () => ({ jobId: "j", kind: "figure_build", askId: null, state: "done", result: null }) as never,
+      },
+      deskTransport: {
+        ...transportFor(server),
+        applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => server.applyPad(input),
+        padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
+      },
+    };
+  }
+
+  it("alt+n away from a pad stack opens a new pad in a stack window beside the focus, and focuses it", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyN", "n");
+    await flush();
+    const created = server.padBatches.flatMap((batch) => batch.ops).find((op) => op.op === "create_pad");
+    expect(created).toMatchObject({ op: "create_pad", kind: "named", title: "Scratchpad · new notes", homeDeskId: "fx_desk_softmax" });
+    const desk = server.state().desks.find((each) => each.deskId === "fx_desk_softmax");
+    const slots = desk?.slots ?? [];
+    const stackWindow = slots.flatMap((slot) => slot.windows).find((window) => window.windowId === desk?.focusWindowId);
+    expect(stackWindow?.kind).toBe("pad_stack");
+    expect(stackWindow?.stack).toEqual([{ kind: "pad", padId: server.padBatches[0].padId }]);
+    // Beside the book: the slot after it.
+    const slotOf = (windowId: string) => slots.findIndex((slot) => slot.windows.some((window) => window.windowId === windowId));
+    expect(slotOf(stackWindow?.windowId ?? "")).toBe(slotOf("fx_w_book") + 1);
+  });
+
+  it("alt+shift+q opens the drain: one key keeps a pad, another carries its last question; while open the desk's keys wait", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    alt("KeyQ", "Q", { shiftKey: true });
+    const drain = await screen.findByRole("dialog", { name: "closing softmax and cross-entropy" });
+    expect(drain.textContent).toContain("Closing “softmax and cross-entropy”");
+    expect(drain.textContent).toContain("carry “is it the same move?”");
+    // The drain owns the keys: alt+l does not move the focus while it is open.
+    alt("KeyL", "l");
+    await flush();
+    expect(server.state().desks[0].focusWindowId).toBe("fx_w_book");
+    press("1", "Digit1");
+    press("k", "KeyK");
+    await waitFor(() => expect(drain.textContent).toContain("kept"));
+    await flush();
+    expect(server.padBatches.flatMap((batch) => batch.ops)).toEqual([{ op: "keep", expectedVersion: 1 }]);
+    press("Escape", "Escape");
+    expect(screen.queryByRole("dialog", { name: "closing softmax and cross-entropy" })).toBeNull();
+  });
+
+  it("the shelf's CARRIED shows at most the attention limit, each since its date, and says how many more", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const question = (n: number) => ({ carriedId: `c${n}`, text: `question ${n}?`, originKind: "typed", originRef: null, anchor: null, deskId: null, since: "2026-11-20T10:00:00Z", state: "carried", carried: true, version: 1, updatedAt: "2026-11-20T10:00:00Z" });
+    fakes.transport.carriedList = async () => ({ carried: [1, 2, 3, 4].map(question) as never, shelfLimit: 3 });
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    const shelf = await waitFor(() => {
+      const found = document.querySelector("[data-shelf-carried]") as HTMLElement | null;
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+    expect(shelf.querySelectorAll(".q")).toHaveLength(3);
+    expect(shelf.textContent).toContain("since 20 Nov");
+    expect(shelf.textContent).toContain("1 more in the library");
+  });
+
+  it("a carried question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const marks: unknown[] = [];
+    fakes.transport.carriedList = async () => ({ carried: [{ carriedId: "c1", text: "does it work for any base?", originKind: "typed", originRef: null, anchor: { extraction_id: FIXTURE_SOURCES.book.extractionId, span_id: "fx_w_book_s2" }, deskId: null, since: "2026-11-21T10:00:00Z", state: "carried", carried: true, version: 3, updatedAt: "2026-11-21T10:00:00Z" }] as never, shelfLimit: 3 });
+    fakes.transport.carriedMark = async (input: unknown) => {
+      marks.push(input);
+      return {};
+    };
+    mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport, renderPane: (input) => <PassagePane input={input} /> });
+    await screen.findByTestId("pane-fx_w_book");
+    const mark = await screen.findByRole("button", { name: "a question you carried" });
+    await flush();
+    await flush();
+    expect(marks.filter((each) => (each as { event: string }).event === "surfaced")).toHaveLength(1);
+    fireEvent.click(mark);
+    expect(screen.getByText(/you carried: does it work for any base\? · since 21 Nov/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "let it go" }));
+    await flush();
+    expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c1", event: "let_go", expectedVersion: 3 });
+  });
+
+  it("an answer proposes a diff into the desk's running pad; accept writes it as the tutor's words", async () => {
+    const server = new FixtureDeskServer();
+    const fakes = padsTransport(server);
+    const { poller, answer } = mountCompanion({ transport: fakes.deskTransport, padsTransport: fakes.transport });
+    await screen.findByTestId("pane-fx_w_book");
+    selectIn("fx_w_book", 1);
+    press("c", "KeyC");
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "why does it cancel?" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    answer();
+    await act(async () => {
+      await poller.tick();
+    });
+    const diff = await waitFor(() => {
+      const found = document.querySelector("[data-diff]") as HTMLElement | null;
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+    expect(diff.textContent).toContain("Add this to your pad");
+    expect(diff.textContent).toContain("+ Because the factor cancels.");
+    fireEvent.click(screen.getByRole("button", { name: "accept" }));
+    await waitFor(() => expect(diff.textContent).toContain("accepted"));
+    await flush();
+    const inserted = server.padBatches.flatMap((batch) => batch.ops).find((op) => op.op === "insert_block");
+    expect(inserted).toMatchObject({ op: "insert_block", kind: "tutor_quote", provenance: "tutor", bodyMd: "Because the factor cancels." });
+    expect(server.padBatches[0].padId).toBe("fx_pad_running");
   });
 });
