@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import (
@@ -98,7 +99,7 @@ def _write_two_criterion_item(paths) -> None:
     )
 
 
-def _vault(tmp_path, algorithm_version="mvp-0.7"):
+def _vault(tmp_path, algorithm_version=LATEST_ALGORITHM_VERSION):
     paths = create_basic_vault(tmp_path / "vault")
     write_facets(paths, FACETS)
     _write_two_criterion_item(paths)

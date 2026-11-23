@@ -6,6 +6,7 @@ from __future__ import annotations
 from contextlib import closing
 from datetime import timedelta
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
@@ -34,7 +35,7 @@ def _at(minutes: float) -> FrozenClock:
     return FrozenClock(NOW + timedelta(minutes=minutes))
 
 
-def _vault(tmp_path, *, version: str = "mvp-0.16", toml: str = "", sync: bool = False):
+def _vault(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION, toml: str = "", sync: bool = False):
     paths = create_placement_vault(tmp_path / "vault", version=version)
     if toml:
         append_config_toml(paths.root, toml)

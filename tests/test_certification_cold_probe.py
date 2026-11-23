@@ -567,7 +567,8 @@ def test_probe_against_a_withdrawn_certificate_abstains_rather_than_failing(tmp_
 def test_probe_records_a_durable_versioned_label(
     tmp_path, points, verdict, success, correctness
 ):
-    _paths, vault, repository, certificate = _certify(tmp_path)
+    # The policy stamp asserted below is the one this tag writes.
+    _paths, vault, repository, certificate = _certify(tmp_path, version="mvp-0.7")
     schedule_certification_cold_probes(vault, repository, clock=FrozenClock(NOW))
     task = _tasks(repository)[0]
     parameters = resolve_cold_probe_parameters(repository)

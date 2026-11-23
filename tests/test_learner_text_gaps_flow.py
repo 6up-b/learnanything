@@ -10,6 +10,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LEARNER_TEXT_GAP_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.db.connection import connect
 from learnloop.db.stores import learner_gaps as store
@@ -167,7 +168,8 @@ def _diagnosis(repository, proposal, *, diagnosis_id="diag_1", attempt_id="att_1
 
 
 def test_a_diagnosis_is_read_from_its_causes_without_a_call(tmp_path):
-    root, repository = _setup(tmp_path)
+    # Below Tier 1's tag the pair is judged without the Decider (serve_pre_tier1), which this test reads.
+    root, repository = _setup(tmp_path, version=LEARNER_TEXT_GAP_ALGORITHM_VERSION)
     _attempt(repository)
     _diagnosis(repository, {
         "event_diagnoses": [{"causal_class": "learner_state", "misconception_statement": None}],

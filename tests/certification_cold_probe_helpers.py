@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -48,9 +49,10 @@ def _blueprint(paths, *, components=None, integration=None):
     write_yaml(lo_path, data)
 
 
-def _vault(tmp_path, *, second_item=True, components=None, integration=None):
+def _vault(tmp_path, *, second_item=True, components=None, integration=None, version=LATEST_ALGORITHM_VERSION):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
+    if version != LATEST_ALGORITHM_VERSION:
+        set_algorithm_version(paths, version)
     _blueprint(paths, components=components, integration=integration)
     if second_item:
         add_followup_item(tmp_path / "vault")

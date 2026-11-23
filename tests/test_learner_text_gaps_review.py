@@ -10,6 +10,7 @@ from datetime import timedelta
 
 import pytest
 
+from learnloop.algorithm_versions import LEARNER_TEXT_GAP_ALGORITHM_VERSION
 from learnloop.ai.spend import SpendCaps
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
@@ -79,7 +80,8 @@ def _fails_on_the_true_match(first: str, second: str) -> str:
 
 
 def test_f1_a_failed_pair_on_the_true_match_never_creates_and_the_retry_matches(tmp_path):
-    root, repository = _vault(tmp_path)
+    # Below Tier 1's tag the pair is judged without the Decider (serve_pre_tier1), which this test reads.
+    root, repository = _vault(tmp_path, version=LEARNER_TEXT_GAP_ALGORITHM_VERSION)
     tutor = GapTutor(EIGEN_GAP)
     event_id = _ask(root, repository, tutor, item="pi_spec_easy", question="What's an eigenvalue again?")
     with pytest.raises(ReadingDeferred) as raised:
@@ -482,7 +484,8 @@ def test_f11_first_checks_per_chooser_survive_the_creation_switch_and_since_wind
 def test_f11_pair_agreement_honours_since(tmp_path):
     from learnloop.diagnosis.text_gaps.report import build_report
 
-    root, repository = _vault(tmp_path)
+    # Below Tier 1's tag the pair is judged without the Decider (serve_pre_tier1), which this test reads.
+    root, repository = _vault(tmp_path, version=LEARNER_TEXT_GAP_ALGORITHM_VERSION)
     event_id = _ask(root, repository, GapTutor(EIGEN_GAP), item="pi_spec_easy")
     _run(root, repository, event_id, GapLLMFake(decide=word_match("eigenvalues")),
          decider=ChoiceDecider(kind="prerequisite", pair=word_match("eigenvalues")))

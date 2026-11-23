@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients
@@ -25,7 +26,7 @@ def _at(minutes: float) -> FrozenClock:
     return FrozenClock(NOW + timedelta(minutes=minutes))
 
 
-def _setup(tmp_path, *, version="mvp-0.16", toml="", name="vault"):
+def _setup(tmp_path, *, version=LATEST_ALGORITHM_VERSION, toml="", name="vault"):
     paths = create_placement_vault(tmp_path / name, version=version)
     if toml:
         append_config_toml(paths.root, toml)

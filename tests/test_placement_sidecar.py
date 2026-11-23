@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
-from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
+from tests.helpers import append_config_toml, create_placement_vault
 from tests.graph_editor_reads_helpers import _blueprint_ctx, _call
 from tests.km3_projections_helpers import INTEG, LO_ID
 
 
-def _placement_ctx(root, *, version="mvp-0.11", toml=None):
+def _placement_ctx(root, *, version=LATEST_ALGORITHM_VERSION, toml=None):
     import learnloop_sidecar.handlers  # noqa: F401 -- registers methods
 
     paths = create_placement_vault(root, version=version)
@@ -72,8 +71,6 @@ def test_map_labels_assumed_points_without_changing_depth_or_beads(tmp_path):
     """G4 + G6: the assumed label is separate; geometry never reads it."""
 
     ctx = _blueprint_ctx(tmp_path / "vault")
-    set_algorithm_version(SimpleNamespace(root=ctx.vault.root), "mvp-0.11")
-    ctx.reload()
     before = _call(ctx, "get_knowledge_map", {})
     assert before["placement"] == {"active": True, "assumed": [], "addedFromQuestion": []}
     _call(ctx, "placement_self_report", {"report": "know_this", "learningObjectIds": [LO_ID]})

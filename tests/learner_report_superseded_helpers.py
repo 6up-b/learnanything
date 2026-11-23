@@ -3,7 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
-from learnloop.algorithm_versions import SUPERSEDED_CLAIMS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, SUPERSEDED_CLAIMS_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -15,7 +15,7 @@ from tests.rebuild_equivalence_helpers import _at
 TAG = SUPERSEDED_CLAIMS_ALGORITHM_VERSION
 
 
-def _vault(tmp_path, version=TAG, name="vault"):
+def _vault(tmp_path, version=LATEST_ALGORITHM_VERSION, name="vault"):
     paths = create_placement_vault(tmp_path / name, version=version)
     add_followup_item(paths.root)
     repository = Repository(paths.sqlite_path)

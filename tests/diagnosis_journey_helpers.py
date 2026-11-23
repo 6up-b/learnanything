@@ -493,7 +493,8 @@ def gap_case(root):
     from learnloop.tutor.ai_contracts import LearnerGap
     from learnloop.vault.loader import add_note
 
-    vault_root, repo = _vault(root)
+    # The golden records what a vault at the learner-text-gap successor's tag writes; a head vault writes other rows.
+    vault_root, repo = _vault(root, version="mvp-0.16")
     journey = Journey(repo)
     add_note(vault_root, "linear-algebra", "la_source", "Diagonalization source",
              "A matrix with n independent eigenvectors diagonalizes.", source_type="canonical_source",
