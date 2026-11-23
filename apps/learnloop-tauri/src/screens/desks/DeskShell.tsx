@@ -116,7 +116,6 @@ import "../../styles/goal.css";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
-import "@fontsource-variable/inter";
 import "@fontsource-variable/literata";
 import "@fontsource-variable/literata/wght-italic.css";
 import "@fontsource-variable/source-serif-4";

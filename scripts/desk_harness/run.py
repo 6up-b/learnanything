@@ -322,11 +322,11 @@ async def run_desks(page: Page, base: str, results: Results, shots: Path | None)
       return Object.keys(out).sort((a, b) => Number(a) - Number(b)).map((k) => out[k]); }""")
     results.check("the server's slots equal the screen's", server_slots == screen_slots, [server_slots, screen_slots])
     fonts = await page.evaluate("""async () => {
-      const families = ["Inter Variable", "Literata Variable", "Source Serif 4 Variable", "JetBrains Mono Variable", "Caveat Variable"];
+      const families = ["Literata Variable", "Source Serif 4 Variable", "JetBrains Mono Variable", "Caveat Variable"];
       await Promise.all(families.map((family) => document.fonts.load(`16px "${family}"`)));
       return families.filter((family) => !document.fonts.check(`16px "${family}"`));
     }""")
-    results.check("the five desk fonts load from the app itself", fonts == [], fonts)
+    results.check("the four desk fonts load from the app itself", fonts == [], fonts)
     errors = await page.evaluate("() => window.__deskHarnessErrors")
     results.check("no error reached the shell's error line", errors == [], errors)
 
