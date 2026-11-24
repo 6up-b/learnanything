@@ -28,6 +28,8 @@ export interface SearchPanelProps {
   open: OpenWindow[];
   deskTitle: (deskId: string | null) => string;
   initialQuery?: string;
+  selection?: SearchEverythingInput["selection"];
+  blockIds?: string[];
   /** Insert mode (the pad menu's "a piece of another source…"): ↵ inserts the row instead of opening it. */
   insert?: ((row: SearchRow) => void) | null;
   reducedMotion: boolean;
@@ -35,7 +37,7 @@ export interface SearchPanelProps {
   onClose: () => void;
 }
 
-export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, initialQuery = "", insert = null, reducedMotion, onOpenRow, onClose }: SearchPanelProps) {
+export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, initialQuery = "", selection, blockIds, insert = null, reducedMotion, onOpenRow, onClose }: SearchPanelProps) {
   const [query, setQuery] = useState(initialQuery);
   const [words, setWords] = useState<SearchEverythingDto | null>(null);
   const [meaning, setMeaning] = useState<SearchGroupDto[]>([]);
@@ -74,7 +76,7 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
       };
     }
     const handle = timers.set(() => {
-      void api.searchEverything({ query: trimmed.slice(0, 200), deskId }).then(
+      void api.searchEverything({ query: trimmed.slice(0, 200), deskId, ...(selection ? { selection } : {}), ...(blockIds ? { blockIds } : {}) }).then(
         (found) => {
           if (seq !== searchSeq.current) return;
           setWords(found);
@@ -115,7 +117,7 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
       timers.clear(handle);
       searchSeq.current += 1;
     };
-  }, [query, deskId, api, poller, timers]);
+  }, [query, deskId, api, poller, timers, selection, blockIds]);
   useEffect(() => () => stopMeaning.current?.(), []);
 
   const groups = useMemo(

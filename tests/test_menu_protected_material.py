@@ -46,6 +46,10 @@ def protected(tmp_path, monkeypatch):
 
     paths = create_basic_vault(tmp_path / "vault")
     set_config(paths, "source_retrieval", enabled=True)
+    set_config(paths, "source_service", enabled=True, compare=True)
+    set_config(paths, "library_ask", enabled=True)
+    set_config(paths, "reader_compare", enabled=True)
+    set_config(paths, "teacher", enabled=True)
     repository = Repository(paths.sqlite_path)
     seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id=BOOK,
                  spans=["s_open", "s1", "s2", "s_held", "s3"],
@@ -185,3 +189,131 @@ def test_a_whole_exam_reading_is_protected_the_same_way(protected):
     reply, done = _menu(protected.ctx, {"objectKind": "passage", "extractionId": BOOK, "spanId": "s_open"})
     assert reply["withheld"] is True and protected.spy.queries == []
     assert call(protected.ctx, "pad.proposals", {"padId": "pad_1"})["proposals"] == []
+
+
+def test_selection_verdict_includes_the_neighbor(protected):
+    _hold_out(protected.repository)
+    reply, done = _menu(protected.ctx, {"objectKind": "passage", "extractionId": BOOK,
+                                        "spanId": "s2", "spanIds": ["s2", "s_held"]})
+    assert reply["withheld"] and protected.spy.queries == [] and protected.spy.judged == []
+    assert all(row["kind"] not in {"elsewhere", "next_step", "correspondent"} for row in done["rows"])
+
+
+@pytest.mark.parametrize("unit", ["u_open", "u_held"])
+def test_finished_menu_rechecks_origin_and_targets_at_each_poll(protected, unit):
+    reply, done = _menu(protected.ctx, {"objectKind": "passage", "extractionId": BOOK, "spanId": "s1"})
+    assert FAR_QUOTE in json.dumps(done["rows"])
+    _hold_out(protected.repository, unit)
+    again = call(protected.ctx, "passage.promoted_job", {"jobId": reply["pendingJob"]["jobId"]})
+    assert FAR_QUOTE not in json.dumps(again)
+    if unit == "u_open":
+        assert again["rows"] == []
+    else:
+        assert again["rows"] == [row for row in done["rows"] if row["action"].get("target", {}).get("spanId") != "s3"]
+
+
+@pytest.mark.parametrize("rpc,params", [
+    ("carried.carry", {"carriedId": "mixed", "originKind": "selection", "text": HELD_WORDS,
+                       "anchor": {"extractionId": BOOK, "spanId": "s2", "spanIds": ["s2", "s_held"]}}),
+    ("pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+        {"op": "insert_block", "kind": "source_quote", "provenance": "source", "positionKey": "a2",
+         "blockId": "mix", "bodyMd": HELD_WORDS, "payload": {"extraction_id": BOOK, "span_id": "s2"}},
+        {"op": "link_anchor", "blockId": "mix", "extractionId": BOOK, "spanId": "s_held", "expectedAnchorHead": None}]}),
+    ("pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+        {"op": "insert_block", "kind": "source_piece", "provenance": "source", "positionKey": "a2",
+         "blockId": "mix", "bodyMd": HELD_WORDS, "payload": {"extraction_id": BOOK, "span_id": "s_held"}}]}),
+    ("reader.capture", {"sourceId": "src_book", "revisionId": "rev_book", "extractionId": BOOK, "action": "annotate",
+                        "clientIdempotencyKey": "mixed", "learnerText": "note", "rawSelection": {
+                            "nodes": [{"spanId": "s2"}, {"spanId": "s_held", "quote": HELD_WORDS}]}}),
+    ("reader.import_exercise", {"extractionId": BOOK, "rawSelection": {"nodes": [{"spanId": "s2"}, {"spanId": "s_held"}]}}),
+    ("reader.author_section_question", {"extractionId": BOOK, "sectionId": "u_open", "spanIds": ["s2", "s_held"]}),
+    ("figure.request", {"goalText": HELD_WORDS, "anchor": {"extractionId": BOOK, "spanIds": ["s2", "s_held"]}}),
+    ("companion.ask", {"requestId": "mixed", "surface": "reader", "extractionId": BOOK, "spanId": "s2",
+                       "selectionSpanIds": ["s2", "s_held"], "question": "Why?", "selectionQuote": HELD_WORDS}),
+    ("desk.apply", {"clientId": "compare", "seq": 1, "ops": [
+        {"op": "open_window", "deskId": "desk", "windowId": "cmp", "content": {"kind": "compare", "query": HELD_WORDS},
+         "view": {"compareAnchor": {"extractionId": BOOK, "spanIds": ["s2", "s_held"]}}}]}),
+    ("reader.library_compare", {"door": "selection", "question": HELD_WORDS, "extractionId": BOOK,
+                                "anchorSpanIds": ["s2", "s_held"]}),
+    ("reader.library_ask", {"query": HELD_WORDS, "extractionId": BOOK, "spanIds": ["s2", "s_held"]}),
+    ("lesson.turn", {"action": "open", "entry": "reader_selection",
+                     "selection": {"extractionId": BOOK, "spanIds": ["s2", "s_held"]}}),
+    ("search.everything", {"query": HELD_WORDS, "selection": {"extractionId": BOOK, "spanIds": ["s2", "s_held"]}}),
+])
+def test_destination_refuses_mixed_selection_without_menu(protected, rpc, params):
+    from learnloop_sidecar.errors import SidecarError
+
+    _hold_out(protected.repository)
+    with pytest.raises(SidecarError) as refused:
+        call(protected.ctx, rpc, params)
+    assert refused.value.code == "exam_material"
+    assert HELD_WORDS not in json.dumps(call(protected.ctx, "pad.get", {"padId": "pad_1"}))
+    assert HELD_WORDS not in json.dumps(call(protected.ctx, "carried.list", {}))
+
+
+def test_pad_selection_follows_every_lines_payload_and_links(protected):
+    from learnloop_sidecar.errors import SidecarError
+
+    ctx = protected.ctx
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+        {"op": "insert_block", "blockId": "piece", "kind": "source_piece", "provenance": "source",
+         "positionKey": "a2", "bodyMd": HELD_WORDS, "payload": {"extraction_id": BOOK, "span_id": "s_held"}}]})
+    ids = ["n1", "piece"]
+    _hold_out(protected.repository)
+    menu, done = _menu(ctx, {"objectKind": "pad_line", "blockId": "n1", "blockIds": ids})
+    assert menu["withheld"] and done["withheld"] and protected.spy.queries == []
+    for rpc, params in [
+        ("search.everything", {"query": HELD_WORDS, "blockIds": ids}),
+        ("carried.carry", {"carriedId": "from-pad", "originKind": "block", "originRef": "n1",
+                           "blockIds": ids, "text": HELD_WORDS}),
+        ("companion.ask", {"requestId": "mixed", "surface": "desk", "question": HELD_WORDS,
+                           "extractionId": BOOK, "spanId": "s2", "padBlockIds": ids}),
+        ("figure.request", {"goalText": HELD_WORDS, "anchor": {"extractionId": BOOK, "spanIds": ["s2"]},
+                            "blockIds": ids}),
+        ("author_practice_item", {"learningObjectId": "lo", "prompt": HELD_WORDS, "expectedAnswer": "a",
+                                  "blockIds": ids}),
+        ("lesson.turn", {"action": "open", "entry": "reader_selection",
+                         "selection": {"extractionId": BOOK, "spanIds": ["s2"], "blockIds": ids}}),
+    ]:
+        with pytest.raises(SidecarError) as refused:
+            call(ctx, rpc, params)
+        assert refused.value.code == "exam_material", rpc
+
+
+def test_finished_judged_row_loses_a_newly_marked_target(protected):
+    reply, done = _menu(protected.ctx, {"objectKind": "passage", "extractionId": BOOK, "spanId": "s_open"})
+    assert [row["kind"] for row in done["rows"]] == ["elsewhere"]
+    save_unit_selection(protected.repository, OTHER, [], role_override="exam")
+    after = call(protected.ctx, "passage.promoted_job", {"jobId": reply["pendingJob"]["jobId"]})
+    assert after["rows"] == [] and after["withheld"] is False
+
+
+def test_carried_words_on_an_open_passage_follow_the_entire_saved_anchor(protected):
+    ctx = protected.ctx
+    call(ctx, "carried.carry", {"carriedId": "both", "originKind": "selection", "text": HELD_WORDS,
+                                "anchor": {"extractionId": BOOK, "spanId": "s_open", "spanIds": ["s_open", "s_held"]}})
+    obj = {"objectKind": "passage", "extractionId": BOOK, "spanId": "s_open"}
+    reply, done = _menu(ctx, obj)
+    assert HELD_WORDS in json.dumps(done["rows"])
+    _hold_out(protected.repository)
+    assert HELD_WORDS not in json.dumps(call(ctx, "passage.promoted_job", {"jobId": reply["pendingJob"]["jobId"]}))
+    assert HELD_WORDS not in json.dumps(_menu(ctx, obj))
+    assert HELD_WORDS not in json.dumps(call(ctx, "passage.knows", obj))
+
+
+def test_unplaced_legacy_pad_quote_needs_new_clearance_after_a_mark(protected):
+    from learnloop_sidecar.errors import SidecarError
+
+    ctx = protected.ctx
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+        {"op": "insert_block", "blockId": "old", "kind": "source_quote", "provenance": "source",
+         "positionKey": "a2", "bodyMd": HELD_WORDS}]})
+    obj = {"objectKind": "pad_line", "blockId": "old"}
+    reply, done = _menu(ctx, obj)
+    assert not reply["withheld"] and not done["withheld"]
+    _hold_out(protected.repository)
+    assert call(ctx, "passage.promoted_job", {"jobId": reply["pendingJob"]["jobId"]})["withheld"]
+    with pytest.raises(SidecarError) as error:
+        call(ctx, "carried.carry", {"carriedId": "from-old", "originKind": "block", "originRef": "old",
+                                    "text": HELD_WORDS})
+    assert error.value.code == "exam_material"

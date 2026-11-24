@@ -74,7 +74,7 @@ export function ExerciseSheet({ readWords, startImport, readStatus, poller, owne
     }
   };
 
-  const withheld = words?.withheld === true || Boolean(words?.spans.some((span) => span.withheld));
+  const withheld = words !== null && (words.withheld !== false || words.spans.some((span) => span.withheld !== false));
   return (
     <div ref={node} tabIndex={-1} className="desk-sheet desk-exercise" role="dialog" aria-label="make it practice from this exercise">
       <div className="head">✎ make it practice · this exercise, as the book has it</div>

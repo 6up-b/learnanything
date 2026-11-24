@@ -30,7 +30,7 @@ export interface PadsApi {
   carriedCarry(input: CarryInput): Promise<{ carried: CarriedQuestionDto; created: boolean }>;
   requestTeachBack(input: { learningObjectId?: string; practiceItemId?: string }): Promise<{ practiceItemId: string }>;
   passageUnionRange(input: PassageUnionInput): Promise<PassageUnionDto>;
-  authorPracticeItem(input: { learningObjectId: string; prompt: string; expectedAnswer: string; clientIdempotencyKey?: string }): Promise<{ practiceItemId: string }>;
+  authorPracticeItem(input: { blockIds?: string[]; learningObjectId: string; prompt: string; expectedAnswer: string; clientIdempotencyKey?: string }): Promise<{ practiceItemId: string }>;
   /** A teach-back's next turn (the existing entry point), when a submitted teach-back asks a follow-up. */
   submitTeachBackTurn(input: SubmitTeachBackTurnInput): Promise<TeachBackTurnResult>;
   /** The session (its checkpoint holds a teach-back in progress). */
@@ -64,13 +64,13 @@ export interface PadsHost {
   /** A passage beside the focus (or scrolled to where it is open); a source on no desk is reopened from the
    * stored source id (or its reading), a video at the stored time. */
   openPassage: (extractionId: string, spanId: string | null, t?: number, sourceId?: string | null) => void;
-  openSearch: (query: string, insert?: (row: SearchRow) => void) => void;
+  openSearch: (query: string, insert?: (row: SearchRow) => void, blockIds?: string[]) => void;
   /** The companion, asking about `quote`; from a pad line, with its block and the passage it links to. */
-  askAbout: (quote: string, context?: { padId: string; blockId: string | null; anchor: { extractionId: string; spanId: string } | null }) => void;
-  teachMe?: (extractionId: string, spanIds: string[]) => void;
+  askAbout: (quote: string, context?: { padId: string; blockId: string | null; blockIds?: string[]; anchor: { extractionId: string; spanId: string } | null }) => void;
+  teachMe?: (extractionId: string, spanIds: string[], blockIds?: string[]) => void;
   /** Show me (spec §13.1): a figure for the line, built as the Reader's are; null when none is shown. Its job is
    * polled under `ownerWindowId`, so a paused pad window's figure waits with it. */
-  showMe?: (text: string, anchor: { extractionId: string; spanId: string } | null, ownerWindowId?: string) => Promise<{ figureId: string; line: string } | null>;
+  showMe?: (text: string, anchor: { extractionId: string; spanId: string; spanIds?: string[] } | null, ownerWindowId?: string, blockIds?: string[]) => Promise<{ figureId: string; line: string } | null>;
   /** Figures finished for a pad window, kept until the window is live to write them. */
   figures: PendingFigures;
   toast: (text: string) => void;
@@ -91,7 +91,7 @@ export interface PadsHost {
   /** Teacher lessons as tabs of a stack (spec §11.1); absent where the desks give none (a stack then shows pads only). */
   lessons?: LessonsHost;
   /** Carry a question (shared with the shelf). */
-  carry: (text: string, origin: { kind: CarryInput["originKind"]; ref?: string | null; anchor?: CarryInput["anchor"] }) => Promise<void> | void;
+  carry: (text: string, origin: { blockIds?: string[]; kind: CarryInput["originKind"]; ref?: string | null; anchor?: CarryInput["anchor"] }) => Promise<void> | void;
 }
 
 /** What the desks' keys ask of a pad stack. */
@@ -109,7 +109,7 @@ export interface PadStackHandle {
   /** `.` on the hovered line. */
   menuAtHover(): boolean;
   /** The desks' right-click on a pad line (or the pad's body, `blockId` null): its menu opens here. */
-  openMenu(padId: string, blockId: string | null, at: { x: number; y: number }, selection?: string): void;
+  openMenu(padId: string, blockId: string | null, at: { x: number; y: number }, selection?: string, blockIds?: string[]): void;
   /** Bring one of its pads into view (the shelf's running pad "open"). */
   showPad(padId: string): void;
   /** A notebook frame's right-click in this stack (a pad's cells or a lesson's notebook): the pad menu there. */
@@ -120,6 +120,7 @@ export interface PadStackHandle {
 export interface PendingFigure {
   padId: string;
   afterBlockId: string | null;
+  blockIds?: string[];
   figureId: string;
   line: string;
 }

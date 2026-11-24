@@ -26,9 +26,11 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.capture import finish_route, route_intent
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places, refuse_protected
 
 
 class AuthorPracticeItemInput(ParamsModel):
+    block_ids: list[str] = Field(default_factory=list, exclude=True)
     capture_id: str | None = None
     learning_object_id: str
     prompt: str
@@ -181,6 +183,9 @@ def remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeIn
 @method("author_practice_item", AuthorPracticeItemInput)
 def author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -> dict[str, Any]:
     root, repository = _root(ctx)
+    if params.block_ids:
+        vault, _ = ctx.require_vault()
+        refuse_protected(vault, repository, block_places(vault, repository, params.block_ids))
     intent = route_intent(repository, params, "make_card", create=False, ctx=ctx)
     if intent and intent.get("response"):
         response = intent["response"]

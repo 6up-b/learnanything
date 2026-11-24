@@ -16,6 +16,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places
 
 #: Every RPC this module registers (pinned desktop-only).
 PASSAGE_UNION_RPCS: tuple[str, ...] = ("passage.union_range",)
@@ -93,9 +94,11 @@ class MenuObjectInput(ParamsModel):
     object_kind: Literal["passage", "cue", "highlight", "note", "window", "pad_line"]
     extraction_id: str | None = None
     span_id: str | None = None
+    span_ids: list[str] = Field(default_factory=list)
     t: float | None = Field(default=None, ge=0)
     annotation_id: str | None = None
     block_id: str | None = None
+    block_ids: list[str] = Field(default_factory=list)
     window_id: str | None = None
     desk_id: str | None = None
 
@@ -129,7 +132,6 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
 
     from learnloop.content.sources.span_aliases import reading_source
     from learnloop.db.stores import pad_reads
-    from learnloop.pads.emission import passages_of
     from learnloop.passage_union import promoted as P
     from learnloop.passage_union.union import span_range
 
@@ -138,9 +140,14 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
             head = pad_reads.head(connection, str(params.block_id))
             if head is None or head["tombstone"]:
                 raise SidecarError("block_not_found", "That pad line is gone.")
-            places = [(str(e), str(s)) for e, s in passages_of(connection, head)]
-        text = str(head["body_md"] or "")
         key = P.object_key("pad_line", block_id=params.block_id)
+        try:
+            places = block_places(vault, repository, [head["block_id"], *params.block_ids])
+        except SidecarError as exc:
+            if exc.code == "exam_material":
+                return key, [], "", [], True
+            raise
+        text = str(head["body_md"] or "")
     else:
         extraction_id = str(params.extraction_id)
         ir = repository.load_document_ir(extraction_id)
@@ -158,7 +165,19 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
         block = next((b for b in ir.blocks if b.span_id == span_id), None)
         if block is None:
             raise SidecarError("span_not_found", "That passage is not in this reading.")
-        places, text = [(extraction_id, str(span_id))], str(block.text or "")
+        selected = dict.fromkeys([span_id, *params.span_ids])
+        if selected.keys() - {block.span_id for block in ir.blocks}:
+            raise SidecarError("span_not_found", "A selected passage is not in this reading.")
+        places = [(extraction_id, span) for span in selected]
+        if params.annotation_id and (head := repository.annotation_head(params.annotation_id)):
+            from learnloop.reader.annotations import annotation_placements
+
+            original = (head.get("anchor") or {}).get("extraction_id")
+            places.extend((original, segment["span_id"]) for segment in head["segments"] if original)
+            placement, = annotation_placements(repository, [head], extraction_id)
+            places.extend((extraction_id, segment["span_id"]) for segment in placement["segments"])
+            places = list(dict.fromkeys(places))
+        text = str(block.text or "")
         key = P.object_key(params.object_kind, extraction_id=extraction_id, span_id=str(span_id),
                            annotation_id=params.annotation_id, window_id=params.window_id)
     sources = sorted({source for extraction_id, _span in places
@@ -167,7 +186,8 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
     return key, places, "" if withheld else text, sources, withheld
 
 
-def _union_entries(vault: Any, repository: Any, places: list[tuple[str, str]]) -> list[tuple[str, str, dict]]:
+def _union_entries(vault: Any, repository: Any, places: list[tuple[str, str]],
+                   row_origins: dict[str, set[tuple[str, str]]] | None = None) -> list[tuple[str, str, dict]]:
     out = []
     notes: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for extraction_id, span_id in places:
@@ -175,10 +195,26 @@ def _union_entries(vault: Any, repository: Any, places: list[tuple[str, str]]) -
             notes[extraction_id] = _notes_by_span(vault, repository, extraction_id)
         try:
             union = union_range(vault, repository, extraction_id=extraction_id, from_span_id=span_id, to_span_id=span_id,
-                                notes_by_span=notes[extraction_id])
+                                notes_by_span=notes[extraction_id], include_word_origins=True)
         except UnionError:
             continue
         out.extend((extraction_id, span_id, entry) for entry in union["spans"])
+    from learnloop.passage_union.elsewhere import withheld_places
+
+    fields = ("annotations", "carried", "exchanges", "authored_questions", "passage_links")
+    hidden = withheld_places(vault, repository, {place for _, _, entry in out for field in fields
+                                                 for row in entry[field] for place in row["_word_origins"]})
+    for _, _, entry in out:
+        for field in fields:
+            visible = []
+            for row in entry[field]:
+                origins = row.pop("_word_origins")
+                if hidden.isdisjoint(origins):
+                    visible.append(row)
+                    ident = row.get("annotation_id") or row.get("carried_id")
+                    if row_origins is not None and ident:
+                        row_origins.setdefault(ident, set()).update(origins)
+            entry[field] = visible
     return out
 
 
@@ -198,7 +234,9 @@ def passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[
     from learnloop.source_retrieval.corpus import block_roles
 
     vault, repository = ctx.require_vault()
-    key, places, _text, sources, _withheld = _menu_places(vault, repository, params)
+    key, places, _text, sources, withheld = _menu_places(vault, repository, params)
+    if withheld:
+        raise SidecarError("exam_material", "Details for this material are withheld.")
     with repository.connection() as connection:
         # A passage's effective role ("exercise", "solution", ...): Make it practice imports an exercise and authors
         # a question otherwise (§9.1).
@@ -225,9 +263,11 @@ def passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict
     vault, repository = ctx.require_vault()
     key, places, text, sources, withheld = _menu_places(vault, repository, params)
     with repository.connection() as connection:
-        linked = E.by_passage_links(vault, repository, connection, places)
-    cheap = P.cheap_rows(key, _union_entries(vault, repository, places), linked)
-    rows = P.rank(cheap, dismissed=_dismissed(repository, cheap))
+        linked = [] if withheld else E.by_passage_links(vault, repository, connection, places)
+    word_origins: dict[str, set[tuple[str, str]]] = {}
+    cheap = P.cheap_rows(key, _union_entries(vault, repository, places, word_origins), linked)
+    if withheld:
+        cheap = [row for row in cheap if row.kind not in {"note", "carried"}]
     retrieval = bool(getattr(vault.config.source_retrieval, "enabled", False)) and not withheld
     waiting = model_use.waiting(vault.root)
     paid = {"searched_by_meaning": retrieval and not waiting, "verified": retrieval and not waiting,
@@ -235,16 +275,33 @@ def passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict
                 "exam or held-out material: nothing is searched for it" if withheld else
                 "waiting for your OK to use AI" if waiting else "source retrieval is off")}
 
+    def kept_rows(candidates: list[P.Row]) -> dict[str, Any]:
+        kept = P.rank(candidates, dismissed=_dismissed(repository, candidates))
+        row_places = {}
+        for row in kept:
+            ident = row.action.get("carried_id") or row.action.get("annotation_id")
+            if ident in word_origins:
+                row_places[row.row_id] = word_origins[ident]
+        return {"origins": places, "block_ids": [params.block_id, *params.block_ids] if params.block_id else [],
+                "withheld": withheld, "rows": [row.wire() for row in kept], "row_places": row_places}
+
     def work(job: PJ.PolledJob) -> dict[str, Any]:
-        findings = E.by_correspondents(vault, repository, places, search_fallback=True,
-                                       embedder=getattr(ctx, "coverage_embedder", None))
-        if retrieval:
+        def protected_now() -> bool:
+            if withheld:
+                return True
+            origins = set(places)
+            if params.block_id:
+                origins.update(block_places(vault, repository, [params.block_id, *params.block_ids]))
+            return bool(E.withheld_places(vault, repository, origins))
+
+        findings = [] if protected_now() else E.by_correspondents(
+            vault, repository, places, search_fallback=True, embedder=getattr(ctx, "coverage_embedder", None))
+        if retrieval and not protected_now():
             findings += E.by_search(vault, repository, text, exclude_sources=sources, exclude_places=places,
                                     deep=paid["searched_by_meaning"], verify=paid["verified"],
                                     owner_id=f"{PROMOTED_KIND}:{job.job_id}", pick_at_most=P.CAP)
         judged = P.finding_rows(key, findings)
-        everything = cheap + judged
-        return {"rows": [row.wire() for row in P.rank(everything, dismissed=_dismissed(repository, everything))]}
+        return kept_rows(cheap + judged)
 
     jobs = PJ.registry(ctx, _PROMOTED_REGISTRY)
     request_key = params.model_dump(mode="json")
@@ -255,12 +312,42 @@ def passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict
     job_id = known.job_id if known is not None else jobs.start(
         ctx, kind=PROMOTED_KIND, job_id=params.request_id or f"prom_{new_ulid()}", work=work,
         request_key=request_key, supersede_key=f"menu:{params.desk_id or ''}").job_id
-    return versioned({"object_key": key, "rows": [row.wire() for row in rows], "cap": P.CAP, "withheld": withheld,
+    rows, blocked = _deliver_rows(ctx, kept_rows(cheap))
+    return versioned({"object_key": key, "rows": rows, "cap": P.CAP, "withheld": withheld or blocked,
                       "pending_job": {"job_id": job_id}, "paid": paid})
 
 
 class PromotedJobInput(ParamsModel):
     job_id: str = Field(min_length=1)
+
+
+def _deliver_rows(ctx: SidecarContext, result: dict[str, Any]) -> tuple[list[dict[str, Any]], bool]:
+    from learnloop.passage_union.elsewhere import withheld_places
+
+    vault, repository = ctx.require_vault()
+    origins = set(result["origins"])
+    try:
+        origins.update(block_places(vault, repository, result["block_ids"]))
+    except SidecarError as exc:
+        if exc.code in {"block_not_found", "exam_material"}:
+            return [], True
+        raise
+    rows = result["rows"]
+
+    def target(row: dict[str, Any]) -> tuple[str, str] | None:
+        action = row["action"]
+        extraction = action.get("ref", {}).get("extraction_id")
+        span = action.get("target", {}).get("span_id")
+        return (extraction, span) if extraction and span else None
+
+    row_places = result["row_places"]
+    withheld = withheld_places(vault, repository, origins | {place for row in rows if (place := target(row))}
+                               | {place for places in row_places.values() for place in places})
+    origin_withheld = not origins.isdisjoint(withheld)
+    if origin_withheld and not result["withheld"]:
+        return [], True
+    return [row for row in rows if target(row) not in withheld and
+            withheld.isdisjoint(row_places.get(row["row_id"], ()))], origin_withheld
 
 
 def _promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
@@ -281,10 +368,11 @@ def _promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
         plan_fallback.relay_job_offer(job)
     status = state["status"]
     error = state["error"] if status == PJ.FAILED else None
+    rows, withheld = _deliver_rows(ctx, state["result"]) if status == PJ.DONE else ([], None)
     return versioned({
         "job_id": job_id, "status": status, "done": bool(state["finished"]),
         # A cancelled or superseded menu delivers nothing, even when its work finished.
-        "rows": (state["result"] or {}).get("rows", []) if status == PJ.DONE else [],
+        "rows": rows, **({"withheld": withheld} if withheld is not None else {}),
         "error": None if error is None else {"code": error.code, "message": error.message,
                                              "retryable": error.retryable},
     })

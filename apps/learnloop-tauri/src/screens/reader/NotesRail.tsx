@@ -632,7 +632,7 @@ export function NotesRail(props: NotesRailProps) {
         annotations.map((a, i) => (
           // The desks' context menu reads the card as the learner's highlight or margin note on its passage.
           <div key={a.annotationId ?? i} style={{ display: "contents" }}
-            {...(a.annotationId ? { "data-annotation-id": a.annotationId, "data-annotation-kind": a.kind === "highlight" ? "highlight" : "note", "data-annotation-span": placedSpanIds(a)[0] ?? "" } : {})}>
+            {...(a.annotationId ? { "data-annotation-id": a.annotationId, "data-annotation-kind": a.kind === "highlight" ? "highlight" : "note", "data-annotation-span": placedSpanIds(a)[0] ?? "", "data-annotation-spans": JSON.stringify(placedSpanIds(a)) } : {})}>
           <Card
             onClick={() => jumpToAnnotation(a)}
             style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}

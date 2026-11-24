@@ -14,6 +14,7 @@ evidence: the explicit exits are ``pads.emission`` (committed words to learner-t
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 import re
 from typing import Annotated, Any, Literal, Union
 
@@ -543,12 +544,14 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
 
 
 def apply_pad_ops(repository: Any, *, client_id: str, seq: int, pad_id: str, ops: list[Any],
-                  clock: Any = None) -> dict[str, Any]:
+                  clock: Any = None, check_material: Callable[[], None] | None = None) -> dict[str, Any]:
     """``pad.apply``: one batch on one pad, applied once and in order (``learnloop.desks.protocol``)."""
 
     request = {"pad_id": pad_id, "ops": [op.wire() for op in ops]}
 
     def apply(connection: Any, now: str) -> dict[str, Any]:
+        if check_material:
+            check_material()
         heads: dict[str, str] = {}
         versions: dict[str, int] = {}
         results = [run_op(connection, lambda op=op: _apply_pad_op(connection, pad_id, client_id, op, now, heads,

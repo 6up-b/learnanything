@@ -38,6 +38,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import PassageSelection, block_places, reading_places, refuse_protected
 
 #: Every RPC this module registers (pinned desktop-only).
 SEARCH_RPCS: tuple[str, ...] = ("search.everything", "search.job")
@@ -55,6 +56,8 @@ _MEANING_LISTS = frozenset({"meaning", "rewrite_meaning"})
 
 
 class SearchEverythingInput(ParamsModel):
+    selection: PassageSelection | None = None
+    block_ids: list[str] = Field(default_factory=list)
     query: str = Field(min_length=1, max_length=CS.MAX_QUERY_CHARS)
     desk_id: str | None = Field(default=None, min_length=1)
     #: The groups to search (all when omitted). "open on this desk" is the client's own group.
@@ -248,6 +251,14 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
     from learnloop_sidecar.handlers.notes import notes_search_state
 
     vault, repository = ctx.require_vault()
+
+    def check_origin() -> None:
+        places = set(block_places(vault, repository, params.block_ids))
+        if params.selection:
+            places.update(reading_places(params.selection.extraction_id, params.selection.span_ids))
+        refuse_protected(vault, repository, places)
+
+    check_origin()
     if params.desk_id is not None:
         _require_desk(repository, params.desk_id)
     jobs = _jobs(ctx)
@@ -291,6 +302,7 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
     seen = _seen_keys(groups)
 
     def work(_job: PJ.PolledJob) -> dict[str, Any]:
+        check_origin()
         out: list[dict[str, Any]] = []
         for name in meaning:
             try:
